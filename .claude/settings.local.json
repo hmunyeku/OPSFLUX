@@ -1,10 +1,21 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git check-ignore:*)",
-      "Bash(git add:*)"
+      "Bash(git commit -m \"$(cat <<''EOF''\nConfig: Mode autonome complet pour Claude avec directives de décision\n\n- Permissions étendues (Bash, Python, curl, etc.)\n- Priorités: robustesse, professionnalisme, ergonomie, visibilité, intuitivité\n- Directives pour travail autonome sans interruption\n- Stack technologique et choix par défaut documentés\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
     ],
     "deny": [],
     "ask": []
+  },
+  "decisionMaking": {
+    "autonomy": "full",
+    "priorities": [
+      "robustesse",
+      "professionnalisme",
+      "ergonomie",
+      "visibilité d'utilisation",
+      "intuitivité",
+      "sécurité",
+      "maintenabilité"
+    ]
   }
 }

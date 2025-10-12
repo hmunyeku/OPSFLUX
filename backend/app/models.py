@@ -1,6 +1,6 @@
 import uuid
 
-from pydantic import EmailStr
+from pydantic import BaseModel, EmailStr
 from sqlmodel import Field, Relationship, SQLModel
 
 from app.core.models import AbstractBaseModel
@@ -111,8 +111,8 @@ class Token(SQLModel):
     token_type: str = "bearer"
 
 
-# Contents of JWT token
-class TokenPayload(SQLModel):
+# Contents of JWT token (not a database model, just Pydantic for validation)
+class TokenPayload(BaseModel):
     sub: str | None = None
     exp: int | None = None  # Expiration timestamp
     type: str | None = None  # "access" or "refresh"

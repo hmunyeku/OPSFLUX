@@ -1,15 +1,29 @@
 import uuid
 from typing import Any
 
+from fastapi import HTTPException
 from sqlmodel import Session, select
 
+from app.core.password_service import PasswordService
 from app.core.security import get_password_hash, verify_password
 from app.models import Item, ItemCreate, User, UserCreate, UserUpdate
 
 
 def create_user(*, session: Session, user_create: UserCreate) -> User:
+    """
+    Crée un nouvel utilisateur avec validation stricte du mot de passe.
+    """
+    # Valider le mot de passe selon la politique stricte
+    is_valid, errors = PasswordService.validate_password(user_create.password)
+    if not is_valid:
+        raise HTTPException(
+            status_code=400,
+            detail={"message": "Mot de passe non conforme à la politique de sécurité", "errors": errors}
+        )
+
+    hashed_password = get_password_hash(user_create.password)
     db_obj = User.model_validate(
-        user_create, update={"hashed_password": get_password_hash(user_create.password)}
+        user_create, update={"hashed_password": hashed_password, "password_history": [hashed_password]}
     )
     session.add(db_obj)
     session.commit()
@@ -18,12 +32,39 @@ def create_user(*, session: Session, user_create: UserCreate) -> User:
 
 
 def update_user(*, session: Session, db_user: User, user_in: UserUpdate) -> Any:
+    """
+    Met à jour un utilisateur avec validation du mot de passe si changé.
+    """
     user_data = user_in.model_dump(exclude_unset=True)
     extra_data = {}
+
     if "password" in user_data:
         password = user_data["password"]
+
+        # Valider le nouveau mot de passe
+        is_valid, errors = PasswordService.validate_password(password)
+        if not is_valid:
+            raise HTTPException(
+                status_code=400,
+                detail={"message": "Mot de passe non conforme à la politique de sécurité", "errors": errors}
+            )
+
+        # Hasher le nouveau mot de passe
         hashed_password = get_password_hash(password)
+
+        # Vérifier l'historique des mots de passe
+        password_history = db_user.password_history or []
+        if not PasswordService.check_password_history(hashed_password, password_history, history_size=5):
+            raise HTTPException(
+                status_code=400,
+                detail="Ce mot de passe a déjà été utilisé récemment. Veuillez en choisir un nouveau."
+            )
+
+        # Mettre à jour l'historique (garder les 5 derniers)
+        new_history = (password_history + [hashed_password])[-5:]
         extra_data["hashed_password"] = hashed_password
+        extra_data["password_history"] = new_history
+
     db_user.sqlmodel_update(user_data, update=extra_data)
     session.add(db_user)
     session.commit()

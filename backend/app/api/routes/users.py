@@ -102,19 +102,48 @@ def update_password_me(
     *, session: SessionDep, body: UpdatePassword, current_user: CurrentUser
 ) -> Any:
     """
-    Update own password.
+    Update own password with strict validation.
     """
+    # Vérifier le mot de passe actuel
     if not verify_password(body.current_password, current_user.hashed_password):
-        raise HTTPException(status_code=400, detail="Incorrect password")
+        raise HTTPException(status_code=400, detail="Mot de passe actuel incorrect")
+
+    # Vérifier que le nouveau mot de passe est différent
     if body.current_password == body.new_password:
         raise HTTPException(
-            status_code=400, detail="New password cannot be the same as the current one"
+            status_code=400, detail="Le nouveau mot de passe doit être différent de l'ancien"
         )
+
+    # Importer PasswordService localement pour éviter import circulaire
+    from app.core.password_service import PasswordService
+
+    # Valider le nouveau mot de passe
+    is_valid, errors = PasswordService.validate_password(body.new_password)
+    if not is_valid:
+        raise HTTPException(
+            status_code=400,
+            detail={"message": "Mot de passe non conforme à la politique de sécurité", "errors": errors}
+        )
+
+    # Hasher le nouveau mot de passe
     hashed_password = get_password_hash(body.new_password)
+
+    # Vérifier l'historique des mots de passe
+    password_history = current_user.password_history or []
+    if not PasswordService.check_password_history(hashed_password, password_history, history_size=5):
+        raise HTTPException(
+            status_code=400,
+            detail="Ce mot de passe a déjà été utilisé récemment. Veuillez en choisir un nouveau."
+        )
+
+    # Mettre à jour le mot de passe et l'historique
+    new_history = (password_history + [hashed_password])[-5:]
     current_user.hashed_password = hashed_password
+    current_user.password_history = new_history
+
     session.add(current_user)
     session.commit()
-    return Message(message="Password updated successfully")
+    return Message(message="Mot de passe mis à jour avec succès")
 
 
 @router.get("/me", response_model=UserPublic)

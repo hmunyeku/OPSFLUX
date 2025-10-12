@@ -4,58 +4,111 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
+    /* Backgrounds */
+    --background: 0 0% 100%; /* #FFFFFF */
+    --foreground: 222.2 84% 4.9%; /* #020817 */
+
+    /* Cards */
+    --card: 0 0% 100%; /* #FFFFFF */
+    --card-foreground: 222.2 84% 4.9%; /* #020817 */
+
+    /* Popover */
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 5.9% 10%;
-    --radius: 0.5rem;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    /* Primary (Brand Blue for Oil & Gas) */
+    --primary: 221.2 83.2% 53.3%; /* #3B82F6 - Blue 500 */
+    --primary-foreground: 210 40% 98%; /* #F8FAFC */
+
+    /* Secondary */
+    --secondary: 210 40% 96.1%; /* #F1F5F9 - Slate 100 */
+    --secondary-foreground: 222.2 47.4% 11.2%; /* #1E293B */
+
+    /* Muted */
+    --muted: 210 40% 96.1%; /* #F1F5F9 */
+    --muted-foreground: 215.4 16.3% 46.9%; /* #64748B - Slate 500 */
+
+    /* Accent */
+    --accent: 210 40% 96.1%; /* #F1F5F9 */
+    --accent-foreground: 222.2 47.4% 11.2%; /* #1E293B */
+
+    /* Destructive (Error) */
+    --destructive: 0 84.2% 60.2%; /* #EF4444 - Red 500 */
+    --destructive-foreground: 210 40% 98%; /* #F8FAFC */
+
+    /* Border */
+    --border: 214.3 31.8% 91.4%; /* #E2E8F0 - Slate 200 */
+    --input: 214.3 31.8% 91.4%; /* #E2E8F0 */
+    --ring: 221.2 83.2% 53.3%; /* #3B82F6 - focus ring */
+
+    /* Semantic colors */
+    --success: 142.1 76.2% 36.3%; /* #22C55E - Green 500 */
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%; /* #F59E0B - Amber 500 */
+    --warning-foreground: 0 0% 100%;
+    --info: 199 89% 48%; /* #0EA5E9 - Sky 500 */
+    --info-foreground: 0 0% 100%;
+
+    /* Border radius */
+    --radius: 0.5rem; /* 8px */
+
+    /* Charts */
+    --chart-1: 221.2 83.2% 53.3%; /* Blue */
+    --chart-2: 142.1 76.2% 36.3%; /* Green */
+    --chart-3: 38 92% 50%; /* Amber */
+    --chart-4: 280 100% 70%; /* Purple */
+    --chart-5: 346 77% 50%; /* Pink */
   }
 
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    /* Backgrounds */
+    --background: 222.2 84% 4.9%; /* #020817 - Slate 950 */
+    --foreground: 210 40% 98%; /* #F8FAFC */
+
+    /* Cards */
+    --card: 222.2 84% 4.9%; /* #020817 */
+    --card-foreground: 210 40% 98%; /* #F8FAFC */
+
+    /* Popover */
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    /* Primary */
+    --primary: 217.2 91.2% 59.8%; /* #60A5FA - Blue 400 */
+    --primary-foreground: 222.2 47.4% 11.2%; /* #1E293B */
+
+    /* Secondary */
+    --secondary: 217.2 32.6% 17.5%; /* #1E293B - Slate 800 */
+    --secondary-foreground: 210 40% 98%; /* #F8FAFC */
+
+    /* Muted */
+    --muted: 217.2 32.6% 17.5%; /* #1E293B */
+    --muted-foreground: 215 20.2% 65.1%; /* #94A3B8 - Slate 400 */
+
+    /* Accent */
+    --accent: 217.2 32.6% 17.5%; /* #1E293B */
+    --accent-foreground: 210 40% 98%; /* #F8FAFC */
+
+    /* Destructive */
+    --destructive: 0 62.8% 30.6%; /* #991B1B - Red 800 */
+    --destructive-foreground: 210 40% 98%; /* #F8FAFC */
+
+    /* Border */
+    --border: 217.2 32.6% 17.5%; /* #1E293B */
+    --input: 217.2 32.6% 17.5%; /* #1E293B */
+    --ring: 224.3 76.3% 48%; /* #2563EB - Blue 600 */
+
+    /* Semantic colors */
+    --success: 142.1 70.6% 45.3%; /* #4ADE80 - Green 400 */
+    --warning: 48 96% 53%; /* #FBBF24 - Amber 400 */
+    --info: 199 89% 48%; /* #38BDF8 - Sky 400 */
+
+    /* Charts */
+    --chart-1: 217.2 91.2% 59.8%; /* Blue 400 */
+    --chart-2: 142.1 70.6% 45.3%; /* Green 400 */
+    --chart-3: 48 96% 53%; /* Amber 400 */
+    --chart-4: 280 100% 70%; /* Purple */
+    --chart-5: 346 77% 50%; /* Pink */
   }
 }
 

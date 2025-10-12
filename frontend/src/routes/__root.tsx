@@ -1,7 +1,7 @@
 import { createRootRoute, Outlet } from "@tanstack/react-router"
 import React, { Suspense } from "react"
-
-import NotFound from "@/components/Common/NotFound"
+import { Toaster } from "@/components/ui/toaster"
+import { ThemeProvider } from "@/components/theme-provider"
 
 const loadDevtools = () =>
   Promise.all([
@@ -23,12 +23,20 @@ const TanStackDevtools =
 
 export const Route = createRootRoute({
   component: () => (
-    <>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <Outlet />
+      <Toaster />
       <Suspense>
         <TanStackDevtools />
       </Suspense>
-    </>
+    </ThemeProvider>
   ),
-  notFoundComponent: () => <NotFound />,
+  notFoundComponent: () => (
+    <div className="flex h-screen items-center justify-center">
+      <div className="text-center">
+        <h1 className="text-4xl font-bold">404</h1>
+        <p className="text-muted-foreground">Page not found</p>
+      </div>
+    </div>
+  ),
 })

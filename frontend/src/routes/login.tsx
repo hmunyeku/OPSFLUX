@@ -1,112 +1,106 @@
-import { Container, Image, Input, Text } from "@chakra-ui/react"
-import {
-  createFileRoute,
-  Link as RouterLink,
-  redirect,
-} from "@tanstack/react-router"
-import { type SubmitHandler, useForm } from "react-hook-form"
-import { FiLock, FiMail } from "react-icons/fi"
+import { createFileRoute } from "@tanstack/react-router"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useForm } from "react-hook-form"
+import * as z from "zod"
 
-import type { Body_login_login_access_token as AccessToken } from "@/client"
 import { Button } from "@/components/ui/button"
-import { Field } from "@/components/ui/field"
-import { InputGroup } from "@/components/ui/input-group"
-import { PasswordInput } from "@/components/ui/password-input"
-import useAuth, { isLoggedIn } from "@/hooks/useAuth"
-import Logo from "/assets/images/fastapi-logo.svg"
-import { emailPattern, passwordRules } from "../utils"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
+import useAuth from "@/hooks/useAuth"
 
 export const Route = createFileRoute("/login")({
   component: Login,
-  beforeLoad: async () => {
-    if (isLoggedIn()) {
-      throw redirect({
-        to: "/",
-      })
-    }
-  },
 })
 
+const loginSchema = z.object({
+  username: z.string().email("Invalid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+})
+
+type LoginForm = z.infer<typeof loginSchema>
+
 function Login() {
-  const { loginMutation, error, resetError } = useAuth()
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<AccessToken>({
-    mode: "onBlur",
-    criteriaMode: "all",
+  const { loginMutation } = useAuth()
+
+  const form = useForm<LoginForm>({
+    resolver: zodResolver(loginSchema),
     defaultValues: {
       username: "",
       password: "",
     },
   })
 
-  const onSubmit: SubmitHandler<AccessToken> = async (data) => {
-    if (isSubmitting) return
-
-    resetError()
-
-    try {
-      await loginMutation.mutateAsync(data)
-    } catch {
-      // error is handled by useAuth hook
-    }
+  const onSubmit = async (data: LoginForm) => {
+    await loginMutation.mutateAsync(data)
   }
 
   return (
-    <Container
-      as="form"
-      onSubmit={handleSubmit(onSubmit)}
-      h="100vh"
-      maxW="sm"
-      alignItems="stretch"
-      justifyContent="center"
-      gap={4}
-      centerContent
-    >
-      <Image
-        src={Logo}
-        alt="FastAPI logo"
-        height="auto"
-        maxW="2xs"
-        alignSelf="center"
-        mb={4}
-      />
-      <Field
-        invalid={!!errors.username}
-        errorText={errors.username?.message || !!error}
-      >
-        <InputGroup w="100%" startElement={<FiMail />}>
-          <Input
-            {...register("username", {
-              required: "Username is required",
-              pattern: emailPattern,
-            })}
-            placeholder="Email"
-            type="email"
-          />
-        </InputGroup>
-      </Field>
-      <PasswordInput
-        type="password"
-        startElement={<FiLock />}
-        {...register("password", passwordRules())}
-        placeholder="Password"
-        errors={errors}
-      />
-      <RouterLink to="/recover-password" className="main-link">
-        Forgot Password?
-      </RouterLink>
-      <Button variant="solid" type="submit" loading={isSubmitting} size="md">
-        Log In
-      </Button>
-      <Text>
-        Don't have an account?{" "}
-        <RouterLink to="/signup" className="main-link">
-          Sign Up
-        </RouterLink>
-      </Text>
-    </Container>
+    <div className="flex min-h-screen items-center justify-center bg-muted/40">
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl font-bold">Sign in</CardTitle>
+          <CardDescription>
+            Enter your email and password to access your account
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="username"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="email"
+                        placeholder="john.doe@example.com"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <Input type="password" placeholder="••••••••" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={loginMutation.isPending}
+              >
+                {loginMutation.isPending ? "Signing in..." : "Sign in"}
+              </Button>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+    </div>
   )
 }

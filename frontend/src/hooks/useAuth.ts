@@ -31,7 +31,7 @@ const useAuth = () => {
       UsersService.registerUser({ requestBody: data }),
 
     onSuccess: () => {
-      navigate({ to: "/login" })
+      navigate({ to: "/" })
     },
     onError: (err: ApiError) => {
       handleError(err)
@@ -60,7 +60,7 @@ const useAuth = () => {
 
   const logout = () => {
     localStorage.removeItem("access_token")
-    navigate({ to: "/login" })
+    navigate({ to: "/" })
   }
 
   return {

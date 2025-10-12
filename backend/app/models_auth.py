@@ -48,9 +48,6 @@ class Session(AbstractBaseModel, SessionBase, table=True):
         description="Refresh token unique pour cette session"
     )
 
-    # Relationship
-    user: Optional["User"] = Relationship(back_populates="sessions")
-
 
 class SessionPublic(SessionBase):
     """Propriétés de session retournées par l'API."""

@@ -1,7 +1,21 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(curl -LsSf https://astral.sh/uv/install.sh)",
+      "Bash(sh)",
+      "Bash(export PATH=\"$HOME/.local/bin:$PATH\")",
+      "Bash(uv sync:*)",
+      "Bash(uv run alembic:*)",
+      "Bash(python3:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(cat:*)",
+      "Bash(docker ps:*)",
+      "Bash(curl -s https://api.opsflux.io/openapi.json -o /etc/dokploy/compose/perenco-opsflux-gwxapr/code/frontend/openapi.json)",
+      "Bash(npm install:*)",
+      "Bash(docker logs:*)",
+      "Read(//etc/dokploy/compose/perenco-opsflux-gwxapr/**)"
     ],
     "deny": [],
     "ask": []
@@ -26,7 +40,13 @@
       "addErrorHandling": true,
       "documentComplexCode": true,
       "useTypeScriptStrictMode": true,
-      "followExistingPatterns": true
+      "followExistingPatterns": true,
+      "useDokployAPI": true
     }
+  },
+  "dokployAPI": {
+    "url": "http://72.60.188.156:3000/api",
+    "apiKeyEnvVar": "API_DOKPLOY",
+    "usage": "Utiliser l'API Dokploy pour toutes les opérations Docker (logs, restart, status, etc.) au lieu des commandes docker directes. L'API key est dans .env"
   }
 }

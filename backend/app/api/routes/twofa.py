@@ -14,6 +14,7 @@ from app.models_2fa import (
     TwoFactorBackupCodes,
     TwoFactorConfigPublic,
     TwoFactorEnable,
+    TwoFactorEnableResponse,
     TwoFactorSetup,
     TwoFactorVerify,
     TwoFactorVerifyWithMethod,
@@ -87,7 +88,7 @@ def setup_totp(
         )
 
 
-@router.post("/enable", response_model=TwoFactorConfigPublic)
+@router.post("/enable", response_model=TwoFactorEnableResponse)
 def enable_2fa(
     *,
     session: SessionDep,
@@ -96,6 +97,7 @@ def enable_2fa(
 ) -> Any:
     """
     Activer 2FA après vérification du code.
+    Retourne la config + les backup codes (affichés une seule fois).
     """
     try:
         if request.method == "totp":
@@ -116,14 +118,14 @@ def enable_2fa(
                 detail="Méthode 2FA invalide",
             )
 
-        # Retourner config publique
+        # Retourner config publique + backup codes
         phone_masked = None
         if config.phone_number:
             phone_masked = TwoFactorService.mask_phone_number(config.phone_number)
 
         backup_codes_count = len(config.backup_codes) if config.backup_codes else 0
 
-        return TwoFactorConfigPublic(
+        config_public = TwoFactorConfigPublic(
             id=config.id,
             user_id=config.user_id,
             is_enabled=config.is_enabled,
@@ -133,6 +135,16 @@ def enable_2fa(
             phone_verified_at=config.phone_verified_at,
             backup_codes_count=backup_codes_count,
             last_used_at=config.last_used_at,
+        )
+
+        backup_codes = TwoFactorBackupCodes(
+            codes=config.backup_codes or [],
+            generated_at=config.backup_codes_generated_at or config.updated_at,  # type: ignore
+        )
+
+        return TwoFactorEnableResponse(
+            config=config_public,
+            backup_codes=backup_codes,
         )
 
     except ValueError as e:

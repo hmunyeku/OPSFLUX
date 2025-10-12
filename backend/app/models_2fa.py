@@ -111,6 +111,12 @@ class TwoFactorBackupCodes(SQLModel):
     generated_at: datetime
 
 
+class TwoFactorEnableResponse(SQLModel):
+    """Réponse après activation 2FA (inclut backup codes)."""
+    config: TwoFactorConfigPublic
+    backup_codes: TwoFactorBackupCodes
+
+
 class SMSVerification(AbstractBaseModel, table=True):
     """
     Codes SMS envoyés pour vérification.

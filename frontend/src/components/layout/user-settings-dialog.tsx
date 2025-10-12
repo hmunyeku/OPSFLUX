@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -8,6 +8,11 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { useTheme } from "next-themes"
 import useAuth from "@/hooks/useAuth"
 import { User, Lock, Palette, Save } from "lucide-react"
+import { get2FAConfig } from "@/services/twofa"
+import type { TwoFactorConfig, TwoFactorBackupCodes } from "@/types/twofa"
+import { TwoFactorSetup } from "@/components/security/TwoFactorSetup"
+import { TwoFactorManage } from "@/components/security/TwoFactorManage"
+import { BackupCodesDisplay } from "@/components/security/BackupCodesDisplay"
 
 interface UserSettingsDialogProps {
   open: boolean
@@ -32,9 +37,44 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
   const [activeSection, setActiveSection] = useState<SettingsSection>("profile")
   const { theme, setTheme } = useTheme()
   const { user } = useAuth()
+  const [twoFactorConfig, setTwoFactorConfig] = useState<TwoFactorConfig | null>(null)
+  const [loadingConfig, setLoadingConfig] = useState(false)
+  const [showSetup2FA, setShowSetup2FA] = useState(false)
+  const [backupCodes, setBackupCodes] = useState<TwoFactorBackupCodes | null>(null)
+
+  useEffect(() => {
+    if (open && activeSection === 'security') {
+      load2FAConfig()
+    }
+  }, [open, activeSection])
+
+  const load2FAConfig = async () => {
+    try {
+      setLoadingConfig(true)
+      const config = await get2FAConfig()
+      setTwoFactorConfig(config)
+    } catch (err) {
+      // User doesn't have 2FA configured yet
+      setTwoFactorConfig(null)
+    } finally {
+      setLoadingConfig(false)
+    }
+  }
 
   const handleSave = () => {
     onOpenChange(false)
+  }
+
+  const handle2FAEnabled = (codes: TwoFactorBackupCodes) => {
+    setBackupCodes(codes)
+    load2FAConfig()
+    setShowSetup2FA(false)
+  }
+
+  const handle2FADisabled = () => {
+    setTwoFactorConfig(null)
+    setShowSetup2FA(false)
+    load2FAConfig()
   }
 
   return (
@@ -151,34 +191,77 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
 
               {activeSection === "security" && (
                 <div className="space-y-6">
-                  <div>
-                    <h3 className="text-lg font-semibold mb-1">Security Settings</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Manage your password and security
-                    </p>
-                  </div>
-                  <Separator />
-
-                  <div className="grid gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="currentPassword">Current Password</Label>
-                      <Input id="currentPassword" type="password" placeholder="Enter current password" />
+                  {backupCodes ? (
+                    <BackupCodesDisplay
+                      codes={backupCodes.codes}
+                      generatedAt={backupCodes.generated_at}
+                      onClose={() => setBackupCodes(null)}
+                    />
+                  ) : showSetup2FA ? (
+                    <TwoFactorSetup
+                      onSuccess={handle2FAEnabled}
+                      onCancel={() => setShowSetup2FA(false)}
+                    />
+                  ) : loadingConfig ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                     </div>
+                  ) : twoFactorConfig?.is_enabled ? (
+                    <TwoFactorManage
+                      config={twoFactorConfig}
+                      onDisabled={handle2FADisabled}
+                      onConfigUpdate={load2FAConfig}
+                    />
+                  ) : (
+                    <>
+                      <div>
+                        <h3 className="text-lg font-semibold mb-1">Two-Factor Authentication</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Add an extra layer of security to your account
+                        </p>
+                      </div>
+                      <Separator />
+                      <div className="space-y-4">
+                        <p className="text-sm">
+                          Two-factor authentication adds an additional layer of security to your account by
+                          requiring more than just a password to sign in.
+                        </p>
+                        <Button onClick={() => setShowSetup2FA(true)}>
+                          Enable Two-Factor Authentication
+                        </Button>
+                      </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="newPassword">New Password</Label>
-                      <Input id="newPassword" type="password" placeholder="Enter new password" />
-                    </div>
+                      <Separator />
 
-                    <div className="space-y-2">
-                      <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                      <Input id="confirmPassword" type="password" placeholder="Confirm new password" />
-                    </div>
+                      <div>
+                        <h3 className="text-lg font-semibold mb-1">Password</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Change your password
+                        </p>
+                      </div>
 
-                    <p className="text-xs text-muted-foreground">
-                      Password must be at least 8 characters long
-                    </p>
-                  </div>
+                      <div className="grid gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="currentPassword">Current Password</Label>
+                          <Input id="currentPassword" type="password" placeholder="Enter current password" />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="newPassword">New Password</Label>
+                          <Input id="newPassword" type="password" placeholder="Enter new password" />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                          <Input id="confirmPassword" type="password" placeholder="Confirm new password" />
+                        </div>
+
+                        <p className="text-xs text-muted-foreground">
+                          Password must be at least 8 characters long
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </ScrollArea>

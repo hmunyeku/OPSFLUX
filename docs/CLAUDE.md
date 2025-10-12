@@ -22,11 +22,11 @@
 - ❌ Dette technique importante
 
 **Nouvelle approche :**
-- ✅ **Architecture monolithique propre** (Django + React dans un seul container)
-- ✅ **Stack moderne cohérente** (shadcn/ui + Radix + Tailwind)
+- ✅ **Architecture monolithique propre** (FastAPI + React, conteneurs séparés)
+- ✅ **Stack moderne cohérente** (FastAPI + SQLModel + shadcn/ui + Radix + Tailwind)
 - ✅ **Documentation unifiée** (CLAUDE.md, ROADMAP.md, DEV_LOG.md synchronisés)
 - ✅ **Code production-ready** dès le départ
-- ✅ **Tests systématiques** (TDD quand pertinent)
+- ✅ **Tests systématiques** (pytest + vitest)
 
 ---
 
@@ -47,16 +47,16 @@
 - ✅ Prendre des décisions techniques autonomes pour résoudre les bugs
 - ✅ Exécuter des tests (pytest, npm test) sans demander
 - ✅ Installer des dépendances (pip install, npm install) sans demander
-- ✅ Faire des migrations Django (makemigrations, migrate) sans demander
-- ✅ **SUPPRIMER et RECRÉER** du code existant si nécessaire pour le reset
+- ✅ Faire des migrations Alembic (revision, upgrade) sans demander
+- ✅ **SUPPRIMER et RECRÉER** du code existant si nécessaire (avec prudence)
 
 **L'IA doit être PROACTIVE et AUTONOME** : ne pas demander de permission sauf si la décision est **critique** (suppression base données, changement architecture majeure, etc.)
 
-**IMPORTANT pour le RESET :**
-- ✅ L'IA peut **supprimer** l'ancien code frontend legacy
-- ✅ L'IA peut **réécrire** les composants avec la nouvelle stack
-- ✅ L'IA peut **nettoyer** la base de données (DROP tables si nécessaire)
-- ✅ L'IA peut **recréer** les migrations Django from scratch
+**IMPORTANT :**
+- ✅ Stack actuelle : FastAPI + SQLModel (déjà en place)
+- ✅ Développement incrémental sur base existante
+- ✅ Migrations Alembic déjà configurées
+- ✅ Frontend shadcn/ui déjà configuré
 
 ---
 
@@ -279,19 +279,21 @@ Le système est **adaptable** et utilisable par :
 ## 🔧 **STACK TECHNIQUE**
 
 ### **Backend**
-- **Framework** : Django 5.0 + Django REST Framework 3.14
-- **Base de données** : PostgreSQL 16 avec champ `external_id`
-- **Cache** : Redis 7
-- **Tasks async** : Celery + Beat (django-celery-beat)
-- **Auth** : JWT (djangorestframework-simplejwt)
-- **API Doc** : drf-spectacular (OpenAPI/Swagger)
-- **IA** : Multi-providers (OpenAI, Claude, Mixtral, Ollama)
+- **Framework** : FastAPI 0.114+ (async, modern, rapide)
+- **ORM** : SQLModel 0.0.21 (Pydantic + SQLAlchemy)
+- **Base de données** : PostgreSQL 16 avec UUID + `external_id`
+- **Migrations** : Alembic 1.12+
+- **Cache** : Redis 7 (à intégrer)
+- **Tasks async** : Celery + Beat (à intégrer)
+- **Auth** : JWT (PyJWT 2.8+, bcrypt pour hash)
+- **API Doc** : OpenAPI/Swagger auto-généré (FastAPI natif)
+- **IA** : Multi-providers (à intégrer)
 
 ### **Frontend (Desktop + Web public) - V3.0**
 - **Framework** : React 18.3 + TypeScript 5.3 + Vite 5.1
 - **UI Components** : shadcn/ui (composants copiés) + Radix UI (headless primitives)
 - **Styling** : Tailwind CSS 3.4 (utility-first)
-- **Routing** : React Router v6.22
+- **Routing** : TanStack Router v1 (file-based, type-safe)
 - **HTTP Client** : Axios 1.6
 - **State Management** :
   - **Server State** : TanStack Query v5 (React Query - cache, mutations, invalidation)

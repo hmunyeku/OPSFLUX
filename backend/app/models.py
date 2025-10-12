@@ -1,9 +1,13 @@
 import uuid
+from typing import TYPE_CHECKING
 
 from pydantic import EmailStr
 from sqlmodel import Field, Relationship, SQLModel
 
 from app.core.models import AbstractBaseModel
+
+if TYPE_CHECKING:
+    from app.models_auth import Session
 
 
 # Shared properties
@@ -49,6 +53,7 @@ class User(AbstractBaseModel, UserBase, table=True):
     """
     hashed_password: str
     items: list["Item"] = Relationship(back_populates="owner", cascade_delete=True)
+    sessions: list["Session"] = Relationship(back_populates="user", cascade_delete=True)
 
 
 # Properties to return via API, id is always required

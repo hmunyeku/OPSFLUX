@@ -7,6 +7,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
+from sqlalchemy import Column, JSON
 from sqlmodel import Field, SQLModel
 
 from app.core.models import AbstractBaseModel
@@ -49,7 +50,7 @@ class TwoFactorConfig(AbstractBaseModel, table=True):
     # Backup codes (liste de 10 codes à usage unique)
     backup_codes: Optional[list[str]] = Field(
         default=None,
-        sa_column_kwargs={"type_": "JSON"},
+        sa_column=Column(JSON, nullable=True),
         description="10 codes backup à usage unique"
     )
     backup_codes_generated_at: Optional[datetime] = Field(

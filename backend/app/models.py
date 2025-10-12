@@ -114,6 +114,8 @@ class Token(SQLModel):
 # Contents of JWT token
 class TokenPayload(SQLModel):
     sub: str | None = None
+    type: str | None = None  # "access" or "refresh"
+    sid: str | None = None  # session_id (optionnel)
 
 
 class NewPassword(SQLModel):

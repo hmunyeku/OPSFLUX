@@ -10,6 +10,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { NotificationPanel } from "./notification-panel"
+import { UserSettingsDialog } from "./user-settings-dialog"
 import useAuth from "@/hooks/useAuth"
 import { Menu, Bell, Search, Waves } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -22,6 +23,7 @@ interface HeaderProps {
 export function Header({ onMenuClick }: HeaderProps) {
   const { user, logout } = useAuth()
   const [notificationPanelOpen, setNotificationPanelOpen] = useState(false)
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false)
 
   return (
     <>
@@ -97,7 +99,9 @@ export function Header({ onMenuClick }: HeaderProps) {
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem>Profile</DropdownMenuItem>
-              <DropdownMenuItem>Settings</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSettingsDialogOpen(true)}>
+                Settings
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={logout}>Log out</DropdownMenuItem>
             </DropdownMenuContent>
@@ -109,6 +113,11 @@ export function Header({ onMenuClick }: HeaderProps) {
       <NotificationPanel
         open={notificationPanelOpen}
         onOpenChange={setNotificationPanelOpen}
+      />
+
+      <UserSettingsDialog
+        open={settingsDialogOpen}
+        onOpenChange={setSettingsDialogOpen}
       />
     </>
   )

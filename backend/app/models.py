@@ -114,6 +114,7 @@ class Token(SQLModel):
 # Contents of JWT token
 class TokenPayload(SQLModel):
     sub: str | None = None
+    exp: int | None = None  # Expiration timestamp
     type: str | None = None  # "access" or "refresh"
     sid: str | None = None  # session_id (optionnel)
 

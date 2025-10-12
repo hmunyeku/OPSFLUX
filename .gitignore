@@ -1,6 +1,100 @@
-.vscode
+# Python / Django
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# Django migrations (keep in git but may want to regenerate)
+# backend/*/migrations/*.py
+# !backend/*/migrations/__init__.py
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Node / React / Frontend
 node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+/frontend/dist/
+/frontend/build/
+.eslintcache
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
 /test-results/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+coverage/
+*.cover
+
+# Docker
+docker-compose.override.yml
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Logs
+logs/
+*.log
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Backups
+backups/*.sql
+backups/*.dump
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code (settings should be kept in git)
+# .claude/settings.local.json peut être ignoré si contient config personnelle

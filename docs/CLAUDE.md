@@ -244,17 +244,17 @@ Le système est **adaptable** et utilisable par :
 
 ### **Modules métiers futurs (NE PAS créer maintenant)**
 ```
-⏳ À développer APRÈS le CORE :
+⏳ À développer APRÈS le CORE (10 modules) :
 1. Offshore Booking System (réservation vols hélico, navires)
-2. Manifest Management (cargo, équipements, personnel)
-3. HSE Reports (incidents, near-miss, audits sécurité)
-4. POB Management (Personnel On Board temps réel)
-5. Logistics Tracking (hélicos, bateaux, camions, containers)
-6. Planning Multi-départements (opérations, maintenance, drilling)
-7. Permit To Work System (PTW, permis travail)
-8. Document Management (certifications, passeports, visas)
-9. Asset Management (équipements, maintenance)
-10. Procurement (achats, approvisionnements)
+2. HSE Reports (incidents, near-miss, audits sécurité)
+3. POB Management (Personnel On Board temps réel)
+4. Logistics Tracking (hélicos, bateaux, containers, manifestes cargo)
+5. Permit To Work System (PTW, permis travail)
+6. Document Management (certifications, passeports, visas)
+7. Asset Management (équipements, maintenance)
+8. Procurement (achats, approvisionnements)
+9. Planning Multi-départements (opérations, maintenance, drilling)
+10. Crew Management (rotations personnel offshore 28j on/off)
 ```
 
 ### **Vocabulaire métier Oil & Gas**
@@ -418,6 +418,8 @@ Voir **docs/projet/CORE_DEVELOPMENT_ROADMAP.md** pour roadmap détaillée.
 23. ❌ Comment/Note System (0%)
 24. ❌ Version Control (Documents) (0%)
 25. ❌ Workflow Engine (0%)
+
+**Note :** Variable Substitution intégré dans Email/Notification/Report services (pas un service distinct)
 
 **TOTAL : 0/25 services (0%) - Fresh start**
 
@@ -774,28 +776,102 @@ docs/developer/                     # Documentation technique systèmes
 
 ## 🚀 **PROCHAINES ÉTAPES**
 
-Après analyse du code actuel :
+Planning réaliste basé sur l'analyse fonctionnelle complète :
 
-### **Immédiat (cette semaine)**
-1. ✅ Compléter **Authentication** (2FA, biométrie mobile)
-2. ✅ Terminer **Roles & Permissions** (modèles, API, cache)
-3. ✅ Créer **Translation Service** (modèles, API, cache Redis)
-4. ✅ Créer **Hook & Trigger System** (signals Django)
-5. ✅ Compléter **Menu Manager** (arbre, permissions, badges)
+### **Phase 1 : CORE Services Priorité 0-1 (8 semaines)**
 
-### **Court terme (2 semaines)**
-6. ✅ **File Manager** complet (storage backends, chunking, virus scan)
-7. ✅ **Import/Export Service** (JSON, CSV, Excel, validation)
-8. ✅ **Email Queue** (templates, scheduling, tracking)
-9. ✅ **Webhook Manager** (HMAC signature, retry, logs)
-10. ✅ **Calendar Service** (events, recurrence, reminders)
+**Semaine 1-2 : Authentication & Security**
+- ❌ JWT Login/Logout/Refresh
+- ❌ 2FA (TOTP + SMS)
+- ❌ Session Management
+- ❌ Password Policy & Reset
+- ❌ Tests unitaires + intégration
+- ❌ Documentation API (Swagger)
 
-### **Moyen terme (1 mois)**
-11. ✅ **AI Service** (multi-provider wrapper, tracking)
-12. ✅ **Search Engine** (PostgreSQL full-text ou Elasticsearch)
-13. ✅ **Report Generator** (PDF, Excel, templates)
-14. ✅ **Monitoring** complet (health, metrics, alerts)
-15. ✅ **Structure mobile/** (React Native + Expo)
+**Semaine 3-4 : Users, Roles, Permissions, Groups (RBAC)**
+- ❌ Modèles (User, Role, Permission, Group)
+- ❌ Service RoleService (assign, check, cache Redis)
+- ❌ Décorateurs (@has_permission, @has_role)
+- ❌ API CRUD complète
+- ❌ Frontend UI (gestion utilisateurs)
+- ❌ Tests + Documentation
+
+**Semaine 5-6 : Notifications + Translation + Menu**
+- ❌ NotificationService (multi-canal : in-app, email, SMS, push)
+- ❌ Templates notifications + préférences utilisateur
+- ❌ TranslationService (i18n FR/EN/ES/PT)
+- ❌ MenuManager (navigation dynamique, permissions)
+- ❌ Tests + Documentation
+
+**Semaine 7-8 : Hooks, File Manager, Import/Export**
+- ❌ HookService (triggers événements automatisés)
+- ❌ FileManager (upload, storage, scan antivirus)
+- ❌ ImportExportService (CSV, Excel, JSON)
+- ❌ Tests + Documentation
+
+**Livrable Phase 1 :**
+- ✅ 14 services CORE opérationnels (Priorité 0-1)
+- ✅ API documentée (Swagger)
+- ✅ Tests >80% couverture
+- ✅ Frontend admin fonctionnel
+- ✅ Prêt pour développement modules métiers
+
+---
+
+### **Phase 2 : CORE Services Priorité 2 (4 semaines)**
+
+**Semaine 9-10 : Email, Scheduler, Webhooks**
+- ❌ EmailQueueService (SMTP + templates + retry)
+- ❌ SchedulerService (Celery Beat + monitoring)
+- ❌ WebhookManager (envoi/réception + signature HMAC)
+- ❌ Tests + Documentation
+
+**Semaine 11-12 : Calendar, Audit, API Manager**
+- ❌ CalendarService (événements, récurrence, reminders)
+- ❌ AuditTrailService (logs immutables, retention 7 ans)
+- ❌ APIManager (tokens, rate limiting, Swagger)
+- ❌ Tests + Documentation
+
+**Livrable Phase 2 :**
+- ✅ 20 services CORE terminés (Priorité 0-1-2)
+- ✅ Plateforme robuste et extensible
+- ✅ Prêt pour modules métiers complexes
+
+---
+
+### **Phase 3 : Premier module métier HSE Reports (3 semaines)**
+
+**Semaine 13-15 : Module HSE**
+- ❌ Modèles (Incident, Investigation, Action)
+- ❌ Services métiers + API REST complète
+- ❌ Frontend (formulaires, listes, détails)
+- ❌ Workflow approbation (avec hooks)
+- ❌ Notifications automatiques
+- ❌ Export PDF (rapports)
+- ❌ Tests complets
+
+**Livrable Phase 3 :**
+- ✅ Module HSE opérationnel end-to-end
+- ✅ Démonstration complète du système
+- ✅ Validation architecture CORE + MODULE
+- ✅ Base pour développement autres modules
+
+---
+
+### **Phase 4 : Modules additionnels (Itératif - 2-3 semaines/module)**
+
+Développer modules suivants dans cet ordre :
+1. **Offshore Booking** (réservations vols/navires)
+2. **POB Management** (Personnel On Board)
+3. **Logistics Tracking** (équipements, cargo, manifestes)
+4. **Permit To Work** (PTW système)
+5. **Document Management** (GED)
+6. **Asset Management** (équipements)
+
+**Pattern de développement par module :**
+- Semaine 1 : Modèles + services + API REST
+- Semaine 2 : Frontend CRUD + intégration CORE + workflows
+- Semaine 3 : Tests complets + documentation + déploiement
 
 ---
 

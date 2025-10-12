@@ -1,10 +1,11 @@
 services:
-
   db:
     image: postgres:17
     restart: always
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}
       interval: 10s
       retries: 5
       start_period: 30s
@@ -18,12 +19,11 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
       - POSTGRES_USER=${POSTGRES_USER?Variable not set}
       - POSTGRES_DB=${POSTGRES_DB?Variable not set}
-
   adminer:
     image: adminer
     restart: always
     networks:
-      - traefik-public
+      - dokploy-network
       - default
     depends_on:
       - db
@@ -31,8 +31,8 @@ services:
       - ADMINER_DESIGN=pepa-linha-dark
     labels:
       - traefik.enable=true
-      - traefik.docker.network=traefik-public
-      - traefik.constraint-label=traefik-public
+      - traefik.docker.network=dokploy-network
+      - traefik.constraint-label=dokploy-network
       - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-http.rule=Host(`adminer.${DOMAIN?Variable not set}`)
       - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-http.entrypoints=http
       - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-http.middlewares=https-redirect
@@ -41,13 +41,12 @@ services:
       - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-https.tls=true
       - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-https.tls.certresolver=le
       - traefik.http.services.${STACK_NAME?Variable not set}-adminer.loadbalancer.server.port=8080
-
   prestart:
-    image: '${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}'
+    image: ${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}
     build:
       context: ./backend
     networks:
-      - traefik-public
+      - dokploy-network
       - default
     depends_on:
       db:
@@ -74,12 +73,11 @@ services:
       - POSTGRES_USER=${POSTGRES_USER?Variable not set}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
       - SENTRY_DSN=${SENTRY_DSN}
-
   backend:
-    image: '${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}'
+    image: ${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}
     restart: always
     networks:
-      - traefik-public
+      - dokploy-network
       - default
     depends_on:
       db:
@@ -107,38 +105,45 @@ services:
       - POSTGRES_USER=${POSTGRES_USER?Variable not set}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
       - SENTRY_DSN=${SENTRY_DSN}
-
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/utils/health-check/"]
+      test:
+        - CMD
+        - curl
+        - -f
+        - http://localhost:8000/api/v1/utils/health-check/
       interval: 10s
       timeout: 5s
       retries: 5
-
     build:
       context: ./backend
     labels:
+      - traefik.docker.network=dokploy-network
+      - traefik.http.routers.perenco-opsflux-gwxapr-4-web.rule=Host(`api.opsflux.io`)
+      - traefik.http.routers.perenco-opsflux-gwxapr-4-web.entrypoints=web
+      - traefik.http.services.perenco-opsflux-gwxapr-4-web.loadbalancer.server.port=8000
+      - traefik.http.routers.perenco-opsflux-gwxapr-4-web.service=perenco-opsflux-gwxapr-4-web
+      - traefik.http.routers.perenco-opsflux-gwxapr-4-web.middlewares=redirect-to-https@file
+      - traefik.http.routers.perenco-opsflux-gwxapr-4-websecure.rule=Host(`api.opsflux.io`)
+      - traefik.http.routers.perenco-opsflux-gwxapr-4-websecure.entrypoints=websecure
+      - traefik.http.services.perenco-opsflux-gwxapr-4-websecure.loadbalancer.server.port=8000
+      - traefik.http.routers.perenco-opsflux-gwxapr-4-websecure.service=perenco-opsflux-gwxapr-4-websecure
+      - traefik.http.routers.perenco-opsflux-gwxapr-4-websecure.tls.certresolver=letsencrypt
       - traefik.enable=true
-      - traefik.docker.network=traefik-public
-      - traefik.constraint-label=traefik-public
-
+      - traefik.docker.network=dokploy-network
+      - traefik.constraint-label=dokploy-network
       - traefik.http.services.${STACK_NAME?Variable not set}-backend.loadbalancer.server.port=8000
-
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.rule=Host(`api.${DOMAIN?Variable not set}`)
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.entrypoints=http
-
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.rule=Host(`api.${DOMAIN?Variable not set}`)
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.entrypoints=https
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.tls=true
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.tls.certresolver=le
-
-      # Enable redirection for HTTP and HTTPS
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.middlewares=https-redirect
-
   frontend:
-    image: '${DOCKER_IMAGE_FRONTEND?Variable not set}:${TAG-latest}'
+    image: ${DOCKER_IMAGE_FRONTEND?Variable not set}:${TAG-latest}
     restart: always
     networks:
-      - traefik-public
+      - dokploy-network
       - default
     build:
       context: ./frontend
@@ -146,26 +151,30 @@ services:
         - VITE_API_URL=https://api.${DOMAIN?Variable not set}
         - NODE_ENV=production
     labels:
+      - traefik.docker.network=dokploy-network
+      - traefik.http.routers.perenco-opsflux-gwxapr-3-web.rule=Host(`app.opsflux.io`)
+      - traefik.http.routers.perenco-opsflux-gwxapr-3-web.entrypoints=web
+      - traefik.http.services.perenco-opsflux-gwxapr-3-web.loadbalancer.server.port=80
+      - traefik.http.routers.perenco-opsflux-gwxapr-3-web.service=perenco-opsflux-gwxapr-3-web
+      - traefik.http.routers.perenco-opsflux-gwxapr-3-web.middlewares=redirect-to-https@file
+      - traefik.http.routers.perenco-opsflux-gwxapr-3-websecure.rule=Host(`app.opsflux.io`)
+      - traefik.http.routers.perenco-opsflux-gwxapr-3-websecure.entrypoints=websecure
+      - traefik.http.services.perenco-opsflux-gwxapr-3-websecure.loadbalancer.server.port=80
+      - traefik.http.routers.perenco-opsflux-gwxapr-3-websecure.service=perenco-opsflux-gwxapr-3-websecure
+      - traefik.http.routers.perenco-opsflux-gwxapr-3-websecure.tls.certresolver=letsencrypt
       - traefik.enable=true
-      - traefik.docker.network=traefik-public
-      - traefik.constraint-label=traefik-public
-
+      - traefik.docker.network=dokploy-network
+      - traefik.constraint-label=dokploy-network
       - traefik.http.services.${STACK_NAME?Variable not set}-frontend.loadbalancer.server.port=80
-
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.rule=Host(`dashboard.${DOMAIN?Variable not set}`)
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.entrypoints=http
-
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.rule=Host(`dashboard.${DOMAIN?Variable not set}`)
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.entrypoints=https
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.tls=true
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.tls.certresolver=le
-
-      # Enable redirection for HTTP and HTTPS
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.middlewares=https-redirect
 volumes:
-  app-db-data:
-
+  app-db-data: null
 networks:
-  traefik-public:
-    # Allow setting it to false for testing
+  dokploy-network:
     external: true

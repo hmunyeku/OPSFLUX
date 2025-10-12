@@ -12,8 +12,7 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { NotificationPanel } from "./notification-panel"
 import { UserSettingsDialog } from "./user-settings-dialog"
 import useAuth from "@/hooks/useAuth"
-import { Menu, Bell, Search, Waves } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import { Menu, Bell, Waves } from "lucide-react"
 import { useState } from "react"
 
 interface HeaderProps {
@@ -43,33 +42,14 @@ export function Header({ onMenuClick }: HeaderProps) {
             <h1 className="text-xl font-bold">OpsFlux</h1>
           </div>
 
-          {/* Search Bar - Desktop only */}
-          <div className="hidden md:flex flex-1 max-w-md mx-4">
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input
-                type="search"
-                placeholder="Search operations, personnel, vessels..."
-                className="w-full pl-10 pr-4 py-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
-          </div>
-
           <div className="ml-auto flex items-center gap-2">
             {/* Notifications */}
             <Button
               variant="ghost"
               size="icon"
-              className="relative"
               onClick={() => setNotificationPanelOpen(true)}
             >
               <Bell className="h-5 w-5" />
-              <Badge
-                variant="destructive"
-                className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
-              >
-                3
-              </Badge>
             </Button>
 
             {/* Theme Toggle */}

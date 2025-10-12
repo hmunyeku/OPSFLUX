@@ -3,6 +3,8 @@ import uuid
 from pydantic import EmailStr
 from sqlmodel import Field, Relationship, SQLModel
 
+from app.core.models import AbstractBaseModel
+
 
 # Shared properties
 class UserBase(SQLModel):
@@ -40,8 +42,11 @@ class UpdatePassword(SQLModel):
 
 
 # Database model, database table inferred from class name
-class User(UserBase, table=True):
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+class User(AbstractBaseModel, UserBase, table=True):
+    """
+    Modèle User avec audit trail complet et soft delete.
+    Hérite de AbstractBaseModel pour les fonctionnalités communes.
+    """
     hashed_password: str
     items: list["Item"] = Relationship(back_populates="owner", cascade_delete=True)
 
@@ -73,8 +78,11 @@ class ItemUpdate(ItemBase):
 
 
 # Database model, database table inferred from class name
-class Item(ItemBase, table=True):
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+class Item(AbstractBaseModel, ItemBase, table=True):
+    """
+    Modèle Item avec audit trail complet et soft delete.
+    Hérite de AbstractBaseModel pour les fonctionnalités communes.
+    """
     owner_id: uuid.UUID = Field(
         foreign_key="user.id", nullable=False, ondelete="CASCADE"
     )

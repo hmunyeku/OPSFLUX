@@ -176,23 +176,25 @@ export function PreferencesTab() {
 
       if (response.ok) {
         const data = await response.json()
-        setTotpSecret(data.secret)
+        setTotpSecret(data.totp_secret)
 
         // Generate QR code
-        const qr = await QRCode.toDataURL(data.provisioning_uri)
+        const qr = await QRCode.toDataURL(data.totp_uri)
         setQrCodeUrl(qr)
         setSetupDialogOpen(true)
       } else {
+        // Get error detail from backend
+        const errorData = await response.json().catch(() => ({ detail: "Erreur inconnue" }))
         toast({
-          title: "Erreur",
-          description: "Impossible de configurer l'authentification à deux facteurs",
+          title: "Erreur de configuration 2FA",
+          description: errorData.detail || "Impossible de configurer l'authentification à deux facteurs",
           variant: "destructive",
         })
       }
-    } catch (_error) {
+    } catch (error) {
       toast({
         title: "Erreur",
-        description: "Une erreur s'est produite",
+        description: error instanceof Error ? error.message : "Une erreur s'est produite",
         variant: "destructive",
       })
     }

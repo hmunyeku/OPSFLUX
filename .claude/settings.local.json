@@ -38,7 +38,11 @@
       "WebFetch(domain:shadcnblocks.com)",
       "WebSearch",
       "WebFetch(domain:docs.shadcnblocks.com)",
-      "WebFetch(domain:www.shadcnblocks.com)"
+      "WebFetch(domain:www.shadcnblocks.com)",
+      "Bash(unzip:*)",
+      "Bash(tree:*)",
+      "Bash(find:*)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []

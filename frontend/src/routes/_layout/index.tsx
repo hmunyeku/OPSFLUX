@@ -18,6 +18,9 @@ import {
   Clock,
   ArrowUpRight,
 } from "lucide-react"
+import { KPICard } from "@/components/dashboard/kpi-card"
+import { POBWeeklyTrend } from "@/components/dashboard/pob-weekly-trend"
+import { OperationsStatus } from "@/components/dashboard/operations-status"
 
 export const Route = createFileRoute("/_layout/")({
   component: Dashboard,
@@ -26,42 +29,78 @@ export const Route = createFileRoute("/_layout/")({
 function Dashboard() {
   const { user } = useAuth()
 
-  const stats = [
+  const kpiData = [
     {
-      title: "Personnel On Board",
-      value: "142",
-      change: "+12.5%",
-      trend: "up",
+      label: "Personnel On Board",
+      description: "Total personnel currently on offshore sites",
+      stats: 142,
+      type: "up" as const,
+      percentage: 12.5,
+      chartData: [
+        { day: "Mon", value: 135 },
+        { day: "Tue", value: 138 },
+        { day: "Wed", value: 140 },
+        { day: "Thu", value: 142 },
+        { day: "Fri", value: 145 },
+        { day: "Sat", value: 143 },
+        { day: "Sun", value: 142 },
+      ],
+      strokeColor: "var(--chart-1)",
       icon: Users,
-      color: "text-blue-500",
-      bgColor: "bg-blue-500/10",
     },
     {
-      title: "Active Operations",
-      value: "28",
-      change: "+4.2%",
-      trend: "up",
+      label: "Active Operations",
+      description: "Number of ongoing operations across all sites",
+      stats: 28,
+      type: "up" as const,
+      percentage: 4.2,
+      chartData: [
+        { day: "Mon", value: 24 },
+        { day: "Tue", value: 26 },
+        { day: "Wed", value: 25 },
+        { day: "Thu", value: 27 },
+        { day: "Fri", value: 28 },
+        { day: "Sat", value: 28 },
+        { day: "Sun", value: 28 },
+      ],
+      strokeColor: "var(--chart-2)",
       icon: Ship,
-      color: "text-green-500",
-      bgColor: "bg-green-500/10",
     },
     {
-      title: "Open Incidents",
-      value: "7",
-      change: "-3",
-      trend: "down",
+      label: "Open Incidents",
+      description: "HSE incidents currently under investigation",
+      stats: 7,
+      type: "down" as const,
+      percentage: 30,
+      chartData: [
+        { day: "Mon", value: 10 },
+        { day: "Tue", value: 9 },
+        { day: "Wed", value: 8 },
+        { day: "Thu", value: 9 },
+        { day: "Fri", value: 7 },
+        { day: "Sat", value: 7 },
+        { day: "Sun", value: 7 },
+      ],
+      strokeColor: "#f59e0b",
       icon: AlertTriangle,
-      color: "text-orange-500",
-      bgColor: "bg-orange-500/10",
     },
     {
-      title: "Completed Tasks",
-      value: "234",
-      change: "+18",
-      trend: "up",
+      label: "Completed Tasks",
+      description: "Tasks completed this month",
+      stats: 234,
+      type: "up" as const,
+      percentage: 18,
+      chartData: [
+        { day: "Mon", value: 200 },
+        { day: "Tue", value: 210 },
+        { day: "Wed", value: 220 },
+        { day: "Thu", value: 225 },
+        { day: "Fri", value: 230 },
+        { day: "Sat", value: 232 },
+        { day: "Sun", value: 234 },
+      ],
+      strokeColor: "#a855f7",
       icon: CheckCircle2,
-      color: "text-purple-500",
-      bgColor: "bg-purple-500/10",
     },
   ]
 
@@ -127,34 +166,21 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat, idx) => (
-          <Card key={idx} className="hover:shadow-md transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                {stat.title}
-              </CardTitle>
-              <div className={`${stat.bgColor} p-2 rounded-lg`}>
-                <stat.icon className={`h-4 w-4 ${stat.color}`} />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-              <div className="flex items-center text-xs text-muted-foreground mt-1">
-                {stat.trend === "up" ? (
-                  <TrendingUp className="mr-1 h-3 w-3 text-green-500" />
-                ) : (
-                  <TrendingDown className="mr-1 h-3 w-3 text-red-500" />
-                )}
-                <span className={stat.trend === "up" ? "text-green-500" : "text-red-500"}>
-                  {stat.change}
-                </span>
-                <span className="ml-1">ce mois</span>
-              </div>
-            </CardContent>
-          </Card>
+      {/* KPI Cards with Charts */}
+      <div className="grid auto-rows-auto grid-cols-3 gap-5 md:grid-cols-6 lg:grid-cols-9">
+        {kpiData.map((kpi, idx) => (
+          <KPICard key={idx} {...kpi} />
         ))}
+      </div>
+
+      {/* Charts Grid */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        <div className="col-span-3 lg:col-span-2">
+          <POBWeeklyTrend />
+        </div>
+        <div className="col-span-4 lg:col-span-5">
+          <OperationsStatus />
+        </div>
       </div>
 
       {/* Main Content Grid */}

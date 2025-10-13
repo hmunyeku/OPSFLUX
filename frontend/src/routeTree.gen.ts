@@ -13,6 +13,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as LayoutRouteImport } from './routes/_layout'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as LayoutUsersRouteImport } from './routes/_layout/users'
+import { Route as LayoutDashboardRouteImport } from './routes/_layout/dashboard'
 import { Route as LayoutHseReportsNewRouteImport } from './routes/_layout/hse-reports.new'
 
 const LoginRoute = LoginRouteImport.update({
@@ -34,6 +35,11 @@ const LayoutUsersRoute = LayoutUsersRouteImport.update({
   path: '/users',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutDashboardRoute = LayoutDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutHseReportsNewRoute = LayoutHseReportsNewRouteImport.update({
   id: '/hse-reports/new',
   path: '/hse-reports/new',
@@ -42,12 +48,14 @@ const LayoutHseReportsNewRoute = LayoutHseReportsNewRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
+  '/dashboard': typeof LayoutDashboardRoute
   '/users': typeof LayoutUsersRoute
   '/': typeof LayoutIndexRoute
   '/hse-reports/new': typeof LayoutHseReportsNewRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
+  '/dashboard': typeof LayoutDashboardRoute
   '/users': typeof LayoutUsersRoute
   '/': typeof LayoutIndexRoute
   '/hse-reports/new': typeof LayoutHseReportsNewRoute
@@ -56,19 +64,21 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_layout': typeof LayoutRouteWithChildren
   '/login': typeof LoginRoute
+  '/_layout/dashboard': typeof LayoutDashboardRoute
   '/_layout/users': typeof LayoutUsersRoute
   '/_layout/': typeof LayoutIndexRoute
   '/_layout/hse-reports/new': typeof LayoutHseReportsNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/login' | '/users' | '/' | '/hse-reports/new'
+  fullPaths: '/login' | '/dashboard' | '/users' | '/' | '/hse-reports/new'
   fileRoutesByTo: FileRoutesByTo
-  to: '/login' | '/users' | '/' | '/hse-reports/new'
+  to: '/login' | '/dashboard' | '/users' | '/' | '/hse-reports/new'
   id:
     | '__root__'
     | '/_layout'
     | '/login'
+    | '/_layout/dashboard'
     | '/_layout/users'
     | '/_layout/'
     | '/_layout/hse-reports/new'
@@ -109,6 +119,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutUsersRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/dashboard': {
+      id: '/_layout/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof LayoutDashboardRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/hse-reports/new': {
       id: '/_layout/hse-reports/new'
       path: '/hse-reports/new'
@@ -120,12 +137,14 @@ declare module '@tanstack/react-router' {
 }
 
 interface LayoutRouteChildren {
+  LayoutDashboardRoute: typeof LayoutDashboardRoute
   LayoutUsersRoute: typeof LayoutUsersRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
   LayoutHseReportsNewRoute: typeof LayoutHseReportsNewRoute
 }
 
 const LayoutRouteChildren: LayoutRouteChildren = {
+  LayoutDashboardRoute: LayoutDashboardRoute,
   LayoutUsersRoute: LayoutUsersRoute,
   LayoutIndexRoute: LayoutIndexRoute,
   LayoutHseReportsNewRoute: LayoutHseReportsNewRoute,

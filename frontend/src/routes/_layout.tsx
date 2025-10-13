@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
-import { Layout } from "@/components/layout/layout"
+import { AppShell } from "@/components/layout/app-shell"
 import { isLoggedIn } from "@/hooks/useAuth"
 
 export const Route = createFileRoute("/_layout")({
@@ -15,8 +15,8 @@ export const Route = createFileRoute("/_layout")({
 
 function LayoutComponent() {
   return (
-    <Layout>
+    <AppShell>
       <Outlet />
-    </Layout>
+    </AppShell>
   )
 }

@@ -23,7 +23,22 @@
       "Bash(source .env)",
       "Bash(git remote set-url:*)",
       "Bash(npx shadcn@latest add:*)",
-      "Bash(npm run build)"
+      "Bash(npm run build)",
+      "Bash(docker-compose ps:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker restart:*)",
+      "Bash(docker build:*)",
+      "Bash(docker stop:*)",
+      "Bash(docker rm:*)",
+      "Bash(docker run:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker inspect:*)",
+      "Read(//usr/local/bin/**)",
+      "Bash(export SHADCNBLOCKS_API_KEY=sk_live_7ognw_mHlSWgB3NMpg8UFpxxQMnmmk6G)",
+      "WebFetch(domain:shadcnblocks.com)",
+      "WebSearch",
+      "WebFetch(domain:docs.shadcnblocks.com)",
+      "WebFetch(domain:www.shadcnblocks.com)"
     ],
     "deny": [],
     "ask": []

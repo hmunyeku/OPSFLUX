@@ -2,6 +2,7 @@ import { createRootRoute, Outlet } from "@tanstack/react-router"
 import React, { Suspense } from "react"
 import { Toaster } from "@/components/ui/toaster"
 import { ThemeProvider } from "@/components/theme-provider"
+import { SearchProvider } from "@/components/search-provider"
 
 const loadDevtools = () =>
   Promise.all([
@@ -24,11 +25,13 @@ const TanStackDevtools =
 export const Route = createRootRoute({
   component: () => (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <Outlet />
-      <Toaster />
-      <Suspense>
-        <TanStackDevtools />
-      </Suspense>
+      <SearchProvider>
+        <Outlet />
+        <Toaster />
+        <Suspense>
+          <TanStackDevtools />
+        </Suspense>
+      </SearchProvider>
     </ThemeProvider>
   ),
   notFoundComponent: () => (

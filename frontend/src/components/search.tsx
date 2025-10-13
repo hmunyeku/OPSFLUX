@@ -1,5 +1,6 @@
 import { IconSearch } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
+import { useSearch } from "./search-provider"
 import { Button } from "./ui/button"
 
 interface Props {
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export function Search({ className = "", placeholder = "Search" }: Props) {
+  const { setOpen } = useSearch()
   return (
     <Button
       variant="outline"
@@ -16,10 +18,7 @@ export function Search({ className = "", placeholder = "Search" }: Props) {
         "bg-muted/25 text-muted-foreground hover:bg-muted/50 relative h-8 w-full justify-start rounded-md text-sm font-normal shadow-none sm:pr-12 md:w-40 lg:w-56 xl:w-64",
         className
       )}
-      onClick={() => {
-        // TODO: Implement search functionality
-        console.log("Search clicked")
-      }}
+      onClick={() => setOpen(true)}
     >
       <IconSearch
         aria-hidden="true"

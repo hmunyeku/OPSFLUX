@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge"
 import { Shield, ShieldCheck, Key, Download, RefreshCw, Smartphone, Lock, CheckCircle2, XCircle, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { PasswordPolicy } from "@/lib/api"
+import { auth } from "@/lib/auth"
 import QRCode from "qrcode"
 
 interface TwoFactorConfig {
@@ -75,8 +76,16 @@ export function SecurityTab() {
 
   const fetchTwoFactorConfig = async () => {
     try {
+      const token = auth.getToken()
+      if (!token) {
+        setLoading(false)
+        return
+      }
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/2fa/config`, {
-        credentials: "include",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       })
       if (response.ok) {
         const data = await response.json()
@@ -91,8 +100,13 @@ export function SecurityTab() {
 
   const fetchPasswordPolicy = async () => {
     try {
+      const token = auth.getToken()
+      if (!token) return
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/security/password-policy`, {
-        credentials: "include",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       })
       if (response.ok) {
         const data = await response.json()
@@ -105,9 +119,21 @@ export function SecurityTab() {
 
   const handleSetupTotp = async () => {
     try {
+      const token = auth.getToken()
+      if (!token) {
+        toast({
+          title: "Erreur",
+          description: "Vous devez être connecté",
+          variant: "destructive",
+        })
+        return
+      }
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/2fa/setup-totp`, {
         method: "POST",
-        credentials: "include",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       })
 
       if (response.ok) {
@@ -145,10 +171,22 @@ export function SecurityTab() {
     }
 
     try {
+      const token = auth.getToken()
+      if (!token) {
+        toast({
+          title: "Erreur",
+          description: "Vous devez être connecté",
+          variant: "destructive",
+        })
+        return
+      }
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/2fa/enable`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           method: "totp",
           verification_code: verificationCode,
@@ -190,9 +228,21 @@ export function SecurityTab() {
     }
 
     try {
+      const token = auth.getToken()
+      if (!token) {
+        toast({
+          title: "Erreur",
+          description: "Vous devez être connecté",
+          variant: "destructive",
+        })
+        return
+      }
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/2fa/disable`, {
         method: "POST",
-        credentials: "include",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       })
 
       if (response.ok) {
@@ -223,9 +273,21 @@ export function SecurityTab() {
     }
 
     try {
+      const token = auth.getToken()
+      if (!token) {
+        toast({
+          title: "Erreur",
+          description: "Vous devez être connecté",
+          variant: "destructive",
+        })
+        return
+      }
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/2fa/regenerate-backup-codes`, {
         method: "POST",
-        credentials: "include",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       })
 
       if (response.ok) {
@@ -329,10 +391,23 @@ export function SecurityTab() {
     setIsChangingPassword(true)
 
     try {
+      const token = auth.getToken()
+      if (!token) {
+        toast({
+          title: "Erreur",
+          description: "Vous devez être connecté",
+          variant: "destructive",
+        })
+        setIsChangingPassword(false)
+        return
+      }
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/users/me/password`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           current_password: currentPassword,
           new_password: newPassword,

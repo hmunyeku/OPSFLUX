@@ -340,7 +340,8 @@ export function PreferencesTab() {
               {category}
             </AccordionTrigger>
             <AccordionContent>
-              <div className="rounded-md border">
+              {/* Vue desktop - Tableau */}
+              <div className="hidden md:block rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -380,6 +381,42 @@ export function PreferencesTab() {
                     })}
                   </TableBody>
                 </Table>
+              </div>
+
+              {/* Vue mobile - Cards */}
+              <div className="md:hidden space-y-3">
+                {items.map((pref) => {
+                  const isRecentlyModified = recentlyModified.has(pref.key)
+                  const currentValue = preferences[pref.key]
+
+                  return (
+                    <div
+                      key={pref.key}
+                      className={`rounded-lg border p-4 space-y-3 ${
+                        isRecentlyModified ? "bg-green-50 dark:bg-green-950/10 border-green-200 dark:border-green-900" : ""
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="space-y-1 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-medium text-sm">{pref.label}</h4>
+                            {isRecentlyModified && (
+                              <Badge variant="outline" className="text-green-600 border-green-600 dark:text-green-400 dark:border-green-400 text-xs">
+                                Modifié
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {pref.description}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="pt-2">
+                        {pref.renderValue(currentValue, (value) => handleImmediateChange(pref.key, value))}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </AccordionContent>
           </AccordionItem>

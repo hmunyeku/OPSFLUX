@@ -43,7 +43,14 @@
       "Bash(tree:*)",
       "Bash(find:*)",
       "Bash(ls:*)",
-      "Bash(timeout 20 docker logs perenco-opsflux-gwxapr-backend-1 --tail 5 --follow)"
+      "Bash(timeout 20 docker logs perenco-opsflux-gwxapr-backend-1 --tail 5 --follow)",
+      "Bash(timeout 20 docker logs perenco-opsflux-gwxapr-backend-1 --tail 10 --follow)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEwNzYzOTAsInN1YiI6ImVjZDUwNDU3LTgyYjMtNDgzNi1hMDU2LTNhYTE0MzUwNjE3MSJ9.jwlDLEOHgrZGlZIs8ckCATCc8z1hbI4suCXbClbABXk\")",
+      "Bash(docker cp:*)",
+      "Bash(timeout 20 docker logs perenco-opsflux-gwxapr-backend-1 --tail 30 --follow)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEwNzczMjEsInN1YiI6ImVjZDUwNDU3LTgyYjMtNDgzNi1hMDU2LTNhYTE0MzUwNjE3MSJ9.DvUfUm92XOnPwyuKBvYKYiDPzgXHpWo5jm_5kozifws\")",
+      "Bash(npm run build:*)",
+      "Bash(git diff:*)"
     ],
     "deny": [],
     "ask": []

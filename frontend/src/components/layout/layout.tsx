@@ -32,11 +32,13 @@ export function Layout({ children }: LayoutProps) {
       <main
         className={cn(
           "min-h-[calc(100vh-4rem)] transition-all duration-300",
-          "md:ml-60",
-          "pt-4 px-4 pb-8"
+          "md:ml-64",
+          "p-6"
         )}
       >
-        {children}
+        <div className="mx-auto max-w-7xl">
+          {children}
+        </div>
       </main>
     </div>
   )

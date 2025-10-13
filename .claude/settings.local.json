@@ -21,7 +21,9 @@
       "Bash(curl:*)",
       "Bash(git log:*)",
       "Bash(source .env)",
-      "Bash(git remote set-url:*)"
+      "Bash(git remote set-url:*)",
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(npm run build)"
     ],
     "deny": [],
     "ask": []

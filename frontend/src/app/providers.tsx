@@ -5,6 +5,7 @@ import SearchProvider from "@/components/search-provider"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/components/auth-provider"
 import { ThemeColorInitializer } from "@/components/theme-color-initializer"
+import { LanguageSync } from "@/components/language-sync"
 import { PreferencesProvider } from "@/contexts/preferences-context"
 import { NotificationsProvider } from "@/contexts/notifications-context"
 
@@ -37,6 +38,7 @@ export function Providers({ children }: Props) {
         <AuthProvider>
           <NotificationsProvider>
             <ThemeColorInitializer />
+            <LanguageSync />
             <SearchProvider value={{ open, setOpen }}>{children}</SearchProvider>
           </NotificationsProvider>
         </AuthProvider>

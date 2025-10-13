@@ -1,15 +1,10 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { z } from "zod"
-import { format } from "date-fns"
 import { useForm } from "react-hook-form"
-import { IconCalendarMonth } from "@tabler/icons-react"
 import { zodResolver } from "@hookform/resolvers/zod"
-import Link from "next/link"
-import { nofitySubmittedValues } from "@/lib/notify-submitted-values"
-import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
 import {
   Form,
   FormControl,
@@ -20,172 +15,166 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { ProfileAvatar } from "@/components/profile-avatar"
+import { useAuth } from "@/hooks/use-auth"
+import { api, UserUpdate } from "@/lib/api"
+import { auth } from "@/lib/auth"
+import { useToast } from "@/hooks/use-toast"
 
 const accountFormSchema = z.object({
-  username: z
+  full_name: z
     .string()
     .min(2, {
-      message: "Le nom d'utilisateur doit contenir au moins 2 caractères.",
+      message: "Le nom complet doit contenir au moins 2 caractères.",
     })
-    .max(30, {
-      message: "Le nom d'utilisateur ne doit pas dépasser 30 caractères.",
+    .max(255, {
+      message: "Le nom complet ne doit pas dépasser 255 caractères.",
     }),
   email: z
     .string({
-      required_error: "Veuillez sélectionner un email à afficher.",
+      required_error: "L'email est requis.",
     })
     .email("Email invalide."),
-  name: z
-    .string()
-    .min(2, {
-      message: "Le nom doit contenir au moins 2 caractères.",
-    })
-    .max(30, {
-      message: "Le nom ne doit pas dépasser 30 caractères.",
-    }),
-  dob: z.date({
-    required_error: "Une date de naissance est requise.",
-  }),
+  avatar_url: z.string().nullable().optional(),
 })
 
 type AccountFormValues = z.infer<typeof accountFormSchema>
 
-// Ces données proviennent normalement de votre base de données ou API
-const defaultValues: Partial<AccountFormValues> = {
-  name: "Votre nom",
-  dob: new Date("2023-01-23"),
-}
-
 export function AccountForm() {
+  const { user, isLoading } = useAuth()
+  const { toast } = useToast()
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
   const form = useForm<AccountFormValues>({
     resolver: zodResolver(accountFormSchema),
-    defaultValues,
+    defaultValues: {
+      full_name: "",
+      email: "",
+      avatar_url: null,
+    },
   })
 
-  function onSubmit(data: AccountFormValues) {
-    nofitySubmittedValues(data)
+  // Load user data when available
+  useEffect(() => {
+    if (user) {
+      form.reset({
+        full_name: user.full_name || "",
+        email: user.email || "",
+        avatar_url: user.avatar_url || null,
+      })
+    }
+  }, [user, form])
+
+  async function onSubmit(data: AccountFormValues) {
+    setIsSubmitting(true)
+    try {
+      const token = auth.getToken()
+      if (!token) {
+        toast({
+          title: "Erreur",
+          description: "Vous devez être connecté pour mettre à jour votre profil",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const updateData: UserUpdate = {
+        full_name: data.full_name,
+        email: data.email,
+        avatar_url: data.avatar_url,
+      }
+
+      await api.updateMe(token, updateData)
+
+      toast({
+        title: "Profil mis à jour",
+        description: "Vos informations ont été mises à jour avec succès.",
+      })
+
+      // Reload the page to refresh user data
+      window.location.reload()
+    } catch (error: unknown) {
+      toast({
+        title: "Erreur",
+        description: error instanceof Error ? error.message : "Une erreur s'est produite lors de la mise à jour du profil",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  if (isLoading) {
+    return <div className="space-y-4">Chargement...</div>
   }
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+        {/* Avatar */}
         <FormField
           control={form.control}
-          name="name"
+          name="avatar_url"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Nom</FormLabel>
+              <FormLabel>Photo de profil</FormLabel>
               <FormControl>
-                <Input placeholder="Votre nom" {...field} />
+                <ProfileAvatar
+                  currentAvatarUrl={field.value}
+                  fullName={user?.full_name}
+                  email={user?.email}
+                  onAvatarChange={field.onChange}
+                  size="xl"
+                  editable={true}
+                />
               </FormControl>
               <FormDescription>
-                C&apos;est le nom qui sera affiché sur votre profil et dans les
-                emails.
+                Choisissez une photo de profil. Elle sera visible par les autres utilisateurs.
               </FormDescription>
               <FormMessage />
             </FormItem>
           )}
         />
+
+        {/* Full Name */}
         <FormField
           control={form.control}
-          name="username"
+          name="full_name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Nom d&apos;utilisateur</FormLabel>
+              <FormLabel>Nom complet</FormLabel>
               <FormControl>
-                <Input placeholder="utilisateur" {...field} />
+                <Input placeholder="Jean Dupont" {...field} />
               </FormControl>
               <FormDescription>
-                C&apos;est votre nom d&apos;affichage public. Il peut s&apos;agir de votre vrai nom ou d&apos;un
-                pseudonyme. Vous ne pouvez le modifier qu&apos;une fois tous les 30 jours.
+                C&apos;est le nom qui sera affiché sur votre profil et dans les emails.
               </FormDescription>
               <FormMessage />
             </FormItem>
           )}
         />
+
+        {/* Email */}
         <FormField
           control={form.control}
           name="email"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Email</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner un email vérifié à afficher" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="m@example.com">m@example.com</SelectItem>
-                  <SelectItem value="m@google.com">m@google.com</SelectItem>
-                  <SelectItem value="m@support.com">m@support.com</SelectItem>
-                </SelectContent>
-              </Select>
+              <FormControl>
+                <Input type="email" placeholder="jean.dupont@example.com" {...field} />
+              </FormControl>
               <FormDescription>
-                Vous pouvez gérer vos adresses email vérifiées dans vos{" "}
-                <Link href="/">paramètres email</Link>.
+                Votre adresse email principale pour la connexion et les notifications.
               </FormDescription>
               <FormMessage />
             </FormItem>
           )}
         />
-        <FormField
-          control={form.control}
-          name="dob"
-          render={({ field }) => (
-            <FormItem className="flex flex-col">
-              <FormLabel>Date de naissance</FormLabel>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <FormControl>
-                    <Button
-                      variant={"outline"}
-                      className={cn(
-                        "w-60 pl-3 text-left font-normal",
-                        !field.value && "text-muted-foreground"
-                      )}
-                    >
-                      {field.value ? (
-                        format(field.value, "d MMM yyyy")
-                      ) : (
-                        <span>Choisir une date</span>
-                      )}
-                      <IconCalendarMonth className="ml-auto h-4 w-4 opacity-50" />
-                    </Button>
-                  </FormControl>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={field.value}
-                    onSelect={field.onChange}
-                    disabled={(date: Date) =>
-                      date > new Date() || date < new Date("1900-01-01")
-                    }
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-              <FormDescription>
-                Votre date de naissance est utilisée pour calculer votre âge.
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <Button type="submit">Mettre à jour le compte</Button>
+
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? "Mise à jour..." : "Mettre à jour le profil"}
+        </Button>
       </form>
     </Form>
   )

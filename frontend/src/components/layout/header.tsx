@@ -2,8 +2,12 @@ import { cn } from "@/lib/utils"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Search } from "@/components/search"
-import { ThemeSwitch } from "@/components/theme-switch"
-import { ThemeColorSwitcher } from "@/components/theme-color-switcher"
+import { BookmarksDropdown } from "@/components/header/bookmarks-dropdown"
+import { NotificationsPanel } from "@/components/header/notifications-panel"
+import { CalendarButton } from "@/components/header/calendar-button"
+import { LanguageSwitcher } from "@/components/header/language-switcher"
+import { AiChatButton } from "@/components/header/ai-chat-button"
+import { UserMenu } from "@/components/header/user-menu"
 
 export function Header() {
   return (
@@ -15,11 +19,17 @@ export function Header() {
     >
       <SidebarTrigger className="-ml-1" />
       <Separator orientation="vertical" className="mr-2 h-4" />
-      <div className="flex w-full justify-between">
+      <div className="flex w-full justify-between items-center">
         <Search />
-        <div className="flex items-center gap-2">
-          <ThemeColorSwitcher />
-          <ThemeSwitch />
+        <div className="flex items-center gap-1">
+          <BookmarksDropdown />
+          <NotificationsPanel />
+          <CalendarButton />
+          <Separator orientation="vertical" className="mx-1 h-6" />
+          <LanguageSwitcher />
+          <AiChatButton />
+          <Separator orientation="vertical" className="mx-1 h-6" />
+          <UserMenu />
         </div>
       </div>
     </header>

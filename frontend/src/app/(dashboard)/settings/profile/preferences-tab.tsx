@@ -97,6 +97,17 @@ export function PreferencesTab() {
     fetchTwoFactorConfig()
   }, [])
 
+  // Synchroniser l'état de la sidebar avec la préférence au chargement
+  useEffect(() => {
+    // Appliquer la préférence sidebar au chargement initial
+    if (preferences.sidebarCollapsed !== undefined) {
+      // sidebarCollapsed = true signifie que la sidebar doit être fermée (collapsed)
+      // donc open = !sidebarCollapsed
+      setOpen(!preferences.sidebarCollapsed)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Seulement au montage initial
+
   // Nettoyer les tags "Modifié" après 5 secondes
   useEffect(() => {
     const interval = setInterval(() => {

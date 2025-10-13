@@ -9,7 +9,8 @@ interface Props {
 
 export default async function DashboardLayout({ children }: Props) {
   const cookieStore = await cookies()
-  const defaultClose = cookieStore.get("sidebar:state")?.value === "false"
+  // Le cookie utilisé par SidebarProvider est "sidebar_state", pas "sidebar:state"
+  const defaultClose = cookieStore.get("sidebar_state")?.value === "false"
   return (
     <div className="border-grid flex flex-1 flex-col">
       <SidebarProvider defaultOpen={!defaultClose}>

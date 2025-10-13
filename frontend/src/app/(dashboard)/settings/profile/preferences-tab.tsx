@@ -1,11 +1,10 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect, useCallback } from "react"
 import { usePreferencesContext } from "@/contexts/preferences-context"
-import { Button } from "@/components/ui/button"
 import { useThemeColors } from "@/hooks/use-theme-colors"
 import { useTheme } from "next-themes"
-import { themes } from "@/config/themes"
+import { themes, type ThemeName } from "@/config/themes"
 import {
   Table,
   TableBody,
@@ -23,9 +22,15 @@ import {
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { IconSearch, IconDeviceFloppy } from "@tabler/icons-react"
+import { IconSearch } from "@tabler/icons-react"
 import { type UserPreferences } from "@/types/preferences"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
+import { Switch } from "@/components/ui/switch"
 
 type PreferenceValue = string | number | boolean
 
@@ -38,38 +43,49 @@ interface PreferenceItem {
 }
 
 export function PreferencesTab() {
-  const { preferences, updatePreferences, resetPreferences } = usePreferencesContext()
+  const { preferences, updatePreferences } = usePreferencesContext()
   const { changeTheme } = useThemeColors()
   const { setTheme } = useTheme()
 
-  const [tempPreferences, setTempPreferences] = useState<UserPreferences>(preferences)
-  const [modifiedKeys, setModifiedKeys] = useState<Set<keyof UserPreferences>>(new Set())
+  const [recentlyModified, setRecentlyModified] = useState<Map<keyof UserPreferences, number>>(new Map())
   const [searchQuery, setSearchQuery] = useState("")
 
-  const handleTempChange = (key: keyof UserPreferences, value: PreferenceValue) => {
-    setTempPreferences(prev => ({ ...prev, [key]: value }))
-    setModifiedKeys(prev => new Set(prev).add(key))
-  }
+  // Nettoyer les tags "Modifié" après 3 minutes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now()
+      const updated = new Map(recentlyModified)
+      let hasChanges = false
 
-  const handleSave = () => {
-    // Apply theme changes
-    if (modifiedKeys.has('colorTheme')) {
-      changeTheme(tempPreferences.colorTheme)
+      updated.forEach((timestamp, key) => {
+        if (now - timestamp > 180000) { // 3 minutes = 180000ms
+          updated.delete(key)
+          hasChanges = true
+        }
+      })
+
+      if (hasChanges) {
+        setRecentlyModified(updated)
+      }
+    }, 10000) // Vérifier toutes les 10 secondes
+
+    return () => clearInterval(interval)
+  }, [recentlyModified])
+
+  const handleImmediateChange = useCallback((key: keyof UserPreferences, value: PreferenceValue) => {
+    // Sauvegarder immédiatement
+    updatePreferences({ [key]: value })
+
+    // Marquer comme récemment modifié
+    setRecentlyModified(prev => new Map(prev).set(key, Date.now()))
+
+    // Appliquer les changements de thème
+    if (key === 'colorTheme') {
+      changeTheme(value as ThemeName)
+    } else if (key === 'darkMode') {
+      setTheme(value as string)
     }
-    if (modifiedKeys.has('darkMode')) {
-      setTheme(tempPreferences.darkMode)
-    }
-
-    // Save all changes
-    updatePreferences(tempPreferences)
-    setModifiedKeys(new Set())
-  }
-
-  const handleReset = () => {
-    resetPreferences()
-    setTempPreferences(preferences)
-    setModifiedKeys(new Set())
-  }
+  }, [updatePreferences, changeTheme, setTheme])
 
   const preferencesConfig: PreferenceItem[] = [
     // Apparence
@@ -118,16 +134,13 @@ export function PreferencesTab() {
       category: "Apparence",
       renderValue: (value, onChange) => (
         <div className="flex items-center gap-3">
-          <Badge variant={(value as boolean) ? "default" : "secondary"} className="min-w-[80px] justify-center">
+          <Switch
+            checked={value as boolean}
+            onCheckedChange={onChange}
+          />
+          <span className="text-sm text-muted-foreground">
             {(value as boolean) ? "Activé" : "Désactivé"}
-          </Badge>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onChange(!(value as boolean))}
-          >
-            Basculer
-          </Button>
+          </span>
         </div>
       ),
     },
@@ -211,16 +224,13 @@ export function PreferencesTab() {
       category: "Notifications",
       renderValue: (value, onChange) => (
         <div className="flex items-center gap-3">
-          <Badge variant={(value as boolean) ? "default" : "secondary"} className="min-w-[80px] justify-center">
+          <Switch
+            checked={value as boolean}
+            onCheckedChange={onChange}
+          />
+          <span className="text-sm text-muted-foreground">
             {(value as boolean) ? "Activé" : "Désactivé"}
-          </Badge>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onChange(!(value as boolean))}
-          >
-            Basculer
-          </Button>
+          </span>
         </div>
       ),
     },
@@ -231,16 +241,13 @@ export function PreferencesTab() {
       category: "Notifications",
       renderValue: (value, onChange) => (
         <div className="flex items-center gap-3">
-          <Badge variant={(value as boolean) ? "default" : "secondary"} className="min-w-[80px] justify-center">
+          <Switch
+            checked={value as boolean}
+            onCheckedChange={onChange}
+          />
+          <span className="text-sm text-muted-foreground">
             {(value as boolean) ? "Activé" : "Désactivé"}
-          </Badge>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onChange(!(value as boolean))}
-          >
-            Basculer
-          </Button>
+          </span>
         </div>
       ),
     },
@@ -251,16 +258,13 @@ export function PreferencesTab() {
       category: "Notifications",
       renderValue: (value, onChange) => (
         <div className="flex items-center gap-3">
-          <Badge variant={(value as boolean) ? "default" : "secondary"} className="min-w-[80px] justify-center">
+          <Switch
+            checked={value as boolean}
+            onCheckedChange={onChange}
+          />
+          <span className="text-sm text-muted-foreground">
             {(value as boolean) ? "Activé" : "Désactivé"}
-          </Badge>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onChange(!(value as boolean))}
-          >
-            Basculer
-          </Button>
+          </span>
         </div>
       ),
     },
@@ -310,100 +314,79 @@ export function PreferencesTab() {
     return groups
   }, [filteredPreferences])
 
-  const hasChanges = modifiedKeys.size > 0
-
   return (
     <div className="space-y-6">
-      {/* Header with search and actions */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1 max-w-md">
-          <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Rechercher une préférence..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          {hasChanges && (
-            <Badge variant="outline" className="text-orange-500 border-orange-500">
-              {modifiedKeys.size} modification{modifiedKeys.size > 1 ? "s" : ""}
-            </Badge>
-          )}
-          <Button variant="outline" onClick={handleReset} disabled={!hasChanges}>
-            Annuler
-          </Button>
-          <Button onClick={handleSave} disabled={!hasChanges}>
-            <IconDeviceFloppy className="mr-2 h-4 w-4" />
-            Enregistrer
-          </Button>
-        </div>
+      {/* Barre de recherche */}
+      <div className="relative max-w-md">
+        <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Rechercher une préférence..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9"
+        />
       </div>
 
-      {/* Grouped preferences tables */}
-      {Object.entries(groupedPreferences).map(([category, items]) => (
-        <Card key={category}>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">{category}</CardTitle>
-            <CardDescription>
-              {category === "Apparence" && "Personnalisez l'apparence de l'interface"}
-              {category === "Langue & Région" && "Configurez vos préférences linguistiques et de format"}
-              {category === "Notifications" && "Gérez vos préférences de notifications"}
-              {category === "Affichage" && "Configurez les options d'affichage"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[240px]">Préférence</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="w-[320px]">Valeur</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.map((pref) => {
-                    const isModified = modifiedKeys.has(pref.key)
-                    const currentValue = tempPreferences[pref.key]
+      {/* Accordions groupés par catégorie */}
+      <Accordion type="multiple" defaultValue={Object.keys(groupedPreferences)} className="w-full">
+        {Object.entries(groupedPreferences).map(([category, items]) => (
+          <AccordionItem key={category} value={category}>
+            <AccordionTrigger className="text-lg font-semibold">
+              {category}
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[240px]">Préférence</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead className="w-[320px]">Valeur</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {items.map((pref) => {
+                      const isRecentlyModified = recentlyModified.has(pref.key)
+                      const currentValue = preferences[pref.key]
 
-                    return (
-                      <TableRow key={pref.key} className={isModified ? "bg-orange-50 dark:bg-orange-950/20" : ""}>
-                        <TableCell className="font-medium">
-                          <div className="flex items-center gap-2">
-                            {pref.label}
-                            {isModified && (
-                              <Badge variant="outline" className="text-orange-500 border-orange-500 text-xs">
-                                Modifié
-                              </Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground text-sm">
-                          {pref.description}
-                        </TableCell>
-                        <TableCell>
-                          {pref.renderValue(currentValue, (value) => handleTempChange(pref.key, value))}
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+                      return (
+                        <TableRow
+                          key={pref.key}
+                          className={isRecentlyModified ? "bg-green-50 dark:bg-green-950/10" : ""}
+                        >
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              {pref.label}
+                              {isRecentlyModified && (
+                                <Badge variant="outline" className="text-green-600 border-green-600 dark:text-green-400 dark:border-green-400 text-xs">
+                                  Modifié
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-sm">
+                            {pref.description}
+                          </TableCell>
+                          <TableCell>
+                            {pref.renderValue(currentValue, (value) => handleImmediateChange(pref.key, value))}
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        ))}
+      </Accordion>
 
       {filteredPreferences.length === 0 && (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">
-              Aucune préférence ne correspond à votre recherche.
-            </p>
-          </CardContent>
-        </Card>
+        <div className="rounded-lg border border-dashed p-12 text-center">
+          <p className="text-muted-foreground">
+            Aucune préférence ne correspond à votre recherche.
+          </p>
+        </div>
       )}
     </div>
   )

@@ -19,7 +19,9 @@
       "Bash(curl -s -X POST https://api.opsflux.io/api/v1/login/access-token -H \"Content-Type: application/x-www-form-urlencoded\" -d \"username=admin@opsflux.io\" -d \"password=RldgAHG%Jqlrq6T*RjsZq3is\" -c /tmp/cookies.txt)",
       "Read(//tmp/**)",
       "Bash(curl:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(source .env)",
+      "Bash(git remote set-url:*)"
     ],
     "deny": [],
     "ask": []

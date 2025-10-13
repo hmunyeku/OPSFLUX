@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/components/auth-provider"
 import { ThemeColorInitializer } from "@/components/theme-color-initializer"
 import { PreferencesProvider } from "@/contexts/preferences-context"
+import { NotificationsProvider } from "@/contexts/notifications-context"
 
 interface Props {
   children: React.ReactNode
@@ -34,8 +35,10 @@ export function Providers({ children }: Props) {
     >
       <PreferencesProvider>
         <AuthProvider>
-          <ThemeColorInitializer />
-          <SearchProvider value={{ open, setOpen }}>{children}</SearchProvider>
+          <NotificationsProvider>
+            <ThemeColorInitializer />
+            <SearchProvider value={{ open, setOpen }}>{children}</SearchProvider>
+          </NotificationsProvider>
         </AuthProvider>
       </PreferencesProvider>
     </ThemeProvider>

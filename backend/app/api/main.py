@@ -7,6 +7,7 @@ from app.api.routes import (
     groups,
     items,
     login,
+    notifications,
     permissions,
     private,
     roles,
@@ -15,6 +16,7 @@ from app.api.routes import (
     user_permissions,
     users,
     utils,
+    websocket,
 )
 from app.core.config import settings
 
@@ -32,6 +34,8 @@ api_router.include_router(permissions.router)  # RBAC permissions
 api_router.include_router(roles.router)  # RBAC roles
 api_router.include_router(groups.router)  # RBAC groups
 api_router.include_router(user_permissions.router)  # User permissions with sources
+api_router.include_router(notifications.router)  # Real-time notifications
+api_router.include_router(websocket.router)  # WebSocket for notifications
 
 
 if settings.ENVIRONMENT == "local":

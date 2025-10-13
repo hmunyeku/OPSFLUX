@@ -50,7 +50,8 @@
       "Bash(timeout 20 docker logs perenco-opsflux-gwxapr-backend-1 --tail 30 --follow)",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEwNzczMjEsInN1YiI6ImVjZDUwNDU3LTgyYjMtNDgzNi1hMDU2LTNhYTE0MzUwNjE3MSJ9.DvUfUm92XOnPwyuKBvYKYiDPzgXHpWo5jm_5kozifws\")",
       "Bash(npm run build:*)",
-      "Bash(git diff:*)"
+      "Bash(git diff:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEwODc1NzksInN1YiI6ImVjZDUwNDU3LTgyYjMtNDgzNi1hMDU2LTNhYTE0MzUwNjE3MSJ9.kh1uw1OHMBfmNSlOKKRrZjishR029n-vTV8_tlMX784\")"
     ],
     "deny": [],
     "ask": []

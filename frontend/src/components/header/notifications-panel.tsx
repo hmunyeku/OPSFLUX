@@ -13,53 +13,24 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
-import { Bell, Check, CheckCheck, Trash2, X } from "lucide-react"
+import { Bell, Check, CheckCheck, X, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-interface Notification {
-  id: string
-  title: string
-  message: string
-  timestamp: string
-  read: boolean
-  type: "info" | "success" | "warning" | "error"
-}
-
-// Données de démo - à remplacer par un appel API réel
-const mockNotifications: Notification[] = [
-  {
-    id: "1",
-    title: "Mise à jour système",
-    message: "Une nouvelle version est disponible",
-    timestamp: new Date(Date.now() - 3600000).toISOString(),
-    read: false,
-    type: "info"
-  },
-  {
-    id: "2",
-    title: "Tâche complétée",
-    message: "Votre export de données est prêt",
-    timestamp: new Date(Date.now() - 7200000).toISOString(),
-    read: false,
-    type: "success"
-  },
-  {
-    id: "3",
-    title: "Attention requise",
-    message: "Votre abonnement expire dans 7 jours",
-    timestamp: new Date(Date.now() - 86400000).toISOString(),
-    read: true,
-    type: "warning"
-  },
-]
+import { useNotifications } from "@/contexts/notifications-context"
+import { useAuth } from "@/hooks/use-auth"
 
 export function NotificationsPanel() {
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications)
   const [open, setOpen] = useState(false)
+  const { user } = useAuth()
+  const {
+    notifications,
+    unreadCount,
+    isLoading,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+  } = useNotifications()
 
-  const unreadCount = notifications.filter(n => !n.read).length
-
-  const getTypeColor = (type: Notification["type"]) => {
+  const getTypeColor = (type: string) => {
     switch (type) {
       case "info":
         return "bg-blue-500"
@@ -69,6 +40,8 @@ export function NotificationsPanel() {
         return "bg-yellow-500"
       case "error":
         return "bg-red-500"
+      case "system":
+        return "bg-purple-500"
       default:
         return "bg-gray-500"
     }
@@ -89,24 +62,33 @@ export function NotificationsPanel() {
     return date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })
   }
 
-  const markAsRead = (id: string) => {
-    setNotifications(prev =>
-      prev.map(n => n.id === id ? { ...n, read: true } : n)
-    )
+  const handleMarkAsRead = async (id: string) => {
+    try {
+      await markAsRead(id)
+    } catch (_error) {
+      // Error already handled in context
+    }
   }
 
-  const markAllAsRead = () => {
-    setNotifications(prev =>
-      prev.map(n => ({ ...n, read: true }))
-    )
+  const handleMarkAllAsRead = async () => {
+    try {
+      await markAllAsRead()
+    } catch (_error) {
+      // Error already handled in context
+    }
   }
 
-  const deleteNotification = (id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id))
+  const handleDeleteNotification = async (id: string) => {
+    try {
+      await deleteNotification(id)
+    } catch (_error) {
+      // Error already handled in context
+    }
   }
 
-  const clearAll = () => {
-    setNotifications([])
+  // Ne pas afficher le panneau si l'utilisateur n'est pas connecté
+  if (!user) {
+    return null
   }
 
   return (
@@ -136,34 +118,29 @@ export function NotificationsPanel() {
                 }
               </SheetDescription>
             </div>
-            {notifications.length > 0 && (
-              <div className="flex gap-1">
-                {unreadCount > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={markAllAsRead}
-                    title="Tout marquer comme lu"
-                  >
-                    <CheckCheck className="h-4 w-4" />
-                  </Button>
-                )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={clearAll}
-                  title="Tout effacer"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
+            {notifications.length > 0 && unreadCount > 0 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleMarkAllAsRead}
+                title="Tout marquer comme lu"
+              >
+                <CheckCheck className="h-4 w-4" />
+              </Button>
             )}
           </div>
         </SheetHeader>
         <Separator />
         <ScrollArea className="h-[calc(100vh-8rem)]">
           <div className="p-4 space-y-2">
-            {notifications.length === 0 ? (
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Loader2 className="h-8 w-8 text-muted-foreground mb-4 animate-spin" />
+                <p className="text-sm text-muted-foreground">
+                  Chargement des notifications...
+                </p>
+              </div>
+            ) : notifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <Bell className="h-12 w-12 text-muted-foreground mb-4" />
                 <p className="text-sm text-muted-foreground">
@@ -193,7 +170,7 @@ export function NotificationsPanel() {
                             variant="ghost"
                             size="icon"
                             className="h-6 w-6"
-                            onClick={() => markAsRead(notification.id)}
+                            onClick={() => handleMarkAsRead(notification.id)}
                             title="Marquer comme lu"
                           >
                             <Check className="h-3 w-3" />
@@ -205,13 +182,13 @@ export function NotificationsPanel() {
                       </p>
                       <div className="flex items-center justify-between pt-1">
                         <p className="text-xs text-muted-foreground">
-                          {formatTimestamp(notification.timestamp)}
+                          {formatTimestamp(notification.created_at)}
                         </p>
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                          onClick={() => deleteNotification(notification.id)}
+                          onClick={() => handleDeleteNotification(notification.id)}
                           title="Supprimer"
                         >
                           <X className="h-3 w-3" />

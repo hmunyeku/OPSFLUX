@@ -26,54 +26,38 @@ class PermissionSource(str, Enum):
 # ==================== TABLES D'ASSOCIATION ====================
 
 # Table d'association User <-> Role (many-to-many)
-user_role_link = Table(
-    "user_role_link",
-    SQLModel.metadata,
-    Column("user_id", UUID(as_uuid=True), primary_key=True),
-    Column("role_id", UUID(as_uuid=True), primary_key=True),
-    Column("created_at", DateTime, nullable=False, default=datetime.utcnow),
-    Column("created_by_id", UUID(as_uuid=True), nullable=True),
-)
+class UserRoleLink(SQLModel, table=True):
+    __tablename__ = "user_role_link"
+    user_id: uuid.UUID = Field(foreign_key="user.id", primary_key=True)
+    role_id: uuid.UUID = Field(foreign_key="role.id", primary_key=True)
+
 
 # Table d'association User <-> Permission (many-to-many) - Permissions personnelles
-user_permission_link = Table(
-    "user_permission_link",
-    SQLModel.metadata,
-    Column("user_id", UUID(as_uuid=True), primary_key=True),
-    Column("permission_id", UUID(as_uuid=True), primary_key=True),
-    Column("created_at", DateTime, nullable=False, default=datetime.utcnow),
-    Column("created_by_id", UUID(as_uuid=True), nullable=True),
-)
+class UserPermissionLink(SQLModel, table=True):
+    __tablename__ = "user_permission_link"
+    user_id: uuid.UUID = Field(foreign_key="user.id", primary_key=True)
+    permission_id: uuid.UUID = Field(foreign_key="permission.id", primary_key=True)
+
 
 # Table d'association Role <-> Permission (many-to-many)
-role_permission_link = Table(
-    "role_permission_link",
-    SQLModel.metadata,
-    Column("role_id", UUID(as_uuid=True), primary_key=True),
-    Column("permission_id", UUID(as_uuid=True), primary_key=True),
-    Column("created_at", DateTime, nullable=False, default=datetime.utcnow),
-    Column("created_by_id", UUID(as_uuid=True), nullable=True),
-)
+class RolePermissionLink(SQLModel, table=True):
+    __tablename__ = "role_permission_link"
+    role_id: uuid.UUID = Field(foreign_key="role.id", primary_key=True)
+    permission_id: uuid.UUID = Field(foreign_key="permission.id", primary_key=True)
+
 
 # Table d'association Group <-> Permission (many-to-many)
-group_permission_link = Table(
-    "group_permission_link",
-    SQLModel.metadata,
-    Column("group_id", UUID(as_uuid=True), primary_key=True),
-    Column("permission_id", UUID(as_uuid=True), primary_key=True),
-    Column("created_at", DateTime, nullable=False, default=datetime.utcnow),
-    Column("created_by_id", UUID(as_uuid=True), nullable=True),
-)
+class GroupPermissionLink(SQLModel, table=True):
+    __tablename__ = "group_permission_link"
+    group_id: uuid.UUID = Field(foreign_key="group.id", primary_key=True)
+    permission_id: uuid.UUID = Field(foreign_key="permission.id", primary_key=True)
+
 
 # Table d'association User <-> Group (many-to-many)
-user_group_link = Table(
-    "user_group_link",
-    SQLModel.metadata,
-    Column("user_id", UUID(as_uuid=True), primary_key=True),
-    Column("group_id", UUID(as_uuid=True), primary_key=True),
-    Column("created_at", DateTime, nullable=False, default=datetime.utcnow),
-    Column("created_by_id", UUID(as_uuid=True), nullable=True),
-)
+class UserGroupLink(SQLModel, table=True):
+    __tablename__ = "user_group_link"
+    user_id: uuid.UUID = Field(foreign_key="user.id", primary_key=True)
+    group_id: uuid.UUID = Field(foreign_key="group.id", primary_key=True)
 
 
 # ==================== PERMISSION ====================
@@ -116,8 +100,8 @@ class Permission(AbstractBaseModel, PermissionBase, table=True):
     )
 
     # Relations
-    roles: List["Role"] = Relationship(back_populates="permissions", link_model=role_permission_link)
-    groups: List["Group"] = Relationship(back_populates="permissions", link_model=group_permission_link)
+    roles: List["Role"] = Relationship(back_populates="permissions", link_model=RolePermissionLink)
+    groups: List["Group"] = Relationship(back_populates="permissions", link_model=GroupPermissionLink)
 
 
 class PermissionPublic(PermissionBase):
@@ -172,7 +156,7 @@ class Role(AbstractBaseModel, RoleBase, table=True):
     )
 
     # Relations
-    permissions: List[Permission] = Relationship(back_populates="roles", link_model=role_permission_link)
+    permissions: List[Permission] = Relationship(back_populates="roles", link_model=RolePermissionLink)
 
 
 class RolePublic(RoleBase):
@@ -226,7 +210,7 @@ class Group(AbstractBaseModel, GroupBase, table=True):
     )
 
     # Relations
-    permissions: List[Permission] = Relationship(back_populates="groups", link_model=group_permission_link)
+    permissions: List[Permission] = Relationship(back_populates="groups", link_model=GroupPermissionLink)
     parent: Optional["Group"] = Relationship(
         sa_relationship_kwargs={"remote_side": "Group.id", "foreign_keys": "[Group.parent_id]"}
     )

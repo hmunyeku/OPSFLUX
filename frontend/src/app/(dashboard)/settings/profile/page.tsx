@@ -8,10 +8,10 @@ import { InformationsTab } from "./informations-tab"
 
 export default function SettingsProfilePage() {
   return (
-    <ContentSection title="Profile" desc="Update your profile details and preferences." className="w-full lg:max-w-full">
+    <ContentSection title="Profil" desc="Mettez à jour les détails de votre profil et vos préférences." className="w-full lg:max-w-full">
       <Tabs defaultValue="profile" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="profile">Profile</TabsTrigger>
+          <TabsTrigger value="profile">Profil</TabsTrigger>
           <TabsTrigger value="preferences">Préférences</TabsTrigger>
           <TabsTrigger value="informations">Informations</TabsTrigger>
         </TabsList>

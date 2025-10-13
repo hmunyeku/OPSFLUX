@@ -4,8 +4,8 @@ import GeneralForm from "./components/general-form"
 export default function SettingsGeneralPage() {
   return (
     <ContentSection
-      title="General"
-      desc="Settings and options for your application."
+      title="Général"
+      desc="Paramètres et options pour votre application."
       className="w-full lg:max-w-full"
     >
       <GeneralForm />

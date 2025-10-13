@@ -99,22 +99,21 @@ export default function GeneralForm() {
       <div className="flex w-full flex-col items-start justify-between gap-4 rounded-lg border p-4 md:flex-row md:items-center">
         <div className="flex flex-col items-start text-sm">
           <p className="font-bold tracking-wide">
-            Your application is currently on the free plan
+            Votre application est actuellement sur le plan gratuit
           </p>
           <p className="text-muted-foreground font-medium">
-            Paid plans offer higher usage limits, additional branches, and much
-            more. Learn more{" "}
+            Les plans payants offrent des limites d&apos;utilisation plus élevées, des branches supplémentaires et bien plus encore. En savoir plus{" "}
             <Link href="" className="underline">
-              here
+              ici
             </Link>
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="secondary">
             <IconMessage2Question />
-            Chat to us
+            Nous contacter
           </Button>
-          <Button variant="outline">Upgrade</Button>
+          <Button variant="outline">Mettre à niveau</Button>
         </div>
       </div>
 

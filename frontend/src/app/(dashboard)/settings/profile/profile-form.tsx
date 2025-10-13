@@ -37,34 +37,34 @@ const accountFormSchema = z.object({
   username: z
     .string()
     .min(2, {
-      message: "Username must be at least 2 characters.",
+      message: "Le nom d'utilisateur doit contenir au moins 2 caractères.",
     })
     .max(30, {
-      message: "Username must not be longer than 30 characters.",
+      message: "Le nom d'utilisateur ne doit pas dépasser 30 caractères.",
     }),
   email: z
     .string({
-      required_error: "Please select an email to display.",
+      required_error: "Veuillez sélectionner un email à afficher.",
     })
-    .email(),
+    .email("Email invalide."),
   name: z
     .string()
     .min(2, {
-      message: "Name must be at least 2 characters.",
+      message: "Le nom doit contenir au moins 2 caractères.",
     })
     .max(30, {
-      message: "Name must not be longer than 30 characters.",
+      message: "Le nom ne doit pas dépasser 30 caractères.",
     }),
   dob: z.date({
-    required_error: "A date of birth is required.",
+    required_error: "Une date de naissance est requise.",
   }),
 })
 
 type AccountFormValues = z.infer<typeof accountFormSchema>
 
-// This can come from your database or API.
+// Ces données proviennent normalement de votre base de données ou API
 const defaultValues: Partial<AccountFormValues> = {
-  name: "Your name",
+  name: "Votre nom",
   dob: new Date("2023-01-23"),
 }
 
@@ -86,12 +86,12 @@ export function AccountForm() {
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Name</FormLabel>
+              <FormLabel>Nom</FormLabel>
               <FormControl>
-                <Input placeholder="Your name" {...field} />
+                <Input placeholder="Votre nom" {...field} />
               </FormControl>
               <FormDescription>
-                This is the name that will be displayed on your profile and in
+                C&apos;est le nom qui sera affiché sur votre profil et dans les
                 emails.
               </FormDescription>
               <FormMessage />
@@ -103,13 +103,13 @@ export function AccountForm() {
           name="username"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Username</FormLabel>
+              <FormLabel>Nom d&apos;utilisateur</FormLabel>
               <FormControl>
-                <Input placeholder="shadcn" {...field} />
+                <Input placeholder="utilisateur" {...field} />
               </FormControl>
               <FormDescription>
-                This is your public display name. It can be your real name or a
-                pseudonym. You can only change this once every 30 days.
+                C&apos;est votre nom d&apos;affichage public. Il peut s&apos;agir de votre vrai nom ou d&apos;un
+                pseudonyme. Vous ne pouvez le modifier qu&apos;une fois tous les 30 jours.
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -124,7 +124,7 @@ export function AccountForm() {
               <Select onValueChange={field.onChange} defaultValue={field.value}>
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a verified email to display" />
+                    <SelectValue placeholder="Sélectionner un email vérifié à afficher" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -134,8 +134,8 @@ export function AccountForm() {
                 </SelectContent>
               </Select>
               <FormDescription>
-                You can manage verified email addresses in your{" "}
-                <Link href="/">email settings</Link>.
+                Vous pouvez gérer vos adresses email vérifiées dans vos{" "}
+                <Link href="/">paramètres email</Link>.
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -146,7 +146,7 @@ export function AccountForm() {
           name="dob"
           render={({ field }) => (
             <FormItem className="flex flex-col">
-              <FormLabel>Date of birth</FormLabel>
+              <FormLabel>Date de naissance</FormLabel>
               <Popover>
                 <PopoverTrigger asChild>
                   <FormControl>
@@ -158,9 +158,9 @@ export function AccountForm() {
                       )}
                     >
                       {field.value ? (
-                        format(field.value, "MMM d, yyyy")
+                        format(field.value, "d MMM yyyy")
                       ) : (
-                        <span>Pick a date</span>
+                        <span>Choisir une date</span>
                       )}
                       <IconCalendarMonth className="ml-auto h-4 w-4 opacity-50" />
                     </Button>
@@ -179,13 +179,13 @@ export function AccountForm() {
                 </PopoverContent>
               </Popover>
               <FormDescription>
-                Your date of birth is used to calculate your age.
+                Votre date de naissance est utilisée pour calculer votre âge.
               </FormDescription>
               <FormMessage />
             </FormItem>
           )}
         />
-        <Button type="submit">Update account</Button>
+        <Button type="submit">Mettre à jour le compte</Button>
       </form>
     </Form>
   )

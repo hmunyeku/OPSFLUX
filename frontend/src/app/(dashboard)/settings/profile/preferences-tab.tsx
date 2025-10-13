@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useCallback } from "react"
 import { usePreferencesContext } from "@/contexts/preferences-context"
 import { useThemeColors } from "@/hooks/use-theme-colors"
 import { useTheme } from "next-themes"
+import { useSidebar } from "@/components/ui/sidebar"
 import { themes, type ThemeName } from "@/config/themes"
 import {
   Table,
@@ -46,11 +47,12 @@ export function PreferencesTab() {
   const { preferences, updatePreferences } = usePreferencesContext()
   const { changeTheme } = useThemeColors()
   const { setTheme } = useTheme()
+  const { setOpen } = useSidebar()
 
   const [recentlyModified, setRecentlyModified] = useState<Map<keyof UserPreferences, number>>(new Map())
   const [searchQuery, setSearchQuery] = useState("")
 
-  // Nettoyer les tags "Modifié" après 3 minutes
+  // Nettoyer les tags "Modifié" après 5 secondes
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now()
@@ -58,7 +60,7 @@ export function PreferencesTab() {
       let hasChanges = false
 
       updated.forEach((timestamp, key) => {
-        if (now - timestamp > 180000) { // 3 minutes = 180000ms
+        if (now - timestamp > 5000) { // 5 secondes = 5000ms
           updated.delete(key)
           hasChanges = true
         }
@@ -67,7 +69,7 @@ export function PreferencesTab() {
       if (hasChanges) {
         setRecentlyModified(updated)
       }
-    }, 10000) // Vérifier toutes les 10 secondes
+    }, 1000) // Vérifier toutes les secondes
 
     return () => clearInterval(interval)
   }, [recentlyModified])
@@ -84,8 +86,11 @@ export function PreferencesTab() {
       changeTheme(value as ThemeName)
     } else if (key === 'darkMode') {
       setTheme(value as string)
+    } else if (key === 'sidebarCollapsed') {
+      // Synchroniser avec l'état de la sidebar (inversé car collapsed = !open)
+      setOpen(!(value as boolean))
     }
-  }, [updatePreferences, changeTheme, setTheme])
+  }, [updatePreferences, changeTheme, setTheme, setOpen])
 
   const preferencesConfig: PreferenceItem[] = [
     // Apparence

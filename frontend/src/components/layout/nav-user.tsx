@@ -1,3 +1,5 @@
+"use client"
+
 import {
   BadgeCheck,
   Bell,
@@ -5,7 +7,7 @@ import {
   CreditCard,
   LogOut,
 } from "lucide-react"
-import { Link } from "@tanstack/react-router"
+import Link from "next/link"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -75,19 +77,19 @@ export function NavUser({ user }: Props) {
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem asChild>
-                <Link to="/settings/profile">
+                <Link href="/settings/profile">
                   <BadgeCheck />
                   Profile
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link to="/settings/billing">
+                <Link href="/settings/billing">
                   <CreditCard />
                   Billing
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link to="/settings/notifications">
+                <Link href="/settings/notifications">
                   <Bell />
                   Notifications
                 </Link>

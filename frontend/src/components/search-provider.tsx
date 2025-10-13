@@ -1,4 +1,6 @@
-import { createContext, useContext, useEffect, useState } from "react"
+"use client"
+
+import { createContext, useContext } from "react"
 import { CommandMenu } from "./command-menu"
 
 interface SearchContextType {
@@ -10,24 +12,12 @@ const SearchContext = createContext<SearchContextType | null>(null)
 
 interface Props {
   children: React.ReactNode
+  value: SearchContextType
 }
 
-export function SearchProvider({ children }: Props) {
-  const [open, setOpen] = useState(false)
-
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault()
-        setOpen((open) => !open)
-      }
-    }
-    document.addEventListener("keydown", down)
-    return () => document.removeEventListener("keydown", down)
-  }, [])
-
+export default function SearchProvider({ children, value }: Props) {
   return (
-    <SearchContext.Provider value={{ open, setOpen }}>
+    <SearchContext.Provider value={value}>
       {children}
       <CommandMenu />
     </SearchContext.Provider>
@@ -38,7 +28,7 @@ export const useSearch = () => {
   const searchContext = useContext(SearchContext)
 
   if (!searchContext) {
-    throw new Error("useSearch has to be used within <SearchProvider>")
+    throw new Error("useSearch has to be used within <SearchContext.Provider>")
   }
 
   return searchContext

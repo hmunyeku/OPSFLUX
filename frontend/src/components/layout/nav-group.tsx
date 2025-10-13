@@ -1,6 +1,9 @@
+"use client"
+
 import { ReactNode } from "react"
 import { ChevronRight } from "lucide-react"
-import { Link, useLocation } from "@tanstack/react-router"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
 import {
   Collapsible,
   CollapsibleContent,
@@ -22,7 +25,7 @@ import { NavItem, type NavGroup } from "./types"
 
 export function NavGroup({ title, items }: NavGroup) {
   const { setOpenMobile } = useSidebar()
-  const { pathname } = useLocation()
+  const pathname = usePathname()
   return (
     <SidebarGroup>
       <SidebarGroupLabel>{title}</SidebarGroupLabel>
@@ -36,7 +39,7 @@ export function NavGroup({ title, items }: NavGroup) {
                   isActive={checkIsActive(pathname, item, true)}
                   tooltip={item.title}
                 >
-                  <Link to={item.url} onClick={() => setOpenMobile(false)}>
+                  <Link href={item.url} onClick={() => setOpenMobile(false)}>
                     {item.icon && <item.icon />}
                     <span>{item.title}</span>
                     {item.badge && <NavBadge>{item.badge}</NavBadge>}
@@ -70,7 +73,7 @@ export function NavGroup({ title, items }: NavGroup) {
                           isActive={checkIsActive(pathname, subItem)}
                         >
                           <Link
-                            to={subItem.url}
+                            href={subItem.url}
                             onClick={() => setOpenMobile(false)}
                           >
                             {subItem.icon && <subItem.icon />}

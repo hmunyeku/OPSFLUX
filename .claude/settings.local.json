@@ -42,7 +42,8 @@
       "Bash(unzip:*)",
       "Bash(tree:*)",
       "Bash(find:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(timeout 20 docker logs perenco-opsflux-gwxapr-backend-1 --tail 5 --follow)"
     ],
     "deny": [],
     "ask": []

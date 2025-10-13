@@ -1,10 +1,11 @@
 "use client"
 
+import { useState, useMemo } from "react"
 import { usePreferencesContext } from "@/contexts/preferences-context"
 import { Button } from "@/components/ui/button"
 import { useThemeColors } from "@/hooks/use-theme-colors"
 import { useTheme } from "next-themes"
-import { themes, type ThemeName } from "@/config/themes"
+import { themes } from "@/config/themes"
 import {
   Table,
   TableBody,
@@ -21,29 +22,65 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { IconSearch, IconDeviceFloppy } from "@tabler/icons-react"
+import { type UserPreferences } from "@/types/preferences"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+
+type PreferenceValue = string | number | boolean
+
+interface PreferenceItem {
+  key: keyof UserPreferences
+  label: string
+  description: string
+  category: string
+  renderValue: (value: PreferenceValue, onChange: (value: PreferenceValue) => void) => React.ReactNode
+}
 
 export function PreferencesTab() {
   const { preferences, updatePreferences, resetPreferences } = usePreferencesContext()
   const { changeTheme } = useThemeColors()
   const { setTheme } = useTheme()
 
-  const handleThemeChange = (theme: string) => {
-    changeTheme(theme as ThemeName)
-    updatePreferences({ colorTheme: theme as ThemeName })
+  const [tempPreferences, setTempPreferences] = useState<UserPreferences>(preferences)
+  const [modifiedKeys, setModifiedKeys] = useState<Set<keyof UserPreferences>>(new Set())
+  const [searchQuery, setSearchQuery] = useState("")
+
+  const handleTempChange = (key: keyof UserPreferences, value: PreferenceValue) => {
+    setTempPreferences(prev => ({ ...prev, [key]: value }))
+    setModifiedKeys(prev => new Set(prev).add(key))
   }
 
-  const handleDarkModeChange = (mode: string) => {
-    setTheme(mode)
-    updatePreferences({ darkMode: mode as 'light' | 'dark' | 'system' })
+  const handleSave = () => {
+    // Apply theme changes
+    if (modifiedKeys.has('colorTheme')) {
+      changeTheme(tempPreferences.colorTheme)
+    }
+    if (modifiedKeys.has('darkMode')) {
+      setTheme(tempPreferences.darkMode)
+    }
+
+    // Save all changes
+    updatePreferences(tempPreferences)
+    setModifiedKeys(new Set())
   }
 
-  const preferencesData = [
+  const handleReset = () => {
+    resetPreferences()
+    setTempPreferences(preferences)
+    setModifiedKeys(new Set())
+  }
+
+  const preferencesConfig: PreferenceItem[] = [
+    // Apparence
     {
-      key: "Thème de couleur",
+      key: "colorTheme",
+      label: "Thème de couleur",
       description: "Personnaliser les couleurs de l'interface",
-      value: (
-        <Select value={preferences.colorTheme} onValueChange={handleThemeChange}>
-          <SelectTrigger className="w-[200px]">
+      category: "Apparence",
+      renderValue: (value, onChange) => (
+        <Select value={value as string} onValueChange={onChange}>
+          <SelectTrigger className="w-[220px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -57,11 +94,13 @@ export function PreferencesTab() {
       ),
     },
     {
-      key: "Mode d'affichage",
+      key: "darkMode",
+      label: "Mode d'affichage",
       description: "Choisir entre clair, sombre ou système",
-      value: (
-        <Select value={preferences.darkMode} onValueChange={handleDarkModeChange}>
-          <SelectTrigger className="w-[200px]">
+      category: "Apparence",
+      renderValue: (value, onChange) => (
+        <Select value={value as string} onValueChange={onChange}>
+          <SelectTrigger className="w-[220px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -73,23 +112,34 @@ export function PreferencesTab() {
       ),
     },
     {
-      key: "Barre latérale réduite",
+      key: "sidebarCollapsed",
+      label: "Barre latérale réduite",
       description: "Réduire la barre latérale par défaut",
-      value: (
-        <Badge variant={preferences.sidebarCollapsed ? "default" : "secondary"}>
-          {preferences.sidebarCollapsed ? "Activé" : "Désactivé"}
-        </Badge>
+      category: "Apparence",
+      renderValue: (value, onChange) => (
+        <div className="flex items-center gap-3">
+          <Badge variant={(value as boolean) ? "default" : "secondary"} className="min-w-[80px] justify-center">
+            {(value as boolean) ? "Activé" : "Désactivé"}
+          </Badge>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onChange(!(value as boolean))}
+          >
+            Basculer
+          </Button>
+        </div>
       ),
     },
+    // Langue & Région
     {
-      key: "Langue",
+      key: "language",
+      label: "Langue",
       description: "Langue de l'interface utilisateur",
-      value: (
-        <Select
-          value={preferences.language}
-          onValueChange={(value) => updatePreferences({ language: value as 'en' | 'fr' })}
-        >
-          <SelectTrigger className="w-[200px]">
+      category: "Langue & Région",
+      renderValue: (value, onChange) => (
+        <Select value={value as string} onValueChange={onChange}>
+          <SelectTrigger className="w-[220px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -100,14 +150,13 @@ export function PreferencesTab() {
       ),
     },
     {
-      key: "Fuseau horaire",
+      key: "timezone",
+      label: "Fuseau horaire",
       description: "Fuseau horaire pour l'affichage des dates",
-      value: (
-        <Select
-          value={preferences.timezone}
-          onValueChange={(value) => updatePreferences({ timezone: value })}
-        >
-          <SelectTrigger className="w-[200px]">
+      category: "Langue & Région",
+      renderValue: (value, onChange) => (
+        <Select value={value as string} onValueChange={onChange}>
+          <SelectTrigger className="w-[220px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -120,14 +169,13 @@ export function PreferencesTab() {
       ),
     },
     {
-      key: "Format de date",
+      key: "dateFormat",
+      label: "Format de date",
       description: "Format d'affichage des dates",
-      value: (
-        <Select
-          value={preferences.dateFormat}
-          onValueChange={(value) => updatePreferences({ dateFormat: value as 'DD/MM/YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD' })}
-        >
-          <SelectTrigger className="w-[200px]">
+      category: "Langue & Région",
+      renderValue: (value, onChange) => (
+        <Select value={value as string} onValueChange={onChange}>
+          <SelectTrigger className="w-[220px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -139,14 +187,13 @@ export function PreferencesTab() {
       ),
     },
     {
-      key: "Format d'heure",
+      key: "timeFormat",
+      label: "Format d'heure",
       description: "Format d'affichage de l'heure",
-      value: (
-        <Select
-          value={preferences.timeFormat}
-          onValueChange={(value) => updatePreferences({ timeFormat: value as '12h' | '24h' })}
-        >
-          <SelectTrigger className="w-[200px]">
+      category: "Langue & Région",
+      renderValue: (value, onChange) => (
+        <Select value={value as string} onValueChange={onChange}>
+          <SelectTrigger className="w-[220px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -156,42 +203,76 @@ export function PreferencesTab() {
         </Select>
       ),
     },
+    // Notifications
     {
-      key: "Notifications par email",
+      key: "emailNotifications",
+      label: "Notifications par email",
       description: "Recevoir des notifications par email",
-      value: (
-        <Badge variant={preferences.emailNotifications ? "default" : "secondary"}>
-          {preferences.emailNotifications ? "Activé" : "Désactivé"}
-        </Badge>
+      category: "Notifications",
+      renderValue: (value, onChange) => (
+        <div className="flex items-center gap-3">
+          <Badge variant={(value as boolean) ? "default" : "secondary"} className="min-w-[80px] justify-center">
+            {(value as boolean) ? "Activé" : "Désactivé"}
+          </Badge>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onChange(!(value as boolean))}
+          >
+            Basculer
+          </Button>
+        </div>
       ),
     },
     {
-      key: "Notifications push",
+      key: "pushNotifications",
+      label: "Notifications push",
       description: "Recevoir des notifications dans le navigateur",
-      value: (
-        <Badge variant={preferences.pushNotifications ? "default" : "secondary"}>
-          {preferences.pushNotifications ? "Activé" : "Désactivé"}
-        </Badge>
+      category: "Notifications",
+      renderValue: (value, onChange) => (
+        <div className="flex items-center gap-3">
+          <Badge variant={(value as boolean) ? "default" : "secondary"} className="min-w-[80px] justify-center">
+            {(value as boolean) ? "Activé" : "Désactivé"}
+          </Badge>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onChange(!(value as boolean))}
+          >
+            Basculer
+          </Button>
+        </div>
       ),
     },
     {
-      key: "Son des notifications",
+      key: "notificationSound",
+      label: "Son des notifications",
       description: "Jouer un son lors de la réception de notifications",
-      value: (
-        <Badge variant={preferences.notificationSound ? "default" : "secondary"}>
-          {preferences.notificationSound ? "Activé" : "Désactivé"}
-        </Badge>
+      category: "Notifications",
+      renderValue: (value, onChange) => (
+        <div className="flex items-center gap-3">
+          <Badge variant={(value as boolean) ? "default" : "secondary"} className="min-w-[80px] justify-center">
+            {(value as boolean) ? "Activé" : "Désactivé"}
+          </Badge>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onChange(!(value as boolean))}
+          >
+            Basculer
+          </Button>
+        </div>
       ),
     },
+    // Affichage
     {
-      key: "Éléments par page",
+      key: "itemsPerPage",
+      label: "Éléments par page",
       description: "Nombre d'éléments affichés par page dans les listes",
-      value: (
-        <Select
-          value={preferences.itemsPerPage.toString()}
-          onValueChange={(value) => updatePreferences({ itemsPerPage: parseInt(value, 10) as 10 | 25 | 50 | 100 })}
-        >
-          <SelectTrigger className="w-[200px]">
+      category: "Affichage",
+      renderValue: (value, onChange) => (
+        <Select value={value.toString()} onValueChange={(v) => onChange(parseInt(v, 10))}>
+          <SelectTrigger className="w-[220px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -205,34 +286,125 @@ export function PreferencesTab() {
     },
   ]
 
+  const filteredPreferences = useMemo(() => {
+    if (!searchQuery) return preferencesConfig
+
+    const query = searchQuery.toLowerCase()
+    return preferencesConfig.filter(
+      (pref) =>
+        pref.label.toLowerCase().includes(query) ||
+        pref.description.toLowerCase().includes(query) ||
+        pref.category.toLowerCase().includes(query)
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery])
+
+  const groupedPreferences = useMemo(() => {
+    const groups: Record<string, PreferenceItem[]> = {}
+    filteredPreferences.forEach((pref) => {
+      if (!groups[pref.category]) {
+        groups[pref.category] = []
+      }
+      groups[pref.category].push(pref)
+    })
+    return groups
+  }, [filteredPreferences])
+
+  const hasChanges = modifiedKeys.size > 0
+
   return (
     <div className="space-y-6">
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[200px]">Clé</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead className="w-[250px]">Valeur</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {preferencesData.map((pref, index) => (
-              <TableRow key={index}>
-                <TableCell className="font-medium">{pref.key}</TableCell>
-                <TableCell className="text-muted-foreground">{pref.description}</TableCell>
-                <TableCell>{pref.value}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      {/* Header with search and actions */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative flex-1 max-w-md">
+          <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher une préférence..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          {hasChanges && (
+            <Badge variant="outline" className="text-orange-500 border-orange-500">
+              {modifiedKeys.size} modification{modifiedKeys.size > 1 ? "s" : ""}
+            </Badge>
+          )}
+          <Button variant="outline" onClick={handleReset} disabled={!hasChanges}>
+            Annuler
+          </Button>
+          <Button onClick={handleSave} disabled={!hasChanges}>
+            <IconDeviceFloppy className="mr-2 h-4 w-4" />
+            Enregistrer
+          </Button>
+        </div>
       </div>
 
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={resetPreferences}>
-          Réinitialiser aux valeurs par défaut
-        </Button>
-      </div>
+      {/* Grouped preferences tables */}
+      {Object.entries(groupedPreferences).map(([category, items]) => (
+        <Card key={category}>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">{category}</CardTitle>
+            <CardDescription>
+              {category === "Apparence" && "Personnalisez l'apparence de l'interface"}
+              {category === "Langue & Région" && "Configurez vos préférences linguistiques et de format"}
+              {category === "Notifications" && "Gérez vos préférences de notifications"}
+              {category === "Affichage" && "Configurez les options d'affichage"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[240px]">Préférence</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead className="w-[320px]">Valeur</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.map((pref) => {
+                    const isModified = modifiedKeys.has(pref.key)
+                    const currentValue = tempPreferences[pref.key]
+
+                    return (
+                      <TableRow key={pref.key} className={isModified ? "bg-orange-50 dark:bg-orange-950/20" : ""}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            {pref.label}
+                            {isModified && (
+                              <Badge variant="outline" className="text-orange-500 border-orange-500 text-xs">
+                                Modifié
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-sm">
+                          {pref.description}
+                        </TableCell>
+                        <TableCell>
+                          {pref.renderValue(currentValue, (value) => handleTempChange(pref.key, value))}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+
+      {filteredPreferences.length === 0 && (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <p className="text-muted-foreground">
+              Aucune préférence ne correspond à votre recherche.
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

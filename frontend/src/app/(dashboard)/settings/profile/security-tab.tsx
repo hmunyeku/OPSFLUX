@@ -17,8 +17,9 @@ import {
 } from "@/components/ui/dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { Shield, ShieldCheck, Key, Download, RefreshCw, Smartphone } from "lucide-react"
+import { Shield, ShieldCheck, Key, Download, RefreshCw, Smartphone, Lock, CheckCircle2, XCircle, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { PasswordPolicy } from "@/lib/api"
 import QRCode from "qrcode"
 
 interface TwoFactorConfig {
@@ -29,6 +30,12 @@ interface TwoFactorConfig {
   phone_verified_at: string | null
   backup_codes_count: number
   last_used_at: string | null
+}
+
+interface PasswordStrength {
+  score: number
+  label: string
+  color: string
 }
 
 export function SecurityTab() {
@@ -42,9 +49,29 @@ export function SecurityTab() {
   const [backupCodes, setBackupCodes] = useState<string[]>([])
   const [showBackupCodes, setShowBackupCodes] = useState(false)
 
+  // Password change states
+  const [passwordPolicy, setPasswordPolicy] = useState<PasswordPolicy | null>(null)
+  const [currentPassword, setCurrentPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [passwordStrength, setPasswordStrength] = useState<PasswordStrength>({ score: 0, label: "weak", color: "red" })
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+
   useEffect(() => {
     fetchTwoFactorConfig()
+    fetchPasswordPolicy()
   }, [])
+
+  useEffect(() => {
+    if (newPassword && passwordPolicy) {
+      setPasswordStrength(calculatePasswordStrength(newPassword, passwordPolicy))
+    } else {
+      setPasswordStrength({ score: 0, label: "weak", color: "red" })
+    }
+  }, [newPassword, passwordPolicy])
 
   const fetchTwoFactorConfig = async () => {
     try {
@@ -59,6 +86,20 @@ export function SecurityTab() {
       // Silently fail - user will see no 2FA config
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchPasswordPolicy = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/security/password-policy`, {
+        credentials: "include",
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setPasswordPolicy(data)
+      }
+    } catch (_error) {
+      // Silently fail
     }
   }
 
@@ -227,6 +268,104 @@ export function SecurityTab() {
     URL.revokeObjectURL(url)
   }
 
+  const calculatePasswordStrength = (password: string, policy: PasswordPolicy): PasswordStrength => {
+    let score = 0
+    const checks = {
+      length: password.length >= policy.min_length,
+      uppercase: !policy.require_uppercase || /[A-Z]/.test(password),
+      lowercase: !policy.require_lowercase || /[a-z]/.test(password),
+      digit: !policy.require_digit || /[0-9]/.test(password),
+      special: !policy.require_special || new RegExp(`[${policy.special_chars.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}]`).test(password),
+    }
+
+    // Count passed checks
+    if (checks.length) score++
+    if (checks.uppercase) score++
+    if (checks.lowercase) score++
+    if (checks.digit) score++
+    if (checks.special) score++
+
+    // Additional points for length
+    if (password.length >= policy.min_length + 4) score++
+    if (password.length >= policy.min_length + 8) score++
+
+    if (score <= 3) {
+      return { score, label: "Faible", color: "red" }
+    } else if (score <= 5) {
+      return { score, label: "Moyen", color: "orange" }
+    } else {
+      return { score, label: "Fort", color: "green" }
+    }
+  }
+
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast({
+        title: "Champs requis",
+        description: "Veuillez remplir tous les champs",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "Erreur",
+        description: "Les nouveaux mots de passe ne correspondent pas",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (passwordStrength.score <= 3) {
+      toast({
+        title: "Mot de passe trop faible",
+        description: "Veuillez choisir un mot de passe plus fort",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsChangingPassword(true)
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/users/me/password`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          current_password: currentPassword,
+          new_password: newPassword,
+        }),
+      })
+
+      if (response.ok) {
+        toast({
+          title: "Mot de passe changé",
+          description: "Votre mot de passe a été changé avec succès",
+        })
+        setCurrentPassword("")
+        setNewPassword("")
+        setConfirmPassword("")
+      } else {
+        const error = await response.json()
+        toast({
+          title: "Erreur",
+          description: error.detail || "Impossible de changer le mot de passe",
+          variant: "destructive",
+        })
+      }
+    } catch (_error) {
+      toast({
+        title: "Erreur",
+        description: "Une erreur s'est produite",
+        variant: "destructive",
+      })
+    } finally {
+      setIsChangingPassword(false)
+    }
+  }
+
   if (loading) {
     return <div className="space-y-4">Chargement...</div>
   }
@@ -325,6 +464,208 @@ export function SecurityTab() {
               )}
             </>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Changement de mot de passe */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <CardTitle className="flex items-center gap-2">
+                <Lock className="h-5 w-5" />
+                Mot de passe
+              </CardTitle>
+              <CardDescription>
+                Modifiez votre mot de passe pour sécuriser votre compte
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="current-password">Mot de passe actuel</Label>
+            <div className="relative">
+              <Input
+                id="current-password"
+                type={showCurrentPassword ? "text" : "password"}
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="Entrez votre mot de passe actuel"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+              >
+                {showCurrentPassword ? "Masquer" : "Afficher"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="new-password">Nouveau mot de passe</Label>
+            <div className="relative">
+              <Input
+                id="new-password"
+                type={showNewPassword ? "text" : "password"}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Entrez votre nouveau mot de passe"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                onClick={() => setShowNewPassword(!showNewPassword)}
+              >
+                {showNewPassword ? "Masquer" : "Afficher"}
+              </Button>
+            </div>
+
+            {/* Password strength indicator */}
+            {newPassword && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Force du mot de passe</span>
+                  <span className={`font-medium ${
+                    passwordStrength.color === "green" ? "text-green-600" :
+                    passwordStrength.color === "orange" ? "text-orange-600" :
+                    "text-red-600"
+                  }`}>
+                    {passwordStrength.label}
+                  </span>
+                </div>
+                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-300 ${
+                      passwordStrength.color === "green" ? "bg-green-600" :
+                      passwordStrength.color === "orange" ? "bg-orange-600" :
+                      "bg-red-600"
+                    }`}
+                    style={{ width: `${(passwordStrength.score / 7) * 100}%` }}
+                  />
+                </div>
+
+                {/* Password policy checks */}
+                {passwordPolicy && (
+                  <div className="space-y-1 pt-2">
+                    <p className="text-xs text-muted-foreground mb-1">Exigences :</p>
+                    <div className="grid grid-cols-1 gap-1 text-xs">
+                      <div className={`flex items-center gap-1.5 ${
+                        newPassword.length >= passwordPolicy.min_length ? "text-green-600" : "text-gray-500"
+                      }`}>
+                        {newPassword.length >= passwordPolicy.min_length ? (
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                        ) : (
+                          <XCircle className="h-3.5 w-3.5" />
+                        )}
+                        <span>Au moins {passwordPolicy.min_length} caractères</span>
+                      </div>
+
+                      {passwordPolicy.require_uppercase && (
+                        <div className={`flex items-center gap-1.5 ${
+                          /[A-Z]/.test(newPassword) ? "text-green-600" : "text-gray-500"
+                        }`}>
+                          {/[A-Z]/.test(newPassword) ? (
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                          ) : (
+                            <XCircle className="h-3.5 w-3.5" />
+                          )}
+                          <span>Au moins une lettre majuscule</span>
+                        </div>
+                      )}
+
+                      {passwordPolicy.require_lowercase && (
+                        <div className={`flex items-center gap-1.5 ${
+                          /[a-z]/.test(newPassword) ? "text-green-600" : "text-gray-500"
+                        }`}>
+                          {/[a-z]/.test(newPassword) ? (
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                          ) : (
+                            <XCircle className="h-3.5 w-3.5" />
+                          )}
+                          <span>Au moins une lettre minuscule</span>
+                        </div>
+                      )}
+
+                      {passwordPolicy.require_digit && (
+                        <div className={`flex items-center gap-1.5 ${
+                          /[0-9]/.test(newPassword) ? "text-green-600" : "text-gray-500"
+                        }`}>
+                          {/[0-9]/.test(newPassword) ? (
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                          ) : (
+                            <XCircle className="h-3.5 w-3.5" />
+                          )}
+                          <span>Au moins un chiffre</span>
+                        </div>
+                      )}
+
+                      {passwordPolicy.require_special && (
+                        <div className={`flex items-center gap-1.5 ${
+                          new RegExp(`[${passwordPolicy.special_chars.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}]`).test(newPassword) ? "text-green-600" : "text-gray-500"
+                        }`}>
+                          {new RegExp(`[${passwordPolicy.special_chars.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}]`).test(newPassword) ? (
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                          ) : (
+                            <XCircle className="h-3.5 w-3.5" />
+                          )}
+                          <span>Au moins un caractère spécial ({passwordPolicy.special_chars})</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="confirm-password">Confirmer le nouveau mot de passe</Label>
+            <div className="relative">
+              <Input
+                id="confirm-password"
+                type={showConfirmPassword ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirmez votre nouveau mot de passe"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              >
+                {showConfirmPassword ? "Masquer" : "Afficher"}
+              </Button>
+            </div>
+            {confirmPassword && newPassword !== confirmPassword && (
+              <div className="flex items-center gap-1.5 text-xs text-red-600">
+                <AlertCircle className="h-3.5 w-3.5" />
+                <span>Les mots de passe ne correspondent pas</span>
+              </div>
+            )}
+          </div>
+
+          <Button
+            onClick={handleChangePassword}
+            disabled={
+              isChangingPassword ||
+              !currentPassword ||
+              !newPassword ||
+              !confirmPassword ||
+              newPassword !== confirmPassword ||
+              passwordStrength.score <= 3
+            }
+            className="w-full sm:w-auto"
+          >
+            {isChangingPassword ? "Changement en cours..." : "Changer le mot de passe"}
+          </Button>
         </CardContent>
       </Card>
 

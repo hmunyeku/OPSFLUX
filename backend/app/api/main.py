@@ -10,6 +10,7 @@ from app.api.routes import (
     permissions,
     private,
     roles,
+    security,
     twofa,
     user_permissions,
     users,
@@ -21,6 +22,7 @@ api_router = APIRouter()
 api_router.include_router(auth.router)  # Nouvelle auth avec refresh token
 api_router.include_router(login.router)  # Ancienne auth (rétrocompatibilité)
 api_router.include_router(users.router)
+api_router.include_router(security.router)  # Security and password policy
 api_router.include_router(twofa.router, prefix="/2fa", tags=["2FA"])  # Two-Factor Authentication
 api_router.include_router(utils.router)
 api_router.include_router(items.router)

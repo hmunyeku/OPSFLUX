@@ -23,7 +23,7 @@ from app.models_rbac import (
     Message,
 )
 
-router = APIRouter(prefix="/permissions", tags=["permissions", "rbac"])
+router = APIRouter(prefix="/permissions", tags=["permissions"])
 
 
 @router.get("/", response_model=PermissionsPublic)

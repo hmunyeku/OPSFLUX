@@ -21,7 +21,7 @@ from app.models_rbac import (
     UserPermissionsWithSources,
 )
 
-router = APIRouter(prefix="/user-permissions", tags=["user-permissions", "rbac"])
+router = APIRouter(prefix="/user-permissions", tags=["user-permissions"])
 
 
 @router.get("/me", response_model=UserPermissionsWithSources)

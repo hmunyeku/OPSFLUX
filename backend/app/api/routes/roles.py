@@ -24,7 +24,7 @@ from app.models_rbac import (
     Message,
 )
 
-router = APIRouter(prefix="/roles", tags=["roles", "rbac"])
+router = APIRouter(prefix="/roles", tags=["roles"])
 
 
 @router.get("/", response_model=RolesPublic)

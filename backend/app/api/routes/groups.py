@@ -24,7 +24,7 @@ from app.models_rbac import (
     Permission,
 )
 
-router = APIRouter(prefix="/groups", tags=["groups", "rbac"])
+router = APIRouter(prefix="/groups", tags=["groups"])
 
 
 @router.get("/", response_model=GroupsPublic)

@@ -3,7 +3,6 @@
  */
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { api, User } from '@/lib/api'
 import { auth } from '@/lib/auth'
 
@@ -18,7 +17,6 @@ interface UseAuthReturn {
 export function useAuth(): UseAuthReturn {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const router = useRouter()
 
   useEffect(() => {
     const loadUser = async () => {
@@ -46,7 +44,8 @@ export function useAuth(): UseAuthReturn {
       const userData = await api.getMe(response.access_token)
       setUser(userData)
 
-      router.push('/')
+      // Force immediate redirect using window.location
+      window.location.href = '/'
     } catch (error) {
       throw error
     }
@@ -55,7 +54,8 @@ export function useAuth(): UseAuthReturn {
   const logout = () => {
     auth.removeToken()
     setUser(null)
-    router.push('/login')
+    // Force immediate redirect using window.location
+    window.location.href = '/login'
   }
 
   return {

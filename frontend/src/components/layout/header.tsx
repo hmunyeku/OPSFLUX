@@ -3,6 +3,7 @@ import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Search } from "@/components/search"
 import { ThemeSwitch } from "@/components/theme-switch"
+import { ThemeColorSwitcher } from "@/components/theme-color-switcher"
 
 export function Header() {
   return (
@@ -16,7 +17,10 @@ export function Header() {
       <Separator orientation="vertical" className="mr-2 h-4" />
       <div className="flex w-full justify-between">
         <Search />
-        <ThemeSwitch />
+        <div className="flex items-center gap-2">
+          <ThemeColorSwitcher />
+          <ThemeSwitch />
+        </div>
       </div>
     </header>
   )

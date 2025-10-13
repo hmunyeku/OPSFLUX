@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react"
 import SearchProvider from "@/components/search-provider"
 import { ThemeProvider } from "@/components/theme-provider"
+import { AuthProvider } from "@/components/auth-provider"
+import { ThemeColorInitializer } from "@/components/theme-color-initializer"
+import { PreferencesProvider } from "@/contexts/preferences-context"
 
 interface Props {
   children: React.ReactNode
@@ -29,7 +32,12 @@ export function Providers({ children }: Props) {
       enableSystem
       disableTransitionOnChange
     >
-      <SearchProvider value={{ open, setOpen }}>{children}</SearchProvider>
+      <PreferencesProvider>
+        <AuthProvider>
+          <ThemeColorInitializer />
+          <SearchProvider value={{ open, setOpen }}>{children}</SearchProvider>
+        </AuthProvider>
+      </PreferencesProvider>
     </ThemeProvider>
   )
 }

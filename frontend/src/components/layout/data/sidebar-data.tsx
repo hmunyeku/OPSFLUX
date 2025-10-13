@@ -18,23 +18,22 @@ import {
   IconUsers,
 } from "@tabler/icons-react"
 import { AudioWaveform, GalleryVerticalEnd } from "lucide-react"
-import { cn } from "@/lib/utils"
 import { Logo } from "@/components/logo"
 import { type SidebarData } from "../types"
 
 export const sidebarData: SidebarData = {
   user: {
-    name: "ausrobdev",
-    email: "rob@shadcnblocks.com",
-    avatar: "/avatars/ausrobdev-avatar.png",
+    name: "Admin User",
+    email: "admin@opsflux.io",
+    avatar: "/avatars/avatar-1.png",
   },
   teams: [
     {
-      name: "Shadcnblocks - Admin Kit",
+      name: "OpsFlux",
       logo: ({ className }: { className: string }) => (
-        <Logo className={cn("invert dark:invert-0", className)} />
+        <Logo className={className} />
       ),
-      plan: "Nextjs + shadcn/ui",
+      plan: "Oil & Gas Operations",
     },
     {
       name: "Acme Inc",
@@ -73,11 +72,6 @@ export const sidebarData: SidebarData = {
           title: "Tasks",
           url: "/tasks",
           icon: IconChecklist,
-        },
-        {
-          title: "Users",
-          url: "/users",
-          icon: IconUsers,
         },
       ],
     },
@@ -195,6 +189,11 @@ export const sidebarData: SidebarData = {
               url: "/developers/events-&-logs",
             },
           ],
+        },
+        {
+          title: "Users",
+          url: "/users",
+          icon: IconUsers,
         },
       ],
     },

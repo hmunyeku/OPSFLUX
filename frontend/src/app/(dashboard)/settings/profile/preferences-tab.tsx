@@ -7,6 +7,14 @@ import { useTheme } from "next-themes"
 import { useSidebar } from "@/components/ui/sidebar"
 import { themes, type ThemeName } from "@/config/themes"
 import {
+  ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from "@tanstack/react-table"
+import {
   Table,
   TableBody,
   TableCell,
@@ -23,14 +31,9 @@ import {
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { IconSearch } from "@tabler/icons-react"
+import { Button } from "@/components/ui/button"
+import { IconSearch, IconChevronDown, IconChevronUp } from "@tabler/icons-react"
 import { type UserPreferences } from "@/types/preferences"
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion"
 import { Switch } from "@/components/ui/switch"
 
 type PreferenceValue = string | number | boolean
@@ -319,6 +322,207 @@ export function PreferencesTab() {
     return groups
   }, [filteredPreferences])
 
+  // État pour gérer les catégories expandées
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({})
+
+  // Initialiser les catégories expandées
+  useEffect(() => {
+    setExpandedCategories(
+      Object.keys(groupedPreferences).reduce((acc, key) => ({ ...acc, [key]: true }), {})
+    )
+  }, [groupedPreferences])
+
+  // Créer les colonnes du DataTable
+  const columns = useMemo<ColumnDef<PreferenceItem>[]>(
+    () => [
+      {
+        accessorKey: "label",
+        header: "Préférence",
+        cell: ({ row }) => {
+          const isRecentlyModified = recentlyModified.has(row.original.key)
+          return (
+            <div className="flex items-center gap-2 min-w-[200px]">
+              <span className="font-medium">{row.original.label}</span>
+              {isRecentlyModified && (
+                <Badge variant="outline" className="text-green-600 border-green-600 dark:text-green-400 dark:border-green-400 text-xs">
+                  Modifié
+                </Badge>
+              )}
+            </div>
+          )
+        },
+      },
+      {
+        accessorKey: "description",
+        header: "Description",
+        cell: ({ row }) => (
+          <div className="text-muted-foreground text-sm max-w-md">
+            {row.original.description}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "value",
+        header: "Valeur",
+        cell: ({ row }) => {
+          const currentValue = preferences[row.original.key]
+          return (
+            <div className="min-w-[250px]">
+              {row.original.renderValue(currentValue, (value) =>
+                handleImmediateChange(row.original.key, value)
+              )}
+            </div>
+          )
+        },
+      },
+    ],
+    [recentlyModified, preferences, handleImmediateChange]
+  )
+
+  const toggleCategory = (category: string) => {
+    setExpandedCategories((prev) => ({ ...prev, [category]: !prev[category] }))
+  }
+
+  // Composant pour une table de catégorie
+  function CategoryTable({ items, category }: { items: PreferenceItem[]; category: string }) {
+    const table = useReactTable({
+      data: items,
+      columns,
+      getCoreRowModel: getCoreRowModel(),
+      getFilteredRowModel: getFilteredRowModel(),
+      getSortedRowModel: getSortedRowModel(),
+    })
+
+    const isExpanded = expandedCategories[category] ?? true
+
+    return (
+      <div className="rounded-lg border">
+        {/* Header de catégorie */}
+        <Button
+          variant="ghost"
+          onClick={() => toggleCategory(category)}
+          className="w-full justify-between p-4 h-auto hover:bg-muted/50"
+        >
+          <h3 className="text-lg font-semibold">{category}</h3>
+          {isExpanded ? (
+            <IconChevronUp className="h-5 w-5" />
+          ) : (
+            <IconChevronDown className="h-5 w-5" />
+          )}
+        </Button>
+
+        {/* Contenu de la table */}
+        {isExpanded && (
+          <>
+            {/* Vue desktop */}
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => (
+                        <TableHead key={header.id}>
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(
+                                header.column.columnDef.header,
+                                header.getContext()
+                              )}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableHeader>
+                <TableBody>
+                  {table.getRowModel().rows?.length ? (
+                    table.getRowModel().rows.map((row) => {
+                      const isRecentlyModified = recentlyModified.has(
+                        row.original.key
+                      )
+                      return (
+                        <TableRow
+                          key={row.id}
+                          className={
+                            isRecentlyModified
+                              ? "bg-green-50 dark:bg-green-950/10"
+                              : ""
+                          }
+                        >
+                          {row.getVisibleCells().map((cell) => (
+                            <TableCell key={cell.id}>
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext()
+                              )}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      )
+                    })
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={columns.length}
+                        className="h-24 text-center"
+                      >
+                        Aucun résultat.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Vue mobile - Cards */}
+            <div className="md:hidden p-4 space-y-3">
+              {items.map((pref) => {
+                const isRecentlyModified = recentlyModified.has(pref.key)
+                const currentValue = preferences[pref.key]
+
+                return (
+                  <div
+                    key={pref.key}
+                    className={`rounded-lg border p-4 space-y-3 ${
+                      isRecentlyModified
+                        ? "bg-green-50 dark:bg-green-950/10 border-green-200 dark:border-green-900"
+                        : ""
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-medium text-sm">
+                            {pref.label}
+                          </h4>
+                          {isRecentlyModified && (
+                            <Badge
+                              variant="outline"
+                              className="text-green-600 border-green-600 dark:text-green-400 dark:border-green-400 text-xs"
+                            >
+                              Modifié
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {pref.description}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="pt-2">
+                      {pref.renderValue(currentValue, (value) =>
+                        handleImmediateChange(pref.key, value)
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Barre de recherche */}
@@ -332,96 +536,12 @@ export function PreferencesTab() {
         />
       </div>
 
-      {/* Accordions groupés par catégorie */}
-      <Accordion type="multiple" defaultValue={Object.keys(groupedPreferences)} className="w-full">
+      {/* Tables groupées par catégorie */}
+      <div className="space-y-4">
         {Object.entries(groupedPreferences).map(([category, items]) => (
-          <AccordionItem key={category} value={category}>
-            <AccordionTrigger className="text-lg font-semibold">
-              {category}
-            </AccordionTrigger>
-            <AccordionContent>
-              {/* Vue desktop - Tableau */}
-              <div className="hidden md:block rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[240px]">Préférence</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead className="w-[320px]">Valeur</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {items.map((pref) => {
-                      const isRecentlyModified = recentlyModified.has(pref.key)
-                      const currentValue = preferences[pref.key]
-
-                      return (
-                        <TableRow
-                          key={pref.key}
-                          className={isRecentlyModified ? "bg-green-50 dark:bg-green-950/10" : ""}
-                        >
-                          <TableCell className="font-medium">
-                            <div className="flex items-center gap-2">
-                              {pref.label}
-                              {isRecentlyModified && (
-                                <Badge variant="outline" className="text-green-600 border-green-600 dark:text-green-400 dark:border-green-400 text-xs">
-                                  Modifié
-                                </Badge>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground text-sm">
-                            {pref.description}
-                          </TableCell>
-                          <TableCell>
-                            {pref.renderValue(currentValue, (value) => handleImmediateChange(pref.key, value))}
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-
-              {/* Vue mobile - Cards */}
-              <div className="md:hidden space-y-3">
-                {items.map((pref) => {
-                  const isRecentlyModified = recentlyModified.has(pref.key)
-                  const currentValue = preferences[pref.key]
-
-                  return (
-                    <div
-                      key={pref.key}
-                      className={`rounded-lg border p-4 space-y-3 ${
-                        isRecentlyModified ? "bg-green-50 dark:bg-green-950/10 border-green-200 dark:border-green-900" : ""
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="space-y-1 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="font-medium text-sm">{pref.label}</h4>
-                            {isRecentlyModified && (
-                              <Badge variant="outline" className="text-green-600 border-green-600 dark:text-green-400 dark:border-green-400 text-xs">
-                                Modifié
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            {pref.description}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="pt-2">
-                        {pref.renderValue(currentValue, (value) => handleImmediateChange(pref.key, value))}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </AccordionContent>
-          </AccordionItem>
+          <CategoryTable key={category} items={items} category={category} />
         ))}
-      </Accordion>
+      </div>
 
       {filteredPreferences.length === 0 && (
         <div className="rounded-lg border border-dashed p-12 text-center">

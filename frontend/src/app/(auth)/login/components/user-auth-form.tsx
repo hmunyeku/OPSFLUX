@@ -19,6 +19,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { PasswordInput } from "@/components/password-input"
 import { useToast } from "@/hooks/use-toast"
+import { TwoFactorVerificationModal } from "@/components/two-factor-verification-modal"
 
 const formSchema = z.object({
   email: z
@@ -40,7 +41,7 @@ export function UserAuthForm({
   ...props
 }: HTMLAttributes<HTMLDivElement>) {
   const [isLoading, setIsLoading] = useState(false)
-  const { login } = useAuth()
+  const { login, verify2FA, cancel2FA, twoFactorRequired } = useAuth()
   const { toast } = useToast()
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -55,10 +56,14 @@ export function UserAuthForm({
     setIsLoading(true)
     try {
       await login(data.email, data.password)
-      toast({
-        title: "Success",
-        description: "You have been logged in successfully",
-      })
+
+      // Si le 2FA n'est pas requis, le hook redirigera automatiquement
+      if (!twoFactorRequired) {
+        toast({
+          title: "Success",
+          description: "You have been logged in successfully",
+        })
+      }
     } catch (error) {
       toast({
         title: "Error",
@@ -68,6 +73,28 @@ export function UserAuthForm({
     } finally {
       setIsLoading(false)
     }
+  }
+
+  async function handle2FAVerify(code: string, method: string) {
+    try {
+      await verify2FA(code, method)
+      toast({
+        title: "Success",
+        description: "You have been logged in successfully",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Invalid 2FA code",
+        variant: "destructive",
+      })
+      throw error // Re-throw pour que le modal garde l'état de chargement
+    }
+  }
+
+  function handle2FACancel() {
+    cancel2FA()
+    setIsLoading(false)
   }
 
   return (
@@ -115,6 +142,16 @@ export function UserAuthForm({
           </div>
         </form>
       </Form>
+
+      {/* Modal de vérification 2FA */}
+      {twoFactorRequired && (
+        <TwoFactorVerificationModal
+          open={!!twoFactorRequired}
+          twoFactorData={twoFactorRequired}
+          onVerify={handle2FAVerify}
+          onCancel={handle2FACancel}
+        />
+      )}
     </div>
   )
 }

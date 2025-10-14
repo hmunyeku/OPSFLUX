@@ -14,6 +14,10 @@ class UserBase(SQLModel):
     is_active: bool = True
     is_superuser: bool = False
     full_name: str | None = Field(default=None, max_length=255)
+    first_name: str | None = Field(default=None, max_length=100)
+    last_name: str | None = Field(default=None, max_length=100)
+    initials: str | None = Field(default=None, max_length=10)
+    recovery_email: EmailStr | None = Field(default=None, max_length=255)
     avatar_url: str | None = Field(default=None, max_length=500)
 
 
@@ -26,6 +30,8 @@ class UserRegister(SQLModel):
     email: EmailStr = Field(max_length=255)
     password: str = Field(min_length=8, max_length=40)
     full_name: str | None = Field(default=None, max_length=255)
+    first_name: str | None = Field(default=None, max_length=100)
+    last_name: str | None = Field(default=None, max_length=100)
 
 
 # Properties to receive via API on update, all are optional
@@ -36,8 +42,13 @@ class UserUpdate(UserBase):
 
 class UserUpdateMe(SQLModel):
     full_name: str | None = Field(default=None, max_length=255)
+    first_name: str | None = Field(default=None, max_length=100)
+    last_name: str | None = Field(default=None, max_length=100)
+    initials: str | None = Field(default=None, max_length=10)
     email: EmailStr | None = Field(default=None, max_length=255)
+    recovery_email: EmailStr | None = Field(default=None, max_length=255)
     avatar_url: str | None = Field(default=None, max_length=500)
+    phone_numbers: list[str] | None = Field(default=None)
 
 
 class UpdatePassword(SQLModel):
@@ -52,15 +63,18 @@ class User(AbstractBaseModel, UserBase, table=True):
     Hérite de AbstractBaseModel pour les fonctionnalités communes.
 
     password_history: Historique des 5 derniers mots de passe hashés
+    phone_numbers: Liste des numéros de téléphone de l'utilisateur
     """
     hashed_password: str
     password_history: Optional[list[str]] = Field(default=None, sa_column=Column(JSON, nullable=True))
+    phone_numbers: Optional[list[str]] = Field(default=None, sa_column=Column(JSON, nullable=True))
     items: list["Item"] = Relationship(back_populates="owner", cascade_delete=True)
 
 
 # Properties to return via API, id is always required
 class UserPublic(UserBase):
     id: uuid.UUID
+    phone_numbers: list[str] | None = None
 
 
 class UsersPublic(SQLModel):
@@ -118,14 +132,69 @@ class Token(SQLModel):
     token_type: str = "bearer"
 
 
+# Response when 2FA is required during login
+class Token2FARequired(SQLModel):
+    requires_2fa: bool = True
+    temp_token: str
+    available_methods: list[str]  # ["totp", "sms", "backup"]
+    masked_phone: str | None = None
+
+
+# Request to verify 2FA code during login
+class TwoFactorLoginRequest(SQLModel):
+    temp_token: str
+    code: str
+    method: str  # "totp", "sms", or "backup"
+
+
 # Contents of JWT token (not a database model, just Pydantic for validation)
 class TokenPayload(BaseModel):
     sub: str | None = None
     exp: int | None = None  # Expiration timestamp
-    type: str | None = None  # "access" or "refresh"
+    type: str | None = None  # "access" or "refresh" or "2fa_temp"
     sid: str | None = None  # session_id (optionnel)
 
 
 class NewPassword(SQLModel):
     token: str
     new_password: str = Field(min_length=8, max_length=40)
+
+
+# App Settings Models
+class AppSettingsBase(SQLModel):
+    """Base model for application settings"""
+    app_name: str = Field(default="OpsFlux", max_length=255)
+    app_logo: str | None = Field(default=None, max_length=500)
+    default_theme: str = Field(default="amethyst-haze", max_length=100)
+    default_language: str = Field(default="fr", max_length=10)
+    font: str = Field(default="inter", max_length=100)
+    company_name: str | None = Field(default=None, max_length=255)
+    company_logo: str | None = Field(default=None, max_length=500)
+    company_tax_id: str | None = Field(default=None, max_length=100)
+    company_address: str | None = Field(default=None, max_length=500)
+
+
+class AppSettingsUpdate(SQLModel):
+    """Model for updating application settings"""
+    app_name: str | None = Field(default=None, max_length=255)
+    app_logo: str | None = Field(default=None, max_length=500)
+    default_theme: str | None = Field(default=None, max_length=100)
+    default_language: str | None = Field(default=None, max_length=10)
+    font: str | None = Field(default=None, max_length=100)
+    company_name: str | None = Field(default=None, max_length=255)
+    company_logo: str | None = Field(default=None, max_length=500)
+    company_tax_id: str | None = Field(default=None, max_length=100)
+    company_address: str | None = Field(default=None, max_length=500)
+
+
+class AppSettings(AbstractBaseModel, AppSettingsBase, table=True):
+    """
+    Database model for application settings.
+    There should only be one record in this table.
+    """
+    __tablename__ = "app_settings"
+
+
+class AppSettingsPublic(AppSettingsBase):
+    """Public model for application settings"""
+    id: uuid.UUID

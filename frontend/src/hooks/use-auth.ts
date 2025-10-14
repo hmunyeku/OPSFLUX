@@ -54,8 +54,9 @@ export function useAuth(): UseAuthReturn {
   const logout = () => {
     auth.removeToken()
     setUser(null)
-    // Force page reload to clear all state and redirect to login
-    window.location.replace('/login')
+    // Force hard reload to clear all cache and state
+    // Add timestamp to prevent cached page from being served
+    window.location.href = '/login?t=' + Date.now()
   }
 
   return {

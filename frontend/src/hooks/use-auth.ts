@@ -54,8 +54,7 @@ export function useAuth(): UseAuthReturn {
   const logout = () => {
     auth.removeToken()
     setUser(null)
-    // Force immediate redirect using window.location
-    window.location.href = '/login'
+    // Let AuthProvider handle the redirect
   }
 
   return {

@@ -54,7 +54,8 @@ export function useAuth(): UseAuthReturn {
   const logout = () => {
     auth.removeToken()
     setUser(null)
-    // Let AuthProvider handle the redirect
+    // Force page reload to clear all state and redirect to login
+    window.location.replace('/login')
   }
 
   return {

@@ -10,8 +10,8 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: "Shadcnblocks - Admin Kit",
-  description: "Shadcnblocks - Admin Kit built with NextJS",
+  title: "OpsFlux",
+  description: "OpsFlux - Plateforme de gestion opérationnelle",
 }
 
 export default function RootLayout({

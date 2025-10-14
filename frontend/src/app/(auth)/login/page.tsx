@@ -2,15 +2,11 @@
 
 import { Card } from "@/components/ui/card"
 import { UserAuthForm } from "./components/user-auth-form"
-import { useAppConfig } from "@/contexts/app-config-context"
 
 export default function LoginPage() {
-  const { config } = useAppConfig()
-
   return (
     <Card className="p-6">
-      <div className="flex flex-col space-y-2 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">Connexion à {config.app_name}</h1>
+      <div className="flex flex-col space-y-2 text-center mb-4">
         <p className="text-muted-foreground text-sm">
           Entrez votre email et mot de passe pour accéder à votre compte
         </p>

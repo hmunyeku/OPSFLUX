@@ -83,13 +83,15 @@ def update_user_me(
     Update own user.
     """
 
-    if user_in.email:
-        existing_user = crud.get_user_by_email(session=session, email=user_in.email)
-        if existing_user and existing_user.id != current_user.id:
-            raise HTTPException(
-                status_code=409, detail="User with this email already exists"
-            )
+    # Interdire la modification de l'email
+    if user_in.email and user_in.email != current_user.email:
+        raise HTTPException(
+            status_code=400, detail="La modification de l'email n'est pas autorisée"
+        )
+
     user_data = user_in.model_dump(exclude_unset=True)
+    # Supprimer l'email des données à mettre à jour pour plus de sécurité
+    user_data.pop("email", None)
     current_user.sqlmodel_update(user_data)
     session.add(current_user)
     session.commit()

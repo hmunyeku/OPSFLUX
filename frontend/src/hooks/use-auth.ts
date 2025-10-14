@@ -10,6 +10,7 @@ interface UseAuthReturn {
   user: User | null
   isLoading: boolean
   isAuthenticated: boolean
+  isLoggingOut: boolean
   login: (email: string, password: string) => Promise<void>
   logout: () => void
 }
@@ -17,6 +18,7 @@ interface UseAuthReturn {
 export function useAuth(): UseAuthReturn {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   useEffect(() => {
     const loadUser = async () => {
@@ -52,17 +54,18 @@ export function useAuth(): UseAuthReturn {
   }
 
   const logout = () => {
+    setIsLoggingOut(true)
     auth.removeToken()
     setUser(null)
     // Force hard reload to clear all cache and state
-    // Add timestamp to prevent cached page from being served
-    window.location.href = '/login?t=' + Date.now()
+    window.location.href = '/login'
   }
 
   return {
     user,
     isLoading,
     isAuthenticated: !!user,
+    isLoggingOut,
     login,
     logout,
   }

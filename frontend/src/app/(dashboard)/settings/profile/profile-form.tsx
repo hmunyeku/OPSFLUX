@@ -22,7 +22,7 @@ import { useAuth } from "@/hooks/use-auth"
 import { api, UserUpdate, PasswordPolicy } from "@/lib/api"
 import { auth } from "@/lib/auth"
 import { useToast } from "@/hooks/use-toast"
-import { Lock, CheckCircle2, XCircle, AlertCircle } from "lucide-react"
+import { Lock, CheckCircle2, XCircle, AlertCircle, Plus, X } from "lucide-react"
 
 const accountFormSchema = z.object({
   full_name: z
@@ -32,13 +32,44 @@ const accountFormSchema = z.object({
     })
     .max(255, {
       message: "Le nom complet ne doit pas dépasser 255 caractères.",
-    }),
+    })
+    .optional(),
+  first_name: z
+    .string()
+    .min(2, {
+      message: "Le prénom doit contenir au moins 2 caractères.",
+    })
+    .max(100, {
+      message: "Le prénom ne doit pas dépasser 100 caractères.",
+    })
+    .optional(),
+  last_name: z
+    .string()
+    .min(2, {
+      message: "Le nom doit contenir au moins 2 caractères.",
+    })
+    .max(100, {
+      message: "Le nom ne doit pas dépasser 100 caractères.",
+    })
+    .optional(),
+  initials: z
+    .string()
+    .max(10, {
+      message: "Les initiales ne doivent pas dépasser 10 caractères.",
+    })
+    .optional(),
   email: z
     .string({
       required_error: "L'email est requis.",
     })
     .email("Email invalide."),
+  recovery_email: z
+    .string()
+    .email("Email de récupération invalide.")
+    .optional()
+    .or(z.literal("")),
   avatar_url: z.string().nullable().optional(),
+  phone_numbers: z.array(z.string()).optional(),
 })
 
 type AccountFormValues = z.infer<typeof accountFormSchema>
@@ -69,19 +100,34 @@ export function AccountForm() {
     resolver: zodResolver(accountFormSchema),
     defaultValues: {
       full_name: "",
+      first_name: "",
+      last_name: "",
+      initials: "",
       email: "",
+      recovery_email: "",
       avatar_url: null,
+      phone_numbers: [],
     },
   })
+
+  // State for phone numbers management
+  const [phoneNumbers, setPhoneNumbers] = useState<string[]>([])
+  const [newPhone, setNewPhone] = useState("")
 
   // Load user data when available
   useEffect(() => {
     if (user) {
       form.reset({
         full_name: user.full_name || "",
+        first_name: user.first_name || "",
+        last_name: user.last_name || "",
+        initials: user.initials || "",
         email: user.email || "",
+        recovery_email: user.recovery_email || "",
         avatar_url: user.avatar_url || null,
+        phone_numbers: user.phone_numbers || [],
       })
+      setPhoneNumbers(user.phone_numbers || [])
     }
   }, [user, form])
 
@@ -227,6 +273,21 @@ export function AccountForm() {
     }
   }
 
+  const addPhoneNumber = () => {
+    if (newPhone.trim() && !phoneNumbers.includes(newPhone.trim())) {
+      const updatedPhones = [...phoneNumbers, newPhone.trim()]
+      setPhoneNumbers(updatedPhones)
+      form.setValue("phone_numbers", updatedPhones)
+      setNewPhone("")
+    }
+  }
+
+  const removePhoneNumber = (index: number) => {
+    const updatedPhones = phoneNumbers.filter((_, i) => i !== index)
+    setPhoneNumbers(updatedPhones)
+    form.setValue("phone_numbers", updatedPhones)
+  }
+
   async function onSubmit(data: AccountFormValues) {
     setIsSubmitting(true)
     try {
@@ -242,8 +303,13 @@ export function AccountForm() {
 
       const updateData: UserUpdate = {
         full_name: data.full_name,
+        first_name: data.first_name,
+        last_name: data.last_name,
+        initials: data.initials,
         email: data.email,
+        recovery_email: data.recovery_email || undefined,
         avatar_url: data.avatar_url,
+        phone_numbers: phoneNumbers,
       }
 
       await api.updateMe(token, updateData)
@@ -283,67 +349,187 @@ export function AccountForm() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <div className="grid gap-6 md:grid-cols-2">
-                {/* Avatar */}
-                <FormField
-                  control={form.control}
-                  name="avatar_url"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>Photo de profil</FormLabel>
-                      <FormControl>
-                        <ProfileAvatar
-                          currentAvatarUrl={field.value}
-                          fullName={user?.full_name}
-                          email={user?.email}
-                          onAvatarChange={field.onChange}
-                          size="xl"
-                          editable={true}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Choisissez une photo de profil. Elle sera visible par les autres utilisateurs.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              {/* Grid Layout: Avatar à gauche, informations à droite */}
+              <div className="grid gap-6 md:grid-cols-[250px_1fr]">
+                {/* Colonne gauche : Photo de profil */}
+                <div className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="avatar_url"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Photo de profil</FormLabel>
+                        <FormControl>
+                          <ProfileAvatar
+                            currentAvatarUrl={field.value}
+                            fullName={user?.full_name}
+                            email={user?.email}
+                            onAvatarChange={field.onChange}
+                            size="xl"
+                            editable={true}
+                          />
+                        </FormControl>
+                        <FormDescription className="text-xs">
+                          Visible par les autres utilisateurs
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
-                {/* Full Name */}
-                <FormField
-                  control={form.control}
-                  name="full_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nom complet</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Jean Dupont" {...field} />
-                      </FormControl>
-                      <FormDescription>
-                        Le nom affiché sur votre profil
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {/* Colonne droite : Informations personnelles */}
+                <div className="grid gap-4 md:grid-cols-2">
+                  {/* Prénom */}
+                  <FormField
+                    control={form.control}
+                    name="first_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Prénom</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Jean" {...field} value={field.value || ""} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                {/* Email */}
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input type="email" placeholder="jean.dupont@example.com" {...field} />
-                      </FormControl>
-                      <FormDescription>
-                        Votre adresse email de connexion
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                  {/* Nom */}
+                  <FormField
+                    control={form.control}
+                    name="last_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nom</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Dupont" {...field} value={field.value || ""} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Nom complet */}
+                  <FormField
+                    control={form.control}
+                    name="full_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nom complet</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Jean Dupont" {...field} value={field.value || ""} />
+                        </FormControl>
+                        <FormDescription className="text-xs">
+                          Nom affiché sur votre profil
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Initiales */}
+                  <FormField
+                    control={form.control}
+                    name="initials"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Initiales</FormLabel>
+                        <FormControl>
+                          <Input placeholder="JD" maxLength={10} {...field} value={field.value || ""} />
+                        </FormControl>
+                        <FormDescription className="text-xs">
+                          Affichées dans l&apos;avatar
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Email principal */}
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Adresse email</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="jean.dupont@example.com" {...field} disabled className="bg-muted" />
+                        </FormControl>
+                        <FormDescription className="text-xs">
+                          Email de connexion (non modifiable)
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Email de récupération */}
+                  <FormField
+                    control={form.control}
+                    name="recovery_email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email de récupération</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="recuperation@example.com" {...field} value={field.value || ""} />
+                        </FormControl>
+                        <FormDescription className="text-xs">
+                          Pour récupérer votre compte
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Téléphones */}
+                  <div className="md:col-span-2 space-y-2">
+                    <Label>Numéros de téléphone</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="+33 6 12 34 56 78"
+                        value={newPhone}
+                        onChange={(e) => setNewPhone(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault()
+                            addPhoneNumber()
+                          }
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={addPhoneNumber}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {phoneNumbers.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {phoneNumbers.map((phone, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center gap-1 bg-secondary text-secondary-foreground px-3 py-1 rounded-md text-sm"
+                          >
+                            <span>{phone}</span>
+                            <button
+                              type="button"
+                              onClick={() => removePhoneNumber(index)}
+                              className="hover:bg-secondary-foreground/20 rounded-full p-0.5"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Ajoutez un ou plusieurs numéros de téléphone
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <Button type="submit" disabled={isSubmitting}>

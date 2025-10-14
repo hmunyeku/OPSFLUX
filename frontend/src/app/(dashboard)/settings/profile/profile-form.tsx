@@ -25,15 +25,6 @@ import { useToast } from "@/hooks/use-toast"
 import { Lock, CheckCircle2, XCircle, AlertCircle, Plus, X } from "lucide-react"
 
 const accountFormSchema = z.object({
-  full_name: z
-    .string()
-    .min(2, {
-      message: "Le nom complet doit contenir au moins 2 caractères.",
-    })
-    .max(255, {
-      message: "Le nom complet ne doit pas dépasser 255 caractères.",
-    })
-    .optional(),
   first_name: z
     .string()
     .min(2, {
@@ -99,7 +90,6 @@ export function AccountForm() {
   const form = useForm<AccountFormValues>({
     resolver: zodResolver(accountFormSchema),
     defaultValues: {
-      full_name: "",
       first_name: "",
       last_name: "",
       initials: "",
@@ -118,7 +108,6 @@ export function AccountForm() {
   useEffect(() => {
     if (user) {
       form.reset({
-        full_name: user.full_name || "",
         first_name: user.first_name || "",
         last_name: user.last_name || "",
         initials: user.initials || "",
@@ -301,8 +290,11 @@ export function AccountForm() {
         return
       }
 
+      // Générer automatiquement le nom complet à partir du prénom et du nom
+      const fullName = [data.first_name, data.last_name].filter(Boolean).join(" ").trim() || undefined
+
       const updateData: UserUpdate = {
-        full_name: data.full_name,
+        full_name: fullName,
         first_name: data.first_name,
         last_name: data.last_name,
         initials: data.initials,
@@ -405,24 +397,6 @@ export function AccountForm() {
                         <FormControl>
                           <Input placeholder="Dupont" {...field} value={field.value || ""} />
                         </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {/* Nom complet */}
-                  <FormField
-                    control={form.control}
-                    name="full_name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nom complet</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Jean Dupont" {...field} value={field.value || ""} />
-                        </FormControl>
-                        <FormDescription className="text-xs">
-                          Nom affiché sur votre profil
-                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

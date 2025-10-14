@@ -163,6 +163,7 @@ class NewPassword(SQLModel):
 # App Settings Models
 class AppSettingsBase(SQLModel):
     """Base model for application settings"""
+    # Application générale
     app_name: str = Field(default="OpsFlux", max_length=255)
     app_logo: str | None = Field(default=None, max_length=500)
     default_theme: str = Field(default="amethyst-haze", max_length=100)
@@ -173,9 +174,21 @@ class AppSettingsBase(SQLModel):
     company_tax_id: str | None = Field(default=None, max_length=100)
     company_address: str | None = Field(default=None, max_length=500)
 
+    # Paramètres de sécurité 2FA
+    twofa_max_attempts: int = Field(default=5, description="Nombre maximum de tentatives 2FA avant blocage")
+    twofa_sms_timeout_minutes: int = Field(default=10, description="Durée de validité du code SMS en minutes")
+    twofa_sms_rate_limit: int = Field(default=5, description="Nombre maximum de SMS par heure")
+
+    # Configuration SMS Provider (Twilio)
+    sms_provider: str = Field(default="twilio", max_length=50, description="Fournisseur SMS (twilio, etc.)")
+    sms_provider_account_sid: str | None = Field(default=None, max_length=255, description="Account SID du provider SMS")
+    sms_provider_auth_token: str | None = Field(default=None, max_length=255, description="Auth Token du provider SMS")
+    sms_provider_phone_number: str | None = Field(default=None, max_length=50, description="Numéro de téléphone émetteur")
+
 
 class AppSettingsUpdate(SQLModel):
     """Model for updating application settings"""
+    # Application générale
     app_name: str | None = Field(default=None, max_length=255)
     app_logo: str | None = Field(default=None, max_length=500)
     default_theme: str | None = Field(default=None, max_length=100)
@@ -185,6 +198,17 @@ class AppSettingsUpdate(SQLModel):
     company_logo: str | None = Field(default=None, max_length=500)
     company_tax_id: str | None = Field(default=None, max_length=100)
     company_address: str | None = Field(default=None, max_length=500)
+
+    # Paramètres de sécurité 2FA
+    twofa_max_attempts: int | None = Field(default=None, description="Nombre maximum de tentatives 2FA avant blocage")
+    twofa_sms_timeout_minutes: int | None = Field(default=None, description="Durée de validité du code SMS en minutes")
+    twofa_sms_rate_limit: int | None = Field(default=None, description="Nombre maximum de SMS par heure")
+
+    # Configuration SMS Provider (Twilio)
+    sms_provider: str | None = Field(default=None, max_length=50, description="Fournisseur SMS (twilio, etc.)")
+    sms_provider_account_sid: str | None = Field(default=None, max_length=255, description="Account SID du provider SMS")
+    sms_provider_auth_token: str | None = Field(default=None, max_length=255, description="Auth Token du provider SMS")
+    sms_provider_phone_number: str | None = Field(default=None, max_length=50, description="Numéro de téléphone émetteur")
 
 
 class AppSettings(AbstractBaseModel, AppSettingsBase, table=True):

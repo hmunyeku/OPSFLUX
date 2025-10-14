@@ -15,6 +15,7 @@ from sqlmodel import Session, select
 from twilio.rest import Client
 
 from app.core.config import settings
+from app.core.security_settings_service import SecuritySettingsService
 from app.models import User
 from app.models_2fa import (
     SMSVerification,
@@ -299,7 +300,8 @@ class TwoFactorService:
         Raises:
             ValueError: Si rate limit atteint ou config manquante
         """
-        # Rate limiting: max 5 SMS par heure
+        # Rate limiting: max N SMS par heure (configurable via AppSettings)
+        sms_rate_limit = SecuritySettingsService.get_2fa_sms_rate_limit(session)
         one_hour_ago = datetime.utcnow() - timedelta(hours=1)
         recent_sms = session.exec(
             select(SMSVerification).where(
@@ -308,13 +310,16 @@ class TwoFactorService:
             )
         ).all()
 
-        if len(recent_sms) >= 5:
+        if len(recent_sms) >= sms_rate_limit:
             raise ValueError(
-                "Trop de tentatives SMS. Attendez 1 heure ou utilisez codes backup."
+                f"Trop de tentatives SMS. Attendez 1 heure ou utilisez codes backup."
             )
 
         # Générer code 6 chiffres
         code = "".join([str(secrets.randbelow(10)) for _ in range(6)])
+
+        # Durée de validité du code (configurable via AppSettings)
+        sms_timeout_minutes = SecuritySettingsService.get_2fa_sms_timeout_minutes(session)
 
         # Créer record
         sms = SMSVerification(
@@ -322,20 +327,27 @@ class TwoFactorService:
             phone_number=phone_number,
             code=code,
             purpose=purpose,
-            expires_at=datetime.utcnow() + timedelta(minutes=10),
+            expires_at=datetime.utcnow() + timedelta(minutes=sms_timeout_minutes),
         )
 
         session.add(sms)
         session.commit()
         session.refresh(sms)
 
-        # Envoyer SMS via Twilio
-        if settings.TWILIO_ACCOUNT_SID and settings.TWILIO_AUTH_TOKEN:
+        # Envoyer SMS via provider configuré (Twilio par défaut)
+        sms_config = SecuritySettingsService.get_sms_provider_config(session)
+
+        # Fallback vers settings si pas configuré dans AppSettings
+        account_sid = sms_config["account_sid"] or settings.TWILIO_ACCOUNT_SID
+        auth_token = sms_config["auth_token"] or settings.TWILIO_AUTH_TOKEN
+        from_number = sms_config["phone_number"] or settings.TWILIO_PHONE_NUMBER
+
+        if account_sid and auth_token:
             try:
-                client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+                client = Client(account_sid, auth_token)
                 message = client.messages.create(
-                    body=f"Votre code OpsFlux: {code}\nValide 10 minutes.",
-                    from_=settings.TWILIO_PHONE_NUMBER,
+                    body=f"Votre code OpsFlux: {code}\nValide {sms_timeout_minutes} minutes.",
+                    from_=from_number,
                     to=phone_number,
                 )
                 # TODO: Logger message SID pour tracking
@@ -343,7 +355,7 @@ class TwoFactorService:
                 # En développement, on log juste le code
                 print(f"SMS Code: {code} (Error: {e})")
         else:
-            # Mode développement sans Twilio
+            # Mode développement sans provider configuré
             print(f"[DEV] SMS Code pour {phone_number}: {code}")
 
         return sms

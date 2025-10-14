@@ -72,6 +72,49 @@ export interface UpdatePassword {
   new_password: string
 }
 
+export interface AppSettings {
+  id: string
+  app_name: string
+  app_logo?: string | null
+  default_theme: string
+  default_language: string
+  font: string
+  company_name?: string | null
+  company_logo?: string | null
+  company_tax_id?: string | null
+  company_address?: string | null
+  // Paramètres de sécurité 2FA
+  twofa_max_attempts: number
+  twofa_sms_timeout_minutes: number
+  twofa_sms_rate_limit: number
+  // Configuration SMS Provider
+  sms_provider: string
+  sms_provider_account_sid?: string | null
+  sms_provider_auth_token?: string | null
+  sms_provider_phone_number?: string | null
+}
+
+export interface AppSettingsUpdate {
+  app_name?: string
+  app_logo?: string | null
+  default_theme?: string
+  default_language?: string
+  font?: string
+  company_name?: string | null
+  company_logo?: string | null
+  company_tax_id?: string | null
+  company_address?: string | null
+  // Paramètres de sécurité 2FA
+  twofa_max_attempts?: number
+  twofa_sms_timeout_minutes?: number
+  twofa_sms_rate_limit?: number
+  // Configuration SMS Provider
+  sms_provider?: string
+  sms_provider_account_sid?: string | null
+  sms_provider_auth_token?: string | null
+  sms_provider_phone_number?: string | null
+}
+
 class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message)
@@ -186,6 +229,26 @@ export const api = {
   async updatePassword(token: string, data: UpdatePassword): Promise<{ message: string }> {
     return fetchApi('/api/v1/users/me/password', {
       method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    })
+  },
+
+  /**
+   * Get application settings
+   */
+  async getAppSettings(): Promise<AppSettings> {
+    return fetchApi('/api/v1/settings/')
+  },
+
+  /**
+   * Update application settings (superuser only)
+   */
+  async updateAppSettings(token: string, data: AppSettingsUpdate): Promise<AppSettings> {
+    return fetchApi('/api/v1/settings/', {
+      method: 'PUT',
       headers: {
         Authorization: `Bearer ${token}`,
       },

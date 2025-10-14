@@ -3,6 +3,7 @@ import {
   IconChecklist,
   IconCoin,
   IconNotification,
+  IconShield,
   IconTool,
   IconUser,
 } from "@tabler/icons-react"
@@ -19,6 +20,11 @@ const sidebarNavItems = [
     title: "Profile",
     icon: <IconUser />,
     href: "/settings/profile",
+  },
+  {
+    title: "Security",
+    icon: <IconShield />,
+    href: "/settings/security",
   },
   {
     title: "Billing",

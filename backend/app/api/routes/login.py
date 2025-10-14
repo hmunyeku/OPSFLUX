@@ -14,6 +14,7 @@ from app.core import security
 from app.core.config import settings
 from app.core.security import get_password_hash, create_2fa_temp_token, ALGORITHM
 from app.core.twofa_service import TwoFactorService
+from app.core.security_settings_service import SecuritySettingsService
 from app.models import (
     Message,
     NewPassword,
@@ -156,11 +157,12 @@ def verify_2fa_login(
         session.add(twofa_config)
         session.commit()
 
-        # Bloquer après 5 tentatives échouées
-        if twofa_config.failed_attempts >= 5:
+        # Bloquer après N tentatives échouées (configurable via AppSettings)
+        max_attempts = SecuritySettingsService.get_2fa_max_attempts(session)
+        if twofa_config.failed_attempts >= max_attempts:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Too many failed attempts. Please try again later.",
+                detail=f"Too many failed attempts. Please try again later.",
             )
 
         raise HTTPException(

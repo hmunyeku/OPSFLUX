@@ -3,7 +3,7 @@
 import * as z from "zod"
 import { useForm } from "react-hook-form"
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
-import { IconHome, IconId, IconMessage2Question, IconShield, IconSearch, IconFilter, IconArrowsSort } from "@tabler/icons-react"
+import { IconHome, IconId, IconMessage2Question, IconShield, IconSearch, IconFilter, IconArrowsSort, IconX } from "@tabler/icons-react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import Image from "next/image"
 import Link from "next/link"
@@ -272,8 +272,11 @@ export default function GeneralForm() {
 
   // Watch for field changes with delay
   useEffect(() => {
-    const subscription = form.watch((_value, { name }) => {
+    const subscription = form.watch((value, { name, type }) => {
       if (!isInitialized || !name) return
+
+      // Only track changes from actual user input, not from filtering/rendering
+      if (type !== 'change') return
 
       // Clear existing timer
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
@@ -1025,18 +1028,22 @@ export default function GeneralForm() {
             </Button>
           )
         },
-        cell: ({ row }) => (
-          <div className="min-w-[150px]">
-            <Badge
-              variant="secondary"
-              className="text-xs cursor-pointer hover:bg-secondary/80 transition-colors"
-              onClick={() => setCategoryFilter(row.original.category)}
-              title={`Filtrer par ${row.original.category}`}
-            >
-              {row.original.category}
-            </Badge>
-          </div>
-        ),
+        cell: ({ row }) => {
+          const isFiltered = categoryFilter === row.original.category
+          return (
+            <div className="min-w-[150px]">
+              <Badge
+                variant={isFiltered ? "default" : "secondary"}
+                className="text-xs cursor-pointer hover:bg-secondary/80 transition-colors flex items-center gap-1.5"
+                onClick={() => setCategoryFilter(isFiltered ? "all" : row.original.category)}
+                title={isFiltered ? "Retirer le filtre" : `Filtrer par ${row.original.category}`}
+              >
+                {row.original.category}
+                {isFiltered && <IconX className="h-3 w-3" />}
+              </Badge>
+            </div>
+          )
+        },
         filterFn: (row, id, value) => {
           return value === "all" || row.getValue(id) === value
         },
@@ -1189,16 +1196,6 @@ export default function GeneralForm() {
                 ))}
               </SelectContent>
             </Select>
-            {categoryFilter !== "all" && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setCategoryFilter("all")}
-                className="h-8"
-              >
-                Effacer
-              </Button>
-            )}
           </div>
         </div>
 
@@ -1274,14 +1271,20 @@ export default function GeneralForm() {
                   }`}
                 >
                   <div className="space-y-2">
-                    <Badge
-                      variant="secondary"
-                      className="text-xs cursor-pointer hover:bg-secondary/80 transition-colors"
-                      onClick={() => setCategoryFilter(item.category)}
-                      title={`Filtrer par ${item.category}`}
-                    >
-                      {item.category}
-                    </Badge>
+                    {(() => {
+                      const isFiltered = categoryFilter === item.category
+                      return (
+                        <Badge
+                          variant={isFiltered ? "default" : "secondary"}
+                          className="text-xs cursor-pointer hover:bg-secondary/80 transition-colors flex items-center gap-1.5 w-fit"
+                          onClick={() => setCategoryFilter(isFiltered ? "all" : item.category)}
+                          title={isFiltered ? "Retirer le filtre" : `Filtrer par ${item.category}`}
+                        >
+                          {item.category}
+                          {isFiltered && <IconX className="h-3 w-3" />}
+                        </Badge>
+                      )
+                    })()}
                     <div className="flex items-center gap-2">
                       <h4 className="font-medium text-sm">{item.label}</h4>
                       {isRecentlyModified && (

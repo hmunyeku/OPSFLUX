@@ -307,7 +307,7 @@ export default function GeneralForm() {
         key: "app_name",
         label: "Nom de l'application",
         description: "Le nom qui apparaîtra dans l'interface",
-        category: "Configuration de l'application",
+        category: "Application",
         renderField: (form) => (
           <FormField
             control={form.control}
@@ -327,7 +327,7 @@ export default function GeneralForm() {
         key: "app_logo",
         label: "Logo de l'application",
         description: "Logo affiché dans la barre latérale",
-        category: "Configuration de l'application",
+        category: "Application",
         renderField: (form) => (
           <FormField
             control={form.control}
@@ -367,7 +367,7 @@ export default function GeneralForm() {
         key: "default_theme",
         label: "Thème par défaut",
         description: "Thème de couleur par défaut pour tous les utilisateurs",
-        category: "Configuration de l'application",
+        category: "Application",
         renderField: (form) => (
           <FormField
             control={form.control}
@@ -402,7 +402,7 @@ export default function GeneralForm() {
         key: "default_language",
         label: "Langue par défaut",
         description: "Langue par défaut de l'interface",
-        category: "Configuration de l'application",
+        category: "Application",
         renderField: (form) => (
           <FormField
             control={form.control}
@@ -434,7 +434,7 @@ export default function GeneralForm() {
         key: "font",
         label: "Police système",
         description: "Police utilisée dans l'interface",
-        category: "Configuration de l'application",
+        category: "Application",
         renderField: (form) => (
           <FormField
             control={form.control}
@@ -468,7 +468,7 @@ export default function GeneralForm() {
         key: "company_name",
         label: "Nom de l'entreprise",
         description: "Nom de votre entreprise",
-        category: "Configuration de l'entreprise",
+        category: "Entreprise",
         renderField: (form) => (
           <FormField
             control={form.control}
@@ -488,7 +488,7 @@ export default function GeneralForm() {
         key: "company_logo",
         label: "Logo de l'entreprise",
         description: "Logo de votre entreprise",
-        category: "Configuration de l'entreprise",
+        category: "Entreprise",
         renderField: (form) => (
           <FormField
             control={form.control}
@@ -528,7 +528,7 @@ export default function GeneralForm() {
         key: "company_tax_id",
         label: "Numéro d'identification fiscale",
         description: "Numéro fiscal de l'entreprise",
-        category: "Configuration de l'entreprise",
+        category: "Entreprise",
         renderField: (form) => (
           <FormField
             control={form.control}
@@ -553,7 +553,7 @@ export default function GeneralForm() {
         key: "company_address",
         label: "Adresse de l'entreprise",
         description: "Adresse complète de l'entreprise",
-        category: "Configuration de l'entreprise",
+        category: "Entreprise",
         renderField: (form) => (
           <FormField
             control={form.control}
@@ -578,7 +578,7 @@ export default function GeneralForm() {
         key: "auto_save_delay_seconds",
         label: "Délai d'auto-sauvegarde",
         description: "Temps en secondes avant l'enregistrement automatique",
-        category: "Configuration de l'application",
+        category: "Application",
         renderField: (form) => (
           <FormField
             control={form.control}
@@ -607,7 +607,7 @@ export default function GeneralForm() {
         key: "twofa_max_attempts",
         label: "Nombre max de tentatives 2FA",
         description: "Nombre maximum de tentatives de vérification 2FA",
-        category: "Paramètres 2FA",
+        category: "Sécurité",
         renderField: (form) => (
           <FormField
             control={form.control}
@@ -640,7 +640,7 @@ export default function GeneralForm() {
         key: "twofa_sms_timeout_minutes",
         label: "Timeout code SMS (minutes)",
         description: "Durée de validité d'un code SMS en minutes",
-        category: "Paramètres 2FA",
+        category: "Sécurité",
         renderField: (form) => (
           <FormField
             control={form.control}
@@ -668,7 +668,7 @@ export default function GeneralForm() {
         key: "twofa_sms_rate_limit",
         label: "Limite SMS par heure",
         description: "Nombre maximum de SMS envoyés par heure et par utilisateur",
-        category: "Paramètres 2FA",
+        category: "Sécurité",
         renderField: (form) => (
           <FormField
             control={form.control}
@@ -696,7 +696,7 @@ export default function GeneralForm() {
         key: "sms_provider",
         label: "Fournisseur SMS",
         description: "Fournisseur SMS pour l'envoi des codes 2FA",
-        category: "Paramètres 2FA",
+        category: "Sécurité",
         renderField: (form) => (
           <FormField
             control={form.control}
@@ -731,7 +731,7 @@ export default function GeneralForm() {
         key: "sms_provider_account_sid",
         label: "Account SID / API Key",
         description: "Identifiant du compte SMS (Account SID pour Twilio, API Key pour autres)",
-        category: "Paramètres 2FA",
+        category: "Sécurité",
         renderField: (form) => (
           <FormField
             control={form.control}
@@ -751,7 +751,7 @@ export default function GeneralForm() {
         key: "sms_provider_auth_token",
         label: "Auth Token / API Secret",
         description: "Token d'authentification ou secret API du fournisseur SMS",
-        category: "Paramètres 2FA",
+        category: "Sécurité",
         renderField: (form) => (
           <FormField
             control={form.control}
@@ -776,7 +776,7 @@ export default function GeneralForm() {
         key: "sms_provider_phone_number",
         label: "Numéro de téléphone émetteur",
         description: "Numéro de téléphone utilisé pour l'envoi des SMS (format international)",
-        category: "Paramètres 2FA",
+        category: "Sécurité",
         renderField: (form) => (
           <FormField
             control={form.control}
@@ -797,7 +797,7 @@ export default function GeneralForm() {
         key: "email_host",
         label: "Serveur SMTP",
         description: "Adresse du serveur SMTP (ex: smtp.gmail.com)",
-        category: "Configuration Email",
+        category: "Email",
         renderField: (form) => (
           <FormField
             control={form.control}
@@ -817,7 +817,7 @@ export default function GeneralForm() {
         key: "email_port",
         label: "Port SMTP",
         description: "Port du serveur SMTP (587 pour TLS, 465 pour SSL, 25 pour non sécurisé)",
-        category: "Configuration Email",
+        category: "Email",
         renderField: (form) => (
           <FormField
             control={form.control}
@@ -843,7 +843,7 @@ export default function GeneralForm() {
         key: "email_username",
         label: "Nom d'utilisateur SMTP",
         description: "Nom d'utilisateur pour l'authentification SMTP",
-        category: "Configuration Email",
+        category: "Email",
         renderField: (form) => (
           <FormField
             control={form.control}
@@ -863,7 +863,7 @@ export default function GeneralForm() {
         key: "email_password",
         label: "Mot de passe SMTP",
         description: "Mot de passe ou token d'application pour l'authentification SMTP",
-        category: "Configuration Email",
+        category: "Email",
         renderField: (form) => (
           <FormField
             control={form.control}
@@ -888,7 +888,7 @@ export default function GeneralForm() {
         key: "email_from",
         label: "Email expéditeur",
         description: "Adresse email utilisée comme expéditeur",
-        category: "Configuration Email",
+        category: "Email",
         renderField: (form) => (
           <FormField
             control={form.control}
@@ -908,7 +908,7 @@ export default function GeneralForm() {
         key: "email_from_name",
         label: "Nom de l'expéditeur",
         description: "Nom affiché comme expéditeur des emails",
-        category: "Configuration Email",
+        category: "Email",
         renderField: (form) => (
           <FormField
             control={form.control}
@@ -928,7 +928,7 @@ export default function GeneralForm() {
         key: "email_use_tls",
         label: "Utiliser TLS",
         description: "Activer le chiffrement TLS (recommandé pour port 587)",
-        category: "Configuration Email",
+        category: "Email",
         renderField: (form) => (
           <FormField
             control={form.control}
@@ -959,7 +959,7 @@ export default function GeneralForm() {
         key: "email_use_ssl",
         label: "Utiliser SSL",
         description: "Activer le chiffrement SSL (recommandé pour port 465)",
-        category: "Configuration Email",
+        category: "Email",
         renderField: (form) => (
           <FormField
             control={form.control}
@@ -991,7 +991,7 @@ export default function GeneralForm() {
         key: "intranet_url",
         label: "URL Intranet",
         description: "URL de l'intranet avec placeholder {user_id} pour l'identifiant utilisateur",
-        category: "Configuration Intranet",
+        category: "Intranet",
         renderField: (form) => (
           <FormField
             control={form.control}

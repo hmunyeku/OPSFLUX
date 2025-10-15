@@ -450,7 +450,7 @@ export function PreferencesTab() {
       key: "language",
       label: "Langue",
       description: "Langue de l'interface utilisateur",
-      category: "Langue & Région",
+      category: "Région",
       renderValue: (value, onChange) => (
         <Select value={value as string} onValueChange={onChange}>
           <SelectTrigger className="w-[220px]">
@@ -467,7 +467,7 @@ export function PreferencesTab() {
       key: "timezone",
       label: "Fuseau horaire",
       description: "Fuseau horaire pour l'affichage des dates",
-      category: "Langue & Région",
+      category: "Région",
       renderValue: (value, onChange) => (
         <Select value={value as string} onValueChange={onChange}>
           <SelectTrigger className="w-[220px]">
@@ -486,7 +486,7 @@ export function PreferencesTab() {
       key: "dateFormat",
       label: "Format de date",
       description: "Format d'affichage des dates",
-      category: "Langue & Région",
+      category: "Région",
       renderValue: (value, onChange) => (
         <Select value={value as string} onValueChange={onChange}>
           <SelectTrigger className="w-[220px]">
@@ -504,7 +504,7 @@ export function PreferencesTab() {
       key: "timeFormat",
       label: "Format d'heure",
       description: "Format d'affichage de l'heure",
-      category: "Langue & Région",
+      category: "Région",
       renderValue: (value, onChange) => (
         <Select value={value as string} onValueChange={onChange}>
           <SelectTrigger className="w-[220px]">

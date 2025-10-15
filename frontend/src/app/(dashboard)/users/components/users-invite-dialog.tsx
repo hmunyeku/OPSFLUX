@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { z } from "zod"
 import { useForm } from "react-hook-form"
 import { IconMailPlus, IconSend } from "@tabler/icons-react"
@@ -27,39 +28,69 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import SelectDropdown from "@/components/select-dropdown"
 import { userTypes } from "../data/data"
+import { createUser } from "../data/users-api"
 
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onUserCreated?: () => void
 }
 
 const formSchema = z.object({
   email: z
     .string()
-    .min(1, { message: "Email is required." })
-    .email({ message: "Email is invalid." }),
-  role: z.string().min(1, { message: "Role is required." }),
+    .min(1, { message: "L'email est requis." })
+    .email({ message: "L'email est invalide." }),
+  first_name: z.string().optional(),
+  last_name: z.string().optional(),
+  role: z.string().min(1, { message: "Le rôle est requis." }),
+  password: z.string().min(8, { message: "Le mot de passe doit contenir au moins 8 caractères." }),
   desc: z.string().optional(),
 })
 type UserInviteForm = z.infer<typeof formSchema>
 
-export function UsersInviteDialog({ open, onOpenChange }: Props) {
+export function UsersInviteDialog({ open, onOpenChange, onUserCreated }: Props) {
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const form = useForm<UserInviteForm>({
     resolver: zodResolver(formSchema),
-    defaultValues: { email: "", role: "", desc: "" },
+    defaultValues: { email: "", first_name: "", last_name: "", role: "", password: "", desc: "" },
   })
 
-  const onSubmit = (values: UserInviteForm) => {
-    form.reset()
-    toast({
-      title: "You submitted the following values:",
-      description: (
-        <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4">
-          <code className="text-white">{JSON.stringify(values, null, 2)}</code>
-        </pre>
-      ),
-    })
-    onOpenChange(false)
+  const onSubmit = async (values: UserInviteForm) => {
+    try {
+      setIsSubmitting(true)
+
+      // Map role to is_superuser
+      const is_superuser = values.role === 'superadmin'
+
+      await createUser({
+        email: values.email,
+        password: values.password,
+        first_name: values.first_name,
+        last_name: values.last_name,
+        full_name: values.first_name && values.last_name
+          ? `${values.first_name} ${values.last_name}`
+          : undefined,
+        is_superuser,
+        is_active: true,
+      })
+
+      form.reset()
+      toast({
+        title: "Utilisateur créé",
+        description: `L'utilisateur ${values.email} a été créé avec succès.`,
+      })
+      onOpenChange(false)
+      onUserCreated?.()
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: error instanceof Error ? error.message : "Impossible de créer l'utilisateur",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -86,6 +117,40 @@ export function UsersInviteDialog({ open, onOpenChange }: Props) {
             onSubmit={form.handleSubmit(onSubmit)}
             className="space-y-4"
           >
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="first_name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Prénom</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Jean"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="last_name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nom</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Dupont"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
             <FormField
               control={form.control}
               name="email"
@@ -95,7 +160,24 @@ export function UsersInviteDialog({ open, onOpenChange }: Props) {
                   <FormControl>
                     <Input
                       type="email"
-                      placeholder="eg: john.doe@gmail.com"
+                      placeholder="jean.dupont@exemple.com"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Mot de passe</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      placeholder="Minimum 8 caractères"
                       {...field}
                     />
                   </FormControl>
@@ -108,11 +190,11 @@ export function UsersInviteDialog({ open, onOpenChange }: Props) {
               name="role"
               render={({ field }) => (
                 <FormItem className="space-y-1">
-                  <FormLabel>Role</FormLabel>
+                  <FormLabel>Rôle</FormLabel>
                   <SelectDropdown
                     defaultValue={field.value}
                     onValueChange={field.onChange}
-                    placeholder="Select a role"
+                    placeholder="Sélectionner un rôle"
                     items={userTypes.map(({ label, value }) => ({
                       label,
                       value,
@@ -127,11 +209,11 @@ export function UsersInviteDialog({ open, onOpenChange }: Props) {
               name="desc"
               render={({ field }) => (
                 <FormItem className="">
-                  <FormLabel>Description (optional)</FormLabel>
+                  <FormLabel>Description (optionnel)</FormLabel>
                   <FormControl>
                     <Textarea
                       className="resize-none"
-                      placeholder="Add a personal note to your invitation (optional)"
+                      placeholder="Ajouter une note personnelle (optionnel)"
                       {...field}
                     />
                   </FormControl>
@@ -143,10 +225,10 @@ export function UsersInviteDialog({ open, onOpenChange }: Props) {
         </Form>
         <DialogFooter className="gap-y-2">
           <DialogClose asChild>
-            <Button variant="outline">Cancel</Button>
+            <Button variant="outline" disabled={isSubmitting}>Annuler</Button>
           </DialogClose>
-          <Button type="submit" form="user-invite-form">
-            Invite <IconSend />
+          <Button type="submit" form="user-invite-form" disabled={isSubmitting}>
+            {isSubmitting ? "Création..." : "Créer l'utilisateur"} <IconSend />
           </Button>
         </DialogFooter>
       </DialogContent>

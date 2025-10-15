@@ -48,28 +48,28 @@ export const sidebarData: SidebarData = {
   ],
   navGroups: [
     {
-      title: "General",
+      title: "Général",
       items: [
         {
-          title: "Dashboard",
+          title: "Tableau de bord",
           icon: IconLayoutDashboard,
           items: [
             {
-              title: "Dashboard 1",
+              title: "Tableau de bord 1",
               url: "/",
             },
             {
-              title: "Dashboard 2",
+              title: "Tableau de bord 2",
               url: "/dashboard-2",
             },
             {
-              title: "Dashboard 3",
+              title: "Tableau de bord 3",
               url: "/dashboard-3",
             },
           ],
         },
         {
-          title: "Tasks",
+          title: "Tâches",
           url: "/tasks",
           icon: IconChecklist,
         },
@@ -79,49 +79,49 @@ export const sidebarData: SidebarData = {
       title: "Pages",
       items: [
         {
-          title: "Auth",
+          title: "Authentification",
           icon: IconLockAccess,
           items: [
             {
-              title: "Login",
+              title: "Connexion",
               url: "/login",
             },
             {
-              title: "Register",
+              title: "Inscription",
               url: "/register",
             },
             {
-              title: "Forgot Password",
+              title: "Mot de passe oublié",
               url: "/forgot-password",
             },
           ],
         },
         {
-          title: "Errors",
+          title: "Erreurs",
           icon: IconBug,
           items: [
             {
-              title: "Unauthorized",
+              title: "Non autorisé",
               url: "/401",
               icon: IconLock,
             },
             {
-              title: "Forbidden",
+              title: "Interdit",
               url: "/403",
               icon: IconUserOff,
             },
             {
-              title: "Not Found",
+              title: "Page introuvable",
               url: "/404",
               icon: IconError404,
             },
             {
-              title: "Internal Server Error",
+              title: "Erreur serveur interne",
               url: "/error",
               icon: IconServerOff,
             },
             {
-              title: "Maintenance Error",
+              title: "Erreur de maintenance",
               url: "/503",
               icon: IconBarrierBlock,
             },
@@ -130,24 +130,24 @@ export const sidebarData: SidebarData = {
       ],
     },
     {
-      title: "Other",
+      title: "Autre",
       items: [
         {
-          title: "Settings",
+          title: "Paramètres",
           icon: IconSettings,
           items: [
             {
-              title: "General",
+              title: "Général",
               icon: IconTool,
               url: "/settings",
             },
             {
-              title: "Profile",
+              title: "Profil",
               icon: IconUser,
               url: "/settings/profile",
             },
             {
-              title: "Billing",
+              title: "Facturation",
               icon: IconCoin,
               url: "/settings/billing",
             },
@@ -157,7 +157,7 @@ export const sidebarData: SidebarData = {
               url: "/settings/plans",
             },
             {
-              title: "Connected Apps",
+              title: "Applications connectées",
               icon: IconApps,
               url: "/settings/connected-apps",
             },
@@ -169,15 +169,15 @@ export const sidebarData: SidebarData = {
           ],
         },
         {
-          title: "Developers",
+          title: "Développeurs",
           icon: IconCode,
           items: [
             {
-              title: "Overview",
+              title: "Vue d'ensemble",
               url: "/developers/overview",
             },
             {
-              title: "API Keys",
+              title: "Clés API",
               url: "/developers/api-keys",
             },
             {
@@ -185,13 +185,13 @@ export const sidebarData: SidebarData = {
               url: "/developers/webhooks",
             },
             {
-              title: "Events/Logs",
+              title: "Événements/Logs",
               url: "/developers/events-&-logs",
             },
           ],
         },
         {
-          title: "Users",
+          title: "Utilisateurs",
           url: "/users",
           icon: IconUsers,
         },

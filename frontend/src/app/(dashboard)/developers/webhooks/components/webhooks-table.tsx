@@ -26,9 +26,10 @@ import { DataTableToolbar } from "./data-table-toolbar"
 interface Props {
   columns: ColumnDef<Webhook>[]
   data: Webhook[]
+  onWebhookUpdated?: () => void
 }
 
-export function WebhooksTable({ columns, data }: Props) {
+export function WebhooksTable({ columns, data, onWebhookUpdated: _onWebhookUpdated }: Props) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
 
   const table = useReactTable({

@@ -1,6 +1,8 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import { format } from "date-fns"
-import { IconRefresh } from "@tabler/icons-react"
-import { Terminal } from "lucide-react"
+import { Terminal, Trash2, Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -27,8 +29,82 @@ import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CopyButton } from "@/components/copy-button"
 import { CreateApiKeyDialog } from "./components/create-api-key-dialog"
+import { getApiKeys, deleteApiKey, toggleApiKeyActive, type ApiKey } from "./api-keys-api"
+import { useToast } from "@/hooks/use-toast"
+import { Card } from "@/components/ui/card"
 
 export default function ApiKeysPage() {
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
+  const [loading, setLoading] = useState(true)
+  const [environmentFilter, setEnvironmentFilter] = useState<string>("production")
+  const { toast } = useToast()
+
+  const loadApiKeys = async () => {
+    setLoading(true)
+    try {
+      const keys = await getApiKeys()
+      setApiKeys(keys)
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: error instanceof Error ? error.message : "Impossible de charger les clés API",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadApiKeys()
+  }, [])
+
+  const handleDeleteKey = async (id: string) => {
+    if (!confirm("Êtes-vous sûr de vouloir supprimer cette clé API ?")) {
+      return
+    }
+
+    try {
+      await deleteApiKey(id)
+      toast({
+        title: "Clé supprimée",
+        description: "La clé API a été supprimée avec succès",
+      })
+      await loadApiKeys()
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: error instanceof Error ? error.message : "Impossible de supprimer la clé",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleToggleActive = async (id: string, isActive: boolean) => {
+    try {
+      await toggleApiKeyActive(id, !isActive)
+      toast({
+        title: isActive ? "Clé désactivée" : "Clé activée",
+        description: `La clé API a été ${isActive ? "désactivée" : "activée"} avec succès`,
+      })
+      await loadApiKeys()
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: error instanceof Error ? error.message : "Impossible de modifier la clé",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Filter keys by environment and type
+  const secretKeys = apiKeys.filter(
+    (key) => key.key_type === "secret" && key.environment === environmentFilter
+  )
+  const publishableKeys = apiKeys.filter(
+    (key) => key.key_type === "publishable" && key.environment === environmentFilter
+  )
+
   return (
     <>
       <div className="flex w-full flex-col gap-2">
@@ -36,36 +112,37 @@ export default function ApiKeysPage() {
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link href="/">Home</Link>
+                <Link href="/">Accueil</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>Developers</BreadcrumbPage>
+              <BreadcrumbPage>Développeurs</BreadcrumbPage>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>API Keys</BreadcrumbPage>
+              <BreadcrumbPage>Clés API</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
 
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h2 className="text-2xl font-bold">API Keys</h2>
+            <h2 className="text-2xl font-bold">Clés API</h2>
             <p className="text-muted-foreground text-sm">
-              Secure, manage, and monitor your API keys with ease.
+              Sécurisez, gérez et surveillez vos clés API en toute simplicité.
             </p>
           </div>
-          <Select>
+          <Select value={environmentFilter} onValueChange={setEnvironmentFilter}>
             <SelectTrigger className="w-fit gap-2 text-sm">
-              <SelectValue placeholder="Server" />
+              <SelectValue placeholder="Environnement" />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectLabel>Server</SelectLabel>
+                <SelectLabel>Environnement</SelectLabel>
                 <SelectItem value="production">Production</SelectItem>
-                <SelectItem value="development">Development</SelectItem>
+                <SelectItem value="test">Test</SelectItem>
+                <SelectItem value="development">Développement</SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>
@@ -78,172 +155,181 @@ export default function ApiKeysPage() {
             value="api"
             className="rounded-none border-blue-600 py-1 shadow-none! data-[state=active]:border-b-[2px]"
           >
-            API Keys
-          </TabsTrigger>
-          <TabsTrigger
-            disabled
-            value="account"
-            className="rounded-none border-blue-600 py-1 shadow-none! data-[state=active]:border-b-[2px]"
-          >
-            Account
+            Clés API
           </TabsTrigger>
         </TabsList>
         <TabsContent value="api" className="mt-5 w-full max-w-3xl">
           <div className="flex flex-col gap-5">
             <div className="flex flex-col gap-3">
-              <h2 className="text-lg font-semibold">API Version</h2>
+              <h2 className="text-lg font-semibold">Version de l&apos;API</h2>
               <div className="flex items-center justify-between">
-                <h1 className="text-sm font-semibold">Global Version</h1>
+                <h1 className="text-sm font-semibold">Version globale</h1>
                 <div className="flex items-center gap-4">
                   <p className="text-sm font-medium">
                     {format(new Date(), "dd-MMM-yyyy")}
                   </p>
-                  <Badge variant="secondary">Latest Version</Badge>
+                  <Badge variant="secondary">Dernière version</Badge>
                 </div>
               </div>
             </div>
             <Separator />
+
+            {/* Secret API Keys */}
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Secret API Keys</h2>
-                <CreateApiKeyDialog />
+                <h2 className="text-lg font-semibold">Clés API Secrètes</h2>
+                <CreateApiKeyDialog
+                  keyType="secret"
+                  environment={environmentFilter}
+                  onKeyCreated={loadApiKeys}
+                />
               </div>
               <Alert className="w-full">
                 <Terminal className="h-4 w-4" />
-                <AlertTitle>Reminder!</AlertTitle>
+                <AlertTitle>Rappel !</AlertTitle>
                 <AlertDescription>
-                  Live API keys can only be used for the v1/api-end point.See
-                  the{" "}
+                  Les clés API secrètes ne doivent jamais être partagées publiquement.
+                  Consultez la{" "}
                   <Link className="underline" href="/">
                     documentation
                   </Link>{" "}
-                  for more details.
+                  pour plus de détails.
                 </AlertDescription>
               </Alert>
 
-              <div className="my-4 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-                <h1 className="text-sm font-semibold">Live Environment</h1>
-                <div className="flex w-full flex-col items-end gap-2 md:w-fit">
-                  <div className="relative w-full md:max-w-[280px]">
-                    <Input
-                      readOnly
-                      placeholder="Live_08234153847256"
-                      className="pr-10"
-                    />
-
-                    <CopyButton
-                      className="absolute top-1/2 right-1 flex h-6 w-6 -translate-y-1/2"
-                      text="Copt Api Key"
-                    />
-                  </div>
-
-                  <Button
-                    variant="link"
-                    className="flex items-center gap-1 p-0 text-green-500 dark:text-green-300"
-                  >
-                    <IconRefresh strokeWidth={1.5} size={16} />
-                    <p className="text-sm font-medium">Refresh</p>
-                  </Button>
+              {loading ? (
+                <div className="text-sm text-muted-foreground">Chargement...</div>
+              ) : secretKeys.length === 0 ? (
+                <Card className="p-6 text-center text-sm text-muted-foreground">
+                  Aucune clé secrète pour l&apos;environnement {environmentFilter}
+                </Card>
+              ) : (
+                <div className="space-y-4">
+                  {secretKeys.map((key) => (
+                    <div
+                      key={key.id}
+                      className="flex flex-col gap-2 rounded-lg border p-4"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold">{key.name}</h3>
+                          <Badge variant={key.is_active ? "default" : "secondary"}>
+                            {key.is_active ? "Active" : "Inactive"}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleToggleActive(key.id, key.is_active)}
+                          >
+                            {key.is_active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteKey(key.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          readOnly
+                          value={key.key_preview}
+                          className="font-mono text-xs"
+                        />
+                        <CopyButton text={key.key_preview} />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Créée le {format(new Date(key.created_at), "dd/MM/yyyy à HH:mm")}
+                      </p>
+                    </div>
+                  ))}
                 </div>
-              </div>
-              <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-                <h1 className="text-sm font-semibold">Test Environment</h1>
-                <div className="flex w-full flex-col items-end gap-2 md:w-fit">
-                  <div className="relative w-full md:max-w-[280px]">
-                    <Input
-                      readOnly
-                      placeholder="Live_08234153847256"
-                      className="pr-10"
-                    />
-
-                    <CopyButton
-                      className="absolute top-1/2 right-1 flex h-6 w-6 -translate-y-1/2"
-                      text="Copt Api Key"
-                    />
-                  </div>
-
-                  <Button
-                    variant="link"
-                    className="flex items-center gap-1 p-0 text-green-500 dark:text-green-300"
-                  >
-                    <IconRefresh strokeWidth={1.5} size={16} />
-                    <p className="text-sm font-medium">Refresh</p>
-                  </Button>
-                </div>
-              </div>
+              )}
             </div>
             <Separator />
+
+            {/* Publishable API Keys */}
             <div className="flex flex-col gap-3">
-              <h2 className="text-lg font-semibold">Publishable API Keys</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Clés API Publiques</h2>
+                <CreateApiKeyDialog
+                  keyType="publishable"
+                  environment={environmentFilter}
+                  onKeyCreated={loadApiKeys}
+                />
+              </div>
               <Alert className="w-full">
                 <AlertDescription className="flex flex-col items-start gap-3 md:flex-row md:items-center">
                   <Terminal className="h-4 w-4" />
                   <p>
-                    Live API keys can only be used for the v1/api-end point.See
-                    the{" "}
+                    Les clés publiques peuvent être utilisées côté client. Consultez la{" "}
                     <Link href="/" className="underline">
                       documentation
                     </Link>{" "}
-                    for more details.
+                    pour plus de détails.
                   </p>
                 </AlertDescription>
               </Alert>
 
-              <div className="my-4 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-                <h1 className="text-sm font-semibold">Live Environment</h1>
-                <div className="flex w-full flex-col items-end gap-2 md:w-fit">
-                  <div className="relative w-full md:max-w-[280px]">
-                    <Input
-                      readOnly
-                      placeholder="Live_08234153847256"
-                      className="pr-10"
-                    />
-
-                    <CopyButton
-                      className="absolute top-1/2 right-1 flex h-6 w-6 -translate-y-1/2"
-                      text="Copt Api Key"
-                    />
-                  </div>
-
-                  <Button
-                    variant="link"
-                    className="flex items-center gap-1 p-0 text-green-500 dark:text-green-300"
-                  >
-                    <IconRefresh strokeWidth={1.5} size={16} />
-                    <p className="text-sm font-medium">Refresh</p>
-                  </Button>
+              {loading ? (
+                <div className="text-sm text-muted-foreground">Chargement...</div>
+              ) : publishableKeys.length === 0 ? (
+                <Card className="p-6 text-center text-sm text-muted-foreground">
+                  Aucune clé publique pour l&apos;environnement {environmentFilter}
+                </Card>
+              ) : (
+                <div className="space-y-4">
+                  {publishableKeys.map((key) => (
+                    <div
+                      key={key.id}
+                      className="flex flex-col gap-2 rounded-lg border p-4"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold">{key.name}</h3>
+                          <Badge variant={key.is_active ? "default" : "secondary"}>
+                            {key.is_active ? "Active" : "Inactive"}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleToggleActive(key.id, key.is_active)}
+                          >
+                            {key.is_active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteKey(key.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          readOnly
+                          value={key.key_preview}
+                          className="font-mono text-xs"
+                        />
+                        <CopyButton text={key.key_preview} />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Créée le {format(new Date(key.created_at), "dd/MM/yyyy à HH:mm")}
+                      </p>
+                    </div>
+                  ))}
                 </div>
-              </div>
-
-              <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-                <h1 className="text-sm font-semibold">Test Environment</h1>
-                <div className="flex w-full flex-col items-end gap-2 md:w-fit">
-                  <div className="relative w-full md:max-w-[280px]">
-                    <Input
-                      readOnly
-                      placeholder="Live_08234153847256"
-                      className="pr-10"
-                    />
-
-                    <CopyButton
-                      className="absolute top-1/2 right-1 flex h-6 w-6 -translate-y-1/2"
-                      text="Copt Api Key"
-                    />
-                  </div>
-
-                  <Button
-                    variant="link"
-                    className="flex items-center gap-1 p-0 text-green-500 dark:text-green-300"
-                  >
-                    <IconRefresh strokeWidth={1.5} size={16} />
-                    <p className="text-sm font-medium">Refresh</p>
-                  </Button>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </TabsContent>
-        <TabsContent value="account">Account</TabsContent>
       </Tabs>
     </>
   )

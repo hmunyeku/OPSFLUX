@@ -31,6 +31,7 @@ interface Props {
   currentRow?: User
   open: boolean
   onOpenChange: (open: boolean) => void
+  onUserCreated?: () => void
 }
 
 const formSchema = z

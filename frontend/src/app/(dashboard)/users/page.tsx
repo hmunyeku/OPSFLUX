@@ -22,21 +22,21 @@ export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  useEffect(() => {
-    const loadUsers = async () => {
-      try {
-        setIsLoading(true)
-        const data = await getUsers()
-        const userList = userListSchema.parse(data)
-        setUsers(userList)
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error('Failed to load users:', error)
-      } finally {
-        setIsLoading(false)
-      }
+  const loadUsers = async () => {
+    try {
+      setIsLoading(true)
+      const data = await getUsers()
+      const userList = userListSchema.parse(data)
+      setUsers(userList)
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to load users:', error)
+    } finally {
+      setIsLoading(false)
     }
+  }
 
+  useEffect(() => {
     loadUsers()
   }, [])
 
@@ -69,7 +69,7 @@ export default function UsersPage() {
           <h2 className="flex-none text-xl font-bold tracking-tight">
             Liste des utilisateurs
           </h2>
-          <UserPrimaryActions />
+          <UserPrimaryActions onUserCreated={loadUsers} />
         </div>
         <UsersStats users={users} />
       </div>

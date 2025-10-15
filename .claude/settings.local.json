@@ -79,7 +79,14 @@
       "Bash(timeout 10 docker logs:*)",
       "Bash(timeout 5 docker logs code-frontend-1 --tail 30)",
       "Bash(docker-compose restart:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(awk:*)",
+      "Bash(xargs -r docker rm -f)",
+      "Bash(timeout 20 docker logs code-backend-1 --tail 30 --follow)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEyMzEwMzEsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.ZLd3sjn_SedYO4S1wFXtA6JXBV4MJIs8rKp9rUSlwyY\" curl -s -X GET http://localhost:8000/api/v1/developers/ -H \"Authorization: Bearer $TOKEN\" -H \"Content-Type: application/json\")",
+      "Bash(docker rmi:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEyMzEwMzEsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.ZLd3sjn_SedYO4S1wFXtA6JXBV4MJIs8rKp9rUSlwyY\" curl -s -X GET http://localhost:8000/api/v1/api-keys/ -H \"Authorization: Bearer $TOKEN\" -H \"Content-Type: application/json\")",
+      "Bash(timeout 5 docker logs code-backend-1 --tail 30)"
     ],
     "deny": [],
     "ask": []

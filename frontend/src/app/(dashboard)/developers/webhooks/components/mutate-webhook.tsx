@@ -1,6 +1,6 @@
 "use client"
 
-import { Dispatch, SetStateAction } from "react"
+import { Dispatch, SetStateAction, useState } from "react"
 import { z } from "zod"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -34,53 +34,94 @@ import {
   webhookEventSchema,
 } from "../data/schema"
 import { webhookEvents } from "../data/webhook-data"
+import { createWebhook, updateWebhook } from "../data/webhooks-api"
 
 interface Props {
   open: boolean
   setOpen: Dispatch<SetStateAction<boolean>>
   currentWebhook?: Webhook
+  onWebhookMutated?: () => void
 }
 
 const formSchema = z.object({
+  name: z.string().min(1, "Le nom est requis."),
   url: z
     .string()
-    .min(1, "URL Endpoint is required.")
-    .url("Please enter valid URL"),
+    .min(1, "L'URL est requise.")
+    .url("Veuillez entrer une URL valide"),
   description: z.string().optional(),
   authType: webhookAuthTypeSchema,
   events: z
     .array(webhookEventSchema)
     .refine((value) => value.some((item) => item), {
-      message: "Please select at least one event",
+      message: "Veuillez sélectionner au moins un événement",
     }),
 })
 type MutateWebhookForm = z.infer<typeof formSchema>
 
-export function MutateWebhook({ open, setOpen, currentWebhook }: Props) {
+export function MutateWebhook({ open, setOpen, currentWebhook, onWebhookMutated }: Props) {
   const isEdit = !!currentWebhook
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const form = useForm<MutateWebhookForm>({
     resolver: zodResolver(formSchema),
-    defaultValues: currentWebhook ?? {
-      url: "",
-      description: "",
-      authType: "none",
-      events: [],
-    },
+    defaultValues: currentWebhook
+      ? {
+          name: currentWebhook.name,
+          url: currentWebhook.url,
+          description: currentWebhook.description || "",
+          authType: currentWebhook.authType,
+          events: currentWebhook.events,
+        }
+      : {
+          name: "",
+          url: "",
+          description: "",
+          authType: "none",
+          events: [],
+        },
   })
 
-  const onSubmit = (data: MutateWebhookForm) => {
-    // do something with the form data
-    setOpen(false)
-    form.reset()
-    toast({
-      title: "You submitted the following values:",
-      description: (
-        <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4">
-          <code className="text-white">{JSON.stringify(data, null, 2)}</code>
-        </pre>
-      ),
-    })
+  const onSubmit = async (data: MutateWebhookForm) => {
+    setIsSubmitting(true)
+    try {
+      if (isEdit && currentWebhook) {
+        await updateWebhook(currentWebhook.id, {
+          name: data.name,
+          url: data.url,
+          description: data.description,
+          auth_type: data.authType,
+          events: data.events,
+        })
+        toast({
+          title: "Webhook mis à jour",
+          description: "Le webhook a été mis à jour avec succès",
+        })
+      } else {
+        await createWebhook({
+          name: data.name,
+          url: data.url,
+          description: data.description,
+          auth_type: data.authType,
+          events: data.events,
+        })
+        toast({
+          title: "Webhook créé",
+          description: "Le webhook a été créé avec succès",
+        })
+      }
+      setOpen(false)
+      form.reset()
+      onWebhookMutated?.()
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: error instanceof Error ? error.message : "Une erreur s'est produite",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -107,12 +148,25 @@ export function MutateWebhook({ open, setOpen, currentWebhook }: Props) {
           >
             <FormField
               control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem className="space-y-1">
+                  <FormLabel>Nom</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="Mon webhook" disabled={isSubmitting} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
               name="url"
               render={({ field }) => (
                 <FormItem className="space-y-1">
                   <FormLabel>URL Endpoint</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="https://" />
+                    <Input {...field} placeholder="https://" disabled={isSubmitting} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -234,10 +288,10 @@ export function MutateWebhook({ open, setOpen, currentWebhook }: Props) {
         </Form>
         <SheetFooter className="gap-2">
           <SheetClose asChild>
-            <Button variant="outline">Close</Button>
+            <Button variant="outline" disabled={isSubmitting}>Annuler</Button>
           </SheetClose>
-          <Button form="webhook" type="submit">
-            Save changes
+          <Button form="webhook" type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Enregistrement..." : "Enregistrer"}
           </Button>
         </SheetFooter>
       </SheetContent>

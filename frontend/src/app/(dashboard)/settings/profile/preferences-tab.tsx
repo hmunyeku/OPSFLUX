@@ -44,7 +44,7 @@ import {
   DialogFooter
 } from "@/components/ui/dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { IconSearch, IconFilter, IconArrowsSort } from "@tabler/icons-react"
+import { IconSearch, IconFilter, IconArrowsSort, IconX } from "@tabler/icons-react"
 import { Shield, ShieldCheck, Key, Download, RefreshCw, Smartphone } from "lucide-react"
 import { type UserPreferences } from "@/types/preferences"
 import { Switch } from "@/components/ui/switch"
@@ -639,18 +639,23 @@ export function PreferencesTab() {
             </Button>
           )
         },
-        cell: ({ row }) => (
-          <div className="min-w-[150px]">
-            <Badge
-              variant="secondary"
-              className="text-xs cursor-pointer hover:bg-secondary/80 transition-colors"
-              onClick={() => setCategoryFilter(row.original.category)}
-              title={`Filtrer par ${row.original.category}`}
-            >
-              {row.original.category}
-            </Badge>
-          </div>
-        ),
+        cell: ({ row }) => {
+          const isFiltered = categoryFilter === row.original.category
+          return (
+            <div className="min-w-[150px]">
+              <Button
+                variant={isFiltered ? "default" : "secondary"}
+                size="sm"
+                className="h-6 text-xs px-2 cursor-pointer transition-colors gap-1.5"
+                onClick={() => setCategoryFilter(isFiltered ? "all" : row.original.category)}
+                title={isFiltered ? "Cliquer pour retirer le filtre" : `Filtrer par ${row.original.category}`}
+              >
+                {row.original.category}
+                {isFiltered && <IconX className="h-3 w-3 ml-0.5" />}
+              </Button>
+            </div>
+          )
+        },
         enableSorting: true,
       },
       {
@@ -948,14 +953,21 @@ export function PreferencesTab() {
                 }`}
               >
                 <div className="space-y-2">
-                  <Badge
-                    variant="secondary"
-                    className="text-xs cursor-pointer hover:bg-secondary/80 transition-colors"
-                    onClick={() => setCategoryFilter(pref.category)}
-                    title={`Filtrer par ${pref.category}`}
-                  >
-                    {pref.category}
-                  </Badge>
+                  {(() => {
+                    const isFiltered = categoryFilter === pref.category
+                    return (
+                      <Button
+                        variant={isFiltered ? "default" : "secondary"}
+                        size="sm"
+                        className="h-6 text-xs px-2 cursor-pointer transition-colors gap-1.5"
+                        onClick={() => setCategoryFilter(isFiltered ? "all" : pref.category)}
+                        title={isFiltered ? "Cliquer pour retirer le filtre" : `Filtrer par ${pref.category}`}
+                      >
+                        {pref.category}
+                        {isFiltered && <IconX className="h-3 w-3 ml-0.5" />}
+                      </Button>
+                    )
+                  })()}
                   <div className="flex items-center gap-2">
                     <h4 className="font-medium text-sm">{pref.label}</h4>
                     {isRecentlyModified && (

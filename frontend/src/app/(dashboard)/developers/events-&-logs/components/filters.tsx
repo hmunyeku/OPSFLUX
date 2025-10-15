@@ -168,8 +168,8 @@ export default function Filters() {
               variant="ghost"
             >
               <ChevronRight className="scale-125 transition-transform duration-200 group-data-[state=open]/log-filter:rotate-90" />
-              <p className="text-sm">Environment</p>
-              <span className="sr-only">Select Environment</span>
+              <p className="text-sm">Environnement</p>
+              <span className="sr-only">Sélectionner l&apos;environnement</span>
             </Button>
           </CollapsibleTrigger>
 

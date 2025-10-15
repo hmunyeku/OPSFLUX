@@ -71,6 +71,8 @@ class User(AbstractBaseModel, UserBase, table=True):
     password_history: Optional[list[str]] = Field(default=None, sa_column=Column(JSON, nullable=True))
     phone_numbers: Optional[list[str]] = Field(default=None, sa_column=Column(JSON, nullable=True))
     items: list["Item"] = Relationship(back_populates="owner", cascade_delete=True)
+    api_keys: list["ApiKey"] = Relationship(back_populates="user", cascade_delete=True)
+    webhooks: list["Webhook"] = Relationship(back_populates="user", cascade_delete=True)
 
 
 # Properties to return via API, id is always required
@@ -257,3 +259,150 @@ class AppSettings(AbstractBaseModel, AppSettingsBase, table=True):
 class AppSettingsPublic(AppSettingsBase):
     """Public model for application settings"""
     id: uuid.UUID
+
+
+# API Keys Models
+class ApiKeyBase(SQLModel):
+    """Base model for API keys"""
+    name: str = Field(max_length=255)
+    key: str = Field(max_length=500, index=True)  # The actual API key (hashed in production)
+    environment: str = Field(default="production", max_length=50)  # production, test, development
+    key_type: str = Field(default="secret", max_length=50)  # secret, publishable
+    is_active: bool = True
+    user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, ondelete="CASCADE")
+
+
+class ApiKeyCreate(SQLModel):
+    """Model for creating API keys"""
+    name: str = Field(max_length=255)
+    environment: str = Field(default="production", max_length=50)
+    key_type: str = Field(default="secret", max_length=50)
+
+
+class ApiKeyUpdate(SQLModel):
+    """Model for updating API keys"""
+    name: str | None = Field(default=None, max_length=255)
+    is_active: bool | None = None
+
+
+class ApiKey(AbstractBaseModel, ApiKeyBase, table=True):
+    """
+    API Key model with audit trail and soft delete.
+    Inherits from AbstractBaseModel for common functionality.
+    """
+    __tablename__ = "api_key"
+    user: User | None = Relationship(back_populates="api_keys")
+
+
+class ApiKeyPublic(SQLModel):
+    """Public model for API keys (without sensitive data)"""
+    id: uuid.UUID
+    name: str
+    key_preview: str  # Only first/last few characters
+    environment: str
+    key_type: str
+    is_active: bool
+    user_id: uuid.UUID
+    created_at: str | None = None
+
+
+class ApiKeysPublic(SQLModel):
+    """Model for list of API keys"""
+    data: list[ApiKeyPublic]
+    count: int
+
+
+# Webhooks Models
+class WebhookBase(SQLModel):
+    """Base model for webhooks"""
+    url: str = Field(max_length=500)
+    name: str = Field(max_length=255)
+    description: str | None = Field(default=None, max_length=1000)
+    auth_type: str = Field(default="none", max_length=50)  # none, application, platform
+    status: str = Field(default="enabled", max_length=50)  # enabled, disabled
+    events: Optional[list[str]] = Field(default=None, sa_column=Column(JSON, nullable=True))
+    user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, ondelete="CASCADE")
+
+
+class WebhookCreate(SQLModel):
+    """Model for creating webhooks"""
+    url: str = Field(max_length=500)
+    name: str = Field(max_length=255)
+    description: str | None = Field(default=None, max_length=1000)
+    auth_type: str = Field(default="none", max_length=50)
+    events: list[str] | None = None
+
+
+class WebhookUpdate(SQLModel):
+    """Model for updating webhooks"""
+    url: str | None = Field(default=None, max_length=500)
+    name: str | None = Field(default=None, max_length=255)
+    description: str | None = Field(default=None, max_length=1000)
+    auth_type: str | None = Field(default=None, max_length=50)
+    status: str | None = Field(default=None, max_length=50)
+    events: list[str] | None = None
+
+
+class Webhook(AbstractBaseModel, WebhookBase, table=True):
+    """
+    Webhook model with audit trail and soft delete.
+    Inherits from AbstractBaseModel for common functionality.
+    """
+    __tablename__ = "webhook"
+    user: User | None = Relationship(back_populates="webhooks")
+    logs: list["WebhookLog"] = Relationship(back_populates="webhook", cascade_delete=True)
+
+
+class WebhookPublic(WebhookBase):
+    """Public model for webhooks"""
+    id: uuid.UUID
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+class WebhooksPublic(SQLModel):
+    """Model for list of webhooks"""
+    data: list[WebhookPublic]
+    count: int
+
+
+# Webhook Logs Models
+class WebhookLogBase(SQLModel):
+    """Base model for webhook logs"""
+    webhook_id: uuid.UUID = Field(foreign_key="webhook.id", nullable=False, ondelete="CASCADE")
+    action: str = Field(max_length=255)  # The event that triggered the webhook
+    succeeded: bool
+    status_code: int | None = None
+    response_body: str | None = Field(default=None, max_length=5000)
+    error_message: str | None = Field(default=None, max_length=1000)
+
+
+class WebhookLogCreate(SQLModel):
+    """Model for creating webhook logs"""
+    webhook_id: uuid.UUID
+    action: str = Field(max_length=255)
+    succeeded: bool
+    status_code: int | None = None
+    response_body: str | None = None
+    error_message: str | None = None
+
+
+class WebhookLog(AbstractBaseModel, WebhookLogBase, table=True):
+    """
+    Webhook Log model with audit trail.
+    Inherits from AbstractBaseModel for common functionality.
+    """
+    __tablename__ = "webhook_log"
+    webhook: Webhook | None = Relationship(back_populates="logs")
+
+
+class WebhookLogPublic(WebhookLogBase):
+    """Public model for webhook logs"""
+    id: uuid.UUID
+    datetime: str | None = None  # created_at alias
+
+
+class WebhookLogsPublic(SQLModel):
+    """Model for list of webhook logs"""
+    data: list[WebhookLogPublic]
+    count: int

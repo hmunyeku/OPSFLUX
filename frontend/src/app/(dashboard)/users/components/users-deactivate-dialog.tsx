@@ -8,34 +8,47 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { User } from "../data/schema"
+import { toggleUserActive } from "../data/users-api"
 
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   currentRow: User
+  onUserUpdated?: () => void
 }
 
 export function UsersDeactivateDialog({
   open,
   onOpenChange,
   currentRow,
+  onUserUpdated,
 }: Props) {
   const [value, setValue] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleDeactivate = () => {
+  const handleDeactivate = async () => {
     if (value.trim() !== currentRow.email) return
 
-    onOpenChange(false)
-    toast({
-      title: "The following account has been deactivated:",
-      description: (
-        <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4">
-          <code className="text-white">
-            {JSON.stringify(currentRow, null, 2)}
-          </code>
-        </pre>
-      ),
-    })
+    try {
+      setIsSubmitting(true)
+      await toggleUserActive(currentRow.id, false)
+
+      onOpenChange(false)
+      toast({
+        title: "Utilisateur désactivé",
+        description: `Le compte ${currentRow.email} a été désactivé avec succès.`,
+      })
+      onUserUpdated?.()
+      setValue("")
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: error instanceof Error ? error.message : "Impossible de désactiver l'utilisateur",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -43,27 +56,27 @@ export function UsersDeactivateDialog({
       open={open}
       onOpenChange={onOpenChange}
       handleConfirm={handleDeactivate}
-      disabled={value.trim() !== currentRow.email}
+      disabled={value.trim() !== currentRow.email || isSubmitting}
       title={
         <span className="text-destructive">
           <IconAlertTriangle
             className="stroke-destructive mr-1 inline-block"
             size={18}
           />{" "}
-          Deactivate
+          Désactiver
         </span>
       }
       desc={
         <div className="space-y-4">
           <p className="mb-2">
-            Are you sure you want to deactivate the account with the email{" "}
+            Êtes-vous sûr de vouloir désactiver le compte avec l&apos;email{" "}
             <span className="font-bold">{currentRow.email}</span>?
             <br />
-            This action will remove the user with the role of{" "}
+            Cette action va désactiver l&apos;utilisateur avec le rôle{" "}
             <span className="font-bold">
               {currentRow.role.toUpperCase()}
             </span>{" "}
-            from the system. Please proceed with caution.
+            du système. Procédez avec prudence.
           </p>
 
           <Label className="my-2">
@@ -71,19 +84,20 @@ export function UsersDeactivateDialog({
             <Input
               value={value}
               onChange={(e) => setValue(e.target.value)}
-              placeholder="Enter the email to confirm deactivation."
+              placeholder="Entrez l'email pour confirmer la désactivation."
+              disabled={isSubmitting}
             />
           </Label>
 
           <Alert variant="destructive">
-            <AlertTitle>Warning!</AlertTitle>
+            <AlertTitle>Attention!</AlertTitle>
             <AlertDescription>
-              Please be carefull, this operation can not be rolled back.
+              Soyez prudent, cette opération ne peut pas être annulée.
             </AlertDescription>
           </Alert>
         </div>
       }
-      confirmText="Deactivate"
+      confirmText={isSubmitting ? "Désactivation..." : "Désactiver"}
       destructive
     />
   )

@@ -5,15 +5,19 @@ import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { MutateWebhook } from "./mutate-webhook"
 
-export function AddWebhook() {
+interface AddWebhookProps {
+  onWebhookAdded?: () => void
+}
+
+export function AddWebhook({ onWebhookAdded }: AddWebhookProps) {
   const [open, setOpen] = useState(false)
   return (
     <>
       <Button size="sm" variant="default" onClick={() => setOpen(true)}>
-        <Plus /> Add Webhook
+        <Plus /> Ajouter un webhook
       </Button>
 
-      <MutateWebhook open={open} setOpen={setOpen} />
+      <MutateWebhook open={open} setOpen={setOpen} onWebhookMutated={onWebhookAdded} />
     </>
   )
 }

@@ -111,7 +111,7 @@ export const containsLevelOptions = [
 
 export const environmentOptions = [
   {
-    label: "Development",
+    label: "Développement",
     value: 2,
   },
   {

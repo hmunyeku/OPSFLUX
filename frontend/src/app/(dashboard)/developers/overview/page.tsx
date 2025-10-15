@@ -64,7 +64,7 @@ export default function OverviewPage() {
                 <SelectGroup>
                   <SelectLabel>Server</SelectLabel>
                   <SelectItem value="production">Production</SelectItem>
-                  <SelectItem value="development">Development</SelectItem>
+                  <SelectItem value="development">Développement</SelectItem>
                 </SelectGroup>
               </SelectContent>
             </Select>

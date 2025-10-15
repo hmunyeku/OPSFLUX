@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.routes import (
     addresses,
     address_types,
+    api_keys,
     auth,
     groups,
     items,
@@ -17,6 +18,7 @@ from app.api.routes import (
     user_permissions,
     users,
     utils,
+    webhooks,
     websocket,
 )
 from app.core.config import settings
@@ -38,6 +40,8 @@ api_router.include_router(groups.router)  # RBAC groups
 api_router.include_router(user_permissions.router)  # User permissions with sources
 api_router.include_router(notifications.router)  # Real-time notifications
 api_router.include_router(websocket.router)  # WebSocket for notifications
+api_router.include_router(api_keys.router)  # API Keys management
+api_router.include_router(webhooks.router)  # Webhooks management
 
 
 if settings.ENVIRONMENT == "local":

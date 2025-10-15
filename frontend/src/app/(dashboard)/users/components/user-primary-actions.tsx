@@ -6,7 +6,11 @@ import { Button } from "@/components/ui/button"
 import { UsersActionDialog } from "./users-action-dialog"
 import { UsersInviteDialog } from "./users-invite-dialog"
 
-export function UserPrimaryActions() {
+interface Props {
+  onUserCreated?: () => void
+}
+
+export function UserPrimaryActions({ onUserCreated }: Props) {
   const [open, setOpen] = useDialogState<"invite" | "add">(null)
   return (
     <>
@@ -16,10 +20,10 @@ export function UserPrimaryActions() {
           className="space-x-1"
           onClick={() => setOpen("invite")}
         >
-          <span>Invite User</span> <IconMailPlus size={18} />
+          <span>Inviter un utilisateur</span> <IconMailPlus size={18} />
         </Button>
         <Button className="space-x-1" onClick={() => setOpen("add")}>
-          <span>Add User</span> <IconUserPlus size={18} />
+          <span>Ajouter un utilisateur</span> <IconUserPlus size={18} />
         </Button>
       </div>
 
@@ -27,12 +31,14 @@ export function UserPrimaryActions() {
         key="user-add"
         open={open === "add"}
         onOpenChange={() => setOpen("add")}
+        onUserCreated={onUserCreated}
       />
 
       <UsersInviteDialog
         key="user-invite"
         open={open === "invite"}
         onOpenChange={() => setOpen("invite")}
+        onUserCreated={onUserCreated}
       />
     </>
   )

@@ -272,7 +272,7 @@ export default function GeneralForm() {
 
   // Watch for field changes with delay
   useEffect(() => {
-    const subscription = form.watch((value, { name, type }) => {
+    const subscription = form.watch((_value, { name, type }) => {
       if (!isInitialized || !name) return
 
       // Only track changes from actual user input, not from filtering/rendering

@@ -99,8 +99,9 @@ export const columns: ColumnDef<Role>[] = [
   },
   {
     id: "actions",
-    cell: ({ row }) => {
+    cell: ({ row, table }) => {
       const role = row.original
+      const meta = table.options.meta as { onManagePermissions: (role: Role) => void }
 
       return (
         <DropdownMenu>
@@ -117,7 +118,9 @@ export const columns: ColumnDef<Role>[] = [
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem>Voir les détails</DropdownMenuItem>
-            <DropdownMenuItem>Gérer les permissions</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => meta?.onManagePermissions(role)}>
+              Gérer les permissions
+            </DropdownMenuItem>
             {!role.is_system && (
               <>
                 <DropdownMenuSeparator />

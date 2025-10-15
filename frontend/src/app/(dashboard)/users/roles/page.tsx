@@ -16,25 +16,35 @@ import { Role } from "./data/schema"
 import { getRoles } from "./data/roles-api"
 import { RolesTable } from "./components/roles-table"
 import { columns } from "./components/roles-columns"
+import { CreateRoleDialog } from "./components/create-role-dialog"
+import { ManagePermissionsDialog } from "./components/manage-permissions-dialog"
 
 export default function RolesPage() {
   const [roles, setRoles] = useState<Role[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [selectedRole, setSelectedRole] = useState<Role | null>(null)
+  const [isPermissionsDialogOpen, setIsPermissionsDialogOpen] = useState(false)
+
+  const loadRoles = async () => {
+    try {
+      setIsLoading(true)
+      const data = await getRoles(true)
+      setRoles(data)
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to load roles:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleManagePermissions = (role: Role) => {
+    setSelectedRole(role)
+    setIsPermissionsDialogOpen(true)
+  }
 
   useEffect(() => {
-    const loadRoles = async () => {
-      try {
-        setIsLoading(true)
-        const data = await getRoles(true)
-        setRoles(data)
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error('Failed to load roles:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
     loadRoles()
   }, [])
 
@@ -76,12 +86,35 @@ export default function RolesPage() {
               Gérez les rôles et leurs permissions
             </p>
           </div>
-          <Button>Créer un rôle</Button>
+          <Button onClick={() => setIsCreateDialogOpen(true)}>
+            Créer un rôle
+          </Button>
         </div>
       </div>
       <div className="flex-1">
-        <RolesTable columns={columns} data={roles} />
+        <RolesTable
+          columns={columns}
+          data={roles}
+          onManagePermissions={handleManagePermissions}
+        />
       </div>
+
+      <CreateRoleDialog
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+        onSuccess={loadRoles}
+      />
+
+      {selectedRole && (
+        <ManagePermissionsDialog
+          open={isPermissionsDialogOpen}
+          onOpenChange={setIsPermissionsDialogOpen}
+          roleId={selectedRole.id}
+          roleName={selectedRole.name}
+          currentPermissions={selectedRole.permissions || []}
+          onSuccess={loadRoles}
+        />
+      )}
     </>
   )
 }

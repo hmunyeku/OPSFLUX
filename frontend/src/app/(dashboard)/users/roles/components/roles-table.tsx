@@ -30,9 +30,10 @@ import { DataTableToolbar } from "./data-table-toolbar"
 interface Props {
   columns: ColumnDef<Role>[]
   data: Role[]
+  onManagePermissions: (role: Role) => void
 }
 
-export function RolesTable({ columns, data }: Props) {
+export function RolesTable({ columns, data, onManagePermissions }: Props) {
   const [rowSelection, setRowSelection] = useState({})
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -58,6 +59,9 @@ export function RolesTable({ columns, data }: Props) {
     getSortedRowModel: getSortedRowModel(),
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
+    meta: {
+      onManagePermissions,
+    },
   })
 
   return (

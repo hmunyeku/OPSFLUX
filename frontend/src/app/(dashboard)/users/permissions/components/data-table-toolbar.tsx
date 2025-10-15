@@ -4,9 +4,9 @@ import { Cross2Icon } from "@radix-ui/react-icons"
 import { Table } from "@tanstack/react-table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { statuses, modules } from "../data/data"
 import { DataTableFacetedFilter } from "./data-table-faceted-filter"
 import { DataTableViewOptions } from "./data-table-view-options"
+import { Permission } from "../data/schema"
 
 interface Props<TData> {
   table: Table<TData>
@@ -14,6 +14,21 @@ interface Props<TData> {
 
 export function DataTableToolbar<TData>({ table }: Props<TData>) {
   const isFiltered = table.getState().columnFilters.length > 0
+
+  // Extract unique modules from the data
+  const modules = Array.from(
+    new Set(
+      (table.options.data as Permission[]).map((permission) => permission.module)
+    )
+  ).map((module) => ({
+    label: module.charAt(0).toUpperCase() + module.slice(1),
+    value: module,
+  }))
+
+  const statuses = [
+    { label: "Actif", value: "true" },
+    { label: "Inactif", value: "false" },
+  ]
 
   return (
     <div className="flex items-center justify-between">

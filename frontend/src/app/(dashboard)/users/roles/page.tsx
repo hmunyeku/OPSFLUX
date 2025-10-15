@@ -15,9 +15,11 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Role } from "./data/schema"
 import { getRoles } from "./data/roles-api"
 import { RolesTable } from "./components/roles-table"
-import { columns } from "./components/roles-columns"
+import { getColumns } from "./components/roles-columns"
 import { CreateRoleDialog } from "./components/create-role-dialog"
 import { ManagePermissionsDialog } from "./components/manage-permissions-dialog"
+import { EditRoleDialog } from "./components/edit-role-dialog"
+import { DeleteRoleDialog } from "./components/delete-role-dialog"
 
 export default function RolesPage() {
   const [roles, setRoles] = useState<Role[]>([])
@@ -25,6 +27,8 @@ export default function RolesPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [selectedRole, setSelectedRole] = useState<Role | null>(null)
   const [isPermissionsDialogOpen, setIsPermissionsDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
 
   const loadRoles = async () => {
     try {
@@ -42,6 +46,16 @@ export default function RolesPage() {
   const handleManagePermissions = (role: Role) => {
     setSelectedRole(role)
     setIsPermissionsDialogOpen(true)
+  }
+
+  const handleEditRole = (role: Role) => {
+    setSelectedRole(role)
+    setIsEditDialogOpen(true)
+  }
+
+  const handleDeleteRole = (role: Role) => {
+    setSelectedRole(role)
+    setIsDeleteDialogOpen(true)
   }
 
   useEffect(() => {
@@ -93,9 +107,8 @@ export default function RolesPage() {
       </div>
       <div className="flex-1">
         <RolesTable
-          columns={columns}
+          columns={getColumns(handleManagePermissions, handleEditRole, handleDeleteRole)}
           data={roles}
-          onManagePermissions={handleManagePermissions}
         />
       </div>
 
@@ -106,14 +119,28 @@ export default function RolesPage() {
       />
 
       {selectedRole && (
-        <ManagePermissionsDialog
-          open={isPermissionsDialogOpen}
-          onOpenChange={setIsPermissionsDialogOpen}
-          roleId={selectedRole.id}
-          roleName={selectedRole.name}
-          currentPermissions={selectedRole.permissions || []}
-          onSuccess={loadRoles}
-        />
+        <>
+          <ManagePermissionsDialog
+            open={isPermissionsDialogOpen}
+            onOpenChange={setIsPermissionsDialogOpen}
+            roleId={selectedRole.id}
+            roleName={selectedRole.name}
+            currentPermissions={selectedRole.permissions || []}
+            onSuccess={loadRoles}
+          />
+          <EditRoleDialog
+            open={isEditDialogOpen}
+            onOpenChange={setIsEditDialogOpen}
+            role={selectedRole}
+            onSuccess={loadRoles}
+          />
+          <DeleteRoleDialog
+            open={isDeleteDialogOpen}
+            onOpenChange={setIsDeleteDialogOpen}
+            role={selectedRole}
+            onSuccess={loadRoles}
+          />
+        </>
       )}
     </>
   )

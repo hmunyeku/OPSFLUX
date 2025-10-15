@@ -23,16 +23,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Role } from "../data/schema"
 import { DataTablePagination } from "./data-table-pagination"
 import { DataTableToolbar } from "./data-table-toolbar"
+import { Permission } from "../data/schema"
 
 interface Props {
-  columns: ColumnDef<Role>[]
-  data: Role[]
+  columns: ColumnDef<Permission>[]
+  data: Permission[]
 }
 
-export function RolesTable({ columns, data }: Props) {
+export function PermissionsTable({ columns, data }: Props) {
   const [rowSelection, setRowSelection] = useState({})
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -106,7 +106,7 @@ export function RolesTable({ columns, data }: Props) {
                   colSpan={columns.length}
                   className="h-24 text-center"
                 >
-                  Aucun rôle trouvé.
+                  Aucune permission trouvée.
                 </TableCell>
               </TableRow>
             )}

@@ -12,36 +12,46 @@ import {
 } from "@/components/ui/breadcrumb"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Badge } from "@/components/ui/badge"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import { Permission } from "./data/schema"
 import { getPermissions } from "./data/permissions-api"
+import { PermissionsTable } from "./components/permissions-table"
+import { getColumns } from "./components/permissions-columns"
+import { CreatePermissionDialog } from "./components/create-permission-dialog"
+import { EditPermissionDialog } from "./components/edit-permission-dialog"
+import { DeletePermissionDialog } from "./components/delete-permission-dialog"
 
 export default function PermissionsPage() {
   const [permissions, setPermissions] = useState<Permission[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [selectedPermission, setSelectedPermission] = useState<Permission | null>(null)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+
+  const loadPermissions = async () => {
+    try {
+      setIsLoading(true)
+      const data = await getPermissions()
+      setPermissions(data)
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to load permissions:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleEditPermission = (permission: Permission) => {
+    setSelectedPermission(permission)
+    setIsEditDialogOpen(true)
+  }
+
+  const handleDeletePermission = (permission: Permission) => {
+    setSelectedPermission(permission)
+    setIsDeleteDialogOpen(true)
+  }
 
   useEffect(() => {
-    const loadPermissions = async () => {
-      try {
-        setIsLoading(true)
-        const data = await getPermissions()
-        setPermissions(data)
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error('Failed to load permissions:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
     loadPermissions()
   }, [])
 
@@ -83,69 +93,40 @@ export default function PermissionsPage() {
               Gérez les permissions système
             </p>
           </div>
-          <Button>Créer une permission</Button>
+          <Button onClick={() => setIsCreateDialogOpen(true)}>
+            Créer une permission
+          </Button>
         </div>
       </div>
       <div className="flex-1">
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Code</TableHead>
-                <TableHead>Nom</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Module</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Statut</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {permissions.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
-                    Aucune permission trouvée.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                permissions.map((permission) => (
-                  <TableRow key={permission.id}>
-                    <TableCell className="font-mono text-sm">
-                      {permission.code}
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {permission.name}
-                    </TableCell>
-                    <TableCell className="max-w-md truncate">
-                      {permission.description || '-'}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="capitalize">
-                        {permission.module}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {permission.is_default ? (
-                        <Badge variant="secondary">Par défaut</Badge>
-                      ) : (
-                        <Badge variant="outline">Standard</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {permission.is_active ? (
-                        <Badge variant="default" className="bg-green-500">
-                          Actif
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary">Inactif</Badge>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+        <PermissionsTable
+          columns={getColumns(handleEditPermission, handleDeletePermission)}
+          data={permissions}
+        />
       </div>
+
+      <CreatePermissionDialog
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+        onSuccess={loadPermissions}
+      />
+
+      {selectedPermission && (
+        <>
+          <EditPermissionDialog
+            open={isEditDialogOpen}
+            onOpenChange={setIsEditDialogOpen}
+            permission={selectedPermission}
+            onSuccess={loadPermissions}
+          />
+          <DeletePermissionDialog
+            open={isDeleteDialogOpen}
+            onOpenChange={setIsDeleteDialogOpen}
+            permission={selectedPermission}
+            onSuccess={loadPermissions}
+          />
+        </>
+      )}
     </>
   )
 }

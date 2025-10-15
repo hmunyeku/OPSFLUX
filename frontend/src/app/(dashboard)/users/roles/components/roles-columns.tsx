@@ -15,7 +15,12 @@ import { IconDots } from "@tabler/icons-react"
 import { Role } from "../data/schema"
 import { DataTableColumnHeader } from "./data-table-column-header"
 
-export const columns: ColumnDef<Role>[] = [
+export function getColumns(
+  onManagePermissions: (role: Role) => void,
+  onEditRole: (role: Role) => void,
+  onDeleteRole: (role: Role) => void
+): ColumnDef<Role>[] {
+  return [
   {
     accessorKey: "code",
     header: ({ column }) => (
@@ -99,9 +104,8 @@ export const columns: ColumnDef<Role>[] = [
   },
   {
     id: "actions",
-    cell: ({ row, table }) => {
+    cell: ({ row }) => {
       const role = row.original
-      const meta = table.options.meta as { onManagePermissions: (role: Role) => void }
 
       return (
         <DropdownMenu>
@@ -117,14 +121,19 @@ export const columns: ColumnDef<Role>[] = [
               Copier l&apos;ID
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Voir les détails</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => meta?.onManagePermissions(role)}>
+            <DropdownMenuItem onClick={() => onEditRole(role)}>
+              Modifier
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onManagePermissions(role)}>
               Gérer les permissions
             </DropdownMenuItem>
             {!role.is_system && (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive">
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => onDeleteRole(role)}
+                >
                   Supprimer
                 </DropdownMenuItem>
               </>
@@ -135,3 +144,4 @@ export const columns: ColumnDef<Role>[] = [
     },
   },
 ]
+}

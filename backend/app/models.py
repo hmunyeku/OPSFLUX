@@ -73,6 +73,7 @@ class User(AbstractBaseModel, UserBase, table=True):
     items: list["Item"] = Relationship(back_populates="owner", cascade_delete=True)
     api_keys: list["ApiKey"] = Relationship(back_populates="user", cascade_delete=True)
     webhooks: list["Webhook"] = Relationship(back_populates="user", cascade_delete=True)
+    tasks: list["Task"] = Relationship(back_populates="assigned_user")
 
 
 # Properties to return via API, id is always required
@@ -405,4 +406,63 @@ class WebhookLogPublic(WebhookLogBase):
 class WebhookLogsPublic(SQLModel):
     """Model for list of webhook logs"""
     data: list[WebhookLogPublic]
+    count: int
+
+
+# Task Models
+class TaskBase(SQLModel):
+    """Base model for tasks"""
+    title: str = Field(max_length=500)
+    status: str = Field(default="todo", max_length=50)  # in progress, backlog, todo, canceled, done
+    label: str = Field(default="feature", max_length=50)  # documentation, bug, feature
+    priority: str = Field(default="medium", max_length=50)  # high, medium, low
+    due_date: str | None = Field(default=None)  # ISO format date string
+    estimated_time: str | None = Field(default=None, max_length=50)  # e.g., "2h", "1d", "3w"
+    sprint_cycle: str | None = Field(default=None, max_length=50)  # e.g., "Sprint 1", "Q1 2024"
+    user_id: uuid.UUID | None = Field(default=None, foreign_key="user.id", nullable=True, ondelete="SET NULL")  # Assigned to
+
+
+class TaskCreate(SQLModel):
+    """Model for creating tasks"""
+    title: str = Field(max_length=500)
+    status: str = Field(default="todo", max_length=50)
+    label: str = Field(default="feature", max_length=50)
+    priority: str = Field(default="medium", max_length=50)
+    due_date: str | None = None
+    estimated_time: str | None = Field(default=None, max_length=50)
+    sprint_cycle: str | None = Field(default=None, max_length=50)
+    user_id: uuid.UUID | None = None
+
+
+class TaskUpdate(SQLModel):
+    """Model for updating tasks"""
+    title: str | None = Field(default=None, max_length=500)
+    status: str | None = Field(default=None, max_length=50)
+    label: str | None = Field(default=None, max_length=50)
+    priority: str | None = Field(default=None, max_length=50)
+    due_date: str | None = None
+    estimated_time: str | None = Field(default=None, max_length=50)
+    sprint_cycle: str | None = Field(default=None, max_length=50)
+    user_id: uuid.UUID | None = None
+
+
+class Task(AbstractBaseModel, TaskBase, table=True):
+    """
+    Task model with audit trail and soft delete.
+    Inherits from AbstractBaseModel for common functionality.
+    """
+    __tablename__ = "task"
+    assigned_user: User | None = Relationship()
+
+
+class TaskPublic(TaskBase):
+    """Public model for tasks"""
+    id: uuid.UUID
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+class TasksPublic(SQLModel):
+    """Model for list of tasks"""
+    data: list[TaskPublic]
     count: int

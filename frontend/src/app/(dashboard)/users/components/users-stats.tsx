@@ -1,4 +1,4 @@
-import { IconInfoCircle } from "@tabler/icons-react"
+import { IconInfoCircle, IconUsersGroup, IconUsersPlus, IconUserScan, IconUserCheck } from "@tabler/icons-react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import {
   Tooltip,
@@ -6,13 +6,59 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { UserStatProps, userStats } from "../data/data"
+import { UserStatProps } from "../data/data"
+import { User } from "../data/schema"
 
-export function UsersStats() {
+interface UsersStatsProps {
+  users: User[]
+}
+
+export function UsersStats({ users }: UsersStatsProps) {
+  // Calculer les statistiques réelles
+  const totalUsers = users.length
+  const activeUsers = users.filter(u => u.status === 'active').length
+  const invitedUsers = users.filter(u => u.status === 'invited').length
+
+  // Calculer les nouveaux utilisateurs (derniers 30 jours)
+  const thirtyDaysAgo = new Date()
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+  const newUsers = users.filter(u => new Date(u.createdAt) >= thirtyDaysAgo).length
+
+  const stats: UserStatProps[] = [
+    {
+      title: "Total Utilisateurs",
+      desc: "Nombre total d'utilisateurs",
+      stat: totalUsers.toString(),
+      statDesc: `${users.length} utilisateurs au total`,
+      icon: IconUsersGroup,
+    },
+    {
+      title: "Nouveaux Utilisateurs",
+      desc: "Utilisateurs créés dans les 30 derniers jours",
+      stat: `+${newUsers}`,
+      statDesc: `${((newUsers/totalUsers)*100).toFixed(0)}% du total`,
+      icon: IconUsersPlus,
+    },
+    {
+      title: "Invitations en attente",
+      desc: "Utilisateurs invités mais pas encore activés",
+      stat: invitedUsers.toString(),
+      statDesc: `${((invitedUsers/totalUsers)*100).toFixed(0)}% du total`,
+      icon: IconUserScan,
+    },
+    {
+      title: "Utilisateurs Actifs",
+      desc: "Utilisateurs avec statut actif",
+      stat: activeUsers.toString(),
+      statDesc: `${((activeUsers/totalUsers)*100).toFixed(0)}% du total`,
+      icon: IconUserCheck,
+    },
+  ]
+
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {userStats.map((stats) => (
-        <UserStat key={stats.title} {...stats} />
+      {stats.map((stat) => (
+        <UserStat key={stat.title} {...stat} />
       ))}
     </div>
   )

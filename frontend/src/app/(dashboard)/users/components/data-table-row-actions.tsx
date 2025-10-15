@@ -1,9 +1,10 @@
 "use client"
 
 import { DotsHorizontalIcon } from "@radix-ui/react-icons"
-import { IconChecklist, IconEdit, IconTrash } from "@tabler/icons-react"
+import { IconChecklist, IconEdit, IconTrash, IconShield, IconUsers } from "@tabler/icons-react"
 import { Row } from "@tanstack/react-table"
 import Link from "next/link"
+import { useState } from "react"
 import useDialogState from "@/hooks/use-dialog-state"
 import { Button } from "@/components/ui/button"
 import {
@@ -17,13 +18,25 @@ import {
 import { User } from "../data/schema"
 import { UsersActionDialog } from "./users-action-dialog"
 import { UsersDeactivateDialog } from "./users-deactivate-dialog"
+import { AssignRolesDialog } from "./assign-roles-dialog"
+import { AssignGroupsDialog } from "./assign-groups-dialog"
 
 interface Props {
   row: Row<User>
+  onRefresh?: () => void
 }
 
-export function DataTableRowActions({ row }: Props) {
-  const [open, setOpen] = useDialogState<"edit" | "deactivate">(null)
+export function DataTableRowActions({ row, onRefresh }: Props) {
+  const [open, setOpen] = useDialogState<"edit" | "deactivate" | "roles" | "groups">(null)
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  const handleSuccess = () => {
+    setRefreshKey(prev => prev + 1)
+    if (onRefresh) {
+      onRefresh()
+    }
+  }
+
   return (
     <>
       <DropdownMenu modal={false}>
@@ -36,7 +49,7 @@ export function DataTableRowActions({ row }: Props) {
             <span className="sr-only">Open menu</span>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-[160px]">
+        <DropdownMenuContent align="end" className="w-[180px]">
           <DropdownMenuItem asChild>
             <Link href={`/users/${row.original.id}`}>
               View Detail
@@ -49,6 +62,19 @@ export function DataTableRowActions({ row }: Props) {
             Edit
             <DropdownMenuShortcut>
               <IconEdit size={16} />
+            </DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => setOpen("roles")}>
+            Assign Roles
+            <DropdownMenuShortcut>
+              <IconShield size={16} />
+            </DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setOpen("groups")}>
+            Assign Groups
+            <DropdownMenuShortcut>
+              <IconUsers size={16} />
             </DropdownMenuShortcut>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
@@ -76,6 +102,26 @@ export function DataTableRowActions({ row }: Props) {
         open={open === "deactivate"}
         onOpenChange={() => setOpen("deactivate")}
         currentRow={row.original}
+      />
+
+      <AssignRolesDialog
+        key={`user-roles-${row.original.id}-${refreshKey}`}
+        open={open === "roles"}
+        onOpenChange={() => setOpen("roles")}
+        userId={row.original.id}
+        userEmail={row.original.email}
+        currentRoles={row.original.roles || []}
+        onSuccess={handleSuccess}
+      />
+
+      <AssignGroupsDialog
+        key={`user-groups-${row.original.id}-${refreshKey}`}
+        open={open === "groups"}
+        onOpenChange={() => setOpen("groups")}
+        userId={row.original.id}
+        userEmail={row.original.email}
+        currentGroups={row.original.groups || []}
+        onSuccess={handleSuccess}
       />
     </>
   )

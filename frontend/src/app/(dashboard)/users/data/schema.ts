@@ -1,4 +1,6 @@
 import { z } from "zod"
+import { roleSchema } from "../roles/data/schema"
+import { groupSchema } from "../groups/data/schema"
 
 const userStatusSchema = z.union([
   z.literal("active"),
@@ -26,6 +28,8 @@ const userSchema = z.object({
   createdAt: z.coerce.date(),
   lastLoginAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
+  roles: z.array(roleSchema).optional(),
+  groups: z.array(groupSchema).optional(),
 })
 export type User = z.infer<typeof userSchema>
 

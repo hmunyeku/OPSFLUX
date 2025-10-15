@@ -150,6 +150,64 @@ export const columns: ColumnDef<User>[] = [
     enableHiding: false,
   },
   {
+    accessorKey: "roles",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="RBAC Roles" />
+    ),
+    cell: ({ row }) => {
+      const roles = row.original.roles || []
+
+      if (roles.length === 0) {
+        return <span className="text-xs text-muted-foreground">Aucun</span>
+      }
+
+      return (
+        <div className="flex flex-wrap gap-1">
+          {roles.slice(0, 2).map((role) => (
+            <Badge key={role.id} variant="secondary" className="text-xs">
+              {role.name}
+            </Badge>
+          ))}
+          {roles.length > 2 && (
+            <Badge variant="outline" className="text-xs">
+              +{roles.length - 2}
+            </Badge>
+          )}
+        </div>
+      )
+    },
+    enableSorting: false,
+  },
+  {
+    accessorKey: "groups",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Groups" />
+    ),
+    cell: ({ row }) => {
+      const groups = row.original.groups || []
+
+      if (groups.length === 0) {
+        return <span className="text-xs text-muted-foreground">Aucun</span>
+      }
+
+      return (
+        <div className="flex flex-wrap gap-1">
+          {groups.slice(0, 2).map((group) => (
+            <Badge key={group.id} variant="secondary" className="text-xs">
+              {group.name}
+            </Badge>
+          ))}
+          {groups.length > 2 && (
+            <Badge variant="outline" className="text-xs">
+              +{groups.length - 2}
+            </Badge>
+          )}
+        </div>
+      )
+    },
+    enableSorting: false,
+  },
+  {
     id: "actions",
     cell: DataTableRowActions,
   },

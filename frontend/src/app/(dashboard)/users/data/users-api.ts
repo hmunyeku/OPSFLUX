@@ -26,12 +26,15 @@ function mapUserFromBackend(user: any): User {
     createdAt: user.created_at ? new Date(user.created_at) : new Date(),
     lastLoginAt: user.updated_at ? new Date(user.updated_at) : new Date(),
     updatedAt: user.updated_at ? new Date(user.updated_at) : new Date(),
+    roles: user.roles || [],
+    groups: user.groups || [],
   }
 }
 
-export async function getUsers(): Promise<User[]> {
+export async function getUsers(withRbac: boolean = true): Promise<User[]> {
   try {
-    const response = await fetch(`${API_URL}/api/v1/users/?skip=0&limit=1000`, {
+    const url = `${API_URL}/api/v1/users/?skip=0&limit=1000${withRbac ? '&with_rbac=true' : ''}`
+    const response = await fetch(url, {
       headers: getAuthHeaders(),
       cache: 'no-store',
     })
@@ -136,4 +139,36 @@ export async function deleteUser(id: string): Promise<void> {
 
 export async function toggleUserActive(id: string, is_active: boolean): Promise<User> {
   return updateUser(id, { is_active })
+}
+
+export async function assignRolesToUser(userId: string, roleIds: string[]): Promise<User> {
+  const response = await fetch(`${API_URL}/api/v1/users/${userId}/roles`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ role_ids: roleIds }),
+  })
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.detail || 'Failed to assign roles')
+  }
+
+  const user = await response.json()
+  return mapUserFromBackend(user)
+}
+
+export async function assignGroupsToUser(userId: string, groupIds: string[]): Promise<User> {
+  const response = await fetch(`${API_URL}/api/v1/users/${userId}/groups`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ group_ids: groupIds }),
+  })
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.detail || 'Failed to assign groups')
+  }
+
+  const user = await response.json()
+  return mapUserFromBackend(user)
 }

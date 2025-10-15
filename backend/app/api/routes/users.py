@@ -18,11 +18,19 @@ from app.models import (
     UpdatePassword,
     User,
     UserCreate,
+    UserGroupAssignment,
     UserPublic,
     UserRegister,
+    UserRoleAssignment,
     UsersPublic,
     UserUpdate,
     UserUpdateMe,
+)
+from app.models_rbac import (
+    Role,
+    Group,
+    UserRoleLink,
+    UserGroupLink,
 )
 from app.utils import generate_new_account_email, send_email
 
@@ -34,15 +42,30 @@ router = APIRouter(prefix="/users", tags=["users"])
     dependencies=[Depends(get_current_active_superuser)],
     response_model=UsersPublic,
 )
-def read_users(session: SessionDep, skip: int = 0, limit: int = 100) -> Any:
+def read_users(
+    session: SessionDep, skip: int = 0, limit: int = 100, with_rbac: bool = False
+) -> Any:
     """
     Retrieve users.
+    Use with_rbac=true to include roles and groups relationships.
     """
+    from sqlmodel import Session
+    from sqlalchemy.orm import selectinload
 
     count_statement = select(func.count()).select_from(User)
     count = session.exec(count_statement).one()
 
-    statement = select(User).offset(skip).limit(limit)
+    if with_rbac:
+        # Load users with roles and groups eagerly
+        statement = (
+            select(User)
+            .options(selectinload(User.roles), selectinload(User.groups))
+            .offset(skip)
+            .limit(limit)
+        )
+    else:
+        statement = select(User).offset(skip).limit(limit)
+
     users = session.exec(statement).all()
 
     return UsersPublic(data=users, count=count)
@@ -255,3 +278,85 @@ def delete_user(
     session.delete(user)
     session.commit()
     return Message(message="User deleted successfully")
+
+
+@router.post(
+    "/{user_id}/roles",
+    dependencies=[Depends(get_current_active_superuser)],
+    response_model=UserPublic,
+)
+def assign_roles_to_user(
+    *,
+    session: SessionDep,
+    user_id: uuid.UUID,
+    assignment: UserRoleAssignment,
+) -> Any:
+    """
+    Assign roles to a user.
+    Replaces all existing role assignments with the new ones.
+    """
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Verify all roles exist
+    for role_id in assignment.role_ids:
+        role = session.get(Role, role_id)
+        if not role:
+            raise HTTPException(
+                status_code=404, detail=f"Role with id {role_id} not found"
+            )
+
+    # Delete existing role assignments
+    statement = delete(UserRoleLink).where(col(UserRoleLink.user_id) == user_id)
+    session.exec(statement)
+
+    # Create new role assignments
+    for role_id in assignment.role_ids:
+        link = UserRoleLink(user_id=user_id, role_id=role_id)
+        session.add(link)
+
+    session.commit()
+    session.refresh(user)
+    return user
+
+
+@router.post(
+    "/{user_id}/groups",
+    dependencies=[Depends(get_current_active_superuser)],
+    response_model=UserPublic,
+)
+def assign_groups_to_user(
+    *,
+    session: SessionDep,
+    user_id: uuid.UUID,
+    assignment: UserGroupAssignment,
+) -> Any:
+    """
+    Assign groups to a user.
+    Replaces all existing group assignments with the new ones.
+    """
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Verify all groups exist
+    for group_id in assignment.group_ids:
+        group = session.get(Group, group_id)
+        if not group:
+            raise HTTPException(
+                status_code=404, detail=f"Group with id {group_id} not found"
+            )
+
+    # Delete existing group assignments
+    statement = delete(UserGroupLink).where(col(UserGroupLink.user_id) == user_id)
+    session.exec(statement)
+
+    # Create new group assignments
+    for group_id in assignment.group_ids:
+        link = UserGroupLink(user_id=user_id, group_id=group_id)
+        session.add(link)
+
+    session.commit()
+    session.refresh(user)
+    return user

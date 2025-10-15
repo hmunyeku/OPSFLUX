@@ -22,6 +22,7 @@ export async function getUsers(): Promise<User[]> {
     const data = await response.json()
 
     // Transformer les données du backend vers le format attendu par le frontend
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (data.data || []).map((user: any) => ({
       id: user.id,
       firstName: user.first_name || '',
@@ -37,6 +38,7 @@ export async function getUsers(): Promise<User[]> {
       updatedAt: user.updated_at ? new Date(user.updated_at) : new Date(),
     }))
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error('Error fetching users:', error)
     return []
   }

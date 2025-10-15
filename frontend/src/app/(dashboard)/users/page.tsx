@@ -30,6 +30,7 @@ export default function UsersPage() {
         const userList = userListSchema.parse(data)
         setUsers(userList)
       } catch (error) {
+        // eslint-disable-next-line no-console
         console.error('Failed to load users:', error)
       } finally {
         setIsLoading(false)

@@ -34,9 +34,27 @@ interface Props {
   }
 }
 
-export function NavUser({ user }: Props) {
+export function NavUser({ user: propsUser }: Props) {
   const { isMobile } = useSidebar()
-  const { logout } = useAuth()
+  const { logout, user: authUser } = useAuth()
+
+  // Utiliser les données de l'utilisateur connecté si disponibles, sinon utiliser les props
+  const user = authUser ? {
+    name: authUser.full_name || authUser.email,
+    email: authUser.email,
+    avatar: authUser.avatar_url || propsUser.avatar
+  } : propsUser
+
+  const getInitials = (name: string, email: string) => {
+    if (name && name !== email) {
+      const parts = name.split(" ")
+      if (parts.length >= 2) {
+        return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
+      }
+      return name.slice(0, 2).toUpperCase()
+    }
+    return email.slice(0, 2).toUpperCase()
+  }
 
   return (
     <SidebarMenu>
@@ -49,7 +67,9 @@ export function NavUser({ user }: Props) {
             >
               <Avatar className="h-8 w-8 rounded-lg">
                 <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
+                  {getInitials(user.name, user.email)}
+                </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">{user.name}</span>
@@ -68,7 +88,9 @@ export function NavUser({ user }: Props) {
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
                   <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback className="rounded-lg">SN</AvatarFallback>
+                  <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
+                    {getInitials(user.name, user.email)}
+                  </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">{user.name}</span>
@@ -81,13 +103,13 @@ export function NavUser({ user }: Props) {
               <DropdownMenuItem asChild>
                 <Link href="/settings/profile">
                   <BadgeCheck />
-                  Profile
+                  Profil
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link href="/settings/billing">
                   <CreditCard />
-                  Billing
+                  Facturation
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
@@ -100,7 +122,7 @@ export function NavUser({ user }: Props) {
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={logout}>
               <LogOut />
-              Log out
+              Déconnexion
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -192,8 +192,25 @@ export const sidebarData: SidebarData = {
         },
         {
           title: "Utilisateurs",
-          url: "/users",
           icon: IconUsers,
+          items: [
+            {
+              title: "Liste d'utilisateurs",
+              url: "/users",
+            },
+            {
+              title: "Groupes d'utilisateurs",
+              url: "/users/groups",
+            },
+            {
+              title: "Rôles",
+              url: "/users/roles",
+            },
+            {
+              title: "Permissions",
+              url: "/users/permissions",
+            },
+          ],
         },
       ],
     },

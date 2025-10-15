@@ -9,6 +9,11 @@ export const groupSchema = z.object({
   parent_id: z.string().nullable(),
   is_active: z.boolean(),
   permissions: z.array(permissionSchema).optional(),
+  parent: z.object({
+    id: z.string(),
+    code: z.string(),
+    name: z.string(),
+  }).nullable().optional(),
 })
 
 export type Group = z.infer<typeof groupSchema>

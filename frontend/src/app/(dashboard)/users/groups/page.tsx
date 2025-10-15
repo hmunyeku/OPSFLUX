@@ -12,36 +12,53 @@ import {
 } from "@/components/ui/breadcrumb"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Badge } from "@/components/ui/badge"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import { Group } from "./data/schema"
 import { getGroups } from "./data/groups-api"
+import { GroupsTable } from "./components/groups-table"
+import { getColumns } from "./components/groups-columns"
+import { CreateGroupDialog } from "./components/create-group-dialog"
+import { EditGroupDialog } from "./components/edit-group-dialog"
+import { DeleteGroupDialog } from "./components/delete-group-dialog"
+import { ManagePermissionsDialog } from "./components/manage-permissions-dialog"
 
 export default function GroupsPage() {
   const [groups, setGroups] = useState<Group[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [selectedGroup, setSelectedGroup] = useState<Group | null>(null)
+  const [isPermissionsDialogOpen, setIsPermissionsDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+
+  const loadGroups = async () => {
+    try {
+      setIsLoading(true)
+      const data = await getGroups(true)
+      setGroups(data)
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to load groups:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleManagePermissions = (group: Group) => {
+    setSelectedGroup(group)
+    setIsPermissionsDialogOpen(true)
+  }
+
+  const handleEditGroup = (group: Group) => {
+    setSelectedGroup(group)
+    setIsEditDialogOpen(true)
+  }
+
+  const handleDeleteGroup = (group: Group) => {
+    setSelectedGroup(group)
+    setIsDeleteDialogOpen(true)
+  }
 
   useEffect(() => {
-    const loadGroups = async () => {
-      try {
-        setIsLoading(true)
-        const data = await getGroups(true)
-        setGroups(data)
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error('Failed to load groups:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
     loadGroups()
   }, [])
 
@@ -85,69 +102,50 @@ export default function GroupsPage() {
               Gérez les groupes utilisateurs et leurs permissions
             </p>
           </div>
-          <Button>Créer un groupe</Button>
+          <Button onClick={() => setIsCreateDialogOpen(true)}>
+            Créer un groupe
+          </Button>
         </div>
       </div>
       <div className="flex-1">
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Code</TableHead>
-                <TableHead>Nom</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Groupe parent</TableHead>
-                <TableHead>Permissions</TableHead>
-                <TableHead>Statut</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {groups.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
-                    Aucun groupe trouvé.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                groups.map((group) => (
-                  <TableRow key={group.id}>
-                    <TableCell className="font-mono text-sm">
-                      {group.code}
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {group.name}
-                    </TableCell>
-                    <TableCell className="max-w-xs truncate">
-                      {group.description || '-'}
-                    </TableCell>
-                    <TableCell>
-                      {group.parent_id ? (
-                        <Badge variant="secondary">Groupe enfant</Badge>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">
-                        {group.permissions?.length || 0}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {group.is_active ? (
-                        <Badge variant="default" className="bg-green-500">
-                          Actif
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary">Inactif</Badge>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+        <GroupsTable
+          columns={getColumns(handleManagePermissions, handleEditGroup, handleDeleteGroup)}
+          data={groups}
+        />
       </div>
+
+      <CreateGroupDialog
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+        onSuccess={loadGroups}
+        groups={groups}
+      />
+
+      {selectedGroup && (
+        <>
+          <ManagePermissionsDialog
+            open={isPermissionsDialogOpen}
+            onOpenChange={setIsPermissionsDialogOpen}
+            groupId={selectedGroup.id}
+            groupName={selectedGroup.name}
+            currentPermissions={selectedGroup.permissions || []}
+            onSuccess={loadGroups}
+          />
+          <EditGroupDialog
+            open={isEditDialogOpen}
+            onOpenChange={setIsEditDialogOpen}
+            group={selectedGroup}
+            groups={groups}
+            onSuccess={loadGroups}
+          />
+          <DeleteGroupDialog
+            open={isDeleteDialogOpen}
+            onOpenChange={setIsDeleteDialogOpen}
+            group={selectedGroup}
+            onSuccess={loadGroups}
+          />
+        </>
+      )}
     </>
   )
 }

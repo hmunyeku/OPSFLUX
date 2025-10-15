@@ -18,7 +18,8 @@ class UserBase(SQLModel):
     last_name: str | None = Field(default=None, max_length=100)
     initials: str | None = Field(default=None, max_length=10)
     recovery_email: EmailStr | None = Field(default=None, max_length=255)
-    avatar_url: str | None = Field(default=None, max_length=500)
+    avatar_url: str | None = Field(default=None)
+    intranet_identifier: str | None = Field(default=None, max_length=255)
 
 
 # Properties to receive via API on creation
@@ -47,8 +48,9 @@ class UserUpdateMe(SQLModel):
     initials: str | None = Field(default=None, max_length=10)
     email: EmailStr | None = Field(default=None, max_length=255)
     recovery_email: EmailStr | None = Field(default=None, max_length=255)
-    avatar_url: str | None = Field(default=None, max_length=500)
+    avatar_url: str | None = Field(default=None)
     phone_numbers: list[str] | None = Field(default=None)
+    intranet_identifier: str | None = Field(default=None, max_length=255)
 
 
 class UpdatePassword(SQLModel):
@@ -75,6 +77,7 @@ class User(AbstractBaseModel, UserBase, table=True):
 class UserPublic(UserBase):
     id: uuid.UUID
     phone_numbers: list[str] | None = None
+    intranet_identifier: str | None = None
 
 
 class UsersPublic(SQLModel):
@@ -174,16 +177,32 @@ class AppSettingsBase(SQLModel):
     company_tax_id: str | None = Field(default=None, max_length=100)
     company_address: str | None = Field(default=None, max_length=500)
 
+    # Paramètres UI
+    auto_save_delay_seconds: int = Field(default=3, description="Délai en secondes avant auto-save (affichage tag Modifié)")
+
     # Paramètres de sécurité 2FA
     twofa_max_attempts: int = Field(default=5, description="Nombre maximum de tentatives 2FA avant blocage")
     twofa_sms_timeout_minutes: int = Field(default=10, description="Durée de validité du code SMS en minutes")
     twofa_sms_rate_limit: int = Field(default=5, description="Nombre maximum de SMS par heure")
 
-    # Configuration SMS Provider (Twilio)
-    sms_provider: str = Field(default="twilio", max_length=50, description="Fournisseur SMS (twilio, etc.)")
-    sms_provider_account_sid: str | None = Field(default=None, max_length=255, description="Account SID du provider SMS")
-    sms_provider_auth_token: str | None = Field(default=None, max_length=255, description="Auth Token du provider SMS")
+    # Configuration SMS Provider (twilio, bulksms, ovh, messagebird, vonage)
+    sms_provider: str = Field(default="twilio", max_length=50, description="Fournisseur SMS")
+    sms_provider_account_sid: str | None = Field(default=None, max_length=255, description="Account SID / API Key")
+    sms_provider_auth_token: str | None = Field(default=None, max_length=255, description="Auth Token / API Secret")
     sms_provider_phone_number: str | None = Field(default=None, max_length=50, description="Numéro de téléphone émetteur")
+
+    # Configuration Email
+    email_host: str | None = Field(default=None, max_length=255, description="Serveur SMTP")
+    email_port: int | None = Field(default=None, description="Port SMTP")
+    email_username: str | None = Field(default=None, max_length=255, description="Nom d'utilisateur SMTP")
+    email_password: str | None = Field(default=None, max_length=255, description="Mot de passe SMTP")
+    email_from: str | None = Field(default=None, max_length=255, description="Email expéditeur")
+    email_from_name: str | None = Field(default=None, max_length=255, description="Nom de l'expéditeur")
+    email_use_tls: bool = Field(default=True, description="Utiliser TLS")
+    email_use_ssl: bool = Field(default=False, description="Utiliser SSL")
+
+    # Configuration Intranet
+    intranet_url: str | None = Field(default=None, max_length=500, description="URL de l'intranet avec placeholder {user_id}")
 
 
 class AppSettingsUpdate(SQLModel):
@@ -199,16 +218,32 @@ class AppSettingsUpdate(SQLModel):
     company_tax_id: str | None = Field(default=None, max_length=100)
     company_address: str | None = Field(default=None, max_length=500)
 
+    # Paramètres UI
+    auto_save_delay_seconds: int | None = Field(default=None, description="Délai en secondes avant auto-save")
+
     # Paramètres de sécurité 2FA
     twofa_max_attempts: int | None = Field(default=None, description="Nombre maximum de tentatives 2FA avant blocage")
     twofa_sms_timeout_minutes: int | None = Field(default=None, description="Durée de validité du code SMS en minutes")
     twofa_sms_rate_limit: int | None = Field(default=None, description="Nombre maximum de SMS par heure")
 
-    # Configuration SMS Provider (Twilio)
-    sms_provider: str | None = Field(default=None, max_length=50, description="Fournisseur SMS (twilio, etc.)")
-    sms_provider_account_sid: str | None = Field(default=None, max_length=255, description="Account SID du provider SMS")
-    sms_provider_auth_token: str | None = Field(default=None, max_length=255, description="Auth Token du provider SMS")
+    # Configuration SMS Provider
+    sms_provider: str | None = Field(default=None, max_length=50, description="Fournisseur SMS")
+    sms_provider_account_sid: str | None = Field(default=None, max_length=255, description="Account SID / API Key")
+    sms_provider_auth_token: str | None = Field(default=None, max_length=255, description="Auth Token / API Secret")
     sms_provider_phone_number: str | None = Field(default=None, max_length=50, description="Numéro de téléphone émetteur")
+
+    # Configuration Email
+    email_host: str | None = Field(default=None, max_length=255, description="Serveur SMTP")
+    email_port: int | None = Field(default=None, description="Port SMTP")
+    email_username: str | None = Field(default=None, max_length=255, description="Nom d'utilisateur SMTP")
+    email_password: str | None = Field(default=None, max_length=255, description="Mot de passe SMTP")
+    email_from: str | None = Field(default=None, max_length=255, description="Email expéditeur")
+    email_from_name: str | None = Field(default=None, max_length=255, description="Nom de l'expéditeur")
+    email_use_tls: bool | None = Field(default=None, description="Utiliser TLS")
+    email_use_ssl: bool | None = Field(default=None, description="Utiliser SSL")
+
+    # Configuration Intranet
+    intranet_url: str | None = Field(default=None, max_length=500, description="URL de l'intranet avec placeholder {user_id}")
 
 
 class AppSettings(AbstractBaseModel, AppSettingsBase, table=True):

@@ -17,14 +17,17 @@ import {
   LogOut,
   Shield,
   Bell,
-  Palette
+  Palette,
+  ExternalLink
 } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
+import { useAppConfig } from "@/contexts/app-config-context"
 import { auth } from "@/lib/auth"
 import { useToast } from "@/hooks/use-toast"
 
 export function UserMenu() {
   const { user } = useAuth()
+  const { config } = useAppConfig()
   const router = useRouter()
   const { toast } = useToast()
   const [open, setOpen] = useState(false)
@@ -55,6 +58,14 @@ export function UserMenu() {
   const handleNavigate = (path: string) => {
     setOpen(false)
     router.push(path)
+  }
+
+  const handleOpenIntranet = () => {
+    if (config.intranet_url && user?.intranet_identifier) {
+      const url = config.intranet_url.replace('{user_id}', user.intranet_identifier)
+      window.open(url, '_blank')
+      setOpen(false)
+    }
   }
 
   return (
@@ -91,6 +102,12 @@ export function UserMenu() {
           <Palette className="mr-2 h-4 w-4" />
           <span>Préférences</span>
         </DropdownMenuItem>
+        {config.intranet_url && user?.intranet_identifier && (
+          <DropdownMenuItem onClick={handleOpenIntranet}>
+            <ExternalLink className="mr-2 h-4 w-4" />
+            <span>Intranet</span>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onClick={() => handleNavigate("/settings/profile?tab=preferences#security")}>
           <Shield className="mr-2 h-4 w-4" />
           <span>Sécurité (2FA)</span>

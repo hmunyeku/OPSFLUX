@@ -60,7 +60,7 @@ export function NotificationsProvider({
 
   // Obtenir l'URL du WebSocket
   const getWebSocketUrl = useCallback(() => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.opsflux.io"
     const wsProtocol = apiUrl.startsWith("https") ? "wss" : "ws"
     const wsUrl = apiUrl.replace(/^https?/, wsProtocol)
     return `${wsUrl}/api/v1/ws/notifications`

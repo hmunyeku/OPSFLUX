@@ -4,6 +4,14 @@
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.opsflux.io'
 
+// Debug: Log API URL (will be removed after debugging)
+if (typeof window !== 'undefined') {
+  // eslint-disable-next-line no-console
+  console.log('[API] Using API URL:', API_URL)
+  // eslint-disable-next-line no-console
+  console.log('[API] NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL)
+}
+
 export interface LoginCredentials {
   username: string
   password: string
@@ -45,6 +53,7 @@ export interface User {
   recovery_email?: string
   avatar_url?: string
   phone_numbers?: string[]
+  intranet_identifier?: string
 }
 
 export interface UserUpdate {
@@ -56,6 +65,7 @@ export interface UserUpdate {
   recovery_email?: string
   avatar_url?: string | null
   phone_numbers?: string[]
+  intranet_identifier?: string
 }
 
 export interface PasswordPolicy {
@@ -83,6 +93,8 @@ export interface AppSettings {
   company_logo?: string | null
   company_tax_id?: string | null
   company_address?: string | null
+  // Paramètres UI
+  auto_save_delay_seconds: number
   // Paramètres de sécurité 2FA
   twofa_max_attempts: number
   twofa_sms_timeout_minutes: number

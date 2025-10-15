@@ -188,7 +188,7 @@ async def create_test_notification(
         message=test_messages[notification_type],
         type=notification_type,
         priority=priority,
-        metadata={"test": True},
+        notification_metadata={"test": True},
     )
 
     notification = await notification_service.create_notification(

@@ -6,8 +6,10 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/components/auth-provider"
 import { ThemeColorInitializer } from "@/components/theme-color-initializer"
 import { LanguageSync } from "@/components/language-sync"
+import { DynamicTitle } from "@/components/dynamic-title"
 import { PreferencesProvider } from "@/contexts/preferences-context"
 import { NotificationsProvider } from "@/contexts/notifications-context"
+import { AppConfigProvider } from "@/contexts/app-config-context"
 
 interface Props {
   children: React.ReactNode
@@ -28,21 +30,24 @@ export function Providers({ children }: Props) {
   }, [])
 
   return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="system"
-      enableSystem
-      disableTransitionOnChange
-    >
-      <PreferencesProvider>
-        <AuthProvider>
-          <NotificationsProvider>
-            <ThemeColorInitializer />
-            <LanguageSync />
-            <SearchProvider value={{ open, setOpen }}>{children}</SearchProvider>
-          </NotificationsProvider>
-        </AuthProvider>
-      </PreferencesProvider>
-    </ThemeProvider>
+    <AppConfigProvider>
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="system"
+        enableSystem
+        disableTransitionOnChange
+      >
+        <PreferencesProvider>
+          <AuthProvider>
+            <NotificationsProvider>
+              <ThemeColorInitializer />
+              <LanguageSync />
+              <DynamicTitle />
+              <SearchProvider value={{ open, setOpen }}>{children}</SearchProvider>
+            </NotificationsProvider>
+          </AuthProvider>
+        </PreferencesProvider>
+      </ThemeProvider>
+    </AppConfigProvider>
   )
 }

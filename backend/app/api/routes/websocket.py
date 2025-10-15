@@ -3,7 +3,7 @@ Routes WebSocket pour les notifications en temps réel.
 """
 
 import json
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 import jwt
@@ -91,7 +91,7 @@ async def websocket_notifications(websocket: WebSocket, token: Optional[str] = N
                 if message_type == "ping":
                     pong_message = WebSocketMessage(
                         type="pong",
-                        data={"timestamp": datetime.now(UTC).isoformat()},
+                        data={"timestamp": datetime.now(timezone.utc).isoformat()},
                     )
                     await websocket.send_text(pong_message.model_dump_json())
 

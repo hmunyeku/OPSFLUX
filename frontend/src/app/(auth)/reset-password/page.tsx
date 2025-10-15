@@ -1,27 +1,26 @@
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
-import { ForgotPasswordForm } from "./components/forgot-password-form"
+import { ResetPasswordForm } from "./components/reset-password-form"
 
-export default function ForgotPasswordPage() {
+export default function ResetPasswordPage() {
   return (
     <Card className="p-6">
       <div className="mb-2 flex flex-col space-y-2 text-left">
         <h1 className="text-md font-semibold tracking-tight">
-          Mot de passe oublié
+          Réinitialiser le mot de passe
         </h1>
         <p className="text-muted-foreground text-sm">
-          Entrez votre adresse email et <br /> nous vous enverrons un lien pour
-          réinitialiser votre mot de passe.
+          Entrez votre nouveau mot de passe ci-dessous.
         </p>
       </div>
-      <ForgotPasswordForm />
+      <ResetPasswordForm />
       <p className="text-muted-foreground mt-4 px-8 text-center text-sm">
-        Vous n&apos;avez pas de compte ?{" "}
+        Vous vous souvenez de votre mot de passe ?{" "}
         <Link
-          href="/register"
+          href="/login"
           className="hover:text-primary underline underline-offset-4"
         >
-          S&apos;inscrire
+          Se connecter
         </Link>
         .
       </p>

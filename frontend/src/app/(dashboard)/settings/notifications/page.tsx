@@ -5,7 +5,7 @@ export default function SettingsNotificationsPage() {
   return (
     <ContentSection
       title="Notifications"
-      desc="Manage and connect different applications."
+      desc="Gérez vos préférences de notifications."
     >
       <NotificationsForm />
     </ContentSection>

@@ -22,7 +22,8 @@ import { useAuth } from "@/hooks/use-auth"
 import { api, UserUpdate, PasswordPolicy } from "@/lib/api"
 import { auth } from "@/lib/auth"
 import { useToast } from "@/hooks/use-toast"
-import { Lock, CheckCircle2, XCircle, AlertCircle, Plus, X } from "lucide-react"
+import { useAppConfig } from "@/contexts/app-config-context"
+import { Lock, CheckCircle2, XCircle, AlertCircle, Plus, X, ExternalLink } from "lucide-react"
 
 const accountFormSchema = z.object({
   first_name: z
@@ -61,6 +62,7 @@ const accountFormSchema = z.object({
     .or(z.literal("")),
   avatar_url: z.string().nullable().optional(),
   phone_numbers: z.array(z.string()).optional(),
+  intranet_identifier: z.string().max(255).optional().or(z.literal("")),
 })
 
 type AccountFormValues = z.infer<typeof accountFormSchema>
@@ -73,6 +75,7 @@ interface PasswordStrength {
 
 export function AccountForm() {
   const { user, isLoading } = useAuth()
+  const { config } = useAppConfig()
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -97,6 +100,7 @@ export function AccountForm() {
       recovery_email: "",
       avatar_url: null,
       phone_numbers: [],
+      intranet_identifier: "",
     },
   })
 
@@ -115,6 +119,7 @@ export function AccountForm() {
         recovery_email: user.recovery_email || "",
         avatar_url: user.avatar_url || null,
         phone_numbers: user.phone_numbers || [],
+        intranet_identifier: user.intranet_identifier || "",
       })
       setPhoneNumbers(user.phone_numbers || [])
     }
@@ -302,6 +307,7 @@ export function AccountForm() {
         recovery_email: data.recovery_email || undefined,
         avatar_url: data.avatar_url,
         phone_numbers: phoneNumbers,
+        intranet_identifier: data.intranet_identifier || undefined,
       }
 
       await api.updateMe(token, updateData)
@@ -456,6 +462,40 @@ export function AccountForm() {
                     )}
                   />
 
+                  {/* Identifiant Intranet */}
+                  <FormField
+                    control={form.control}
+                    name="intranet_identifier"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Identifiant Intranet</FormLabel>
+                        <div className="flex gap-2">
+                          <FormControl>
+                            <Input placeholder="user123" {...field} value={field.value || ""} />
+                          </FormControl>
+                          {config.intranet_url && field.value && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={() => {
+                                const url = config.intranet_url?.replace('{user_id}', field.value || '')
+                                window.open(url, '_blank')
+                              }}
+                              title="Accéder à mon intranet"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                        <FormDescription className="text-xs">
+                          Votre identifiant sur l&apos;intranet de l&apos;entreprise
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
                   {/* Téléphones */}
                   <div className="md:col-span-2 space-y-2">
                     <Label>Numéros de téléphone</Label>
@@ -507,7 +547,7 @@ export function AccountForm() {
               </div>
 
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Mise à jour..." : "Mettre à jour le profil"}
+                {isSubmitting ? "Mise à jour en cours..." : "Mettre à jour le profil"}
               </Button>
             </form>
           </Form>

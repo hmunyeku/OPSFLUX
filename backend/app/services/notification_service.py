@@ -3,7 +3,7 @@ Service pour la gestion des notifications.
 """
 
 import json
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -64,7 +64,7 @@ async def send_notification_websocket(notification: Notification):
             "type": notification.type,
             "priority": notification.priority,
             "read": notification.read,
-            "metadata": notification.metadata,
+            "notification_metadata": notification.notification_metadata,
             "action_url": notification.action_url,
             "created_at": notification.created_at.isoformat(),
             "expires_at": notification.expires_at.isoformat()
@@ -112,7 +112,7 @@ def get_user_notifications(
     # Filtrer les notifications expirées
     statement = statement.where(
         (Notification.expires_at == None)  # noqa: E711
-        | (Notification.expires_at > datetime.now(UTC))
+        | (Notification.expires_at > datetime.now(timezone.utc))
     )
 
     # Compter le total
@@ -150,7 +150,7 @@ def mark_notification_as_read(
 
     if notification and not notification.read:
         notification.read = True
-        notification.read_at = datetime.now(UTC)
+        notification.read_at = datetime.now(timezone.utc)
         session.add(notification)
         session.commit()
         session.refresh(notification)
@@ -175,7 +175,7 @@ def mark_all_as_read(session: Session, user_id: UUID) -> int:
     notifications = session.exec(statement).all()
 
     count = 0
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     for notification in notifications:
         notification.read = True
         notification.read_at = now
@@ -228,7 +228,7 @@ def get_unread_count(session: Session, user_id: UUID) -> int:
         Notification.user_id == user_id,
         Notification.read == False,  # noqa: E712
         (Notification.expires_at == None)  # noqa: E711
-        | (Notification.expires_at > datetime.now(UTC)),
+        | (Notification.expires_at > datetime.now(timezone.utc)),
     )
     notifications = session.exec(statement).all()
     return len(notifications)
@@ -240,7 +240,7 @@ async def create_system_notification(
     title: str,
     message: str,
     priority: NotificationPriority = NotificationPriority.NORMAL,
-    metadata: Optional[dict] = None,
+    notification_metadata: Optional[dict] = None,
     action_url: Optional[str] = None,
 ) -> Notification:
     """
@@ -252,7 +252,7 @@ async def create_system_notification(
         title: Titre de la notification
         message: Message de la notification
         priority: Priorité de la notification
-        metadata: Métadonnées additionnelles
+        notification_metadata: Métadonnées additionnelles
         action_url: URL d'action optionnelle
 
     Returns:
@@ -264,7 +264,7 @@ async def create_system_notification(
         message=message,
         type=NotificationType.SYSTEM,
         priority=priority,
-        metadata=metadata,
+        notification_metadata=notification_metadata,
         action_url=action_url,
     )
 

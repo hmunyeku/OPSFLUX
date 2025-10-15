@@ -4,7 +4,7 @@ import { HTMLAttributes, useState } from "react"
 import { z } from "zod"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { nofitySubmittedValues } from "@/lib/notify-submitted-values"
+import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -29,19 +29,49 @@ export function ForgotPasswordForm({
   ...props
 }: HTMLAttributes<HTMLDivElement>) {
   const [isLoading, setIsLoading] = useState(false)
+  const { toast } = useToast()
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: { email: "" },
   })
 
-  function onSubmit(data: z.infer<typeof formSchema>) {
+  async function onSubmit(data: z.infer<typeof formSchema>) {
     setIsLoading(true)
-    nofitySubmittedValues(data)
 
-    setTimeout(() => {
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/login/password-recovery/${encodeURIComponent(data.email)}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      )
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.detail || "Échec de l'envoi de l'email de récupération")
+      }
+
+      const result = await response.json()
+
+      toast({
+        title: "Email envoyé avec succès",
+        description: result.message || "Un email de récupération a été envoyé à votre adresse. Vérifiez votre boîte mail.",
+      })
+
+      form.reset()
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: error instanceof Error ? error.message : "Une erreur s'est produite lors de l'envoi de l'email.",
+      })
+    } finally {
       setIsLoading(false)
-    }, 3000)
+    }
   }
 
   return (
@@ -63,7 +93,7 @@ export function ForgotPasswordForm({
               )}
             />
             <Button className="mt-2" disabled={isLoading}>
-              Continue
+              {isLoading ? "Envoi en cours..." : "Continuer"}
             </Button>
           </div>
         </form>

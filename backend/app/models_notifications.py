@@ -2,7 +2,7 @@
 Modèles pour le système de notifications en temps réel.
 """
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 from uuid import UUID, uuid4
@@ -39,7 +39,6 @@ class NotificationBase(SQLModel):
     type: NotificationType = Field(default=NotificationType.INFO)
     priority: NotificationPriority = Field(default=NotificationPriority.NORMAL)
     read: bool = Field(default=False)
-    metadata: Optional[dict] = Field(default=None, sa_column=Column(JSON, nullable=True))
     action_url: Optional[str] = Field(default=None, max_length=500)
     expires_at: Optional[datetime] = Field(default=None)
 
@@ -52,6 +51,7 @@ class Notification(AbstractBaseModel, NotificationBase, table=True):
     __tablename__ = "notifications"
 
     user_id: UUID = Field(foreign_key="user.id", index=True)
+    notification_metadata: Optional[dict] = Field(default=None, sa_column=Column(JSON, nullable=True))
     read_at: Optional[datetime] = Field(default=None)
 
 
@@ -63,7 +63,7 @@ class NotificationCreate(SQLModel):
     message: str = Field(max_length=1000)
     type: NotificationType = Field(default=NotificationType.INFO)
     priority: NotificationPriority = Field(default=NotificationPriority.NORMAL)
-    metadata: Optional[dict] = None
+    notification_metadata: Optional[dict] = None
     action_url: Optional[str] = None
     expires_at: Optional[datetime] = None
 
@@ -73,6 +73,7 @@ class NotificationPublic(NotificationBase):
 
     id: UUID
     user_id: UUID
+    notification_metadata: Optional[dict] = None
     read_at: Optional[datetime]
     created_at: datetime
     updated_at: datetime
@@ -96,4 +97,4 @@ class WebSocketMessage(SQLModel):
 
     type: str  # "notification", "ping", "pong", "error"
     data: Optional[dict] = None
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

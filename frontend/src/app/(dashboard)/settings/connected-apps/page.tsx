@@ -4,8 +4,8 @@ import ConnectAppForm from "./components/connect-app-form"
 export default function SettingsConnectedAppsPage() {
   return (
     <ContentSection
-      title="Connected Apps"
-      desc="Manage and connect different applications."
+      title="Applications connectées"
+      desc="Gérez et connectez différentes applications."
     >
       <ConnectAppForm />
     </ContentSection>

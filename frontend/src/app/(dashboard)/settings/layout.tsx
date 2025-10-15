@@ -3,7 +3,6 @@ import {
   IconChecklist,
   IconCoin,
   IconNotification,
-  IconShield,
   IconTool,
   IconUser,
 } from "@tabler/icons-react"
@@ -12,22 +11,17 @@ import SidebarNav from "./components/sidebar-nav"
 
 const sidebarNavItems = [
   {
-    title: "General",
+    title: "Général",
     icon: <IconTool />,
     href: "/settings",
   },
   {
-    title: "Profile",
+    title: "Profil",
     icon: <IconUser />,
     href: "/settings/profile",
   },
   {
-    title: "Security",
-    icon: <IconShield />,
-    href: "/settings/security",
-  },
-  {
-    title: "Billing",
+    title: "Facturation",
     icon: <IconCoin />,
     href: "/settings/billing",
   },
@@ -37,7 +31,7 @@ const sidebarNavItems = [
     href: "/settings/plans",
   },
   {
-    title: "Connected Apps",
+    title: "Applications connectées",
     icon: <IconApps />,
     href: "/settings/connected-apps",
   },
@@ -63,10 +57,10 @@ export default function SettingsLayout({ children }: Props) {
       >
         <div className="space-y-0.5">
           <h1 className="text-xl font-bold tracking-tight md:text-2xl">
-            Settings
+            Paramètres
           </h1>
           <p className="text-muted-foreground">
-            Update account preferences and manage integrations.
+            Gérez vos préférences de compte et vos intégrations.
           </p>
         </div>
         <div className="flex flex-1 flex-col space-y-8 overflow-auto md:space-y-2 md:overflow-hidden lg:flex-row lg:space-y-0 lg:space-x-12">

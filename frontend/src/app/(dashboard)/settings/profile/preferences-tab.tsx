@@ -44,7 +44,7 @@ import {
   DialogFooter
 } from "@/components/ui/dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { IconSearch, IconChevronDown, IconChevronUp } from "@tabler/icons-react"
+import { IconSearch, IconFilter, IconArrowsSort } from "@tabler/icons-react"
 import { Shield, ShieldCheck, Key, Download, RefreshCw, Smartphone } from "lucide-react"
 import { type UserPreferences } from "@/types/preferences"
 import { Switch } from "@/components/ui/switch"
@@ -604,37 +604,74 @@ export function PreferencesTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery])
 
-  const groupedPreferences = useMemo(() => {
-    const groups: Record<string, PreferenceItem[]> = {}
-    filteredPreferences.forEach((pref) => {
-      if (!groups[pref.category]) {
-        groups[pref.category] = []
-      }
-      groups[pref.category].push(pref)
+  // Get all unique categories
+  const categories = useMemo(() => {
+    const cats = Array.from(new Set(preferencesConfig.map(item => item.category)))
+    return ["all", ...cats]
+  }, [])
+
+  // Category filter state
+  const [categoryFilter, setCategoryFilter] = useState<string>("all")
+
+  // Filter preferences based on search and category
+  const filteredPreferencesData = useMemo(() => {
+    return filteredPreferences.filter(pref => {
+      const matchesCategory = categoryFilter === "all" || pref.category === categoryFilter
+      return matchesCategory
     })
-    return groups
-  }, [filteredPreferences])
-
-  // État pour gérer les catégories expandées
-  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({})
-
-  // Initialiser les catégories expandées
-  useEffect(() => {
-    setExpandedCategories(
-      Object.keys(groupedPreferences).reduce((acc, key) => ({ ...acc, [key]: true }), {})
-    )
-  }, [groupedPreferences])
+  }, [filteredPreferences, categoryFilter])
 
   // Créer les colonnes du DataTable
   const columns = useMemo<ColumnDef<PreferenceItem>[]>(
     () => [
       {
+        accessorKey: "category",
+        header: ({ column }) => {
+          return (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="-ml-3 h-8 data-[state=open]:bg-accent"
+              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            >
+              Catégorie
+              <IconArrowsSort className="ml-2 h-4 w-4" />
+            </Button>
+          )
+        },
+        cell: ({ row }) => (
+          <div className="min-w-[150px]">
+            <Badge
+              variant="secondary"
+              className="text-xs cursor-pointer hover:bg-secondary/80 transition-colors"
+              onClick={() => setCategoryFilter(row.original.category)}
+              title={`Filtrer par ${row.original.category}`}
+            >
+              {row.original.category}
+            </Badge>
+          </div>
+        ),
+        enableSorting: true,
+      },
+      {
         accessorKey: "label",
-        header: "Préférence",
+        header: ({ column }) => {
+          return (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="-ml-3 h-8 data-[state=open]:bg-accent"
+              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            >
+              Préférence
+              <IconArrowsSort className="ml-2 h-4 w-4" />
+            </Button>
+          )
+        },
         cell: ({ row }) => {
           const isRecentlyModified = recentlyModified.has(row.original.key)
           return (
-            <div className="flex items-center gap-2 min-w-[200px]">
+            <div className="min-w-[200px] flex items-center gap-2">
               <span className="font-medium">{row.original.label}</span>
               {isRecentlyModified && (
                 <Badge variant="outline" className="text-green-600 border-green-600 dark:text-green-400 dark:border-green-400 text-xs">
@@ -644,15 +681,29 @@ export function PreferencesTab() {
             </div>
           )
         },
+        enableSorting: true,
       },
       {
         accessorKey: "description",
-        header: "Description",
+        header: ({ column }) => {
+          return (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="-ml-3 h-8 data-[state=open]:bg-accent"
+              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            >
+              Description
+              <IconArrowsSort className="ml-2 h-4 w-4" />
+            </Button>
+          )
+        },
         cell: ({ row }) => (
           <div className="text-muted-foreground text-sm max-w-md">
             {row.original.description}
           </div>
         ),
+        enableSorting: true,
       },
       {
         accessorKey: "value",
@@ -672,149 +723,14 @@ export function PreferencesTab() {
     [recentlyModified, preferences, handleImmediateChange]
   )
 
-  const toggleCategory = (category: string) => {
-    setExpandedCategories((prev) => ({ ...prev, [category]: !prev[category] }))
-  }
-
-  // Composant pour une table de catégorie
-  function CategoryTable({ items, category }: { items: PreferenceItem[]; category: string }) {
-    const table = useReactTable({
-      data: items,
-      columns,
-      getCoreRowModel: getCoreRowModel(),
-      getFilteredRowModel: getFilteredRowModel(),
-      getSortedRowModel: getSortedRowModel(),
-    })
-
-    const isExpanded = expandedCategories[category] ?? true
-
-    return (
-      <div className="rounded-lg border">
-        {/* Header de catégorie */}
-        <Button
-          variant="ghost"
-          onClick={() => toggleCategory(category)}
-          className="w-full justify-between p-4 h-auto hover:bg-muted/50"
-        >
-          <h3 className="text-lg font-semibold">{category}</h3>
-          {isExpanded ? (
-            <IconChevronUp className="h-5 w-5" />
-          ) : (
-            <IconChevronDown className="h-5 w-5" />
-          )}
-        </Button>
-
-        {/* Contenu de la table */}
-        {isExpanded && (
-          <>
-            {/* Vue desktop */}
-            <div className="hidden md:block">
-              <Table>
-                <TableHeader>
-                  {table.getHeaderGroups().map((headerGroup) => (
-                    <TableRow key={headerGroup.id}>
-                      {headerGroup.headers.map((header) => (
-                        <TableHead key={header.id}>
-                          {header.isPlaceholder
-                            ? null
-                            : flexRender(
-                                header.column.columnDef.header,
-                                header.getContext()
-                              )}
-                        </TableHead>
-                      ))}
-                    </TableRow>
-                  ))}
-                </TableHeader>
-                <TableBody>
-                  {table.getRowModel().rows?.length ? (
-                    table.getRowModel().rows.map((row) => {
-                      const isRecentlyModified = recentlyModified.has(
-                        row.original.key
-                      )
-                      return (
-                        <TableRow
-                          key={row.id}
-                          className={
-                            isRecentlyModified
-                              ? "bg-green-50 dark:bg-green-950/10"
-                              : ""
-                          }
-                        >
-                          {row.getVisibleCells().map((cell) => (
-                            <TableCell key={cell.id}>
-                              {flexRender(
-                                cell.column.columnDef.cell,
-                                cell.getContext()
-                              )}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      )
-                    })
-                  ) : (
-                    <TableRow>
-                      <TableCell
-                        colSpan={columns.length}
-                        className="h-24 text-center"
-                      >
-                        Aucun résultat.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-
-            {/* Vue mobile - Cards */}
-            <div className="md:hidden p-4 space-y-3">
-              {items.map((pref) => {
-                const isRecentlyModified = recentlyModified.has(pref.key)
-                const currentValue = preferences[pref.key]
-
-                return (
-                  <div
-                    key={pref.key}
-                    className={`rounded-lg border p-4 space-y-3 ${
-                      isRecentlyModified
-                        ? "bg-green-50 dark:bg-green-950/10 border-green-200 dark:border-green-900"
-                        : ""
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="space-y-1 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="font-medium text-sm">
-                            {pref.label}
-                          </h4>
-                          {isRecentlyModified && (
-                            <Badge
-                              variant="outline"
-                              className="text-green-600 border-green-600 dark:text-green-400 dark:border-green-400 text-xs"
-                            >
-                              Modifié
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          {pref.description}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="pt-2">
-                      {pref.renderValue(currentValue, (value) =>
-                        handleImmediateChange(pref.key, value)
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </>
-        )}
-      </div>
-    )
-  }
+  // Create table instance
+  const table = useReactTable({
+    data: filteredPreferencesData,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  })
 
   return (
     <div className="space-y-6">
@@ -919,31 +835,153 @@ export function PreferencesTab() {
         </CardContent>
       </Card>
 
-      {/* Barre de recherche */}
-      <div className="relative max-w-md">
-        <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Rechercher une préférence..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
-        />
-      </div>
-
-      {/* Tables groupées par catégorie */}
-      <div className="space-y-4">
-        {Object.entries(groupedPreferences).map(([category, items]) => (
-          <CategoryTable key={category} items={items} category={category} />
-        ))}
-      </div>
-
-      {filteredPreferences.length === 0 && (
-        <div className="rounded-lg border border-dashed p-12 text-center">
-          <p className="text-muted-foreground">
-            Aucune préférence ne correspond à votre recherche.
-          </p>
+      {/* Search and Filter Bar */}
+      <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+        <div className="relative flex-1 w-full">
+          <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher une préférence..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 w-full"
+          />
         </div>
-      )}
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          <IconFilter className="h-4 w-4 text-muted-foreground" />
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-full md:w-[250px]">
+              <SelectValue placeholder="Toutes les catégories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Toutes les catégories</SelectItem>
+              {categories.filter(cat => cat !== "all").map((category) => (
+                <SelectItem key={category} value={category}>
+                  {category}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {categoryFilter !== "all" && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCategoryFilter("all")}
+              className="h-8"
+            >
+              Effacer
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Unified DataTable - Desktop */}
+      <div className="hidden md:block rounded-lg border">
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id}>
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => {
+                const isRecentlyModified = recentlyModified.has(row.original.key)
+                return (
+                  <TableRow
+                    key={row.id}
+                    className={
+                      isRecentlyModified
+                        ? "bg-green-50 dark:bg-green-950/10"
+                        : ""
+                    }
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                )
+              })
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
+                  Aucune préférence ne correspond à votre recherche.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Mobile View - Cards */}
+      <div className="md:hidden space-y-3">
+        {filteredPreferencesData.length > 0 ? (
+          filteredPreferencesData.map((pref) => {
+            const isRecentlyModified = recentlyModified.has(pref.key)
+            const currentValue = preferences[pref.key]
+
+            return (
+              <div
+                key={pref.key}
+                className={`rounded-lg border p-4 space-y-3 ${
+                  isRecentlyModified
+                    ? "bg-green-50 dark:bg-green-950/10 border-green-200 dark:border-green-900"
+                    : ""
+                }`}
+              >
+                <div className="space-y-2">
+                  <Badge
+                    variant="secondary"
+                    className="text-xs cursor-pointer hover:bg-secondary/80 transition-colors"
+                    onClick={() => setCategoryFilter(pref.category)}
+                    title={`Filtrer par ${pref.category}`}
+                  >
+                    {pref.category}
+                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-medium text-sm">{pref.label}</h4>
+                    {isRecentlyModified && (
+                      <Badge variant="outline" className="text-green-600 border-green-600 dark:text-green-400 dark:border-green-400 text-xs">
+                        Modifié
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {pref.description}
+                  </p>
+                </div>
+                <div className="pt-2">
+                  {pref.renderValue(currentValue, (value) =>
+                    handleImmediateChange(pref.key, value)
+                  )}
+                </div>
+              </div>
+            )
+          })
+        ) : (
+          <div className="text-center py-12 text-muted-foreground">
+            Aucune préférence ne correspond à votre recherche.
+          </div>
+        )}
+      </div>
 
       {/* Dialog de configuration TOTP */}
       <Dialog open={setupDialogOpen} onOpenChange={setSetupDialogOpen}>

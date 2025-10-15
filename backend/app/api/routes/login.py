@@ -25,10 +25,9 @@ from app.models import (
     UserPublic,
     User,
 )
+from app.core.email_service import email_service
 from app.utils import (
     generate_password_reset_token,
-    generate_reset_password_email,
-    send_email,
     verify_password_reset_token,
 )
 
@@ -208,14 +207,21 @@ def recover_password(email: str, session: SessionDep) -> Message:
             detail="The user with this email does not exist in the system.",
         )
     password_reset_token = generate_password_reset_token(email=email)
-    email_data = generate_reset_password_email(
-        email_to=user.email, email=email, token=password_reset_token
-    )
-    send_email(
+
+    # Utiliser le nouveau service email avec fallback .env
+    success = email_service.send_reset_password_email(
         email_to=user.email,
-        subject=email_data.subject,
-        html_content=email_data.html_content,
+        email=email,
+        token=password_reset_token,
+        db=session,
     )
+
+    if not success:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to send password recovery email. Please check email configuration.",
+        )
+
     return Message(message="Password recovery email sent")
 
 
@@ -249,7 +255,7 @@ def reset_password(session: SessionDep, body: NewPassword) -> Message:
 )
 def recover_password_html_content(email: str, session: SessionDep) -> Any:
     """
-    HTML Content for Password Recovery
+    HTML Content for Password Recovery - For testing/preview
     """
     user = crud.get_user_by_email(session=session, email=email)
 
@@ -259,10 +265,40 @@ def recover_password_html_content(email: str, session: SessionDep) -> Any:
             detail="The user with this username does not exist in the system.",
         )
     password_reset_token = generate_password_reset_token(email=email)
-    email_data = generate_reset_password_email(
-        email_to=user.email, email=email, token=password_reset_token
-    )
+
+    # Generate preview HTML
+    reset_link = f"{settings.FRONTEND_HOST}/reset-password?token={password_reset_token}"
+    html_content = f"""
+    <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                <h2 style="color: #2563eb;">Réinitialisation de mot de passe</h2>
+                <p>Bonjour,</p>
+                <p>Vous avez demandé à réinitialiser le mot de passe de votre compte <strong>{email}</strong>.</p>
+                <p>Pour réinitialiser votre mot de passe, cliquez sur le bouton ci-dessous :</p>
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="{reset_link}"
+                       style="background-color: #2563eb; color: white; padding: 12px 30px;
+                              text-decoration: none; border-radius: 5px; display: inline-block;">
+                        Réinitialiser mon mot de passe
+                    </a>
+                </div>
+                <p>Ou copiez ce lien dans votre navigateur :</p>
+                <p style="word-break: break-all; background-color: #f3f4f6; padding: 10px; border-radius: 5px;">
+                    {reset_link}
+                </p>
+                <p><strong>Ce lien est valable pendant {settings.EMAIL_RESET_TOKEN_EXPIRE_HOURS} heures.</strong></p>
+                <p>Si vous n'avez pas demandé cette réinitialisation, vous pouvez ignorer cet email en toute sécurité.</p>
+                <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
+                <p style="color: #6b7280; font-size: 12px;">
+                    Cet email a été envoyé par {settings.PROJECT_NAME}.
+                    Pour des raisons de sécurité, ne partagez jamais ce lien avec personne.
+                </p>
+            </div>
+        </body>
+    </html>
+    """
 
     return HTMLResponse(
-        content=email_data.html_content, headers={"subject:": email_data.subject}
+        content=html_content, headers={"subject:": f"{settings.PROJECT_NAME} - Réinitialisation de votre mot de passe"}
     )

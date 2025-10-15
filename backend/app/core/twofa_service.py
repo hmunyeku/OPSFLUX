@@ -16,6 +16,7 @@ from twilio.rest import Client
 
 from app.core.config import settings
 from app.core.security_settings_service import SecuritySettingsService
+from app.core.sms_providers import SMSProviderFactory
 from app.models import User
 from app.models_2fa import (
     SMSVerification,
@@ -334,23 +335,31 @@ class TwoFactorService:
         session.commit()
         session.refresh(sms)
 
-        # Envoyer SMS via provider configuré (Twilio par défaut)
+        # Envoyer SMS via provider configuré
         sms_config = SecuritySettingsService.get_sms_provider_config(session)
 
         # Fallback vers settings si pas configuré dans AppSettings
+        provider_name = sms_config["provider"] or "twilio"
         account_sid = sms_config["account_sid"] or settings.TWILIO_ACCOUNT_SID
         auth_token = sms_config["auth_token"] or settings.TWILIO_AUTH_TOKEN
         from_number = sms_config["phone_number"] or settings.TWILIO_PHONE_NUMBER
 
-        if account_sid and auth_token:
+        # Créer le provider via la factory
+        provider = SMSProviderFactory.create_provider(
+            provider_name=provider_name,
+            account_sid=account_sid,
+            auth_token=auth_token,
+            from_number=from_number
+        )
+
+        if provider:
             try:
-                client = Client(account_sid, auth_token)
-                message = client.messages.create(
-                    body=f"Votre code OpsFlux: {code}\nValide {sms_timeout_minutes} minutes.",
-                    from_=from_number,
-                    to=phone_number,
-                )
-                # TODO: Logger message SID pour tracking
+                message_text = f"Votre code OpsFlux: {code}\nValide {sms_timeout_minutes} minutes."
+                result = provider.send_sms(phone_number, message_text)
+
+                if result["status"] != "sent":
+                    print(f"SMS Error: {result.get('error', 'Unknown error')}")
+                # TODO: Logger message_id pour tracking
             except Exception as e:
                 # En développement, on log juste le code
                 print(f"SMS Code: {code} (Error: {e})")

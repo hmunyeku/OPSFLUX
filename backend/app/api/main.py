@@ -14,6 +14,7 @@ from app.api.routes import (
     roles,
     security,
     settings as settings_routes,
+    tasks,
     twofa,
     user_permissions,
     users,
@@ -42,6 +43,7 @@ api_router.include_router(notifications.router)  # Real-time notifications
 api_router.include_router(websocket.router)  # WebSocket for notifications
 api_router.include_router(api_keys.router)  # API Keys management
 api_router.include_router(webhooks.router)  # Webhooks management
+api_router.include_router(tasks.router)  # Tasks management
 
 
 if settings.ENVIRONMENT == "local":

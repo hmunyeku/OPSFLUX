@@ -26,7 +26,10 @@ import { Input } from "@/components/ui/input"
 
 const formSchema = z.object({
   file: z
-    .instanceof(FileList)
+    .custom<FileList>(
+      (val) => typeof window !== "undefined" && val instanceof FileList,
+      "Please upload a file"
+    )
     .refine((files) => files.length > 0, {
       message: "Please upload a file",
     })

@@ -4,6 +4,7 @@ from app.api.routes import (
     addresses,
     address_types,
     api_keys,
+    audit,
     auth,
     bookmarks,
     groups,
@@ -46,6 +47,7 @@ api_router.include_router(api_keys.router)  # API Keys management
 api_router.include_router(webhooks.router)  # Webhooks management
 api_router.include_router(tasks.router)  # Tasks management
 api_router.include_router(bookmarks.router)  # Bookmarks management
+api_router.include_router(audit.router, prefix="/audit", tags=["Audit"])  # Audit logs
 
 
 if settings.ENVIRONMENT == "local":

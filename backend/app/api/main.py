@@ -8,6 +8,7 @@ from app.api.routes import (
     auth,
     bookmarks,
     groups,
+    hooks,
     items,
     login,
     notifications,
@@ -45,6 +46,7 @@ api_router.include_router(notifications.router)  # Real-time notifications
 api_router.include_router(websocket.router)  # WebSocket for notifications
 api_router.include_router(api_keys.router)  # API Keys management
 api_router.include_router(webhooks.router)  # Webhooks management
+api_router.include_router(hooks.router)  # Hooks & Triggers system
 api_router.include_router(tasks.router)  # Tasks management
 api_router.include_router(bookmarks.router)  # Bookmarks management
 api_router.include_router(audit.router, prefix="/audit", tags=["Audit"])  # Audit logs

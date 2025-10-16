@@ -74,6 +74,10 @@ def get_user_permissions_with_sources(
     - GROUP: Permission from one of user's groups
     - PERSONAL: Permission directly assigned to the user
     """
+    from sqlmodel import col
+    from sqlalchemy.orm import selectinload
+    from app.models_rbac import Role, Group, UserRoleLink, UserGroupLink, UserPermissionLink
+
     permissions_map: dict[uuid.UUID, UserPermissionWithSource] = {}
 
     # 1. Get default permissions (lowest priority)
@@ -93,19 +97,67 @@ def get_user_permissions_with_sources(
         )
 
     # 2. Get permissions from user's roles
-    # TODO: Implement when User model has roles relationship
-    # This requires adding roles relationship to User model
-    # For now, we'll skip this part
+    user_roles = session.exec(
+        select(Role)
+        .join(UserRoleLink, UserRoleLink.role_id == Role.id)
+        .where(
+            UserRoleLink.user_id == user_id,
+            Role.is_active == True,
+            Role.deleted_at.is_(None)
+        )
+        .options(selectinload(Role.permissions))
+    ).all()
+
+    for role in user_roles:
+        for perm in role.permissions:
+            if perm.is_active and perm.deleted_at is None:
+                # Role permissions overwrite default permissions
+                permissions_map[perm.id] = UserPermissionWithSource(
+                    permission=perm,
+                    source=PermissionSource.ROLE,
+                    source_name=role.name
+                )
 
     # 3. Get permissions from user's groups
-    # TODO: Implement when User model has groups relationship
-    # This requires adding groups relationship to User model
-    # For now, we'll skip this part
+    user_groups = session.exec(
+        select(Group)
+        .join(UserGroupLink, UserGroupLink.group_id == Group.id)
+        .where(
+            UserGroupLink.user_id == user_id,
+            Group.is_active == True,
+            Group.deleted_at.is_(None)
+        )
+        .options(selectinload(Group.permissions))
+    ).all()
+
+    for group in user_groups:
+        for perm in group.permissions:
+            if perm.is_active and perm.deleted_at is None:
+                # Group permissions overwrite default and role permissions
+                permissions_map[perm.id] = UserPermissionWithSource(
+                    permission=perm,
+                    source=PermissionSource.GROUP,
+                    source_name=group.name
+                )
 
     # 4. Get personal permissions (highest priority - overwrites others)
-    # TODO: Implement when User model has permissions relationship
-    # This requires adding permissions relationship to User model
-    # For now, we'll skip this part
+    personal_perms = session.exec(
+        select(Permission)
+        .join(UserPermissionLink, UserPermissionLink.permission_id == Permission.id)
+        .where(
+            UserPermissionLink.user_id == user_id,
+            Permission.is_active == True,
+            Permission.deleted_at.is_(None)
+        )
+    ).all()
+
+    for perm in personal_perms:
+        # Personal permissions have highest priority
+        permissions_map[perm.id] = UserPermissionWithSource(
+            permission=perm,
+            source=PermissionSource.PERSONAL,
+            source_name="Personnel"
+        )
 
     # Convert to list
     permissions_list = list(permissions_map.values())

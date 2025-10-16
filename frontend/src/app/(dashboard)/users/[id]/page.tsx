@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { userListSchema, User } from "../data/schema"
 import { getUsers } from "../data/users-api"
 import { UserDetailForm } from "./components/user-detail-form"
+import { UserPermissionsCard } from "./components/user-permissions-card"
 
 export default function UserDetailPage() {
   const params = useParams()
@@ -99,8 +100,9 @@ export default function UserDetailPage() {
         </p>
       </div>
 
-      <div className="mt-4">
+      <div className="mt-4 space-y-6">
         <UserDetailForm user={user} />
+        <UserPermissionsCard userId={user.id} />
       </div>
     </div>
   )

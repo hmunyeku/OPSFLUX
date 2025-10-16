@@ -28,7 +28,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           ))}
         </SidebarContent>
         <SidebarFooter>
-          <NavUser user={sidebarData.user} />
+          {/* Avatar supprimé - uniquement dans la barre du haut */}
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>

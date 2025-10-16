@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import LongText from "@/components/long-text"
 import { callTypes, userTypes } from "../data/data"
 import { User } from "../data/schema"
@@ -164,14 +165,56 @@ export const columns: ColumnDef<User>[] = [
       return (
         <div className="flex flex-wrap gap-1">
           {roles.slice(0, 2).map((role) => (
-            <Badge key={role.id} variant="secondary" className="text-xs">
-              {role.name}
-            </Badge>
+            <HoverCard key={role.id} openDelay={200}>
+              <HoverCardTrigger asChild>
+                <Link href="/users/rbac">
+                  <Badge
+                    variant="secondary"
+                    className="text-xs cursor-pointer hover:bg-secondary/80 transition-colors"
+                  >
+                    {role.name}
+                  </Badge>
+                </Link>
+              </HoverCardTrigger>
+              <HoverCardContent className="w-80" side="top">
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold">{role.name}</h4>
+                  {role.description && (
+                    <p className="text-sm text-muted-foreground">
+                      {role.description}
+                    </p>
+                  )}
+                  <div className="flex items-center pt-2">
+                    <span className="text-xs text-muted-foreground">
+                      Code: <span className="font-mono">{role.code}</span>
+                    </span>
+                  </div>
+                </div>
+              </HoverCardContent>
+            </HoverCard>
           ))}
           {roles.length > 2 && (
-            <Badge variant="outline" className="text-xs">
-              +{roles.length - 2}
-            </Badge>
+            <HoverCard openDelay={200}>
+              <HoverCardTrigger asChild>
+                <Link href="/users/rbac">
+                  <Badge variant="outline" className="text-xs cursor-pointer hover:bg-accent transition-colors">
+                    +{roles.length - 2}
+                  </Badge>
+                </Link>
+              </HoverCardTrigger>
+              <HoverCardContent className="w-80" side="top">
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold">Autres rôles</h4>
+                  <div className="space-y-1">
+                    {roles.slice(2).map((role) => (
+                      <div key={role.id} className="text-sm">
+                        • {role.name}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </HoverCardContent>
+            </HoverCard>
           )}
         </div>
       )
@@ -193,14 +236,56 @@ export const columns: ColumnDef<User>[] = [
       return (
         <div className="flex flex-wrap gap-1">
           {groups.slice(0, 2).map((group) => (
-            <Badge key={group.id} variant="secondary" className="text-xs">
-              {group.name}
-            </Badge>
+            <HoverCard key={group.id} openDelay={200}>
+              <HoverCardTrigger asChild>
+                <Link href="/users/groups">
+                  <Badge
+                    variant="secondary"
+                    className="text-xs cursor-pointer hover:bg-secondary/80 transition-colors"
+                  >
+                    {group.name}
+                  </Badge>
+                </Link>
+              </HoverCardTrigger>
+              <HoverCardContent className="w-80" side="top">
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold">{group.name}</h4>
+                  {group.description && (
+                    <p className="text-sm text-muted-foreground">
+                      {group.description}
+                    </p>
+                  )}
+                  <div className="flex items-center pt-2">
+                    <span className="text-xs text-muted-foreground">
+                      Code: <span className="font-mono">{group.code}</span>
+                    </span>
+                  </div>
+                </div>
+              </HoverCardContent>
+            </HoverCard>
           ))}
           {groups.length > 2 && (
-            <Badge variant="outline" className="text-xs">
-              +{groups.length - 2}
-            </Badge>
+            <HoverCard openDelay={200}>
+              <HoverCardTrigger asChild>
+                <Link href="/users/groups">
+                  <Badge variant="outline" className="text-xs cursor-pointer hover:bg-accent transition-colors">
+                    +{groups.length - 2}
+                  </Badge>
+                </Link>
+              </HoverCardTrigger>
+              <HoverCardContent className="w-80" side="top">
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold">Autres groupes</h4>
+                  <div className="space-y-1">
+                    {groups.slice(2).map((group) => (
+                      <div key={group.id} className="text-sm">
+                        • {group.name}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </HoverCardContent>
+            </HoverCard>
           )}
         </div>
       )

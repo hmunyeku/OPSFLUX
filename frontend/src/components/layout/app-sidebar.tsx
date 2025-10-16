@@ -8,7 +8,6 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 import { NavGroup } from "@/components/layout/nav-group"
-import { NavUser } from "@/components/layout/nav-user"
 import { TeamSwitcher } from "@/components/layout/team-switcher"
 import { SidebarSync } from "@/components/sidebar-sync"
 import { sidebarData } from "./data/sidebar-data"

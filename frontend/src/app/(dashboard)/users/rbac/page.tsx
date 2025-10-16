@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import Link from "next/link"
 import {
   Breadcrumb,
@@ -17,14 +17,13 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import { Search, Shield, Key, Plus, Edit, Trash2 } from "lucide-react"
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Search, Shield, Key, Plus, Edit, Trash2, MoreVertical, Lock, Unlock } from "lucide-react"
 import { Role } from "../roles/data/schema"
 import { getRoles } from "../roles/data/roles-api"
 import { CreateRoleDialog } from "../roles/components/create-role-dialog"
@@ -104,6 +103,34 @@ export default function RBACPage() {
     role.description?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
+  // Calculate statistics
+  const stats = useMemo(() => {
+    const totalPermissions = roles.reduce((acc, role) => acc + (role.permissions?.length || 0), 0)
+    const systemRoles = roles.filter(r => r.is_system).length
+    const customRoles = roles.length - systemRoles
+
+    return {
+      totalRoles: roles.length,
+      totalPermissions,
+      systemRoles,
+      customRoles,
+    }
+  }, [roles])
+
+  // Group permissions by module
+  const permissionsByModule = useMemo(() => {
+    if (!selectedRole?.permissions) return {}
+
+    return selectedRole.permissions.reduce((acc, permission) => {
+      const moduleName = permission.module || 'Autre'
+      if (!acc[moduleName]) {
+        acc[moduleName] = []
+      }
+      acc[moduleName].push(permission)
+      return acc
+    }, {} as Record<string, typeof selectedRole.permissions>)
+  }, [selectedRole])
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -148,6 +175,58 @@ export default function RBACPage() {
         </div>
       </div>
 
+      {/* Statistics Cards */}
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Rôles</CardTitle>
+            <Shield className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalRoles}</div>
+            <p className="text-xs text-muted-foreground">
+              {stats.systemRoles} système, {stats.customRoles} personnalisés
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Permissions</CardTitle>
+            <Key className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalPermissions}</div>
+            <p className="text-xs text-muted-foreground">
+              Assignées aux rôles
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Rôles Système</CardTitle>
+            <Lock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.systemRoles}</div>
+            <p className="text-xs text-muted-foreground">
+              Non modifiables
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Rôles Personnalisés</CardTitle>
+            <Unlock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.customRoles}</div>
+            <p className="text-xs text-muted-foreground">
+              Modifiables
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="grid gap-6 md:grid-cols-[350px_1fr]">
         {/* Left Panel - Roles List */}
         <Card>
@@ -183,15 +262,21 @@ export default function RBACPage() {
                   filteredRoles.map((role) => (
                     <div
                       key={role.id}
-                      onClick={() => setSelectedRole(role)}
-                      className={`cursor-pointer rounded-lg border p-3 transition-colors hover:bg-accent ${
-                        selectedRole?.id === role.id ? "border-primary bg-accent" : ""
+                      className={`group/item rounded-lg border p-3 transition-all hover:shadow-sm ${
+                        selectedRole?.id === role.id ? "border-primary bg-accent shadow-sm" : ""
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 space-y-1">
+                        <div
+                          className="flex-1 space-y-1 cursor-pointer"
+                          onClick={() => setSelectedRole(role)}
+                        >
                           <div className="flex items-center gap-2">
-                            <Shield className="h-4 w-4 text-muted-foreground" />
+                            {role.is_system ? (
+                              <Lock className="h-4 w-4 text-amber-500" />
+                            ) : (
+                              <Shield className="h-4 w-4 text-primary" />
+                            )}
                             <p className="font-medium leading-none">{role.name}</p>
                           </div>
                           {role.description && (
@@ -199,7 +284,7 @@ export default function RBACPage() {
                               {role.description}
                             </p>
                           )}
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-2 text-xs">
                             <Badge variant="outline" className="text-xs">
                               {role.permissions?.length || 0} permission(s)
                             </Badge>
@@ -210,6 +295,54 @@ export default function RBACPage() {
                             )}
                           </div>
                         </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 opacity-0 group-hover/item:opacity-100 transition-opacity"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setSelectedRole(role)
+                              }}
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                              <span className="sr-only">Actions</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setSelectedRole(role)
+                                handleManagePermissions()
+                              }}
+                            >
+                              <Key className="mr-2 h-4 w-4" />
+                              Gérer les permissions
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setSelectedRole(role)
+                                handleEditRole()
+                              }}
+                            >
+                              <Edit className="mr-2 h-4 w-4" />
+                              Modifier le rôle
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              disabled={role.is_system}
+                              onClick={() => {
+                                setSelectedRole(role)
+                                handleDeleteRole()
+                              }}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Supprimer le rôle
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                   ))
@@ -301,33 +434,52 @@ export default function RBACPage() {
                   </div>
                 </div>
 
-                {/* Permissions Table */}
+                {/* Permissions by Module */}
                 <div>
-                  <h3 className="mb-4 font-semibold">Permissions du rôle</h3>
+                  <div className="mb-4 flex items-center justify-between">
+                    <h3 className="font-semibold">Permissions du rôle</h3>
+                    {selectedRole.permissions && selectedRole.permissions.length > 0 && (
+                      <Badge variant="secondary">
+                        {selectedRole.permissions.length} permission(s)
+                      </Badge>
+                    )}
+                  </div>
                   {selectedRole.permissions && selectedRole.permissions.length > 0 ? (
-                    <div className="rounded-lg border">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Nom de la permission</TableHead>
-                            <TableHead>Description</TableHead>
-                            <TableHead className="w-[100px]">Module</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {selectedRole.permissions.map((permission) => (
-                            <TableRow key={permission.id}>
-                              <TableCell className="font-medium">{permission.name}</TableCell>
-                              <TableCell className="text-muted-foreground">
-                                {permission.description || "-"}
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant="outline">{permission.module}</Badge>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                    <div className="space-y-4">
+                      {Object.entries(permissionsByModule).map(([module, permissions]) => (
+                        <div key={module} className="rounded-lg border">
+                          <div className="border-b bg-muted/50 px-4 py-2">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-sm font-medium">{module}</h4>
+                              <Badge variant="outline" className="text-xs">
+                                {permissions.length}
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="p-4">
+                            <div className="grid gap-3">
+                              {permissions.map((permission) => (
+                                <div
+                                  key={permission.id}
+                                  className="flex items-start gap-3 rounded-lg border p-3 hover:bg-accent/50 transition-colors"
+                                >
+                                  <Key className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                                  <div className="flex-1 space-y-1">
+                                    <p className="text-sm font-medium leading-none">
+                                      {permission.name}
+                                    </p>
+                                    {permission.description && (
+                                      <p className="text-xs text-muted-foreground">
+                                        {permission.description}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   ) : (
                     <div className="rounded-lg border p-8 text-center">

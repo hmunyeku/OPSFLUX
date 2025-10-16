@@ -14,6 +14,9 @@ interface BaseNavItem {
   title: string
   badge?: string
   icon?: React.ElementType
+  permission?: string // Code de permission requis pour afficher cet item (ex: "users.read")
+  requireAllPermissions?: string[] // Requiert TOUTES ces permissions
+  requireAnyPermission?: string[] // Requiert AU MOINS UNE de ces permissions
 }
 
 export type NavItem =

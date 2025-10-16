@@ -108,7 +108,8 @@
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEyODc5ODIsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.WApVgtCEi1wo_fcgpO-qLT32I3OWgUT7-6yCiCokBCU\" curl -s -X GET \"http://localhost:8000/api/v1/users/me\" -H \"Authorization: Bearer $TOKEN\")",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEyODgxMDQsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.6wKWcp1ZiLlmfAdrFPpBMMJuIZQdPjAC8v83Y_WJd5s\")",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEyODgyNDcsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.bZutFavu6NPuPanaw4R7Eyy_DshrWQqc2vvd2v-tesQ\")",
-      "Bash(timeout 3 docker logs:*)"
+      "Bash(timeout 3 docker logs:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEyODgyNDcsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.bZutFavu6NPuPanaw4R7Eyy_DshrWQqc2vvd2v-tesQ\" curl -s -X POST http://localhost:8000/api/v1/login/access-token -H \"Content-Type: application/x-www-form-urlencoded\" -d \"username=admin@opsflux.io\" -d \"password=adminopsflux\")"
     ],
     "deny": [],
     "ask": []

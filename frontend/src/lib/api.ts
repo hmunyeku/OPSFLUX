@@ -41,6 +41,32 @@ export function is2FARequired(response: LoginResponse): response is Token2FARequ
   return 'requires_2fa' in response && response.requires_2fa === true
 }
 
+export interface Permission {
+  id: string
+  code: string
+  name: string
+  description?: string | null
+  module: string
+  is_default: boolean
+  is_active: boolean
+}
+
+export interface Role {
+  id: string
+  code: string
+  name: string
+  description?: string | null
+  permissions?: Permission[]
+}
+
+export interface Group {
+  id: string
+  code: string
+  name: string
+  description?: string | null
+  permissions?: Permission[]
+}
+
 export interface User {
   id: string
   email: string
@@ -54,6 +80,9 @@ export interface User {
   avatar_url?: string
   phone_numbers?: string[]
   intranet_identifier?: string
+  roles?: Role[]
+  groups?: Group[]
+  permissions?: Permission[]
 }
 
 export interface UserUpdate {
@@ -193,10 +222,10 @@ export const api = {
   },
 
   /**
-   * Get current user profile
+   * Get current user profile with permissions
    */
   async getMe(token: string): Promise<User> {
-    return fetchApi('/api/v1/users/me', {
+    return fetchApi('/api/v1/users/me?with_permissions=true', {
       headers: {
         Authorization: `Bearer ${token}`,
       },

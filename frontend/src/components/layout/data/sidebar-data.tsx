@@ -59,6 +59,7 @@ export const sidebarData: SidebarData = {
         {
           title: "Tableau de bord",
           icon: IconLayoutDashboard,
+          permission: "dashboard.read",
           items: [
             {
               title: "Tableau de bord 1",
@@ -78,6 +79,7 @@ export const sidebarData: SidebarData = {
           title: "Tâches",
           url: "/tasks",
           icon: IconChecklist,
+          permission: "tasks.read",
         },
       ],
     },
@@ -141,11 +143,13 @@ export const sidebarData: SidebarData = {
         {
           title: "Paramètres",
           icon: IconSettings,
+          permission: "settings.read",
           items: [
             {
               title: "Général",
               icon: IconTool,
               url: "/settings",
+              permission: "settings.read",
             },
             {
               title: "Profil",
@@ -156,16 +160,19 @@ export const sidebarData: SidebarData = {
               title: "Facturation",
               icon: IconCoin,
               url: "/settings/billing",
+              permission: "billing.read",
             },
             {
               title: "Plans",
               icon: IconChecklist,
               url: "/settings/plans",
+              permission: "plans.read",
             },
             {
               title: "Applications connectées",
               icon: IconApps,
               url: "/settings/connected-apps",
+              permission: "apps.read",
             },
             {
               title: "Notifications",
@@ -177,47 +184,56 @@ export const sidebarData: SidebarData = {
         {
           title: "Développeurs",
           icon: IconCode,
+          permission: "developers.read",
           items: [
             {
               title: "Vue d'ensemble",
               icon: IconEye,
               url: "/developers/overview",
+              permission: "developers.read",
             },
             {
               title: "Clés API",
               icon: IconKey,
               url: "/developers/api-keys",
+              permission: "api_keys.read",
             },
             {
               title: "Webhooks",
               icon: IconWebhook,
               url: "/developers/webhooks",
+              permission: "webhooks.read",
             },
             {
               title: "Événements/Logs",
               icon: IconListDetails,
               url: "/developers/events-&-logs",
+              permission: "logs.read",
             },
           ],
         },
         {
           title: "Utilisateurs",
           icon: IconUsers,
+          permission: "users.read",
           items: [
             {
               title: "Comptes",
               icon: IconUser,
               url: "/users",
+              permission: "users.read",
             },
             {
               title: "Groupes",
               icon: IconUsersGroup,
               url: "/users/groups",
+              permission: "groups.read",
             },
             {
               title: "Rôles & Permissions",
               icon: IconShield,
               url: "/users/rbac",
+              permission: "roles.read",
             },
           ],
         },

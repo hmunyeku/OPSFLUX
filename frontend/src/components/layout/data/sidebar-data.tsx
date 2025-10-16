@@ -22,6 +22,7 @@ import {
   IconEye,
   IconWebhook,
   IconListDetails,
+  IconBolt,
 } from "@tabler/icons-react"
 import { AudioWaveform, GalleryVerticalEnd } from "lucide-react"
 import { Logo } from "@/components/logo"
@@ -203,6 +204,12 @@ export const sidebarData: SidebarData = {
               icon: IconWebhook,
               url: "/developers/webhooks",
               permission: "webhooks.read",
+            },
+            {
+              title: "Hooks & Triggers",
+              icon: IconBolt,
+              url: "/developers/hooks",
+              permission: "hooks.read",
             },
             {
               title: "Événements/Logs",

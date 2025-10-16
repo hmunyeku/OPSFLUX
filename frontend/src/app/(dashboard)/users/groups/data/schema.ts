@@ -8,6 +8,7 @@ export const groupSchema = z.object({
   description: z.string().nullable(),
   parent_id: z.string().nullable(),
   is_active: z.boolean(),
+  users_count: z.number().optional(),
   permissions: z.array(permissionSchema).optional(),
   parent: z.object({
     id: z.string(),

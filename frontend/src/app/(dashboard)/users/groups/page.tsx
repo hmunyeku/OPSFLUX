@@ -301,7 +301,7 @@ export default function GroupsPage() {
                                 {permission.description || "-"}
                               </TableCell>
                               <TableCell>
-                                <Badge variant="outline">{permission.resource}</Badge>
+                                <Badge variant="outline">{permission.module}</Badge>
                               </TableCell>
                             </TableRow>
                           ))}

@@ -121,7 +121,8 @@
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzMTQ0OTcsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.coCEGT1c1QOLbYZ0lzRAoZOSBiRzdQ7K3hYNesuECZI\" curl -s -X GET \"http://localhost:8000/api/v1/audit/?skip=0&limit=5\" -H \"Authorization: Bearer $TOKEN\")",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzMTQ0OTcsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.coCEGT1c1QOLbYZ0lzRAoZOSBiRzdQ7K3hYNesuECZI\" curl -s -X GET \"http://localhost:8000/api/v1/audit/?skip=0&limit=3\" -H \"Authorization: Bearer $TOKEN\")",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzMTQ0OTcsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.coCEGT1c1QOLbYZ0lzRAoZOSBiRzdQ7K3hYNesuECZI\" curl -s -X GET \"http://localhost:8000/api/v1/audit/?skip=0&limit=2\" -H \"Authorization: Bearer $TOKEN\")",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []

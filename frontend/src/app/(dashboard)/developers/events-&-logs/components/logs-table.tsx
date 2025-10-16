@@ -35,8 +35,8 @@ export default function LogsTable({ searchVal }: Props) {
         })
         setLogs(response.data)
         setTotal(response.total)
-      } catch (error) {
-        console.error("Error fetching audit logs:", error)
+      } catch (_error) {
+        // Silently handle error
       } finally {
         setIsLoading(false)
       }

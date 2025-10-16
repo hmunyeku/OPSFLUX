@@ -34,35 +34,35 @@ export default function OverviewPage() {
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link href="/">Home</Link>
+                <Link href="/">Accueil</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>Developers</BreadcrumbPage>
+              <BreadcrumbPage>Développeurs</BreadcrumbPage>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>Overview</BreadcrumbPage>
+              <BreadcrumbPage>Vue d&apos;ensemble</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
 
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h2 className="text-2xl font-bold">Web Overview</h2>
+            <h2 className="text-2xl font-bold">Vue d&apos;ensemble</h2>
             <p className="text-muted-foreground text-sm">
-              Build, manage, and optimize developer workflows seamlessly.
+              Créez, gérez et optimisez les workflows de développement en toute simplicité.
             </p>
           </div>
           <div className="flex items-center gap-3">
             <Select>
               <SelectTrigger className="w-fit gap-2 text-sm">
-                <SelectValue placeholder="Server" />
+                <SelectValue placeholder="Serveur" />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectLabel>Server</SelectLabel>
+                  <SelectLabel>Serveur</SelectLabel>
                   <SelectItem value="production">Production</SelectItem>
                   <SelectItem value="development">Développement</SelectItem>
                 </SelectGroup>

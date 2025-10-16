@@ -42,13 +42,7 @@ export function UsersSection() {
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold">Liste des utilisateurs</h3>
-          <p className="text-sm text-muted-foreground">
-            Gérez les comptes utilisateurs de votre organisation
-          </p>
-        </div>
+      <div className="flex items-center justify-end">
         <UserPrimaryActions onUserCreated={loadUsers} />
       </div>
 

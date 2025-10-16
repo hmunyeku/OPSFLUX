@@ -81,7 +81,7 @@ export default function PlanDetail() {
       </RadioGroup>
 
       <div className="space-y-3">
-        <h2 className="font-bold">Overview</h2>
+        <h2 className="font-bold">Aperçu</h2>
         <p className="text-muted-foreground text-sm leading-5">
           {plan?.overview}
         </p>
@@ -89,12 +89,12 @@ export default function PlanDetail() {
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-bold">Features</h2>
+          <h2 className="font-bold">Fonctionnalités</h2>
           <Button
             className="text-xs font-semibold text-blue-600"
             variant="link"
           >
-            Learn More
+            En savoir plus
             <IconArrowUpRight />
           </Button>
         </div>
@@ -110,12 +110,12 @@ export default function PlanDetail() {
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-bold">Additional Resources</h2>
+          <h2 className="font-bold">Ressources supplémentaires</h2>
           <Button
             className="text-xs font-semibold text-blue-600"
             variant="link"
           >
-            Learn More
+            En savoir plus
             <IconArrowUpRight />
           </Button>
         </div>

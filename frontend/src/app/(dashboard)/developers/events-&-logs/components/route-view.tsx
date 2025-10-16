@@ -42,7 +42,7 @@ export default function RouteView() {
               </TabsTrigger>
             </TabsList>
             <h1 className="text-muted-foreground text-xs font-medium">
-              VISITORS
+              VISITEURS
             </h1>
           </div>
         </CardHeader>
@@ -97,9 +97,9 @@ export default function RouteView() {
                 <DropdownMenuContent>
                   <DropdownMenuLabel>Actions</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>Edit</DropdownMenuItem>
+                  <DropdownMenuItem>Modifier</DropdownMenuItem>
                   <DropdownMenuItem className="text-red-500">
-                    Delete
+                    Supprimer
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -107,7 +107,7 @@ export default function RouteView() {
           </CardFooter>
         </TabsContent>
         <TabsContent value="hostnames">
-          <CardContent className="px-4 py-3">Hostnames</CardContent>
+          <CardContent className="px-4 py-3">Noms d&apos;hôte</CardContent>
         </TabsContent>
       </Tabs>
     </Card>

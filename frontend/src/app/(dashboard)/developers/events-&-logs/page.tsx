@@ -20,24 +20,24 @@ export default function EventsAndLogsPage() {
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link href="/">Home</Link>
+                <Link href="/">Accueil</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>Developers</BreadcrumbPage>
+              <BreadcrumbPage>Développeurs</BreadcrumbPage>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>Events & Logs</BreadcrumbPage>
+              <BreadcrumbPage>Événements et journaux</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold">Events & Logs</h2>
+            <h2 className="text-2xl font-bold">Événements et journaux</h2>
             <p className="text-muted-foreground text-sm">
-              Track, analyze, and act on application behaviors efficiently.
+              Suivez, analysez et agissez sur les comportements de l&apos;application de manière efficace.
             </p>
           </div>
           <ImportDialog />

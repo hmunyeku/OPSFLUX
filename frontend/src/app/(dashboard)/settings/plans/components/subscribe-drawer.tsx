@@ -47,13 +47,13 @@ interface Props {
 
 const formSchema = z.object({
   country: z.string({
-    required_error: "Select Country",
+    required_error: "Sélectionnez un pays",
   }),
   zip_code: z.string().min(1, {
-    message: "Fill Zip Code",
+    message: "Renseignez le code postal",
   }),
   payment_method: z.string({
-    required_error: "Select Payment Method",
+    required_error: "Sélectionnez un moyen de paiement",
   }),
 })
 
@@ -78,13 +78,13 @@ export default function SubscribeDrawer({ plan }: Props) {
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button className="ml-auto w-fit">Start Subscribe</Button>
+        <Button className="ml-auto w-fit">Commencer l&apos;abonnement</Button>
       </SheetTrigger>
       <SheetContent>
         <SheetHeader>
-          <SheetTitle>Summary</SheetTitle>
+          <SheetTitle>Résumé</SheetTitle>
           <SheetDescription>
-            Start on {format(new Date(), "yyyy-MMM-dd")}
+            Début le {format(new Date(), "dd/MM/yyyy")}
           </SheetDescription>
         </SheetHeader>
         <Form {...form}>
@@ -95,26 +95,26 @@ export default function SubscribeDrawer({ plan }: Props) {
           >
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between text-sm">
-                <p>Monthly</p>
+                <p>Mensuel</p>
                 <p className="font-bold tracking-tight">
                   ${plan.price.toLocaleString()}
                 </p>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <p>Estimated Tax</p>
+                <p>Taxes estimées</p>
                 <p className="font-bold tracking-tight">$0.00</p>
               </div>
             </div>
             <Separator />
             <div className="flex items-center justify-between text-sm">
-              <p>Total after trial</p>
+              <p>Total après la période d&apos;essai</p>
               <p className="font-bold tracking-tight">
                 ${plan.price.toLocaleString()}
               </p>
             </div>
             <Separator />
 
-            <h2 className="text-md font-bold">Billing Address</h2>
+            <h2 className="text-md font-bold">Adresse de facturation</h2>
 
             <div className="flex flex-col items-start gap-2 md:flex-row md:items-center">
               <FormField
@@ -122,7 +122,7 @@ export default function SubscribeDrawer({ plan }: Props) {
                 name="country"
                 render={({ field }) => (
                   <FormItem className="w-full">
-                    <FormLabel>Country</FormLabel>
+                    <FormLabel>Pays</FormLabel>
                     <Select
                       value={field.value}
                       onValueChange={field.onChange}
@@ -130,7 +130,7 @@ export default function SubscribeDrawer({ plan }: Props) {
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Country" />
+                          <SelectValue placeholder="Pays" />
                         </SelectTrigger>
                       </FormControl>
 
@@ -155,9 +155,9 @@ export default function SubscribeDrawer({ plan }: Props) {
                 name="zip_code"
                 render={({ field }) => (
                   <FormItem className="w-full">
-                    <FormLabel>Zip Code</FormLabel>
+                    <FormLabel>Code postal</FormLabel>
                     <FormControl>
-                      <Input placeholder="Zip Code" {...field} />
+                      <Input placeholder="Code postal" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -166,14 +166,13 @@ export default function SubscribeDrawer({ plan }: Props) {
             </div>
 
             <p className="text-muted-foreground text-[13px] leading-none font-medium">
-              *Ensure the details match your billing address for smooth and
-              accurate processing.*
+              *Assurez-vous que les détails correspondent à votre adresse de facturation pour un traitement fluide et précis.*
             </p>
 
             <Separator />
 
             <div className="flex items-center justify-between">
-              <h2 className="text-md font-bold">Payment Method</h2>
+              <h2 className="text-md font-bold">Moyen de paiement</h2>
               <AddNewCard />
             </div>
 
@@ -240,7 +239,7 @@ export default function SubscribeDrawer({ plan }: Props) {
             type="submit"
             className="mt-5 w-full bg-blue-600 font-semibold tracking-tight text-white hover:bg-blue-700"
           >
-            Start Subscription
+            Commencer l&apos;abonnement
           </Button>
         </SheetFooter>
       </SheetContent>

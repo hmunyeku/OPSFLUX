@@ -19,7 +19,7 @@ export const columns: ColumnDef<Webhook>[] = [
       <div className="flex items-center gap-2">
         <CopyButton
           className="size-6 scale-100 rounded-full"
-          text="Copt Api Key"
+          text="Copier la clé API"
         />
         <LongText className="w-28">{row.getValue("id")}</LongText>
         <div className="w-3 max-w-36"></div>
@@ -49,7 +49,7 @@ export const columns: ColumnDef<Webhook>[] = [
   {
     accessorKey: "events",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Events" />
+      <DataTableColumnHeader column={column} title="Événements" />
     ),
     cell: ({ row }) => {
       const { events } = row.original
@@ -74,7 +74,7 @@ export const columns: ColumnDef<Webhook>[] = [
   {
     accessorKey: "status",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Status" />
+      <DataTableColumnHeader column={column} title="Statut" />
     ),
     cell: ({ row }) => {
       const { status } = row.original

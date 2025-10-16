@@ -41,7 +41,7 @@ export default function LogsToolbar({
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p className="font-medium">Toggle Filter</p>
+            <p className="font-medium">Basculer les filtres</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -61,7 +61,7 @@ export default function LogsToolbar({
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p className="font-medium">Refresh</p>
+            <p className="font-medium">Actualiser</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>

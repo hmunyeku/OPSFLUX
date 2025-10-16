@@ -56,22 +56,22 @@ export default function ViewAllRouteDialog() {
           variant="outline"
           className="rounded-full px-3 pt-[2px] pb-[2px] text-xs"
         >
-          View All
+          Voir tout
           <IconMaximize className="ml-2 h-4 w-4" />
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[890px]">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold">
-            All Route Views
+            Toutes les vues de routes
           </DialogTitle>
           <DialogDescription>
-            Detail information about all route views, including their purpose.
+            Informations détaillées sur toutes les vues de routes, y compris leur objectif.
           </DialogDescription>
         </DialogHeader>
 
         <Input
-          placeholder="Search routes..."
+          placeholder="Rechercher des routes..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="mb-4"
@@ -82,16 +82,16 @@ export default function ViewAllRouteDialog() {
               <TableRow>
                 <TableHead className="w-[25%] cursor-pointer">Route</TableHead>
                 <TableHead className="cursor-pointer text-right">
-                  View Count
+                  Nombre de vues
                 </TableHead>
                 <TableHead className="cursor-pointer text-right">
-                  Avg. Time (s)
+                  Temps moy. (s)
                 </TableHead>
                 <TableHead className="cursor-pointer text-right">
-                  Bounce Rate
+                  Taux de rebond
                 </TableHead>
                 <TableHead className="cursor-pointer text-right">
-                  Last Visited
+                  Dernière visite
                 </TableHead>
               </TableRow>
             </TableHeader>

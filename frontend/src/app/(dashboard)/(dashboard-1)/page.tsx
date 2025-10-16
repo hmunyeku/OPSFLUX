@@ -17,7 +17,7 @@ export default async function Dashboard1Page() {
 
       <div className="space-y-4 p-4">
         <div className="mb-2 flex flex-col items-start justify-between space-y-2 md:flex-row md:items-center">
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Tableau de bord</h1>
           <Dashboard1Actions />
         </div>
         <Tabs
@@ -29,14 +29,14 @@ export default async function Dashboard1Page() {
             <TabsList>
               <TabsTrigger value="overview" className="flex items-center gap-2">
                 <IconSettings2 size={14} />
-                Overview
+                Vue d&apos;ensemble
               </TabsTrigger>
               <TabsTrigger
                 value="analytics"
                 className="flex items-center gap-2"
               >
                 <IconAnalyze size={16} />
-                Analytics
+                Analyses
               </TabsTrigger>
               <TabsTrigger
                 value="reports"
@@ -44,7 +44,7 @@ export default async function Dashboard1Page() {
                 disabled
               >
                 <IconFileReport size={16} />
-                Reports
+                Rapports
               </TabsTrigger>
               <TabsTrigger
                 value="notifications"

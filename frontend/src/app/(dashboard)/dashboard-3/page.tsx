@@ -15,10 +15,10 @@ export default function Dashboard3Page() {
         <div className="flex flex-col items-start justify-between gap-2 md:flex-row">
           <div>
             <h2 className="text-2xl font-bold tracking-tight">
-              Overview Dashboard
+              Tableau de bord - Vue d&apos;ensemble
             </h2>
             <p className="text-muted-foreground">
-              Here, take a look at your sales.
+              Ici, jetez un œil à vos ventes.
             </p>
           </div>
           <Dashboard3Actions />

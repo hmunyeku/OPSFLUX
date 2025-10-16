@@ -20,8 +20,8 @@ export default function LogsAction() {
       <DropdownMenuContent align="end" className="w-[150px]">
         <DropdownMenuLabel>Actions</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>Export to CSV</DropdownMenuItem>
-        <DropdownMenuItem>Export to JSON</DropdownMenuItem>
+        <DropdownMenuItem>Exporter en CSV</DropdownMenuItem>
+        <DropdownMenuItem>Exporter en JSON</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )

@@ -134,10 +134,10 @@ export function MutateWebhook({ open, setOpen, currentWebhook, onWebhookMutated 
     >
       <SheetContent className="flex w-full max-w-none flex-col sm:max-w-lg">
         <SheetHeader>
-          <SheetTitle>{isEdit ? "Update" : "New"} Webhook</SheetTitle>
+          <SheetTitle>{isEdit ? "Modifier" : "Nouveau"} Webhook</SheetTitle>
           <SheetDescription>
-            {isEdit ? "Configure" : "Setup"} your webhook endpoint to receive
-            live events.
+            {isEdit ? "Configurez" : "Configurez"} votre endpoint webhook pour recevoir
+            des événements en temps réel.
           </SheetDescription>
         </SheetHeader>
         <Form {...form}>
@@ -180,7 +180,7 @@ export function MutateWebhook({ open, setOpen, currentWebhook, onWebhookMutated 
                   <FormLabel>Description</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="An optional description of what this webhook endpoint is used for..."
+                      placeholder="Une description optionnelle de l'utilisation de cet endpoint webhook..."
                       className="resize-none"
                       rows={3}
                       {...field}
@@ -234,7 +234,7 @@ export function MutateWebhook({ open, setOpen, currentWebhook, onWebhookMutated 
               name="events"
               render={() => (
                 <FormItem className="space-y-1">
-                  <FormLabel>Events</FormLabel>
+                  <FormLabel>Événements</FormLabel>
                   <div className="grid grid-cols-2 gap-2 sm:col-span-2">
                     {webhookEvents.map((whEvent) => (
                       <FormField

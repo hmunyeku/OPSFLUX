@@ -138,13 +138,13 @@ export default function ImportDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline">Import</Button>
+        <Button variant="outline">Importer</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Import</DialogTitle>
+          <DialogTitle>Importer</DialogTitle>
           <DialogDescription>
-            Import your data here. Click upload when ready.
+            Importez vos données ici. Cliquez sur téléverser lorsque vous êtes prêt.
           </DialogDescription>
         </DialogHeader>
 
@@ -172,7 +172,7 @@ export default function ImportDialog() {
           >
             <UploadIcon strokeWidth={1.4} size={22} />
             <p className="text-xs text-gray-500">
-              Drag and drop files here, or click to select files
+              Glissez-déposez des fichiers ici, ou cliquez pour sélectionner des fichiers
             </p>
           </label>
         </div>
@@ -199,7 +199,7 @@ export default function ImportDialog() {
                       <button
                         onClick={() => removeFile(file)}
                         className="text-red-500 hover:text-red-600"
-                        aria-label={`Remove ${file.name}`}
+                        aria-label={`Supprimer ${file.name}`}
                       >
                         <X className="h-4 w-4" />
                       </button>
@@ -236,35 +236,35 @@ export default function ImportDialog() {
           <Separator className="flex-1" />
         </div>
 
-        <Label htmlFor="url-import">Import from URL</Label>
-        <Input id="url-import" placeholder="Add file URL" />
+        <Label htmlFor="url-import">Importer depuis une URL</Label>
+        <Input id="url-import" placeholder="Ajouter une URL de fichier" />
 
         <DialogFooter>
           <Popover>
             <PopoverTrigger asChild>
               <Button className="mr-auto p-0" variant="link">
                 <HelpCircle />
-                <span>Help Center</span>
+                <span>Centre d&apos;aide</span>
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-80">
               <h3 className="mb-2 text-base font-semibold">
-                Import/Export Help
+                Aide Import/Export
               </h3>
               <Accordion type="single" collapsible className="w-full">
                 <AccordionItem value="import">
                   <AccordionTrigger>
                     <div className="flex items-center">
                       <Upload className="mr-2 h-4 w-4" />
-                      Importing Data
+                      Importation de données
                     </div>
                   </AccordionTrigger>
                   <AccordionContent>
                     <ul className="list-disc space-y-1 pl-5">
-                      <li>Supported formats: CSV, JSON, XML</li>
-                      <li>Max file size: 50MB</li>
-                      <li>Ensure your file has correct column headers</li>
-                      <li>Use UTF-8 encoding for best results</li>
+                      <li>Formats supportés : CSV, JSON, XML</li>
+                      <li>Taille maximale du fichier : 50MB</li>
+                      <li>Assurez-vous que votre fichier a les bons en-têtes de colonnes</li>
+                      <li>Utilisez l&apos;encodage UTF-8 pour de meilleurs résultats</li>
                     </ul>
                   </AccordionContent>
                 </AccordionItem>
@@ -272,15 +272,15 @@ export default function ImportDialog() {
                   <AccordionTrigger>
                     <div className="flex items-center">
                       <Download className="mr-2 h-4 w-4" />
-                      Exporting Data
+                      Exportation de données
                     </div>
                   </AccordionTrigger>
                   <AccordionContent>
                     <ul className="list-disc space-y-1 pl-5">
-                      <li>Choose from CSV, JSON, or XML formats</li>
-                      <li>Select specific data ranges or export all</li>
-                      <li>Exported files are compressed for efficiency</li>
-                      <li>Check exported data for accuracy</li>
+                      <li>Choisissez parmi les formats CSV, JSON ou XML</li>
+                      <li>Sélectionnez des plages de données spécifiques ou exportez tout</li>
+                      <li>Les fichiers exportés sont compressés pour plus d&apos;efficacité</li>
+                      <li>Vérifiez l&apos;exactitude des données exportées</li>
                     </ul>
                   </AccordionContent>
                 </AccordionItem>
@@ -288,18 +288,18 @@ export default function ImportDialog() {
                   <AccordionTrigger>
                     <div className="flex items-center">
                       <FileText className="mr-2 h-4 w-4" />
-                      File Format Guidelines
+                      Directives de format de fichier
                     </div>
                   </AccordionTrigger>
                   <AccordionContent>
                     <p className="mb-2">
-                      Ensure your files follow these guidelines:
+                      Assurez-vous que vos fichiers respectent ces directives :
                     </p>
                     <ul className="list-disc space-y-1 pl-5">
-                      <li>Use consistent data types per column</li>
-                      <li>Avoid special characters in headers</li>
-                      <li>Use ISO date format (YYYY-MM-DD)</li>
-                      <li>Separate text with commas, not semicolons</li>
+                      <li>Utilisez des types de données cohérents par colonne</li>
+                      <li>Évitez les caractères spéciaux dans les en-têtes</li>
+                      <li>Utilisez le format de date ISO (AAAA-MM-JJ)</li>
+                      <li>Séparez le texte avec des virgules, pas des points-virgules</li>
                     </ul>
                   </AccordionContent>
                 </AccordionItem>
@@ -307,11 +307,10 @@ export default function ImportDialog() {
               <div className="bg-muted mt-4 rounded-md p-3">
                 <div className="mb-2 flex items-center">
                   <AlertCircle className="mr-2 h-4 w-4" />
-                  <span className="text-sm font-semibold">Important Note</span>
+                  <span className="text-sm font-semibold">Note importante</span>
                 </div>
                 <p className="text-xs text-gray-400">
-                  Always backup your data before performing any import or export
-                  operations.
+                  Sauvegardez toujours vos données avant d&apos;effectuer toute opération d&apos;importation ou d&apos;exportation.
                 </p>
               </div>
             </PopoverContent>
@@ -325,9 +324,9 @@ export default function ImportDialog() {
               type="button"
               variant="outline"
             >
-              Cancel
+              Annuler
             </Button>
-            <Button type="submit">Import</Button>
+            <Button type="submit">Importer</Button>
           </div>
         </DialogFooter>
       </DialogContent>

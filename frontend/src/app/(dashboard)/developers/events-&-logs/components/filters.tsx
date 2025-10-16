@@ -48,7 +48,7 @@ export default function Filters() {
   return (
     <div className="flex h-full flex-col gap-3 md:max-h-[380px]">
       <div className="flex items-center justify-between px-4">
-        <h1 className="text-sm font-bold">Filters</h1>
+        <h1 className="text-sm font-bold">Filtres</h1>
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -57,11 +57,11 @@ export default function Filters() {
                 variant="outline"
                 className="px-3 text-xs"
               >
-                Reset
+                Réinitialiser
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              <p className="font-medium">Reset Filter</p>
+              <p className="font-medium">Réinitialiser les filtres</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -74,8 +74,8 @@ export default function Filters() {
               variant="ghost"
             >
               <ChevronRight className="scale-125 transition-transform duration-200 group-data-[state=open]/log-filter:rotate-90" />
-              <p className="text-sm">Timeline</p>
-              <span className="sr-only">Toggle</span>
+              <p className="text-sm">Chronologie</p>
+              <span className="sr-only">Basculer</span>
             </Button>
           </CollapsibleTrigger>
 
@@ -85,7 +85,7 @@ export default function Filters() {
               onValueChange={(e) => setTimeline(e as Timeline)}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select Period" />
+                <SelectValue placeholder="Sélectionner la période" />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
@@ -114,8 +114,8 @@ export default function Filters() {
               variant="ghost"
             >
               <ChevronRight className="scale-125 transition-transform duration-200 group-data-[state=open]/log-filter:rotate-90" />
-              <p className="text-sm">Contains Level</p>
-              <span className="sr-only">Toggle</span>
+              <p className="text-sm">Niveau</p>
+              <span className="sr-only">Basculer</span>
             </Button>
           </CollapsibleTrigger>
 
@@ -218,7 +218,7 @@ export default function Filters() {
             >
               <ChevronRight className="scale-125 transition-transform duration-200 group-data-[state=open]/log-filter:rotate-90" />
               <p className="text-sm">Types</p>
-              <span className="sr-only">Select Event Type</span>
+              <span className="sr-only">Sélectionner le type d&apos;événement</span>
             </Button>
           </CollapsibleTrigger>
 

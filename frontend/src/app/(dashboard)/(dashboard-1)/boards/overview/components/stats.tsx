@@ -79,11 +79,11 @@ function StatsCard({
               </LineChart>
             </ChartContainer>
           </div>
-          <p className="text-muted-foreground text-xs">Since Last week</p>
+          <p className="text-muted-foreground text-xs">Depuis la semaine dernière</p>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-5">
-          <div className="text-sm font-semibold">Details</div>
+          <div className="text-sm font-semibold">Détails</div>
           <div
             className={cn("flex items-center gap-1", {
               "text-emerald-500 dark:text-emerald-400": type === "up",

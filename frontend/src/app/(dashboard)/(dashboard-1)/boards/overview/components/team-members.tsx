@@ -28,9 +28,9 @@ export default function TeamMembers() {
   return (
     <Card className="h-full">
       <CardHeader>
-        <CardTitle>Team Members</CardTitle>
+        <CardTitle>Membres de l&apos;équipe</CardTitle>
         <CardDescription className="truncate">
-          Invite your team members to collaborate.
+          Invitez les membres de votre équipe à collaborer.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-6">
@@ -48,37 +48,37 @@ export default function TeamMembers() {
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" className="h-7 py-0" size="sm">
-                Member <ChevronDown className="text-muted-foreground" />
+                Membre <ChevronDown className="text-muted-foreground" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="p-0" align="end">
               <Command>
-                <CommandInput placeholder="Select new role..." />
+                <CommandInput placeholder="Sélectionner un nouveau rôle..." />
                 <CommandList>
-                  <CommandEmpty>No roles found.</CommandEmpty>
+                  <CommandEmpty>Aucun rôle trouvé.</CommandEmpty>
                   <CommandGroup className="p-1.5">
                     <CommandItem className="teamaspace-y-1 flex flex-col items-start px-4 py-2">
-                      <p>Viewer</p>
+                      <p>Observateur</p>
                       <p className="text-muted-foreground text-sm">
-                        Can view and comment.
+                        Peut voir et commenter.
                       </p>
                     </CommandItem>
                     <CommandItem className="teamaspace-y-1 flex flex-col items-start px-4 py-2">
-                      <p>Developer</p>
+                      <p>Développeur</p>
                       <p className="text-muted-foreground text-sm">
-                        Can view, comment and edit.
+                        Peut voir, commenter et modifier.
                       </p>
                     </CommandItem>
                     <CommandItem className="teamaspace-y-1 flex flex-col items-start px-4 py-2">
-                      <p>Billing</p>
+                      <p>Facturation</p>
                       <p className="text-muted-foreground text-sm">
-                        Can view, comment and manage billing.
+                        Peut voir, commenter et gérer la facturation.
                       </p>
                     </CommandItem>
                     <CommandItem className="teamaspace-y-1 flex flex-col items-start px-4 py-2">
-                      <p>Owner</p>
+                      <p>Propriétaire</p>
                       <p className="text-muted-foreground text-sm">
-                        Admin-level access to all resources.
+                        Accès de niveau administrateur à toutes les ressources.
                       </p>
                     </CommandItem>
                   </CommandGroup>
@@ -101,37 +101,37 @@ export default function TeamMembers() {
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" className="h-7 py-0" size="sm">
-                Owner <ChevronDown className="text-muted-foreground" />
+                Propriétaire <ChevronDown className="text-muted-foreground" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="p-0" align="end">
               <Command>
-                <CommandInput placeholder="Select new role..." />
+                <CommandInput placeholder="Sélectionner un nouveau rôle..." />
                 <CommandList>
-                  <CommandEmpty>No roles found.</CommandEmpty>
+                  <CommandEmpty>Aucun rôle trouvé.</CommandEmpty>
                   <CommandGroup>
                     <CommandItem className="teamaspace-y-1 flex flex-col items-start px-4 py-2">
-                      <p>Viewer</p>
+                      <p>Observateur</p>
                       <p className="text-muted-foreground text-sm">
-                        Can view and comment.
+                        Peut voir et commenter.
                       </p>
                     </CommandItem>
                     <CommandItem className="teamaspace-y-1 flex flex-col items-start px-4 py-2">
-                      <p>Developer</p>
+                      <p>Développeur</p>
                       <p className="text-muted-foreground text-sm">
-                        Can view, comment and edit.
+                        Peut voir, commenter et modifier.
                       </p>
                     </CommandItem>
                     <CommandItem className="teamaspace-y-1 flex flex-col items-start px-4 py-2">
-                      <p>Billing</p>
+                      <p>Facturation</p>
                       <p className="text-muted-foreground text-sm">
-                        Can view, comment and manage billing.
+                        Peut voir, commenter et gérer la facturation.
                       </p>
                     </CommandItem>
                     <CommandItem className="teamaspace-y-1 flex flex-col items-start px-4 py-2">
-                      <p>Owner</p>
+                      <p>Propriétaire</p>
                       <p className="text-muted-foreground text-sm">
-                        Admin-level access to all resources.
+                        Accès de niveau administrateur à toutes les ressources.
                       </p>
                     </CommandItem>
                   </CommandGroup>
@@ -154,37 +154,37 @@ export default function TeamMembers() {
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" className="h-7 py-0" size="sm">
-                Member <ChevronDown className="text-muted-foreground" />
+                Membre <ChevronDown className="text-muted-foreground" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="p-0" align="end">
               <Command>
-                <CommandInput placeholder="Select new role..." />
+                <CommandInput placeholder="Sélectionner un nouveau rôle..." />
                 <CommandList>
-                  <CommandEmpty>No roles found.</CommandEmpty>
+                  <CommandEmpty>Aucun rôle trouvé.</CommandEmpty>
                   <CommandGroup className="p-1.5">
                     <CommandItem className="teamaspace-y-1 flex flex-col items-start px-4 py-2">
-                      <p>Viewer</p>
+                      <p>Observateur</p>
                       <p className="text-muted-foreground text-sm">
-                        Can view and comment.
+                        Peut voir et commenter.
                       </p>
                     </CommandItem>
                     <CommandItem className="teamaspace-y-1 flex flex-col items-start px-4 py-2">
-                      <p>Developer</p>
+                      <p>Développeur</p>
                       <p className="text-muted-foreground text-sm">
-                        Can view, comment and edit.
+                        Peut voir, commenter et modifier.
                       </p>
                     </CommandItem>
                     <CommandItem className="teamaspace-y-1 flex flex-col items-start px-4 py-2">
-                      <p>Billing</p>
+                      <p>Facturation</p>
                       <p className="text-muted-foreground text-sm">
-                        Can view, comment and manage billing.
+                        Peut voir, commenter et gérer la facturation.
                       </p>
                     </CommandItem>
                     <CommandItem className="teamaspace-y-1 flex flex-col items-start px-4 py-2">
-                      <p>Owner</p>
+                      <p>Propriétaire</p>
                       <p className="text-muted-foreground text-sm">
-                        Admin-level access to all resources.
+                        Accès de niveau administrateur à toutes les ressources.
                       </p>
                     </CommandItem>
                   </CommandGroup>
@@ -209,37 +209,37 @@ export default function TeamMembers() {
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" className="h-7 py-0" size="sm">
-                Member <ChevronDown className="text-muted-foreground" />
+                Membre <ChevronDown className="text-muted-foreground" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="p-0" align="end">
               <Command>
-                <CommandInput placeholder="Select new role..." />
+                <CommandInput placeholder="Sélectionner un nouveau rôle..." />
                 <CommandList>
-                  <CommandEmpty>No roles found.</CommandEmpty>
+                  <CommandEmpty>Aucun rôle trouvé.</CommandEmpty>
                   <CommandGroup className="p-1.5">
                     <CommandItem className="teamaspace-y-1 flex flex-col items-start px-4 py-2">
-                      <p>Viewer</p>
+                      <p>Observateur</p>
                       <p className="text-muted-foreground text-sm">
-                        Can view and comment.
+                        Peut voir et commenter.
                       </p>
                     </CommandItem>
                     <CommandItem className="teamaspace-y-1 flex flex-col items-start px-4 py-2">
-                      <p>Developer</p>
+                      <p>Développeur</p>
                       <p className="text-muted-foreground text-sm">
-                        Can view, comment and edit.
+                        Peut voir, commenter et modifier.
                       </p>
                     </CommandItem>
                     <CommandItem className="teamaspace-y-1 flex flex-col items-start px-4 py-2">
-                      <p>Billing</p>
+                      <p>Facturation</p>
                       <p className="text-muted-foreground text-sm">
-                        Can view, comment and manage billing.
+                        Peut voir, commenter et gérer la facturation.
                       </p>
                     </CommandItem>
                     <CommandItem className="teamaspace-y-1 flex flex-col items-start px-4 py-2">
-                      <p>Owner</p>
+                      <p>Propriétaire</p>
                       <p className="text-muted-foreground text-sm">
-                        Admin-level access to all resources.
+                        Accès de niveau administrateur à toutes les ressources.
                       </p>
                     </CommandItem>
                   </CommandGroup>
@@ -262,37 +262,37 @@ export default function TeamMembers() {
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" className="h-7 py-0" size="sm">
-                Member <ChevronDown className="text-muted-foreground" />
+                Membre <ChevronDown className="text-muted-foreground" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="p-0" align="end">
               <Command>
-                <CommandInput placeholder="Select new role..." />
+                <CommandInput placeholder="Sélectionner un nouveau rôle..." />
                 <CommandList>
-                  <CommandEmpty>No roles found.</CommandEmpty>
+                  <CommandEmpty>Aucun rôle trouvé.</CommandEmpty>
                   <CommandGroup className="p-1.5">
                     <CommandItem className="teamaspace-y-1 flex flex-col items-start px-4 py-2">
-                      <p>Viewer</p>
+                      <p>Observateur</p>
                       <p className="text-muted-foreground text-sm">
-                        Can view and comment.
+                        Peut voir et commenter.
                       </p>
                     </CommandItem>
                     <CommandItem className="teamaspace-y-1 flex flex-col items-start px-4 py-2">
-                      <p>Developer</p>
+                      <p>Développeur</p>
                       <p className="text-muted-foreground text-sm">
-                        Can view, comment and edit.
+                        Peut voir, commenter et modifier.
                       </p>
                     </CommandItem>
                     <CommandItem className="teamaspace-y-1 flex flex-col items-start px-4 py-2">
-                      <p>Billing</p>
+                      <p>Facturation</p>
                       <p className="text-muted-foreground text-sm">
-                        Can view, comment and manage billing.
+                        Peut voir, commenter et gérer la facturation.
                       </p>
                     </CommandItem>
                     <CommandItem className="teamaspace-y-1 flex flex-col items-start px-4 py-2">
-                      <p>Owner</p>
+                      <p>Propriétaire</p>
                       <p className="text-muted-foreground text-sm">
-                        Admin-level access to all resources.
+                        Accès de niveau administrateur à toutes les ressources.
                       </p>
                     </CommandItem>
                   </CommandGroup>

@@ -27,25 +27,25 @@ import {
 
 const formSchema = z.object({
   username: z.string().min(1, {
-    message: "Username is required.",
+    message: "Le nom d'utilisateur est requis.",
   }),
   city: z.string().min(1, {
-    message: "City is required.",
+    message: "La ville est requise.",
   }),
   payment_method: z.enum(["Card", "Paypal", "Apple"], {
-    required_error: "Payment method is required.",
+    required_error: "La méthode de paiement est requise.",
   }),
   card_number: z.string().min(1, {
-    message: "Card No is required.",
+    message: "Le numéro de carte est requis.",
   }),
   expire: z.string({
-    required_error: "Expire date is required.",
+    required_error: "La date d'expiration est requise.",
   }),
   year: z.string({
-    required_error: "Year is required.",
+    required_error: "L'année est requise.",
   }),
   cv: z.string().min(1, {
-    message: "Cv is required.",
+    message: "Le CVV est requis.",
   }),
 })
 
@@ -76,11 +76,11 @@ export default function BillingForm() {
           name="username"
           render={({ field }) => (
             <FormItem className="col-span-6 md:col-span-3">
-              <FormLabel>Username</FormLabel>
+              <FormLabel>Nom d&apos;utilisateur</FormLabel>
               <FormControl>
-                <Input placeholder="Enter username" {...field} />
+                <Input placeholder="Entrez le nom d'utilisateur" {...field} />
               </FormControl>
-              <FormDescription>This is your username.</FormDescription>
+              <FormDescription>Votre nom d&apos;utilisateur.</FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -90,11 +90,11 @@ export default function BillingForm() {
           name="city"
           render={({ field }) => (
             <FormItem className="col-span-6 md:col-span-3">
-              <FormLabel>City</FormLabel>
+              <FormLabel>Ville</FormLabel>
               <FormControl>
-                <Input placeholder="Enter City" {...field} />
+                <Input placeholder="Entrez la ville" {...field} />
               </FormControl>
-              <FormDescription>This is your city name.</FormDescription>
+              <FormDescription>Le nom de votre ville.</FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -104,7 +104,7 @@ export default function BillingForm() {
           name="payment_method"
           render={({ field }) => (
             <FormItem className="col-span-6">
-              <FormLabel>Payment</FormLabel>
+              <FormLabel>Paiement</FormLabel>
               <FormControl>
                 <RadioGroup
                   onValueChange={field.onChange}
@@ -118,7 +118,7 @@ export default function BillingForm() {
                         value="Card"
                         id="card"
                         className="peer sr-only"
-                        aria-label="Card"
+                        aria-label="Carte"
                       />
                     </FormControl>
                     <FormLabel
@@ -138,7 +138,7 @@ export default function BillingForm() {
                         <rect width="20" height="14" x="2" y="5" rx="2" />
                         <path d="M2 10h20" />
                       </svg>
-                      Card
+                      Carte
                     </FormLabel>
                   </FormItem>
                   <FormItem className="col-span-1 flex items-center">
@@ -186,11 +186,11 @@ export default function BillingForm() {
           name="card_number"
           render={({ field }) => (
             <FormItem className="col-span-6">
-              <FormLabel>Card Number</FormLabel>
+              <FormLabel>Numéro de carte</FormLabel>
               <FormControl>
-                <Input placeholder="Enter Card No" {...field} />
+                <Input placeholder="Entrez le numéro de carte" {...field} />
               </FormControl>
-              <FormDescription>This is number of your card No.</FormDescription>
+              <FormDescription>Le numéro de votre carte.</FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -200,33 +200,33 @@ export default function BillingForm() {
           name="expire"
           render={({ field }) => (
             <FormItem className="col-span-3 md:col-span-2">
-              <FormLabel>Expires</FormLabel>
+              <FormLabel>Expiration</FormLabel>
               <FormControl>
                 <Select
                   onValueChange={field.onChange}
                   defaultValue={field.value}
                   value={field.value}
                 >
-                  <SelectTrigger id="month" aria-label="Month">
-                    <SelectValue placeholder="Month" />
+                  <SelectTrigger id="month" aria-label="Mois">
+                    <SelectValue placeholder="Mois" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="1">January</SelectItem>
-                    <SelectItem value="2">February</SelectItem>
-                    <SelectItem value="3">March</SelectItem>
-                    <SelectItem value="4">April</SelectItem>
-                    <SelectItem value="5">May</SelectItem>
-                    <SelectItem value="6">June</SelectItem>
-                    <SelectItem value="7">July</SelectItem>
-                    <SelectItem value="8">August</SelectItem>
-                    <SelectItem value="9">September</SelectItem>
-                    <SelectItem value="10">October</SelectItem>
-                    <SelectItem value="11">November</SelectItem>
-                    <SelectItem value="12">December</SelectItem>
+                    <SelectItem value="1">Janvier</SelectItem>
+                    <SelectItem value="2">Février</SelectItem>
+                    <SelectItem value="3">Mars</SelectItem>
+                    <SelectItem value="4">Avril</SelectItem>
+                    <SelectItem value="5">Mai</SelectItem>
+                    <SelectItem value="6">Juin</SelectItem>
+                    <SelectItem value="7">Juillet</SelectItem>
+                    <SelectItem value="8">Août</SelectItem>
+                    <SelectItem value="9">Septembre</SelectItem>
+                    <SelectItem value="10">Octobre</SelectItem>
+                    <SelectItem value="11">Novembre</SelectItem>
+                    <SelectItem value="12">Décembre</SelectItem>
                   </SelectContent>
                 </Select>
               </FormControl>
-              <FormDescription>This is your card expire date.</FormDescription>
+              <FormDescription>La date d&apos;expiration de votre carte.</FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -236,15 +236,15 @@ export default function BillingForm() {
           name="year"
           render={({ field }) => (
             <FormItem className="col-span-3 md:col-span-2">
-              <FormLabel>Year</FormLabel>
+              <FormLabel>Année</FormLabel>
               <FormControl>
                 <Select
                   onValueChange={field.onChange}
                   defaultValue={field.value}
                   value={field.value}
                 >
-                  <SelectTrigger id="year" aria-label="Year">
-                    <SelectValue placeholder="Year" />
+                  <SelectTrigger id="year" aria-label="Année">
+                    <SelectValue placeholder="Année" />
                   </SelectTrigger>
                   <SelectContent>
                     {Array.from({ length: 10 }, (_, i) => (
@@ -258,7 +258,7 @@ export default function BillingForm() {
                   </SelectContent>
                 </Select>
               </FormControl>
-              <FormDescription>This is your card expire year.</FormDescription>
+              <FormDescription>L&apos;année d&apos;expiration de votre carte.</FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -268,18 +268,18 @@ export default function BillingForm() {
           name="cv"
           render={({ field }) => (
             <FormItem className="col-span-6 md:col-span-2">
-              <FormLabel>CV</FormLabel>
+              <FormLabel>CVV</FormLabel>
               <FormControl>
-                <Input {...field} id="cvc" placeholder="CVC" />
+                <Input {...field} id="cvc" placeholder="CVV" />
               </FormControl>
-              <FormDescription>This is your CV No.</FormDescription>
+              <FormDescription>Le code de sécurité de votre carte.</FormDescription>
               <FormMessage />
             </FormItem>
           )}
         />
 
         <Button className="col-span-6" type="submit">
-          Continue
+          Continuer
         </Button>
       </form>
     </Form>

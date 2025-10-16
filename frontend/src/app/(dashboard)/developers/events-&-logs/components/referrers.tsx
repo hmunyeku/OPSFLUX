@@ -15,18 +15,18 @@ export default function Referrers() {
                 className="outline-foreground/10 data-[state=active]:bg-muted data-[state=active]:outline"
                 value="pages"
               >
-                Referrers
+                Référents
               </TabsTrigger>
               <TabsTrigger
                 disabled
                 className="outline-foreground/10 data-[state=active]:bg-muted data-[state=active]:outline"
                 value="routes"
               >
-                UTM Parameters
+                Paramètres UTM
               </TabsTrigger>
             </TabsList>
             <h1 className="text-muted-foreground text-xs font-medium">
-              VISITORS
+              VISITEURS
             </h1>
           </div>
         </CardHeader>
@@ -58,7 +58,7 @@ export default function Referrers() {
           <CardContent className="px-4 py-3">Routes</CardContent>
         </TabsContent>
         <TabsContent value="hostnames">
-          <CardContent className="px-4 py-3">Hostnames</CardContent>
+          <CardContent className="px-4 py-3">Noms d&apos;hôte</CardContent>
         </TabsContent>
       </Tabs>
     </Card>

@@ -25,14 +25,14 @@ export default function MobileFilterSheet() {
       </DrawerTrigger>
       <DrawerContent>
         <DrawerHeader>
-          <DrawerTitle>Events/Logs Filters</DrawerTitle>
-          <DrawerDescription>Select & Check Filters.</DrawerDescription>
+          <DrawerTitle>Filtres événements/journaux</DrawerTitle>
+          <DrawerDescription>Sélectionnez et cochez les filtres.</DrawerDescription>
         </DrawerHeader>
         <Filters />
         <DrawerFooter>
-          <Button>Submit</Button>
+          <Button>Soumettre</Button>
           <DrawerClose asChild>
-            <Button variant="outline">Cancel</Button>
+            <Button variant="outline">Annuler</Button>
           </DrawerClose>
         </DrawerFooter>
       </DrawerContent>

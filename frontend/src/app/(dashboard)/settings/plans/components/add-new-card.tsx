@@ -43,17 +43,17 @@ import {
 
 const formSchema = z.object({
   card_number: z.string().min(1, {
-    message: "Card Number is required.",
+    message: "Le numéro de carte est requis.",
   }),
   cardholder_name: z.string().min(1, {
-    message: "Card Holder Name is required.",
+    message: "Le nom du titulaire est requis.",
   }),
-  expireDate: z.coerce.date({ required_error: "Expire Date is required." }),
+  expireDate: z.coerce.date({ required_error: "La date d'expiration est requise." }),
   cvv: z.string().min(1, {
-    message: "CVV is required.",
+    message: "Le CVV est requis.",
   }),
   billing_address: z.string().min(1, {
-    message: "Billing Address is required.",
+    message: "L'adresse de facturation est requise.",
   }),
 })
 
@@ -73,7 +73,7 @@ export function AddNewCard() {
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     form.reset()
     toast({
-      title: "You submitted the following values:",
+      title: "Vous avez soumis les valeurs suivantes :",
       description: (
         <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4">
           <code className="text-white">{JSON.stringify(values, null, 2)}</code>
@@ -98,16 +98,16 @@ export function AddNewCard() {
           className="flex items-center gap-1 font-semibold text-blue-600"
         >
           <IconPlus size={16} />
-          <span className="text-xs">Add New Card</span>
+          <span className="text-xs">Ajouter une carte</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader className="text-left">
           <DialogTitle className="flex items-center gap-2">
-            <IconCreditCard /> New Payment
+            <IconCreditCard /> Nouveau paiement
           </DialogTitle>
           <DialogDescription>
-            Ensure accurate information to process the transaction smoothly.
+            Assurez-vous que les informations sont exactes pour traiter la transaction en douceur.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -121,11 +121,11 @@ export function AddNewCard() {
               name="cardholder_name"
               render={({ field }) => (
                 <FormItem className="col-span-3">
-                  <FormLabel>Card Holder</FormLabel>
+                  <FormLabel>Titulaire de la carte</FormLabel>
                   <FormControl>
-                    <Input type="text" placeholder="Holder Name" {...field} />
+                    <Input type="text" placeholder="Nom du titulaire" {...field} />
                   </FormControl>
-                  <FormDescription>Fill Card Holder Name</FormDescription>
+                  <FormDescription>Renseignez le nom du titulaire</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -136,11 +136,11 @@ export function AddNewCard() {
               name="card_number"
               render={({ field }) => (
                 <FormItem className="col-span-3">
-                  <FormLabel>Card Number</FormLabel>
+                  <FormLabel>Numéro de carte</FormLabel>
                   <FormControl>
-                    <Input type="text" placeholder="Card Number" {...field} />
+                    <Input type="text" placeholder="Numéro de carte" {...field} />
                   </FormControl>
-                  <FormDescription>Fill Card Number</FormDescription>
+                  <FormDescription>Renseignez le numéro de carte</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -151,7 +151,7 @@ export function AddNewCard() {
               name="expireDate"
               render={({ field }) => (
                 <FormItem className="col-span-6">
-                  <FormLabel>Expire Date</FormLabel>
+                  <FormLabel>Date d&apos;expiration</FormLabel>
                   <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>
@@ -163,9 +163,9 @@ export function AddNewCard() {
                           )}
                         >
                           {field.value ? (
-                            format(field.value, "PPP")
+                            format(field.value, "PPP", { locale: require('date-fns/locale/fr') })
                           ) : (
-                            <span>Pick a date</span>
+                            <span>Choisir une date</span>
                           )}
                           <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                         </Button>
@@ -183,7 +183,7 @@ export function AddNewCard() {
                       />
                     </PopoverContent>
                   </Popover>
-                  <FormDescription>Pick Expire Date.</FormDescription>
+                  <FormDescription>Choisissez la date d&apos;expiration.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -196,9 +196,9 @@ export function AddNewCard() {
                 <FormItem className="col-span-3">
                   <FormLabel>CVV</FormLabel>
                   <FormControl>
-                    <Input placeholder="CVV No" {...field} />
+                    <Input placeholder="CVV" {...field} />
                   </FormControl>
-                  <FormDescription>Fill CVV No</FormDescription>
+                  <FormDescription>Renseignez le CVV</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -209,11 +209,11 @@ export function AddNewCard() {
               name="billing_address"
               render={({ field }) => (
                 <FormItem className="col-span-3">
-                  <FormLabel>Billing Address</FormLabel>
+                  <FormLabel>Adresse de facturation</FormLabel>
                   <FormControl>
-                    <Input placeholder="Billing Address" {...field} />
+                    <Input placeholder="Adresse de facturation" {...field} />
                   </FormControl>
-                  <FormDescription>Fill Billing Address</FormDescription>
+                  <FormDescription>Renseignez l&apos;adresse de facturation</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -222,10 +222,10 @@ export function AddNewCard() {
         </Form>
         <DialogFooter className="gap-y-2">
           <DialogClose asChild>
-            <Button variant="outline">Cancel</Button>
+            <Button variant="outline">Annuler</Button>
           </DialogClose>
           <Button type="submit" form="add-new-card-form">
-            Submit <IconCreditCardPay />
+            Enregistrer <IconCreditCardPay />
           </Button>
         </DialogFooter>
       </DialogContent>

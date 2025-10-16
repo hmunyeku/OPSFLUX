@@ -38,11 +38,11 @@ export default function BuyersProfileCard() {
     <Card className="h-full w-full">
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>Buyers Profile</CardTitle>
+          <CardTitle>Profil des acheteurs</CardTitle>
           <IconDots className="cursor-pointer opacity-60" size={16} />
         </div>
         <CardDescription>
-          Discover key insights into the buyer’s preferences
+          Découvrez des informations clés sur les préférences des acheteurs
         </CardDescription>
       </CardHeader>
       <CardContent className="pb-0">
@@ -88,7 +88,7 @@ export default function BuyersProfileCard() {
                           y={(viewBox.cy || 0) + 24}
                           className="fill-muted-foreground"
                         >
-                          Buyers
+                          Acheteurs
                         </tspan>
                       </text>
                     )
@@ -101,7 +101,7 @@ export default function BuyersProfileCard() {
       </CardContent>
       <CardFooter className="flex-col gap-2 text-sm">
         <div className="flex items-center gap-2 leading-none font-medium">
-          Trending up by 5.2% this month <TrendingUp className="h-4 w-4" />
+          En hausse de 5,2% ce mois-ci <TrendingUp className="h-4 w-4" />
         </div>
       </CardFooter>
     </Card>

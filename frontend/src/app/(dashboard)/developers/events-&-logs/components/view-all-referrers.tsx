@@ -38,22 +38,22 @@ export default function ViewAllReferrersDialog() {
           variant="outline"
           className="rounded-full px-3 pt-[2px] pb-[2px] text-xs"
         >
-          View All
+          Voir tout
           <IconMaximize className="ml-2 h-4 w-4" />
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[800px]">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">
-            All Referrers
+            Tous les référents
           </DialogTitle>
           <DialogDescription>
-            displays insights about referrers, including sources driving traffic
+            Affiche des informations sur les référents, y compris les sources générant du trafic
           </DialogDescription>
         </DialogHeader>
         <div className="relative mb-4">
           <Input
-            placeholder="Search referrers..."
+            placeholder="Rechercher des référents..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -72,7 +72,7 @@ export default function ViewAllReferrersDialog() {
                     variant="ghost"
                     className="p-0 font-semibold hover:text-neutral-900"
                   >
-                    Referrer
+                    Référent
                   </Button>
                 </TableHead>
                 <TableHead className="text-right">
@@ -80,7 +80,7 @@ export default function ViewAllReferrersDialog() {
                     variant="ghost"
                     className="p-0 font-semibold hover:text-neutral-900"
                   >
-                    Visitors
+                    Visiteurs
                   </Button>
                 </TableHead>
               </TableRow>

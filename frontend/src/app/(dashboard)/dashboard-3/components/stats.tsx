@@ -41,7 +41,7 @@ function StatsCard({ label, type, icon, stats, percentage }: Dashboard3Stats) {
               <IconTrendingDown size={20} />
             )}
           </div>
-          <p className="text-sm tracking-tight">vs Previous 30 Days</p>
+          <p className="text-sm tracking-tight">par rapport aux 30 derniers jours</p>
         </div>
       </CardContent>
     </Card>

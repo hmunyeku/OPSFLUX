@@ -57,7 +57,7 @@ export default function LogsTable({ searchVal }: Props) {
           <TableCell className="pl-4" colSpan={3}>
             Total
           </TableCell>
-          <TableCell className="text-start">$2,500.00</TableCell>
+          <TableCell className="text-start">2 500,00 €</TableCell>
         </TableRow>
       </TableFooter>
     </Table>

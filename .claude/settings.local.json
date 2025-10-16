@@ -110,7 +110,8 @@
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEyODgyNDcsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.bZutFavu6NPuPanaw4R7Eyy_DshrWQqc2vvd2v-tesQ\")",
       "Bash(timeout 3 docker logs:*)",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEyODgyNDcsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.bZutFavu6NPuPanaw4R7Eyy_DshrWQqc2vvd2v-tesQ\" curl -s -X POST http://localhost:8000/api/v1/login/access-token -H \"Content-Type: application/x-www-form-urlencoded\" -d \"username=admin@opsflux.io\" -d \"password=adminopsflux\")",
-      "Read(//etc/dokploy/compose/**)"
+      "Read(//etc/dokploy/compose/**)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzMTQ0OTcsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.coCEGT1c1QOLbYZ0lzRAoZOSBiRzdQ7K3hYNesuECZI\")"
     ],
     "deny": [],
     "ask": []

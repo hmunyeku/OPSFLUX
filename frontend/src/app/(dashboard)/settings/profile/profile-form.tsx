@@ -5,6 +5,7 @@ import { z } from "zod"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
+import { LoadingButton } from "@/components/ui/loading-button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import {
@@ -546,9 +547,13 @@ export function AccountForm() {
                 </div>
               </div>
 
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Mise à jour en cours..." : "Mettre à jour le profil"}
-              </Button>
+              <LoadingButton
+                type="submit"
+                loading={isSubmitting}
+                loadingText="Mise à jour en cours..."
+              >
+                Mettre à jour le profil
+              </LoadingButton>
             </form>
           </Form>
         </CardContent>
@@ -737,10 +742,11 @@ export function AccountForm() {
             </div>
           )}
 
-          <Button
+          <LoadingButton
             onClick={handleChangePassword}
+            loading={isChangingPassword}
+            loadingText="Changement en cours..."
             disabled={
-              isChangingPassword ||
               !currentPassword ||
               !newPassword ||
               !confirmPassword ||
@@ -749,8 +755,8 @@ export function AccountForm() {
             }
             className="w-full sm:w-auto"
           >
-            {isChangingPassword ? "Changement en cours..." : "Changer le mot de passe"}
-          </Button>
+            Changer le mot de passe
+          </LoadingButton>
         </CardContent>
       </Card>
     </div>

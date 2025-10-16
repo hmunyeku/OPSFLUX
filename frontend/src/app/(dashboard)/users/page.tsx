@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import {
   Breadcrumb,
@@ -10,48 +10,17 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { Skeleton } from "@/components/ui/skeleton"
-import { UserPrimaryActions } from "./components/user-primary-actions"
-import { columns } from "./components/users-columns"
-import { UsersStats } from "./components/users-stats"
-import { UsersTable } from "./components/users-table"
-import { userListSchema, User } from "./data/schema"
-import { getUsers } from "./data/users-api"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Users, Users2 } from "lucide-react"
+import { UsersSection } from "./components/users-section"
+import { GroupsSection } from "./components/groups-section"
 
 export default function UsersPage() {
-  const [users, setUsers] = useState<User[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-
-  const loadUsers = async () => {
-    try {
-      setIsLoading(true)
-      const data = await getUsers()
-      const userList = userListSchema.parse(data)
-      setUsers(userList)
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('Failed to load users:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    loadUsers()
-  }, [])
-
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-[200px]" />
-        <Skeleton className="h-[400px] w-full" />
-      </div>
-    )
-  }
+  const [activeTab, setActiveTab] = useState("users")
 
   return (
     <>
-      <div className="mb-4 flex flex-col gap-2">
+      <div className="mb-6 flex flex-col gap-4">
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
@@ -61,21 +30,39 @@ export default function UsersPage() {
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>Utilisateurs</BreadcrumbPage>
+              <BreadcrumbPage>Utilisateurs & Groupes</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="flex-none text-xl font-bold tracking-tight">
-            Liste des utilisateurs
-          </h2>
-          <UserPrimaryActions onUserCreated={loadUsers} />
+
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Utilisateurs & Groupes</h2>
+          <p className="text-sm text-muted-foreground">
+            Gérez les utilisateurs et les groupes de votre organisation
+          </p>
         </div>
-        <UsersStats users={users} />
       </div>
-      <div className="flex-1">
-        <UsersTable data={users} columns={columns} />
-      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="users" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Utilisateurs
+          </TabsTrigger>
+          <TabsTrigger value="groups" className="flex items-center gap-2">
+            <Users2 className="h-4 w-4" />
+            Groupes
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="users" className="space-y-4">
+          <UsersSection />
+        </TabsContent>
+
+        <TabsContent value="groups" className="space-y-4">
+          <GroupsSection />
+        </TabsContent>
+      </Tabs>
     </>
   )
 }

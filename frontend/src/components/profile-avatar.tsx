@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -36,6 +36,11 @@ export function ProfileAvatar({
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentAvatarUrl || null)
   const [isHovering, setIsHovering] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Sync preview URL when currentAvatarUrl prop changes
+  useEffect(() => {
+    setPreviewUrl(currentAvatarUrl || null)
+  }, [currentAvatarUrl])
 
   // Generate initials from full name or email
   const getInitials = () => {

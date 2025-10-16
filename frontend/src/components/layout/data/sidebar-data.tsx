@@ -16,6 +16,12 @@ import {
   IconUser,
   IconUserOff,
   IconUsers,
+  IconUsersGroup,
+  IconShield,
+  IconKey,
+  IconEye,
+  IconWebhook,
+  IconListDetails,
 } from "@tabler/icons-react"
 import { AudioWaveform, GalleryVerticalEnd } from "lucide-react"
 import { Logo } from "@/components/logo"
@@ -174,18 +180,22 @@ export const sidebarData: SidebarData = {
           items: [
             {
               title: "Vue d'ensemble",
+              icon: IconEye,
               url: "/developers/overview",
             },
             {
               title: "Clés API",
+              icon: IconKey,
               url: "/developers/api-keys",
             },
             {
               title: "Webhooks",
+              icon: IconWebhook,
               url: "/developers/webhooks",
             },
             {
               title: "Événements/Logs",
+              icon: IconListDetails,
               url: "/developers/events-&-logs",
             },
           ],
@@ -196,18 +206,22 @@ export const sidebarData: SidebarData = {
           items: [
             {
               title: "Liste d'utilisateurs",
+              icon: IconUser,
               url: "/users",
             },
             {
               title: "Groupes d'utilisateurs",
+              icon: IconUsersGroup,
               url: "/users/groups",
             },
             {
               title: "Rôles",
+              icon: IconShield,
               url: "/users/roles",
             },
             {
               title: "Permissions",
+              icon: IconKey,
               url: "/users/permissions",
             },
           ],

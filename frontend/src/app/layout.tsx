@@ -1,7 +1,9 @@
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { Toaster } from "@/components/ui/toaster"
+import { LoadingBar } from "@/components/loading-bar"
 import "./globals.css"
+import "@/styles/nprogress.css"
 import { Providers } from "./providers"
 
 const inter = Inter({
@@ -22,6 +24,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} group/body antialiased`}>
+        <LoadingBar />
         <Providers>{children}</Providers>
         <Toaster />
       </body>

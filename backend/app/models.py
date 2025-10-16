@@ -75,10 +75,8 @@ class User(AbstractBaseModel, UserBase, table=True):
     webhooks: list["Webhook"] = Relationship(back_populates="user", cascade_delete=True)
     tasks: list["Task"] = Relationship(back_populates="assigned_user")
 
-    # RBAC relationships
-    roles: list["Role"] = Relationship(link_model="UserRoleLink")
-    groups: list["Group"] = Relationship(link_model="UserGroupLink")
-    permissions: list["Permission"] = Relationship(link_model="UserPermissionLink")
+    # RBAC relationships are managed separately via RBAC endpoints
+    # to avoid circular import issues with link models
 
 
 # Properties to return via API, id is always required
@@ -86,8 +84,6 @@ class UserPublic(UserBase):
     id: uuid.UUID
     phone_numbers: list[str] | None = None
     intranet_identifier: str | None = None
-    roles: list["RolePublic"] | None = None
-    groups: list["GroupPublic"] | None = None
 
 
 class UsersPublic(SQLModel):

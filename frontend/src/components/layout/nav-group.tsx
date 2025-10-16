@@ -20,12 +20,20 @@ import {
   SidebarMenuSubItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Badge } from "../ui/badge"
 import { NavItem, type NavGroup } from "./types"
 
 export function NavGroup({ title, items }: NavGroup) {
-  const { setOpenMobile } = useSidebar()
+  const { setOpenMobile, state } = useSidebar()
   const pathname = usePathname()
+  const isCollapsed = state === "collapsed"
+
   return (
     <SidebarGroup>
       <SidebarGroupLabel>{title}</SidebarGroupLabel>
@@ -48,6 +56,44 @@ export function NavGroup({ title, items }: NavGroup) {
               </SidebarMenuItem>
             )
           }
+
+          // When sidebar is collapsed, use DropdownMenu for hover functionality
+          if (isCollapsed) {
+            return (
+              <SidebarMenuItem key={item.title}>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <SidebarMenuButton
+                      isActive={checkIsActive(pathname, item, true)}
+                      tooltip={item.title}
+                      className="w-full"
+                    >
+                      {item.icon && <item.icon />}
+                      <span>{item.title}</span>
+                      {item.badge && <NavBadge>{item.badge}</NavBadge>}
+                    </SidebarMenuButton>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent side="right" align="start" className="w-48">
+                    {item.items.map((subItem) => (
+                      <DropdownMenuItem key={subItem.title} asChild>
+                        <Link
+                          href={subItem.url}
+                          onClick={() => setOpenMobile(false)}
+                          className="flex items-center gap-2 w-full cursor-pointer"
+                        >
+                          {subItem.icon && <subItem.icon className="h-4 w-4" />}
+                          <span>{subItem.title}</span>
+                          {subItem.badge && <NavBadge>{subItem.badge}</NavBadge>}
+                        </Link>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </SidebarMenuItem>
+            )
+          }
+
+          // When sidebar is expanded, use Collapsible as before
           return (
             <Collapsible
               key={item.title}

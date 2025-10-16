@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import {
   DropdownMenu,
@@ -11,62 +11,85 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
-import { Star, StarOff, ExternalLink, Settings, Folder, FileText } from "lucide-react"
+import { Star, StarOff, ExternalLink, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-interface Bookmark {
-  id: string
-  title: string
-  path: string
-  icon?: React.ReactNode
-  category?: string
-}
-
-// Données de démo - à remplacer par des données persistantes
-const mockBookmarks: Bookmark[] = [
-  {
-    id: "1",
-    title: "Dashboard Principal",
-    path: "/",
-    icon: <Folder className="h-4 w-4" />,
-    category: "Dashboard"
-  },
-  {
-    id: "2",
-    title: "Gestion des utilisateurs",
-    path: "/users",
-    icon: <FileText className="h-4 w-4" />,
-    category: "Administration"
-  },
-  {
-    id: "3",
-    title: "Paramètres système",
-    path: "/settings",
-    icon: <Settings className="h-4 w-4" />,
-    category: "Configuration"
-  },
-]
+import { toast } from "@/hooks/use-toast"
+import {
+  getBookmarks,
+  deleteBookmark,
+  deleteAllBookmarks,
+  type Bookmark as BookmarkType,
+} from "@/api/bookmarks"
 
 export function BookmarksDropdown() {
-  const [bookmarks, setBookmarks] = useState<Bookmark[]>(mockBookmarks)
+  const [bookmarks, setBookmarks] = useState<BookmarkType[]>([])
   const [open, setOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
 
   const hasBookmarks = bookmarks.length > 0
+
+  useEffect(() => {
+    if (open) {
+      loadBookmarks()
+    }
+  }, [open])
+
+  async function loadBookmarks() {
+    try {
+      setIsLoading(true)
+      const data = await getBookmarks()
+      setBookmarks(data)
+    } catch (_error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les marque-pages",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const handleNavigate = (path: string) => {
     setOpen(false)
     router.push(path)
   }
 
-  const removeBookmark = (id: string, event: React.MouseEvent) => {
+  const removeBookmark = async (id: string, event: React.MouseEvent) => {
     event.stopPropagation()
-    setBookmarks(prev => prev.filter(b => b.id !== id))
+    try {
+      await deleteBookmark(id)
+      setBookmarks(prev => prev.filter(b => b.id !== id))
+      toast({
+        title: "Marque-page supprimé",
+        description: "Le marque-page a été supprimé avec succès",
+      })
+    } catch (_error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer le marque-page",
+        variant: "destructive",
+      })
+    }
   }
 
-  const clearAllBookmarks = () => {
-    setBookmarks([])
-    setOpen(false)
+  const clearAllBookmarks = async () => {
+    try {
+      await deleteAllBookmarks()
+      setBookmarks([])
+      setOpen(false)
+      toast({
+        title: "Marque-pages supprimés",
+        description: "Tous les marque-pages ont été supprimés",
+      })
+    } catch (_error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer les marque-pages",
+        variant: "destructive",
+      })
+    }
   }
 
   // Grouper par catégorie
@@ -77,7 +100,7 @@ export function BookmarksDropdown() {
     }
     acc[category].push(bookmark)
     return acc
-  }, {} as Record<string, Bookmark[]>)
+  }, {} as Record<string, BookmarkType[]>)
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -101,7 +124,12 @@ export function BookmarksDropdown() {
           )}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {!hasBookmarks ? (
+        {isLoading ? (
+          <div className="py-8 text-center">
+            <Loader2 className="h-8 w-8 mx-auto text-muted-foreground mb-2 animate-spin" />
+            <p className="text-sm text-muted-foreground">Chargement...</p>
+          </div>
+        ) : !hasBookmarks ? (
           <div className="py-8 text-center">
             <StarOff className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
             <p className="text-sm text-muted-foreground">Aucun marquepage</p>
@@ -123,7 +151,7 @@ export function BookmarksDropdown() {
                     className="flex items-center justify-between cursor-pointer"
                   >
                     <div className="flex items-center gap-2 flex-1">
-                      {bookmark.icon}
+                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                       <span className="text-sm truncate">{bookmark.title}</span>
                     </div>
                     <div className="flex items-center gap-1">

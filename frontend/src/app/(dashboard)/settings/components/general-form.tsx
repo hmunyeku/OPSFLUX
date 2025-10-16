@@ -1112,7 +1112,7 @@ export default function GeneralForm() {
         ),
       },
     ],
-    [form, recentlyModified]
+    [form, recentlyModified, categoryFilter]
   )
 
   // Get all unique categories

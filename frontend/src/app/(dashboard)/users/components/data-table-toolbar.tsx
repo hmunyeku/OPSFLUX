@@ -7,12 +7,14 @@ import { Input } from "@/components/ui/input"
 import { userTypes } from "../data/data"
 import { DataTableFacetedFilter } from "./data-table-faceted-filter"
 import { DataTableViewOptions } from "./data-table-view-options"
+import { UserPrimaryActions } from "./user-primary-actions"
 
 interface Props<TData> {
   table: Table<TData>
+  onUserCreated?: () => void
 }
 
-export function DataTableToolbar<TData>({ table }: Props<TData>) {
+export function DataTableToolbar<TData>({ table, onUserCreated }: Props<TData>) {
   const isFiltered = table.getState().columnFilters.length > 0
 
   return (
@@ -58,7 +60,10 @@ export function DataTableToolbar<TData>({ table }: Props<TData>) {
           </Button>
         )}
       </div>
-      <DataTableViewOptions table={table} />
+      <div className="flex items-center gap-2">
+        <UserPrimaryActions onUserCreated={onUserCreated} />
+        <DataTableViewOptions table={table} />
+      </div>
     </div>
   )
 }

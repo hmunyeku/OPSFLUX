@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
-import { UserPrimaryActions } from "./user-primary-actions"
 import { columns } from "./users-columns"
 import { UsersStats } from "./users-stats"
 import { UsersTable } from "./users-table"
@@ -48,13 +47,9 @@ export function UsersSection() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-end">
-        <UserPrimaryActions onUserCreated={loadUsers} />
-      </div>
-
       <UsersStats users={users} />
 
-      <UsersTable data={users} columns={columns} />
+      <UsersTable data={users} columns={columns} onUserCreated={loadUsers} />
     </div>
   )
 }

@@ -11,7 +11,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
 
   useEffect(() => {
-    // Ne rien faire pendant la déconnexion
+    // Ne rien faire pendant le chargement initial ou la déconnexion
     if (isLoading || isLoggingOut) return
 
     const isPublicPath = publicPaths.some((path) => pathname.startsWith(path))
@@ -31,6 +31,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Afficher un loader pendant la vérification ou la déconnexion
   if (isLoading || isLoggingOut) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    )
+  }
+
+  // Vérification critique: bloquer le rendu des pages protégées si pas authentifié
+  const isPublicPath = publicPaths.some((path) => pathname.startsWith(path))
+
+  if (!isAuthenticated && !isPublicPath) {
+    // Ne rien afficher pendant la redirection
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />

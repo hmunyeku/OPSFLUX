@@ -492,3 +492,8 @@ class TasksPublic(SQLModel):
     """Model for list of tasks"""
     data: list[TaskPublic]
     count: int
+
+
+# NOTE: Les modèles des modules sont chargés dynamiquement par le ModuleLoader au démarrage
+# Voir: app/core/module_loader.py
+# Ne PAS importer de modèles de modules ici.

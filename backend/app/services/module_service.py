@@ -735,6 +735,20 @@ class ModuleManager:
             raise HTTPException(status_code=500, detail=f"Uninstall failed: {str(e)}")
 
     @staticmethod
+    def get_active_modules(session: Session) -> list[Module]:
+        """
+        Retourne la liste des modules activés.
+
+        Args:
+            session: Session DB
+
+        Returns:
+            Liste des modules avec status ACTIVE
+        """
+        statement = select(Module).where(Module.status == ModuleStatus.ACTIVE)
+        return list(session.exec(statement).all())
+
+    @staticmethod
     def get_module_stats(session: Session) -> dict:
         """
         Retourne des statistiques sur les modules.

@@ -205,24 +205,19 @@ export const sidebarData: SidebarData = {
           icon: IconUsers,
           items: [
             {
-              title: "Liste d'utilisateurs",
+              title: "Comptes",
               icon: IconUser,
               url: "/users",
             },
             {
-              title: "Groupes d'utilisateurs",
+              title: "Groupes",
               icon: IconUsersGroup,
               url: "/users/groups",
             },
             {
-              title: "Rôles",
+              title: "Rôles & Permissions",
               icon: IconShield,
-              url: "/users/roles",
-            },
-            {
-              title: "Permissions",
-              icon: IconKey,
-              url: "/users/permissions",
+              url: "/users/rbac",
             },
           ],
         },

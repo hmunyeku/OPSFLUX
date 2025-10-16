@@ -115,7 +115,8 @@
       "Bash(grep:*)",
       "Bash(tail:*)",
       "Bash(xargs:*)",
-      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzMTQ0OTcsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.coCEGT1c1QOLbYZ0lzRAoZOSBiRzdQ7K3hYNesuECZI\" curl -s -X GET \"http://localhost:8000/api/v1/users/?skip=0&limit=10&with_rbac=true\" -H \"Authorization: Bearer $TOKEN\")"
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzMTQ0OTcsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.coCEGT1c1QOLbYZ0lzRAoZOSBiRzdQ7K3hYNesuECZI\" curl -s -X GET \"http://localhost:8000/api/v1/users/?skip=0&limit=10&with_rbac=true\" -H \"Authorization: Bearer $TOKEN\")",
+      "Read(//etc/dokploy/**)"
     ],
     "deny": [],
     "ask": []

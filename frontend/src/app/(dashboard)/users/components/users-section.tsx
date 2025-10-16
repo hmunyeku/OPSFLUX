@@ -33,15 +33,21 @@ export function UsersSection() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-10 w-full" />
+      <div className="space-y-6">
+        <Skeleton className="h-10 w-40 ml-auto" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+        </div>
         <Skeleton className="h-[500px] w-full" />
       </div>
     )
   }
 
   return (
-    <>
+    <div className="flex flex-col gap-6">
       <div className="flex items-center justify-end">
         <UserPrimaryActions onUserCreated={loadUsers} />
       </div>
@@ -49,6 +55,6 @@ export function UsersSection() {
       <UsersStats users={users} />
 
       <UsersTable data={users} columns={columns} />
-    </>
+    </div>
   )
 }

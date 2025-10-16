@@ -15,25 +15,27 @@ import { UsersSection } from "./components/users-section"
 export default function UsersPage() {
   return (
     <PermissionGuard permission="users.read">
-      <div className="mb-6 flex flex-col gap-4">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link href="/">Accueil</Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>Utilisateurs</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-2">
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link href="/">Accueil</Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Utilisateurs</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
 
-        <h2 className="text-2xl font-bold tracking-tight">Gestion des utilisateurs</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Gestion des utilisateurs</h2>
+        </div>
+
+        <UsersSection />
       </div>
-
-      <UsersSection />
     </PermissionGuard>
   )
 }

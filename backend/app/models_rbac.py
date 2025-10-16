@@ -5,7 +5,7 @@ Gestion complète des permissions, rôles, et groupes avec tags pour l'affichage
 
 import uuid
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from enum import Enum
 
 from sqlmodel import Field, Relationship, SQLModel, Column, String
@@ -13,6 +13,9 @@ from sqlalchemy import Index, UniqueConstraint, Table, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.core.models import AbstractBaseModel
+
+if TYPE_CHECKING:
+    from app.models import User
 
 
 class PermissionSource(str, Enum):
@@ -157,6 +160,7 @@ class Role(AbstractBaseModel, RoleBase, table=True):
 
     # Relations
     permissions: List[Permission] = Relationship(back_populates="roles", link_model=RolePermissionLink)
+    users: List["User"] = Relationship(link_model=UserRoleLink)
 
 
 class RolePublic(RoleBase):
@@ -211,6 +215,7 @@ class Group(AbstractBaseModel, GroupBase, table=True):
 
     # Relations
     permissions: List[Permission] = Relationship(back_populates="groups", link_model=GroupPermissionLink)
+    users: List["User"] = Relationship(link_model=UserGroupLink)
     parent: Optional["Group"] = Relationship(
         sa_relationship_kwargs={"remote_side": "Group.id", "foreign_keys": "[Group.parent_id]"}
     )

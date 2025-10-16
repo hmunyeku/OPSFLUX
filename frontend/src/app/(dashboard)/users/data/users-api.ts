@@ -31,6 +31,11 @@ function mapUserFromBackend(user: any): User {
     updatedAt: now,
     roles: user.roles || [],
     groups: user.groups || [],
+    // Nouveaux champs
+    civility: user.civility,
+    birthDate: user.birth_date,
+    extension: user.extension,
+    signature: user.signature,
   }
 }
 

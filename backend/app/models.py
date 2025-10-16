@@ -1,11 +1,14 @@
 import uuid
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import Column, JSON
 from sqlmodel import Field, Relationship, SQLModel
 
 from app.core.models import AbstractBaseModel
+
+if TYPE_CHECKING:
+    from app.models_rbac import Role, Group, UserRoleLink, UserGroupLink
 
 
 # Shared properties
@@ -20,6 +23,11 @@ class UserBase(SQLModel):
     recovery_email: EmailStr | None = Field(default=None, max_length=255)
     avatar_url: str | None = Field(default=None)
     intranet_identifier: str | None = Field(default=None, max_length=255)
+    # Nouveaux champs demandés
+    civility: str | None = Field(default=None, max_length=10, description="M., Mme, Dr., etc.")
+    birth_date: str | None = Field(default=None, description="Date de naissance (ISO format)")
+    extension: str | None = Field(default=None, max_length=20, description="Extension téléphonique")
+    signature: str | None = Field(default=None, max_length=500, description="Signature de l'utilisateur")
 
 
 # Properties to receive via API on creation
@@ -51,6 +59,10 @@ class UserUpdateMe(SQLModel):
     avatar_url: str | None = Field(default=None)
     phone_numbers: list[str] | None = Field(default=None)
     intranet_identifier: str | None = Field(default=None, max_length=255)
+    civility: str | None = Field(default=None, max_length=10)
+    birth_date: str | None = Field(default=None)
+    extension: str | None = Field(default=None, max_length=20)
+    signature: str | None = Field(default=None, max_length=500)
 
 
 class UpdatePassword(SQLModel):
@@ -75,8 +87,8 @@ class User(AbstractBaseModel, UserBase, table=True):
     webhooks: list["Webhook"] = Relationship(back_populates="user", cascade_delete=True)
     tasks: list["Task"] = Relationship(back_populates="assigned_user")
 
-    # RBAC relationships are managed separately via RBAC endpoints
-    # to avoid circular import issues with link models
+    # RBAC relationships are managed via RBAC routes, not directly here
+    # to avoid circular import issues. The relationships are defined in models_rbac.
 
 
 # Properties to return via API, id is always required

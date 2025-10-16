@@ -9,6 +9,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -138,19 +144,20 @@ export function ManagePermissionsDialog({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="overflow-y-auto sm:max-w-[700px] max-h-[80vh]">
-        <SheetHeader>
+      <SheetContent className="w-full sm:max-w-2xl flex flex-col p-0">
+        <SheetHeader className="px-6 py-4 border-b">
           <SheetTitle>Gérer les permissions - {roleName}</SheetTitle>
           <SheetDescription>
             Sélectionnez les permissions à assigner à ce rôle
           </SheetDescription>
         </SheetHeader>
 
-        <div className="space-y-4 mt-6">
+        <div className="flex-1 flex flex-col overflow-hidden px-6 py-4">
           <Input
             placeholder="Rechercher une permission..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            className="mb-4"
           />
 
           {isLoading ? (
@@ -158,8 +165,8 @@ export function ManagePermissionsDialog({
               Chargement des permissions...
             </div>
           ) : (
-            <ScrollArea className="h-[400px] pr-4">
-              <div className="space-y-6">
+            <ScrollArea className="flex-1 pr-4">
+              <Accordion type="multiple" className="space-y-2">
                 {Object.entries(groupedPermissions).map(([module, perms]) => {
                   const moduleSelectedCount = perms.filter((p) =>
                     selectedIds.has(p.id)
@@ -169,12 +176,17 @@ export function ManagePermissionsDialog({
                   )
 
                   return (
-                    <div key={module} className="space-y-3">
-                      <div className="flex items-center justify-between sticky top-0 bg-background pb-2 border-b">
-                        <div className="flex items-center gap-2">
+                    <AccordionItem
+                      key={module}
+                      value={module}
+                      className="border rounded-lg px-4"
+                    >
+                      <AccordionTrigger className="hover:no-underline py-3">
+                        <div className="flex items-center gap-3 flex-1">
                           <Checkbox
                             checked={allModuleSelected}
                             onCheckedChange={() => toggleAllInModule(perms)}
+                            onClick={(e) => e.stopPropagation()}
                           />
                           <h3 className="font-semibold capitalize text-sm">
                             {module}
@@ -183,56 +195,58 @@ export function ManagePermissionsDialog({
                             {moduleSelectedCount}/{perms.length}
                           </Badge>
                         </div>
-                      </div>
+                      </AccordionTrigger>
 
-                      <div className="space-y-2 pl-6">
-                        {perms.map((permission) => (
-                          <div
-                            key={permission.id}
-                            className="flex items-start gap-3 p-2 rounded-md hover:bg-muted/50 transition-colors"
-                          >
-                            <Checkbox
-                              checked={selectedIds.has(permission.id)}
-                              onCheckedChange={() =>
-                                togglePermission(permission.id)
-                              }
-                              className="mt-1"
-                            />
-                            <div className="flex-1 space-y-1">
-                              <div className="flex items-center gap-2">
-                                <p className="font-medium text-sm">
-                                  {permission.name}
+                      <AccordionContent className="pb-3">
+                        <div className="space-y-2 pl-6 pt-2">
+                          {perms.map((permission) => (
+                            <div
+                              key={permission.id}
+                              className="flex items-start gap-3 p-2 rounded-md hover:bg-muted/50 transition-colors"
+                            >
+                              <Checkbox
+                                checked={selectedIds.has(permission.id)}
+                                onCheckedChange={() =>
+                                  togglePermission(permission.id)
+                                }
+                                className="mt-1"
+                              />
+                              <div className="flex-1 space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium text-sm">
+                                    {permission.name}
+                                  </p>
+                                  {permission.is_default && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs"
+                                    >
+                                      Par défaut
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground font-mono">
+                                  {permission.code}
                                 </p>
-                                {permission.is_default && (
-                                  <Badge
-                                    variant="outline"
-                                    className="text-xs"
-                                  >
-                                    Par défaut
-                                  </Badge>
+                                {permission.description && (
+                                  <p className="text-xs text-muted-foreground">
+                                    {permission.description}
+                                  </p>
                                 )}
                               </div>
-                              <p className="text-xs text-muted-foreground font-mono">
-                                {permission.code}
-                              </p>
-                              {permission.description && (
-                                <p className="text-xs text-muted-foreground">
-                                  {permission.description}
-                                </p>
-                              )}
                             </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                          ))}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
                   )
                 })}
-              </div>
+              </Accordion>
             </ScrollArea>
           )}
         </div>
 
-        <SheetFooter className="mt-6">
+        <SheetFooter className="px-6 py-4 border-t mt-auto">
           <div className="flex items-center justify-between w-full">
             <p className="text-sm text-muted-foreground">
               {selectedIds.size} permission(s) sélectionnée(s)

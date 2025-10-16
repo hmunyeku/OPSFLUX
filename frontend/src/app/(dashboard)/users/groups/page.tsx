@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import Link from "next/link"
 import {
   Breadcrumb,
@@ -16,15 +16,7 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import { Search, Users, FolderTree, Shield, Plus, Edit, Trash2, MoreVertical } from "lucide-react"
+import { Search, Users, FolderTree, Shield, Plus, Edit, Trash2, MoreVertical, Key, UserCheck } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -111,6 +103,34 @@ export default function GroupsPage() {
     group.description?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
+  // Calculate statistics
+  const stats = useMemo(() => {
+    const totalUsers = groups.reduce((acc, group) => acc + (group.users_count || 0), 0)
+    const totalPermissions = groups.reduce((acc, group) => acc + (group.permissions?.length || 0), 0)
+    const groupsWithPermissions = groups.filter(g => g.permissions && g.permissions.length > 0).length
+
+    return {
+      totalGroups: groups.length,
+      totalUsers,
+      totalPermissions,
+      groupsWithPermissions,
+    }
+  }, [groups])
+
+  // Group permissions by module
+  const permissionsByModule = useMemo(() => {
+    if (!selectedGroup?.permissions) return {}
+
+    return selectedGroup.permissions.reduce((acc, permission) => {
+      const moduleName = permission.module || 'Autre'
+      if (!acc[moduleName]) {
+        acc[moduleName] = []
+      }
+      acc[moduleName].push(permission)
+      return acc
+    }, {} as Record<string, typeof selectedGroup.permissions>)
+  }, [selectedGroup])
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -155,6 +175,58 @@ export default function GroupsPage() {
         </div>
       </div>
 
+      {/* Statistics Cards */}
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Groupes</CardTitle>
+            <FolderTree className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalGroups}</div>
+            <p className="text-xs text-muted-foreground">
+              {stats.groupsWithPermissions} avec permissions
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Utilisateurs</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalUsers}</div>
+            <p className="text-xs text-muted-foreground">
+              Dans tous les groupes
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Permissions</CardTitle>
+            <Shield className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalPermissions}</div>
+            <p className="text-xs text-muted-foreground">
+              Assignées aux groupes
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Groupes Actifs</CardTitle>
+            <UserCheck className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.groupsWithPermissions}</div>
+            <p className="text-xs text-muted-foreground">
+              Avec accès configurés
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="grid gap-6 md:grid-cols-[350px_1fr]">
         {/* Left Panel - Groups Tree */}
         <Card>
@@ -190,8 +262,8 @@ export default function GroupsPage() {
                   filteredGroups.map((group) => (
                     <div
                       key={group.id}
-                      className={`group/item rounded-lg border p-3 transition-colors hover:bg-accent ${
-                        selectedGroup?.id === group.id ? "border-primary bg-accent" : ""
+                      className={`group/item rounded-lg border p-3 transition-all hover:shadow-sm ${
+                        selectedGroup?.id === group.id ? "border-primary bg-accent shadow-sm" : ""
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
@@ -200,7 +272,7 @@ export default function GroupsPage() {
                           onClick={() => setSelectedGroup(group)}
                         >
                           <div className="flex items-center gap-2">
-                            <Users className="h-4 w-4 text-muted-foreground" />
+                            <FolderTree className="h-4 w-4 text-primary" />
                             <p className="font-medium leading-none">{group.name}</p>
                           </div>
                           {group.description && (
@@ -355,33 +427,52 @@ export default function GroupsPage() {
                   </div>
                 </div>
 
-                {/* Permissions Table */}
+                {/* Permissions by Module */}
                 <div>
-                  <h3 className="mb-4 font-semibold">Permissions du groupe</h3>
+                  <div className="mb-4 flex items-center justify-between">
+                    <h3 className="font-semibold">Permissions du groupe</h3>
+                    {selectedGroup.permissions && selectedGroup.permissions.length > 0 && (
+                      <Badge variant="secondary">
+                        {selectedGroup.permissions.length} permission(s)
+                      </Badge>
+                    )}
+                  </div>
                   {selectedGroup.permissions && selectedGroup.permissions.length > 0 ? (
-                    <div className="rounded-lg border">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Nom de la permission</TableHead>
-                            <TableHead>Description</TableHead>
-                            <TableHead className="w-[100px]">Type</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {selectedGroup.permissions.map((permission) => (
-                            <TableRow key={permission.id}>
-                              <TableCell className="font-medium">{permission.name}</TableCell>
-                              <TableCell className="text-muted-foreground">
-                                {permission.description || "-"}
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant="outline">{permission.module}</Badge>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                    <div className="space-y-4">
+                      {Object.entries(permissionsByModule).map(([moduleName, permissions]) => (
+                        <div key={moduleName} className="rounded-lg border">
+                          <div className="border-b bg-muted/50 px-4 py-2">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-sm font-medium">{moduleName}</h4>
+                              <Badge variant="outline" className="text-xs">
+                                {permissions.length}
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="p-4">
+                            <div className="grid gap-3">
+                              {permissions.map((permission) => (
+                                <div
+                                  key={permission.id}
+                                  className="flex items-start gap-3 rounded-lg border p-3 hover:bg-accent/50 transition-colors"
+                                >
+                                  <Key className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                                  <div className="flex-1 space-y-1">
+                                    <p className="text-sm font-medium leading-none">
+                                      {permission.name}
+                                    </p>
+                                    {permission.description && (
+                                      <p className="text-xs text-muted-foreground">
+                                        {permission.description}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   ) : (
                     <div className="rounded-lg border p-8 text-center">

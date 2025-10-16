@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { z } from "zod"
 import { format } from "date-fns"
+import { fr } from "date-fns/locale"
 import { useForm } from "react-hook-form"
 import { CalendarIcon } from "@radix-ui/react-icons"
 import {
@@ -163,7 +164,7 @@ export function AddNewCard() {
                           )}
                         >
                           {field.value ? (
-                            format(field.value, "PPP", { locale: require('date-fns/locale/fr') })
+                            format(field.value, "PPP", { locale: fr })
                           ) : (
                             <span>Choisir une date</span>
                           )}

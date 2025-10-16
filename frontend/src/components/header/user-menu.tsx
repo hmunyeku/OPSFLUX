@@ -90,13 +90,13 @@ export function UserMenu() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => handleNavigate("/settings/profile")}>
+        <DropdownMenuItem onClick={() => handleNavigate("/settings/profile?tab=profile")}>
           <User className="mr-2 h-4 w-4" />
           <span>Mon profil</span>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleNavigate("/settings")}>
+        <DropdownMenuItem onClick={() => handleNavigate("/settings/profile?tab=informations")}>
           <Settings className="mr-2 h-4 w-4" />
-          <span>Paramètres</span>
+          <span>Informations</span>
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => handleNavigate("/settings/profile?tab=preferences")}>
           <Palette className="mr-2 h-4 w-4" />
@@ -108,7 +108,7 @@ export function UserMenu() {
             <span>Intranet</span>
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem onClick={() => handleNavigate("/settings/profile?tab=preferences#security")}>
+        <DropdownMenuItem onClick={() => handleNavigate("/settings/profile?tab=profile")}>
           <Shield className="mr-2 h-4 w-4" />
           <span>Sécurité (2FA)</span>
         </DropdownMenuItem>

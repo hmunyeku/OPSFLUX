@@ -1,5 +1,6 @@
 "use client"
 
+import { useSearchParams } from "next/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import ContentSection from "../components/content-section"
 import { AccountForm } from "./profile-form"
@@ -7,9 +8,12 @@ import { PreferencesTab } from "./preferences-tab"
 import { InformationsTab } from "./informations-tab"
 
 export default function SettingsProfilePage() {
+  const searchParams = useSearchParams()
+  const tab = searchParams.get("tab") || "profile"
+
   return (
     <ContentSection title="Profil" desc="Mettez à jour les détails de votre profil et vos préférences." className="w-full lg:max-w-full">
-      <Tabs defaultValue="profile" className="w-full">
+      <Tabs defaultValue={tab} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="profile">Profil</TabsTrigger>
           <TabsTrigger value="preferences">Préférences</TabsTrigger>

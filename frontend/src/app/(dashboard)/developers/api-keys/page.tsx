@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { format } from "date-fns"
 import { Terminal, Trash2, Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
+import { PermissionGuard } from "@/components/permission-guard"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -106,7 +107,7 @@ export default function ApiKeysPage() {
   )
 
   return (
-    <>
+    <PermissionGuard permission="api_keys.read">
       <div className="flex w-full flex-col gap-2">
         <Breadcrumb>
           <BreadcrumbList>
@@ -331,6 +332,6 @@ export default function ApiKeysPage() {
           </div>
         </TabsContent>
       </Tabs>
-    </>
+    </PermissionGuard>
   )
 }

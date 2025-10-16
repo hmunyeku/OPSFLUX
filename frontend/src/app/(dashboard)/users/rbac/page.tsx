@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react"
 import Link from "next/link"
+import { PermissionGuard } from "@/components/permission-guard"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -144,7 +145,7 @@ export default function RBACPage() {
   }
 
   return (
-    <>
+    <PermissionGuard permission="roles.read">
       <div className="mb-6 flex flex-col gap-4">
         <Breadcrumb>
           <BreadcrumbList>
@@ -535,6 +536,6 @@ export default function RBACPage() {
           />
         </>
       )}
-    </>
+    </PermissionGuard>
   )
 }

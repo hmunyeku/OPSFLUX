@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
+import { PermissionGuard } from "@/components/permission-guard"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -66,7 +67,7 @@ export default function UserDetailPage() {
   }
 
   return (
-    <div>
+    <PermissionGuard permission="users.read">
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
@@ -104,6 +105,6 @@ export default function UserDetailPage() {
         <UserDetailForm user={user} />
         <UserPermissionsCard userId={user.id} />
       </div>
-    </div>
+    </PermissionGuard>
   )
 }

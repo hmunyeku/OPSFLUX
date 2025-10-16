@@ -9,11 +9,12 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
+import { PermissionGuard } from "@/components/permission-guard"
 import { UsersSection } from "./components/users-section"
 
 export default function UsersPage() {
   return (
-    <>
+    <PermissionGuard permission="users.read">
       <div className="mb-6 flex flex-col gap-4">
         <Breadcrumb>
           <BreadcrumbList>
@@ -33,6 +34,6 @@ export default function UsersPage() {
       </div>
 
       <UsersSection />
-    </>
+    </PermissionGuard>
   )
 }

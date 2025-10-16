@@ -29,12 +29,7 @@ export default function UsersPage() {
           </BreadcrumbList>
         </Breadcrumb>
 
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Gestion des utilisateurs</h2>
-          <p className="text-sm text-muted-foreground">
-            Gérez les comptes utilisateurs de votre organisation
-          </p>
-        </div>
+        <h2 className="text-2xl font-bold tracking-tight">Gestion des utilisateurs</h2>
       </div>
 
       <UsersSection />

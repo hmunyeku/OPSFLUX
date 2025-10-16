@@ -140,12 +140,7 @@ export default function RBACPage() {
         </Breadcrumb>
 
         <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight">Rôles & Permissions</h2>
-            <p className="text-sm text-muted-foreground">
-              Gérez les rôles et les permissions de votre système RBAC
-            </p>
-          </div>
+          <h2 className="text-2xl font-bold tracking-tight">Rôles & Permissions</h2>
           <Button onClick={() => setIsCreateDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Créer un rôle

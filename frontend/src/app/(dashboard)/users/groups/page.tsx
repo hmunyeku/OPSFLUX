@@ -147,12 +147,7 @@ export default function GroupsPage() {
         </Breadcrumb>
 
         <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight">Groupes d&apos;utilisateurs</h2>
-            <p className="text-sm text-muted-foreground">
-              Organisez vos utilisateurs en groupes avec des permissions communes
-            </p>
-          </div>
+          <h2 className="text-2xl font-bold tracking-tight">Groupes d&apos;utilisateurs</h2>
           <Button onClick={() => setIsCreateDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Créer un groupe

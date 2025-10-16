@@ -24,15 +24,15 @@ import { TwoFactorVerificationModal } from "@/components/two-factor-verification
 const formSchema = z.object({
   email: z
     .string()
-    .min(1, { message: "Please enter your email" })
-    .email({ message: "Invalid email address" }),
+    .min(1, { message: "Veuillez entrer votre email" })
+    .email({ message: "Adresse email invalide" }),
   password: z
     .string()
     .min(1, {
-      message: "Please enter your password",
+      message: "Veuillez entrer votre mot de passe",
     })
     .min(7, {
-      message: "Password must be at least 7 characters long",
+      message: "Le mot de passe doit contenir au moins 7 caractères",
     }),
 })
 
@@ -60,14 +60,14 @@ export function UserAuthForm({
       // Si le 2FA n'est pas requis, le hook redirigera automatiquement
       if (!twoFactorRequired) {
         toast({
-          title: "Success",
-          description: "You have been logged in successfully",
+          title: "Succès",
+          description: "Vous êtes connecté avec succès",
         })
       }
     } catch (error) {
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Invalid credentials",
+        title: "Erreur",
+        description: error instanceof Error ? error.message : "Identifiants invalides",
         variant: "destructive",
       })
     } finally {
@@ -79,13 +79,13 @@ export function UserAuthForm({
     try {
       await verify2FA(code, method)
       toast({
-        title: "Success",
-        description: "You have been logged in successfully",
+        title: "Succès",
+        description: "Vous êtes connecté avec succès",
       })
     } catch (error) {
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Invalid 2FA code",
+        title: "Erreur",
+        description: error instanceof Error ? error.message : "Code 2FA invalide",
         variant: "destructive",
       })
       throw error // Re-throw pour que le modal garde l'état de chargement
@@ -121,12 +121,12 @@ export function UserAuthForm({
               render={({ field }) => (
                 <FormItem className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <FormLabel>Password</FormLabel>
+                    <FormLabel>Mot de passe</FormLabel>
                     <Link
                       href="/forgot-password"
                       className="text-muted-foreground text-sm font-medium hover:opacity-75"
                     >
-                      Forgot password?
+                      Mot de passe oublié ?
                     </Link>
                   </div>
                   <FormControl>
@@ -137,7 +137,7 @@ export function UserAuthForm({
               )}
             />
             <Button className="mt-2" disabled={isLoading}>
-              {isLoading ? "Logging in..." : "Login"}
+              {isLoading ? "Connexion..." : "Se connecter"}
             </Button>
           </div>
         </form>

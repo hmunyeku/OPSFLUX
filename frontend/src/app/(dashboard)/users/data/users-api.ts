@@ -15,8 +15,12 @@ function getAuthHeaders() {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapUserFromBackend(user: any): User {
-  // Utiliser une date par défaut si les champs n'existent pas
-  const now = new Date()
+  // Parse dates from backend or use current date as fallback
+  const parseDate = (dateString: string | undefined | null): Date => {
+    if (!dateString) return new Date()
+    const parsed = new Date(dateString)
+    return isNaN(parsed.getTime()) ? new Date() : parsed
+  }
 
   return {
     id: user.id,
@@ -26,9 +30,9 @@ function mapUserFromBackend(user: any): User {
     phoneNumber: user.phone_numbers?.[0] || '',
     status: user.is_active ? 'active' : 'inactive',
     role: user.is_superuser ? 'superadmin' : 'admin',
-    createdAt: now,
-    lastLoginAt: now,
-    updatedAt: now,
+    createdAt: parseDate(user.created_at),
+    lastLoginAt: parseDate(user.last_login_at),
+    updatedAt: parseDate(user.updated_at),
     roles: user.roles || [],
     groups: user.groups || [],
     // Nouveaux champs

@@ -15,7 +15,7 @@ import { UsersSection } from "./components/users-section"
 export default function UsersPage() {
   return (
     <PermissionGuard permission="users.read">
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
           <Breadcrumb>
             <BreadcrumbList>

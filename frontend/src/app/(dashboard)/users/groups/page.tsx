@@ -24,7 +24,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Search, Users, FolderTree, Shield, Plus, Edit, Trash2 } from "lucide-react"
+import { Search, Users, FolderTree, Shield, Plus, Edit, Trash2, MoreVertical } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Group } from "./data/schema"
 import { getGroups } from "./data/groups-api"
 import { CreateGroupDialog } from "./components/create-group-dialog"
@@ -56,6 +63,23 @@ export default function GroupsPage() {
       console.error('Failed to load groups:', error)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const refreshGroups = async () => {
+    try {
+      const data = await getGroups(true)
+      setGroups(data)
+      // Update selected group with fresh data
+      if (selectedGroup) {
+        const updatedGroup = data.find(g => g.id === selectedGroup.id)
+        if (updatedGroup) {
+          setSelectedGroup(updatedGroup)
+        }
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to refresh groups:', error)
     }
   }
 
@@ -171,13 +195,15 @@ export default function GroupsPage() {
                   filteredGroups.map((group) => (
                     <div
                       key={group.id}
-                      onClick={() => setSelectedGroup(group)}
-                      className={`cursor-pointer rounded-lg border p-3 transition-colors hover:bg-accent ${
+                      className={`group/item rounded-lg border p-3 transition-colors hover:bg-accent ${
                         selectedGroup?.id === group.id ? "border-primary bg-accent" : ""
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 space-y-1">
+                        <div
+                          className="flex-1 space-y-1 cursor-pointer"
+                          onClick={() => setSelectedGroup(group)}
+                        >
                           <div className="flex items-center gap-2">
                             <Users className="h-4 w-4 text-muted-foreground" />
                             <p className="font-medium leading-none">{group.name}</p>
@@ -196,6 +222,60 @@ export default function GroupsPage() {
                             </Badge>
                           </div>
                         </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 opacity-0 group-hover/item:opacity-100 transition-opacity"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setSelectedGroup(group)
+                              }}
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                              <span className="sr-only">Actions</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setSelectedGroup(group)
+                                handleManagePermissions()
+                              }}
+                            >
+                              <Shield className="mr-2 h-4 w-4" />
+                              Gérer les permissions
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setSelectedGroup(group)
+                                handleEditGroup()
+                              }}
+                            >
+                              <Edit className="mr-2 h-4 w-4" />
+                              Modifier le groupe
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => setIsCreateDialogOpen(true)}
+                            >
+                              <Plus className="mr-2 h-4 w-4" />
+                              Créer un sous-groupe
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => {
+                                setSelectedGroup(group)
+                                handleDeleteGroup()
+                              }}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Supprimer le groupe
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                   ))
@@ -347,14 +427,14 @@ export default function GroupsPage() {
             groupId={selectedGroup.id}
             groupName={selectedGroup.name}
             currentPermissions={selectedGroup.permissions || []}
-            onSuccess={loadGroups}
+            onSuccess={refreshGroups}
           />
           <EditGroupDialog
             open={isEditDialogOpen}
             onOpenChange={setIsEditDialogOpen}
             group={selectedGroup}
             groups={groups}
-            onSuccess={loadGroups}
+            onSuccess={refreshGroups}
           />
           <DeleteGroupDialog
             open={isDeleteDialogOpen}

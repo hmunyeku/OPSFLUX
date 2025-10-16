@@ -4,6 +4,7 @@ from fastapi.routing import APIRoute
 from starlette.middleware.cors import CORSMiddleware
 
 from app.api.main import api_router
+from app.core.audit_middleware import AuditLogMiddleware
 from app.core.config import settings
 
 
@@ -29,5 +30,8 @@ if settings.all_cors_origins:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+# Add audit logging middleware
+app.add_middleware(AuditLogMiddleware)
 
 app.include_router(api_router, prefix=settings.API_V1_STR)

@@ -125,7 +125,10 @@
       "Bash(git checkout:*)",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEyNTAwNzUsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.Et44XWmKE_rzk0UQ-5T4CsKCOTaLEFiYd-LWpg8UAdo\" curl -s -X GET http://localhost:8000/api/v1/hooks/ -H \"Authorization: Bearer $TOKEN\" -H \"Content-Type: application/json\")",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzMTQ0OTcsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.coCEGT1c1QOLbYZ0lzRAoZOSBiRzdQ7K3hYNesuECZI\" curl -s -X GET \"http://localhost:8000/api/v1/hooks/\" -H \"Authorization: Bearer $TOKEN\")",
-      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzMTQ0OTcsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.coCEGT1c1QOLbYZ0lzRAoZOSBiRzdQ7K3hYNesuECZI\" curl -s -X GET \"http://localhost:8000/api/v1/modules/\" -H \"Authorization: Bearer $TOKEN\")"
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzMTQ0OTcsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.coCEGT1c1QOLbYZ0lzRAoZOSBiRzdQ7K3hYNesuECZI\" curl -s -X GET \"http://localhost:8000/api/v1/modules/\" -H \"Authorization: Bearer $TOKEN\")",
+      "Bash(zip:*)",
+      "Bash(apt-get update:*)",
+      "Bash(apt-get install:*)"
     ],
     "deny": [],
     "ask": []

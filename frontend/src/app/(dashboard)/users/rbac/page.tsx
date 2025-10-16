@@ -25,6 +25,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Search, Shield, Key, Plus, Edit, Trash2, MoreVertical, Lock, Unlock } from "lucide-react"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 import { Role } from "../roles/data/schema"
 import { getRoles } from "../roles/data/roles-api"
 import { CreateRoleDialog } from "../roles/components/create-role-dialog"
@@ -446,18 +452,21 @@ export default function RBACPage() {
                     )}
                   </div>
                   {selectedRole.permissions && selectedRole.permissions.length > 0 ? (
-                    <div className="space-y-4">
+                    <Accordion type="multiple" className="space-y-2">
                       {Object.entries(permissionsByModule).map(([module, permissions]) => (
-                        <div key={module} className="rounded-lg border">
-                          <div className="border-b bg-muted/50 px-4 py-2">
-                            <div className="flex items-center justify-between">
-                              <h4 className="text-sm font-medium">{module}</h4>
+                        <AccordionItem key={module} value={module} className="rounded-lg border">
+                          <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-accent/50 transition-colors">
+                            <div className="flex items-center justify-between w-full pr-4">
+                              <div className="flex items-center gap-2">
+                                <Shield className="h-4 w-4 text-muted-foreground" />
+                                <h4 className="text-sm font-medium">{module}</h4>
+                              </div>
                               <Badge variant="outline" className="text-xs">
-                                {permissions.length}
+                                {permissions.length} permission(s)
                               </Badge>
                             </div>
-                          </div>
-                          <div className="p-4">
+                          </AccordionTrigger>
+                          <AccordionContent className="px-4 pb-4 pt-2">
                             <div className="grid gap-3">
                               {permissions.map((permission) => (
                                 <div
@@ -474,14 +483,19 @@ export default function RBACPage() {
                                         {permission.description}
                                       </p>
                                     )}
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <Badge variant="secondary" className="text-xs">
+                                        {permission.code}
+                                      </Badge>
+                                    </div>
                                   </div>
                                 </div>
                               ))}
                             </div>
-                          </div>
-                        </div>
+                          </AccordionContent>
+                        </AccordionItem>
                       ))}
-                    </div>
+                    </Accordion>
                   ) : (
                     <div className="rounded-lg border p-8 text-center">
                       <Key className="mx-auto h-8 w-8 text-muted-foreground" />

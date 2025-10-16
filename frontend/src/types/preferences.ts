@@ -5,6 +5,8 @@ export interface UserPreferences {
   colorTheme: ThemeName
   darkMode: 'light' | 'dark' | 'system'
   sidebarCollapsed: boolean
+  sidebarVariant: 'floating' | 'inset'
+  fontSize: 'small' | 'normal' | 'large'
 
   // Langue et région
   language: 'en' | 'fr'
@@ -25,6 +27,8 @@ export const defaultPreferences: UserPreferences = {
   colorTheme: 'amethyst-haze',
   darkMode: 'system',
   sidebarCollapsed: false,
+  sidebarVariant: 'inset',
+  fontSize: 'normal',
   language: 'fr',
   timezone: 'Europe/Paris',
   dateFormat: 'DD/MM/YYYY',

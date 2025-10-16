@@ -445,6 +445,41 @@ export function PreferencesTab() {
         </div>
       ),
     },
+    {
+      key: "sidebarVariant",
+      label: "Style de la barre latérale",
+      description: "Choisir entre flottante ou intégrée",
+      category: "Apparence",
+      renderValue: (value, onChange) => (
+        <Select value={value as string} onValueChange={onChange}>
+          <SelectTrigger className="w-[220px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="inset">Intégrée</SelectItem>
+            <SelectItem value="floating">Flottante</SelectItem>
+          </SelectContent>
+        </Select>
+      ),
+    },
+    {
+      key: "fontSize",
+      label: "Taille du texte",
+      description: "Ajuster la taille du texte de l'interface",
+      category: "Apparence",
+      renderValue: (value, onChange) => (
+        <Select value={value as string} onValueChange={onChange}>
+          <SelectTrigger className="w-[220px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="small">Petit</SelectItem>
+            <SelectItem value="normal">Normal</SelectItem>
+            <SelectItem value="large">Grand</SelectItem>
+          </SelectContent>
+        </Select>
+      ),
+    },
     // Langue & Région
     {
       key: "language",

@@ -11,6 +11,7 @@ from app.api.routes import (
     hooks,
     items,
     login,
+    modules,
     notifications,
     permissions,
     private,
@@ -50,6 +51,7 @@ api_router.include_router(hooks.router)  # Hooks & Triggers system
 api_router.include_router(tasks.router)  # Tasks management
 api_router.include_router(bookmarks.router)  # Bookmarks management
 api_router.include_router(audit.router, prefix="/audit", tags=["Audit"])  # Audit logs
+api_router.include_router(modules.router)  # Module management system
 
 
 if settings.ENVIRONMENT == "local":

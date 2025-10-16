@@ -1,5 +1,7 @@
 import type { Hook, HookExecution } from "./schema"
 
+export type { Hook, HookExecution }
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 function getAuthHeaders() {
@@ -58,10 +60,10 @@ export async function createHook(data: {
   is_active?: boolean
   priority?: number
   description?: string
-  conditions?: Record<string, any> | null
+  conditions?: Record<string, unknown> | null
   actions: Array<{
     type: string
-    config: Record<string, any>
+    config: Record<string, unknown>
   }>
 }): Promise<Hook> {
   const response = await fetch(`${API_URL}/api/v1/hooks/`, {
@@ -87,10 +89,10 @@ export async function updateHook(
     is_active: boolean
     priority: number
     description: string
-    conditions: Record<string, any> | null
+    conditions: Record<string, unknown> | null
     actions: Array<{
       type: string
-      config: Record<string, any>
+      config: Record<string, unknown>
     }>
   }>
 ): Promise<Hook> {

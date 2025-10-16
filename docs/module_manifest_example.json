@@ -1,0 +1,419 @@
+{
+  "name": "HSE Reports",
+  "code": "hse",
+  "slug": "hse-reports",
+  "version": "1.0.0",
+  "description": "Gestion complète des incidents et rapports HSE (Health, Safety, Environment)",
+  "long_description": "Module complet pour la gestion des incidents HSE, investigations, actions correctives et préventives. Conforme aux normes internationales ISO 45001.",
+
+  "author": "OpsFlux Team",
+  "author_email": "modules@opsflux.io",
+  "license": "Proprietary",
+  "homepage_url": "https://opsflux.io/modules/hse",
+  "documentation_url": "https://docs.opsflux.io/modules/hse",
+  "repository_url": "https://github.com/opsflux/module-hse",
+
+  "icon": "AlertTriangle",
+  "color": "#EF4444",
+  "category": "business",
+
+  "is_system": false,
+  "is_required": false,
+  "requires_license": true,
+
+  "permissions": [
+    {
+      "code": "hse.view.dashboard",
+      "name": "Voir le tableau de bord HSE",
+      "description": "Accès au dashboard HSE avec statistiques et KPIs",
+      "category": "hse_general"
+    },
+    {
+      "code": "hse.create.incident",
+      "name": "Créer un incident HSE",
+      "description": "Déclarer un nouvel incident ou near-miss",
+      "category": "hse_incident"
+    },
+    {
+      "code": "hse.edit.incident",
+      "name": "Modifier un incident HSE",
+      "description": "Modifier les détails d'un incident existant",
+      "category": "hse_incident"
+    },
+    {
+      "code": "hse.delete.incident",
+      "name": "Supprimer un incident HSE",
+      "description": "Supprimer définitivement un incident",
+      "category": "hse_incident"
+    },
+    {
+      "code": "hse.view.report",
+      "name": "Voir les rapports HSE",
+      "description": "Accès aux rapports et analyses HSE",
+      "category": "hse_report"
+    },
+    {
+      "code": "hse.manage.investigation",
+      "name": "Gérer les investigations",
+      "description": "Conduire et clôturer les investigations HSE",
+      "category": "hse_investigation"
+    }
+  ],
+
+  "menu_items": [
+    {
+      "label": "HSE",
+      "route": "/hse",
+      "icon": "Shield",
+      "order": 100,
+      "permission": "hse.view.dashboard"
+    },
+    {
+      "label": "Dashboard HSE",
+      "route": "/hse/dashboard",
+      "icon": "LayoutDashboard",
+      "order": 101,
+      "permission": "hse.view.dashboard"
+    },
+    {
+      "label": "Incidents",
+      "route": "/hse/incidents",
+      "icon": "AlertTriangle",
+      "order": 102,
+      "permission": "hse.view.incident",
+      "badge_source": "hse.incident_count"
+    },
+    {
+      "label": "Investigations",
+      "route": "/hse/investigations",
+      "icon": "Search",
+      "order": 103,
+      "permission": "hse.manage.investigation"
+    },
+    {
+      "label": "Rapports",
+      "route": "/hse/reports",
+      "icon": "FileText",
+      "order": 104,
+      "permission": "hse.view.report"
+    },
+    {
+      "label": "Configuration HSE",
+      "route": "/hse/settings",
+      "icon": "Settings",
+      "order": 105,
+      "permission": "hse.manage.settings"
+    }
+  ],
+
+  "hooks": [
+    {
+      "name": "Notifier incident HSE critique",
+      "event": "hse.incident.created",
+      "description": "Notifie automatiquement les responsables HSE lors d'un incident critique",
+      "is_active": false,
+      "priority": 100,
+      "conditions": {
+        "severity": {
+          "operator": ">=",
+          "value": 8
+        }
+      },
+      "actions": [
+        {
+          "type": "send_notification",
+          "config": {
+            "recipients": ["role:hse_manager", "role:site_manager"],
+            "title": "Incident HSE critique déclaré",
+            "message": "Un incident de sévérité {{incident.severity}} vient d'être déclaré : {{incident.title}}",
+            "priority": "high"
+          }
+        },
+        {
+          "type": "send_email",
+          "config": {
+            "template": "hse_critical_incident",
+            "recipients": ["hse-team@company.com"],
+            "subject": "URGENT: Incident HSE critique - {{incident.number}}"
+          }
+        },
+        {
+          "type": "create_task",
+          "config": {
+            "title": "Investigation incident {{incident.number}}",
+            "description": "Investigation requise pour incident critique",
+            "assigned_role": "hse_investigator",
+            "due_in_hours": 24,
+            "priority": "high"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Email rapport HSE mensuel",
+      "event": "hse.report.monthly.generated",
+      "description": "Envoie automatiquement le rapport mensuel HSE",
+      "is_active": false,
+      "priority": 50,
+      "actions": [
+        {
+          "type": "send_email",
+          "config": {
+            "template": "hse_monthly_report",
+            "recipients": ["management-team@company.com"],
+            "subject": "Rapport HSE mensuel - {{month}} {{year}}",
+            "attachments": ["{{report.pdf_path}}"]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Audit log incident HSE",
+      "event": "hse.incident.updated",
+      "description": "Log toutes les modifications d'incidents pour audit",
+      "is_active": true,
+      "priority": 10,
+      "actions": [
+        {
+          "type": "audit_log",
+          "config": {
+            "action": "hse.incident.modified",
+            "category": "hse",
+            "severity": "info"
+          }
+        }
+      ]
+    }
+  ],
+
+  "translations": {
+    "fr": {
+      "hse.menu.dashboard": "Tableau de bord HSE",
+      "hse.menu.incidents": "Incidents",
+      "hse.menu.investigations": "Investigations",
+      "hse.menu.reports": "Rapports",
+
+      "hse.incident.title": "Incident HSE",
+      "hse.incident.new": "Nouvel incident",
+      "hse.incident.edit": "Modifier l'incident",
+      "hse.incident.severity": "Sévérité",
+      "hse.incident.type": "Type d'incident",
+      "hse.incident.location": "Localisation",
+      "hse.incident.date": "Date de l'incident",
+      "hse.incident.description": "Description",
+      "hse.incident.witnesses": "Témoins",
+      "hse.incident.injured": "Personnes blessées",
+
+      "hse.severity.low": "Faible",
+      "hse.severity.medium": "Moyen",
+      "hse.severity.high": "Élevé",
+      "hse.severity.critical": "Critique",
+
+      "hse.type.near_miss": "Presque-accident",
+      "hse.type.injury": "Blessure",
+      "hse.type.environmental": "Environnemental",
+      "hse.type.equipment": "Équipement",
+
+      "hse.notification.created": "Incident créé avec succès",
+      "hse.notification.updated": "Incident mis à jour",
+      "hse.notification.deleted": "Incident supprimé"
+    },
+    "en": {
+      "hse.menu.dashboard": "HSE Dashboard",
+      "hse.menu.incidents": "Incidents",
+      "hse.menu.investigations": "Investigations",
+      "hse.menu.reports": "Reports",
+
+      "hse.incident.title": "HSE Incident",
+      "hse.incident.new": "New Incident",
+      "hse.incident.edit": "Edit Incident",
+      "hse.incident.severity": "Severity",
+      "hse.incident.type": "Incident Type",
+      "hse.incident.location": "Location",
+      "hse.incident.date": "Incident Date",
+      "hse.incident.description": "Description",
+      "hse.incident.witnesses": "Witnesses",
+      "hse.incident.injured": "Injured Persons",
+
+      "hse.severity.low": "Low",
+      "hse.severity.medium": "Medium",
+      "hse.severity.high": "High",
+      "hse.severity.critical": "Critical",
+
+      "hse.type.near_miss": "Near Miss",
+      "hse.type.injury": "Injury",
+      "hse.type.environmental": "Environmental",
+      "hse.type.equipment": "Equipment",
+
+      "hse.notification.created": "Incident created successfully",
+      "hse.notification.updated": "Incident updated",
+      "hse.notification.deleted": "Incident deleted"
+    },
+    "es": {
+      "hse.menu.dashboard": "Panel HSE",
+      "hse.menu.incidents": "Incidentes",
+      "hse.incident.title": "Incidente HSE",
+      "hse.incident.new": "Nuevo Incidente"
+    },
+    "pt": {
+      "hse.menu.dashboard": "Painel HSE",
+      "hse.menu.incidents": "Incidentes",
+      "hse.incident.title": "Incidente HSE",
+      "hse.incident.new": "Novo Incidente"
+    }
+  },
+
+  "user_preferences": [
+    {
+      "key": "hse.notification.email.incident_created",
+      "label": "Email pour nouveaux incidents",
+      "description": "Recevoir un email à chaque nouvel incident HSE",
+      "type": "boolean",
+      "default": true,
+      "category": "hse_notifications"
+    },
+    {
+      "key": "hse.notification.email.investigation_assigned",
+      "label": "Email assignation investigation",
+      "description": "Recevoir un email lors de l'assignation d'une investigation",
+      "type": "boolean",
+      "default": true,
+      "category": "hse_notifications"
+    },
+    {
+      "key": "hse.dashboard.show_kpis",
+      "label": "Afficher les KPIs",
+      "description": "Afficher les indicateurs de performance sur le dashboard",
+      "type": "boolean",
+      "default": true,
+      "category": "hse_display"
+    },
+    {
+      "key": "hse.dashboard.default_period",
+      "label": "Période par défaut",
+      "description": "Période affichée par défaut sur le dashboard",
+      "type": "select",
+      "options": ["week", "month", "quarter", "year"],
+      "default": "month",
+      "category": "hse_display"
+    },
+    {
+      "key": "hse.report.auto_generate",
+      "label": "Génération automatique rapports",
+      "description": "Générer automatiquement les rapports mensuels",
+      "type": "boolean",
+      "default": false,
+      "category": "hse_reports"
+    }
+  ],
+
+  "settings": [
+    {
+      "key": "hse.incident.auto_numbering",
+      "label": "Numérotation automatique incidents",
+      "description": "Activer la numérotation automatique des incidents",
+      "type": "boolean",
+      "default": true,
+      "category": "hse_incident"
+    },
+    {
+      "key": "hse.incident.number_prefix",
+      "label": "Préfixe numéro incident",
+      "description": "Préfixe pour la numérotation des incidents (ex: HSE-2024-)",
+      "type": "string",
+      "default": "HSE-",
+      "category": "hse_incident"
+    },
+    {
+      "key": "hse.incident.require_photos",
+      "label": "Photos obligatoires",
+      "description": "Rendre les photos obligatoires pour tous les incidents",
+      "type": "boolean",
+      "default": false,
+      "category": "hse_incident"
+    },
+    {
+      "key": "hse.incident.critical_threshold",
+      "label": "Seuil incident critique",
+      "description": "Sévérité à partir de laquelle un incident est considéré critique",
+      "type": "number",
+      "default": 8,
+      "min": 1,
+      "max": 10,
+      "category": "hse_incident"
+    },
+    {
+      "key": "hse.investigation.required_for_critical",
+      "label": "Investigation obligatoire incidents critiques",
+      "description": "Créer automatiquement une investigation pour les incidents critiques",
+      "type": "boolean",
+      "default": true,
+      "category": "hse_investigation"
+    },
+    {
+      "key": "hse.investigation.deadline_hours",
+      "label": "Délai investigation (heures)",
+      "description": "Délai en heures pour compléter une investigation",
+      "type": "number",
+      "default": 72,
+      "category": "hse_investigation"
+    },
+    {
+      "key": "hse.report.monthly_auto",
+      "label": "Rapport mensuel automatique",
+      "description": "Générer automatiquement le rapport mensuel",
+      "type": "boolean",
+      "default": true,
+      "category": "hse_report"
+    },
+    {
+      "key": "hse.report.recipients",
+      "label": "Destinataires rapport mensuel",
+      "description": "Emails des destinataires du rapport mensuel (séparés par virgule)",
+      "type": "text",
+      "default": "",
+      "category": "hse_report"
+    }
+  ],
+
+  "dependencies": {
+    "core_services": [
+      "notification",
+      "email",
+      "file_manager",
+      "audit",
+      "translation",
+      "user_preference",
+      "settings"
+    ],
+    "modules": []
+  },
+
+  "backend": {
+    "main_file": "backend/main.py",
+    "routes_prefix": "/hse",
+    "database_migrations": true
+  },
+
+  "frontend": {
+    "main_file": "frontend/index.tsx",
+    "routes": [
+      {
+        "path": "/hse",
+        "component": "pages/Dashboard"
+      },
+      {
+        "path": "/hse/incidents",
+        "component": "pages/Incidents/List"
+      },
+      {
+        "path": "/hse/incidents/new",
+        "component": "pages/Incidents/Create"
+      },
+      {
+        "path": "/hse/incidents/:id",
+        "component": "pages/Incidents/Details"
+      }
+    ]
+  }
+}

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Frown, Zap } from "lucide-react"
+import { Info } from "lucide-react"
 import Link from "next/link"
 import {
   Breadcrumb,
@@ -11,11 +11,11 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
-import { getHooks, type Hook } from "./data/hooks-api"
+import { getHooks, type Hook, updateHook } from "./data/hooks-api"
 import {
   Table,
   TableBody,
@@ -25,7 +25,6 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Switch } from "@/components/ui/switch"
-import { updateHook, deleteHook } from "./data/hooks-api"
 
 export default function HooksPage() {
   const [hooks, setHooks] = useState<Hook[]>([])
@@ -69,27 +68,6 @@ export default function HooksPage() {
     }
   }
 
-  const handleDelete = async (hook: Hook) => {
-    if (!confirm(`Êtes-vous sûr de vouloir supprimer le hook "${hook.name}" ?`)) {
-      return
-    }
-
-    try {
-      await deleteHook(hook.id)
-      toast({
-        title: "Succès",
-        description: "Hook supprimé avec succès",
-      })
-      loadHooks()
-    } catch (error) {
-      toast({
-        title: "Erreur",
-        description: error instanceof Error ? error.message : "Impossible de supprimer le hook",
-        variant: "destructive",
-      })
-    }
-  }
-
   return (
     <div className="flex w-full flex-1 flex-col gap-2">
       <Breadcrumb>
@@ -114,16 +92,18 @@ export default function HooksPage() {
         <div>
           <h2 className="text-2xl font-bold">Hooks & Triggers</h2>
           <p className="text-muted-foreground text-sm">
-            Automatisez vos workflows avec des déclencheurs d'événements.
+            Hooks système pour automatiser vos workflows
           </p>
         </div>
-        <Button asChild>
-          <Link href="/developers/hooks/new">
-            <Zap className="mr-2 h-4 w-4" />
-            Créer un hook
-          </Link>
-        </Button>
       </div>
+
+      <Alert>
+        <Info className="h-4 w-4" />
+        <AlertTitle>Hooks système</AlertTitle>
+        <AlertDescription>
+          Les hooks sont créés automatiquement par le système. Vous pouvez les activer/désactiver selon vos besoins.
+        </AlertDescription>
+      </Alert>
 
       <div className="h-full flex-1">
         {loading ? (
@@ -131,9 +111,9 @@ export default function HooksPage() {
         ) : hooks.length > 0 ? (
           <Card>
             <CardHeader>
-              <CardTitle>Hooks configurés</CardTitle>
+              <CardTitle>Hooks système disponibles</CardTitle>
               <CardDescription>
-                {hooks.length} hook{hooks.length > 1 ? "s" : ""} configuré{hooks.length > 1 ? "s" : ""}
+                {hooks.length} hook{hooks.length > 1 ? "s" : ""} système disponible{hooks.length > 1 ? "s" : ""}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -142,10 +122,10 @@ export default function HooksPage() {
                   <TableRow>
                     <TableHead>Nom</TableHead>
                     <TableHead>Événement</TableHead>
+                    <TableHead>Description</TableHead>
                     <TableHead>Priorité</TableHead>
                     <TableHead>Actions</TableHead>
                     <TableHead>Statut</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -155,16 +135,19 @@ export default function HooksPage() {
                       <TableCell>
                         <Badge variant="outline">{hook.event}</Badge>
                       </TableCell>
+                      <TableCell className="max-w-md text-sm text-muted-foreground">
+                        {hook.description || "Aucune description"}
+                      </TableCell>
                       <TableCell>
                         <Badge variant={hook.priority > 50 ? "default" : "secondary"}>
                           {hook.priority}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex gap-1">
+                        <div className="flex flex-wrap gap-1">
                           {hook.actions.map((action, idx) => (
                             <Badge key={idx} variant="secondary" className="text-xs">
-                              {action.type}
+                              {action.type.replace("_", " ")}
                             </Badge>
                           ))}
                         </div>
@@ -175,21 +158,6 @@ export default function HooksPage() {
                           onCheckedChange={() => handleToggleActive(hook)}
                         />
                       </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="sm" asChild>
-                            <Link href={`/developers/hooks/${hook.id}`}>Détails</Link>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(hook)}
-                            className="text-destructive"
-                          >
-                            Supprimer
-                          </Button>
-                        </div>
-                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -197,20 +165,14 @@ export default function HooksPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="border-border mt-6 flex flex-col items-center gap-4 rounded-lg border border-dashed px-6 py-10">
-            <Frown className="size-32" />
-            <h2 className="text-lg font-semibold">Aucun hook configuré</h2>
-            <p className="text-muted-foreground text-center">
-              Commencez par créer un hook pour{" "}
-              <br className="hidden sm:block" /> automatiser vos workflows et réagir aux événements.
-            </p>
-            <Button asChild>
-              <Link href="/developers/hooks/new">
-                <Zap className="mr-2 h-4 w-4" />
-                Créer un hook
-              </Link>
-            </Button>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Aucun hook système</CardTitle>
+              <CardDescription>
+                Les hooks seront créés automatiquement par le système lors de l&apos;installation de modules.
+              </CardDescription>
+            </CardHeader>
+          </Card>
         )}
       </div>
     </div>

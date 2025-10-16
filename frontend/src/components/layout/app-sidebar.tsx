@@ -14,9 +14,11 @@ import { SidebarSync } from "@/components/sidebar-sync"
 import { sidebarData } from "./data/sidebar-data"
 import { usePermissions } from "@/hooks/use-permissions"
 import { filterNavItems } from "@/lib/permissions"
+import { usePreferencesContext } from "@/contexts/preferences-context"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { hasPermission, hasAnyPermission, hasAllPermissions, isLoading } = usePermissions()
+  const { preferences } = usePreferencesContext()
 
   // Filtrer les groupes de navigation selon les permissions
   const filteredNavGroups = useMemo(() => {
@@ -42,7 +44,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     <div className="relative">
       {/* Synchroniser l'état de la sidebar avec les préférences utilisateur */}
       <SidebarSync />
-      <Sidebar collapsible="icon" {...props}>
+      <Sidebar collapsible="icon" variant={preferences.sidebarVariant} {...props}>
         <SidebarHeader>
           <TeamSwitcher teams={sidebarData.teams} />
         </SidebarHeader>

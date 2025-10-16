@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/components/auth-provider"
 import { ThemeColorInitializer } from "@/components/theme-color-initializer"
 import { LanguageSync } from "@/components/language-sync"
+import { FontSizeSync } from "@/components/font-size-sync"
 import { DynamicTitle } from "@/components/dynamic-title"
 import { PreferencesProvider } from "@/contexts/preferences-context"
 import { NotificationsProvider } from "@/contexts/notifications-context"
@@ -42,6 +43,7 @@ export function Providers({ children }: Props) {
             <NotificationsProvider>
               <ThemeColorInitializer />
               <LanguageSync />
+              <FontSizeSync />
               <DynamicTitle />
               <SearchProvider value={{ open, setOpen }}>{children}</SearchProvider>
             </NotificationsProvider>

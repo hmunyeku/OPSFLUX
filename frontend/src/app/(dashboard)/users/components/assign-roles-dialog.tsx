@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "@/hooks/use-toast"
@@ -93,15 +93,15 @@ export function AssignRolesDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Assigner des rôles</DialogTitle>
-          <DialogDescription>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="sm:max-w-[500px] overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>Assigner des rôles</SheetTitle>
+          <SheetDescription>
             Gérer les rôles de {userEmail}
-          </DialogDescription>
-        </DialogHeader>
-        <ScrollArea className="max-h-[400px] pr-4">
+          </SheetDescription>
+        </SheetHeader>
+        <ScrollArea className="max-h-[400px] pr-4 mt-6">
           <div className="space-y-2">
             {allRoles.map((role) => (
               <div
@@ -136,7 +136,7 @@ export function AssignRolesDialog({
             ))}
           </div>
         </ScrollArea>
-        <DialogFooter>
+        <SheetFooter className="mt-6">
           <Button
             type="button"
             variant="outline"
@@ -148,8 +148,8 @@ export function AssignRolesDialog({
           <Button onClick={handleSave} disabled={isLoading}>
             {isLoading ? "Enregistrement..." : "Enregistrer"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   )
 }

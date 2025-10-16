@@ -5,13 +5,13 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import {
   Form,
   FormControl,
@@ -96,18 +96,18 @@ export function CreateRoleDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
-          <DialogTitle>Créer un nouveau rôle</DialogTitle>
-          <DialogDescription>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="sm:max-w-[600px] overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>Créer un nouveau rôle</SheetTitle>
+          <SheetDescription>
             Un rôle regroupe un ensemble de permissions qui peuvent être assignées
             à des utilisateurs.
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-6">
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -201,7 +201,7 @@ export function CreateRoleDialog({
               )}
             />
 
-            <DialogFooter>
+            <SheetFooter className="mt-6">
               <Button
                 type="button"
                 variant="outline"
@@ -213,10 +213,10 @@ export function CreateRoleDialog({
               <Button type="submit" disabled={isLoading}>
                 {isLoading ? "Création..." : "Créer le rôle"}
               </Button>
-            </DialogFooter>
+            </SheetFooter>
           </form>
         </Form>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   )
 }

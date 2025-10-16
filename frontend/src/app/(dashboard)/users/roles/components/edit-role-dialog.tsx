@@ -5,13 +5,13 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import {
   Form,
@@ -108,16 +108,16 @@ export function EditRoleDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Modifier le rôle</DialogTitle>
-          <DialogDescription>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="sm:max-w-[500px] overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>Modifier le rôle</SheetTitle>
+          <SheetDescription>
             Modifiez les informations du rôle {role.name}
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-6">
             <FormField
               control={form.control}
               name="code"
@@ -215,7 +215,7 @@ export function EditRoleDialog({
                 </FormItem>
               )}
             />
-            <DialogFooter>
+            <SheetFooter className="mt-6">
               <Button
                 type="button"
                 variant="outline"
@@ -227,10 +227,10 @@ export function EditRoleDialog({
               <Button type="submit" disabled={isLoading}>
                 {isLoading ? "Modification..." : "Modifier"}
               </Button>
-            </DialogFooter>
+            </SheetFooter>
           </form>
         </Form>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   )
 }

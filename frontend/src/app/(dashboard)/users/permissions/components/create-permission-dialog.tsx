@@ -5,13 +5,13 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import {
   Form,
@@ -96,16 +96,16 @@ export function CreatePermissionDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Créer une permission</DialogTitle>
-          <DialogDescription>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="overflow-y-auto sm:max-w-[500px]">
+        <SheetHeader>
+          <SheetTitle>Créer une permission</SheetTitle>
+          <SheetDescription>
             Ajoutez une nouvelle permission au système
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-6">
             <FormField
               control={form.control}
               name="code"
@@ -213,7 +213,7 @@ export function CreatePermissionDialog({
                 )}
               />
             </div>
-            <DialogFooter>
+            <SheetFooter className="mt-6">
               <Button
                 type="button"
                 variant="outline"
@@ -225,10 +225,10 @@ export function CreatePermissionDialog({
               <Button type="submit" disabled={isLoading}>
                 {isLoading ? "Création..." : "Créer"}
               </Button>
-            </DialogFooter>
+            </SheetFooter>
           </form>
         </Form>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   )
 }

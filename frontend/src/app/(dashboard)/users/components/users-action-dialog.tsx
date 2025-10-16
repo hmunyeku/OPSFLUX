@@ -6,13 +6,13 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import {
   Form,
   FormControl,
@@ -134,21 +134,21 @@ export function UsersActionDialog({ currentRow, open, onOpenChange }: Props) {
   const isPasswordTouched = !!form.formState.dirtyFields.password
 
   return (
-    <Dialog
+    <Sheet
       open={open}
       onOpenChange={(state) => {
         form.reset()
         onOpenChange(state)
       }}
     >
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit User" : "Add New User"}</DialogTitle>
-          <DialogDescription>
+      <SheetContent className="overflow-y-auto sm:max-w-lg">
+        <SheetHeader>
+          <SheetTitle>{isEdit ? "Edit User" : "Add New User"}</SheetTitle>
+          <SheetDescription>
             {isEdit ? "Update the user here. " : "Create new user here. "}
             Click save when you&apos;re done.
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
         <Form {...form}>
           <form
             id="user-form"
@@ -311,12 +311,12 @@ export function UsersActionDialog({ currentRow, open, onOpenChange }: Props) {
             />
           </form>
         </Form>
-        <DialogFooter>
+        <SheetFooter className="mt-6">
           <Button type="submit" form="user-form">
             Save changes
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   )
 }

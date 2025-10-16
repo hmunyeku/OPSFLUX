@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from "react"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -137,16 +137,16 @@ export function ManagePermissionsDialog({
   }, {} as Record<string, Permission[]>)
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[80vh]">
-        <DialogHeader>
-          <DialogTitle>Gérer les permissions - {roleName}</DialogTitle>
-          <DialogDescription>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="overflow-y-auto sm:max-w-[700px] max-h-[80vh]">
+        <SheetHeader>
+          <SheetTitle>Gérer les permissions - {roleName}</SheetTitle>
+          <SheetDescription>
             Sélectionnez les permissions à assigner à ce rôle
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 mt-6">
           <Input
             placeholder="Rechercher une permission..."
             value={searchQuery}
@@ -232,7 +232,7 @@ export function ManagePermissionsDialog({
           )}
         </div>
 
-        <DialogFooter>
+        <SheetFooter className="mt-6">
           <div className="flex items-center justify-between w-full">
             <p className="text-sm text-muted-foreground">
               {selectedIds.size} permission(s) sélectionnée(s)
@@ -251,8 +251,8 @@ export function ManagePermissionsDialog({
               </Button>
             </div>
           </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   )
 }

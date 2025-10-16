@@ -5,13 +5,13 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import {
   Form,
@@ -111,16 +111,16 @@ export function EditGroupDialog({
   const availableParents = groups.filter((g) => g.id !== group.id)
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Modifier le groupe</DialogTitle>
-          <DialogDescription>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="overflow-y-auto sm:max-w-[500px]">
+        <SheetHeader>
+          <SheetTitle>Modifier le groupe</SheetTitle>
+          <SheetDescription>
             Modifiez les informations du groupe {group.name}
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-6">
             <FormField
               control={form.control}
               name="code"
@@ -208,7 +208,7 @@ export function EditGroupDialog({
                 </FormItem>
               )}
             />
-            <DialogFooter>
+            <SheetFooter className="mt-6">
               <Button
                 type="button"
                 variant="outline"
@@ -220,10 +220,10 @@ export function EditGroupDialog({
               <Button type="submit" disabled={isLoading}>
                 {isLoading ? "Modification..." : "Modifier"}
               </Button>
-            </DialogFooter>
+            </SheetFooter>
           </form>
         </Form>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   )
 }

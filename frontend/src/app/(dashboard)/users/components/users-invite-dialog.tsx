@@ -8,14 +8,14 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import {
   Form,
   FormControl,
@@ -200,23 +200,23 @@ export function UsersInviteDialog({ open, onOpenChange, onUserCreated }: Props) 
   }
 
   return (
-    <Dialog
+    <Sheet
       open={open}
       onOpenChange={(state) => {
         form.reset()
         onOpenChange(state)
       }}
     >
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader className="text-left">
-          <DialogTitle className="flex items-center gap-2">
+      <SheetContent className="overflow-y-auto sm:max-w-md">
+        <SheetHeader className="text-left">
+          <SheetTitle className="flex items-center gap-2">
             <IconMailPlus /> Invite User
-          </DialogTitle>
-          <DialogDescription>
+          </SheetTitle>
+          <SheetDescription>
             Invite new user to join your team by sending them an email
             invitation. Assign a role to define their access level.
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
         <Form {...form}>
           <form
             id="user-invite-form"
@@ -379,15 +379,15 @@ export function UsersInviteDialog({ open, onOpenChange, onUserCreated }: Props) 
             />
           </form>
         </Form>
-        <DialogFooter className="gap-y-2">
-          <DialogClose asChild>
+        <SheetFooter className="gap-y-2 mt-6">
+          <SheetClose asChild>
             <Button variant="outline" disabled={isSubmitting}>Annuler</Button>
-          </DialogClose>
+          </SheetClose>
           <Button type="submit" form="user-invite-form" disabled={isSubmitting}>
             {isSubmitting ? "Création..." : "Créer l'utilisateur"} <IconSend />
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   )
 }

@@ -67,7 +67,7 @@ export function UsersDeactivateDialog({
         </span>
       }
       desc={
-        <div className="space-y-4">
+        <div className="space-y-4 mt-6">
           <p className="mb-2">
             Êtes-vous sûr de vouloir désactiver le compte avec l&apos;email{" "}
             <span className="font-bold">{currentRow.email}</span>?

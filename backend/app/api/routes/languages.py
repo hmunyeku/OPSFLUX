@@ -536,28 +536,51 @@ def import_translations(
 def export_translations(
     session: SessionDep,
     current_user: CurrentUser,
-    namespace_id: uuid.UUID,
-    language_id: uuid.UUID,
+    namespace_id: uuid.UUID | None = None,
+    language_id: uuid.UUID | None = None,
+    namespace_code: str | None = None,
+    language_code: str | None = None,
 ) -> Any:
     """
     Exporte toutes les traductions d'un namespace pour une langue donnée.
 
+    Peut utiliser soit les IDs, soit les codes (namespace_code + language_code).
     Retourne un dictionnaire {key: value} de toutes les traductions.
     """
-    # Vérifier que le namespace existe
-    namespace = session.get(TranslationNamespace, namespace_id)
+    # Résoudre le namespace
+    if namespace_code:
+        namespace_stmt = select(TranslationNamespace).where(
+            TranslationNamespace.code == namespace_code,
+            TranslationNamespace.deleted_at == None  # noqa: E711
+        )
+        namespace = session.exec(namespace_stmt).first()
+    elif namespace_id:
+        namespace = session.get(TranslationNamespace, namespace_id)
+    else:
+        raise HTTPException(status_code=400, detail="Either namespace_id or namespace_code is required")
+
     if not namespace or namespace.deleted_at:
         raise HTTPException(status_code=404, detail="Namespace not found")
 
-    # Vérifier que la langue existe
-    language = session.get(Language, language_id)
+    # Résoudre la langue
+    if language_code:
+        language_stmt = select(Language).where(
+            Language.code == language_code,
+            Language.deleted_at == None  # noqa: E711
+        )
+        language = session.exec(language_stmt).first()
+    elif language_id:
+        language = session.get(Language, language_id)
+    else:
+        raise HTTPException(status_code=400, detail="Either language_id or language_code is required")
+
     if not language or language.deleted_at:
         raise HTTPException(status_code=404, detail="Language not found")
 
     # Récupérer toutes les traductions
     statement = select(Translation).where(
-        Translation.namespace_id == namespace_id,
-        Translation.language_id == language_id,
+        Translation.namespace_id == namespace.id,
+        Translation.language_id == language.id,
         Translation.deleted_at == None  # noqa: E711
     )
     translations = session.exec(statement).all()

@@ -11,6 +11,7 @@ import { DynamicTitle } from "@/components/dynamic-title"
 import { PreferencesProvider } from "@/contexts/preferences-context"
 import { NotificationsProvider } from "@/contexts/notifications-context"
 import { AppConfigProvider } from "@/contexts/app-config-context"
+import { LanguageProvider } from "@/contexts/language-context"
 
 interface Props {
   children: React.ReactNode
@@ -40,13 +41,15 @@ export function Providers({ children }: Props) {
       >
         <PreferencesProvider>
           <AuthProvider>
-            <NotificationsProvider>
-              <ThemeColorInitializer />
-              <LanguageSync />
-              <FontSizeSync />
-              <DynamicTitle />
-              <SearchProvider value={{ open, setOpen }}>{children}</SearchProvider>
-            </NotificationsProvider>
+            <LanguageProvider>
+              <NotificationsProvider>
+                <ThemeColorInitializer />
+                <LanguageSync />
+                <FontSizeSync />
+                <DynamicTitle />
+                <SearchProvider value={{ open, setOpen }}>{children}</SearchProvider>
+              </NotificationsProvider>
+            </LanguageProvider>
           </AuthProvider>
         </PreferencesProvider>
       </ThemeProvider>

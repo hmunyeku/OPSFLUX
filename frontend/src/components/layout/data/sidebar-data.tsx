@@ -20,7 +20,6 @@ import {
   IconShield,
   IconKey,
   IconEye,
-  IconWebhook,
   IconListDetails,
   IconBolt,
   IconPuzzle,
@@ -188,6 +187,12 @@ export const sidebarData: SidebarData = {
               icon: IconNotification,
               url: "/settings/notifications",
             },
+            {
+              title: "Emailing",
+              icon: IconMail,
+              url: "/settings/emailing",
+              permission: "developers.read",
+            },
           ],
         },
         {
@@ -208,12 +213,6 @@ export const sidebarData: SidebarData = {
               permission: "api_keys.read",
             },
             {
-              title: "Webhooks",
-              icon: IconWebhook,
-              url: "/developers/webhooks",
-              permission: "webhooks.read",
-            },
-            {
               title: "Hooks & Triggers",
               icon: IconBolt,
               url: "/developers/hooks",
@@ -224,12 +223,6 @@ export const sidebarData: SidebarData = {
               icon: IconListDetails,
               url: "/developers/events-&-logs",
               permission: "logs.read",
-            },
-            {
-              title: "Templates Email",
-              icon: IconMail,
-              url: "/developers/email-templates",
-              permission: "developers.read",
             },
           ],
         },

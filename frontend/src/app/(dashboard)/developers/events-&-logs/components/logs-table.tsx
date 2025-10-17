@@ -37,9 +37,10 @@ interface Props {
   searchVal: string
   levelFilter?: string[]
   eventTypeFilter?: string[]
+  refreshTrigger?: number
 }
 
-export default function LogsTable({ searchVal, levelFilter = [], eventTypeFilter = [] }: Props) {
+export default function LogsTable({ searchVal, levelFilter = [], eventTypeFilter = [], refreshTrigger = 0 }: Props) {
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [total, setTotal] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
@@ -170,7 +171,8 @@ export default function LogsTable({ searchVal, levelFilter = [], eventTypeFilter
     }
 
     fetchLogs()
-  }, [searchVal, levelFilter, eventTypeFilter, pagination.pageIndex, pagination.pageSize])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchVal, levelFilter, eventTypeFilter, pagination.pageIndex, pagination.pageSize, refreshTrigger])
 
   if (isLoading) {
     return (

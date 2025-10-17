@@ -21,6 +21,7 @@ interface Props {
   setSearchVal: Dispatch<SetStateAction<string>>
   onLevelFilterChange: (levels: string[]) => void
   onEventTypeFilterChange: (eventTypes: string[]) => void
+  onRefresh: () => void
 }
 
 export default function LogsToolbar({
@@ -29,6 +30,7 @@ export default function LogsToolbar({
   setSearchVal,
   onLevelFilterChange,
   onEventTypeFilterChange,
+  onRefresh,
 }: Props) {
   return (
     <div className="border-muted flex items-center gap-2 border-b p-3">
@@ -63,7 +65,7 @@ export default function LogsToolbar({
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button className="shrink-0" variant="outline" size="icon">
+            <Button className="shrink-0" variant="outline" size="icon" onClick={onRefresh}>
               <IconRefresh size={20} strokeWidth={1.5} />
             </Button>
           </TooltipTrigger>

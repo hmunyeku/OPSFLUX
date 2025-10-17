@@ -33,6 +33,9 @@ import {
 interface Props {
   onLevelFilterChange: (levels: string[]) => void
   onEventTypeFilterChange: (eventTypes: string[]) => void
+  onReset: () => void
+  levelFilter: string[]
+  eventTypeFilter: string[]
 }
 
 // Map actual API values to display labels
@@ -55,25 +58,18 @@ const environmentOptions = [
   { label: "Production", value: "production", count: 0 },
 ]
 
-export default function Filters({ onLevelFilterChange, onEventTypeFilterChange }: Props) {
+export default function Filters({ onLevelFilterChange, onEventTypeFilterChange, onReset, levelFilter, eventTypeFilter }: Props) {
   const [timeline, setTimeline] = useState<Timeline>("custom")
-  const [containsLevels, setContainLevels] = useState<string[]>([])
   const [environments, setEnvironments] = useState<string[]>([])
-  const [eventTypes, setEventTypes] = useState<string[]>([])
 
-  // Notify parent when filters change
+  // Sync local state with props
   useEffect(() => {
-    onLevelFilterChange(containsLevels)
-  }, [containsLevels, onLevelFilterChange])
-
-  useEffect(() => {
-    onEventTypeFilterChange(eventTypes)
-  }, [eventTypes, onEventTypeFilterChange])
+    // This ensures the checkboxes are updated when parent resets
+  }, [levelFilter, eventTypeFilter])
 
   function resetHandler() {
-    setContainLevels([])
     setEnvironments([])
-    setEventTypes([])
+    onReset()
   }
 
   return (
@@ -158,18 +154,12 @@ export default function Filters({ onLevelFilterChange, onEventTypeFilterChange }
                   key={level.value}
                 >
                   <Checkbox
-                    checked={containsLevels.includes(level.value)}
+                    checked={levelFilter.includes(level.value)}
                     onCheckedChange={(checked) => {
-                      return checked
-                        ? setContainLevels([
-                            ...containsLevels,
-                            level.value,
-                          ])
-                        : setContainLevels(
-                            containsLevels.filter(
-                              (value) => value !== level.value
-                            )
-                          )
+                      const newLevels = checked
+                        ? [...levelFilter, level.value]
+                        : levelFilter.filter((value) => value !== level.value)
+                      onLevelFilterChange(newLevels)
                     }}
                     id={level.value}
                   />
@@ -265,15 +255,12 @@ export default function Filters({ onLevelFilterChange, onEventTypeFilterChange }
                   key={eventType.value}
                 >
                   <Checkbox
-                    checked={eventTypes.includes(eventType.value)}
+                    checked={eventTypeFilter.includes(eventType.value)}
                     onCheckedChange={(checked) => {
-                      return checked
-                        ? setEventTypes([...eventTypes, eventType.value])
-                        : setEventTypes(
-                            eventTypes.filter(
-                              (value) => value !== eventType.value
-                            )
-                          )
+                      const newTypes = checked
+                        ? [...eventTypeFilter, eventType.value]
+                        : eventTypeFilter.filter((value) => value !== eventType.value)
+                      onEventTypeFilterChange(newTypes)
                     }}
                     id={eventType.value}
                   />

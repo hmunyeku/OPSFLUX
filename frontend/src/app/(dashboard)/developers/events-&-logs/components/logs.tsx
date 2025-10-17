@@ -10,6 +10,7 @@ export default function Logs() {
   const [openedFilter, setOpenedFilter] = useState(true)
   const [levelFilter, setLevelFilter] = useState<string[]>([])
   const [eventTypeFilter, setEventTypeFilter] = useState<string[]>([])
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   function toggleFilters() {
     setOpenedFilter((prev) => !prev)
@@ -21,6 +22,16 @@ export default function Logs() {
 
   const handleEventTypeFilterChange = useCallback((eventTypes: string[]) => {
     setEventTypeFilter(eventTypes)
+  }, [])
+
+  const handleRefresh = useCallback(() => {
+    setRefreshTrigger((prev) => prev + 1)
+  }, [])
+
+  const handleReset = useCallback(() => {
+    setLevelFilter([])
+    setEventTypeFilter([])
+    setRefreshTrigger((prev) => prev + 1)
   }, [])
 
   return (
@@ -38,6 +49,9 @@ export default function Logs() {
           <Filters
             onLevelFilterChange={handleLevelFilterChange}
             onEventTypeFilterChange={handleEventTypeFilterChange}
+            onReset={handleReset}
+            levelFilter={levelFilter}
+            eventTypeFilter={eventTypeFilter}
           />
         </div>
         <div
@@ -54,6 +68,8 @@ export default function Logs() {
             eventTypeFilter={eventTypeFilter}
             onLevelFilterChange={handleLevelFilterChange}
             onEventTypeFilterChange={handleEventTypeFilterChange}
+            onRefresh={handleRefresh}
+            refreshTrigger={refreshTrigger}
           />
         </div>
       </div>

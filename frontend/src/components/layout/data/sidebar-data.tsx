@@ -23,6 +23,7 @@ import {
   IconWebhook,
   IconListDetails,
   IconBolt,
+  IconPuzzle,
 } from "@tabler/icons-react"
 import { AudioWaveform, GalleryVerticalEnd } from "lucide-react"
 import { Logo } from "@/components/logo"
@@ -179,6 +180,12 @@ export const sidebarData: SidebarData = {
               title: "Notifications",
               icon: IconNotification,
               url: "/settings/notifications",
+            },
+            {
+              title: "Modules",
+              icon: IconPuzzle,
+              url: "/settings/modules",
+              permission: "modules.view",
             },
           ],
         },

@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useEffect, useState } from "react"
 import {
   Sidebar,
   SidebarContent,
@@ -15,10 +15,55 @@ import { sidebarData } from "./data/sidebar-data"
 import { usePermissions } from "@/hooks/use-permissions"
 import { filterNavItems } from "@/lib/permissions"
 import { usePreferencesContext } from "@/contexts/preferences-context"
+import { getModuleMenus, type ModuleMenuGroup } from "@/api/modules"
+import * as TablerIcons from "@tabler/icons-react"
+import { type NavGroup as NavGroupType } from "./types"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { hasPermission, hasAnyPermission, hasAllPermissions, isLoading } = usePermissions()
   const { preferences } = usePreferencesContext()
+  const [moduleMenus, setModuleMenus] = useState<ModuleMenuGroup[]>([])
+
+  // Charger les menus des modules actifs
+  useEffect(() => {
+    const loadModuleMenus = async () => {
+      try {
+        const response = await getModuleMenus()
+        setModuleMenus(response.data)
+      } catch (_error) {
+        // Failed to load module menus - use empty array
+        setModuleMenus([])
+      }
+    }
+    loadModuleMenus()
+  }, [])
+
+  // Convertir les menus des modules en NavGroups
+  const moduleNavGroups = useMemo(() => {
+    return moduleMenus.map((moduleGroup): NavGroupType => {
+      // Mapper les icônes Tabler
+      const getIcon = (iconName?: string): React.ElementType => {
+        if (!iconName) return TablerIcons.IconPuzzle
+        const iconKey = `Icon${iconName}` as keyof typeof TablerIcons
+        const IconComponent = TablerIcons[iconKey]
+        // Vérifier que c'est bien un component React
+        if (typeof IconComponent === 'function') {
+          return IconComponent as React.ElementType
+        }
+        return TablerIcons.IconPuzzle
+      }
+
+      return {
+        title: moduleGroup.module_name,
+        items: moduleGroup.menu_items.map((item) => ({
+          title: item.label,
+          url: item.route,
+          icon: getIcon(item.icon),
+          permission: item.permission,
+        })),
+      }
+    })
+  }, [moduleMenus])
 
   // Filtrer les groupes de navigation selon les permissions
   const filteredNavGroups = useMemo(() => {
@@ -32,13 +77,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       hasAllPermissions,
     }
 
-    return sidebarData.navGroups
+    // Combiner les nav groups statiques et les modules
+    const allNavGroups = [...sidebarData.navGroups, ...moduleNavGroups]
+
+    return allNavGroups
       .map((group) => ({
         ...group,
         items: filterNavItems(group.items, permissionChecker),
       }))
       .filter((group) => group.items.length > 0)
-  }, [hasPermission, hasAnyPermission, hasAllPermissions, isLoading])
+  }, [hasPermission, hasAnyPermission, hasAllPermissions, isLoading, moduleNavGroups])
 
   return (
     <div className="relative">

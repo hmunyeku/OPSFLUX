@@ -21,6 +21,7 @@ from app.models_modules import (
     ModuleInstallRequest,
     ModuleInstallResponse,
     ModuleRegistryPublic,
+    ModuleMenuItem,
 )
 from app.services.module_service import ModuleManager
 
@@ -116,6 +117,74 @@ def get_modules_stats(
     """
     stats = ModuleManager.get_module_stats(session)
     return stats
+
+
+@router.get("/menus")
+def get_active_modules_menus(
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Any:
+    """
+    Récupère les menus de tous les modules actifs.
+
+    Retourne une structure adaptée pour injection dans la sidebar:
+    [
+        {
+            "module_code": "hse",
+            "module_name": "HSE Reports",
+            "menu_items": [
+                {
+                    "label": "Dashboard HSE",
+                    "route": "/hse/dashboard",
+                    "icon": "LayoutDashboard",
+                    "permission": "hse.view.dashboard",
+                    "order": 101
+                },
+                ...
+            ]
+        },
+        ...
+    ]
+    """
+    # Récupérer tous les modules actifs
+    statement = select(Module).where(
+        Module.status == ModuleStatus.ACTIVE,
+        Module.deleted_at == None  # noqa: E711
+    )
+    active_modules = session.exec(statement).all()
+
+    result = []
+
+    for module in active_modules:
+        # Récupérer les menu items de ce module
+        menu_statement = select(ModuleMenuItem).where(
+            ModuleMenuItem.module_id == module.id,
+            ModuleMenuItem.is_active == True
+        ).order_by(ModuleMenuItem.order)
+
+        menu_items = session.exec(menu_statement).all()
+
+        if menu_items:
+            result.append({
+                "module_code": module.code,
+                "module_name": module.name,
+                "module_icon": module.icon,
+                "module_color": module.color,
+                "menu_items": [
+                    {
+                        "id": str(item.id),
+                        "label": item.label,
+                        "route": item.route,
+                        "icon": item.icon,
+                        "permission": item.permission_code,
+                        "order": item.order,
+                        "badge_source": item.badge_source,
+                    }
+                    for item in menu_items
+                ]
+            })
+
+    return {"data": result, "count": len(result)}
 
 
 @router.get("/discover")

@@ -128,3 +128,44 @@ export async function uninstallModule(moduleId: string): Promise<void> {
     throw new Error(error.detail || 'Failed to uninstall module')
   }
 }
+
+export interface ModuleMenuItem {
+  id: string
+  label: string
+  route: string
+  icon?: string
+  permission?: string
+  order: number
+  badge_source?: string
+}
+
+export interface ModuleMenuGroup {
+  module_code: string
+  module_name: string
+  module_icon?: string
+  module_color?: string
+  menu_items: ModuleMenuItem[]
+}
+
+export interface ModuleMenusResponse {
+  data: ModuleMenuGroup[]
+  count: number
+}
+
+export async function getModuleMenus(): Promise<ModuleMenusResponse> {
+  try {
+    const response = await fetch(`${API_URL}/api/v1/modules/menus`, {
+      headers: getAuthHeaders(),
+      cache: 'no-store',
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch module menus: ${response.statusText}`)
+    }
+
+    return response.json()
+  } catch (_error) {
+    // Error fetching menus - return empty response
+    return { data: [], count: 0 }
+  }
+}

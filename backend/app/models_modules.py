@@ -336,3 +336,29 @@ class ModuleInstallResponse(SQLModel):
     message: str
     module: Optional[ModulePublic] = None
     errors: Optional[list[str]] = None
+
+
+class MenuItemPublic(SQLModel):
+    """Schema public pour un item de menu"""
+    id: str
+    label: str
+    route: str
+    icon: Optional[str] = None
+    permission: Optional[str] = None
+    order: int
+    badge_source: Optional[str] = None
+
+
+class ModuleMenuPublic(SQLModel):
+    """Schema public pour les menus d'un module"""
+    module_code: str
+    module_name: str
+    module_icon: Optional[str] = None
+    module_color: Optional[str] = None
+    menu_items: list[MenuItemPublic]
+
+
+class ModuleMenusResponse(SQLModel):
+    """Réponse pour les menus des modules"""
+    data: list[ModuleMenuPublic]
+    count: int

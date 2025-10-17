@@ -25,6 +25,7 @@ from app.core.config import settings # noqa
 from app import models  # noqa
 from app import models_auth  # noqa
 from app import models_2fa  # noqa
+from app import models_i18n  # noqa
 
 target_metadata = SQLModel.metadata
 

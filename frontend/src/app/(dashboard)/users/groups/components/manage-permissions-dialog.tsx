@@ -138,19 +138,20 @@ export function ManagePermissionsDialog({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="overflow-y-auto sm:max-w-[700px] max-h-[80vh]">
-        <SheetHeader>
+      <SheetContent className="w-full sm:max-w-2xl flex flex-col p-0">
+        <SheetHeader className="px-6 py-4 border-b">
           <SheetTitle>Gérer les permissions - {groupName}</SheetTitle>
           <SheetDescription>
             Sélectionnez les permissions à assigner à ce groupe
           </SheetDescription>
         </SheetHeader>
 
-        <div className="space-y-4 mt-6">
+        <div className="flex-1 flex flex-col overflow-hidden px-6 py-4">
           <Input
             placeholder="Rechercher une permission..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            className="mb-4"
           />
 
           {isLoading ? (
@@ -158,7 +159,7 @@ export function ManagePermissionsDialog({
               Chargement des permissions...
             </div>
           ) : (
-            <ScrollArea className="h-[400px] pr-4">
+            <ScrollArea className="flex-1 pr-4">
               <div className="space-y-6">
                 {Object.entries(groupedPermissions).map(([module, perms]) => {
                   const moduleSelectedCount = perms.filter((p) =>
@@ -232,7 +233,7 @@ export function ManagePermissionsDialog({
           )}
         </div>
 
-        <SheetFooter className="mt-6">
+        <SheetFooter className="px-6 py-4 border-t mt-auto">
           <div className="flex items-center justify-between w-full">
             <p className="text-sm text-muted-foreground">
               {selectedIds.size} permission(s) sélectionnée(s)

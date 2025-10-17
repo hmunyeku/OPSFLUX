@@ -1,55 +1,239 @@
 """
-Routes API pour le module HSE - Version HOT RELOAD.
+Routes API pour le module HSE.
 
-IMPORTANT: Ce fichier N'IMPORTE PAS models.py pour éviter les conflits SQLAlchemy.
-Les modèles sont importés depuis app.models (ajoutés via migration Alembic).
+Expose les endpoints REST pour la gestion des incidents HSE.
 """
 
+import uuid
 from typing import Any
-from fastapi import APIRouter, Depends
 
-from app.api.deps import CurrentUser, SessionDep
+from fastapi import APIRouter, Depends, HTTPException
+from sqlmodel import select
 
-router = APIRouter(prefix="/api/v1/hse", tags=["hse"])
+from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
+from app.models import Message, User
+
+# Import des modèles et services du module
+from .models import (
+    Incident,
+    IncidentType,
+    IncidentSeverity,
+    IncidentCreate,
+    IncidentUpdate,
+    IncidentPublic,
+    IncidentsPublic,
+)
+from .service import HSEService
 
 
-@router.get("/")
-def hse_root(
+router = APIRouter(prefix="/hse", tags=["hse"])
+
+
+@router.get("/incidents/", response_model=IncidentsPublic)
+def read_incidents(
+    session: SessionDep,
+    current_user: CurrentUser,
+    skip: int = 0,
+    limit: int = 100,
+    type: IncidentType | None = None,
+    severity_level: IncidentSeverity | None = None,
+    is_closed: bool | None = None,
+) -> Any:
+    """
+    Récupère la liste des incidents HSE.
+
+    Filtres:
+    - type: Type d'incident (near_miss, injury, environmental, etc.)
+    - severity_level: Niveau de sévérité (low, medium, high, critical)
+    - is_closed: Statut fermé ou non
+    """
+    # TODO: Vérifier permission hse.view.incident
+
+    incidents, count = HSEService.get_incidents(
+        session=session,
+        skip=skip,
+        limit=limit,
+        type=type,
+        severity_level=severity_level,
+        is_closed=is_closed,
+    )
+
+    # Convertir vers modèle public
+    public_incidents = [
+        IncidentPublic(
+            id=incident.id,
+            number=incident.number,
+            type=incident.type,
+            severity=incident.severity,
+            severity_level=incident.severity_level,
+            title=incident.title,
+            description=incident.description,
+            location=incident.location,
+            site_id=incident.site_id,
+            incident_date=incident.incident_date,
+            witnesses=incident.witnesses,
+            injured_persons=incident.injured_persons,
+            requires_investigation=incident.requires_investigation,
+            is_closed=incident.is_closed,
+            created_at=incident.created_at,
+            updated_at=incident.updated_at,
+        )
+        for incident in incidents
+    ]
+
+    return IncidentsPublic(data=public_incidents, count=count)
+
+
+@router.get("/incidents/stats")
+def get_incidents_stats(
+    session: SessionDep,
     current_user: CurrentUser,
 ) -> Any:
     """
-    Endpoint racine du module HSE.
-    Retourne les informations sur le module.
+    Récupère les statistiques HSE.
     """
-    return {
-        "module": "HSE Reports",
-        "version": "1.0.0",
-        "description": "Gestion des incidents et rapports HSE",
-        "status": "active",
-        "endpoints": [
-            "/api/v1/hse/",
-            "/api/v1/hse/health",
-        ]
-    }
+    # TODO: Vérifier permission hse.view.dashboard
+    return HSEService.get_statistics(session)
 
 
-@router.get("/health")
-def hse_health() -> Any:
+@router.post("/incidents/", response_model=IncidentPublic)
+def create_incident(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    incident_in: IncidentCreate,
+) -> Any:
     """
-    Health check du module HSE.
+    Crée un nouvel incident HSE.
+
+    Déclenche automatiquement :
+    - Génération du numéro (HSE-YYYY-NNN)
+    - Notification des managers HSE
+    - Email si critique
+    - Hooks hse.incident.created
     """
-    return {
-        "status": "healthy",
-        "module": "hse",
-        "version": "1.0.0"
-    }
+    # TODO: Vérifier permission hse.create.incident
+
+    incident = HSEService.create_incident(
+        session=session,
+        incident_data=incident_in,
+        created_by=current_user
+    )
+
+    return IncidentPublic(
+        id=incident.id,
+        number=incident.number,
+        type=incident.type,
+        severity=incident.severity,
+        severity_level=incident.severity_level,
+        title=incident.title,
+        description=incident.description,
+        location=incident.location,
+        site_id=incident.site_id,
+        incident_date=incident.incident_date,
+        witnesses=incident.witnesses,
+        injured_persons=incident.injured_persons,
+        requires_investigation=incident.requires_investigation,
+        is_closed=incident.is_closed,
+        created_at=incident.created_at,
+        updated_at=incident.updated_at,
+    )
 
 
-# TODO: Ajouter les endpoints CRUD pour les incidents
-# Une fois que les modèles seront dans app.models via migration:
-# - GET /incidents/ - Liste des incidents
-# - POST /incidents/ - Créer un incident
-# - GET /incidents/{id} - Détails d'un incident
-# - PATCH /incidents/{id} - Mettre à jour un incident
-# - DELETE /incidents/{id} - Supprimer un incident
-# - GET /incidents/stats - Statistiques HSE
+@router.get("/incidents/{incident_id}", response_model=IncidentPublic)
+def read_incident(
+    incident_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Any:
+    """
+    Récupère un incident spécifique par ID.
+    """
+    # TODO: Vérifier permission hse.view.incident
+
+    incident = session.get(Incident, incident_id)
+    if not incident or incident.deleted_at:
+        raise HTTPException(status_code=404, detail="Incident not found")
+
+    return IncidentPublic(
+        id=incident.id,
+        number=incident.number,
+        type=incident.type,
+        severity=incident.severity,
+        severity_level=incident.severity_level,
+        title=incident.title,
+        description=incident.description,
+        location=incident.location,
+        site_id=incident.site_id,
+        incident_date=incident.incident_date,
+        witnesses=incident.witnesses,
+        injured_persons=incident.injured_persons,
+        requires_investigation=incident.requires_investigation,
+        is_closed=incident.is_closed,
+        created_at=incident.created_at,
+        updated_at=incident.updated_at,
+    )
+
+
+@router.patch("/incidents/{incident_id}", response_model=IncidentPublic)
+def update_incident(
+    *,
+    incident_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+    incident_in: IncidentUpdate,
+) -> Any:
+    """
+    Met à jour un incident HSE.
+
+    Déclenche automatiquement :
+    - Audit log des modifications
+    - Hooks hse.incident.updated
+    """
+    # TODO: Vérifier permission hse.edit.incident
+
+    incident = HSEService.update_incident(
+        session=session,
+        incident_id=incident_id,
+        incident_data=incident_in,
+        updated_by=current_user
+    )
+
+    return IncidentPublic(
+        id=incident.id,
+        number=incident.number,
+        type=incident.type,
+        severity=incident.severity,
+        severity_level=incident.severity_level,
+        title=incident.title,
+        description=incident.description,
+        location=incident.location,
+        site_id=incident.site_id,
+        incident_date=incident.incident_date,
+        witnesses=incident.witnesses,
+        injured_persons=incident.injured_persons,
+        requires_investigation=incident.requires_investigation,
+        is_closed=incident.is_closed,
+        created_at=incident.created_at,
+        updated_at=incident.updated_at,
+    )
+
+
+@router.delete("/incidents/{incident_id}", response_model=Message)
+def delete_incident(
+    incident_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Message:
+    """
+    Supprime un incident HSE (soft delete).
+    """
+    # TODO: Vérifier permission hse.delete.incident
+
+    HSEService.delete_incident(
+        session=session,
+        incident_id=incident_id,
+        deleted_by=current_user
+    )
+
+    return Message(message="Incident deleted successfully")

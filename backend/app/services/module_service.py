@@ -517,8 +517,9 @@ class ModuleManager:
 
         Activation = rendre fonctionnel:
         - Change status vers ACTIVE
-        - Active les hooks du module dans le système CORE
-        - Les menus, permissions deviennent accessibles
+        - Recrée les permissions du module (si elles n'existent pas)
+        - Recrée les menus du module (si ils n'existent pas)
+        - Recrée les hooks du module (si ils n'existent pas)
 
         Args:
             session: Session DB
@@ -552,23 +553,112 @@ class ModuleManager:
                 detail=f"Cannot activate: {', '.join(dep_errors)}"
             )
 
+        manifest = module.manifest
+
+        # Recréer les permissions si elles n'existent pas
+        permissions_data = manifest.get('permissions', [])
+        for perm in permissions_data:
+            # Vérifier si la permission existe déjà
+            existing_module_perm = session.exec(
+                select(ModulePermission).where(
+                    ModulePermission.module_id == module_id,
+                    ModulePermission.code == perm['code']
+                )
+            ).first()
+
+            if not existing_module_perm:
+                # Créer dans module_permission
+                module_permission = ModulePermission(
+                    module_id=module.id,
+                    code=perm['code'],
+                    name=perm['name'],
+                    description=perm.get('description'),
+                    category=perm.get('category', 'general'),
+                    created_by_id=activated_by.id,
+                )
+                session.add(module_permission)
+
+                # Créer aussi dans la table Permission principale (CORE)
+                existing_perm = session.exec(select(Permission).where(Permission.code == perm['code'])).first()
+                if not existing_perm:
+                    permission = Permission(
+                        code=perm['code'],
+                        name=perm['name'],
+                        description=perm.get('description'),
+                        module=module.code,
+                        category=perm.get('category', 'general'),
+                        created_by_id=activated_by.id,
+                    )
+                    session.add(permission)
+
+        # Recréer les items de menu si ils n'existent pas
+        menu_items_data = manifest.get('menu_items', [])
+        for menu_item in menu_items_data:
+            # Vérifier si le menu existe déjà
+            existing_menu = session.exec(
+                select(ModuleMenuItem).where(
+                    ModuleMenuItem.module_id == module_id,
+                    ModuleMenuItem.route == menu_item['route']
+                )
+            ).first()
+
+            if not existing_menu:
+                module_menu = ModuleMenuItem(
+                    module_id=module.id,
+                    label=menu_item['label'],
+                    route=menu_item['route'],
+                    icon=menu_item.get('icon'),
+                    parent_id=None,
+                    order=menu_item.get('order', 0),
+                    permission_code=menu_item.get('permission'),
+                    badge_source=menu_item.get('badge_source'),
+                    is_active=True,
+                    created_by_id=activated_by.id,
+                )
+                session.add(module_menu)
+
+        # Recréer les hooks si ils n'existent pas
+        hooks_data = manifest.get('hooks', [])
+        for hook_data in hooks_data:
+            # Vérifier si le hook existe déjà
+            existing_module_hook = session.exec(
+                select(ModuleHook).where(
+                    ModuleHook.module_id == module_id,
+                    ModuleHook.event == hook_data['event']
+                )
+            ).first()
+
+            if not existing_module_hook:
+                # Créer dans module_hook
+                module_hook = ModuleHook(
+                    module_id=module.id,
+                    name=hook_data.get('name', f"Hook {hook_data['event']}"),
+                    event=hook_data['event'],
+                    is_active=hook_data.get('is_active', False),
+                    priority=hook_data.get('priority', 0),
+                    conditions=hook_data.get('conditions'),
+                    actions=hook_data.get('actions', []),
+                    created_by_id=activated_by.id,
+                )
+                session.add(module_hook)
+
+                # Créer aussi dans la table Hook principale (CORE)
+                hook = Hook(
+                    name=hook_data.get('name', f"Hook {hook_data['event']} - {module.name}"),
+                    event=hook_data['event'],
+                    is_active=hook_data.get('is_active', False),
+                    priority=hook_data.get('priority', 0),
+                    description=hook_data.get('description', f"Hook from module {module.name}"),
+                    conditions=hook_data.get('conditions'),
+                    actions=hook_data.get('actions', []),
+                    created_by_id=activated_by.id,
+                )
+                session.add(hook)
+
         # Activer le module
         module.status = ModuleStatus.ACTIVE
         module.activated_at = datetime.utcnow()
         module.updated_by_id = activated_by.id
-
-        # Activer les hooks du module dans le système CORE
-        statement = select(ModuleHook).where(ModuleHook.module_id == module_id)
-        module_hooks = session.exec(statement).all()
-        for module_hook in module_hooks:
-            # Trouver le hook correspondant dans la table Hook CORE
-            hook_statement = select(Hook).where(
-                Hook.event == module_hook.event,
-                Hook.name.like(f"%{module.name}%")
-            )
-            hook = session.exec(hook_statement).first()
-            if hook and module_hook.is_active:
-                hook.is_active = True
 
         session.commit()
         session.refresh(module)
@@ -580,10 +670,11 @@ class ModuleManager:
         """
         Désactive un module actif.
 
-        Désactivation = rendre inactif:
+        Désactivation = rendre inactif et supprimer les données associées:
         - Change status vers DISABLED
-        - Désactive les hooks du module dans le système CORE
-        - Les menus restent visibles mais grisés
+        - Supprime les permissions du module (module_permission + permission CORE)
+        - Supprime les menus du module (module_menu_item)
+        - Supprime les hooks du module (module_hook + hook CORE)
 
         Args:
             session: Session DB
@@ -630,11 +721,34 @@ class ModuleManager:
         module.deactivated_at = datetime.utcnow()
         module.updated_by_id = deactivated_by.id
 
-        # Désactiver les hooks du module dans le système CORE
+        # Supprimer les hooks du module dans le système CORE
         statement = select(Hook).where(Hook.name.like(f"%{module.name}%"))
         hooks = session.exec(statement).all()
         for hook in hooks:
-            hook.is_active = False
+            session.delete(hook)
+
+        # Supprimer les hooks du module
+        statement = select(ModuleHook).where(ModuleHook.module_id == module_id)
+        module_hooks = session.exec(statement).all()
+        for module_hook in module_hooks:
+            session.delete(module_hook)
+
+        # Supprimer les permissions du module
+        statement = select(ModulePermission).where(ModulePermission.module_id == module_id)
+        permissions = session.exec(statement).all()
+        for perm in permissions:
+            # Supprimer aussi de la table Permission principale
+            perm_statement = select(Permission).where(Permission.code == perm.code)
+            permission = session.exec(perm_statement).first()
+            if permission:
+                session.delete(permission)
+            session.delete(perm)
+
+        # Supprimer les menus du module
+        statement = select(ModuleMenuItem).where(ModuleMenuItem.module_id == module_id)
+        menus = session.exec(statement).all()
+        for menu in menus:
+            session.delete(menu)
 
         session.commit()
         session.refresh(module)

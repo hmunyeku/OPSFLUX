@@ -22,6 +22,9 @@ from app.models_modules import (
     ModuleInstallResponse,
     ModuleRegistryPublic,
     ModuleMenuItem,
+    MenuItemPublic,
+    ModuleMenuPublic,
+    ModuleMenusResponse,
 )
 from app.services.module_service import ModuleManager
 
@@ -119,11 +122,11 @@ def get_modules_stats(
     return stats
 
 
-@router.get("/menus")
+@router.get("/menus", response_model=ModuleMenusResponse)
 def get_active_modules_menus(
     session: SessionDep,
     current_user: CurrentUser,
-) -> Any:
+) -> ModuleMenusResponse:
     """
     Récupère les menus de tous les modules actifs.
 
@@ -165,26 +168,28 @@ def get_active_modules_menus(
         menu_items = session.exec(menu_statement).all()
 
         if menu_items:
-            result.append({
-                "module_code": module.code,
-                "module_name": module.name,
-                "module_icon": module.icon,
-                "module_color": module.color,
-                "menu_items": [
-                    {
-                        "id": str(item.id),
-                        "label": item.label,
-                        "route": item.route,
-                        "icon": item.icon,
-                        "permission": item.permission_code,
-                        "order": item.order,
-                        "badge_source": item.badge_source,
-                    }
-                    for item in menu_items
-                ]
-            })
+            result.append(
+                ModuleMenuPublic(
+                    module_code=module.code,
+                    module_name=module.name,
+                    module_icon=module.icon,
+                    module_color=module.color,
+                    menu_items=[
+                        MenuItemPublic(
+                            id=str(item.id),
+                            label=item.label,
+                            route=item.route,
+                            icon=item.icon,
+                            permission=item.permission_code,
+                            order=item.order,
+                            badge_source=item.badge_source,
+                        )
+                        for item in menu_items
+                    ]
+                )
+            )
 
-    return {"data": result, "count": len(result)}
+    return ModuleMenusResponse(data=result, count=len(result))
 
 
 @router.get("/discover")

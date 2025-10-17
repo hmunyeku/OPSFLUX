@@ -142,7 +142,11 @@
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzODAyMzAsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.j0Isn_xLqh-CJtXUF5sQr0ajBn4LWwP4JJoUKTDjoIc\" curl -s -X POST http://localhost:8000/api/v1/login/access-token -H \"Content-Type: application/x-www-form-urlencoded\" -d \"username=admin@opsflux.io\" -d \"password=adminopsflux\")",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzODI2NTcsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.1L8SygnoEm58JTrXeIFEpDIc5PV-o5zEoLz5iBW3dWE\" curl -s -X GET \"http://localhost:8000/api/v1/modules/\" -H \"Authorization: Bearer $TOKEN\")",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzODMxNDQsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.4ZGbZd1jwS-1biP3rZ7hT2jfziiZjKWXGVPsWvXADjU\" curl -s -X GET \"http://localhost:8000/api/v1/modules/menus\" -H \"Authorization: Bearer $TOKEN\")",
-      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzODMxOTMsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.uOUdYf3ALCTdvMTMclM9dAljc0mcGV9_a1HHqQX6dq8\")"
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzODMxOTMsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.uOUdYf3ALCTdvMTMclM9dAljc0mcGV9_a1HHqQX6dq8\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzODQwNDMsInN1YiI6IjA2MGM2Yjg5LTAxYmQtNDU2Ny05MTY0LTU2MWI5ZGVmOWU2ZiIsInR5cGUiOiJhY2Nlc3MifQ.ucZuw8eI996wk4tKsIrLJUoKJISUR24hoawyD6g8DkY\" curl -s -X GET \"http://localhost:8000/api/v1/modules/menus\" -H \"Authorization: Bearer $TOKEN\")",
+      "Bash(timeout 30 uv run alembic revision:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzODQwNDMsInN1YiI6IjA2MGM2Yjg5LTAxYmQtNDU2Ny05MTY0LTU2MWI5ZGVmOWU2ZiIsInR5cGUiOiJhY2Nlc3MifQ.ucZuw8eI996wk4tKsIrLJUoKJISUR24hoawyD6g8DkY\" curl -s -X GET \"http://localhost:8000/api/v1/languages/\" -H \"Authorization: Bearer $TOKEN\")",
+      "Bash(git rm:*)"
     ],
     "deny": [],
     "ask": []

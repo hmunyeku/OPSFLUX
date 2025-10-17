@@ -90,8 +90,6 @@ export default function ModulesPage() {
   const [selectedModules, setSelectedModules] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
-  const [configDialogOpen, setConfigDialogOpen] = useState(false)
-  const [moduleToConfig, setModuleToConfig] = useState<Module | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [dragActive, setDragActive] = useState(false)
@@ -100,9 +98,10 @@ export default function ModulesPage() {
   const [moduleToDelete, setModuleToDelete] = useState<Module | null>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [selectedModuleDetails, setSelectedModuleDetails] = useState<Module | null>(null)
+  const [activeTab, setActiveTab] = useState("overview")
   const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState("name")
-  const { toast } = useToast()
+  const { toast} = useToast()
 
   const fetchModules = useCallback(async () => {
     setLoading(true)
@@ -341,7 +340,8 @@ export default function ModulesPage() {
     }
   }
 
-  const openModuleDetails = async (module: Module) => {
+  const openModuleDetails = async (module: Module, tab: string = "overview") => {
+    setActiveTab(tab)
     setDetailsOpen(true)
     setSelectedModuleDetails(module)
 
@@ -364,9 +364,8 @@ export default function ModulesPage() {
     }
   }
 
-  const openModuleConfig = (module: Module) => {
-    setModuleToConfig(module)
-    setConfigDialogOpen(true)
+  const openModuleConfig = async (module: Module) => {
+    await openModuleDetails(module, "config")
   }
 
   const getStatusBadge = (status: string) => {
@@ -711,7 +710,7 @@ export default function ModulesPage() {
 
           <Separator className="my-4" />
 
-          <Tabs defaultValue="overview" className="mt-4">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="overview" className="text-xs">Aperçu</TabsTrigger>
               <TabsTrigger value="details" className="text-xs">Détails</TabsTrigger>
@@ -1005,57 +1004,6 @@ export default function ModulesPage() {
           </Tabs>
         </SheetContent>
       </Sheet>
-
-      {/* Configuration Dialog */}
-      <Dialog open={configDialogOpen} onOpenChange={setConfigDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Configuration - {moduleToConfig?.name}</DialogTitle>
-            <DialogDescription>
-              Paramètres du module {moduleToConfig?.name} (v{moduleToConfig?.version})
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="rounded-lg border p-4">
-              <div className="mb-4 flex items-center gap-2">
-                <IconInfoCircle className="h-5 w-5 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">
-                  Les paramètres de configuration seront disponibles prochainement.
-                  Chaque module pourra définir ses propres paramètres configurables.
-                </p>
-              </div>
-
-              {/* Example configuration fields */}
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="config-enabled">Activer les notifications</Label>
-                  <div className="flex items-center gap-2">
-                    <Switch id="config-enabled" disabled />
-                    <span className="text-sm text-muted-foreground">Recevoir des notifications pour ce module</span>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="config-api">Clé API (exemple)</Label>
-                  <Input
-                    id="config-api"
-                    placeholder="sk_..."
-                    disabled
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfigDialogOpen(false)}>
-              Annuler
-            </Button>
-            <Button disabled>
-              Enregistrer
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Upload Dialog */}
       <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>

@@ -10,6 +10,7 @@ from app.api.routes import (
     groups,
     hooks,
     items,
+    languages,
     login,
     modules,
     notifications,
@@ -52,6 +53,7 @@ api_router.include_router(tasks.router)  # Tasks management
 api_router.include_router(bookmarks.router)  # Bookmarks management
 api_router.include_router(audit.router, prefix="/audit", tags=["Audit"])  # Audit logs
 api_router.include_router(modules.router)  # Module management system
+api_router.include_router(languages.router)  # Multilingual (i18n) system
 
 
 if settings.ENVIRONMENT == "local":

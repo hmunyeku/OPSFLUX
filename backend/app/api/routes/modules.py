@@ -96,6 +96,7 @@ def read_modules(
                 category=module.category,
                 icon=module.icon,
                 color=module.color,
+                display_order=module.display_order,
                 status=module.status,
                 installed_at=module.installed_at,
                 activated_at=module.activated_at,
@@ -153,7 +154,7 @@ def get_active_modules_menus(
     statement = select(Module).where(
         Module.status == ModuleStatus.ACTIVE,
         Module.deleted_at == None  # noqa: E711
-    )
+    ).order_by(Module.display_order, Module.name)
     active_modules = session.exec(statement).all()
 
     result = []
@@ -174,6 +175,7 @@ def get_active_modules_menus(
                     module_name=module.name,
                     module_icon=module.icon,
                     module_color=module.color,
+                    display_order=module.display_order,
                     menu_items=[
                         MenuItemPublic(
                             id=str(item.id),
@@ -269,6 +271,7 @@ async def install_module(
                 category=module.category,
                 icon=module.icon,
                 color=module.color,
+                display_order=module.display_order,
                 status=module.status,
                 installed_at=module.installed_at,
                 activated_at=module.activated_at,
@@ -317,6 +320,7 @@ def read_module(
         category=module.category,
         icon=module.icon,
         color=module.color,
+        display_order=module.display_order,
         status=module.status,
         installed_at=module.installed_at,
         activated_at=module.activated_at,
@@ -368,6 +372,7 @@ def update_module(
         category=module.category,
         icon=module.icon,
         color=module.color,
+        display_order=module.display_order,
         status=module.status,
         installed_at=module.installed_at,
         activated_at=module.activated_at,
@@ -407,6 +412,7 @@ def activate_module(
         category=module.category,
         icon=module.icon,
         color=module.color,
+        display_order=module.display_order,
         status=module.status,
         installed_at=module.installed_at,
         activated_at=module.activated_at,
@@ -446,6 +452,7 @@ def deactivate_module(
         category=module.category,
         icon=module.icon,
         color=module.color,
+        display_order=module.display_order,
         status=module.status,
         installed_at=module.installed_at,
         activated_at=module.activated_at,

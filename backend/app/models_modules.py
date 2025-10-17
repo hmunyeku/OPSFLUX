@@ -86,6 +86,9 @@ class Module(AbstractBaseModel, table=True):
     category: Optional[str] = Field(default="other", max_length=50)
     # "core", "business", "integration", "reporting", "other"
 
+    # Ordre d'affichage dans la sidebar
+    display_order: int = Field(default=1000)  # Plus petit = plus haut dans la liste
+
     # Statut du module
     status: ModuleStatus = Field(default=ModuleStatus.AVAILABLE, index=True)
 
@@ -268,6 +271,7 @@ class ModuleBase(SQLModel):
     category: Optional[str] = "other"
     icon: Optional[str] = "Package"
     color: Optional[str] = "#3B82F6"
+    display_order: int = 1000
 
 
 class ModuleCreate(ModuleBase):
@@ -355,6 +359,7 @@ class ModuleMenuPublic(SQLModel):
     module_name: str
     module_icon: Optional[str] = None
     module_color: Optional[str] = None
+    display_order: int = 1000
     menu_items: list[MenuItemPublic]
 
 

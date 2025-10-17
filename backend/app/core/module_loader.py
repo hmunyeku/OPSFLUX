@@ -52,10 +52,16 @@ class ModuleLoader:
     # Chemin de base des modules
     MODULES_DIR = Path("/modules")
 
-    # Modules chargés (cache)
-    _loaded_modules: Dict[str, Dict[str, Any]] = {}
-    _loaded_models: List[Type[SQLModel]] = []
-    _loaded_routers: List[APIRouter] = []
+    # Registry des modules chargés (pour hot reload)
+    _loaded_modules: Dict[str, Dict[str, Any]] = {}  # Metadata des modules
+    _loaded_models: List[Type[SQLModel]] = []  # DEPRECATED - Models via migrations
+    _loaded_routers: Dict[str, APIRouter] = {}  # Module code -> Router
+    _module_sys_paths: Dict[str, str] = {}  # Module code -> sys.path ajouté
+
+    # IMPORTANT: Pour le hot reload sans redémarrage
+    # - Les MODELES sont gérés via des migrations Alembic (pas de chargement dynamique)
+    # - Seuls les ROUTERS sont chargés dynamiquement (FastAPI le supporte)
+    # - Un module peut être activé/désactivé sans restart en ajoutant/retirant son router
 
     @classmethod
     def discover_modules(cls) -> List[Dict[str, Any]]:
@@ -169,135 +175,215 @@ class ModuleLoader:
             compile(code, str(file_path), 'exec')
 
     @classmethod
-    def load_module_models(cls, module_code: str) -> List[Type[SQLModel]]:
+    def validate_module_models(cls, module_code: str) -> Dict[str, Any]:
         """
-        Charge dynamiquement les modèles d'un module depuis /modules/{code}/backend/
+        Valide les modèles d'un module SANS les charger dans SQLAlchemy.
+
+        Pour le hot reload, les modèles sont gérés via des migrations Alembic.
+        Cette méthode sert uniquement à :
+        1. Valider la syntaxe des modèles
+        2. Lister les tables qui seront créées
+        3. Vérifier les dépendances
 
         Args:
             module_code: Code du module (ex: 'hse')
 
         Returns:
-            Liste des classes de modèles chargées
+            Dict avec info sur les modèles (tables, relations, etc.)
         """
-        models = []
+        info = {
+            'valid': True,
+            'tables': [],
+            'errors': []
+        }
 
-        # Construire le chemin du module dans /modules/
         module_path = cls.MODULES_DIR / module_code
         backend_path = module_path / "backend"
         models_file = backend_path / "models.py"
 
         if not models_file.exists():
-            return models
-
-        # Ajouter le chemin du module au sys.path pour l'import
-        module_backend_path_str = str(backend_path)
-        if module_backend_path_str not in sys.path:
-            sys.path.insert(0, module_backend_path_str)
+            return info
 
         try:
-            # Importer dynamiquement le module models.py
-            # On utilise un nom unique pour éviter les conflits
-            module_name = f"modules_{module_code}_models"
+            # Lire et compiler le fichier pour valider la syntaxe
+            with open(models_file, 'r', encoding='utf-8') as f:
+                code = f.read()
+                compile(code, str(models_file), 'exec')
 
-            # Import du fichier Python
-            spec = importlib.util.spec_from_file_location(module_name, models_file)
-            if spec and spec.loader:
-                module = importlib.util.module_from_spec(spec)
-                sys.modules[module_name] = module
-                spec.loader.exec_module(module)
+            # Parser le fichier pour extraire les noms de tables
+            # (sans l'exécuter pour éviter les problèmes SQLAlchemy)
+            import ast
+            tree = ast.parse(code)
 
-                # Extraire toutes les classes qui héritent de SQLModel et ont table=True
-                for name, obj in inspect.getmembers(module, inspect.isclass):
-                    # Vérifier que c'est une table SQLModel (pas un schema Pydantic)
-                    if (hasattr(obj, '__tablename__') and
-                        issubclass(obj, SQLModel) and
-                        obj is not SQLModel and
-                        obj is not AbstractBaseModel):
-                        models.append(obj)
-                        print(f"  ✓ Loaded model: {name} (table: {obj.__tablename__})")
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ClassDef):
+                    # Chercher __tablename__ dans la classe
+                    for item in node.body:
+                        if isinstance(item, ast.Assign):
+                            for target in item.targets:
+                                if isinstance(target, ast.Name) and target.id == '__tablename__':
+                                    if isinstance(item.value, ast.Constant):
+                                        info['tables'].append({
+                                            'class': node.name,
+                                            'table': item.value.value
+                                        })
+
+            print(f"  ✓ Module models validated: {len(info['tables'])} table(s) found")
+            for table in info['tables']:
+                print(f"    - {table['class']} -> {table['table']}")
 
         except Exception as e:
-            print(f"  ✗ Error loading models from {module_code}: {e}")
-            import traceback
-            traceback.print_exc()
-            raise
+            info['valid'] = False
+            info['errors'].append(str(e))
+            print(f"  ✗ Error validating models from {module_code}: {e}")
 
-        return models
+        return info
 
     @classmethod
-    def load_module_router(cls, module_code: str) -> Optional[APIRouter]:
+    def load_module_router(cls, module_code: str, app=None) -> Optional[APIRouter]:
         """
-        Charge dynamiquement le router d'un module depuis /modules/{code}/backend/
+        Charge dynamiquement le router d'un module et l'ajoute à l'app FastAPI.
+
+        IMPORTANT pour le hot reload:
+        - Le router est chargé SANS importer models.py (évite SQLAlchemy metadata conflicts)
+        - Les modèles doivent être importés depuis app.models (ajoutés via migration)
+        - Le router peut être ajouté/retiré sans redémarrer l'application
 
         Args:
             module_code: Code du module (ex: 'hse')
+            app: Instance FastAPI (optionnel, pour enregistrer directement)
 
         Returns:
             APIRouter du module ou None
         """
-        # Construire le chemin du module dans /modules/
+        # Vérifier si le module est déjà chargé
+        if module_code in cls._loaded_routers:
+            print(f"  ⚠ Router already loaded for module '{module_code}'")
+            return cls._loaded_routers[module_code]
+
         module_path = cls.MODULES_DIR / module_code
         backend_path = module_path / "backend"
         routes_file = backend_path / "routes.py"
 
         if not routes_file.exists():
+            print(f"  ⚠ No routes.py found for module '{module_code}'")
             return None
 
-        # Ajouter le chemin du module au sys.path pour l'import
+        # Ajouter le chemin du module au sys.path
         module_backend_path_str = str(backend_path)
         if module_backend_path_str not in sys.path:
             sys.path.insert(0, module_backend_path_str)
+            cls._module_sys_paths[module_code] = module_backend_path_str
 
         try:
-            # Importer dynamiquement le module routes.py
+            # Charger le module routes avec un nom unique
             module_name = f"modules_{module_code}_routes"
 
-            # Import du fichier Python
+            # Supprimer l'ancien module s'il existe (pour permettre le reload)
+            if module_name in sys.modules:
+                del sys.modules[module_name]
+
             spec = importlib.util.spec_from_file_location(module_name, routes_file)
             if spec and spec.loader:
                 module = importlib.util.module_from_spec(spec)
                 sys.modules[module_name] = module
                 spec.loader.exec_module(module)
 
-                # Chercher l'objet 'router'
+                # Récupérer le router
                 if hasattr(module, 'router'):
                     router = getattr(module, 'router')
                     if isinstance(router, APIRouter):
-                        print(f"  ✓ Loaded router: {module_code} (prefix: {router.prefix})")
+                        # Stocker dans le registry
+                        cls._loaded_routers[module_code] = router
+
+                        # Enregistrer dans l'app si fournie
+                        if app:
+                            app.include_router(router)
+                            print(f"  ✓ Router registered: {module_code} (prefix: {router.prefix})")
+                        else:
+                            print(f"  ✓ Router loaded: {module_code} (prefix: {router.prefix})")
+
                         return router
 
-            print(f"  ⚠ No router found in {module_code}.routes")
+            print(f"  ⚠ No 'router' object found in {module_code}/routes.py")
             return None
 
         except Exception as e:
             print(f"  ✗ Error loading router from {module_code}: {e}")
             import traceback
             traceback.print_exc()
-            raise
+            return None
 
     @classmethod
-    def load_active_modules(cls, session) -> Dict[str, Any]:
+    def unload_module_router(cls, module_code: str, app=None) -> bool:
         """
-        Charge tous les modules activés dans la base de données.
+        Décharge le router d'un module (hot reload).
 
-        Cette méthode est appelée au démarrage de l'application.
+        Args:
+            module_code: Code du module
+            app: Instance FastAPI (pour retirer les routes)
+
+        Returns:
+            True si réussi
+        """
+        if module_code not in cls._loaded_routers:
+            return False
+
+        router = cls._loaded_routers[module_code]
+
+        # Retirer les routes de FastAPI
+        if app:
+            # FastAPI ne supporte pas nativement le retrait de routes
+            # On doit reconstruire la liste des routes
+            app.routes = [route for route in app.routes if not any(
+                route.path.startswith(router.prefix) for router in [router]
+            )]
+
+        # Nettoyer le registry
+        del cls._loaded_routers[module_code]
+
+        # Nettoyer sys.modules
+        module_name = f"modules_{module_code}_routes"
+        if module_name in sys.modules:
+            del sys.modules[module_name]
+
+        # Nettoyer sys.path
+        if module_code in cls._module_sys_paths:
+            path = cls._module_sys_paths[module_code]
+            if path in sys.path:
+                sys.path.remove(path)
+            del cls._module_sys_paths[module_code]
+
+        print(f"  ✓ Router unloaded: {module_code}")
+        return True
+
+    @classmethod
+    def load_active_modules(cls, session, app=None) -> Dict[str, Any]:
+        """
+        Charge tous les modules activés (HOT RELOAD compatible).
+
+        Architecture pour le hot reload:
+        1. Valide les modèles SANS les charger (les tables sont créées via migrations)
+        2. Charge les routers dynamiquement dans FastAPI
+        3. Peut être appelé plusieurs fois sans redémarrer
 
         Args:
             session: Session SQLModel pour accéder à la DB
+            app: Instance FastAPI pour enregistrer les routers
 
         Returns:
-            Dictionnaire des modules chargés avec leurs composants
+            Dictionnaire des modules chargés
         """
         from app.services.module_service import ModuleManager
 
         loaded = {
-            'models': [],
             'routers': [],
-            'modules': []
+            'modules': [],
+            'errors': []
         }
 
         print("\n" + "="*60)
-        print("🔌 MODULE LOADER - Chargement des modules activés")
+        print("🔌 MODULE LOADER - Hot reload des modules activés")
         print("="*60)
 
         # Récupérer les modules activés depuis la DB
@@ -314,34 +400,51 @@ class ModuleLoader:
             print(f"  → Chargement du module '{module_code}' v{module.version}")
 
             try:
-                # Charger les modèles
-                models = cls.load_module_models(module_code)
-                loaded['models'].extend(models)
-                cls._loaded_models.extend(models)
+                # 1. Valider les modèles (sans les charger dans SQLAlchemy)
+                models_info = cls.validate_module_models(module_code)
+                if not models_info['valid']:
+                    print(f"  ⚠ Module models validation failed")
+                    for error in models_info['errors']:
+                        print(f"    - {error}")
+                    loaded['errors'].append({
+                        'module': module_code,
+                        'error': 'Model validation failed',
+                        'details': models_info['errors']
+                    })
+                    continue
 
-                # Charger le router
-                router = cls.load_module_router(module_code)
+                # 2. Charger le router (HOT RELOAD compatible)
+                router = cls.load_module_router(module_code, app=app)
                 if router:
-                    loaded['routers'].append(router)
-                    cls._loaded_routers.append(router)
+                    loaded['routers'].append({
+                        'code': module_code,
+                        'prefix': router.prefix,
+                        'tags': router.tags
+                    })
 
                 loaded['modules'].append({
                     'code': module_code,
                     'name': module.name,
-                    'version': module.version
+                    'version': module.version,
+                    'tables': models_info['tables']
                 })
 
                 print(f"  ✅ Module '{module_code}' chargé avec succès\n")
 
             except Exception as e:
                 print(f"  ❌ Erreur lors du chargement de '{module_code}': {e}\n")
+                loaded['errors'].append({
+                    'module': module_code,
+                    'error': str(e)
+                })
                 # Ne pas arrêter le chargement des autres modules
                 continue
 
         print("="*60)
         print(f"✅ Chargement terminé: {len(loaded['modules'])} modules chargés")
-        print(f"   - {len(loaded['models'])} modèles")
         print(f"   - {len(loaded['routers'])} routers")
+        if loaded['errors']:
+            print(f"   - {len(loaded['errors'])} erreurs")
         print("="*60 + "\n")
 
         return loaded

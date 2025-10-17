@@ -31,13 +31,8 @@ async def lifespan(app: FastAPI):
         db_gen = get_db()
         session = next(db_gen)
 
-        # Charger les modules activés
-        loaded = ModuleLoader.load_active_modules(session)
-
-        # Enregistrer les routers des modules
-        if loaded['routers']:
-            print("\n📡 Enregistrement des routers des modules...")
-            ModuleLoader.register_module_routers(app)
+        # Charger les modules activés (HOT RELOAD: passer l'instance app)
+        loaded = ModuleLoader.load_active_modules(session, app=app)
 
         session.close()
 

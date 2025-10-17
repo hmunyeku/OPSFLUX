@@ -112,6 +112,8 @@ services:
         condition: service_healthy
       prestart:
         condition: service_completed_successfully
+    volumes:
+      - ./modules:/modules
     env_file:
       - .env
     environment:

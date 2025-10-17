@@ -128,7 +128,17 @@
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzMTQ0OTcsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.coCEGT1c1QOLbYZ0lzRAoZOSBiRzdQ7K3hYNesuECZI\" curl -s -X GET \"http://localhost:8000/api/v1/modules/\" -H \"Authorization: Bearer $TOKEN\")",
       "Bash(zip:*)",
       "Bash(apt-get update:*)",
-      "Bash(apt-get install:*)"
+      "Bash(apt-get install:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzNDM5NDYsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.34_HyQCO53C-iYO3pxpeOccu5cc0_aHVpkD5lFeSSSY\")",
+      "Bash(timeout 20 docker logs:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzNzMxNzIsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.WmH6twzRKBNwMENvs6SJRugjIHm39WrDgWjQNZb-Z2g\" curl -s -X GET \"http://localhost:8000/api/v1/modules/\" -H \"Authorization: Bearer $TOKEN\")",
+      "Read(///**)",
+      "Bash(timeout 15 docker logs:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzNzQ2MzMsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.MFTITBZ64gkNjfZw8-WShPxAIeCbFfuBdoOI5xv8E7Q\" curl -s -X GET \"http://localhost:8000/api/v1/hse/\" -H \"Authorization: Bearer $TOKEN\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzNzQ2NjAsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.I7GWw8A6qPhKhoZnHj4cbuPtcKsUek_HK7xwJCkoUY4\" curl -s -X GET \"http://localhost:8000/api/v1/hse/\" -H \"Authorization: Bearer $TOKEN\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzNzk1NjMsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.ikcgW3ki3xym_sVlzyj8pBuuD1JHMOVNjecJwfTYzMY\" curl -s -X GET \"http://localhost:8000/api/v1/permissions/?module=modules\" -H \"Authorization: Bearer $TOKEN\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzODAyMzAsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.j0Isn_xLqh-CJtXUF5sQr0ajBn4LWwP4JJoUKTDjoIc\" curl -s -X GET \"http://localhost:8000/api/v1/permissions/?module=modules\" -H \"Authorization: Bearer $TOKEN\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzODAyMzAsInN1YiI6Ijg0ZjdjM2M0LTA1ZWYtNDZjYS1hNDEzLWUyZjE0Zjk0NjYwYyIsInR5cGUiOiJhY2Nlc3MifQ.j0Isn_xLqh-CJtXUF5sQr0ajBn4LWwP4JJoUKTDjoIc\")"
     ],
     "deny": [],
     "ask": []

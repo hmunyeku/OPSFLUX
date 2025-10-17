@@ -9,7 +9,8 @@ from enum import Enum
 from typing import Optional
 from uuid import UUID
 
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, SQLModel, Column
+from sqlalchemy import Text
 
 # Import du modèle de base CORE
 from app.core.models.base import AbstractBaseModel
@@ -54,7 +55,7 @@ class Incident(AbstractBaseModel, table=True):
 
     # Détails
     title: str = Field(max_length=255)
-    description: str = Field(sa_column_kwargs={"type_": "TEXT"})
+    description: str = Field(sa_column=Column(Text))
 
     # Localisation
     location: str = Field(max_length=255)
@@ -65,18 +66,18 @@ class Incident(AbstractBaseModel, table=True):
 
     # Personnes impliquées
     reported_by_id: Optional[UUID] = Field(default=None, foreign_key="user.id")
-    witnesses: Optional[str] = Field(default=None, sa_column_kwargs={"type_": "TEXT"})
-    injured_persons: Optional[str] = Field(default=None, sa_column_kwargs={"type_": "TEXT"})
+    witnesses: Optional[str] = Field(default=None, sa_column=Column(Text))
+    injured_persons: Optional[str] = Field(default=None, sa_column=Column(Text))
 
     # Investigation
     requires_investigation: bool = Field(default=False)
     investigation_started_at: Optional[datetime] = Field(default=None)
     investigation_completed_at: Optional[datetime] = Field(default=None)
-    investigation_notes: Optional[str] = Field(default=None, sa_column_kwargs={"type_": "TEXT"})
+    investigation_notes: Optional[str] = Field(default=None, sa_column=Column(Text))
 
     # Actions correctives
-    corrective_actions: Optional[str] = Field(default=None, sa_column_kwargs={"type_": "TEXT"})
-    preventive_actions: Optional[str] = Field(default=None, sa_column_kwargs={"type_": "TEXT"})
+    corrective_actions: Optional[str] = Field(default=None, sa_column=Column(Text))
+    preventive_actions: Optional[str] = Field(default=None, sa_column=Column(Text))
 
     # Statut
     is_closed: bool = Field(default=False)

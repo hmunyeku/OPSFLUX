@@ -146,7 +146,9 @@
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzODQwNDMsInN1YiI6IjA2MGM2Yjg5LTAxYmQtNDU2Ny05MTY0LTU2MWI5ZGVmOWU2ZiIsInR5cGUiOiJhY2Nlc3MifQ.ucZuw8eI996wk4tKsIrLJUoKJISUR24hoawyD6g8DkY\" curl -s -X GET \"http://localhost:8000/api/v1/modules/menus\" -H \"Authorization: Bearer $TOKEN\")",
       "Bash(timeout 30 uv run alembic revision:*)",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzODQwNDMsInN1YiI6IjA2MGM2Yjg5LTAxYmQtNDU2Ny05MTY0LTU2MWI5ZGVmOWU2ZiIsInR5cGUiOiJhY2Nlc3MifQ.ucZuw8eI996wk4tKsIrLJUoKJISUR24hoawyD6g8DkY\" curl -s -X GET \"http://localhost:8000/api/v1/languages/\" -H \"Authorization: Bearer $TOKEN\")",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzODQwNDMsInN1YiI6IjA2MGM2Yjg5LTAxYmQtNDU2Ny05MTY0LTU2MWI5ZGVmOWU2ZiIsInR5cGUiOiJhY2Nlc3MifQ.ucZuw8eI996wk4tKsIrLJUoKJISUR24hoawyD6g8DkY\" curl -s -X GET \"http://localhost:8000/api/v1/languages/?is_active=true\" -H \"Authorization: Bearer $TOKEN\")",
+      "Bash(uv run python3:*)"
     ],
     "deny": [],
     "ask": []

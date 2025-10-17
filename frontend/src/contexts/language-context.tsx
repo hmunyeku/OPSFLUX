@@ -27,9 +27,16 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   } = useLanguages()
 
   const changeLanguage = async (languageId: string) => {
-    await updateLanguagePreference(languageId)
-    // Ici on pourrait recharger les traductions si besoin
-    // ou trigger un événement pour que l'app se mette à jour
+    console.log("🔧 LanguageContext: changeLanguage called with", languageId)
+    try {
+      await updateLanguagePreference(languageId)
+      console.log("✅ LanguageContext: Language preference updated")
+      // Recharger les langues pour synchroniser
+      await loadLanguages()
+    } catch (error) {
+      console.error("❌ LanguageContext: Error updating language", error)
+      throw error
+    }
   }
 
   return (

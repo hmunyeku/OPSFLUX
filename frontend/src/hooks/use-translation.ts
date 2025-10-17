@@ -6,10 +6,19 @@ import { useLanguageContext } from "@/contexts/language-context"
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 function getAuthHeaders() {
+  if (typeof window === "undefined") {
+    return {
+      "Content-Type": "application/json",
+    }
+  }
+
   const token = localStorage.getItem("access_token")
   if (!token) {
-    throw new Error("No access token found")
+    return {
+      "Content-Type": "application/json",
+    }
   }
+
   return {
     Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",

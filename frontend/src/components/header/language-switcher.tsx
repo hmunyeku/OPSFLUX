@@ -20,14 +20,20 @@ export function LanguageSwitcher() {
   const [changing, setChanging] = useState(false)
 
   const handleLanguageChange = async (languageId: string) => {
-    if (changing || currentLanguage?.id === languageId) return
+    console.log("🌍 Changing language to:", languageId)
+    if (changing || currentLanguage?.id === languageId) {
+      console.log("⏭️ Skip language change (already changing or same language)")
+      return
+    }
 
     setChanging(true)
     try {
+      console.log("🔄 Calling changeLanguage...")
       await changeLanguage(languageId)
+      console.log("✅ Language changed successfully")
       setOpen(false)
-    } catch (_error) {
-      // Erreur lors du changement de langue
+    } catch (error) {
+      console.error("❌ Error changing language:", error)
     } finally {
       setChanging(false)
     }

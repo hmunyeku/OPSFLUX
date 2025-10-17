@@ -29,6 +29,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
   IconPuzzle,
   IconCheck,
@@ -45,11 +47,18 @@ import {
   IconShieldCheck,
   IconCheckbox,
   IconBoxMultiple,
+  IconKey,
+  IconMenu2,
+  IconWebhook,
+  IconLanguage,
+  IconLink,
+  IconChevronRight,
 } from "@tabler/icons-react"
 import ContentSection from "../components/content-section"
 import { useToast } from "@/hooks/use-toast"
 import {
   getModules,
+  getModuleDetails,
   activateModule,
   deactivateModule,
   installModule,
@@ -333,9 +342,28 @@ export default function ModulesPage() {
     }
   }
 
-  const openModuleDetails = (module: Module) => {
-    setSelectedModuleDetails(module)
+  const openModuleDetails = async (module: Module) => {
     setDetailsOpen(true)
+    setSelectedModuleDetails(module)
+
+    // Charger les détails complets du module avec manifest
+    try {
+      const fullModule = await getModuleDetails(module.id)
+
+      // Extraire les données du manifest pour un accès facile
+      if (fullModule.manifest) {
+        fullModule.permissions = fullModule.manifest.permissions
+        fullModule.menu_items = fullModule.manifest.menu_items
+        fullModule.hooks = fullModule.manifest.hooks
+        fullModule.translations = fullModule.manifest.translations
+        fullModule.dependencies = fullModule.manifest.dependencies
+      }
+
+      setSelectedModuleDetails(fullModule)
+    } catch (error) {
+      // Utiliser les données de base si erreur
+      console.error('Failed to load module details:', error)
+    }
   }
 
   const openModuleConfig = (module: Module) => {
@@ -611,7 +639,7 @@ export default function ModulesPage() {
 
       {/* Module Details Drawer */}
       <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
-        <SheetContent className="sm:max-w-[500px] overflow-y-auto">
+        <SheetContent className="sm:max-w-[600px] overflow-y-auto">
           <SheetHeader>
             <div className="flex items-center gap-3">
               {selectedModuleDetails?.icon_url ? (
@@ -633,128 +661,350 @@ export default function ModulesPage() {
                   />
                 </div>
               )}
-              <div>
+              <div className="flex-1">
                 <SheetTitle>{selectedModuleDetails?.name}</SheetTitle>
                 <SheetDescription>
-                  Version {selectedModuleDetails?.version}
+                  Version {selectedModuleDetails?.version} • {selectedModuleDetails?.category}
                 </SheetDescription>
               </div>
+              {selectedModuleDetails && getStatusBadge(selectedModuleDetails.status)}
             </div>
           </SheetHeader>
 
-          <div className="mt-6 space-y-6">
-            {/* Status */}
-            <div>
-              <h3 className="mb-2 text-sm font-semibold">Statut</h3>
-              <div className="flex items-center gap-2">
-                {selectedModuleDetails && getStatusBadge(selectedModuleDetails.status)}
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Description */}
-            <div>
-              <h3 className="mb-2 text-sm font-semibold">Description</h3>
-              <p className="text-sm text-muted-foreground">
-                {selectedModuleDetails?.description}
-              </p>
-            </div>
-
-            <Separator />
-
-            {/* Informations */}
-            <div>
-              <h3 className="mb-3 text-sm font-semibold">Informations</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Catégorie:</span>
-                  <span>{selectedModuleDetails?.category || "N/A"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Auteur:</span>
-                  <span>{selectedModuleDetails?.author || "N/A"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Code:</span>
-                  <span className="font-mono text-xs">{selectedModuleDetails?.code}</span>
-                </div>
-                {selectedModuleDetails?.installed_at && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Installé le:</span>
-                    <span>{new Date(selectedModuleDetails.installed_at).toLocaleDateString()}</span>
-                  </div>
-                )}
-                {selectedModuleDetails?.activated_at && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Activé le:</span>
-                    <span>{new Date(selectedModuleDetails.activated_at).toLocaleDateString()}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Properties */}
-            <div>
-              <h3 className="mb-3 text-sm font-semibold">Propriétés</h3>
-              <div className="space-y-2">
-                {selectedModuleDetails?.is_system && (
-                  <Badge variant="outline">
-                    <IconShieldCheck className="mr-1 h-3 w-3" />
-                    Module système
-                  </Badge>
-                )}
-                {selectedModuleDetails?.is_required && (
-                  <Badge variant="outline">
-                    <IconAlertTriangle className="mr-1 h-3 w-3" />
-                    Module requis
-                  </Badge>
-                )}
-                {selectedModuleDetails?.requires_license && (
-                  <Badge variant="outline">Licence requise</Badge>
-                )}
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Actions */}
-            <div className="space-y-2">
+          {/* Actions avec ButtonGroup */}
+          <div className="mt-4 flex gap-2">
+            <Button
+              className="flex-1"
+              size="sm"
+              disabled={!selectedModuleDetails || !isModuleActive(selectedModuleDetails.status)}
+              onClick={() => {
+                if (selectedModuleDetails) {
+                  setDetailsOpen(false)
+                  openModuleConfig(selectedModuleDetails)
+                }
+              }}
+            >
+              <IconSettings className="mr-2 h-4 w-4" />
+              Configurer
+            </Button>
+            <Button
+              className="flex-1"
+              size="sm"
+              variant="outline"
+              disabled
+            >
+              <IconDownload className="mr-2 h-4 w-4" />
+              Mise à jour
+            </Button>
+            {selectedModuleDetails && !selectedModuleDetails.is_system && !selectedModuleDetails.is_required && (
               <Button
-                className="w-full"
-                disabled={!selectedModuleDetails || !isModuleActive(selectedModuleDetails.status)}
+                size="sm"
+                variant="outline"
                 onClick={() => {
-                  if (selectedModuleDetails) {
-                    setDetailsOpen(false)
-                    openModuleConfig(selectedModuleDetails)
-                  }
+                  setDetailsOpen(false)
+                  setModuleToDelete(selectedModuleDetails)
+                  setDeleteDialogOpen(true)
                 }}
               >
-                <IconSettings className="mr-2 h-4 w-4" />
-                Configurer le module
+                <IconTrash className="h-4 w-4 text-destructive" />
               </Button>
-              <Button className="w-full" variant="outline" disabled>
-                <IconDownload className="mr-2 h-4 w-4" />
-                Vérifier les mises à jour
-              </Button>
-              {selectedModuleDetails && !selectedModuleDetails.is_system && !selectedModuleDetails.is_required && (
-                <Button
-                  className="w-full"
-                  variant="destructive"
-                  onClick={() => {
-                    setDetailsOpen(false)
-                    setModuleToDelete(selectedModuleDetails)
-                    setDeleteDialogOpen(true)
-                  }}
-                >
-                  <IconTrash className="mr-2 h-4 w-4" />
-                  Désinstaller le module
-                </Button>
-              )}
-            </div>
+            )}
           </div>
+
+          <Separator className="my-4" />
+
+          <Tabs defaultValue="overview" className="mt-4">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="overview" className="text-xs">Aperçu</TabsTrigger>
+              <TabsTrigger value="details" className="text-xs">Détails</TabsTrigger>
+              <TabsTrigger value="config" className="text-xs">Configuration</TabsTrigger>
+            </TabsList>
+
+            {/* Tab: Aperçu */}
+            <TabsContent value="overview" className="space-y-6 mt-4">
+              {/* Description */}
+              <div>
+                <h3 className="mb-2 text-sm font-semibold">Description</h3>
+                <p className="text-sm text-muted-foreground">
+                  {selectedModuleDetails?.description}
+                </p>
+              </div>
+
+              <Separator />
+
+              {/* Informations */}
+              <div>
+                <h3 className="mb-3 text-sm font-semibold">Informations</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Auteur:</span>
+                    <span>{selectedModuleDetails?.author || "N/A"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Code:</span>
+                    <span className="font-mono text-xs">{selectedModuleDetails?.code}</span>
+                  </div>
+                  {selectedModuleDetails?.installed_at && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Installé le:</span>
+                      <span>{new Date(selectedModuleDetails.installed_at).toLocaleDateString()}</span>
+                    </div>
+                  )}
+                  {selectedModuleDetails?.activated_at && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Activé le:</span>
+                      <span>{new Date(selectedModuleDetails.activated_at).toLocaleDateString()}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Properties */}
+              <div>
+                <h3 className="mb-3 text-sm font-semibold">Propriétés</h3>
+                <div className="flex flex-wrap gap-2">
+                  {selectedModuleDetails?.is_system && (
+                    <Badge variant="outline">
+                      <IconShieldCheck className="mr-1 h-3 w-3" />
+                      Module système
+                    </Badge>
+                  )}
+                  {selectedModuleDetails?.is_required && (
+                    <Badge variant="outline">
+                      <IconAlertTriangle className="mr-1 h-3 w-3" />
+                      Module requis
+                    </Badge>
+                  )}
+                  {selectedModuleDetails?.requires_license && (
+                    <Badge variant="outline">Licence requise</Badge>
+                  )}
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Tab: Détails */}
+            <TabsContent value="details" className="space-y-4 mt-4">
+              {/* Permissions */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <IconKey className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="text-sm font-semibold">Permissions</h3>
+                  <Badge variant="secondary" className="text-xs">
+                    {selectedModuleDetails?.permissions?.length || 0}
+                  </Badge>
+                </div>
+                {selectedModuleDetails?.permissions && selectedModuleDetails.permissions.length > 0 ? (
+                  <div className="space-y-2">
+                    {selectedModuleDetails.permissions.map((perm, index) => (
+                      <div key={index} className="rounded-lg border p-3 text-sm">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <p className="font-medium">{perm.name}</p>
+                            <p className="text-xs font-mono text-muted-foreground mt-0.5">{perm.code}</p>
+                            {perm.description && (
+                              <p className="text-xs text-muted-foreground mt-1">{perm.description}</p>
+                            )}
+                          </div>
+                          {perm.category && (
+                            <Badge variant="outline" className="text-xs">{perm.category}</Badge>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Aucune permission définie</p>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* Menus */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <IconMenu2 className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="text-sm font-semibold">Items de menu</h3>
+                  <Badge variant="secondary" className="text-xs">
+                    {selectedModuleDetails?.menu_items?.length || 0}
+                  </Badge>
+                </div>
+                {selectedModuleDetails?.menu_items && selectedModuleDetails.menu_items.length > 0 ? (
+                  <div className="space-y-2">
+                    {selectedModuleDetails.menu_items.map((item, index) => (
+                      <div key={index} className="rounded-lg border p-3 text-sm flex items-center gap-3">
+                        {item.icon && <IconChevronRight className="h-4 w-4 text-muted-foreground" />}
+                        <div className="flex-1">
+                          <p className="font-medium">{item.label}</p>
+                          <p className="text-xs font-mono text-muted-foreground">{item.route}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">Ordre: {item.order}</Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Aucun item de menu défini</p>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* Hooks */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <IconWebhook className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="text-sm font-semibold">Hooks & Triggers</h3>
+                  <Badge variant="secondary" className="text-xs">
+                    {selectedModuleDetails?.hooks?.length || 0}
+                  </Badge>
+                </div>
+                {selectedModuleDetails?.hooks && selectedModuleDetails.hooks.length > 0 ? (
+                  <div className="space-y-2">
+                    {selectedModuleDetails.hooks.map((hook, index) => (
+                      <div key={index} className="rounded-lg border p-3 text-sm">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex-1">
+                            <p className="font-medium">{hook.name}</p>
+                            <p className="text-xs font-mono text-muted-foreground mt-0.5">{hook.event}</p>
+                          </div>
+                          <Badge variant={hook.is_active ? "default" : "secondary"} className="text-xs">
+                            {hook.is_active ? "Actif" : "Inactif"}
+                          </Badge>
+                        </div>
+                        {hook.description && (
+                          <p className="text-xs text-muted-foreground">{hook.description}</p>
+                        )}
+                        <div className="mt-2 flex gap-2">
+                          <Badge variant="outline" className="text-xs">Priorité: {hook.priority}</Badge>
+                          {hook.conditions && (
+                            <Badge variant="outline" className="text-xs">Conditions</Badge>
+                          )}
+                          {hook.actions && hook.actions.length > 0 && (
+                            <Badge variant="outline" className="text-xs">{hook.actions.length} action(s)</Badge>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Aucun hook défini</p>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* Langues */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <IconLanguage className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="text-sm font-semibold">Langues disponibles</h3>
+                  <Badge variant="secondary" className="text-xs">
+                    {selectedModuleDetails?.translations ? Object.keys(selectedModuleDetails.translations).length : 0}
+                  </Badge>
+                </div>
+                {selectedModuleDetails?.translations && Object.keys(selectedModuleDetails.translations).length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {Object.keys(selectedModuleDetails.translations).map((lang) => (
+                      <Badge key={lang} variant="outline" className="text-xs">
+                        {lang.toUpperCase()} ({Object.keys(selectedModuleDetails.translations![lang]).length} clés)
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Aucune traduction disponible</p>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* Dépendances */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <IconLink className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="text-sm font-semibold">Dépendances</h3>
+                </div>
+
+                {/* Services CORE */}
+                {selectedModuleDetails?.dependencies?.core_services && selectedModuleDetails.dependencies.core_services.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-xs text-muted-foreground mb-2">Services CORE requis:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedModuleDetails.dependencies.core_services.map((service) => (
+                        <Badge key={service} variant="secondary" className="text-xs">
+                          {service}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Modules */}
+                {selectedModuleDetails?.dependencies?.modules && selectedModuleDetails.dependencies.modules.length > 0 ? (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-2">Modules requis:</p>
+                    <div className="space-y-2">
+                      {selectedModuleDetails.dependencies.modules.map((dep, index) => (
+                        <div key={index} className="rounded-lg border p-2 text-sm flex items-center justify-between">
+                          <div>
+                            <p className="font-medium">{dep.name}</p>
+                            <p className="text-xs font-mono text-muted-foreground">{dep.code}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {dep.min_version && (
+                              <Badge variant="outline" className="text-xs">≥ {dep.min_version}</Badge>
+                            )}
+                            {dep.is_optional && (
+                              <Badge variant="secondary" className="text-xs">Optionnel</Badge>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  !selectedModuleDetails?.dependencies?.core_services?.length && (
+                    <p className="text-sm text-muted-foreground">Aucune dépendance externe</p>
+                  )
+                )}
+              </div>
+            </TabsContent>
+
+            {/* Tab: Configuration */}
+            <TabsContent value="config" className="space-y-4 mt-4">
+              <div className="rounded-lg border p-4">
+                <div className="mb-4 flex items-center gap-2">
+                  <IconInfoCircle className="h-5 w-5 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">
+                    Les paramètres de configuration seront disponibles prochainement.
+                    Chaque module pourra définir ses propres paramètres configurables.
+                  </p>
+                </div>
+
+                {/* Example configuration fields */}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="config-enabled">Activer les notifications</Label>
+                    <div className="flex items-center gap-2">
+                      <Switch id="config-enabled" disabled />
+                      <span className="text-sm text-muted-foreground">Recevoir des notifications pour ce module</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="config-api">Clé API (exemple)</Label>
+                    <Input
+                      id="config-api"
+                      placeholder="sk_..."
+                      disabled
+                    />
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
         </SheetContent>
       </Sheet>
 

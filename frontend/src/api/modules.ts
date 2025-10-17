@@ -11,6 +11,30 @@ function getAuthHeaders() {
   }
 }
 
+export interface ModulePermission {
+  code: string
+  name: string
+  description?: string
+  category?: string
+}
+
+export interface ModuleHook {
+  name: string
+  event: string
+  description?: string
+  is_active: boolean
+  priority: number
+  conditions?: Record<string, any>
+  actions?: Array<Record<string, any>>
+}
+
+export interface ModuleDependency {
+  code: string
+  name: string
+  min_version?: string
+  is_optional: boolean
+}
+
 export interface Module {
   id: string
   name: string
@@ -31,6 +55,28 @@ export interface Module {
   requires_license?: boolean
   created_at?: string
   updated_at?: string
+  // Manifest complet
+  manifest?: {
+    permissions?: ModulePermission[]
+    menu_items?: ModuleMenuItem[]
+    hooks?: ModuleHook[]
+    translations?: Record<string, Record<string, string>>
+    dependencies?: {
+      core_services?: string[]
+      modules?: ModuleDependency[]
+    }
+    settings?: Array<Record<string, any>>
+    user_preferences?: Array<Record<string, any>>
+  }
+  // Alias pour accès direct (calculés depuis manifest)
+  permissions?: ModulePermission[]
+  menu_items?: ModuleMenuItem[]
+  hooks?: ModuleHook[]
+  translations?: Record<string, Record<string, string>>
+  dependencies?: {
+    core_services?: string[]
+    modules?: ModuleDependency[]
+  }
 }
 
 export interface ModulesResponse {
@@ -61,6 +107,20 @@ export async function getModules(): Promise<ModulesResponse> {
     // Error fetching modules - return empty response
     return { data: [], count: 0 }
   }
+}
+
+export async function getModuleDetails(moduleId: string): Promise<Module> {
+  const response = await fetch(`${API_URL}/api/v1/modules/${moduleId}`, {
+    headers: getAuthHeaders(),
+    cache: 'no-store',
+  })
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.detail || 'Failed to fetch module details')
+  }
+
+  return response.json()
 }
 
 export async function activateModule(moduleId: string): Promise<Module> {

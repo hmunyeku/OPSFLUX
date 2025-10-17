@@ -16,6 +16,7 @@ Architecture modulaire professionnelle :
 """
 
 import importlib
+import importlib.util
 import inspect
 import json
 import sys
@@ -43,11 +44,13 @@ class ModuleLoader:
     - Validation (intégrité, dépendances, conflits)
     - Loading (chargement dynamique des composants)
     - Registration (enregistrement dans le CORE)
+
+    IMPORTANT: Les modules restent dans /modules/ (pas de copie dans backend)
+    Le chargement se fait directement depuis /modules/{code}/backend/
     """
 
-    # Chemins de base
+    # Chemin de base des modules
     MODULES_DIR = Path("/modules")
-    BACKEND_MODULES_DIR = Path("/backend/app/modules")
 
     # Modules chargés (cache)
     _loaded_modules: Dict[str, Dict[str, Any]] = {}
@@ -168,7 +171,7 @@ class ModuleLoader:
     @classmethod
     def load_module_models(cls, module_code: str) -> List[Type[SQLModel]]:
         """
-        Charge dynamiquement les modèles d'un module.
+        Charge dynamiquement les modèles d'un module depuis /modules/{code}/backend/
 
         Args:
             module_code: Code du module (ex: 'hse')
@@ -178,36 +181,45 @@ class ModuleLoader:
         """
         models = []
 
-        # Construire le chemin du module
-        backend_module_path = cls.BACKEND_MODULES_DIR / module_code
-        models_file = backend_module_path / "models.py"
+        # Construire le chemin du module dans /modules/
+        module_path = cls.MODULES_DIR / module_code
+        backend_path = module_path / "backend"
+        models_file = backend_path / "models.py"
 
         if not models_file.exists():
             return models
 
-        # Importer dynamiquement le module
-        module_name = f"app.modules.{module_code}.models"
+        # Ajouter le chemin du module au sys.path pour l'import
+        module_backend_path_str = str(backend_path)
+        if module_backend_path_str not in sys.path:
+            sys.path.insert(0, module_backend_path_str)
 
         try:
-            # Importer le module
-            if module_name in sys.modules:
-                # Recharger si déjà importé
-                module = importlib.reload(sys.modules[module_name])
-            else:
-                module = importlib.import_module(module_name)
+            # Importer dynamiquement le module models.py
+            # On utilise un nom unique pour éviter les conflits
+            module_name = f"modules_{module_code}_models"
 
-            # Extraire toutes les classes qui héritent de SQLModel et ont table=True
-            for name, obj in inspect.getmembers(module, inspect.isclass):
-                # Vérifier que c'est une table SQLModel (pas un schema Pydantic)
-                if (hasattr(obj, '__tablename__') and
-                    issubclass(obj, SQLModel) and
-                    obj is not SQLModel and
-                    obj is not AbstractBaseModel):
-                    models.append(obj)
-                    print(f"  ✓ Loaded model: {name} (table: {obj.__tablename__})")
+            # Import du fichier Python
+            spec = importlib.util.spec_from_file_location(module_name, models_file)
+            if spec and spec.loader:
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[module_name] = module
+                spec.loader.exec_module(module)
+
+                # Extraire toutes les classes qui héritent de SQLModel et ont table=True
+                for name, obj in inspect.getmembers(module, inspect.isclass):
+                    # Vérifier que c'est une table SQLModel (pas un schema Pydantic)
+                    if (hasattr(obj, '__tablename__') and
+                        issubclass(obj, SQLModel) and
+                        obj is not SQLModel and
+                        obj is not AbstractBaseModel):
+                        models.append(obj)
+                        print(f"  ✓ Loaded model: {name} (table: {obj.__tablename__})")
 
         except Exception as e:
             print(f"  ✗ Error loading models from {module_code}: {e}")
+            import traceback
+            traceback.print_exc()
             raise
 
         return models
@@ -215,7 +227,7 @@ class ModuleLoader:
     @classmethod
     def load_module_router(cls, module_code: str) -> Optional[APIRouter]:
         """
-        Charge dynamiquement le router d'un module.
+        Charge dynamiquement le router d'un module depuis /modules/{code}/backend/
 
         Args:
             module_code: Code du module (ex: 'hse')
@@ -223,35 +235,44 @@ class ModuleLoader:
         Returns:
             APIRouter du module ou None
         """
-        # Construire le chemin du module
-        backend_module_path = cls.BACKEND_MODULES_DIR / module_code
-        routes_file = backend_module_path / "routes.py"
+        # Construire le chemin du module dans /modules/
+        module_path = cls.MODULES_DIR / module_code
+        backend_path = module_path / "backend"
+        routes_file = backend_path / "routes.py"
 
         if not routes_file.exists():
             return None
 
-        # Importer dynamiquement le module
-        module_name = f"app.modules.{module_code}.routes"
+        # Ajouter le chemin du module au sys.path pour l'import
+        module_backend_path_str = str(backend_path)
+        if module_backend_path_str not in sys.path:
+            sys.path.insert(0, module_backend_path_str)
 
         try:
-            # Importer le module
-            if module_name in sys.modules:
-                module = importlib.reload(sys.modules[module_name])
-            else:
-                module = importlib.import_module(module_name)
+            # Importer dynamiquement le module routes.py
+            module_name = f"modules_{module_code}_routes"
 
-            # Chercher l'objet 'router'
-            if hasattr(module, 'router'):
-                router = getattr(module, 'router')
-                if isinstance(router, APIRouter):
-                    print(f"  ✓ Loaded router: {module_code} (prefix: {router.prefix})")
-                    return router
+            # Import du fichier Python
+            spec = importlib.util.spec_from_file_location(module_name, routes_file)
+            if spec and spec.loader:
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[module_name] = module
+                spec.loader.exec_module(module)
+
+                # Chercher l'objet 'router'
+                if hasattr(module, 'router'):
+                    router = getattr(module, 'router')
+                    if isinstance(router, APIRouter):
+                        print(f"  ✓ Loaded router: {module_code} (prefix: {router.prefix})")
+                        return router
 
             print(f"  ⚠ No router found in {module_code}.routes")
             return None
 
         except Exception as e:
             print(f"  ✗ Error loading router from {module_code}: {e}")
+            import traceback
+            traceback.print_exc()
             raise
 
     @classmethod

@@ -51,10 +51,11 @@ class ModuleManager:
     les services CORE (notification, email, file_manager, audit, translation, etc.)
     """
 
-    # Dossiers de base (modules à la racine du projet)
+    # Dossier de base des modules (à la racine du projet)
     MODULES_DIR = Path("/modules")
-    BACKEND_MODULES_DIR = Path("/backend/app/modules")
-    FRONTEND_MODULES_DIR = Path("/frontend/src/modules")
+
+    # Les modules restent dans /modules/ et ne sont PAS copiés ailleurs
+    # Le chargement dynamique se fait directement depuis /modules/{code}/backend/
 
     @staticmethod
     def discover_modules(session: Session) -> list[Module]:
@@ -406,6 +407,7 @@ class ModuleManager:
                         code=perm['code'],
                         name=perm['name'],
                         description=perm.get('description'),
+                        module=module.code,  # Ajouter le code du module
                         category=perm.get('category', 'general'),
                         created_by_id=installed_by.id,
                     )

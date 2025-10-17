@@ -24,6 +24,7 @@ import {
   IconListDetails,
   IconBolt,
   IconPuzzle,
+  IconMail,
 } from "@tabler/icons-react"
 import { AudioWaveform, GalleryVerticalEnd } from "lucide-react"
 import { Logo } from "@/components/logo"
@@ -223,6 +224,12 @@ export const sidebarData: SidebarData = {
               icon: IconListDetails,
               url: "/developers/events-&-logs",
               permission: "logs.read",
+            },
+            {
+              title: "Templates Email",
+              icon: IconMail,
+              url: "/developers/email-templates",
+              permission: "developers.read",
             },
           ],
         },

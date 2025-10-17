@@ -7,6 +7,7 @@ from app.api.routes import (
     audit,
     auth,
     bookmarks,
+    email_templates,
     groups,
     hooks,
     items,
@@ -54,6 +55,7 @@ api_router.include_router(bookmarks.router)  # Bookmarks management
 api_router.include_router(audit.router, prefix="/audit", tags=["Audit"])  # Audit logs
 api_router.include_router(modules.router)  # Module management system
 api_router.include_router(languages.router)  # Multilingual (i18n) system
+api_router.include_router(email_templates.router)  # Email templates management
 
 
 if settings.ENVIRONMENT == "local":

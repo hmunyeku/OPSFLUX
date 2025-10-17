@@ -15,7 +15,12 @@ import {
 } from "@/components/ui/drawer"
 import Filters from "./filters"
 
-export default function MobileFilterSheet() {
+interface Props {
+  onLevelFilterChange: (levels: string[]) => void
+  onEventTypeFilterChange: (eventTypes: string[]) => void
+}
+
+export default function MobileFilterSheet({ onLevelFilterChange, onEventTypeFilterChange }: Props) {
   return (
     <Drawer>
       <DrawerTrigger asChild>
@@ -28,9 +33,14 @@ export default function MobileFilterSheet() {
           <DrawerTitle>Filtres événements/journaux</DrawerTitle>
           <DrawerDescription>Sélectionnez et cochez les filtres.</DrawerDescription>
         </DrawerHeader>
-        <Filters />
+        <Filters
+          onLevelFilterChange={onLevelFilterChange}
+          onEventTypeFilterChange={onEventTypeFilterChange}
+        />
         <DrawerFooter>
-          <Button>Soumettre</Button>
+          <DrawerClose asChild>
+            <Button>Appliquer</Button>
+          </DrawerClose>
           <DrawerClose asChild>
             <Button variant="outline">Annuler</Button>
           </DrawerClose>

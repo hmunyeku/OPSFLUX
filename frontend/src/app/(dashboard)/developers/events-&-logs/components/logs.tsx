@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { cn } from "@/lib/utils"
 import { Card } from "@/components/ui/card"
 import Filters from "./filters"
@@ -8,10 +8,20 @@ import LogsList from "./logs-list"
 
 export default function Logs() {
   const [openedFilter, setOpenedFilter] = useState(true)
+  const [levelFilter, setLevelFilter] = useState<string[]>([])
+  const [eventTypeFilter, setEventTypeFilter] = useState<string[]>([])
 
   function toggleFilters() {
     setOpenedFilter((prev) => !prev)
   }
+
+  const handleLevelFilterChange = useCallback((levels: string[]) => {
+    setLevelFilter(levels)
+  }, [])
+
+  const handleEventTypeFilterChange = useCallback((eventTypes: string[]) => {
+    setEventTypeFilter(eventTypes)
+  }, [])
 
   return (
     <Card>
@@ -25,7 +35,10 @@ export default function Logs() {
             }
           )}
         >
-          <Filters />
+          <Filters
+            onLevelFilterChange={handleLevelFilterChange}
+            onEventTypeFilterChange={handleEventTypeFilterChange}
+          />
         </div>
         <div
           className={cn(
@@ -35,7 +48,13 @@ export default function Logs() {
             }
           )}
         >
-          <LogsList toggleFilters={toggleFilters} />
+          <LogsList
+            toggleFilters={toggleFilters}
+            levelFilter={levelFilter}
+            eventTypeFilter={eventTypeFilter}
+            onLevelFilterChange={handleLevelFilterChange}
+            onEventTypeFilterChange={handleEventTypeFilterChange}
+          />
         </div>
       </div>
     </Card>

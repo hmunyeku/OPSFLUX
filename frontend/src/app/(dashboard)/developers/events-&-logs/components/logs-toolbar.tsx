@@ -19,12 +19,16 @@ interface Props {
   toggleFilters: () => void
   searchVal: string
   setSearchVal: Dispatch<SetStateAction<string>>
+  onLevelFilterChange: (levels: string[]) => void
+  onEventTypeFilterChange: (eventTypes: string[]) => void
 }
 
 export default function LogsToolbar({
   toggleFilters,
   searchVal,
   setSearchVal,
+  onLevelFilterChange,
+  onEventTypeFilterChange,
 }: Props) {
   return (
     <div className="border-muted flex items-center gap-2 border-b p-3">
@@ -46,7 +50,10 @@ export default function LogsToolbar({
         </Tooltip>
       </TooltipProvider>
 
-      <MobileFilterSheet />
+      <MobileFilterSheet
+        onLevelFilterChange={onLevelFilterChange}
+        onEventTypeFilterChange={onEventTypeFilterChange}
+      />
 
       <SearchInput
         value={searchVal}

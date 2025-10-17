@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { ChevronRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -26,18 +26,49 @@ import {
 } from "@/components/ui/tooltip"
 import CalendarDatePicker from "@/components/calendar-date-picker"
 import {
-  containsLevelOptions,
-  environmentOptions,
-  eventTypeOptions,
   Timeline,
   timelines,
 } from "../data/data"
 
-export default function Filters() {
+interface Props {
+  onLevelFilterChange: (levels: string[]) => void
+  onEventTypeFilterChange: (eventTypes: string[]) => void
+}
+
+// Map actual API values to display labels
+const levelOptions = [
+  { label: "INFO", value: "INFO", count: 0 },
+  { label: "WARN", value: "WARN", count: 0 },
+  { label: "ERROR", value: "ERROR", count: 0 },
+  { label: "DEBUG", value: "DEBUG", count: 0 },
+]
+
+const eventTypeOptions = [
+  { label: "API", value: "API", count: 0 },
+  { label: "AUTH", value: "AUTH", count: 0 },
+  { label: "CRUD", value: "CRUD", count: 0 },
+  { label: "SYSTEM", value: "SYSTEM", count: 0 },
+]
+
+const environmentOptions = [
+  { label: "Développement", value: "development", count: 0 },
+  { label: "Production", value: "production", count: 0 },
+]
+
+export default function Filters({ onLevelFilterChange, onEventTypeFilterChange }: Props) {
   const [timeline, setTimeline] = useState<Timeline>("custom")
   const [containsLevels, setContainLevels] = useState<string[]>([])
   const [environments, setEnvironments] = useState<string[]>([])
   const [eventTypes, setEventTypes] = useState<string[]>([])
+
+  // Notify parent when filters change
+  useEffect(() => {
+    onLevelFilterChange(containsLevels)
+  }, [containsLevels, onLevelFilterChange])
+
+  useEffect(() => {
+    onEventTypeFilterChange(eventTypes)
+  }, [eventTypes, onEventTypeFilterChange])
 
   function resetHandler() {
     setContainLevels([])
@@ -121,40 +152,42 @@ export default function Filters() {
 
           <CollapsibleContent className="CollapsibleContent space-y-2 px-2 pt-1 pb-3 duration-75!">
             <div className="border-muted flex flex-col overflow-hidden rounded-md border">
-              {containsLevelOptions.map((contain_level) => (
+              {levelOptions.map((level) => (
                 <div
                   className="flex items-center gap-2 px-2 hover:bg-gray-100 dark:hover:bg-gray-800"
-                  key={contain_level.value}
+                  key={level.value}
                 >
                   <Checkbox
-                    checked={containsLevels.includes(contain_level.label)}
+                    checked={containsLevels.includes(level.value)}
                     onCheckedChange={(checked) => {
                       return checked
                         ? setContainLevels([
                             ...containsLevels,
-                            contain_level.label,
+                            level.value,
                           ])
                         : setContainLevels(
                             containsLevels.filter(
-                              (value) => value !== contain_level.label
+                              (value) => value !== level.value
                             )
                           )
                     }}
-                    id={contain_level.label}
+                    id={level.value}
                   />
                   <Label
                     className="flex h-full flex-1 cursor-pointer items-center justify-between py-2"
-                    htmlFor={contain_level.label}
+                    htmlFor={level.value}
                   >
-                    <p className="text-xs">{contain_level.label}</p>
-                    <Badge
-                      variant="secondary"
-                      className="h-6 w-6 rounded-full p-0"
-                    >
-                      <p className="m-auto text-[10px] opacity-70">
-                        {contain_level.value}
-                      </p>
-                    </Badge>
+                    <p className="text-xs">{level.label}</p>
+                    {level.count > 0 && (
+                      <Badge
+                        variant="secondary"
+                        className="h-6 w-6 rounded-full p-0"
+                      >
+                        <p className="m-auto text-[10px] opacity-70">
+                          {level.count}
+                        </p>
+                      </Badge>
+                    )}
                   </Label>
                 </div>
               ))}
@@ -181,29 +214,31 @@ export default function Filters() {
                   key={env.value}
                 >
                   <Checkbox
-                    checked={environments.includes(env.label)}
+                    checked={environments.includes(env.value)}
                     onCheckedChange={(checked) => {
                       return checked
-                        ? setEnvironments([...environments, env.label])
+                        ? setEnvironments([...environments, env.value])
                         : setEnvironments(
-                            environments.filter((value) => value !== env.label)
+                            environments.filter((value) => value !== env.value)
                           )
                     }}
-                    id={env.label}
+                    id={env.value}
                   />
                   <Label
                     className="flex flex-1 cursor-pointer items-center justify-between py-2"
-                    htmlFor={env.label}
+                    htmlFor={env.value}
                   >
                     <p className="text-xs">{env.label}</p>
-                    <Badge
-                      variant="secondary"
-                      className="h-6 w-6 rounded-full p-0"
-                    >
-                      <p className="m-auto text-[10px] opacity-70">
-                        {env.value}
-                      </p>
-                    </Badge>
+                    {env.count > 0 && (
+                      <Badge
+                        variant="secondary"
+                        className="h-6 w-6 rounded-full p-0"
+                      >
+                        <p className="m-auto text-[10px] opacity-70">
+                          {env.count}
+                        </p>
+                      </Badge>
+                    )}
                   </Label>
                 </div>
               ))}
@@ -230,31 +265,33 @@ export default function Filters() {
                   key={eventType.value}
                 >
                   <Checkbox
-                    checked={eventTypes.includes(eventType.label)}
+                    checked={eventTypes.includes(eventType.value)}
                     onCheckedChange={(checked) => {
                       return checked
-                        ? setEventTypes([...eventTypes, eventType.label])
+                        ? setEventTypes([...eventTypes, eventType.value])
                         : setEventTypes(
-                            environments.filter(
-                              (value) => value !== eventType.label
+                            eventTypes.filter(
+                              (value) => value !== eventType.value
                             )
                           )
                     }}
-                    id={eventType.label}
+                    id={eventType.value}
                   />
                   <Label
                     className="flex flex-1 cursor-pointer items-center justify-between"
-                    htmlFor={eventType.label}
+                    htmlFor={eventType.value}
                   >
                     <p className="text-xs">{eventType.label}</p>
-                    <Badge
-                      variant="secondary"
-                      className="h-6 w-6 rounded-full p-0"
-                    >
-                      <p className="m-auto text-[10px] opacity-70">
-                        {eventType.value}
-                      </p>
-                    </Badge>
+                    {eventType.count > 0 && (
+                      <Badge
+                        variant="secondary"
+                        className="h-6 w-6 rounded-full p-0"
+                      >
+                        <p className="m-auto text-[10px] opacity-70">
+                          {eventType.count}
+                        </p>
+                      </Badge>
+                    )}
                   </Label>
                 </div>
               ))}

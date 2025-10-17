@@ -4,9 +4,19 @@ import LogsToolbar from "./logs-toolbar"
 
 interface Props {
   toggleFilters: () => void
+  levelFilter: string[]
+  eventTypeFilter: string[]
+  onLevelFilterChange: (levels: string[]) => void
+  onEventTypeFilterChange: (eventTypes: string[]) => void
 }
 
-export default function LogsList({ toggleFilters }: Props) {
+export default function LogsList({
+  toggleFilters,
+  levelFilter,
+  eventTypeFilter,
+  onLevelFilterChange,
+  onEventTypeFilterChange,
+}: Props) {
   const [searchVal, setSearchVal] = useState("")
 
   return (
@@ -15,8 +25,14 @@ export default function LogsList({ toggleFilters }: Props) {
         searchVal={searchVal}
         setSearchVal={setSearchVal}
         toggleFilters={toggleFilters}
+        onLevelFilterChange={onLevelFilterChange}
+        onEventTypeFilterChange={onEventTypeFilterChange}
       />
-      <LogsTable searchVal={searchVal} />
+      <LogsTable
+        searchVal={searchVal}
+        levelFilter={levelFilter}
+        eventTypeFilter={eventTypeFilter}
+      />
     </div>
   )
 }

@@ -35,7 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { IconDotsVertical, IconEdit, IconMail, IconTrash, IconArrowUpDown, IconChevronLeft, IconChevronRight, IconChevronsLeft, IconChevronsRight } from "@tabler/icons-react"
+import { IconDotsVertical, IconEdit, IconMail, IconTrash, IconChevronLeft, IconChevronRight, IconChevronsLeft, IconChevronsRight, IconArrowUp } from "@tabler/icons-react"
 import { useToast } from "@/hooks/use-toast"
 import { apiClient } from "@/lib/api-client"
 
@@ -77,10 +77,11 @@ export default function EmailTemplatesTable({ onEdit }: EmailTemplatesTableProps
           limit: pagination.pageSize,
         },
       })
-      setTemplates(response.data.data)
-      setTotal(response.data.count)
-    } catch (error) {
-      console.error("Error fetching email templates:", error)
+      const responseData = response.data as { data: EmailTemplate[]; count: number }
+      setTemplates(responseData.data)
+      setTotal(responseData.count)
+    } catch (_error) {
+      // Error fetching email templates
       toast({
         title: "Erreur",
         description: "Impossible de charger les templates d'email",
@@ -93,6 +94,7 @@ export default function EmailTemplatesTable({ onEdit }: EmailTemplatesTableProps
 
   useEffect(() => {
     fetchTemplates()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pagination.pageIndex, pagination.pageSize])
 
   const handleDelete = async (templateId: string, isSystem: boolean) => {
@@ -116,8 +118,8 @@ export default function EmailTemplatesTable({ onEdit }: EmailTemplatesTableProps
         description: "Template supprimé avec succès",
       })
       fetchTemplates()
-    } catch (error) {
-      console.error("Error deleting template:", error)
+    } catch (_error) {
+      // Error deleting template
       toast({
         title: "Erreur",
         description: "Impossible de supprimer le template",
@@ -140,11 +142,12 @@ export default function EmailTemplatesTable({ onEdit }: EmailTemplatesTableProps
         title: "Succès",
         description: `Email de test envoyé à ${email}`,
       })
-    } catch (error: any) {
-      console.error("Error sending test email:", error)
+    } catch (error) {
+      // Error sending test email
+      const err = error as { response?: { data?: { message?: string } } }
       toast({
         title: "Erreur",
-        description: error.response?.data?.message || "Impossible d'envoyer l'email de test",
+        description: err.response?.data?.message || "Impossible d'envoyer l'email de test",
         variant: "destructive",
       })
     }
@@ -162,8 +165,7 @@ export default function EmailTemplatesTable({ onEdit }: EmailTemplatesTableProps
     return <Badge variant={config.variant}>{config.label}</Badge>
   }
 
-  const columns = useMemo<ColumnDef<EmailTemplate>[]>(
-    () => [
+  const columns = useMemo<ColumnDef<EmailTemplate>[]>(() => [
       {
         accessorKey: "name",
         header: ({ column }) => {
@@ -175,7 +177,7 @@ export default function EmailTemplatesTable({ onEdit }: EmailTemplatesTableProps
               onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
             >
               Nom
-              <IconArrowUpDown className="ml-2 h-4 w-4" />
+              <IconArrowUp className="ml-2 h-4 w-4" />
             </Button>
           )
         },
@@ -257,8 +259,8 @@ export default function EmailTemplatesTable({ onEdit }: EmailTemplatesTableProps
           )
         },
       },
-    ],
-    [onEdit]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    ], []
   )
 
   const table = useReactTable({

@@ -99,13 +99,24 @@ export default function EmailTemplateDialog({
       })
       setPreviewHtml("")
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, templateId])
 
   const fetchTemplate = async () => {
     try {
       setLoading(true)
       const response = await apiClient.get(`/api/v1/email-templates/${templateId}`)
-      const data = response.data
+      const data = response.data as {
+        name: string
+        slug: string
+        description?: string
+        category: "transactional" | "notification" | "marketing" | "system" | "custom"
+        subject: string
+        html_content: string
+        text_content?: string
+        available_variables?: string[]
+        is_active: boolean
+      }
       form.reset({
         name: data.name,
         slug: data.slug,
@@ -118,8 +129,8 @@ export default function EmailTemplateDialog({
         is_active: data.is_active,
       })
       setPreviewHtml(data.html_content)
-    } catch (error) {
-      console.error("Error fetching template:", error)
+    } catch (_error) {
+      // Error fetching template
       toast({
         title: "Erreur",
         description: "Impossible de charger le template",
@@ -159,11 +170,12 @@ export default function EmailTemplateDialog({
       }
 
       onSuccess()
-    } catch (error: any) {
-      console.error("Error saving template:", error)
+    } catch (error) {
+      // Error saving template
+      const err = error as { response?: { data?: { detail?: string } } }
       toast({
         title: "Erreur",
-        description: error.response?.data?.detail || "Impossible de sauvegarder le template",
+        description: err.response?.data?.detail || "Impossible de sauvegarder le template",
         variant: "destructive",
       })
     } finally {

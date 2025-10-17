@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import * as z from "zod"
 import { useForm } from "react-hook-form"
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
@@ -194,22 +195,19 @@ export default function GeneralForm() {
       })
     }
   }, [config, form, isInitialized])
-  const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
-
   useEffect(() => {
     setIsInitialized(true)
   }, [])
 
-  // Clean up "Modified" tags when save completes
+  // Clean up "Modified" tags after 2 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now()
       const updated = new Map(recentlyModified)
       let hasChanges = false
-      const maxDelay = Math.min(config.auto_save_delay_seconds || 3, 5) * 1000
 
       updated.forEach((timestamp, key) => {
-        if (now - timestamp > maxDelay) {
+        if (now - timestamp > 2000) { // 2 seconds
           updated.delete(key)
           hasChanges = true
         }
@@ -218,10 +216,10 @@ export default function GeneralForm() {
       if (hasChanges) {
         setRecentlyModified(updated)
       }
-    }, 100) // Check every 100ms for more precision
+    }, 100)
 
     return () => clearInterval(interval)
-  }, [recentlyModified, config.auto_save_delay_seconds])
+  }, [recentlyModified])
 
   // Save function (immediate save like preferences)
   const saveSettings = useCallback(async (data: z.infer<typeof formSchema>) => {
@@ -270,35 +268,44 @@ export default function GeneralForm() {
     }
   }, [refetch])
 
-  // Watch for field changes with delay
-  useEffect(() => {
-    const subscription = form.watch((_value, { name, type }) => {
-      if (!isInitialized || !name) return
+  // Handler for field blur - save only when user leaves the field
+  const handleFieldBlur = useCallback((fieldName: string) => {
+    if (!isInitialized) return
 
-      // Only track changes from actual user input, not from filtering/rendering
-      if (type !== 'change') return
+    // Mark as recently modified
+    setRecentlyModified(prev => new Map(prev).set(fieldName, Date.now()))
 
-      // Clear existing timer
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    // Save immediately on blur
+    saveSettings(form.getValues())
+  }, [isInitialized, form, saveSettings])
 
-      // Mark as recently modified immediately
-      setRecentlyModified(prev => new Map(prev).set(name, Date.now()))
-
-      // Start save timer with configured delay
-      const delay = (config.auto_save_delay_seconds || 3) * 1000
-      saveTimerRef.current = setTimeout(() => {
-        saveSettings(form.getValues())
-      }, delay)
-    })
-    return () => subscription.unsubscribe()
-  }, [form, isInitialized, config.auto_save_delay_seconds, saveSettings])
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    }
+  // Handler for field change - doesn't save, just marks as typing
+  const handleFieldChange = useCallback((_fieldName: string) => {
+    // Just tracking that a change occurred, actual save happens on blur
   }, [])
+
+  // Helper to wrap Input with blur/change handlers
+  const wrapInput = useCallback((fieldName: keyof z.infer<typeof formSchema>, input: React.ReactElement) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const inputProps = input.props as any
+    return React.cloneElement(input, {
+      ...inputProps,
+      onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+        inputProps.onChange?.(e)
+        handleFieldChange(fieldName)
+      },
+      onBlur: () => {
+        inputProps.onBlur?.()
+        handleFieldBlur(fieldName)
+      },
+      onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+          e.currentTarget.blur() // Trigger blur to save
+        }
+        inputProps.onKeyDown?.(e)
+      },
+    })
+  }, [handleFieldChange, handleFieldBlur])
 
   const configItems: ConfigItem[] = useMemo(
     () => [
@@ -315,7 +322,7 @@ export default function GeneralForm() {
             render={({ field }) => (
               <FormItem>
                 <FormControl>
-                  <Input placeholder="OpsFlux" {...field} className="w-full md:w-[300px]" />
+                  {wrapInput("app_name", <Input placeholder="OpsFlux" {...field} className="w-full md:w-[300px]" />)}
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -476,7 +483,7 @@ export default function GeneralForm() {
             render={({ field }) => (
               <FormItem>
                 <FormControl>
-                  <Input placeholder="Mon entreprise" {...field} className="w-full md:w-[300px]" />
+                  {wrapInput("company_name", <Input placeholder="Mon entreprise" {...field} className="w-full md:w-[300px]" />)}
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -537,7 +544,7 @@ export default function GeneralForm() {
               <FormItem>
                 <div className="flex items-center gap-2">
                   <FormControl>
-                    <Input placeholder="FR123456789" {...field} className="w-full md:w-[300px]" />
+                    {wrapInput("company_tax_id", <Input placeholder="FR123456789" {...field} className="w-full md:w-[300px]" />)}
                   </FormControl>
                   <Badge variant="outline" className="py-2">
                     <IconId size={20} strokeWidth={1.5} />
@@ -562,7 +569,7 @@ export default function GeneralForm() {
               <FormItem>
                 <div className="flex items-center gap-2">
                   <FormControl>
-                    <Input placeholder="123 Rue Example, Paris" {...field} className="w-full md:w-[300px]" />
+                    {wrapInput("company_address", <Input placeholder="123 Rue Example, Paris" {...field} className="w-full md:w-[300px]" />)}
                   </FormControl>
                   <Badge variant="outline" className="py-2">
                     <IconHome size={20} strokeWidth={1.5} />
@@ -739,7 +746,7 @@ export default function GeneralForm() {
             render={({ field }) => (
               <FormItem>
                 <FormControl>
-                  <Input placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" {...field} className="w-full md:w-[300px]" />
+                  {wrapInput("sms_provider_account_sid", <Input placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" {...field} className="w-full md:w-[300px]" />)}
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -759,12 +766,12 @@ export default function GeneralForm() {
             render={({ field }) => (
               <FormItem>
                 <FormControl>
-                  <Input
+                  {wrapInput("sms_provider_auth_token", <Input
                     type="password"
                     placeholder="••••••••••••••••••••••••"
                     {...field}
                     className="w-full md:w-[300px]"
-                  />
+                  />)}
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -784,7 +791,7 @@ export default function GeneralForm() {
             render={({ field }) => (
               <FormItem>
                 <FormControl>
-                  <Input placeholder="+33123456789" {...field} className="w-full md:w-[300px]" />
+                  {wrapInput("sms_provider_phone_number", <Input placeholder="+33123456789" {...field} className="w-full md:w-[300px]" />)}
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -805,7 +812,7 @@ export default function GeneralForm() {
             render={({ field }) => (
               <FormItem>
                 <FormControl>
-                  <Input placeholder="smtp.gmail.com" {...field} className="w-full md:w-[300px]" />
+                  {wrapInput("email_host", <Input placeholder="smtp.gmail.com" {...field} className="w-full md:w-[300px]" />)}
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -851,7 +858,7 @@ export default function GeneralForm() {
             render={({ field }) => (
               <FormItem>
                 <FormControl>
-                  <Input placeholder="votre@email.com" {...field} className="w-full md:w-[300px]" />
+                  {wrapInput("email_username", <Input placeholder="votre@email.com" {...field} className="w-full md:w-[300px]" />)}
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -871,12 +878,12 @@ export default function GeneralForm() {
             render={({ field }) => (
               <FormItem>
                 <FormControl>
-                  <Input
+                  {wrapInput("email_password", <Input
                     type="password"
                     placeholder="••••••••••••••••"
                     {...field}
                     className="w-full md:w-[300px]"
-                  />
+                  />)}
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -896,7 +903,7 @@ export default function GeneralForm() {
             render={({ field }) => (
               <FormItem>
                 <FormControl>
-                  <Input placeholder="noreply@votre-domaine.com" {...field} className="w-full md:w-[300px]" />
+                  {wrapInput("email_from", <Input placeholder="noreply@votre-domaine.com" {...field} className="w-full md:w-[300px]" />)}
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -916,7 +923,7 @@ export default function GeneralForm() {
             render={({ field }) => (
               <FormItem>
                 <FormControl>
-                  <Input placeholder="OpsFlux" {...field} className="w-full md:w-[300px]" />
+                  {wrapInput("email_from_name", <Input placeholder="OpsFlux" {...field} className="w-full md:w-[300px]" />)}
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -999,7 +1006,7 @@ export default function GeneralForm() {
             render={({ field }) => (
               <FormItem>
                 <FormControl>
-                  <Input placeholder="https://intranet.company.com/user/{user_id}" {...field} className="w-full md:w-[300px]" />
+                  {wrapInput("intranet_url", <Input placeholder="https://intranet.company.com/user/{user_id}" {...field} className="w-full md:w-[300px]" />)}
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -1008,7 +1015,7 @@ export default function GeneralForm() {
         ),
       },
     ],
-    []
+    [wrapInput]
   )
 
   const columns = useMemo<ColumnDef<ConfigItem>[]>(

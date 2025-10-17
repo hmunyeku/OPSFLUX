@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
-function getAuthHeaders() {
+function getAuthHeaders(): Record<string, string> {
   if (typeof window === "undefined") {
     return {
       "Content-Type": "application/json",
@@ -98,40 +98,30 @@ export function useLanguages() {
 
   // Mettre à jour la préférence de langue
   const updateLanguagePreference = async (languageId: string) => {
-    console.log("🔄 useLanguages: updateLanguagePreference called with", languageId)
     try {
       const url = `${API_URL}/api/v1/languages/preferences/me?language_id=${languageId}`
-      console.log("📡 useLanguages: Calling API", url)
 
       const response = await fetch(url, {
         method: "PUT",
         headers: getAuthHeaders(),
       })
 
-      console.log("📥 useLanguages: API response status", response.status)
-
       if (!response.ok) {
         const error = await response.json()
-        console.error("❌ useLanguages: API error", error)
         throw new Error(error.detail || "Failed to update language preference")
       }
 
       const data = await response.json()
-      console.log("✅ useLanguages: Preference updated", data)
       setUserPreference(data)
 
       // Mettre à jour la langue courante
       const lang = languages.find((l) => l.id === languageId)
       if (lang) {
-        console.log("🌍 useLanguages: Setting current language to", lang.code)
         setCurrentLanguage(lang)
-      } else {
-        console.warn("⚠️ useLanguages: Language not found in list", languageId)
       }
 
       return data
     } catch (err) {
-      console.error("❌ useLanguages: Error updating language preference", err)
       setError("Impossible de mettre à jour la langue")
       throw err
     }

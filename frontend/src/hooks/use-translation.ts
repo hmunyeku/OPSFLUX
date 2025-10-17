@@ -5,7 +5,7 @@ import { useLanguageContext } from "@/contexts/language-context"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
-function getAuthHeaders() {
+function getAuthHeaders(): Record<string, string> {
   if (typeof window === "undefined") {
     return {
       "Content-Type": "application/json",
@@ -111,8 +111,7 @@ export function useTranslation(
             setFallbackTranslations({})
           }
         }
-      } catch (err) {
-        console.error("Error loading translations:", err)
+      } catch {
         setTranslations({})
         setFallbackTranslations({})
       } finally {

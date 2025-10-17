@@ -4,18 +4,65 @@ import { Cross2Icon } from "@radix-ui/react-icons"
 import { Table } from "@tanstack/react-table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { userTypes } from "../data/data"
 import { DataTableFacetedFilter } from "./data-table-faceted-filter"
 import { DataTableViewOptions } from "./data-table-view-options"
 import { UserPrimaryActions } from "./user-primary-actions"
+import { useEffect, useState } from "react"
+import { IconShield, IconUserShield, IconUsersGroup, IconCash } from "@tabler/icons-react"
 
 interface Props<TData> {
   table: Table<TData>
   onUserCreated?: () => void
 }
 
+interface Role {
+  id: string
+  name: string
+  code: string
+}
+
+const roleIcons: Record<string, typeof IconShield> = {
+  superadmin: IconShield,
+  admin: IconUserShield,
+  manager: IconUsersGroup,
+  cashier: IconCash,
+}
+
 export function DataTableToolbar<TData>({ table, onUserCreated }: Props<TData>) {
   const isFiltered = table.getState().columnFilters.length > 0
+  const [roles, setRoles] = useState<Array<{ label: string; value: string; icon?: typeof IconShield }>>([])
+
+  useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        const token = localStorage.getItem("access_token")
+        if (!token) return
+
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/roles/`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+        })
+
+        if (response.ok) {
+          const result = await response.json()
+          const rolesData = result.data || []
+          const roleOptions = rolesData.map((role: Role) => ({
+            label: role.name,
+            value: role.code,
+            icon: roleIcons[role.code.toLowerCase()] || IconUserShield,
+          }))
+          setRoles(roleOptions)
+        }
+      } catch {
+        // Silently fail, use empty array
+      }
+    }
+
+    fetchRoles()
+  }, [])
 
   return (
     <div className="flex items-center justify-between">
@@ -41,11 +88,11 @@ export function DataTableToolbar<TData>({ table, onUserCreated }: Props<TData>) 
               ]}
             />
           )}
-          {table.getColumn("role") && (
+          {table.getColumn("role") && roles.length > 0 && (
             <DataTableFacetedFilter
               column={table.getColumn("role")}
               title="Role"
-              options={userTypes.map((t) => ({ ...t }))}
+              options={roles}
             />
           )}
         </div>

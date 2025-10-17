@@ -12,6 +12,7 @@ from sqlmodel import Session, select
 from app.models_hooks import Hook, HookExecution, HookExecutionCreate
 from app.services.notification_service import create_system_notification
 from app.models_notifications import NotificationPriority
+from app.core.email_service import EmailService
 
 logger = logging.getLogger(__name__)
 
@@ -284,18 +285,72 @@ async def _action_send_email(
     """
     Action: Envoyer un email.
 
-    TODO: Implémenter quand EmailService sera créé.
-
     Config attendue:
     {
-        "to_emails": ["email1@example.com", "email2@example.com"],
+        "to_emails": ["email1@example.com", "email2@example.com"],  # ou "to_email": "email@example.com" pour un seul
         "subject": "Sujet avec {variable}",
-        "template": "nom_template",
-        "priority": "normal"
+        "body": "Corps de l'email avec {variable}",  # Texte simple ou HTML
+        "template": "nom_template"  # Optionnel, template prédéfini
     }
     """
-    logger.warning("Email action not implemented yet - EmailService pending")
-    # TODO: Appeler EmailService.send_email() quand disponible
+    # Récupérer les destinataires
+    to_emails: list[str] = []
+    if "to_emails" in config:
+        to_emails = config["to_emails"]
+    elif "to_email" in config:
+        to_emails = [config["to_email"]]
+    else:
+        raise ValueError("Missing 'to_email' or 'to_emails' in email config")
+
+    # Formater le sujet avec le contexte
+    subject = config.get("subject", "Notification")
+    subject = subject.format(**context)
+
+    # Gérer le corps de l'email (body ou template)
+    if "template" in config:
+        # TODO: Implémenter le système de templates email
+        # Pour l'instant, utiliser le body si fourni, sinon template basique
+        logger.warning(f"Email template '{config['template']}' requested but not implemented yet")
+        body = config.get("body", f"<p>Event triggered: {context}</p>")
+    else:
+        body = config.get("body", "<p>Notification</p>")
+
+    # Formater le corps avec le contexte
+    body = body.format(**context)
+
+    # Si le corps ne contient pas de HTML, l'envelopper dans un template simple
+    if not body.strip().startswith("<"):
+        body = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                    {body}
+                </div>
+            </body>
+        </html>
+        """
+
+    # Envoyer l'email à chaque destinataire
+    success_count = 0
+    failed_emails = []
+
+    for to_email in to_emails:
+        success = EmailService.send_email(
+            email_to=to_email,
+            subject=subject,
+            html_content=body,
+            db=session,
+        )
+        if success:
+            success_count += 1
+        else:
+            failed_emails.append(to_email)
+
+    if failed_emails:
+        logger.error(f"Failed to send emails to: {', '.join(failed_emails)}")
+        raise Exception(f"Failed to send emails to {len(failed_emails)} recipients: {', '.join(failed_emails)}")
+
+    logger.info(f"Sent emails to {success_count} recipients")
 
 
 async def _action_call_webhook(

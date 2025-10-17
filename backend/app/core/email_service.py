@@ -233,6 +233,180 @@ class EmailService:
         )
 
     @staticmethod
+    def send_user_invitation_email(
+        email_to: str,
+        inviter_name: str,
+        invitation_token: str,
+        db: Session | None = None,
+    ) -> bool:
+        """
+        Envoie un email d'invitation pour un nouvel utilisateur
+
+        Args:
+            email_to: Adresse email du nouvel utilisateur
+            inviter_name: Nom de la personne qui invite
+            invitation_token: Token d'invitation
+            db: Session SQLModel (optionnel)
+
+        Returns:
+            bool: True si envoyé avec succès, False sinon
+        """
+        subject = f"{settings.PROJECT_NAME} - Vous êtes invité(e) à rejoindre l'équipe"
+
+        # Construire le lien d'inscription
+        signup_link = f"{settings.FRONTEND_HOST}/signup?token={invitation_token}"
+
+        html_content = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #2563eb;">Invitation à rejoindre {settings.PROJECT_NAME}</h2>
+                    <p>Bonjour,</p>
+                    <p><strong>{inviter_name}</strong> vous invite à rejoindre {settings.PROJECT_NAME}.</p>
+                    <p>Pour créer votre compte et rejoindre l'équipe, cliquez sur le bouton ci-dessous :</p>
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="{signup_link}"
+                           style="background-color: #2563eb; color: white; padding: 12px 30px;
+                                  text-decoration: none; border-radius: 5px; display: inline-block;">
+                            Créer mon compte
+                        </a>
+                    </div>
+                    <p>Ou copiez ce lien dans votre navigateur :</p>
+                    <p style="word-break: break-all; background-color: #f3f4f6; padding: 10px; border-radius: 5px;">
+                        {signup_link}
+                    </p>
+                    <p><strong>Cette invitation expire dans 7 jours.</strong></p>
+                    <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
+                    <p style="color: #6b7280; font-size: 12px;">
+                        Cet email a été envoyé par {settings.PROJECT_NAME}.
+                        Si vous n'êtes pas censé(e) recevoir cette invitation, vous pouvez l'ignorer.
+                    </p>
+                </div>
+            </body>
+        </html>
+        """
+
+        return EmailService.send_email(
+            email_to=email_to,
+            subject=subject,
+            html_content=html_content,
+            db=db,
+        )
+
+    @staticmethod
+    def send_welcome_email(
+        email_to: str,
+        user_name: str,
+        db: Session | None = None,
+    ) -> bool:
+        """
+        Envoie un email de bienvenue à un nouvel utilisateur
+
+        Args:
+            email_to: Adresse email de l'utilisateur
+            user_name: Nom de l'utilisateur
+            db: Session SQLModel (optionnel)
+
+        Returns:
+            bool: True si envoyé avec succès, False sinon
+        """
+        subject = f"Bienvenue sur {settings.PROJECT_NAME} !"
+
+        html_content = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #2563eb;">Bienvenue sur {settings.PROJECT_NAME} !</h2>
+                    <p>Bonjour <strong>{user_name}</strong>,</p>
+                    <p>Nous sommes ravis de vous accueillir sur {settings.PROJECT_NAME} !</p>
+                    <p>Votre compte a été créé avec succès. Vous pouvez maintenant accéder à toutes les fonctionnalités de la plateforme.</p>
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="{settings.FRONTEND_HOST}"
+                           style="background-color: #2563eb; color: white; padding: 12px 30px;
+                                  text-decoration: none; border-radius: 5px; display: inline-block;">
+                            Accéder à la plateforme
+                        </a>
+                    </div>
+                    <p><strong>Besoin d'aide ?</strong></p>
+                    <p>Consultez notre documentation ou contactez le support si vous avez des questions.</p>
+                    <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
+                    <p style="color: #6b7280; font-size: 12px;">
+                        Cet email a été envoyé par {settings.PROJECT_NAME}.
+                    </p>
+                </div>
+            </body>
+        </html>
+        """
+
+        return EmailService.send_email(
+            email_to=email_to,
+            subject=subject,
+            html_content=html_content,
+            db=db,
+        )
+
+    @staticmethod
+    def send_notification_email(
+        email_to: str,
+        title: str,
+        message: str,
+        action_url: str | None = None,
+        action_text: str = "Voir les détails",
+        db: Session | None = None,
+    ) -> bool:
+        """
+        Envoie un email de notification générique
+
+        Args:
+            email_to: Adresse email destinataire
+            title: Titre de la notification
+            message: Message de la notification
+            action_url: URL optionnelle pour une action
+            action_text: Texte du bouton d'action
+            db: Session SQLModel (optionnel)
+
+        Returns:
+            bool: True si envoyé avec succès, False sinon
+        """
+        subject = f"{settings.PROJECT_NAME} - {title}"
+
+        action_button = ""
+        if action_url:
+            full_url = f"{settings.FRONTEND_HOST}{action_url}" if action_url.startswith("/") else action_url
+            action_button = f"""
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{full_url}"
+                   style="background-color: #2563eb; color: white; padding: 12px 30px;
+                          text-decoration: none; border-radius: 5px; display: inline-block;">
+                    {action_text}
+                </a>
+            </div>
+            """
+
+        html_content = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #2563eb;">{title}</h2>
+                    <p>{message}</p>
+                    {action_button}
+                    <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
+                    <p style="color: #6b7280; font-size: 12px;">
+                        Cet email a été envoyé par {settings.PROJECT_NAME}.
+                    </p>
+                </div>
+            </body>
+        </html>
+        """
+
+        return EmailService.send_email(
+            email_to=email_to,
+            subject=subject,
+            html_content=html_content,
+            db=db,
+        )
+
+    @staticmethod
     def verify_connection(db: Session | None = None) -> tuple[bool, str]:
         """
         Vérifie la connexion au serveur SMTP

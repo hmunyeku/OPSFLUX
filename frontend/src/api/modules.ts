@@ -24,8 +24,8 @@ export interface ModuleHook {
   description?: string
   is_active: boolean
   priority: number
-  conditions?: Record<string, any>
-  actions?: Array<Record<string, any>>
+  conditions?: Record<string, unknown>
+  actions?: Array<Record<string, unknown>>
 }
 
 export interface ModuleDependency {
@@ -65,8 +65,8 @@ export interface Module {
       core_services?: string[]
       modules?: ModuleDependency[]
     }
-    settings?: Array<Record<string, any>>
-    user_preferences?: Array<Record<string, any>>
+    settings?: Array<Record<string, unknown>>
+    user_preferences?: Array<Record<string, unknown>>
   }
   // Alias pour accès direct (calculés depuis manifest)
   permissions?: ModulePermission[]

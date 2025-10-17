@@ -30,7 +30,6 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
   IconPuzzle,
   IconCheck,
@@ -360,9 +359,8 @@ export default function ModulesPage() {
       }
 
       setSelectedModuleDetails(fullModule)
-    } catch (error) {
-      // Utiliser les données de base si erreur
-      console.error('Failed to load module details:', error)
+    } catch (_error) {
+      // Utiliser les données de base si erreur (silently fail)
     }
   }
 

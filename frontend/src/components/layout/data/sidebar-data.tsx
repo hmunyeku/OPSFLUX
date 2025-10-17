@@ -159,6 +159,12 @@ export const sidebarData: SidebarData = {
               url: "/settings/profile",
             },
             {
+              title: "Modules",
+              icon: IconPuzzle,
+              url: "/settings/modules",
+              permission: "modules.view",
+            },
+            {
               title: "Facturation",
               icon: IconCoin,
               url: "/settings/billing",
@@ -180,12 +186,6 @@ export const sidebarData: SidebarData = {
               title: "Notifications",
               icon: IconNotification,
               url: "/settings/notifications",
-            },
-            {
-              title: "Modules",
-              icon: IconPuzzle,
-              url: "/settings/modules",
-              permission: "modules.view",
             },
           ],
         },

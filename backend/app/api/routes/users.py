@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from typing import Any
 
@@ -11,6 +12,7 @@ from app.api.deps import (
     get_current_active_superuser,
 )
 from app.core.config import settings
+from app.core.hook_trigger_service import hook_trigger
 from app.core.security import get_password_hash, verify_password
 from app.models import (
     Item,
@@ -74,7 +76,7 @@ def read_users(
 @router.post(
     "/", dependencies=[Depends(get_current_active_superuser)], response_model=UserPublic
 )
-def create_user(*, session: SessionDep, user_in: UserCreate) -> Any:
+async def create_user(*, session: SessionDep, user_in: UserCreate) -> Any:
     """
     Create new user.
     """
@@ -95,6 +97,25 @@ def create_user(*, session: SessionDep, user_in: UserCreate) -> Any:
             subject=email_data.subject,
             html_content=email_data.html_content,
         )
+
+    # Trigger hook: user.created
+    try:
+        await hook_trigger.trigger_event(
+            event="user.created",
+            context={
+                "user_id": str(user.id),
+                "email": user.email,
+                "full_name": user.full_name,
+                "is_active": user.is_active,
+                "is_superuser": user.is_superuser,
+            },
+            db=session,
+        )
+    except Exception as e:
+        # Ne pas bloquer la création si le hook échoue
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to trigger user.created hook: {e}")
+
     return user
 
 
@@ -232,7 +253,7 @@ def read_user_by_id(
     dependencies=[Depends(get_current_active_superuser)],
     response_model=UserPublic,
 )
-def update_user(
+async def update_user(
     *,
     session: SessionDep,
     user_id: uuid.UUID,
@@ -256,11 +277,29 @@ def update_user(
             )
 
     db_user = crud.update_user(session=session, db_user=db_user, user_in=user_in)
+
+    # Trigger hook: user.updated
+    try:
+        await hook_trigger.trigger_event(
+            event="user.updated",
+            context={
+                "user_id": str(db_user.id),
+                "email": db_user.email,
+                "full_name": db_user.full_name,
+                "is_active": db_user.is_active,
+                "changes": user_in.model_dump(exclude_unset=True),
+            },
+            db=session,
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to trigger user.updated hook: {e}")
+
     return db_user
 
 
 @router.delete("/{user_id}", dependencies=[Depends(get_current_active_superuser)])
-def delete_user(
+async def delete_user(
     session: SessionDep, current_user: CurrentUser, user_id: uuid.UUID
 ) -> Message:
     """
@@ -273,10 +312,30 @@ def delete_user(
         raise HTTPException(
             status_code=403, detail="Super users are not allowed to delete themselves"
         )
+    # Capturer les infos avant suppression pour le hook
+    user_context = {
+        "user_id": str(user.id),
+        "email": user.email,
+        "full_name": user.full_name,
+        "deleted_by": str(current_user.id),
+    }
+
     statement = delete(Item).where(col(Item.owner_id) == user_id)
     session.exec(statement)  # type: ignore
     session.delete(user)
     session.commit()
+
+    # Trigger hook: user.deleted
+    try:
+        await hook_trigger.trigger_event(
+            event="user.deleted",
+            context=user_context,
+            db=session,
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to trigger user.deleted hook: {e}")
+
     return Message(message="User deleted successfully")
 
 

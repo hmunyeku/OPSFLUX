@@ -3,15 +3,19 @@ Service d'envoi d'emails avec fallback vers les paramètres .env
 """
 
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 import emails  # type: ignore
 from emails.template import JinjaTemplate  # type: ignore
-from sqlmodel import Session
+from jinja2 import Template, TemplateSyntaxError
+from sqlmodel import Session, select
 
 from app.core.config import settings
 from app.models import AppSettings
+from app.models_email_templates import EmailTemplate
 
 
 logger = logging.getLogger(__name__)
@@ -405,6 +409,108 @@ class EmailService:
             html_content=html_content,
             db=db,
         )
+
+    @staticmethod
+    def render_template(template_content: str, variables: dict[str, Any]) -> str:
+        """
+        Rend un template Jinja2 avec les variables fournies.
+
+        Args:
+            template_content: Contenu du template Jinja2 (HTML)
+            variables: Dictionnaire de variables à injecter dans le template
+
+        Returns:
+            str: HTML rendu avec les variables
+
+        Raises:
+            TemplateSyntaxError: Si le template contient des erreurs de syntaxe
+            Exception: Si le rendu échoue
+        """
+        try:
+            template = Template(template_content)
+            rendered = template.render(**variables)
+            return rendered
+        except TemplateSyntaxError as e:
+            logger.error(f"Erreur de syntaxe dans le template: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Erreur lors du rendu du template: {e}")
+            raise
+
+    @staticmethod
+    def send_templated_email(
+        *,
+        email_to: str,
+        template_id: UUID,
+        variables: dict[str, Any],
+        db: Session,
+    ) -> bool:
+        """
+        Envoie un email en utilisant un template de la base de données.
+
+        Cette méthode récupère le template EmailTemplate depuis la DB,
+        rend le contenu avec les variables fournies, puis envoie l'email.
+
+        Args:
+            email_to: Adresse email destinataire
+            template_id: UUID du template EmailTemplate
+            variables: Dictionnaire de variables pour le rendu (ex: {"user_name": "John", "reset_link": "https://..."})
+            db: Session SQLModel (requis pour récupérer le template)
+
+        Returns:
+            bool: True si envoyé avec succès, False sinon
+
+        Example:
+            >>> send_templated_email(
+            ...     email_to="user@example.com",
+            ...     template_id=UUID("..."),
+            ...     variables={"user_name": "John Doe", "reset_link": "https://..."},
+            ...     db=session
+            ... )
+            True
+        """
+        # Récupérer le template depuis la DB
+        try:
+            statement = select(EmailTemplate).where(
+                EmailTemplate.id == template_id,
+                EmailTemplate.is_active == True
+            )
+            result = db.exec(statement)
+            template = result.one_or_none()
+
+            if not template:
+                logger.error(f"Template {template_id} non trouvé ou inactif")
+                return False
+
+            # Rendre le sujet
+            subject = EmailService.render_template(template.subject, variables)
+
+            # Rendre le contenu HTML
+            html_content = EmailService.render_template(template.html_content, variables)
+
+            # Envoyer l'email
+            success = EmailService.send_email(
+                email_to=email_to,
+                subject=subject,
+                html_content=html_content,
+                db=db,
+            )
+
+            if success:
+                # Mettre à jour les statistiques du template
+                template.sent_count += 1
+                template.last_sent_at = datetime.now()
+                db.add(template)
+                db.commit()
+
+            return success
+
+        except TemplateSyntaxError as e:
+            logger.error(f"Erreur de syntaxe dans le template {template_id}: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Erreur lors de l'envoi de l'email templé {template_id}: {e}")
+            return False
 
     @staticmethod
     def verify_connection(db: Session | None = None) -> tuple[bool, str]:

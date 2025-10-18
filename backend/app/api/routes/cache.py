@@ -4,9 +4,8 @@ Routes API pour le Cache Service.
 
 from typing import Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, Body
-from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.api.deps import CurrentUser, get_session
+from app.api.deps import CurrentUser, SessionDep
 from app.core.cache_service import cache_service
 from app.core.rbac import require_permission
 from app.models import User
@@ -19,7 +18,7 @@ router = APIRouter(prefix="/cache", tags=["cache"])
 @require_permission("core.cache.read")
 async def get_cache_stats(
     current_user: CurrentUser,
-    session: AsyncSession = Depends(get_session),
+    session: SessionDep,
 ) -> Any:
     """
     Récupère les statistiques du cache.
@@ -34,7 +33,7 @@ async def get_cache_stats(
 @require_permission("core.cache.clear")
 async def clear_cache(
     current_user: CurrentUser,
-    session: AsyncSession = Depends(get_session),
+    session: SessionDep,
     namespace: Optional[str] = Body(None, description="Namespace à vider (None = tout)"),
 ) -> Any:
     """
@@ -66,7 +65,7 @@ async def clear_cache(
 @require_permission("core.cache.read")
 async def check_cache_health(
     current_user: CurrentUser,
-    session: AsyncSession = Depends(get_session),
+    session: SessionDep,
 ) -> Any:
     """
     Vérifie que Redis est accessible.
@@ -90,7 +89,7 @@ async def get_cache_value(
     key: str,
     namespace: Optional[str] = None,
     current_user: CurrentUser = None,
-    session: AsyncSession = Depends(get_session),
+    session: SessionDep,
 ) -> Any:
     """
     Récupère une valeur du cache (debug).
@@ -115,7 +114,7 @@ async def delete_cache_key(
     key: str,
     namespace: Optional[str] = None,
     current_user: CurrentUser = None,
-    session: AsyncSession = Depends(get_session),
+    session: SessionDep,
 ) -> Any:
     """
     Supprime une clé du cache (debug).

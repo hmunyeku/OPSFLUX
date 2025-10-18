@@ -4,9 +4,8 @@ Routes API pour le Queue Service (Celery).
 
 from typing import Any, Optional, List, Dict
 from fastapi import APIRouter, Depends, HTTPException, Body
-from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.api.deps import CurrentUser, get_session
+from app.api.deps import CurrentUser, SessionDep
 from app.core.queue_service import queue_service, TaskPriority
 from app.core.rbac import require_permission
 from app.models import User
@@ -19,7 +18,7 @@ router = APIRouter(prefix="/queue", tags=["queue"])
 @require_permission("core.queue.enqueue")
 async def enqueue_task(
     current_user: CurrentUser,
-    session: AsyncSession = Depends(get_session),
+    session: SessionDep,
     task_name: str = Body(..., description="Nom de la tâche"),
     args: List[Any] = Body(default=[], description="Arguments positionnels"),
     kwargs: Dict[str, Any] = Body(default={}, description="Arguments nommés"),
@@ -57,7 +56,7 @@ async def enqueue_task(
 async def get_task_status(
     task_id: str,
     current_user: CurrentUser,
-    session: AsyncSession = Depends(get_session),
+    session: SessionDep,
 ) -> Any:
     """
     Récupère le statut d'une tâche.
@@ -74,7 +73,7 @@ async def get_task_result(
     task_id: str,
     timeout: int = 30,
     current_user: CurrentUser = None,
-    session: AsyncSession = Depends(get_session),
+    session: SessionDep,
 ) -> Any:
     """
     Attend et récupère le résultat d'une tâche.
@@ -104,7 +103,7 @@ async def cancel_task(
     task_id: str,
     terminate: bool = Body(default=False, description="Terminer brutalement"),
     current_user: CurrentUser = None,
-    session: AsyncSession = Depends(get_session),
+    session: SessionDep,
 ) -> Any:
     """
     Annule une tâche en cours.
@@ -124,7 +123,7 @@ async def cancel_task(
 @require_permission("core.queue.read")
 async def get_queue_stats(
     current_user: CurrentUser,
-    session: AsyncSession = Depends(get_session),
+    session: SessionDep,
 ) -> Any:
     """
     Récupère les statistiques des workers et queues.
@@ -140,7 +139,7 @@ async def get_queue_stats(
 async def purge_queue(
     queue_name: str,
     current_user: CurrentUser,
-    session: AsyncSession = Depends(get_session),
+    session: SessionDep,
 ) -> Any:
     """
     Vide une queue.

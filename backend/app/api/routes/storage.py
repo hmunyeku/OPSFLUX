@@ -5,9 +5,8 @@ Routes API pour le File Storage Service.
 from typing import Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from fastapi.responses import StreamingResponse
-from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.api.deps import CurrentUser, get_session
+from app.api.deps import CurrentUser, SessionDep
 from app.core.storage_service import storage_service, FileCategory
 from app.core.rbac import require_permission
 from app.models import User
@@ -21,7 +20,7 @@ router = APIRouter(prefix="/storage", tags=["storage"])
 @require_permission("core.storage.upload")
 async def upload_file(
     current_user: CurrentUser,
-    session: AsyncSession = Depends(get_session),
+    session: SessionDep,
     file: UploadFile = File(...),
     module: str = Query(..., description="Module propriétaire du fichier"),
     category: Optional[FileCategory] = Query(None, description="Catégorie du fichier"),
@@ -59,7 +58,7 @@ async def upload_file(
 async def download_file(
     path: str,
     current_user: CurrentUser,
-    session: AsyncSession = Depends(get_session),
+    session: SessionDep,
 ) -> StreamingResponse:
     """
     Télécharge un fichier.
@@ -93,7 +92,7 @@ async def download_file(
 async def delete_file(
     path: str,
     current_user: CurrentUser,
-    session: AsyncSession = Depends(get_session),
+    session: SessionDep,
 ) -> Any:
     """
     Supprime un fichier.
@@ -116,7 +115,7 @@ async def delete_file(
 async def get_file_info(
     path: str,
     current_user: CurrentUser,
-    session: AsyncSession = Depends(get_session),
+    session: SessionDep,
 ) -> Any:
     """
     Récupère les informations d'un fichier.
@@ -138,7 +137,7 @@ async def get_file_info(
 @require_permission("core.storage.read")
 async def list_files(
     current_user: CurrentUser,
-    session: AsyncSession = Depends(get_session),
+    session: SessionDep,
     module: Optional[str] = Query(None, description="Filtrer par module"),
     category: Optional[FileCategory] = Query(None, description="Filtrer par catégorie"),
 ) -> Any:
@@ -167,7 +166,7 @@ async def list_files(
 @require_permission("core.storage.read")
 async def get_storage_stats(
     current_user: CurrentUser,
-    session: AsyncSession = Depends(get_session),
+    session: SessionDep,
 ) -> Any:
     """
     Récupère les statistiques de stockage.

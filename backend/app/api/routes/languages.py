@@ -39,13 +39,12 @@ router = APIRouter(prefix="/languages", tags=["languages"])
 @router.get("/", response_model=LanguagesPublic)
 def read_languages(
     session: SessionDep,
-    current_user: CurrentUser,
     skip: int = 0,
     limit: int = 100,
     is_active: bool | None = None,
 ) -> Any:
     """
-    Récupère la liste des langues disponibles.
+    Récupère la liste des langues disponibles (endpoint public).
 
     Filtres:
     - is_active: Filtrer par langues actives/inactives
@@ -79,10 +78,9 @@ def read_languages(
 @router.get("/default", response_model=LanguagePublic)
 def read_default_language(
     session: SessionDep,
-    current_user: CurrentUser,
 ) -> Any:
     """
-    Récupère la langue par défaut du système.
+    Récupère la langue par défaut du système (endpoint public).
     """
     statement = select(Language).where(
         Language.is_default == True,
@@ -244,12 +242,11 @@ def delete_language(
 @router.get("/namespaces/", response_model=list[TranslationNamespacePublic])
 def read_namespaces(
     session: SessionDep,
-    current_user: CurrentUser,
     namespace_type: str | None = None,
     module_id: uuid.UUID | None = None,
 ) -> Any:
     """
-    Récupère la liste des namespaces de traduction.
+    Récupère la liste des namespaces de traduction (endpoint public).
 
     Filtres:
     - namespace_type: "core" ou "module"
@@ -535,14 +532,13 @@ def import_translations(
 @router.get("/translations/export", response_model=TranslationExportResponse)
 def export_translations(
     session: SessionDep,
-    current_user: CurrentUser,
     namespace_id: uuid.UUID | None = None,
     language_id: uuid.UUID | None = None,
     namespace_code: str | None = None,
     language_code: str | None = None,
 ) -> Any:
     """
-    Exporte toutes les traductions d'un namespace pour une langue donnée.
+    Exporte toutes les traductions d'un namespace pour une langue donnée (endpoint public).
 
     Peut utiliser soit les IDs, soit les codes (namespace_code + language_code).
     Retourne un dictionnaire {key: value} de toutes les traductions.

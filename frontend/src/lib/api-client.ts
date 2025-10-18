@@ -19,7 +19,7 @@ interface ApiResponse<T = unknown> {
 class ApiClient {
   private getToken(): string | null {
     if (typeof window === 'undefined') return null
-    return localStorage.getItem('token')
+    return localStorage.getItem('access_token')
   }
 
   private buildUrl(endpoint: string, params?: Record<string, unknown>): string {

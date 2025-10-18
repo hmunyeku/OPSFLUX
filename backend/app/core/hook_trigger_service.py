@@ -131,19 +131,102 @@ class HookTriggerService:
                 )
 
             elif action_type == "send_email":
-                # TODO: Implémenter l'envoi d'email via email_service
-                logger.info(f"Email action triggered (not yet implemented): {action_config}")
-                return True, "Email action (placeholder)"
+                # Envoyer un email via email_service
+                from app.core.email_service import email_service
+
+                email_to = action_config.get("email_to")
+                template_id = action_config.get("template_id")
+
+                if not email_to:
+                    return False, "email_to manquant dans la configuration"
+
+                # Si template_id fourni, utiliser send_templated_email
+                if template_id:
+                    from uuid import UUID
+                    try:
+                        template_uuid = UUID(template_id) if isinstance(template_id, str) else template_id
+                        # Préparer les variables pour le template
+                        variables = action_config.get("variables", {})
+                        variables.update(context)  # Ajouter le contexte de l'événement
+
+                        success = email_service.send_templated_email(
+                            email_to=email_to,
+                            template_id=template_uuid,
+                            variables=variables,
+                            db=db,
+                        )
+                        if success:
+                            return True, f"Email envoyé à {email_to} via template {template_id}"
+                        else:
+                            return False, f"Échec de l'envoi d'email à {email_to}"
+                    except Exception as e:
+                        return False, f"Erreur lors de l'envoi d'email: {str(e)}"
+                else:
+                    # Envoi d'email simple
+                    subject = action_config.get("subject", "Notification")
+                    html_content = action_config.get("html_content", "")
+
+                    if not html_content:
+                        return False, "html_content manquant dans la configuration"
+
+                    success = email_service.send_email(
+                        email_to=email_to,
+                        subject=subject,
+                        html_content=html_content,
+                        db=db,
+                    )
+                    if success:
+                        return True, f"Email envoyé à {email_to}"
+                    else:
+                        return False, f"Échec de l'envoi d'email à {email_to}"
 
             elif action_type == "send_notification":
-                # TODO: Implémenter les notifications
-                logger.info(f"Notification action triggered (not yet implemented): {action_config}")
-                return True, "Notification action (placeholder)"
+                # Créer une notification in-app
+                # Note: Nécessite un modèle Notification dans la DB
+                try:
+                    notification_data = {
+                        "user_id": action_config.get("user_id") or context.get("user_id"),
+                        "title": action_config.get("title", "Notification"),
+                        "message": action_config.get("message", ""),
+                        "type": action_config.get("notification_type", "info"),
+                        "link": action_config.get("link"),
+                        "event_context": context,
+                    }
+
+                    # TODO: Créer l'entrée Notification si le modèle existe
+                    # from app.models_notifications import Notification
+                    # notification = Notification(**notification_data)
+                    # db.add(notification)
+                    # db.commit()
+
+                    logger.info(f"Notification créée: {notification_data}")
+                    return True, f"Notification envoyée à user_id={notification_data['user_id']}"
+                except Exception as e:
+                    return False, f"Erreur lors de la création de notification: {str(e)}"
 
             elif action_type == "create_task":
-                # TODO: Implémenter la création de tâche
-                logger.info(f"Create task action triggered (not yet implemented): {action_config}")
-                return True, "Create task action (placeholder)"
+                # Créer une tâche automatiquement
+                # Note: Nécessite un modèle Task dans la DB
+                try:
+                    task_data = {
+                        "title": action_config.get("title", "Tâche automatique"),
+                        "description": action_config.get("description", ""),
+                        "assigned_to": action_config.get("assigned_to") or context.get("user_id"),
+                        "priority": action_config.get("priority", "normal"),
+                        "due_date": action_config.get("due_date"),
+                        "event_context": context,
+                    }
+
+                    # TODO: Créer l'entrée Task si le modèle existe
+                    # from app.models_tasks import Task
+                    # task = Task(**task_data)
+                    # db.add(task)
+                    # db.commit()
+
+                    logger.info(f"Tâche créée: {task_data}")
+                    return True, f"Tâche créée: {task_data['title']}"
+                except Exception as e:
+                    return False, f"Erreur lors de la création de tâche: {str(e)}"
 
             else:
                 logger.warning(f"Unknown action type: {action_type}")

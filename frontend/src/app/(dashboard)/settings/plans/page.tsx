@@ -1,11 +1,16 @@
+"use client"
+
+import { useTranslation } from "@/hooks/use-translation"
 import ContentSection from "../components/content-section"
 import PlanDetail from "./plan-detail"
 
 export default function SettingsPlansPage() {
+  const { t } = useTranslation("core.settings")
+
   return (
     <ContentSection
-      title="Plans"
-      desc="Vos abonnements commenceront aujourd'hui avec un essai gratuit de 14 jours."
+      title={t("plans.title")}
+      desc={t("plans.description")}
       className="lg:max-w-3xl"
     >
       <PlanDetail />

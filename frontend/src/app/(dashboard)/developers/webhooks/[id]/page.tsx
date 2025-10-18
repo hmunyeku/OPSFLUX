@@ -1,8 +1,11 @@
+"use client"
+
 import { ReactNode } from "react"
 import { format } from "date-fns"
 import { Bolt, CalendarCheck, LinkIcon } from "lucide-react"
 import Link from "next/link"
 import { redirect } from "next/navigation"
+import { useTranslation } from "@/hooks/use-translation"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -21,14 +24,17 @@ interface Props {
   params: Promise<{ id: string }>
 }
 
-export default async function WebhookDetailPage({ params }: Props) {
-  const id = (await params).id
+function WebhookDetailContent({ id }: { id: string }) {
+  const { t } = useTranslation("core.developers")
+  const tCommon = useTranslation("core.common").t
+
   const webhookData = getWebhookData()
   const webhookList = webhookListSchema.parse(webhookData)
   const webhook = webhookList.find((user) => user.id === id)
 
   if (!webhook) {
-    return redirect(`/developers/webhooks`)
+    redirect(`/developers/webhooks`)
+    return null
   }
 
   return (
@@ -37,19 +43,19 @@ export default async function WebhookDetailPage({ params }: Props) {
         <BreadcrumbList>
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/">Home</Link>
+              <Link href="/">{tCommon("breadcrumb.home")}</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/developers/overview">Developers</Link>
+              <Link href="/developers/overview">{t("breadcrumb.developers")}</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/developers/webhooks">Webhooks</Link>
+              <Link href="/developers/webhooks">{t("webhooks.breadcrumb")}</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
@@ -61,21 +67,21 @@ export default async function WebhookDetailPage({ params }: Props) {
 
       <div className="space-y-2">
         <div className="flex items-center gap-2">
-          <h2 className="text-2xl font-bold">Webhook</h2>
+          <h2 className="text-2xl font-bold">{t("webhooks.detail.title")}</h2>
           <WebhookDetailActions data={webhook} />
         </div>
         <div className="flex flex-col items-stretch sm:flex-row sm:items-start">
-          <Specs label="Status">
+          <Specs label={tCommon("field.status")}>
             <WebhookStatusIcon status={webhook.status === "enabled"} />
             <span className="capitalize">{webhook.status}</span>
           </Specs>
 
-          <Specs label="Type">
+          <Specs label={tCommon("field.type")}>
             <Bolt size={16} />
             <span className="capitalize">{webhook.authType}</span>
           </Specs>
 
-          <Specs label="Created on">
+          <Specs label={tCommon("field.created_at")}>
             <CalendarCheck size={16} />
             <span>{format(webhook.createdAt, "dd MMM, yyyy h:mma")}</span>
           </Specs>
@@ -92,6 +98,11 @@ export default async function WebhookDetailPage({ params }: Props) {
       <WebhookLogsTable data={webhook.logs} />
     </div>
   )
+}
+
+export default async function WebhookDetailPage({ params }: Props) {
+  const id = (await params).id
+  return <WebhookDetailContent id={id} />
 }
 
 function Specs({ label, children }: { label: string; children: ReactNode }) {

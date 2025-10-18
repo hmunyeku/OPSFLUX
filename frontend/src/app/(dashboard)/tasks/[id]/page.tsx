@@ -1,3 +1,5 @@
+"use client"
+
 import { format } from "date-fns"
 import {
   IconCalendar,
@@ -8,6 +10,7 @@ import {
 } from "@tabler/icons-react"
 import Link from "next/link"
 import { redirect } from "next/navigation"
+import { useTranslation } from "@/hooks/use-translation"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -27,14 +30,16 @@ interface Props {
   params: Promise<{ id: string }>
 }
 
-export default async function TaskDetailPage({ params }: Props) {
-  // Extract and validate task ID
-  const id = (await params).id
+function TaskDetailContent({ id }: { id: string }) {
+  const { t } = useTranslation("core.tasks")
+  const tCommon = useTranslation("core.common").t
+
   const taskList = taskListSchema.parse(tasks)
   const task = taskList.find((task) => task.id === id)
 
   if (!task) {
-    return redirect(`/tasks`)
+    redirect(`/tasks`)
+    return null
   }
 
   // Get task metadata from data definitions
@@ -64,13 +69,13 @@ export default async function TaskDetailPage({ params }: Props) {
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link href="/">Home</Link>
+                <Link href="/">{tCommon("breadcrumb.home")}</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link href="/tasks">Tasks</Link>
+                <Link href="/tasks">{t("breadcrumb.tasks")}</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
@@ -93,7 +98,7 @@ export default async function TaskDetailPage({ params }: Props) {
           {/* Left Column - Basic Info */}
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <span className="text-muted-foreground w-24">Priority</span>
+              <span className="text-muted-foreground w-24">{tCommon("field.priority")}</span>
               <div className="flex items-center gap-1">
                 {priority?.value === "medium" && (
                   <IconArrowRight className="h-3.5 w-3.5 text-orange-700" />
@@ -117,7 +122,7 @@ export default async function TaskDetailPage({ params }: Props) {
 
             {/* Team Members */}
             <div className="flex items-center gap-2">
-              <span className="text-muted-foreground w-24">Assignees</span>
+              <span className="text-muted-foreground w-24">{t("detail.assignees")}</span>
               <div>
                 <div className="flex -space-x-2">
                   {assignees.map((assignee, index) => (
@@ -140,7 +145,7 @@ export default async function TaskDetailPage({ params }: Props) {
 
             {/* Dates */}
             <div className="flex items-center gap-2">
-              <span className="text-muted-foreground w-24">Due Date</span>
+              <span className="text-muted-foreground w-24">{t("detail.due_date")}</span>
               <div className="flex items-center gap-1">
                 <IconCalendar className="text-muted-foreground h-3.5 w-3.5" />
                 <span>{format(task.dueDate, "MMM dd, yyyy")}</span>
@@ -148,7 +153,7 @@ export default async function TaskDetailPage({ params }: Props) {
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-muted-foreground w-24">Created</span>
+              <span className="text-muted-foreground w-24">{tCommon("field.created_at")}</span>
               <div className="flex items-center gap-1">
                 <IconCalendar className="text-muted-foreground h-3.5 w-3.5" />
                 <span>{format(task.createdDate, "MMM dd, yyyy")}</span>
@@ -164,7 +169,7 @@ export default async function TaskDetailPage({ params }: Props) {
           {/* Right Column - Additional Details */}
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <span className="text-muted-foreground w-24">Status</span>
+              <span className="text-muted-foreground w-24">{tCommon("field.status")}</span>
               <Badge
                 variant="outline"
                 className={`text-xs capitalize ${
@@ -211,8 +216,8 @@ export default async function TaskDetailPage({ params }: Props) {
         {/* Task Details Tabs */}
         <Tabs defaultValue="description" className="w-full">
           <TabsList className="text-sm">
-            <TabsTrigger value="description">Description</TabsTrigger>
-            <TabsTrigger value="comments">Comments</TabsTrigger>
+            <TabsTrigger value="description">{t("detail.tabs.description")}</TabsTrigger>
+            <TabsTrigger value="comments">{t("detail.tabs.comments")}</TabsTrigger>
           </TabsList>
           <TabsContent value="description" className="mt-4">
             {/* Task Description Content */}
@@ -385,4 +390,9 @@ export default async function TaskDetailPage({ params }: Props) {
       </div>
     </div>
   )
+}
+
+export default async function TaskDetailPage({ params }: Props) {
+  const id = (await params).id
+  return <TaskDetailContent id={id} />
 }

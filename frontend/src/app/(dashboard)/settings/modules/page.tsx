@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { useTranslation } from "@/hooks/use-translation"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -85,6 +86,7 @@ import {
 import { Progress } from "@/components/ui/progress"
 
 export default function ModulesPage() {
+  const { t } = useTranslation("core.settings")
   const [modules, setModules] = useState<Module[]>([])
   const [filteredModules, setFilteredModules] = useState<Module[]>([])
   const [selectedModules, setSelectedModules] = useState<Set<string>>(new Set())
@@ -115,8 +117,8 @@ export default function ModulesPage() {
       }
       toast({
         variant: "destructive",
-        title: "Erreur",
-        description: "Impossible de charger les modules.",
+        title: t("modules.error.load_failed"),
+        description: t("modules.error.load_failed_description"),
       })
     } finally {
       setLoading(false)
@@ -401,8 +403,8 @@ export default function ModulesPage() {
   if (loading) {
     return (
       <ContentSection
-        title="Modules"
-        desc="Gérez les modules installés et activez de nouvelles fonctionnalités."
+        title={t("modules.title")}
+        desc={t("modules.description")}
         className="w-full lg:max-w-full"
       >
         <div className="flex items-center justify-center py-8">
@@ -414,8 +416,8 @@ export default function ModulesPage() {
 
   return (
     <ContentSection
-      title="Modules"
-      desc="Gérez les modules installés et activez de nouvelles fonctionnalités."
+      title={t("modules.title")}
+      desc={t("modules.description")}
       className="w-full lg:max-w-full"
     >
       <>

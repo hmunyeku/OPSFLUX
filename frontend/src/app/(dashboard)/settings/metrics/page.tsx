@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useTranslation } from "@/hooks/use-translation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -28,6 +29,7 @@ import { useToast } from "@/hooks/use-toast"
 import { getMetricsStats, resetMetrics, type MetricsStats } from "@/api/metrics"
 
 export default function MetricsPage() {
+  const { t } = useTranslation("core.settings")
   const [stats, setStats] = useState<MetricsStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [resetting, setResetting] = useState(false)
@@ -171,8 +173,8 @@ export default function MetricsPage() {
   if (loading && !stats) {
     return (
       <ContentSection
-        title="Métriques & Monitoring"
-        desc="Surveillance des métriques Prometheus"
+        title={t("metrics.title")}
+        desc={t("metrics.description")}
         className="w-full lg:max-w-full"
       >
         <div className="flex items-center justify-center py-8">
@@ -189,8 +191,8 @@ export default function MetricsPage() {
 
   return (
     <ContentSection
-      title="Métriques & Monitoring"
-      desc="Surveillance et analyse des métriques de performance"
+      title={t("metrics.title")}
+      desc={t("metrics.description")}
       className="w-full lg:max-w-full"
     >
       <div className="space-y-6">

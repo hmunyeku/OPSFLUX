@@ -1,11 +1,16 @@
+"use client"
+
+import { useTranslation } from "@/hooks/use-translation"
 import ContentSection from "./components/content-section"
 import GeneralForm from "./components/general-form"
 
 export default function SettingsGeneralPage() {
+  const { t } = useTranslation("core.settings")
+
   return (
     <ContentSection
-      title="Général"
-      desc="Paramètres et options pour votre application."
+      title={t("general.title")}
+      desc={t("general.description")}
       className="w-full lg:max-w-full"
     >
       <GeneralForm />

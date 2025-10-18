@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { PermissionGuard } from "@/components/permission-guard"
+import { useTranslation } from "@/hooks/use-translation"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -20,6 +21,8 @@ import { UserDetailForm } from "./components/user-detail-form"
 import { UserPermissionsCard } from "./components/user-permissions-card"
 
 export default function UserDetailPage() {
+  const { t } = useTranslation("core.users")
+  const tCommon = useTranslation("core.common").t
   const params = useParams()
   const router = useRouter()
   const id = params.id as string
@@ -72,32 +75,32 @@ export default function UserDetailPage() {
         <BreadcrumbList>
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/">Accueil</Link>
+              <Link href="/">{tCommon("breadcrumb.home")}</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/users">Utilisateurs</Link>
+              <Link href="/users">{t("breadcrumb.users")}</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbPage>Détails</BreadcrumbPage>
+            <BreadcrumbPage>{t("detail.breadcrumb")}</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
       <div className="mt-4 space-y-1">
         <div className="flex flex-wrap gap-2">
           <h1 className="text-lg font-bold">
-            Détails utilisateur: {`${user.firstName} ${user.lastName}`}
+            {t("detail.title")}: {`${user.firstName} ${user.lastName}`}
           </h1>
           <Badge variant="outline" className="text-muted-foreground">
             {user.id}
           </Badge>
         </div>
         <p className="text-muted-foreground">
-          Informations complètes sur l&apos;utilisateur, incluant les détails, le rôle, le statut et les options de gestion.
+          {t("detail.description")}
         </p>
       </div>
 

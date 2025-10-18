@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useTranslation } from "@/hooks/use-translation"
 import { nofitySubmittedValues } from "@/lib/notify-submitted-values"
 import {
   Breadcrumb,
@@ -27,6 +28,9 @@ import RecentActivity from "./components/recent-activity"
 import { TotalVisitorsChart } from "./components/total-visitors-chart"
 
 export default function OverviewPage() {
+  const { t } = useTranslation("core.developers")
+  const tCommon = useTranslation("core.common").t
+
   return (
     <div className="flex flex-col gap-5">
       <div className="flex w-full flex-col gap-2">
@@ -34,25 +38,25 @@ export default function OverviewPage() {
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link href="/">Accueil</Link>
+                <Link href="/">{tCommon("breadcrumb.home")}</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>Développeurs</BreadcrumbPage>
+              <BreadcrumbPage>{t("breadcrumb.developers")}</BreadcrumbPage>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>Vue d&apos;ensemble</BreadcrumbPage>
+              <BreadcrumbPage>{t("overview.breadcrumb")}</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
 
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h2 className="text-2xl font-bold">Vue d&apos;ensemble</h2>
+            <h2 className="text-2xl font-bold">{t("overview.title")}</h2>
             <p className="text-muted-foreground text-sm">
-              Créez, gérez et optimisez les workflows de développement en toute simplicité.
+              {t("overview.description")}
             </p>
           </div>
           <div className="flex items-center gap-3">

@@ -1,3 +1,6 @@
+"use client"
+
+import { useTranslation } from "@/hooks/use-translation"
 import { Header } from "@/components/layout/header"
 import Budgets from "./components/budget"
 import Dashboard3Actions from "./components/dashboard-3-actions"
@@ -7,6 +10,8 @@ import Stats from "./components/stats"
 import Visitors from "./components/visitors"
 
 export default function Dashboard3Page() {
+  const { t } = useTranslation("core.dashboard")
+
   return (
     <>
       <Header />
@@ -15,10 +20,10 @@ export default function Dashboard3Page() {
         <div className="flex flex-col items-start justify-between gap-2 md:flex-row">
           <div>
             <h2 className="text-2xl font-bold tracking-tight">
-              Tableau de bord - Vue d&apos;ensemble
+              {t("page.title")}
             </h2>
             <p className="text-muted-foreground">
-              Ici, jetez un œil à vos ventes.
+              {t("page.description")}
             </p>
           </div>
           <Dashboard3Actions />

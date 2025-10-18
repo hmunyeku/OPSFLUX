@@ -26,6 +26,8 @@ import { PasswordInput } from "@/components/password-input"
 import SelectDropdown from "@/components/select-dropdown"
 import { userTypes } from "../data/data"
 import { User } from "../data/schema"
+import { createUser, updateUser } from "../data/users-api"
+import { useState } from "react"
 
 interface Props {
   currentRow?: User
@@ -94,8 +96,9 @@ const formSchema = z
   })
 type UserForm = z.infer<typeof formSchema>
 
-export function UsersActionDialog({ currentRow, open, onOpenChange }: Props) {
+export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreated }: Props) {
   const isEdit = !!currentRow
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const form = useForm<UserForm>({
     resolver: zodResolver(formSchema),
     defaultValues: isEdit
@@ -118,17 +121,56 @@ export function UsersActionDialog({ currentRow, open, onOpenChange }: Props) {
         },
   })
 
-  const onSubmit = (values: UserForm) => {
-    form.reset()
-    toast({
-      title: "You submitted the following values:",
-      description: (
-        <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4">
-          <code className="text-white">{JSON.stringify(values, null, 2)}</code>
-        </pre>
-      ),
-    })
-    onOpenChange(false)
+  const onSubmit = async (values: UserForm) => {
+    try {
+      setIsSubmitting(true)
+
+      if (isEdit && currentRow) {
+        // Update existing user
+        await updateUser(currentRow.id, {
+          email: values.email,
+          first_name: values.firstName,
+          last_name: values.lastName,
+          phone_numbers: values.phoneNumber ? [values.phoneNumber] : [],
+        })
+
+        toast({
+          title: "User updated",
+          description: "The user has been updated successfully.",
+        })
+      } else {
+        // Create new user
+        await createUser({
+          email: values.email,
+          password: values.password,
+          first_name: values.firstName,
+          last_name: values.lastName,
+          phone_numbers: values.phoneNumber ? [values.phoneNumber] : [],
+          is_active: true,
+        })
+
+        toast({
+          title: "User created",
+          description: "The user has been created successfully.",
+        })
+      }
+
+      form.reset()
+      onOpenChange(false)
+
+      // Call the callback to refresh the users list
+      if (onUserCreated) {
+        onUserCreated()
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to save user",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const isPasswordTouched = !!form.formState.dirtyFields.password
@@ -320,8 +362,8 @@ export function UsersActionDialog({ currentRow, open, onOpenChange }: Props) {
           </form>
         </Form>
         <SheetFooter className="mt-6">
-          <Button type="submit" form="user-form">
-            Save changes
+          <Button type="submit" form="user-form" disabled={isSubmitting}>
+            {isSubmitting ? "Saving..." : "Save changes"}
           </Button>
         </SheetFooter>
       </SheetContent>

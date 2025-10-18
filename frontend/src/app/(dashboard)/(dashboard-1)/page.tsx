@@ -1,3 +1,5 @@
+"use client"
+
 import {
   IconAnalyze,
   IconFileReport,
@@ -6,18 +8,21 @@ import {
 } from "@tabler/icons-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Header } from "@/components/layout/header"
+import { useTranslation } from "@/hooks/use-translation"
 import Analytics from "./boards/analytics"
 import Overview from "./boards/overview"
 import Dashboard1Actions from "./components/dashboard-1-actions"
 
-export default async function Dashboard1Page() {
+export default function Dashboard1Page() {
+  const { t } = useTranslation("core.dashboard")
+
   return (
     <>
       <Header />
 
       <div className="space-y-4 p-4">
         <div className="mb-2 flex flex-col items-start justify-between space-y-2 md:flex-row md:items-center">
-          <h1 className="text-2xl font-bold tracking-tight">Tableau de bord</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t("page.title")}</h1>
           <Dashboard1Actions />
         </div>
         <Tabs
@@ -29,14 +34,14 @@ export default async function Dashboard1Page() {
             <TabsList>
               <TabsTrigger value="overview" className="flex items-center gap-2">
                 <IconSettings2 size={14} />
-                Vue d&apos;ensemble
+                {t("widgets.overview")}
               </TabsTrigger>
               <TabsTrigger
                 value="analytics"
                 className="flex items-center gap-2"
               >
                 <IconAnalyze size={16} />
-                Analyses
+                {t("widgets.analytics")}
               </TabsTrigger>
               <TabsTrigger
                 value="reports"
@@ -44,7 +49,7 @@ export default async function Dashboard1Page() {
                 disabled
               >
                 <IconFileReport size={16} />
-                Rapports
+                {t("widgets.reports")}
               </TabsTrigger>
               <TabsTrigger
                 value="notifications"
@@ -52,7 +57,7 @@ export default async function Dashboard1Page() {
                 disabled
               >
                 <IconNotification size={16} />
-                Notifications
+                {t("widgets.notifications")}
               </TabsTrigger>
             </TabsList>
           </div>

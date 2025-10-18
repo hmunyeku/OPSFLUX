@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react"
 import Link from "next/link"
 import { PermissionGuard } from "@/components/permission-guard"
+import { useTranslation } from "@/hooks/use-translation"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -33,6 +34,7 @@ import { DeleteGroupDialog } from "./components/delete-group-dialog"
 import { ManagePermissionsDialog } from "./components/manage-permissions-dialog"
 
 export default function GroupsPage() {
+  const { t } = useTranslation("core.groups")
   const [groups, setGroups] = useState<Group[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
@@ -151,27 +153,27 @@ export default function GroupsPage() {
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link href="/">Accueil</Link>
+                <Link href="/">{t("breadcrumb.home")}</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link href="/users">Utilisateurs</Link>
+                <Link href="/users">{t("breadcrumb.users")}</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>Groupes</BreadcrumbPage>
+              <BreadcrumbPage>{t("breadcrumb.groups")}</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
 
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold tracking-tight">Groupes d&apos;utilisateurs</h2>
+          <h2 className="text-2xl font-bold tracking-tight">{t("page.title")}</h2>
           <Button onClick={() => setIsCreateDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
-            Créer un groupe
+            {t("action.create")}
           </Button>
         </div>
       </div>
@@ -180,49 +182,49 @@ export default function GroupsPage() {
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Groupes</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("stats.total_groups")}</CardTitle>
             <FolderTree className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalGroups}</div>
             <p className="text-xs text-muted-foreground">
-              {stats.groupsWithPermissions} avec permissions
+              {stats.groupsWithPermissions} {t("stats.with_permissions")}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Utilisateurs</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("stats.total_users")}</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalUsers}</div>
             <p className="text-xs text-muted-foreground">
-              Dans tous les groupes
+              {t("stats.in_all_groups")}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Permissions</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("stats.permissions")}</CardTitle>
             <Shield className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalPermissions}</div>
             <p className="text-xs text-muted-foreground">
-              Assignées aux groupes
+              {t("stats.assigned_to_groups")}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Groupes Actifs</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("stats.active_groups")}</CardTitle>
             <UserCheck className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.groupsWithPermissions}</div>
             <p className="text-xs text-muted-foreground">
-              Avec accès configurés
+              {t("stats.with_configured_access")}
             </p>
           </CardContent>
         </Card>
@@ -234,10 +236,10 @@ export default function GroupsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FolderTree className="h-5 w-5" />
-              Arborescence des groupes
+              {t("page.tree_title")}
             </CardTitle>
             <CardDescription>
-              Sélectionnez un groupe pour voir ses détails
+              {t("page.select_group")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -245,7 +247,7 @@ export default function GroupsPage() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Rechercher un groupe..."
+                placeholder={t("action.search")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
@@ -257,7 +259,7 @@ export default function GroupsPage() {
               <div className="space-y-2">
                 {filteredGroups.length === 0 ? (
                   <div className="py-8 text-center text-sm text-muted-foreground">
-                    Aucun groupe trouvé
+                    {t("message.no_group_found")}
                   </div>
                 ) : (
                   filteredGroups.map((group) => (

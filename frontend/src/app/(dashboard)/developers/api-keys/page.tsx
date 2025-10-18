@@ -5,6 +5,7 @@ import { format } from "date-fns"
 import { Terminal, Trash2, Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
 import { PermissionGuard } from "@/components/permission-guard"
+import { useTranslation } from "@/hooks/use-translation"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -35,6 +36,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Card } from "@/components/ui/card"
 
 export default function ApiKeysPage() {
+  const { t } = useTranslation("core.developers")
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
   const [loading, setLoading] = useState(true)
   const [environmentFilter, setEnvironmentFilter] = useState<string>("production")
@@ -113,25 +115,25 @@ export default function ApiKeysPage() {
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link href="/">Accueil</Link>
+                <Link href="/">{t("breadcrumb.home")}</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>Développeurs</BreadcrumbPage>
+              <BreadcrumbPage>{t("breadcrumb.developers")}</BreadcrumbPage>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>Clés API</BreadcrumbPage>
+              <BreadcrumbPage>{t("api_keys.title")}</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
 
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h2 className="text-2xl font-bold">Clés API</h2>
+            <h2 className="text-2xl font-bold">{t("api_keys.title")}</h2>
             <p className="text-muted-foreground text-sm">
-              Sécurisez, gérez et surveillez vos clés API en toute simplicité.
+              {t("api_keys.description")}
             </p>
           </div>
           <Select value={environmentFilter} onValueChange={setEnvironmentFilter}>
@@ -156,13 +158,13 @@ export default function ApiKeysPage() {
             value="api"
             className="rounded-none border-blue-600 py-1 shadow-none! data-[state=active]:border-b-[2px]"
           >
-            Clés API
+            {t("api_keys.title")}
           </TabsTrigger>
         </TabsList>
         <TabsContent value="api" className="mt-5 w-full max-w-3xl">
           <div className="flex flex-col gap-5">
             <div className="flex flex-col gap-3">
-              <h2 className="text-lg font-semibold">Version de l&apos;API</h2>
+              <h2 className="text-lg font-semibold">{t("api_keys.version")}</h2>
               <div className="flex items-center justify-between">
                 <h1 className="text-sm font-semibold">Version globale</h1>
                 <div className="flex items-center gap-4">
@@ -178,7 +180,7 @@ export default function ApiKeysPage() {
             {/* Secret API Keys */}
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Clés API Secrètes</h2>
+                <h2 className="text-lg font-semibold">{t("api_keys.secret_keys")}</h2>
                 <CreateApiKeyDialog
                   keyType="secret"
                   environment={environmentFilter}
@@ -256,7 +258,7 @@ export default function ApiKeysPage() {
             {/* Publishable API Keys */}
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Clés API Publiques</h2>
+                <h2 className="text-lg font-semibold">{t("api_keys.publishable_keys")}</h2>
                 <CreateApiKeyDialog
                   keyType="publishable"
                   environment={environmentFilter}

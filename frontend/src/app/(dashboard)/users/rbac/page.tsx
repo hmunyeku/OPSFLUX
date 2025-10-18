@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react"
 import Link from "next/link"
 import { PermissionGuard } from "@/components/permission-guard"
+import { useTranslation } from "@/hooks/use-translation"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -39,6 +40,7 @@ import { DeleteRoleDialog } from "../roles/components/delete-role-dialog"
 import { ManagePermissionsDialog } from "../roles/components/manage-permissions-dialog"
 
 export default function RBACPage() {
+  const { t } = useTranslation("core.rbac")
   const [roles, setRoles] = useState<Role[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
@@ -157,27 +159,27 @@ export default function RBACPage() {
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link href="/">Accueil</Link>
+                <Link href="/">{t("breadcrumb.home")}</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link href="/users">Utilisateurs</Link>
+                <Link href="/users">{t("breadcrumb.users")}</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>Rôles & Permissions</BreadcrumbPage>
+              <BreadcrumbPage>{t("breadcrumb.rbac")}</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
 
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold tracking-tight">Rôles & Permissions</h2>
+          <h2 className="text-2xl font-bold tracking-tight">{t("page.title")}</h2>
           <Button onClick={() => setIsCreateDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
-            Créer un rôle
+            {t("roles.create")}
           </Button>
         </div>
       </div>
@@ -186,49 +188,49 @@ export default function RBACPage() {
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Rôles</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("roles.total")}</CardTitle>
             <Shield className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalRoles}</div>
             <p className="text-xs text-muted-foreground">
-              {stats.systemRoles} système, {stats.customRoles} personnalisés
+              {stats.systemRoles} {t("roles.system")}, {stats.customRoles} {t("roles.custom")}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Permissions</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("permissions.title")}</CardTitle>
             <Key className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalPermissions}</div>
             <p className="text-xs text-muted-foreground">
-              Assignées aux rôles
+              {t("permissions.assigned_to_roles")}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Rôles Système</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("roles.system_roles")}</CardTitle>
             <Lock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.systemRoles}</div>
             <p className="text-xs text-muted-foreground">
-              Non modifiables
+              {t("roles.not_modifiable")}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Rôles Personnalisés</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("roles.custom_roles")}</CardTitle>
             <Unlock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.customRoles}</div>
             <p className="text-xs text-muted-foreground">
-              Modifiables
+              {t("roles.modifiable")}
             </p>
           </CardContent>
         </Card>
@@ -240,10 +242,10 @@ export default function RBACPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5" />
-              Liste des rôles
+              {t("roles.list")}
             </CardTitle>
             <CardDescription>
-              Sélectionnez un rôle pour voir ses permissions
+              {t("roles.select_description")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -251,7 +253,7 @@ export default function RBACPage() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Rechercher un rôle..."
+                placeholder={t("field.search_role")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
@@ -263,7 +265,7 @@ export default function RBACPage() {
               <div className="space-y-2">
                 {filteredRoles.length === 0 ? (
                   <div className="py-8 text-center text-sm text-muted-foreground">
-                    Aucun rôle trouvé
+                    {t("message.no_role_found")}
                   </div>
                 ) : (
                   filteredRoles.map((role) => (

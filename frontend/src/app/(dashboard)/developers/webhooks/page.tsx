@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Frown } from "lucide-react"
 import Link from "next/link"
+import { useTranslation } from "@/hooks/use-translation"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -19,6 +20,7 @@ import { useToast } from "@/hooks/use-toast"
 import type { Webhook } from "./data/schema"
 
 export default function WebhooksPage() {
+  const { t } = useTranslation("core.developers")
   const [webhooks, setWebhooks] = useState<Webhook[]>([])
   const [loading, setLoading] = useState(true)
   const { toast } = useToast()
@@ -62,25 +64,25 @@ export default function WebhooksPage() {
         <BreadcrumbList>
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/">Accueil</Link>
+              <Link href="/">{t("breadcrumb.home")}</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbPage>Développeurs</BreadcrumbPage>
+            <BreadcrumbPage>{t("breadcrumb.developers")}</BreadcrumbPage>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbPage>Webhooks</BreadcrumbPage>
+            <BreadcrumbPage>{t("webhooks.title")}</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
 
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h2 className="text-2xl font-bold">Webhooks</h2>
+          <h2 className="text-2xl font-bold">{t("webhooks.title")}</h2>
           <p className="text-muted-foreground text-sm">
-            Configurez, intégrez et surveillez vos webhooks.
+            {t("webhooks.description")}
           </p>
         </div>
         <AddWebhook onWebhookAdded={loadWebhooks} />
@@ -88,16 +90,15 @@ export default function WebhooksPage() {
 
       <div className="h-full flex-1">
         {loading ? (
-          <div className="mt-6 text-center text-sm text-muted-foreground">Chargement...</div>
+          <div className="mt-6 text-center text-sm text-muted-foreground">{t("webhooks.loading")}</div>
         ) : webhooks.length > 0 ? (
           <WebhooksTable data={webhooks} columns={columns} onWebhookUpdated={loadWebhooks} />
         ) : (
           <div className="border-border mt-6 flex flex-col items-center gap-4 rounded-lg border border-dashed px-6 py-10">
             <Frown className="size-32" />
-            <h2 className="text-lg font-semibold">Aucun webhook</h2>
+            <h2 className="text-lg font-semibold">{t("webhooks.empty_title")}</h2>
             <p className="text-muted-foreground text-center">
-              Commencez par créer un webhook pour{" "}
-              <br className="hidden sm:block" /> intégrer et automatiser vos workflows.
+              {t("webhooks.empty_description")}
             </p>
             <AddWebhook onWebhookAdded={loadWebhooks} />
           </div>

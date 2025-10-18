@@ -1,3 +1,5 @@
+"use client"
+
 import Link from "next/link"
 import {
   Breadcrumb,
@@ -7,12 +9,15 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
+import { useTranslation } from "@/hooks/use-translation"
 import ImportDialog from "./components/import-dialog"
 import Logs from "./components/logs"
 import Referrers from "./components/referrers"
 import RouteView from "./components/route-view"
 
 export default function EventsAndLogsPage() {
+  const { t } = useTranslation("core.developers")
+
   return (
     <>
       <div className="flex w-full flex-col gap-2">
@@ -20,24 +25,24 @@ export default function EventsAndLogsPage() {
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link href="/">Accueil</Link>
+                <Link href="/">{t("breadcrumb.home")}</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>Développeurs</BreadcrumbPage>
+              <BreadcrumbPage>{t("breadcrumb.developers")}</BreadcrumbPage>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>Événements et journaux</BreadcrumbPage>
+              <BreadcrumbPage>{t("logs.title")}</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold">Événements et journaux</h2>
+            <h2 className="text-2xl font-bold">{t("logs.title")}</h2>
             <p className="text-muted-foreground text-sm">
-              Suivez, analysez et agissez sur les comportements de l&apos;application de manière efficace.
+              {t("logs.description")}
             </p>
           </div>
           <ImportDialog />

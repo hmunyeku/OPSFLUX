@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useTranslation } from "@/hooks/use-translation"
 import { columns } from "./components/tasks-columns"
 import { TasksPrimaryActions } from "./components/tasks-primary-actions"
 import { TasksTable } from "./components/tasks-table"
@@ -9,6 +10,7 @@ import { Task, taskListSchema } from "./data/schema"
 import { getTasks } from "./data/tasks-api"
 
 export default function TasksPage() {
+  const { t } = useTranslation("core.tasks")
   const [tasks, setTasks] = useState<Task[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -43,9 +45,9 @@ export default function TasksPage() {
     <>
       <div className="mb-2 flex items-baseline justify-between gap-2">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Tâches</h2>
+          <h2 className="text-2xl font-bold tracking-tight">{t("page.title")}</h2>
           <p className="text-muted-foreground">
-            Voici la liste de vos tâches!
+            {t("page.description")}
           </p>
         </div>
         <TasksPrimaryActions />

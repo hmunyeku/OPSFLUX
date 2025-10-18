@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { Info, Search, Filter, ArrowUpDown } from "lucide-react"
 import Link from "next/link"
+import { useTranslation } from "@/hooks/use-translation"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -46,6 +47,7 @@ import {
 } from "@tanstack/react-table"
 
 export default function HooksPage() {
+  const { t } = useTranslation("core.developers")
   const [hooks, setHooks] = useState<Hook[]>([])
   const [loading, setLoading] = useState(true)
   const [globalFilter, setGlobalFilter] = useState("")
@@ -257,46 +259,46 @@ export default function HooksPage() {
         <BreadcrumbList>
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/">Accueil</Link>
+              <Link href="/">{t("breadcrumb.home")}</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbPage>Développeurs</BreadcrumbPage>
+            <BreadcrumbPage>{t("breadcrumb.developers")}</BreadcrumbPage>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbPage>Hooks & Triggers</BreadcrumbPage>
+            <BreadcrumbPage>{t("hooks.title")}</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
 
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h2 className="text-2xl font-bold">Hooks & Triggers</h2>
+          <h2 className="text-2xl font-bold">{t("hooks.title")}</h2>
           <p className="text-muted-foreground text-sm">
-            Hooks système pour automatiser vos workflows
+            {t("hooks.description")}
           </p>
         </div>
       </div>
 
       <Alert>
         <Info className="h-4 w-4" />
-        <AlertTitle>Hooks système</AlertTitle>
+        <AlertTitle>{t("hooks.system_title")}</AlertTitle>
         <AlertDescription>
-          Les hooks sont créés automatiquement par le système. Vous pouvez les activer/désactiver selon vos besoins.
+          {t("hooks.system_description")}
         </AlertDescription>
       </Alert>
 
       <div className="h-full flex-1">
         {loading ? (
-          <div className="mt-6 text-center text-sm text-muted-foreground">Chargement...</div>
+          <div className="mt-6 text-center text-sm text-muted-foreground">{t("hooks.loading")}</div>
         ) : hooks.length > 0 ? (
           <Card>
             <CardHeader>
-              <CardTitle>Hooks système disponibles</CardTitle>
+              <CardTitle>{t("hooks.available")}</CardTitle>
               <CardDescription>
-                {filteredHooks.length} sur {hooks.length} hook{hooks.length > 1 ? "s" : ""} affiché{filteredHooks.length > 1 ? "s" : ""}
+                {filteredHooks.length} {t("hooks.on")} {hooks.length} hook{hooks.length > 1 ? "s" : ""} {t("hooks.displayed")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -305,7 +307,7 @@ export default function HooksPage() {
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Rechercher un hook..."
+                    placeholder={t("hooks.search")}
                     value={globalFilter}
                     onChange={(e) => setGlobalFilter(e.target.value)}
                     className="pl-10"

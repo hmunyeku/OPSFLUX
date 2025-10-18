@@ -11,7 +11,7 @@ import {
 import { NavGroup } from "@/components/layout/nav-group"
 import { TeamSwitcher } from "@/components/layout/team-switcher"
 import { SidebarSync } from "@/components/sidebar-sync"
-import { sidebarData } from "./data/sidebar-data"
+import { useSidebarData } from "@/hooks/use-sidebar-data"
 import { usePermissions } from "@/hooks/use-permissions"
 import { filterNavItems } from "@/lib/permissions"
 import { usePreferencesContext } from "@/contexts/preferences-context"
@@ -22,6 +22,7 @@ import { type NavGroup as NavGroupType } from "./types"
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { hasPermission, hasAnyPermission, hasAllPermissions, isLoading } = usePermissions()
   const { preferences } = usePreferencesContext()
+  const sidebarData = useSidebarData()
   const [moduleMenus, setModuleMenus] = useState<ModuleMenuGroup[]>([])
 
   // Charger les menus des modules actifs

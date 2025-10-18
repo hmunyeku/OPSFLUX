@@ -38,6 +38,34 @@ export interface AppConfig {
 
   // Intranet Settings
   intranet_url?: string
+
+  // === CORE Services Configuration ===
+
+  // Cache (Redis)
+  redis_host?: string
+  redis_port?: number
+  redis_db?: number
+  redis_password?: string
+
+  // Storage (S3/MinIO)
+  storage_backend?: string
+  s3_endpoint?: string
+  s3_access_key?: string
+  s3_secret_key?: string
+  s3_bucket?: string
+  s3_region?: string
+
+  // Search
+  search_backend?: string
+  search_language?: string
+  elasticsearch_url?: string
+  typesense_api_key?: string
+  typesense_host?: string
+
+  // Audit
+  audit_retention_days?: number
+  audit_log_level?: string
+  audit_enabled?: boolean
 }
 
 interface AppConfigContextType {
@@ -104,6 +132,25 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
           email_use_tls: data.email_use_tls,
           email_use_ssl: data.email_use_ssl,
           intranet_url: data.intranet_url,
+          // CORE Services
+          redis_host: data.redis_host,
+          redis_port: data.redis_port,
+          redis_db: data.redis_db,
+          redis_password: data.redis_password,
+          storage_backend: data.storage_backend,
+          s3_endpoint: data.s3_endpoint,
+          s3_access_key: data.s3_access_key,
+          s3_secret_key: data.s3_secret_key,
+          s3_bucket: data.s3_bucket,
+          s3_region: data.s3_region,
+          search_backend: data.search_backend,
+          search_language: data.search_language,
+          elasticsearch_url: data.elasticsearch_url,
+          typesense_api_key: data.typesense_api_key,
+          typesense_host: data.typesense_host,
+          audit_retention_days: data.audit_retention_days,
+          audit_log_level: data.audit_log_level,
+          audit_enabled: data.audit_enabled,
         })
       }
     } catch (_error) {

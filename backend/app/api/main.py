@@ -27,6 +27,7 @@ from app.api.routes import (
     storage,
     tasks,
     twofa,
+    user_api_keys,
     user_permissions,
     users,
     utils,
@@ -52,7 +53,8 @@ api_router.include_router(groups.router)  # RBAC groups
 api_router.include_router(user_permissions.router)  # User permissions with sources
 api_router.include_router(notifications.router)  # Real-time notifications
 api_router.include_router(websocket.router)  # WebSocket for notifications
-api_router.include_router(api_keys.router)  # API Keys management
+api_router.include_router(api_keys.router)  # API Keys management (legacy)
+api_router.include_router(user_api_keys.router)  # User API Keys management (personal)
 api_router.include_router(webhooks.router)  # Webhooks management
 api_router.include_router(hooks.router)  # Hooks & Triggers system
 api_router.include_router(tasks.router)  # Tasks management

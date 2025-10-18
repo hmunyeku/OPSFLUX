@@ -1,6 +1,8 @@
 import sentry_sdk
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.routing import APIRoute
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
@@ -8,6 +10,7 @@ from app.api.main import api_router
 from app.core.audit_middleware import AuditLogMiddleware
 from app.core.config import settings
 from app.core.module_loader import ModuleLoader
+from app.core.api_key_auth import verify_api_key
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
@@ -70,3 +73,30 @@ if settings.all_cors_origins:
 app.add_middleware(AuditLogMiddleware)
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+
+# Securiser la documentation Swagger avec API Key
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui_html(current_user=Depends(verify_api_key)):
+    """
+    Swagger UI accessible uniquement avec API Key valide.
+
+    Pour acceder a /docs:
+    1. Generer votre cle API via POST /api/v1/users/me/api-key
+    2. Utiliser l'extension ModHeader ou similaire pour ajouter le header:
+       X-API-Key: ofs_votre_cle_ici
+    3. Acceder a /docs
+    """
+    return get_swagger_ui_html(
+        openapi_url=app.openapi_url,
+        title=f"{app.title} - Swagger UI",
+        swagger_favicon_url="/static/favicon.ico" if settings.ENVIRONMENT != "local" else None,
+    )
+
+
+@app.get("/openapi.json", include_in_schema=False)
+async def get_open_api_endpoint(current_user=Depends(verify_api_key)):
+    """
+    OpenAPI schema accessible uniquement avec API Key valide.
+    """
+    return JSONResponse(app.openapi())

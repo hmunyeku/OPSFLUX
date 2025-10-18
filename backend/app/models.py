@@ -9,6 +9,7 @@ from app.core.models import AbstractBaseModel
 
 if TYPE_CHECKING:
     from app.models_rbac import Role, Group, UserRoleLink, UserGroupLink
+    from app.models_api_keys import UserApiKey
 
 
 # Shared properties
@@ -86,6 +87,7 @@ class User(AbstractBaseModel, UserBase, table=True):
     api_keys: list["ApiKey"] = Relationship(back_populates="user", cascade_delete=True)
     webhooks: list["Webhook"] = Relationship(back_populates="user", cascade_delete=True)
     tasks: list["Task"] = Relationship(back_populates="assigned_user")
+    user_api_keys: list["UserApiKey"] = Relationship(back_populates="user", cascade_delete=True)
 
     # RBAC relationships are managed via RBAC routes, not directly here
     # to avoid circular import issues. The relationships are defined in models_rbac.

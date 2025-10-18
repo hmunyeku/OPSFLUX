@@ -395,6 +395,9 @@ TRANSLATIONS = {
         "profile.tabs.preferences": {"fr": "Préférences", "en": "Preferences"},
         "profile.tabs.security": {"fr": "Sécurité", "en": "Security"},
         "profile.tabs.sessions": {"fr": "Sessions", "en": "Sessions"},
+        "profile.tabs.api": {"fr": "API", "en": "API"},
+        "profile.tabs.profile": {"fr": "Profil", "en": "Profile"},
+        "profile.tabs.informations": {"fr": "Informations", "en": "Information"},
 
         # Profile - Fields
         "profile.first_name": {"fr": "Prénom", "en": "First name"},
@@ -430,6 +433,27 @@ TRANSLATIONS = {
         "profile.message.avatar_updated": {"fr": "Photo de profil mise à jour", "en": "Profile picture updated"},
         "profile.message.avatar_removed": {"fr": "Photo de profil supprimée", "en": "Profile picture removed"},
         "profile.message.error": {"fr": "Erreur lors de la sauvegarde", "en": "Error saving"},
+
+        # API Key
+        "api_key.title": {"fr": "Clé API", "en": "API Key"},
+        "api_key.description": {"fr": "Gérez votre clé API pour accéder à la documentation et aux endpoints API.", "en": "Manage your API key to access documentation and API endpoints."},
+        "api_key.generate": {"fr": "Générer une clé API", "en": "Generate API key"},
+        "api_key.regenerate": {"fr": "Régénérer", "en": "Regenerate"},
+        "api_key.revoke": {"fr": "Révoquer", "en": "Revoke"},
+        "api_key.copy": {"fr": "Copier", "en": "Copy"},
+        "api_key.copied": {"fr": "Clé copiée dans le presse-papier", "en": "Key copied to clipboard"},
+        "api_key.no_key": {"fr": "Vous n'avez pas encore de clé API", "en": "You don't have an API key yet"},
+        "api_key.created_at": {"fr": "Créée le", "en": "Created on"},
+        "api_key.last_used": {"fr": "Dernière utilisation", "en": "Last used"},
+        "api_key.never_used": {"fr": "Jamais utilisée", "en": "Never used"},
+        "api_key.warning_title": {"fr": "⚠️ IMPORTANT", "en": "⚠️ IMPORTANT"},
+        "api_key.warning_message": {"fr": "Cette clé ne sera affichée qu'une seule fois. Copiez-la et stockez-la en lieu sûr.", "en": "This key will only be shown once. Copy it and store it securely."},
+        "api_key.usage_instructions": {"fr": "Utilisez cette clé avec le header HTTP :", "en": "Use this key with the HTTP header:"},
+        "api_key.confirm_regenerate": {"fr": "Êtes-vous sûr de vouloir régénérer votre clé ? L'ancienne clé sera révoquée.", "en": "Are you sure you want to regenerate your key? The old key will be revoked."},
+        "api_key.confirm_revoke": {"fr": "Êtes-vous sûr de vouloir révoquer votre clé ?", "en": "Are you sure you want to revoke your key?"},
+        "api_key.generated": {"fr": "Clé API générée avec succès", "en": "API key generated successfully"},
+        "api_key.regenerated": {"fr": "Clé API régénérée avec succès", "en": "API key regenerated successfully"},
+        "api_key.revoked": {"fr": "Clé API révoquée", "en": "API key revoked"},
 
         # Billing - Plans
         "billing.plans.title": {"fr": "Plans", "en": "Plans"},

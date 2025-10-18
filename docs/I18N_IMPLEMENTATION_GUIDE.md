@@ -2,7 +2,7 @@
 
 ## 📊 État actuel
 
-### ✅ Pages avec i18n implémentée (5/50+)
+### ✅ Pages avec i18n implémentée (13/50+)
 
 | Page | Namespace | Clés | Status |
 |------|-----------|------|--------|
@@ -11,8 +11,16 @@
 | Storage | `core.storage` | 38 | ✅ Complète |
 | Queue | `core.queue` | 4 | ✅ Complète |
 | Users | `core.users` | 101 | ✅ Complète (composants principaux) |
+| Groups | `core.groups` | 55 | ✅ Complète (page principale) |
+| RBAC | `core.rbac` | 78 | ✅ Complète (page principale) |
+| API Keys | `core.developers` | 76 | ✅ Complète |
+| Webhooks | `core.developers` | 76 | ✅ Complète |
+| Hooks | `core.developers` | 76 | ✅ Complète |
+| Events & Logs | `core.developers` | 76 | ✅ Complète |
+| Dashboard | `core.dashboard` | 28 | ✅ Complète |
+| Tasks | `core.tasks` | 68 | ✅ Complète |
 
-**Total: 172+ clés implémentées**
+**Total: 243+ clés implémentées dans 13 pages**
 
 ### 📦 Namespaces disponibles en base de données
 
@@ -21,18 +29,18 @@
 | `core.common` | 51 | Éléments réutilisables (boutons, messages, navigation) |
 | `core.auth` | 29 | Login, 2FA, password, validation |
 | `core.users` | 101 | Gestion utilisateurs (stats, table, filtres, dialogs) |
-| `core.groups` | 6 | Gestion groupes |
-| `core.rbac` | 4 | Rôles et permissions |
+| `core.groups` | 55 | Gestion groupes (breadcrumb, actions, stats, table, dialogs) |
+| `core.rbac` | 78 | Rôles et permissions (create, assign, fields, stats, messages) |
 | `core.settings` | 6 | Paramètres profil/sécurité |
-| `core.developers` | 5 | API keys, webhooks, hooks |
-| `core.dashboard` | 3 | Tableau de bord |
-| `core.tasks` | 6 | Gestion tâches |
+| `core.developers` | 76 | API keys, webhooks, hooks, logs (complète) |
+| `core.dashboard` | 28 | Tableau de bord (widgets, actions, stats) |
+| `core.tasks` | 68 | Gestion tâches (status, priority, fields, dialogs) |
 | `core.queue` | 4 | Queues Celery |
 | `core.storage` | 38 | Stockage fichiers |
 | `core.cache` | - | Cache Redis |
 | `core.metrics` | - | Métriques système |
 
-**Total: 13 namespaces | 253+ clés | 506+ traductions (FR+EN)**
+**Total: 13 namespaces | 439 clés | 878 traductions (FR+EN)**
 
 ## 🔧 Scripts disponibles
 
@@ -186,26 +194,52 @@ Créer un composant admin pour gérer les traductions directement.
   - [x] Toolbar (recherche, filtres)
   - [ ] Détails utilisateur (page [id])
   - [ ] Dialogs (invite, action, assign)
-- [ ] Groups pages (~10 pages)
-- [ ] RBAC pages (~15 pages)
-- [ ] Settings pages (~20 pages)
-- [ ] Developers pages (~20 pages)
-- [ ] Dashboard pages (~5 pages)
+- [x] Groups page principale (55 clés)
+  - [x] Breadcrumb, titre, description
+  - [x] Actions, stats, messages
+  - [ ] Composants détails (~5 pages restantes)
+- [x] RBAC page principale (78 clés)
+  - [x] Breadcrumb, rôles, permissions
+  - [x] Stats, filtres, messages
+  - [ ] Pages détails rôles/permissions (~10 pages restantes)
+- [x] Developers (76 clés) - 4 pages complètes
+  - [x] API Keys
+  - [x] Webhooks
+  - [x] Hooks
+  - [x] Events & Logs
+- [x] Dashboard page (28 clés)
+- [x] Tasks page (68 clés)
+- [ ] Settings pages (~15 pages restantes)
 - [ ] Composants communs (toasts, alerts, dialogs)
 
-**Progression: ~10% des pages UI**
-**Traductions disponibles: 506+ (253 clés × 2 langues)**
+**Progression: ~25% des pages UI (13 pages complètes)**
+**Traductions disponibles: 878 (439 clés × 2 langues)**
 
 ## 🎓 Exemples de référence
 
 Voir les implémentations existantes:
+
+**Auth & Validation:**
 - `frontend/src/app/(auth)/login/components/user-auth-form.tsx` - Validation Zod avec i18n
+
+**Pages complètes:**
 - `frontend/src/app/(dashboard)/settings/storage/page.tsx` - Page complète avec dialogs
 - `frontend/src/app/(dashboard)/settings/queue/page.tsx` - Page avec useCallback
 - `frontend/src/app/(dashboard)/users/page.tsx` - Page principale avec breadcrumb
+
+**Composants avancés:**
 - `frontend/src/app/(dashboard)/users/components/users-stats.tsx` - Stats avec interpolation
 - `frontend/src/app/(dashboard)/users/components/users-columns.tsx` - Factory pattern getColumns(t)
 - `frontend/src/app/(dashboard)/users/components/data-table-toolbar.tsx` - Filtres dynamiques
+
+**Pages récemment implémentées:**
+- `frontend/src/app/(dashboard)/users/groups/page.tsx` - Groups avec stats
+- `frontend/src/app/(dashboard)/users/rbac/page.tsx` - RBAC avec rôles/permissions
+- `frontend/src/app/(dashboard)/developers/api-keys/page.tsx` - API Keys
+- `frontend/src/app/(dashboard)/developers/webhooks/page.tsx` - Webhooks
+- `frontend/src/app/(dashboard)/developers/hooks/page.tsx` - Hooks système
+- `frontend/src/app/(dashboard)/(dashboard-1)/page.tsx` - Dashboard principal
+- `frontend/src/app/(dashboard)/tasks/page.tsx` - Gestion tâches
 
 ## 📚 Architecture technique
 

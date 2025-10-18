@@ -2,7 +2,7 @@
 
 ## 📊 État actuel
 
-### ✅ Pages avec i18n implémentée (4/50+)
+### ✅ Pages avec i18n implémentée (5/50+)
 
 | Page | Namespace | Clés | Status |
 |------|-----------|------|--------|
@@ -10,8 +10,9 @@
 | Cache | `core.cache` | - | ✅ Complète |
 | Storage | `core.storage` | 38 | ✅ Complète |
 | Queue | `core.queue` | 4 | ✅ Complète |
+| Users | `core.users` | 101 | ✅ Complète (composants principaux) |
 
-**Total: 71+ clés implémentées**
+**Total: 172+ clés implémentées**
 
 ### 📦 Namespaces disponibles en base de données
 
@@ -19,7 +20,7 @@
 |-----------|------|-------------|
 | `core.common` | 51 | Éléments réutilisables (boutons, messages, navigation) |
 | `core.auth` | 29 | Login, 2FA, password, validation |
-| `core.users` | 10 | Gestion utilisateurs |
+| `core.users` | 101 | Gestion utilisateurs (stats, table, filtres, dialogs) |
 | `core.groups` | 6 | Gestion groupes |
 | `core.rbac` | 4 | Rôles et permissions |
 | `core.settings` | 6 | Paramètres profil/sécurité |
@@ -31,7 +32,7 @@
 | `core.cache` | - | Cache Redis |
 | `core.metrics` | - | Métriques système |
 
-**Total: 13 namespaces | 162+ clés | 324+ traductions (FR+EN)**
+**Total: 13 namespaces | 253+ clés | 506+ traductions (FR+EN)**
 
 ## 🔧 Scripts disponibles
 
@@ -97,13 +98,18 @@ const formSchema = getFormSchema(t)
 
 ## 🎯 Pages prioritaires à implémenter
 
-### 1. Users (Haute priorité)
-- `/users/page.tsx` - Liste utilisateurs
-- `/users/[id]/page.tsx` - Détail utilisateur
-- `/users/components/users-invite-dialog.tsx`
-- `/users/components/users-action-dialog.tsx`
+### 1. Users ✅ (Complété - composants principaux)
+- ✅ `/users/page.tsx` - Breadcrumb et titre
+- ✅ `/users/components/users-stats.tsx` - 4 statistiques complètes
+- ✅ `/users/components/users-table.tsx` - Messages table
+- ✅ `/users/components/users-columns.tsx` - Headers et colonnes (factory pattern)
+- ✅ `/users/components/users-section.tsx` - Intégration getColumns(t)
+- ✅ `/users/components/data-table-toolbar.tsx` - Recherche et filtres
+- ⏸️ `/users/[id]/page.tsx` - Détail utilisateur (à faire)
+- ⏸️ `/users/components/users-invite-dialog.tsx` (à faire si nécessaire)
+- ⏸️ `/users/components/users-action-dialog.tsx` (à faire si nécessaire)
 
-**Clés disponibles**: `page.title`, `action.invite_user`, `field.email`, `message.user_created`, etc.
+**Clés implémentées**: 101 clés (stats, fields, table, filters, status, messages)
 
 ### 2. Groups
 - `/users/groups/page.tsx`
@@ -173,7 +179,13 @@ Créer un composant admin pour gérer les traductions directement.
 - [x] Storage page (38 clés)
 - [x] Queue page (4 clés)
 - [x] Cache page
-- [ ] Users pages (~40 pages)
+- [x] Users page - composants principaux (101 clés)
+  - [x] Page principale (breadcrumb, titre)
+  - [x] Statistiques (4 cartes avec descriptions)
+  - [x] Table (headers, colonnes, messages)
+  - [x] Toolbar (recherche, filtres)
+  - [ ] Détails utilisateur (page [id])
+  - [ ] Dialogs (invite, action, assign)
 - [ ] Groups pages (~10 pages)
 - [ ] RBAC pages (~15 pages)
 - [ ] Settings pages (~20 pages)
@@ -181,15 +193,19 @@ Créer un composant admin pour gérer les traductions directement.
 - [ ] Dashboard pages (~5 pages)
 - [ ] Composants communs (toasts, alerts, dialogs)
 
-**Progression: ~5% des pages UI**
-**Traductions disponibles: 324+**
+**Progression: ~10% des pages UI**
+**Traductions disponibles: 506+ (253 clés × 2 langues)**
 
 ## 🎓 Exemples de référence
 
 Voir les implémentations existantes:
-- `frontend/src/app/(auth)/login/components/user-auth-form.tsx`
-- `frontend/src/app/(dashboard)/settings/storage/page.tsx`
-- `frontend/src/app/(dashboard)/settings/queue/page.tsx`
+- `frontend/src/app/(auth)/login/components/user-auth-form.tsx` - Validation Zod avec i18n
+- `frontend/src/app/(dashboard)/settings/storage/page.tsx` - Page complète avec dialogs
+- `frontend/src/app/(dashboard)/settings/queue/page.tsx` - Page avec useCallback
+- `frontend/src/app/(dashboard)/users/page.tsx` - Page principale avec breadcrumb
+- `frontend/src/app/(dashboard)/users/components/users-stats.tsx` - Stats avec interpolation
+- `frontend/src/app/(dashboard)/users/components/users-columns.tsx` - Factory pattern getColumns(t)
+- `frontend/src/app/(dashboard)/users/components/data-table-toolbar.tsx` - Filtres dynamiques
 
 ## 📚 Architecture technique
 

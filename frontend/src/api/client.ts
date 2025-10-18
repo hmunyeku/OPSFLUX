@@ -2,7 +2,7 @@
  * API Client simple pour les services CORE
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.opsflux.io'
 
 function getAuthHeaders() {
   const token = localStorage.getItem('access_token')

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useLanguageContext } from "@/contexts/language-context"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.opsflux.io"
 
 function getAuthHeaders(): Record<string, string> {
   if (typeof window === "undefined") {

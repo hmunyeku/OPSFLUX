@@ -87,9 +87,9 @@ async def check_cache_health(
 @require_permission("core.cache.search")
 async def get_cache_value(
     key: str,
-    namespace: Optional[str] = None,
-    current_user: CurrentUser = None,
+    current_user: CurrentUser,
     session: SessionDep,
+    namespace: Optional[str] = None,
 ) -> Any:
     """
     Récupère une valeur du cache (debug).
@@ -112,9 +112,9 @@ async def get_cache_value(
 @require_permission("core.cache.delete_key")
 async def delete_cache_key(
     key: str,
-    namespace: Optional[str] = None,
-    current_user: CurrentUser = None,
+    current_user: CurrentUser,
     session: SessionDep,
+    namespace: Optional[str] = None,
 ) -> Any:
     """
     Supprime une clé du cache (debug).

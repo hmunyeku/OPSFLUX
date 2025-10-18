@@ -71,9 +71,9 @@ async def get_task_status(
 @require_permission("core.queue.read")
 async def get_task_result(
     task_id: str,
-    timeout: int = 30,
-    current_user: CurrentUser = None,
+    current_user: CurrentUser,
     session: SessionDep,
+    timeout: int = 30,
 ) -> Any:
     """
     Attend et récupère le résultat d'une tâche.
@@ -101,9 +101,9 @@ async def get_task_result(
 @require_permission("core.queue.cancel")
 async def cancel_task(
     task_id: str,
-    terminate: bool = Body(default=False, description="Terminer brutalement"),
-    current_user: CurrentUser = None,
+    current_user: CurrentUser,
     session: SessionDep,
+    terminate: bool = Body(default=False, description="Terminer brutalement"),
 ) -> Any:
     """
     Annule une tâche en cours.

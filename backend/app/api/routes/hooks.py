@@ -28,7 +28,7 @@ router = APIRouter(prefix="/hooks", tags=["hooks"])
 
 @router.get("/", response_model=HooksPublic)
 @require_permission("core.hooks.read")
-def read_hooks(
+async def read_hooks(
     session: SessionDep,
     current_user: CurrentUser,
     skip: int = 0,
@@ -92,7 +92,7 @@ def read_hooks(
 
 @router.post("/", response_model=HookPublic)
 @require_permission("core.hooks.create")
-def create_hook(
+async def create_hook(
     *,
     session: SessionDep,
     current_user: CurrentUser,
@@ -142,7 +142,7 @@ def create_hook(
 
 @router.get("/{hook_id}", response_model=HookPublic)
 @require_permission("core.hooks.read")
-def read_hook(
+async def read_hook(
     hook_id: uuid.UUID,
     session: SessionDep,
     current_user: CurrentUser,
@@ -172,7 +172,7 @@ def read_hook(
 
 @router.patch("/{hook_id}", response_model=HookPublic)
 @require_permission("core.hooks.update")
-def update_hook(
+async def update_hook(
     *,
     session: SessionDep,
     current_user: CurrentUser,
@@ -221,7 +221,7 @@ def update_hook(
 
 @router.delete("/{hook_id}", response_model=Message)
 @require_permission("core.hooks.delete")
-def delete_hook(
+async def delete_hook(
     session: SessionDep,
     current_user: CurrentUser,
     hook_id: uuid.UUID,
@@ -245,7 +245,7 @@ def delete_hook(
 
 @router.get("/{hook_id}/executions", response_model=HookExecutionsPublic)
 @require_permission("core.hooks.read")
-def read_hook_executions(
+async def read_hook_executions(
     hook_id: uuid.UUID,
     session: SessionDep,
     current_user: CurrentUser,
@@ -295,7 +295,7 @@ def read_hook_executions(
 
 @router.get("/executions/all", response_model=HookExecutionsPublic)
 @require_permission("core.hooks.read")
-def read_all_executions(
+async def read_all_executions(
     session: SessionDep,
     current_user: CurrentUser,
     skip: int = 0,

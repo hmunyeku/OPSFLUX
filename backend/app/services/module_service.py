@@ -306,7 +306,7 @@ class ModuleManager:
     @staticmethod
     def _register_user_preferences(session: Session, module: Module, preferences: list):
         """
-        Enregistre les préférences utilisateur du module.
+        Enregistre les préférences utilisateur du module dans le système CORE.
 
         Args:
             session: Session DB
@@ -314,16 +314,35 @@ class ModuleManager:
             preferences: Liste de préférences [{key, label, type, default, category}, ...]
 
         Note:
-            Pour l'instant stocké dans le manifest du module.
-            TODO FUTUR: Créer un modèle UserPreference CORE (comme Translation)
-            avec module_id, user_id, preference_key, preference_value
+            Les préférences sont stockées dans module.manifest pour la définition
+            et dans user_preference pour les valeurs par utilisateur.
+
+            Cette méthode ne crée PAS de valeurs par utilisateur, elle enregistre
+            uniquement les préférences disponibles dans le manifest.
+            Les valeurs seront créées quand l'utilisateur modifie une préférence.
         """
-        # Les préférences sont déjà stockées dans module.manifest["user_preferences"]
-        # Elles seront disponibles via GET /modules/{id} pour affichage dans les settings utilisateur
-        # Quand un UserPreference CORE sera créé, migrer ici
         import logging
+
+        # Les préférences sont stockées dans module.manifest["user_preferences"]
+        # pour définir quelles préférences sont disponibles pour ce module
+        #
+        # Format attendu dans manifest.json:
+        # "user_preferences": [
+        #   {
+        #     "key": "theme",
+        #     "label": "Theme",
+        #     "type": "string",
+        #     "default": "light",
+        #     "category": "appearance",
+        #     "description": "Color theme"
+        #   }
+        # ]
+        #
+        # Les valeurs réelles par utilisateur seront créées via l'API
+        # POST /user-preferences/ quand l'utilisateur change une préférence
+
         logging.getLogger(__name__).info(
-            f"Registered {len(preferences)} user preferences for module {module.code}"
+            f"Registered {len(preferences)} user preference definitions for module {module.code}"
         )
 
     @staticmethod
@@ -337,17 +356,43 @@ class ModuleManager:
             settings: Liste de settings [{key, label, type, default, category}, ...]
 
         Note:
-            Pour l'instant stocké dans le manifest du module.
-            TODO FUTUR: Créer un modèle ModuleSetting CORE (comme Translation)
-            avec module_id, setting_key, setting_value, setting_type
-            ou étendre AppSettings pour supporter des settings par module
+            Les settings des modules sont stockés dans module.manifest["settings"]
+            pour la définition et module.config pour les valeurs.
+
+            AppSettings est réservé aux paramètres globaux de l'application (email, SMS, etc.)
+            pas aux paramètres des modules individuels.
+
+            Format attendu dans manifest.json:
+            "settings": [
+              {
+                "key": "api_endpoint",
+                "label": "API Endpoint",
+                "type": "string",
+                "default": "https://api.example.com",
+                "category": "integration",
+                "description": "External API endpoint",
+                "required": true
+              }
+            ]
+
+            Les valeurs sont stockées dans module.config et modifiables via:
+            PATCH /modules/{id} avec {"config": {"api_endpoint": "..."}}
         """
-        # Les settings sont déjà stockés dans module.manifest["settings"]
-        # Ils seront disponibles via GET /modules/{id}/settings pour configuration admin
-        # Quand un ModuleSetting CORE sera créé, migrer ici
         import logging
+
+        # Les settings sont uniquement dans le manifest pour définition
+        # et dans module.config pour les valeurs
+        #
+        # Si besoin de settings globaux partagés entre modules,
+        # utiliser AppSettings avec des champs spécifiques
+        #
+        # Si besoin de ModuleSetting CORE (table dédiée), créer:
+        # - Table module_setting (module_id, key, value, type)
+        # - Routes API pour CRUD
+        # - Mais pour l'instant, module.config suffit
+
         logging.getLogger(__name__).info(
-            f"Registered {len(settings)} module settings for module {module.code}"
+            f"Registered {len(settings)} module setting definitions for module {module.code}"
         )
 
     @staticmethod
@@ -938,10 +983,18 @@ class ModuleManager:
                 # Supprimer le namespace
                 session.delete(namespace)
 
-            # NOTE: Les préférences utilisateur et settings sont stockés dans module.manifest
+            # Supprimer les préférences utilisateur du module
+            from app.models_preferences import UserPreference
+            pref_stmt = select(UserPreference).where(
+                UserPreference.module_id == module_id,
+                UserPreference.deleted_at == None  # noqa: E711
+            )
+            user_preferences = session.exec(pref_stmt).all()
+            for pref in user_preferences:
+                session.delete(pref)
+
+            # NOTE: Les settings du module sont stockés dans module.config
             # Ils seront supprimés automatiquement quand le module sera supprimé
-            # Si des modèles UserPreference/ModuleSetting CORE sont créés dans le futur,
-            # ajouter leur suppression ici
 
             # Supprimer les fichiers du module
             module_dir = ModuleManager.MODULES_DIR / module.code

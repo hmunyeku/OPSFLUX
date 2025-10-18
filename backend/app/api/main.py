@@ -29,6 +29,7 @@ from app.api.routes import (
     twofa,
     user_api_keys,
     user_permissions,
+    user_preferences,
     users,
     utils,
     webhooks,
@@ -63,6 +64,7 @@ api_router.include_router(audit.router, prefix="/audit", tags=["Audit"])  # Audi
 api_router.include_router(modules.router)  # Module management system
 api_router.include_router(languages.router)  # Multilingual (i18n) system
 api_router.include_router(email_templates.router)  # Email templates management
+api_router.include_router(user_preferences.router)  # User preferences (UI + modules)
 
 # CORE Services API
 api_router.include_router(storage.router)  # File storage service

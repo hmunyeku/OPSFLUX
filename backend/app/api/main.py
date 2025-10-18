@@ -7,6 +7,7 @@ from app.api.routes import (
     audit,
     auth,
     bookmarks,
+    cache,
     email_templates,
     groups,
     hooks,
@@ -17,9 +18,11 @@ from app.api.routes import (
     notifications,
     permissions,
     private,
+    queue,
     roles,
     security,
     settings as settings_routes,
+    storage,
     tasks,
     twofa,
     user_permissions,
@@ -56,6 +59,11 @@ api_router.include_router(audit.router, prefix="/audit", tags=["Audit"])  # Audi
 api_router.include_router(modules.router)  # Module management system
 api_router.include_router(languages.router)  # Multilingual (i18n) system
 api_router.include_router(email_templates.router)  # Email templates management
+
+# CORE Services API
+api_router.include_router(storage.router)  # File storage service
+api_router.include_router(cache.router)  # Cache service (Redis)
+api_router.include_router(queue.router)  # Queue service (Celery)
 
 
 if settings.ENVIRONMENT == "local":

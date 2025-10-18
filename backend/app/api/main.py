@@ -14,6 +14,7 @@ from app.api.routes import (
     items,
     languages,
     login,
+    metrics,
     modules,
     notifications,
     permissions,
@@ -64,6 +65,7 @@ api_router.include_router(email_templates.router)  # Email templates management
 api_router.include_router(storage.router)  # File storage service
 api_router.include_router(cache.router)  # Cache service (Redis)
 api_router.include_router(queue.router)  # Queue service (Celery)
+api_router.include_router(metrics.router)  # Metrics service (Prometheus)
 
 
 if settings.ENVIRONMENT == "local":

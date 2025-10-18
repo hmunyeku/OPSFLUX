@@ -555,3 +555,7 @@ class TasksPublic(SQLModel):
 # NOTE: Les modèles des modules sont chargés dynamiquement par le ModuleLoader au démarrage
 # Voir: app/core/module_loader.py
 # Ne PAS importer de modèles de modules ici.
+
+# Import UserApiKey to ensure it's loaded before SQLAlchemy mapper initialization
+# This prevents "UserApiKey failed to locate" error
+from app import models_api_keys  # noqa: F401, E402

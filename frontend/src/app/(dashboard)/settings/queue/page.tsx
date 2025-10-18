@@ -16,8 +16,17 @@ import ContentSection from "../components/content-section"
 import { useToast } from "@/hooks/use-toast"
 import { useTranslation } from "@/hooks/use-translation"
 import { getQueueStats, type QueueStats, TaskStatus } from "@/api/queue"
+import { PermissionGuard } from "@/components/permission-guard"
 
 export default function QueuePage() {
+  return (
+    <PermissionGuard permission="core.queue.read">
+      <QueuePageContent />
+    </PermissionGuard>
+  )
+}
+
+function QueuePageContent() {
   const [stats, setStats] = useState<QueueStats | null>(null)
   const [loading, setLoading] = useState(true)
   const { toast } = useToast()

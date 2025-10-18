@@ -27,8 +27,19 @@ import {
 import ContentSection from "../components/content-section"
 import { useToast } from "@/hooks/use-toast"
 import { getMetricsStats, resetMetrics, type MetricsStats } from "@/api/metrics"
+import { PermissionGuard } from "@/components/permission-guard"
+import { usePermissions } from "@/hooks/use-permissions"
 
 export default function MetricsPage() {
+  return (
+    <PermissionGuard permission="core.metrics.read">
+      <MetricsPageContent />
+    </PermissionGuard>
+  )
+}
+
+function MetricsPageContent() {
+  const { hasPermission } = usePermissions()
   const { t } = useTranslation("core.settings")
   const [stats, setStats] = useState<MetricsStats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -214,6 +225,7 @@ export default function MetricsPage() {
               variant="destructive"
               size="sm"
               onClick={() => setResetDialogOpen(true)}
+              disabled={!hasPermission("core.metrics.delete")}
             >
               <IconTrash className="mr-2 h-4 w-4" />
               <span className="hidden sm:inline">Réinitialiser</span>

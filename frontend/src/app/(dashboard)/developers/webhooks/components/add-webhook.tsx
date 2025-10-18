@@ -7,13 +7,14 @@ import { MutateWebhook } from "./mutate-webhook"
 
 interface AddWebhookProps {
   onWebhookAdded?: () => void
+  disabled?: boolean
 }
 
-export function AddWebhook({ onWebhookAdded }: AddWebhookProps) {
+export function AddWebhook({ onWebhookAdded, disabled }: AddWebhookProps) {
   const [open, setOpen] = useState(false)
   return (
     <>
-      <Button size="sm" variant="default" onClick={() => setOpen(true)}>
+      <Button size="sm" variant="default" onClick={() => setOpen(true)} disabled={disabled}>
         <Plus /> Ajouter un webhook
       </Button>
 

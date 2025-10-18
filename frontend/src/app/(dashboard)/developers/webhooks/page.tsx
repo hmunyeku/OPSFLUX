@@ -18,9 +18,20 @@ import { WebhooksTable } from "./components/webhooks-table"
 import { getWebhooks, type Webhook as WebhookAPI } from "./data/webhooks-api"
 import { useToast } from "@/hooks/use-toast"
 import type { Webhook } from "./data/schema"
+import { PermissionGuard } from "@/components/permission-guard"
+import { usePermissions } from "@/hooks/use-permissions"
 
 export default function WebhooksPage() {
+  return (
+    <PermissionGuard permission="core.webhooks.read">
+      <WebhooksPageContent />
+    </PermissionGuard>
+  )
+}
+
+function WebhooksPageContent() {
   const { t } = useTranslation("core.developers")
+  const { hasPermission } = usePermissions()
   const [webhooks, setWebhooks] = useState<Webhook[]>([])
   const [loading, setLoading] = useState(true)
   const { toast } = useToast()
@@ -85,7 +96,7 @@ export default function WebhooksPage() {
             {t("webhooks.description")}
           </p>
         </div>
-        <AddWebhook onWebhookAdded={loadWebhooks} />
+        <AddWebhook onWebhookAdded={loadWebhooks} disabled={!hasPermission("core.webhooks.create")} />
       </div>
 
       <div className="h-full flex-1">
@@ -100,7 +111,7 @@ export default function WebhooksPage() {
             <p className="text-muted-foreground text-center">
               {t("webhooks.empty_description")}
             </p>
-            <AddWebhook onWebhookAdded={loadWebhooks} />
+            <AddWebhook onWebhookAdded={loadWebhooks} disabled={!hasPermission("core.webhooks.create")} />
           </div>
         )}
       </div>

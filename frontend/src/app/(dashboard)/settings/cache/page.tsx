@@ -27,8 +27,19 @@ import ContentSection from "../components/content-section"
 import { useToast } from "@/hooks/use-toast"
 import { getCacheStats, getCacheHealth, clearCache, type CacheStats, type CacheHealth } from "@/api/cache"
 import { useTranslation } from "@/hooks/use-translation"
+import { PermissionGuard } from "@/components/permission-guard"
+import { usePermissions } from "@/hooks/use-permissions"
 
 export default function CachePage() {
+  return (
+    <PermissionGuard permission="core.cache.read">
+      <CachePageContent />
+    </PermissionGuard>
+  )
+}
+
+function CachePageContent() {
+  const { hasPermission } = usePermissions()
   const [stats, setStats] = useState<CacheStats | null>(null)
   const [health, setHealth] = useState<CacheHealth | null>(null)
   const [loading, setLoading] = useState(true)
@@ -144,6 +155,7 @@ export default function CachePage() {
               variant="destructive"
               size="sm"
               onClick={() => setClearDialogOpen(true)}
+              disabled={!hasPermission("core.cache.clear")}
             >
               <IconTrash className="mr-2 h-4 w-4" />
               {t("actions.clear_cache")}

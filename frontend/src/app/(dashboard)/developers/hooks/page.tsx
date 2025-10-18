@@ -45,9 +45,20 @@ import {
   SortingState,
   ColumnFiltersState,
 } from "@tanstack/react-table"
+import { PermissionGuard } from "@/components/permission-guard"
+import { usePermissions } from "@/hooks/use-permissions"
 
 export default function HooksPage() {
+  return (
+    <PermissionGuard permission="core.hooks.read">
+      <HooksPageContent />
+    </PermissionGuard>
+  )
+}
+
+function HooksPageContent() {
   const { t } = useTranslation("core.developers")
+  const { hasPermission } = usePermissions()
   const [hooks, setHooks] = useState<Hook[]>([])
   const [loading, setLoading] = useState(true)
   const [globalFilter, setGlobalFilter] = useState("")
@@ -206,6 +217,7 @@ export default function HooksPage() {
             <Switch
               checked={hook.is_active}
               onCheckedChange={() => handleToggleActive(hook)}
+              disabled={!hasPermission("core.hooks.update")}
             />
           )
         },
@@ -216,7 +228,7 @@ export default function HooksPage() {
         },
       },
     ],
-    [handleToggleActive]
+    [handleToggleActive, hasPermission]
   )
 
   // Apply filters

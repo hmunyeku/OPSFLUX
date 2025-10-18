@@ -14,9 +14,20 @@ import ImportDialog from "./components/import-dialog"
 import Logs from "./components/logs"
 import Referrers from "./components/referrers"
 import RouteView from "./components/route-view"
+import { PermissionGuard } from "@/components/permission-guard"
+import { usePermissions } from "@/hooks/use-permissions"
 
 export default function EventsAndLogsPage() {
+  return (
+    <PermissionGuard permission="core.audit.read">
+      <EventsAndLogsPageContent />
+    </PermissionGuard>
+  )
+}
+
+function EventsAndLogsPageContent() {
   const { t } = useTranslation("core.developers")
+  const { hasPermission } = usePermissions()
 
   return (
     <>
@@ -45,7 +56,7 @@ export default function EventsAndLogsPage() {
               {t("logs.description")}
             </p>
           </div>
-          <ImportDialog />
+          <ImportDialog disabled={!hasPermission("core.audit.configure")} />
         </div>
       </div>
 

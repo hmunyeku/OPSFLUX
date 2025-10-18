@@ -47,7 +47,11 @@ interface FileWithPreview {
   status?: "uploading" | "success" | "error"
 }
 
-export default function ImportDialog() {
+interface ImportDialogProps {
+  disabled?: boolean
+}
+
+export default function ImportDialog({ disabled }: ImportDialogProps) {
   const [open, setOpen] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [files, setFiles] = useState<FileWithPreview[]>([])
@@ -138,7 +142,7 @@ export default function ImportDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline">Importer</Button>
+        <Button variant="outline" disabled={disabled}>Importer</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>

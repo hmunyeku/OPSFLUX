@@ -54,8 +54,19 @@ import {
   FileCategory,
   type FileInfo,
 } from "@/api/storage"
+import { PermissionGuard } from "@/components/permission-guard"
+import { usePermissions } from "@/hooks/use-permissions"
 
 export default function StoragePage() {
+  return (
+    <PermissionGuard permission="core.storage.read">
+      <StoragePageContent />
+    </PermissionGuard>
+  )
+}
+
+function StoragePageContent() {
+  const { hasPermission } = usePermissions()
   const [files, setFiles] = useState<FileInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
@@ -205,7 +216,7 @@ export default function StoragePage() {
               <IconRefresh className="mr-2 h-4 w-4" />
               {t("actions.refresh")}
             </Button>
-            <Button size="sm" onClick={() => setUploadDialogOpen(true)}>
+            <Button size="sm" onClick={() => setUploadDialogOpen(true)} disabled={!hasPermission("core.storage.upload")}>
               <IconUpload className="mr-2 h-4 w-4" />
               {t("actions.upload")}
             </Button>
@@ -303,6 +314,7 @@ export default function StoragePage() {
                           setFileToDelete(file)
                           setDeleteDialogOpen(true)
                         }}
+                        disabled={!hasPermission("core.storage.delete")}
                       >
                         <IconTrash className="h-4 w-4 text-destructive" />
                         <span className="sr-only">Supprimer</span>

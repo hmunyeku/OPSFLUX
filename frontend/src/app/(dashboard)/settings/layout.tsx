@@ -6,6 +6,10 @@ import {
   IconPuzzle,
   IconTool,
   IconUser,
+  IconDatabase,
+  IconFiles,
+  IconPlayerPlay,
+  IconChartBar,
 } from "@tabler/icons-react"
 import { Header } from "@/components/layout/header"
 import SidebarNav from "./components/sidebar-nav"
@@ -45,6 +49,26 @@ const sidebarNavItems = [
     title: "Notifications",
     icon: <IconNotification />,
     href: "/settings/notifications",
+  },
+  {
+    title: "Cache",
+    icon: <IconDatabase />,
+    href: "/settings/cache",
+  },
+  {
+    title: "Fichiers",
+    icon: <IconFiles />,
+    href: "/settings/storage",
+  },
+  {
+    title: "Files d'attente",
+    icon: <IconPlayerPlay />,
+    href: "/settings/queue",
+  },
+  {
+    title: "Métriques",
+    icon: <IconChartBar />,
+    href: "/settings/metrics",
   },
 ]
 

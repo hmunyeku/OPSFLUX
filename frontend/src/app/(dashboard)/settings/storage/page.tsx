@@ -45,6 +45,7 @@ import {
 } from "@tabler/icons-react"
 import ContentSection from "../components/content-section"
 import { useToast } from "@/hooks/use-toast"
+import { useTranslation } from "@/hooks/use-translation"
 import {
   uploadFile,
   listFiles,
@@ -62,29 +63,30 @@ export default function StoragePage() {
   const [fileToDelete, setFileToDelete] = useState<FileInfo | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
-  const [filterModule, setFilterModule] = useState<string>("")
+  const [_filterModule, _setFilterModule] = useState<string>("")
   const [filterCategory, setFilterCategory] = useState<FileCategory | "">("")
   const [searchQuery, setSearchQuery] = useState("")
   const { toast } = useToast()
+  const { t } = useTranslation("core.storage")
 
   const fetchFiles = useCallback(async () => {
     setLoading(true)
     try {
       const data = await listFiles(
-        filterModule || undefined,
+        _filterModule || undefined,
         filterCategory ? (filterCategory as FileCategory) : undefined
       )
       setFiles(data.files)
-    } catch (error) {
+    } catch (_error) {
       toast({
         variant: "destructive",
-        title: "Erreur",
-        description: "Impossible de charger les fichiers.",
+        title: t("toast.error.title"),
+        description: t("toast.error.load"),
       })
     } finally {
       setLoading(false)
     }
-  }, [filterModule, filterCategory, toast])
+  }, [_filterModule, filterCategory, toast, t])
 
   useEffect(() => {
     fetchFiles()
@@ -97,8 +99,8 @@ export default function StoragePage() {
     try {
       await uploadFile(selectedFile, "core", undefined, true)
       toast({
-        title: "Fichier uploadé",
-        description: `${selectedFile.name} a été uploadé avec succès.`,
+        title: t("toast.upload.success"),
+        description: t("toast.upload.success_description", { filename: selectedFile.name }),
       })
       setSelectedFile(null)
       setUploadDialogOpen(false)
@@ -106,8 +108,8 @@ export default function StoragePage() {
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Erreur d'upload",
-        description: error instanceof Error ? error.message : "Impossible d'uploader le fichier.",
+        title: t("toast.upload.error"),
+        description: error instanceof Error ? error.message : t("toast.error.load"),
       })
     } finally {
       setUploading(false)
@@ -120,17 +122,17 @@ export default function StoragePage() {
     try {
       await deleteFile(fileToDelete.path)
       toast({
-        title: "Fichier supprimé",
-        description: `${fileToDelete.filename} a été supprimé.`,
+        title: t("toast.delete.success"),
+        description: t("toast.delete.success_description", { filename: fileToDelete.filename }),
       })
       setDeleteDialogOpen(false)
       setFileToDelete(null)
       await fetchFiles()
-    } catch (error) {
+    } catch (_error) {
       toast({
         variant: "destructive",
-        title: "Erreur",
-        description: "Impossible de supprimer le fichier.",
+        title: t("toast.error.title"),
+        description: t("toast.error.delete"),
       })
     }
   }
@@ -166,8 +168,8 @@ export default function StoragePage() {
 
   return (
     <ContentSection
-      title="Gestion des Fichiers"
-      desc="Upload, gestion et stockage de fichiers"
+      title={t("page.title")}
+      desc={t("page.description")}
       className="w-full lg:max-w-full"
     >
       <div className="space-y-6">
@@ -177,7 +179,7 @@ export default function StoragePage() {
             <div className="relative flex-1 min-w-[200px]">
               <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Rechercher un fichier..."
+                placeholder={t("actions.search")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
@@ -185,15 +187,15 @@ export default function StoragePage() {
             </div>
             <Select value={filterCategory} onValueChange={setFilterCategory}>
               <SelectTrigger className="w-[160px]">
-                <SelectValue placeholder="Catégorie" />
+                <SelectValue placeholder={t("actions.category")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Toutes</SelectItem>
-                <SelectItem value={FileCategory.DOCUMENT}>Documents</SelectItem>
-                <SelectItem value={FileCategory.IMAGE}>Images</SelectItem>
-                <SelectItem value={FileCategory.VIDEO}>Vidéos</SelectItem>
-                <SelectItem value={FileCategory.AUDIO}>Audio</SelectItem>
-                <SelectItem value={FileCategory.ARCHIVE}>Archives</SelectItem>
+                <SelectItem value="">{t("actions.category_all")}</SelectItem>
+                <SelectItem value={FileCategory.DOCUMENT}>{t("actions.category_documents")}</SelectItem>
+                <SelectItem value={FileCategory.IMAGE}>{t("actions.category_images")}</SelectItem>
+                <SelectItem value={FileCategory.VIDEO}>{t("actions.category_videos")}</SelectItem>
+                <SelectItem value={FileCategory.AUDIO}>{t("actions.category_audio")}</SelectItem>
+                <SelectItem value={FileCategory.ARCHIVE}>{t("actions.category_archives")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -201,11 +203,11 @@ export default function StoragePage() {
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={fetchFiles}>
               <IconRefresh className="mr-2 h-4 w-4" />
-              Actualiser
+              {t("actions.refresh")}
             </Button>
             <Button size="sm" onClick={() => setUploadDialogOpen(true)}>
               <IconUpload className="mr-2 h-4 w-4" />
-              Upload
+              {t("actions.upload")}
             </Button>
           </div>
         </div>
@@ -214,7 +216,7 @@ export default function StoragePage() {
         <div className="grid gap-4 md:grid-cols-3">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Total fichiers</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("stats.total_files")}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{files.length}</div>
@@ -222,7 +224,7 @@ export default function StoragePage() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Taille totale</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("stats.total_size")}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
@@ -232,7 +234,7 @@ export default function StoragePage() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Catégories</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("stats.categories")}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
@@ -245,10 +247,10 @@ export default function StoragePage() {
         {/* Files List */}
         <Card>
           <CardHeader>
-            <CardTitle>Fichiers</CardTitle>
+            <CardTitle>{t("files.title")}</CardTitle>
             <CardDescription>
-              {filteredFiles.length} fichier(s)
-              {searchQuery && ` correspondant à "${searchQuery}"`}
+              {t("files.count", { count: filteredFiles.length })}
+              {searchQuery && ` ${t("files.search_results", { query: searchQuery })}`}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -259,7 +261,7 @@ export default function StoragePage() {
             ) : filteredFiles.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <IconFile className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>Aucun fichier</p>
+                <p>{t("files.empty")}</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -314,9 +316,9 @@ export default function StoragePage() {
       <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Upload un fichier</DialogTitle>
+            <DialogTitle>{t("dialog.upload.title")}</DialogTitle>
             <DialogDescription>
-              Sélectionnez un fichier à uploader sur le serveur
+              {t("dialog.upload.description")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -326,8 +328,8 @@ export default function StoragePage() {
             />
             {selectedFile && (
               <div className="text-sm text-muted-foreground">
-                <p>Fichier: {selectedFile.name}</p>
-                <p>Taille: {formatFileSize(selectedFile.size)}</p>
+                <p>{t("dialog.upload.file_label")}: {selectedFile.name}</p>
+                <p>{t("dialog.upload.size_label")}: {formatFileSize(selectedFile.size)}</p>
               </div>
             )}
           </div>
@@ -340,10 +342,10 @@ export default function StoragePage() {
               }}
               disabled={uploading}
             >
-              Annuler
+              {t("dialog.upload.cancel")}
             </Button>
             <Button onClick={handleUpload} disabled={!selectedFile || uploading}>
-              {uploading ? "Upload..." : "Upload"}
+              {uploading ? t("dialog.upload.uploading") : t("dialog.upload.confirm")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -353,20 +355,18 @@ export default function StoragePage() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer le fichier ?</AlertDialogTitle>
+            <AlertDialogTitle>{t("dialog.delete.title")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Êtes-vous sûr de vouloir supprimer{" "}
-              <span className="font-semibold">{fileToDelete?.filename}</span> ?
-              Cette action est irréversible.
+              {t("dialog.delete.description", { filename: fileToDelete?.filename || "" })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogCancel>{t("dialog.delete.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Supprimer
+              {t("dialog.delete.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -14,37 +14,39 @@ import {
 } from "@tabler/icons-react"
 import ContentSection from "../components/content-section"
 import { useToast } from "@/hooks/use-toast"
+import { useTranslation } from "@/hooks/use-translation"
 import { getQueueStats, type QueueStats, TaskStatus } from "@/api/queue"
 
 export default function QueuePage() {
   const [stats, setStats] = useState<QueueStats | null>(null)
   const [loading, setLoading] = useState(true)
   const { toast } = useToast()
+  const { t } = useTranslation("core.queue")
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     setLoading(true)
     try {
       const data = await getQueueStats()
       setStats(data)
-    } catch (error) {
+    } catch (_error) {
       toast({
         variant: "destructive",
-        title: "Erreur",
-        description: "Impossible de charger les statistiques des queues.",
+        title: t("toast.error.title"),
+        description: t("toast.error.load"),
       })
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast, t])
 
   useEffect(() => {
     fetchStats()
     // Refresh every 10 seconds
     const interval = setInterval(fetchStats, 10000)
     return () => clearInterval(interval)
-  }, [])
+  }, [fetchStats])
 
-  const getStatusBadge = (status: string) => {
+  const _getStatusBadge = (status: string) => {
     switch (status) {
       case TaskStatus.SUCCESS:
         return (
@@ -89,8 +91,8 @@ export default function QueuePage() {
   if (loading && !stats) {
     return (
       <ContentSection
-        title="Gestion des Tâches"
-        desc="Monitoring des workers Celery et des queues"
+        title={t("page.title")}
+        desc={t("page.description")}
         className="w-full lg:max-w-full"
       >
         <div className="flex items-center justify-center py-8">
@@ -107,8 +109,8 @@ export default function QueuePage() {
 
   return (
     <ContentSection
-      title="Gestion des Tâches"
-      desc="Monitoring des workers Celery et des queues asynchrones"
+      title={t("page.title")}
+      desc={t("page.description")}
       className="w-full lg:max-w-full"
     >
       <div className="space-y-6">

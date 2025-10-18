@@ -2,30 +2,33 @@
 
 import { Card } from "@/components/ui/card"
 import { UserAuthForm } from "./components/user-auth-form"
+import { useTranslation } from "@/hooks/use-translation"
 
 export default function LoginPage() {
+  const { t } = useTranslation("core.auth")
+
   return (
     <Card className="p-6">
       <div className="flex flex-col space-y-2 text-center mb-4">
         <p className="text-muted-foreground text-sm">
-          Entrez votre email et mot de passe pour accéder à votre compte
+          {t("login.subtitle")}
         </p>
       </div>
       <UserAuthForm />
       <p className="text-muted-foreground mt-4 px-8 text-center text-sm">
-        En vous connectant, vous acceptez nos{" "}
+        {t("login.terms_text")}{" "}
         <a
           href="/terms"
           className="hover:text-primary underline underline-offset-4"
         >
-          Conditions d&apos;utilisation
+          {t("login.terms_link")}
         </a>{" "}
-        et notre{" "}
+        {t("login.terms_and")}{" "}
         <a
           href="/privacy"
           className="hover:text-primary underline underline-offset-4"
         >
-          Politique de confidentialité
+          {t("login.privacy_link")}
         </a>
         .
       </p>

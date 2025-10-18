@@ -11,19 +11,39 @@ from app.core.db import engine
 # Définition simplifiée: {namespace_code: {key: {fr, en}}}
 TRANSLATIONS = {
     "core.auth": {
-        # Login
+        # Login page
         "login.title": {"fr": "Se connecter", "en": "Sign in"},
-        "login.subtitle": {"fr": "Entrez vos identifiants pour accéder à votre compte", "en": "Enter your credentials to access your account"},
-        "login.email": {"fr": "Adresse e-mail", "en": "Email address"},
+        "login.subtitle": {"fr": "Entrez votre email et mot de passe pour accéder à votre compte", "en": "Enter your email and password to access your account"},
+        "login.email": {"fr": "Email", "en": "Email"},
+        "login.email_placeholder": {"fr": "name@example.com", "en": "name@example.com"},
         "login.password": {"fr": "Mot de passe", "en": "Password"},
-        "login.remember_me": {"fr": "Se souvenir de moi", "en": "Remember me"},
+        "login.password_placeholder": {"fr": "********", "en": "********"},
         "login.forgot_password": {"fr": "Mot de passe oublié ?", "en": "Forgot password?"},
         "login.button": {"fr": "Se connecter", "en": "Sign in"},
-        "login.error.invalid_credentials": {"fr": "Identifiants invalides", "en": "Invalid credentials"},
+        "login.button_loading": {"fr": "Connexion...", "en": "Signing in..."},
+        "login.terms_text": {"fr": "En vous connectant, vous acceptez nos", "en": "By signing in, you agree to our"},
+        "login.terms_link": {"fr": "Conditions d'utilisation", "en": "Terms of Service"},
+        "login.terms_and": {"fr": "et notre", "en": "and our"},
+        "login.privacy_link": {"fr": "Politique de confidentialité", "en": "Privacy Policy"},
+
+        # Validation messages
+        "validation.email_required": {"fr": "Veuillez entrer votre email", "en": "Please enter your email"},
+        "validation.email_invalid": {"fr": "Adresse email invalide", "en": "Invalid email address"},
+        "validation.password_required": {"fr": "Veuillez entrer votre mot de passe", "en": "Please enter your password"},
+        "validation.password_min_length": {"fr": "Le mot de passe doit contenir au moins 7 caractères", "en": "Password must be at least 7 characters"},
+
+        # Success/Error messages
+        "message.login_success": {"fr": "Vous êtes connecté avec succès", "en": "You are successfully logged in"},
+        "message.login_error": {"fr": "Identifiants invalides", "en": "Invalid credentials"},
+        "message.2fa_error": {"fr": "Code 2FA invalide", "en": "Invalid 2FA code"},
+        "message.success": {"fr": "Succès", "en": "Success"},
+        "message.error": {"fr": "Erreur", "en": "Error"},
+
         # 2FA
         "2fa.title": {"fr": "Authentification à deux facteurs", "en": "Two-Factor Authentication"},
         "2fa.code": {"fr": "Code de vérification", "en": "Verification code"},
         "2fa.verify": {"fr": "Vérifier", "en": "Verify"},
+
         # Password
         "password.change": {"fr": "Changer le mot de passe", "en": "Change password"},
         "password.current": {"fr": "Mot de passe actuel", "en": "Current password"},

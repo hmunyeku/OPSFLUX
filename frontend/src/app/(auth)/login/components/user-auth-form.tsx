@@ -20,21 +20,25 @@ import { Input } from "@/components/ui/input"
 import { PasswordInput } from "@/components/password-input"
 import { useToast } from "@/hooks/use-toast"
 import { TwoFactorVerificationModal } from "@/components/two-factor-verification-modal"
+import { useTranslation } from "@/hooks/use-translation"
 
-const formSchema = z.object({
-  email: z
-    .string()
-    .min(1, { message: "Veuillez entrer votre email" })
-    .email({ message: "Adresse email invalide" }),
-  password: z
-    .string()
-    .min(1, {
-      message: "Veuillez entrer votre mot de passe",
-    })
-    .min(7, {
-      message: "Le mot de passe doit contenir au moins 7 caractères",
-    }),
-})
+// On définira le schema dans le composant pour avoir accès à t()
+function getFormSchema(t: (key: string) => string) {
+  return z.object({
+    email: z
+      .string()
+      .min(1, { message: t("validation.email_required") })
+      .email({ message: t("validation.email_invalid") }),
+    password: z
+      .string()
+      .min(1, {
+        message: t("validation.password_required"),
+      })
+      .min(7, {
+        message: t("validation.password_min_length"),
+      }),
+  })
+}
 
 export function UserAuthForm({
   className,
@@ -43,6 +47,9 @@ export function UserAuthForm({
   const [isLoading, setIsLoading] = useState(false)
   const { login, verify2FA, cancel2FA, twoFactorRequired } = useAuth()
   const { toast } = useToast()
+  const { t } = useTranslation("core.auth")
+
+  const formSchema = getFormSchema(t)
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -60,14 +67,14 @@ export function UserAuthForm({
       // Si le 2FA n'est pas requis, le hook redirigera automatiquement
       if (!twoFactorRequired) {
         toast({
-          title: "Succès",
-          description: "Vous êtes connecté avec succès",
+          title: t("message.success"),
+          description: t("message.login_success"),
         })
       }
     } catch (error) {
       toast({
-        title: "Erreur",
-        description: error instanceof Error ? error.message : "Identifiants invalides",
+        title: t("message.error"),
+        description: error instanceof Error ? error.message : t("message.login_error"),
         variant: "destructive",
       })
     } finally {
@@ -79,13 +86,13 @@ export function UserAuthForm({
     try {
       await verify2FA(code, method)
       toast({
-        title: "Succès",
-        description: "Vous êtes connecté avec succès",
+        title: t("message.success"),
+        description: t("message.login_success"),
       })
     } catch (error) {
       toast({
-        title: "Erreur",
-        description: error instanceof Error ? error.message : "Code 2FA invalide",
+        title: t("message.error"),
+        description: error instanceof Error ? error.message : t("message.2fa_error"),
         variant: "destructive",
       })
       throw error // Re-throw pour que le modal garde l'état de chargement
@@ -107,9 +114,9 @@ export function UserAuthForm({
               name="email"
               render={({ field }) => (
                 <FormItem className="space-y-1">
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel>{t("login.email")}</FormLabel>
                   <FormControl>
-                    <Input placeholder="name@example.com" {...field} />
+                    <Input placeholder={t("login.email_placeholder")} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -121,23 +128,23 @@ export function UserAuthForm({
               render={({ field }) => (
                 <FormItem className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <FormLabel>Mot de passe</FormLabel>
+                    <FormLabel>{t("login.password")}</FormLabel>
                     <Link
                       href="/forgot-password"
                       className="text-muted-foreground text-sm font-medium hover:opacity-75"
                     >
-                      Mot de passe oublié ?
+                      {t("login.forgot_password")}
                     </Link>
                   </div>
                   <FormControl>
-                    <PasswordInput placeholder="********" {...field} />
+                    <PasswordInput placeholder={t("login.password_placeholder")} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
             <Button className="mt-2" disabled={isLoading}>
-              {isLoading ? "Connexion..." : "Se connecter"}
+              {isLoading ? t("login.button_loading") : t("login.button")}
             </Button>
           </div>
         </form>

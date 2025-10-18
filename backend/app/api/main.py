@@ -21,6 +21,7 @@ from app.api.routes import (
     private,
     queue,
     roles,
+    search,
     security,
     settings as settings_routes,
     storage,
@@ -66,6 +67,7 @@ api_router.include_router(storage.router)  # File storage service
 api_router.include_router(cache.router)  # Cache service (Redis)
 api_router.include_router(queue.router)  # Queue service (Celery)
 api_router.include_router(metrics.router)  # Metrics service (Prometheus)
+api_router.include_router(search.router)  # Search service (PostgreSQL FTS)
 
 
 if settings.ENVIRONMENT == "local":

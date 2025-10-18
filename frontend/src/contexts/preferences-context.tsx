@@ -9,6 +9,7 @@ interface PreferencesContextType {
   updatePreferences: (updates: Partial<UserPreferences>) => void
   resetPreferences: () => void
   isLoaded: boolean
+  isSyncing: boolean
 }
 
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined)

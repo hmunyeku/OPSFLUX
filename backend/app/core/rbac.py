@@ -6,15 +6,14 @@ This module provides permission checking and enforcement for the API.
 from functools import wraps
 from typing import Callable
 from fastapi import HTTPException, status
-from sqlmodel import select
-from app.core.db import AsyncSession
+from sqlmodel import select, Session
 from app.models import User, Permission, RolePermissionLink, UserRoleLink
 
 
 async def has_permission(
     user: User,
     permission_code: str,
-    session: AsyncSession
+    session: Session
 ) -> bool:
     """
     Vérifie si un utilisateur a une permission donnée.

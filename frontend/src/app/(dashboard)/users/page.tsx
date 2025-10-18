@@ -11,8 +11,11 @@ import {
 } from "@/components/ui/breadcrumb"
 import { PermissionGuard } from "@/components/permission-guard"
 import { UsersSection } from "./components/users-section"
+import { useTranslation } from "@/hooks/use-translation"
 
 export default function UsersPage() {
+  const { t } = useTranslation("core.users")
+
   return (
     <PermissionGuard permission="users.read">
       <div className="flex flex-col gap-4">
@@ -21,17 +24,17 @@ export default function UsersPage() {
             <BreadcrumbList>
               <BreadcrumbItem>
                 <BreadcrumbLink asChild>
-                  <Link href="/">Accueil</Link>
+                  <Link href="/">{t("breadcrumb.home")}</Link>
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
-                <BreadcrumbPage>Utilisateurs</BreadcrumbPage>
+                <BreadcrumbPage>{t("breadcrumb.users")}</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
 
-          <h2 className="text-2xl font-bold tracking-tight">Gestion des utilisateurs</h2>
+          <h2 className="text-2xl font-bold tracking-tight">{t("page.description")}</h2>
         </div>
 
         <UsersSection />

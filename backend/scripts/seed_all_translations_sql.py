@@ -52,16 +52,130 @@ TRANSLATIONS = {
     },
 
     "core.users": {
+        # Page principale
         "page.title": {"fr": "Utilisateurs", "en": "Users"},
-        "page.description": {"fr": "Gérer les utilisateurs de l'application", "en": "Manage application users"},
-        "action.invite_user": {"fr": "Inviter un utilisateur", "en": "Invite user"},
-        "action.create_user": {"fr": "Créer un utilisateur", "en": "Create user"},
+        "page.description": {"fr": "Gestion des utilisateurs", "en": "User Management"},
+        "breadcrumb.home": {"fr": "Accueil", "en": "Home"},
+        "breadcrumb.users": {"fr": "Utilisateurs", "en": "Users"},
+
+        # Actions
+        "action.invite": {"fr": "Inviter un utilisateur", "en": "Invite user"},
+        "action.create": {"fr": "Créer un utilisateur", "en": "Create user"},
+        "action.edit": {"fr": "Modifier", "en": "Edit"},
+        "action.delete": {"fr": "Supprimer", "en": "Delete"},
+        "action.deactivate": {"fr": "Désactiver", "en": "Deactivate"},
+        "action.activate": {"fr": "Activer", "en": "Activate"},
+        "action.reset_password": {"fr": "Réinitialiser le mot de passe", "en": "Reset password"},
+        "action.assign_roles": {"fr": "Assigner des rôles", "en": "Assign roles"},
+        "action.assign_groups": {"fr": "Assigner à des groupes", "en": "Assign to groups"},
+        "action.view_details": {"fr": "Voir les détails", "en": "View details"},
+
+        # Champs
         "field.first_name": {"fr": "Prénom", "en": "First name"},
         "field.last_name": {"fr": "Nom", "en": "Last name"},
+        "field.full_name": {"fr": "Nom complet", "en": "Full name"},
         "field.email": {"fr": "E-mail", "en": "Email"},
+        "field.phone": {"fr": "Téléphone", "en": "Phone"},
+        "field.role": {"fr": "Rôle", "en": "Role"},
+        "field.roles": {"fr": "Rôles", "en": "Roles"},
+        "field.group": {"fr": "Groupe", "en": "Group"},
+        "field.groups": {"fr": "Groupes", "en": "Groups"},
         "field.status": {"fr": "Statut", "en": "Status"},
-        "message.user_created": {"fr": "Utilisateur créé avec succès", "en": "User created successfully"},
-        "filter.search_placeholder": {"fr": "Rechercher un utilisateur...", "en": "Search user..."},
+        "field.created_at": {"fr": "Créé le", "en": "Created at"},
+        "field.updated_at": {"fr": "Modifié le", "en": "Updated at"},
+        "field.last_login": {"fr": "Dernière connexion", "en": "Last login"},
+        "field.is_active": {"fr": "Actif", "en": "Active"},
+        "field.is_superuser": {"fr": "Super administrateur", "en": "Super admin"},
+
+        # Stats
+        "stats.total": {"fr": "Total utilisateurs", "en": "Total users"},
+        "stats.active": {"fr": "Utilisateurs actifs", "en": "Active users"},
+        "stats.inactive": {"fr": "Utilisateurs inactifs", "en": "Inactive users"},
+        "stats.invited": {"fr": "Utilisateurs invités", "en": "Invited users"},
+        "stats.new_this_month": {"fr": "Nouveaux ce mois", "en": "New this month"},
+
+        # Table
+        "table.no_results": {"fr": "Aucun utilisateur trouvé", "en": "No users found"},
+        "table.loading": {"fr": "Chargement...", "en": "Loading..."},
+        "table.rows_selected": {"fr": "{count} ligne(s) sélectionnée(s)", "en": "{count} row(s) selected"},
+        "table.columns": {"fr": "Colonnes", "en": "Columns"},
+
+        # Filtres
+        "filter.all": {"fr": "Tous", "en": "All"},
+        "filter.active": {"fr": "Actifs", "en": "Active"},
+        "filter.inactive": {"fr": "Inactifs", "en": "Inactive"},
+        "filter.search": {"fr": "Rechercher un utilisateur...", "en": "Search user..."},
+        "filter.reset": {"fr": "Réinitialiser", "en": "Reset"},
+        "filter.by_role": {"fr": "Par rôle", "en": "By role"},
+        "filter.by_group": {"fr": "Par groupe", "en": "By group"},
+
+        # Status
+        "status.active": {"fr": "Actif", "en": "Active"},
+        "status.inactive": {"fr": "Inactif", "en": "Inactive"},
+        "status.invited": {"fr": "Invité", "en": "Invited"},
+        "status.suspended": {"fr": "Suspendu", "en": "Suspended"},
+
+        # Messages de succès
+        "message.created": {"fr": "Utilisateur créé avec succès", "en": "User created successfully"},
+        "message.updated": {"fr": "Utilisateur mis à jour", "en": "User updated"},
+        "message.deleted": {"fr": "Utilisateur supprimé", "en": "User deleted"},
+        "message.activated": {"fr": "Utilisateur activé", "en": "User activated"},
+        "message.deactivated": {"fr": "Utilisateur désactivé", "en": "User deactivated"},
+        "message.invitation_sent": {"fr": "Invitation envoyée à {email}", "en": "Invitation sent to {email}"},
+        "message.password_reset": {"fr": "Lien de réinitialisation envoyé", "en": "Reset link sent"},
+        "message.roles_assigned": {"fr": "Rôles assignés avec succès", "en": "Roles assigned successfully"},
+        "message.groups_assigned": {"fr": "Groupes assignés avec succès", "en": "Groups assigned successfully"},
+
+        # Messages d'erreur
+        "error.load_failed": {"fr": "Impossible de charger les utilisateurs", "en": "Failed to load users"},
+        "error.create_failed": {"fr": "Impossible de créer l'utilisateur", "en": "Failed to create user"},
+        "error.update_failed": {"fr": "Impossible de mettre à jour l'utilisateur", "en": "Failed to update user"},
+        "error.delete_failed": {"fr": "Impossible de supprimer l'utilisateur", "en": "Failed to delete user"},
+        "error.email_exists": {"fr": "Cet e-mail existe déjà", "en": "This email already exists"},
+
+        # Dialog - Inviter
+        "invite.title": {"fr": "Inviter un utilisateur", "en": "Invite user"},
+        "invite.description": {"fr": "Envoyer une invitation par e-mail", "en": "Send an email invitation"},
+        "invite.email_label": {"fr": "Adresse e-mail", "en": "Email address"},
+        "invite.email_placeholder": {"fr": "utilisateur@exemple.com", "en": "user@example.com"},
+        "invite.role_label": {"fr": "Rôle", "en": "Role"},
+        "invite.role_placeholder": {"fr": "Sélectionner un rôle", "en": "Select a role"},
+        "invite.send": {"fr": "Envoyer l'invitation", "en": "Send invitation"},
+        "invite.cancel": {"fr": "Annuler", "en": "Cancel"},
+
+        # Dialog - Créer
+        "create.title": {"fr": "Créer un utilisateur", "en": "Create user"},
+        "create.description": {"fr": "Ajouter un nouvel utilisateur", "en": "Add a new user"},
+
+        # Dialog - Modifier
+        "edit.title": {"fr": "Modifier l'utilisateur", "en": "Edit user"},
+        "edit.description": {"fr": "Modifier les informations de {name}", "en": "Edit {name}'s information"},
+
+        # Dialog - Supprimer
+        "delete.title": {"fr": "Supprimer l'utilisateur", "en": "Delete user"},
+        "delete.description": {"fr": "Êtes-vous sûr de vouloir supprimer {name} ? Cette action est irréversible.", "en": "Are you sure you want to delete {name}? This action cannot be undone."},
+        "delete.confirm": {"fr": "Oui, supprimer", "en": "Yes, delete"},
+        "delete.cancel": {"fr": "Annuler", "en": "Cancel"},
+
+        # Dialog - Désactiver
+        "deactivate.title": {"fr": "Désactiver l'utilisateur", "en": "Deactivate user"},
+        "deactivate.description": {"fr": "L'utilisateur {name} ne pourra plus se connecter", "en": "{name} will no longer be able to log in"},
+        "deactivate.confirm": {"fr": "Désactiver", "en": "Deactivate"},
+
+        # Permissions
+        "permissions.title": {"fr": "Permissions", "en": "Permissions"},
+        "permissions.direct": {"fr": "Permissions directes", "en": "Direct permissions"},
+        "permissions.from_roles": {"fr": "Depuis les rôles", "en": "From roles"},
+        "permissions.from_groups": {"fr": "Depuis les groupes", "en": "From groups"},
+        "permissions.none": {"fr": "Aucune permission", "en": "No permissions"},
+
+        # Détails utilisateur
+        "detail.title": {"fr": "Détails de l'utilisateur", "en": "User details"},
+        "detail.information": {"fr": "Informations", "en": "Information"},
+        "detail.roles_groups": {"fr": "Rôles et groupes", "en": "Roles and groups"},
+        "detail.activity": {"fr": "Activité", "en": "Activity"},
+        "detail.no_roles": {"fr": "Aucun rôle assigné", "en": "No roles assigned"},
+        "detail.no_groups": {"fr": "Aucun groupe assigné", "en": "No groups assigned"},
     },
 
     "core.groups": {

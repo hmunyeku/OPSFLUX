@@ -75,7 +75,7 @@ function StoragePageContent() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [_filterModule, _setFilterModule] = useState<string>("")
-  const [filterCategory, setFilterCategory] = useState<FileCategory | "">("")
+  const [filterCategory, setFilterCategory] = useState<FileCategory | "all">("all")
   const [searchQuery, setSearchQuery] = useState("")
   const { toast } = useToast()
   const { t } = useTranslation("core.storage")
@@ -85,7 +85,7 @@ function StoragePageContent() {
     try {
       const data = await listFiles(
         _filterModule || undefined,
-        filterCategory ? (filterCategory as FileCategory) : undefined
+        filterCategory !== "all" ? (filterCategory as FileCategory) : undefined
       )
       setFiles(data.files)
     } catch (_error) {
@@ -201,7 +201,7 @@ function StoragePageContent() {
                 <SelectValue placeholder={t("actions.category")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">{t("actions.category_all")}</SelectItem>
+                <SelectItem value="all">{t("actions.category_all")}</SelectItem>
                 <SelectItem value={FileCategory.DOCUMENT}>{t("actions.category_documents")}</SelectItem>
                 <SelectItem value={FileCategory.IMAGE}>{t("actions.category_images")}</SelectItem>
                 <SelectItem value={FileCategory.VIDEO}>{t("actions.category_videos")}</SelectItem>

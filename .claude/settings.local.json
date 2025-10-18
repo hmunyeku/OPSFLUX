@@ -170,7 +170,9 @@
       "Bash(for file in backend/app/api/routes/storage.py backend/app/api/routes/queue.py backend/app/api/routes/metrics.py)",
       "Bash(do echo \"=== $file ===\")",
       "Bash(done)",
-      "Bash(uv run python -m py_compile app/services/module_service.py)"
+      "Bash(uv run python -m py_compile app/services/module_service.py)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjE1MTAyMTYsInN1YiI6IjA2MGM2Yjg5LTAxYmQtNDU2Ny05MTY0LTU2MWI5ZGVmOWU2ZiIsInR5cGUiOiJhY2Nlc3MifQ.Sncj6Kz1CCBfwxTKpaiJTP3seGHB3TjzX8TJEOd1xMg\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjE1MTAzMzMsInN1YiI6IjA2MGM2Yjg5LTAxYmQtNDU2Ny05MTY0LTU2MWI5ZGVmOWU2ZiIsInR5cGUiOiJhY2Nlc3MifQ.lO1KWgkTPaMZboAjDfKbvyXVvBN4elHKyjFVAPcW17Q\")"
     ],
     "deny": [],
     "ask": []

@@ -64,6 +64,12 @@ export function useLanguages() {
   // Mettre à jour la préférence de langue
   const updateLanguagePreference = async (languageId: string) => {
     try {
+      // S'assurer que les langues sont chargées
+      let langs = languages
+      if (langs.length === 0) {
+        langs = await loadLanguages()
+      }
+
       const response = await apiClient.put("/api/v1/languages/preferences/me", null, {
         params: { language_id: languageId }
       })
@@ -72,9 +78,12 @@ export function useLanguages() {
       setUserPreference(data)
 
       // Mettre à jour la langue courante
-      const lang = languages.find((l) => l.id === languageId)
+      const lang = langs.find((l) => l.id === languageId)
       if (lang) {
         setCurrentLanguage(lang)
+        console.log(`[useLanguages] Language changed to: ${lang.name} (${lang.code})`)
+      } else {
+        console.error(`[useLanguages] Language with ID ${languageId} not found in languages list`)
       }
 
       return data

@@ -111,6 +111,34 @@ const formSchema = z.object({
 
   // Intranet Settings
   intranet_url: z.string().optional(),
+
+  // === CORE Services Configuration ===
+
+  // Cache (Redis)
+  redis_host: z.string().optional(),
+  redis_port: z.number().optional(),
+  redis_db: z.number().optional(),
+  redis_password: z.string().optional(),
+
+  // Storage (S3/MinIO)
+  storage_backend: z.enum(["local", "s3", "minio"]).optional(),
+  s3_endpoint: z.string().optional(),
+  s3_access_key: z.string().optional(),
+  s3_secret_key: z.string().optional(),
+  s3_bucket: z.string().optional(),
+  s3_region: z.string().optional(),
+
+  // Search (PostgreSQL/Elasticsearch/Meilisearch)
+  search_backend: z.enum(["postgresql", "elasticsearch", "meilisearch"]).optional(),
+  search_language: z.enum(["french", "english", "spanish"]).optional(),
+  elasticsearch_url: z.string().optional(),
+  typesense_api_key: z.string().optional(),
+  typesense_host: z.string().optional(),
+
+  // Audit Logs
+  audit_retention_days: z.number().optional(),
+  audit_log_level: z.enum(["DEBUG", "INFO", "WARNING", "ERROR"]).optional(),
+  audit_enabled: z.boolean().optional(),
 })
 
 interface ConfigItem {
@@ -151,6 +179,25 @@ export default function GeneralForm() {
       email_use_tls: config.email_use_tls ?? true,
       email_use_ssl: config.email_use_ssl ?? false,
       intranet_url: config.intranet_url || "",
+      // CORE Services
+      redis_host: config.redis_host || "localhost",
+      redis_port: config.redis_port || 6379,
+      redis_db: config.redis_db || 0,
+      redis_password: config.redis_password || "",
+      storage_backend: (config.storage_backend || "local") as "local" | "s3" | "minio",
+      s3_endpoint: config.s3_endpoint || "",
+      s3_access_key: config.s3_access_key || "",
+      s3_secret_key: config.s3_secret_key || "",
+      s3_bucket: config.s3_bucket || "",
+      s3_region: config.s3_region || "us-east-1",
+      search_backend: (config.search_backend || "postgresql") as "postgresql" | "elasticsearch" | "meilisearch",
+      search_language: (config.search_language || "french") as "french" | "english" | "spanish",
+      elasticsearch_url: config.elasticsearch_url || "",
+      typesense_api_key: config.typesense_api_key || "",
+      typesense_host: config.typesense_host || "",
+      audit_retention_days: config.audit_retention_days || 90,
+      audit_log_level: (config.audit_log_level || "INFO") as "DEBUG" | "INFO" | "WARNING" | "ERROR",
+      audit_enabled: config.audit_enabled ?? true,
     },
   })
 
@@ -192,6 +239,25 @@ export default function GeneralForm() {
         email_use_tls: config.email_use_tls ?? true,
         email_use_ssl: config.email_use_ssl ?? false,
         intranet_url: config.intranet_url || "",
+        // CORE Services
+        redis_host: config.redis_host || "localhost",
+        redis_port: config.redis_port || 6379,
+        redis_db: config.redis_db || 0,
+        redis_password: config.redis_password || "",
+        storage_backend: (config.storage_backend || "local") as "local" | "s3" | "minio",
+        s3_endpoint: config.s3_endpoint || "",
+        s3_access_key: config.s3_access_key || "",
+        s3_secret_key: config.s3_secret_key || "",
+        s3_bucket: config.s3_bucket || "",
+        s3_region: config.s3_region || "us-east-1",
+        search_backend: (config.search_backend || "postgresql") as "postgresql" | "elasticsearch" | "meilisearch",
+        search_language: (config.search_language || "french") as "french" | "english" | "spanish",
+        elasticsearch_url: config.elasticsearch_url || "",
+        typesense_api_key: config.typesense_api_key || "",
+        typesense_host: config.typesense_host || "",
+        audit_retention_days: config.audit_retention_days || 90,
+        audit_log_level: (config.audit_log_level || "INFO") as "DEBUG" | "INFO" | "WARNING" | "ERROR",
+        audit_enabled: config.audit_enabled ?? true,
       })
     }
   }, [config, form, isInitialized])
@@ -255,6 +321,25 @@ export default function GeneralForm() {
           email_use_tls: data.email_use_tls,
           email_use_ssl: data.email_use_ssl,
           intranet_url: data.intranet_url || null,
+          // CORE Services
+          redis_host: data.redis_host || null,
+          redis_port: data.redis_port || null,
+          redis_db: data.redis_db || null,
+          redis_password: data.redis_password || null,
+          storage_backend: data.storage_backend || null,
+          s3_endpoint: data.s3_endpoint || null,
+          s3_access_key: data.s3_access_key || null,
+          s3_secret_key: data.s3_secret_key || null,
+          s3_bucket: data.s3_bucket || null,
+          s3_region: data.s3_region || null,
+          search_backend: data.search_backend || null,
+          search_language: data.search_language || null,
+          elasticsearch_url: data.elasticsearch_url || null,
+          typesense_api_key: data.typesense_api_key || null,
+          typesense_host: data.typesense_host || null,
+          audit_retention_days: data.audit_retention_days || null,
+          audit_log_level: data.audit_log_level || null,
+          audit_enabled: data.audit_enabled ?? null,
         }),
       })
 
@@ -1007,6 +1092,476 @@ export default function GeneralForm() {
               <FormItem>
                 <FormControl>
                   {wrapInput("intranet_url", <Input placeholder="https://intranet.company.com/user/{user_id}" {...field} className="w-full md:w-[300px]" />)}
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ),
+      },
+
+      // === CORE Services Configuration ===
+
+      // Cache (Redis) - 4 fields
+      {
+        key: "redis_host",
+        label: "Redis Host",
+        description: "Hostname ou adresse IP du serveur Redis",
+        category: "Cache (Redis)",
+        renderField: (form) => (
+          <FormField
+            control={form.control}
+            name="redis_host"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  {wrapInput("redis_host", <Input placeholder="localhost" {...field} className="w-full md:w-[300px]" />)}
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ),
+      },
+      {
+        key: "redis_port",
+        label: "Redis Port",
+        description: "Port du serveur Redis (par défaut: 6379)",
+        category: "Cache (Redis)",
+        renderField: (form) => (
+          <FormField
+            control={form.control}
+            name="redis_port"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Input
+                    type="number"
+                    placeholder="6379"
+                    {...field}
+                    onChange={(e) => field.onChange(parseInt(e.target.value) || 6379)}
+                    className="w-full md:w-[300px]"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ),
+      },
+      {
+        key: "redis_db",
+        label: "Redis DB",
+        description: "Numéro de base de données Redis (0-15, par défaut: 0)",
+        category: "Cache (Redis)",
+        renderField: (form) => (
+          <FormField
+            control={form.control}
+            name="redis_db"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="15"
+                    placeholder="0"
+                    {...field}
+                    onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                    className="w-full md:w-[300px]"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ),
+      },
+      {
+        key: "redis_password",
+        label: "Redis Password",
+        description: "Mot de passe pour l'authentification Redis (optionnel)",
+        category: "Cache (Redis)",
+        renderField: (form) => (
+          <FormField
+            control={form.control}
+            name="redis_password"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  {wrapInput("redis_password", <Input
+                    type="password"
+                    placeholder="••••••••"
+                    {...field}
+                    className="w-full md:w-[300px]"
+                  />)}
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ),
+      },
+
+      // Storage (S3/MinIO) - 6 fields
+      {
+        key: "storage_backend",
+        label: "Backend de stockage",
+        description: "Type de stockage pour les fichiers (local, S3, ou MinIO)",
+        category: "Storage (S3/MinIO)",
+        renderField: (form) => (
+          <FormField
+            control={form.control}
+            name="storage_backend"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    defaultValue={field.value}
+                  >
+                    <SelectTrigger className="w-full md:w-[300px]">
+                      <SelectValue placeholder="Sélectionner" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="local">Local</SelectItem>
+                      <SelectItem value="s3">AWS S3</SelectItem>
+                      <SelectItem value="minio">MinIO</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ),
+      },
+      {
+        key: "s3_endpoint",
+        label: "S3/MinIO Endpoint",
+        description: "URL de l'endpoint S3/MinIO (ex: https://s3.amazonaws.com ou http://minio:9000)",
+        category: "Storage (S3/MinIO)",
+        renderField: (form) => (
+          <FormField
+            control={form.control}
+            name="s3_endpoint"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  {wrapInput("s3_endpoint", <Input placeholder="https://s3.amazonaws.com" {...field} className="w-full md:w-[300px]" />)}
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ),
+      },
+      {
+        key: "s3_access_key",
+        label: "S3/MinIO Access Key",
+        description: "Clé d'accès pour l'authentification S3/MinIO",
+        category: "Storage (S3/MinIO)",
+        renderField: (form) => (
+          <FormField
+            control={form.control}
+            name="s3_access_key"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  {wrapInput("s3_access_key", <Input placeholder="AKIAIOSFODNN7EXAMPLE" {...field} className="w-full md:w-[300px]" />)}
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ),
+      },
+      {
+        key: "s3_secret_key",
+        label: "S3/MinIO Secret Key",
+        description: "Clé secrète pour l'authentification S3/MinIO",
+        category: "Storage (S3/MinIO)",
+        renderField: (form) => (
+          <FormField
+            control={form.control}
+            name="s3_secret_key"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  {wrapInput("s3_secret_key", <Input
+                    type="password"
+                    placeholder="••••••••••••••••••••••••"
+                    {...field}
+                    className="w-full md:w-[300px]"
+                  />)}
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ),
+      },
+      {
+        key: "s3_bucket",
+        label: "S3/MinIO Bucket",
+        description: "Nom du bucket S3/MinIO pour stocker les fichiers",
+        category: "Storage (S3/MinIO)",
+        renderField: (form) => (
+          <FormField
+            control={form.control}
+            name="s3_bucket"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  {wrapInput("s3_bucket", <Input placeholder="my-app-bucket" {...field} className="w-full md:w-[300px]" />)}
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ),
+      },
+      {
+        key: "s3_region",
+        label: "S3 Region",
+        description: "Région AWS S3 (ex: us-east-1, eu-west-1)",
+        category: "Storage (S3/MinIO)",
+        renderField: (form) => (
+          <FormField
+            control={form.control}
+            name="s3_region"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  {wrapInput("s3_region", <Input placeholder="us-east-1" {...field} className="w-full md:w-[300px]" />)}
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ),
+      },
+
+      // Search - 5 fields
+      {
+        key: "search_backend",
+        label: "Backend de recherche",
+        description: "Moteur de recherche full-text (PostgreSQL, Elasticsearch, ou Meilisearch)",
+        category: "Search",
+        renderField: (form) => (
+          <FormField
+            control={form.control}
+            name="search_backend"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    defaultValue={field.value}
+                  >
+                    <SelectTrigger className="w-full md:w-[300px]">
+                      <SelectValue placeholder="Sélectionner" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="postgresql">PostgreSQL Full-Text</SelectItem>
+                      <SelectItem value="elasticsearch">Elasticsearch</SelectItem>
+                      <SelectItem value="meilisearch">Meilisearch</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ),
+      },
+      {
+        key: "search_language",
+        label: "Langue de recherche",
+        description: "Langue pour l'analyse et le stemming des textes",
+        category: "Search",
+        renderField: (form) => (
+          <FormField
+            control={form.control}
+            name="search_language"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    defaultValue={field.value}
+                  >
+                    <SelectTrigger className="w-full md:w-[300px]">
+                      <SelectValue placeholder="Sélectionner" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="french">Français</SelectItem>
+                      <SelectItem value="english">English</SelectItem>
+                      <SelectItem value="spanish">Español</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ),
+      },
+      {
+        key: "elasticsearch_url",
+        label: "Elasticsearch URL",
+        description: "URL de connexion à Elasticsearch (ex: http://localhost:9200)",
+        category: "Search",
+        renderField: (form) => (
+          <FormField
+            control={form.control}
+            name="elasticsearch_url"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  {wrapInput("elasticsearch_url", <Input placeholder="http://elasticsearch:9200" {...field} className="w-full md:w-[300px]" />)}
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ),
+      },
+      {
+        key: "typesense_api_key",
+        label: "Typesense API Key",
+        description: "Clé API pour l'authentification Typesense",
+        category: "Search",
+        renderField: (form) => (
+          <FormField
+            control={form.control}
+            name="typesense_api_key"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  {wrapInput("typesense_api_key", <Input
+                    type="password"
+                    placeholder="••••••••••••••••"
+                    {...field}
+                    className="w-full md:w-[300px]"
+                  />)}
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ),
+      },
+      {
+        key: "typesense_host",
+        label: "Typesense Host",
+        description: "Hostname du serveur Typesense (ex: typesense:8108)",
+        category: "Search",
+        renderField: (form) => (
+          <FormField
+            control={form.control}
+            name="typesense_host"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  {wrapInput("typesense_host", <Input placeholder="typesense:8108" {...field} className="w-full md:w-[300px]" />)}
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ),
+      },
+
+      // Audit - 3 fields
+      {
+        key: "audit_retention_days",
+        label: "Rétention des logs d'audit",
+        description: "Nombre de jours de conservation des logs d'audit (par défaut: 90)",
+        category: "Audit",
+        renderField: (form) => (
+          <FormField
+            control={form.control}
+            name="audit_retention_days"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min="1"
+                    placeholder="90"
+                    {...field}
+                    onChange={(e) => field.onChange(parseInt(e.target.value) || 90)}
+                    className="w-full md:w-[300px]"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ),
+      },
+      {
+        key: "audit_log_level",
+        label: "Niveau de log",
+        description: "Niveau de détail des logs d'audit (DEBUG, INFO, WARNING, ERROR)",
+        category: "Audit",
+        renderField: (form) => (
+          <FormField
+            control={form.control}
+            name="audit_log_level"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    defaultValue={field.value}
+                  >
+                    <SelectTrigger className="w-full md:w-[300px]">
+                      <SelectValue placeholder="Sélectionner" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="DEBUG">DEBUG</SelectItem>
+                      <SelectItem value="INFO">INFO</SelectItem>
+                      <SelectItem value="WARNING">WARNING</SelectItem>
+                      <SelectItem value="ERROR">ERROR</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ),
+      },
+      {
+        key: "audit_enabled",
+        label: "Activer l'audit",
+        description: "Activer ou désactiver les logs d'audit système",
+        category: "Audit",
+        renderField: (form) => (
+          <FormField
+            control={form.control}
+            name="audit_enabled"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Select
+                    onValueChange={(value) => field.onChange(value === "true")}
+                    value={field.value ? "true" : "false"}
+                  >
+                    <SelectTrigger className="w-full md:w-[300px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="true">Activé</SelectItem>
+                      <SelectItem value="false">Désactivé</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </FormControl>
                 <FormMessage />
               </FormItem>

@@ -50,7 +50,16 @@ export interface GetAuditLogsParams {
  * Récupère les logs d'audit
  */
 export async function getAuditLogs(params?: GetAuditLogsParams) {
-  const response = await apiClient.get<AuditLogsResponse>('/audit/', { params })
+  // Construire l'URL avec les query params
+  const queryParams = new URLSearchParams()
+  if (params?.skip !== undefined) queryParams.set('skip', params.skip.toString())
+  if (params?.limit !== undefined) queryParams.set('limit', params.limit.toString())
+  if (params?.level) queryParams.set('level', params.level)
+  if (params?.event_type) queryParams.set('event_type', params.event_type)
+  if (params?.search) queryParams.set('search', params.search)
+
+  const url = `/audit/${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+  const response = await apiClient.get<AuditLogsResponse>(url)
   return response.data
 }
 

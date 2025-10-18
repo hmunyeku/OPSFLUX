@@ -179,13 +179,67 @@ class StorageService:
         FileCategory.OTHER: 20 * 1024 * 1024,     # 20 MB
     }
 
-    def __init__(self, backend: StorageBackend = StorageBackend.LOCAL):
+    def __init__(self, backend: StorageBackend = None):
+        # Charger la configuration depuis la DB
+        if backend is None:
+            backend = self._load_backend_from_db()
+
         self.backend = backend
         self.base_path = Path("storage")
 
-        # Créer le dossier de base
+        # Charger les configurations S3 depuis la DB si backend S3
+        if backend == StorageBackend.S3:
+            self._load_s3_config_from_db()
+
+        # Créer le dossier de base pour LOCAL
         if backend == StorageBackend.LOCAL:
             self.base_path.mkdir(exist_ok=True, parents=True)
+
+    def _load_backend_from_db(self) -> StorageBackend:
+        """Charge le backend de stockage depuis les settings DB"""
+        try:
+            from sqlmodel import Session, select
+            from app.core.db import engine
+            from app.models import AppSettings
+
+            with Session(engine) as session:
+                db_settings = session.exec(select(AppSettings)).first()
+
+                if db_settings and db_settings.storage_backend:
+                    # Mapper la valeur DB vers l'enum
+                    backend_map = {
+                        "local": StorageBackend.LOCAL,
+                        "s3": StorageBackend.S3,
+                        "minio": StorageBackend.S3,  # MinIO utilise API S3
+                        "azure": StorageBackend.AZURE,
+                        "gcs": StorageBackend.GCS,
+                    }
+                    return backend_map.get(db_settings.storage_backend.lower(), StorageBackend.LOCAL)
+        except Exception as e:
+            logger.warning(f"Failed to load storage backend from DB: {e}, using LOCAL")
+
+        # Fallback sur LOCAL par défaut
+        return StorageBackend.LOCAL
+
+    def _load_s3_config_from_db(self):
+        """Charge la configuration S3/MinIO depuis les settings DB"""
+        try:
+            from sqlmodel import Session, select
+            from app.core.db import engine
+            from app.models import AppSettings
+
+            with Session(engine) as session:
+                db_settings = session.exec(select(AppSettings)).first()
+
+                if db_settings:
+                    self.s3_endpoint = db_settings.s3_endpoint
+                    self.s3_access_key = db_settings.s3_access_key
+                    self.s3_secret_key = db_settings.s3_secret_key
+                    self.s3_bucket = db_settings.s3_bucket
+                    self.s3_region = db_settings.s3_region or "us-east-1"
+                    logger.info(f"Loaded S3 config from DB: endpoint={self.s3_endpoint}, bucket={self.s3_bucket}")
+        except Exception as e:
+            logger.error(f"Failed to load S3 config from DB: {e}")
 
     def _get_category_from_mime(self, mime_type: str) -> FileCategory:
         """Détermine la catégorie depuis le MIME type"""

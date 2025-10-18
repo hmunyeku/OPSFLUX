@@ -70,8 +70,27 @@ class CacheService:
     async def connect(self):
         """Établit la connexion à Redis"""
         if self._redis is None:
+            # Import ici pour éviter circular import
+            from sqlmodel import Session, select
+            from app.core.db import engine
+            from app.models import AppSettings
+
+            # Récupérer les settings Redis depuis la DB
+            with Session(engine) as session:
+                db_settings = session.exec(select(AppSettings)).first()
+
+                if db_settings:
+                    # Construire l'URL Redis depuis les settings DB
+                    if db_settings.redis_password:
+                        redis_url = f"redis://:{db_settings.redis_password}@{db_settings.redis_host}:{db_settings.redis_port}/{db_settings.redis_db}"
+                    else:
+                        redis_url = f"redis://{db_settings.redis_host}:{db_settings.redis_port}/{db_settings.redis_db}"
+                else:
+                    # Fallback sur config.py si pas de settings en DB
+                    redis_url = settings.REDIS_URL
+
             self._redis = await aioredis.from_url(
-                settings.REDIS_URL,
+                redis_url,
                 encoding="utf-8",
                 decode_responses=False  # On gère nous-mêmes le décodage
             )

@@ -40,7 +40,7 @@ Usage :
     )
 """
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Tuple
 from datetime import datetime
 from enum import Enum
 
@@ -107,12 +107,78 @@ class SearchService:
     - Recherche multilingue avec stemming
     """
 
-    def __init__(self, backend: SearchBackend = SearchBackend.POSTGRESQL):
+    def __init__(self, backend: SearchBackend = None):
+        # Charger la configuration depuis la DB
+        if backend is None:
+            backend, language = self._load_config_from_db()
+        else:
+            language = SearchLanguage.FRENCH
+
         self.backend = backend
-        self._default_language = SearchLanguage.FRENCH
+        self._default_language = language
+
+        # Charger les configurations Elasticsearch/Typesense si besoin
+        if backend == SearchBackend.ELASTICSEARCH:
+            self._load_elasticsearch_config_from_db()
 
         # Collections indexées
         self._collections: Dict[str, Dict[str, Any]] = {}
+
+    def _load_config_from_db(self) -> Tuple[SearchBackend, SearchLanguage]:
+        """Charge le backend et langue de recherche depuis les settings DB"""
+        try:
+            from sqlmodel import Session, select
+            from app.core.db import engine
+            from app.models import AppSettings
+
+            with Session(engine) as session:
+                db_settings = session.exec(select(AppSettings)).first()
+
+                if db_settings:
+                    # Mapper backend
+                    backend_map = {
+                        "postgresql": SearchBackend.POSTGRESQL,
+                        "elasticsearch": SearchBackend.ELASTICSEARCH,
+                        "meilisearch": SearchBackend.MEILISEARCH,
+                    }
+                    backend = backend_map.get(
+                        db_settings.search_backend.lower() if db_settings.search_backend else "postgresql",
+                        SearchBackend.POSTGRESQL
+                    )
+
+                    # Mapper language
+                    language_map = {
+                        "french": SearchLanguage.FRENCH,
+                        "english": SearchLanguage.ENGLISH,
+                        "spanish": SearchLanguage.SPANISH,
+                    }
+                    language = language_map.get(
+                        db_settings.search_language.lower() if db_settings.search_language else "french",
+                        SearchLanguage.FRENCH
+                    )
+
+                    return backend, language
+        except Exception as e:
+            logger.warning(f"Failed to load search config from DB: {e}, using defaults")
+
+        # Fallback sur POSTGRESQL + FRENCH
+        return SearchBackend.POSTGRESQL, SearchLanguage.FRENCH
+
+    def _load_elasticsearch_config_from_db(self):
+        """Charge la configuration Elasticsearch depuis les settings DB"""
+        try:
+            from sqlmodel import Session, select
+            from app.core.db import engine
+            from app.models import AppSettings
+
+            with Session(engine) as session:
+                db_settings = session.exec(select(AppSettings)).first()
+
+                if db_settings and db_settings.elasticsearch_url:
+                    self.elasticsearch_url = db_settings.elasticsearch_url
+                    logger.info(f"Loaded Elasticsearch config from DB: url={self.elasticsearch_url}")
+        except Exception as e:
+            logger.error(f"Failed to load Elasticsearch config from DB: {e}")
 
     def register_collection(
         self,

@@ -235,6 +235,34 @@ class AppSettingsBase(SQLModel):
     # Configuration Intranet
     intranet_url: str | None = Field(default=None, max_length=500, description="URL de l'intranet avec placeholder {user_id}")
 
+    # === CORE Services Configuration ===
+
+    # Cache (Redis)
+    redis_host: str = Field(default="localhost", max_length=255, description="Redis host")
+    redis_port: int = Field(default=6379, description="Redis port")
+    redis_db: int = Field(default=0, description="Redis database number")
+    redis_password: str | None = Field(default=None, max_length=255, description="Redis password")
+
+    # Storage (S3/MinIO)
+    storage_backend: str = Field(default="local", max_length=50, description="Storage backend: local, s3, minio")
+    s3_endpoint: str | None = Field(default=None, max_length=500, description="S3/MinIO endpoint URL")
+    s3_access_key: str | None = Field(default=None, max_length=255, description="S3/MinIO access key")
+    s3_secret_key: str | None = Field(default=None, max_length=255, description="S3/MinIO secret key")
+    s3_bucket: str | None = Field(default=None, max_length=255, description="S3/MinIO bucket name")
+    s3_region: str = Field(default="us-east-1", max_length=100, description="S3 region")
+
+    # Search (PostgreSQL/Elasticsearch/Typesense)
+    search_backend: str = Field(default="postgresql", max_length=50, description="Search backend: postgresql, elasticsearch, typesense")
+    search_language: str = Field(default="french", max_length=50, description="Search language for text analysis")
+    elasticsearch_url: str | None = Field(default=None, max_length=500, description="Elasticsearch URL")
+    typesense_api_key: str | None = Field(default=None, max_length=255, description="Typesense API key")
+    typesense_host: str | None = Field(default=None, max_length=255, description="Typesense host")
+
+    # Audit Logs
+    audit_retention_days: int = Field(default=90, description="Nombre de jours de rétention des logs d'audit")
+    audit_log_level: str = Field(default="INFO", max_length=50, description="Niveau de log: DEBUG, INFO, WARNING, ERROR")
+    audit_enabled: bool = Field(default=True, description="Activer/désactiver les logs d'audit")
+
 
 class AppSettingsUpdate(SQLModel):
     """Model for updating application settings"""
@@ -275,6 +303,34 @@ class AppSettingsUpdate(SQLModel):
 
     # Configuration Intranet
     intranet_url: str | None = Field(default=None, max_length=500, description="URL de l'intranet avec placeholder {user_id}")
+
+    # === CORE Services Configuration ===
+
+    # Cache (Redis)
+    redis_host: str | None = Field(default=None, max_length=255, description="Redis host")
+    redis_port: int | None = Field(default=None, description="Redis port")
+    redis_db: int | None = Field(default=None, description="Redis database number")
+    redis_password: str | None = Field(default=None, max_length=255, description="Redis password")
+
+    # Storage (S3/MinIO)
+    storage_backend: str | None = Field(default=None, max_length=50, description="Storage backend: local, s3, minio")
+    s3_endpoint: str | None = Field(default=None, max_length=500, description="S3/MinIO endpoint URL")
+    s3_access_key: str | None = Field(default=None, max_length=255, description="S3/MinIO access key")
+    s3_secret_key: str | None = Field(default=None, max_length=255, description="S3/MinIO secret key")
+    s3_bucket: str | None = Field(default=None, max_length=255, description="S3/MinIO bucket name")
+    s3_region: str | None = Field(default=None, max_length=100, description="S3 region")
+
+    # Search (PostgreSQL/Elasticsearch/Typesense)
+    search_backend: str | None = Field(default=None, max_length=50, description="Search backend: postgresql, elasticsearch, typesense")
+    search_language: str | None = Field(default=None, max_length=50, description="Search language for text analysis")
+    elasticsearch_url: str | None = Field(default=None, max_length=500, description="Elasticsearch URL")
+    typesense_api_key: str | None = Field(default=None, max_length=255, description="Typesense API key")
+    typesense_host: str | None = Field(default=None, max_length=255, description="Typesense host")
+
+    # Audit Logs
+    audit_retention_days: int | None = Field(default=None, description="Nombre de jours de rétention des logs d'audit")
+    audit_log_level: str | None = Field(default=None, max_length=50, description="Niveau de log: DEBUG, INFO, WARNING, ERROR")
+    audit_enabled: bool | None = Field(default=None, description="Activer/désactiver les logs d'audit")
 
 
 class AppSettings(AbstractBaseModel, AppSettingsBase, table=True):

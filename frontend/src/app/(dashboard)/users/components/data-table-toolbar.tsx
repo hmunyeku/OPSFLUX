@@ -9,6 +9,7 @@ import { DataTableViewOptions } from "./data-table-view-options"
 import { UserPrimaryActions } from "./user-primary-actions"
 import { useEffect, useState } from "react"
 import { IconShield, IconUserShield, IconUsersGroup, IconCash } from "@tabler/icons-react"
+import { useTranslation } from "@/hooks/use-translation"
 
 interface Props<TData> {
   table: Table<TData>
@@ -29,6 +30,7 @@ const roleIcons: Record<string, typeof IconShield> = {
 }
 
 export function DataTableToolbar<TData>({ table, onUserCreated }: Props<TData>) {
+  const { t } = useTranslation("core.users")
   const isFiltered = table.getState().columnFilters.length > 0
   const [roles, setRoles] = useState<Array<{ label: string; value: string; icon?: typeof IconShield }>>([])
 
@@ -68,7 +70,7 @@ export function DataTableToolbar<TData>({ table, onUserCreated }: Props<TData>) 
     <div className="flex items-center justify-between">
       <div className="flex flex-1 flex-col-reverse items-start gap-y-2 sm:flex-row sm:items-center sm:space-x-2">
         <Input
-          placeholder="Filter tasks..."
+          placeholder={t("filter.search")}
           value={(table.getColumn("email")?.getFilterValue() as string) ?? ""}
           onChange={(event) =>
             table.getColumn("email")?.setFilterValue(event.target.value)
@@ -79,19 +81,19 @@ export function DataTableToolbar<TData>({ table, onUserCreated }: Props<TData>) 
           {table.getColumn("status") && (
             <DataTableFacetedFilter
               column={table.getColumn("status")}
-              title="Status"
+              title={t("field.status")}
               options={[
-                { label: "Active", value: "active" },
-                { label: "Inactive", value: "inactive" },
-                { label: "Invited", value: "invited" },
-                { label: "Suspended", value: "suspended" },
+                { label: t("status.active"), value: "active" },
+                { label: t("status.inactive"), value: "inactive" },
+                { label: t("status.invited"), value: "invited" },
+                { label: t("status.suspended"), value: "suspended" },
               ]}
             />
           )}
           {table.getColumn("role") && roles.length > 0 && (
             <DataTableFacetedFilter
               column={table.getColumn("role")}
-              title="Role"
+              title={t("field.role")}
               options={roles}
             />
           )}
@@ -102,7 +104,7 @@ export function DataTableToolbar<TData>({ table, onUserCreated }: Props<TData>) 
             onClick={() => table.resetColumnFilters()}
             className="h-8 px-2 lg:px-3"
           >
-            Reset
+            {t("filter.reset")}
             <Cross2Icon className="ml-2 h-4 w-4" />
           </Button>
         )}

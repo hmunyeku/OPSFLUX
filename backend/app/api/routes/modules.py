@@ -27,6 +27,7 @@ from app.models_modules import (
     ModuleMenusResponse,
 )
 from app.services.module_service import ModuleManager
+from app.core.hook_trigger_service import hook_trigger
 
 
 router = APIRouter(prefix="/modules", tags=["modules"])
@@ -258,6 +259,27 @@ async def install_module(
             installed_by=current_user
         )
 
+        # Trigger hook: module.installed
+        try:
+            await hook_trigger.trigger_event(
+                event="module.installed",
+                context={
+                    "user_id": str(current_user.id),
+                    "module_id": str(module.id),
+                    "module_code": module.code,
+                    "module_name": module.name,
+                    "module_version": module.version,
+                    "module_category": module.category,
+                    "installed_by": str(current_user.id),
+                    "has_backend": module.backend_path is not None,
+                    "has_frontend": module.frontend_path is not None,
+                },
+                db=session,
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to trigger module.installed hook: {e}")
+
         return ModuleInstallResponse(
             success=True,
             message=f"Module {module.name} installed successfully",
@@ -333,7 +355,7 @@ def read_module(
 
 
 @router.patch("/{module_id}", response_model=ModulePublic)
-def update_module(
+async def update_module(
     *,
     module_id: uuid.UUID,
     session: SessionDep,
@@ -362,6 +384,24 @@ def update_module(
     session.commit()
     session.refresh(module)
 
+    # Trigger hook: module.updated
+    try:
+        await hook_trigger.trigger_event(
+            event="module.updated",
+            context={
+                "user_id": str(current_user.id),
+                "module_id": str(module.id),
+                "module_code": module.code,
+                "module_name": module.name,
+                "changes": update_data,
+                "updated_by": str(current_user.id),
+            },
+            db=session,
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to trigger module.updated hook: {e}")
+
     return ModulePublic(
         id=module.id,
         name=module.name,
@@ -385,7 +425,7 @@ def update_module(
 
 
 @router.post("/{module_id}/activate", response_model=ModulePublic)
-def activate_module(
+async def activate_module(
     module_id: uuid.UUID,
     session: SessionDep,
     current_user: CurrentUser,
@@ -401,6 +441,24 @@ def activate_module(
         module_id=module_id,
         activated_by=current_user
     )
+
+    # Trigger hook: module.activated
+    try:
+        await hook_trigger.trigger_event(
+            event="module.activated",
+            context={
+                "user_id": str(current_user.id),
+                "module_id": str(module.id),
+                "module_code": module.code,
+                "module_name": module.name,
+                "module_version": module.version,
+                "activated_by": str(current_user.id),
+            },
+            db=session,
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to trigger module.activated hook: {e}")
 
     return ModulePublic(
         id=module.id,
@@ -425,7 +483,7 @@ def activate_module(
 
 
 @router.post("/{module_id}/deactivate", response_model=ModulePublic)
-def deactivate_module(
+async def deactivate_module(
     module_id: uuid.UUID,
     session: SessionDep,
     current_user: CurrentUser,
@@ -441,6 +499,23 @@ def deactivate_module(
         module_id=module_id,
         deactivated_by=current_user
     )
+
+    # Trigger hook: module.deactivated
+    try:
+        await hook_trigger.trigger_event(
+            event="module.deactivated",
+            context={
+                "user_id": str(current_user.id),
+                "module_id": str(module.id),
+                "module_code": module.code,
+                "module_name": module.name,
+                "deactivated_by": str(current_user.id),
+            },
+            db=session,
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to trigger module.deactivated hook: {e}")
 
     return ModulePublic(
         id=module.id,
@@ -465,7 +540,7 @@ def deactivate_module(
 
 
 @router.delete("/{module_id}", response_model=Message)
-def uninstall_module(
+async def uninstall_module(
     module_id: uuid.UUID,
     session: SessionDep,
     current_user: CurrentUser,
@@ -481,11 +556,38 @@ def uninstall_module(
 
     Requiert les privilèges superuser.
     """
+    # Récupérer les infos du module avant suppression pour le hook
+    module = session.get(Module, module_id)
+    if module:
+        module_context = {
+            "module_id": str(module.id),
+            "module_code": module.code,
+            "module_name": module.name,
+            "module_version": module.version,
+            "module_category": module.category,
+        }
+
     ModuleManager.uninstall_module(
         session=session,
         module_id=module_id,
         uninstalled_by=current_user
     )
+
+    # Trigger hook: module.uninstalled
+    if module:
+        try:
+            await hook_trigger.trigger_event(
+                event="module.uninstalled",
+                context={
+                    "user_id": str(current_user.id),
+                    "uninstalled_by": str(current_user.id),
+                    **module_context,
+                },
+                db=session,
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to trigger module.uninstalled hook: {e}")
 
     return Message(message="Module uninstalled successfully")
 

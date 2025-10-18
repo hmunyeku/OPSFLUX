@@ -234,37 +234,121 @@ class ModuleManager:
             module: Module
             translations: Dict {"fr": {...}, "en": {...}}
         """
-        # TODO: Intégrer avec TranslationService CORE
-        # Pour l'instant, on stocke dans le manifest
-        pass
+        from sqlmodel import select
+        from app.models_i18n import Language, TranslationNamespace, Translation
+
+        # Créer le namespace pour ce module (si n'existe pas déjà)
+        namespace_code = f"module.{module.code}"
+        namespace_stmt = select(TranslationNamespace).where(
+            TranslationNamespace.code == namespace_code,
+            TranslationNamespace.deleted_at == None  # noqa: E711
+        )
+        namespace = session.exec(namespace_stmt).first()
+
+        if not namespace:
+            # Créer le namespace
+            namespace = TranslationNamespace(
+                code=namespace_code,
+                name=f"{module.name} Translations",
+                namespace_type="module",
+                module_id=module.id,
+                created_by_id=None,  # Système
+            )
+            session.add(namespace)
+            session.flush()  # Pour obtenir l'ID
+
+        # Pour chaque langue fournie dans le manifest
+        for lang_code, translations_dict in translations.items():
+            # Trouver la langue dans le système
+            lang_stmt = select(Language).where(
+                Language.code == lang_code,
+                Language.deleted_at == None  # noqa: E711
+            )
+            language = session.exec(lang_stmt).first()
+
+            if not language:
+                import logging
+                logging.getLogger(__name__).warning(
+                    f"Language '{lang_code}' not found in system. "
+                    f"Skipping translations for module {module.code}"
+                )
+                continue
+
+            # Créer/mettre à jour chaque traduction
+            for key, value in translations_dict.items():
+                # Chercher si existe déjà
+                trans_stmt = select(Translation).where(
+                    Translation.namespace_id == namespace.id,
+                    Translation.language_id == language.id,
+                    Translation.key == key,
+                    Translation.deleted_at == None  # noqa: E711
+                )
+                existing = session.exec(trans_stmt).first()
+
+                if existing:
+                    # Mettre à jour
+                    existing.value = value
+                    existing.updated_by_id = None  # Système
+                    session.add(existing)
+                else:
+                    # Créer
+                    translation = Translation(
+                        namespace_id=namespace.id,
+                        language_id=language.id,
+                        key=key,
+                        value=value,
+                        created_by_id=None,  # Système
+                    )
+                    session.add(translation)
+
+        session.commit()
 
     @staticmethod
     def _register_user_preferences(session: Session, module: Module, preferences: list):
         """
-        Enregistre les préférences utilisateur du module dans le service CORE UserPreference.
+        Enregistre les préférences utilisateur du module.
 
         Args:
             session: Session DB
             module: Module
             preferences: Liste de préférences [{key, label, type, default, category}, ...]
+
+        Note:
+            Pour l'instant stocké dans le manifest du module.
+            TODO FUTUR: Créer un modèle UserPreference CORE (comme Translation)
+            avec module_id, user_id, preference_key, preference_value
         """
-        # TODO: Intégrer avec UserPreferenceService CORE
-        # Pour l'instant, on stocke dans le manifest
-        pass
+        # Les préférences sont déjà stockées dans module.manifest["user_preferences"]
+        # Elles seront disponibles via GET /modules/{id} pour affichage dans les settings utilisateur
+        # Quand un UserPreference CORE sera créé, migrer ici
+        import logging
+        logging.getLogger(__name__).info(
+            f"Registered {len(preferences)} user preferences for module {module.code}"
+        )
 
     @staticmethod
     def _register_settings(session: Session, module: Module, settings: list):
         """
-        Enregistre les settings système du module dans le service CORE Settings.
+        Enregistre les settings système du module.
 
         Args:
             session: Session DB
             module: Module
             settings: Liste de settings [{key, label, type, default, category}, ...]
+
+        Note:
+            Pour l'instant stocké dans le manifest du module.
+            TODO FUTUR: Créer un modèle ModuleSetting CORE (comme Translation)
+            avec module_id, setting_key, setting_value, setting_type
+            ou étendre AppSettings pour supporter des settings par module
         """
-        # TODO: Intégrer avec SettingsService CORE
-        # Pour l'instant, on stocke dans le manifest
-        pass
+        # Les settings sont déjà stockés dans module.manifest["settings"]
+        # Ils seront disponibles via GET /modules/{id}/settings pour configuration admin
+        # Quand un ModuleSetting CORE sera créé, migrer ici
+        import logging
+        logging.getLogger(__name__).info(
+            f"Registered {len(settings)} module settings for module {module.code}"
+        )
 
     @staticmethod
     def install_module(
@@ -833,9 +917,31 @@ class ModuleManager:
             for dep in deps:
                 session.delete(dep)
 
-            # TODO: Supprimer les traductions du service CORE
-            # TODO: Supprimer les préférences utilisateur du service CORE
-            # TODO: Supprimer les settings du service CORE
+            # Supprimer les traductions du service CORE i18n
+            from app.models_i18n import TranslationNamespace, Translation
+            namespace_code = f"module.{module.code}"
+            namespace_stmt = select(TranslationNamespace).where(
+                TranslationNamespace.code == namespace_code,
+                TranslationNamespace.deleted_at == None  # noqa: E711
+            )
+            namespace = session.exec(namespace_stmt).first()
+            if namespace:
+                # Supprimer toutes les traductions du namespace
+                trans_stmt = select(Translation).where(
+                    Translation.namespace_id == namespace.id,
+                    Translation.deleted_at == None  # noqa: E711
+                )
+                translations = session.exec(trans_stmt).all()
+                for translation in translations:
+                    session.delete(translation)
+
+                # Supprimer le namespace
+                session.delete(namespace)
+
+            # NOTE: Les préférences utilisateur et settings sont stockés dans module.manifest
+            # Ils seront supprimés automatiquement quand le module sera supprimé
+            # Si des modèles UserPreference/ModuleSetting CORE sont créés dans le futur,
+            # ajouter leur suppression ici
 
             # Supprimer les fichiers du module
             module_dir = ModuleManager.MODULES_DIR / module.code

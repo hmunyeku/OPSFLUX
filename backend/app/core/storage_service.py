@@ -605,6 +605,60 @@ class StorageService:
         # TODO: Implémenter avec JWT ou signature
         return self.get_url(path)
 
+    async def get_stats(self) -> dict[str, Any]:
+        """
+        Récupère les statistiques de stockage.
+
+        Returns:
+            Statistiques : total_files, total_size_mb, by_module, by_category
+        """
+        total_files = 0
+        total_size = 0
+        by_module: dict[str, dict[str, Any]] = {}
+        by_category: dict[str, dict[str, Any]] = {}
+
+        if self.backend == StorageBackend.LOCAL:
+            if self.base_path.exists():
+                for file_path in self.base_path.rglob("*"):
+                    if file_path.is_file() and not file_path.name.endswith("_thumb.jpg"):
+                        total_files += 1
+                        file_size = file_path.stat().st_size
+                        total_size += file_size
+
+                        # Extraire module et catégorie du chemin
+                        relative_path = file_path.relative_to(self.base_path)
+                        parts = relative_path.parts
+
+                        if len(parts) >= 1:
+                            module = parts[0]
+                            if module not in by_module:
+                                by_module[module] = {"count": 0, "size": 0}
+                            by_module[module]["count"] += 1
+                            by_module[module]["size"] += file_size
+
+                        if len(parts) >= 2:
+                            category = parts[1]
+                            if category not in by_category:
+                                by_category[category] = {"count": 0, "size": 0}
+                            by_category[category]["count"] += 1
+                            by_category[category]["size"] += file_size
+
+        # Convertir les tailles en MB
+        total_size_mb = round(total_size / (1024 * 1024), 2)
+        for module_stats in by_module.values():
+            module_stats["size_mb"] = round(module_stats["size"] / (1024 * 1024), 2)
+            del module_stats["size"]
+        for category_stats in by_category.values():
+            category_stats["size_mb"] = round(category_stats["size"] / (1024 * 1024), 2)
+            del category_stats["size"]
+
+        return {
+            "total_files": total_files,
+            "total_size_mb": total_size_mb,
+            "by_module": by_module,
+            "by_category": by_category,
+        }
+
 
 # Instance globale
 storage_service = StorageService()

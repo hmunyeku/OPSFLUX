@@ -9,13 +9,14 @@ from sqlmodel import Session
 from app.api.deps import CurrentUser, SessionDep
 from app.core.search_service import search_service
 from app.core.rbac import require_permission
+from app.core.hook_trigger_service import hook_trigger
 
 router = APIRouter(prefix="/search", tags=["search"])
 
 
 @router.post("/index")
 @require_permission("core.search.index")
-def index_document(
+async def index_document(
     *,
     session: SessionDep,
     current_user: CurrentUser,
@@ -37,6 +38,24 @@ def index_document(
             document=document,
             metadata=metadata,
         )
+
+        # Trigger hook: search.document_indexed
+        try:
+            await hook_trigger.trigger_event(
+                event="search.document_indexed",
+                context={
+                    "user_id": str(current_user.id),
+                    "collection": collection,
+                    "doc_id": doc_id,
+                    "document_keys": list(document.keys()),
+                    "has_metadata": metadata is not None,
+                },
+                db=session,
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to trigger search.document_indexed hook: {e}")
+
         return {"success": True, "indexed": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -117,7 +136,7 @@ def autocomplete(
 
 @router.delete("/{collection}/{doc_id}")
 @require_permission("core.search.index")
-def delete_document(
+async def delete_document(
     *,
     session: SessionDep,
     current_user: CurrentUser,
@@ -131,6 +150,24 @@ def delete_document(
     """
     try:
         deleted = search_service.delete(session=session, collection=collection, doc_id=doc_id)
+
+        # Trigger hook: search.document_deleted
+        if deleted:
+            try:
+                await hook_trigger.trigger_event(
+                    event="search.document_deleted",
+                    context={
+                        "user_id": str(current_user.id),
+                        "collection": collection,
+                        "doc_id": doc_id,
+                        "deleted_by": str(current_user.id),
+                    },
+                    db=session,
+                )
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"Failed to trigger search.document_deleted hook: {e}")
+
         return {"success": True, "deleted": deleted}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -138,7 +175,7 @@ def delete_document(
 
 @router.delete("/collection/{collection}")
 @require_permission("core.search.reindex")
-def clear_collection(
+async def clear_collection(
     *,
     session: SessionDep,
     current_user: CurrentUser,
@@ -151,6 +188,23 @@ def clear_collection(
     """
     try:
         count = search_service.clear_collection(session=session, collection=collection)
+
+        # Trigger hook: search.collection_cleared
+        try:
+            await hook_trigger.trigger_event(
+                event="search.collection_cleared",
+                context={
+                    "user_id": str(current_user.id),
+                    "collection": collection,
+                    "deleted_count": count,
+                    "cleared_by": str(current_user.id),
+                },
+                db=session,
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to trigger search.collection_cleared hook: {e}")
+
         return {"success": True, "deleted_count": count}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -158,7 +212,7 @@ def clear_collection(
 
 @router.post("/reindex/{collection}")
 @require_permission("core.search.reindex")
-def reindex_collection(
+async def reindex_collection(
     *,
     session: SessionDep,
     current_user: CurrentUser,
@@ -171,6 +225,23 @@ def reindex_collection(
     """
     try:
         count = search_service.reindex(session=session, collection=collection)
+
+        # Trigger hook: search.collection_reindexed
+        try:
+            await hook_trigger.trigger_event(
+                event="search.collection_reindexed",
+                context={
+                    "user_id": str(current_user.id),
+                    "collection": collection,
+                    "reindexed_count": count,
+                    "reindexed_by": str(current_user.id),
+                },
+                db=session,
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to trigger search.collection_reindexed hook: {e}")
+
         return {"success": True, "reindexed_count": count}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

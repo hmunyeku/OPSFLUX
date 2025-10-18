@@ -9,6 +9,7 @@ from fastapi.responses import StreamingResponse
 from app.api.deps import CurrentUser, SessionDep
 from app.core.storage_service import storage_service, FileCategory
 from app.core.rbac import require_permission
+from app.core.hook_trigger_service import hook_trigger
 from app.models import User
 from io import BytesIO
 
@@ -41,6 +42,26 @@ async def upload_file(
             user_id=str(current_user.id),
             generate_thumbnail=generate_thumbnail,
         )
+
+        # Trigger hook: storage.file_uploaded
+        try:
+            await hook_trigger.trigger_event(
+                event="storage.file_uploaded",
+                context={
+                    "user_id": str(current_user.id),
+                    "file_path": file_info.path,
+                    "file_name": file_info.name,
+                    "file_size": file_info.size,
+                    "mime_type": file_info.mime_type,
+                    "module": module,
+                    "category": category.value if category else None,
+                    "has_thumbnail": file_info.thumbnail_path is not None,
+                },
+                db=session,
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to trigger storage.file_uploaded hook: {e}")
 
         return {
             "success": True,
@@ -102,10 +123,30 @@ async def delete_file(
 
     Requiert la permission: core.storage.delete
     """
+    # Récupérer les infos avant suppression pour le hook
+    file_info = await storage_service.get_info(path)
+
     success = await storage_service.delete(path)
 
     if not success:
         raise HTTPException(status_code=404, detail="File not found")
+
+    # Trigger hook: storage.file_deleted
+    try:
+        await hook_trigger.trigger_event(
+            event="storage.file_deleted",
+            context={
+                "user_id": str(current_user.id),
+                "file_path": path,
+                "file_name": file_info.get("name") if file_info else path.split("/")[-1],
+                "file_size": file_info.get("size") if file_info else None,
+                "deleted_by": str(current_user.id),
+            },
+            db=session,
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to trigger storage.file_deleted hook: {e}")
 
     return {"success": True, "message": "File deleted"}
 
@@ -173,10 +214,5 @@ async def get_storage_stats(
 
     Requiert la permission: core.storage.read
     """
-    # TODO: Implémenter stats (taille totale, par module, etc.)
-    return {
-        "total_files": 0,
-        "total_size_mb": 0,
-        "by_module": {},
-        "by_category": {},
-    }
+    stats = await storage_service.get_stats()
+    return stats

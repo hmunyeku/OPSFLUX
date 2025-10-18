@@ -8,12 +8,14 @@ import {
 } from "@/components/ui/tooltip"
 import { UserStatProps } from "../data/data"
 import { User } from "../data/schema"
+import { useTranslation } from "@/hooks/use-translation"
 
 interface UsersStatsProps {
   users: User[]
 }
 
 export function UsersStats({ users }: UsersStatsProps) {
+  const { t } = useTranslation("core.users")
   // Calculer les statistiques réelles
   const totalUsers = users.length
   const activeUsers = users.filter(u => u.status === 'active').length
@@ -26,31 +28,31 @@ export function UsersStats({ users }: UsersStatsProps) {
 
   const stats: UserStatProps[] = [
     {
-      title: "Total Utilisateurs",
-      desc: "Nombre total d'utilisateurs",
+      title: t("stats.total"),
+      desc: t("stats.total_desc"),
       stat: totalUsers.toString(),
-      statDesc: `${users.length} utilisateurs au total`,
+      statDesc: t("stats.total_count", { count: users.length }),
       icon: IconUsersGroup,
     },
     {
-      title: "Nouveaux Utilisateurs",
-      desc: "Utilisateurs créés dans les 30 derniers jours",
+      title: t("stats.new_this_month"),
+      desc: t("stats.new_this_month_desc"),
       stat: `+${newUsers}`,
-      statDesc: `${((newUsers/totalUsers)*100).toFixed(0)}% du total`,
+      statDesc: t("stats.percentage_of_total", { percentage: ((newUsers/totalUsers)*100).toFixed(0) }),
       icon: IconUsersPlus,
     },
     {
-      title: "Invitations en attente",
-      desc: "Utilisateurs invités mais pas encore activés",
+      title: t("stats.invited"),
+      desc: t("stats.invited_desc"),
       stat: invitedUsers.toString(),
-      statDesc: `${((invitedUsers/totalUsers)*100).toFixed(0)}% du total`,
+      statDesc: t("stats.percentage_of_total", { percentage: ((invitedUsers/totalUsers)*100).toFixed(0) }),
       icon: IconUserScan,
     },
     {
-      title: "Utilisateurs Actifs",
-      desc: "Utilisateurs avec statut actif",
+      title: t("stats.active"),
+      desc: t("stats.active_desc"),
       stat: activeUsers.toString(),
-      statDesc: `${((activeUsers/totalUsers)*100).toFixed(0)}% du total`,
+      statDesc: t("stats.percentage_of_total", { percentage: ((activeUsers/totalUsers)*100).toFixed(0) }),
       icon: IconUserCheck,
     },
   ]

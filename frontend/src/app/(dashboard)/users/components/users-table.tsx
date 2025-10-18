@@ -27,6 +27,7 @@ import {
 import { User } from "../data/schema"
 import { DataTablePagination } from "./data-table-pagination"
 import { DataTableToolbar } from "./data-table-toolbar"
+import { useTranslation } from "@/hooks/use-translation"
 
 declare module "@tanstack/react-table" {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -42,6 +43,7 @@ interface Props {
 }
 
 export function UsersTable({ columns, data, onUserCreated }: Props) {
+  const { t } = useTranslation("core.users")
   const [rowSelection, setRowSelection] = useState({})
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -122,7 +124,7 @@ export function UsersTable({ columns, data, onUserCreated }: Props) {
                   colSpan={columns.length}
                   className="h-24 text-center"
                 >
-                  No results.
+                  {t("table.no_results")}
                 </TableCell>
               </TableRow>
             )}

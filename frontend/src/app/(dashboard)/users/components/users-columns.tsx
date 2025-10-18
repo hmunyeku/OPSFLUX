@@ -14,7 +14,7 @@ import { User } from "../data/schema"
 import { DataTableColumnHeader } from "./data-table-column-header"
 import { DataTableRowActions } from "./data-table-row-actions"
 
-export const columns: ColumnDef<User>[] = [
+export const getColumns = (t: (key: string) => string): ColumnDef<User>[] => [
   {
     id: "select",
     header: ({ table }) => (
@@ -48,7 +48,7 @@ export const columns: ColumnDef<User>[] = [
   {
     id: "fullName",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Name" />
+      <DataTableColumnHeader column={column} title={t("field.full_name")} />
     ),
     cell: ({ row }) => {
       const { firstName, lastName } = row.original
@@ -66,7 +66,7 @@ export const columns: ColumnDef<User>[] = [
   {
     accessorKey: "email",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Email" />
+      <DataTableColumnHeader column={column} title={t("field.email")} />
     ),
     cell: ({ row }) => (
       <div className="w-fit text-nowrap">{row.getValue("email")}</div>
@@ -75,7 +75,7 @@ export const columns: ColumnDef<User>[] = [
   {
     accessorKey: "phoneNumber",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Phone Number" />
+      <DataTableColumnHeader column={column} title={t("field.phone")} />
     ),
     cell: ({ row }) => <div>{row.getValue("phoneNumber")}</div>,
     enableSorting: false,
@@ -83,7 +83,7 @@ export const columns: ColumnDef<User>[] = [
   {
     accessorKey: "createdAt",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Registered Date" />
+      <DataTableColumnHeader column={column} title={t("field.created_at")} />
     ),
     cell: ({ row }) => (
       <div className="w-fit text-nowrap">
@@ -95,7 +95,7 @@ export const columns: ColumnDef<User>[] = [
   {
     accessorKey: "lastLoginAt",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Last Login Date" />
+      <DataTableColumnHeader column={column} title={t("field.last_login")} />
     ),
     cell: ({ row }) => (
       <div className="w-fit text-nowrap">
@@ -107,7 +107,7 @@ export const columns: ColumnDef<User>[] = [
   {
     accessorKey: "status",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Status" />
+      <DataTableColumnHeader column={column} title={t("field.status")} />
     ),
     cell: ({ row }) => {
       const { status } = row.original
@@ -127,7 +127,7 @@ export const columns: ColumnDef<User>[] = [
   {
     accessorKey: "role",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Role" />
+      <DataTableColumnHeader column={column} title={t("field.role")} />
     ),
     cell: ({ row }) => {
       const { role } = row.original
@@ -153,13 +153,13 @@ export const columns: ColumnDef<User>[] = [
   {
     accessorKey: "roles",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="RBAC Roles" />
+      <DataTableColumnHeader column={column} title={t("field.roles")} />
     ),
     cell: ({ row }) => {
       const roles = row.original.roles || []
 
       if (roles.length === 0) {
-        return <span className="text-xs text-muted-foreground">Aucun</span>
+        return <span className="text-xs text-muted-foreground">{t("detail.no_roles")}</span>
       }
 
       return (
@@ -204,7 +204,7 @@ export const columns: ColumnDef<User>[] = [
               </HoverCardTrigger>
               <HoverCardContent className="w-80" side="top">
                 <div className="space-y-2">
-                  <h4 className="text-sm font-semibold">Autres rôles</h4>
+                  <h4 className="text-sm font-semibold">{t("field.roles")}</h4>
                   <div className="space-y-1">
                     {roles.slice(2).map((role) => (
                       <div key={role.id} className="text-sm">
@@ -224,13 +224,13 @@ export const columns: ColumnDef<User>[] = [
   {
     accessorKey: "groups",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Groups" />
+      <DataTableColumnHeader column={column} title={t("field.groups")} />
     ),
     cell: ({ row }) => {
       const groups = row.original.groups || []
 
       if (groups.length === 0) {
-        return <span className="text-xs text-muted-foreground">Aucun</span>
+        return <span className="text-xs text-muted-foreground">{t("detail.no_groups")}</span>
       }
 
       return (
@@ -275,7 +275,7 @@ export const columns: ColumnDef<User>[] = [
               </HoverCardTrigger>
               <HoverCardContent className="w-80" side="top">
                 <div className="space-y-2">
-                  <h4 className="text-sm font-semibold">Autres groupes</h4>
+                  <h4 className="text-sm font-semibold">{t("field.groups")}</h4>
                   <div className="space-y-1">
                     {groups.slice(2).map((group) => (
                       <div key={group.id} className="text-sm">
@@ -297,3 +297,6 @@ export const columns: ColumnDef<User>[] = [
     cell: DataTableRowActions,
   },
 ]
+
+// Export par défaut pour compatibilité (retourne colonnes sans traduction)
+export const columns: ColumnDef<User>[] = getColumns((key: string) => key)

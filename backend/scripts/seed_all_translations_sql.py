@@ -89,10 +89,16 @@ TRANSLATIONS = {
 
         # Stats
         "stats.total": {"fr": "Total utilisateurs", "en": "Total users"},
+        "stats.total_desc": {"fr": "Nombre total d'utilisateurs", "en": "Total number of users"},
+        "stats.total_count": {"fr": "{count} utilisateurs au total", "en": "{count} users in total"},
         "stats.active": {"fr": "Utilisateurs actifs", "en": "Active users"},
+        "stats.active_desc": {"fr": "Utilisateurs avec statut actif", "en": "Users with active status"},
         "stats.inactive": {"fr": "Utilisateurs inactifs", "en": "Inactive users"},
-        "stats.invited": {"fr": "Utilisateurs invités", "en": "Invited users"},
-        "stats.new_this_month": {"fr": "Nouveaux ce mois", "en": "New this month"},
+        "stats.invited": {"fr": "Invitations en attente", "en": "Pending invitations"},
+        "stats.invited_desc": {"fr": "Utilisateurs invités mais pas encore activés", "en": "Invited but not yet activated users"},
+        "stats.new_this_month": {"fr": "Nouveaux utilisateurs", "en": "New users"},
+        "stats.new_this_month_desc": {"fr": "Utilisateurs créés dans les 30 derniers jours", "en": "Users created in the last 30 days"},
+        "stats.percentage_of_total": {"fr": "{percentage}% du total", "en": "{percentage}% of total"},
 
         # Table
         "table.no_results": {"fr": "Aucun utilisateur trouvé", "en": "No users found"},

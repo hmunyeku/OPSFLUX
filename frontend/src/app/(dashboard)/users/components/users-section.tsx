@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
-import { columns } from "./users-columns"
+import { getColumns } from "./users-columns"
 import { UsersStats } from "./users-stats"
 import { UsersTable } from "./users-table"
 import { userListSchema, User } from "../data/schema"
 import { getUsers } from "../data/users-api"
+import { useTranslation } from "@/hooks/use-translation"
 
 export function UsersSection() {
+  const { t } = useTranslation("core.users")
+  const columns = getColumns(t)
   const [users, setUsers] = useState<User[]>([])
   const [isLoading, setIsLoading] = useState(true)
 

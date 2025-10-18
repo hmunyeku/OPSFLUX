@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from app.api.deps import CurrentUser, SessionDep
 from app.core.queue_service import queue_service, TaskPriority
 from app.core.rbac import require_permission
+from app.core.hook_trigger_service import hook_trigger
 from app.models import User
 
 
@@ -40,6 +41,24 @@ async def enqueue_task(
             queue=queue,
             **kwargs
         )
+
+        # Trigger hook: queue.task_enqueued
+        try:
+            await hook_trigger.trigger_event(
+                event="queue.task_enqueued",
+                context={
+                    "user_id": str(current_user.id),
+                    "task_id": task_id,
+                    "task_name": task_name,
+                    "priority": priority.value if priority else "normal",
+                    "queue": queue or "default",
+                    "countdown": countdown,
+                },
+                db=session,
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to trigger queue.task_enqueued hook: {e}")
 
         return {
             "success": True,
@@ -112,6 +131,23 @@ async def cancel_task(
     """
     success = await queue_service.cancel(task_id, terminate=terminate)
 
+    # Trigger hook: queue.task_cancelled
+    if success:
+        try:
+            await hook_trigger.trigger_event(
+                event="queue.task_cancelled",
+                context={
+                    "user_id": str(current_user.id),
+                    "task_id": task_id,
+                    "terminated": terminate,
+                    "cancelled_by": str(current_user.id),
+                },
+                db=session,
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to trigger queue.task_cancelled hook: {e}")
+
     return {
         "success": success,
         "task_id": task_id,
@@ -149,6 +185,22 @@ async def purge_queue(
     Requiert la permission: core.queue.purge
     """
     count = await queue_service.purge_queue(queue_name)
+
+    # Trigger hook: queue.queue_purged
+    try:
+        await hook_trigger.trigger_event(
+            event="queue.queue_purged",
+            context={
+                "user_id": str(current_user.id),
+                "queue_name": queue_name,
+                "tasks_deleted": count,
+                "purged_by": str(current_user.id),
+            },
+            db=session,
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to trigger queue.queue_purged hook: {e}")
 
     return {
         "success": True,

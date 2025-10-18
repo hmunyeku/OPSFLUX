@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from app.api.deps import CurrentUser, SessionDep
 from app.core.cache_service import cache_service
 from app.core.rbac import require_permission
+from app.core.hook_trigger_service import hook_trigger
 from app.models import User
 
 
@@ -46,6 +47,23 @@ async def clear_cache(
     """
     if namespace:
         count = await cache_service.clear_namespace(namespace)
+
+        # Trigger hook: cache.cleared
+        try:
+            await hook_trigger.trigger_event(
+                event="cache.cleared",
+                context={
+                    "user_id": str(current_user.id),
+                    "namespace": namespace,
+                    "keys_deleted": count,
+                    "cleared_by": str(current_user.id),
+                },
+                db=session,
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to trigger cache.cleared hook: {e}")
+
         return {
             "success": True,
             "message": f"Cache cleared for namespace: {namespace}",
@@ -54,6 +72,23 @@ async def clear_cache(
     else:
         # Vider tout le cache (dangereux!)
         count = await cache_service.delete_pattern("*")
+
+        # Trigger hook: cache.cleared
+        try:
+            await hook_trigger.trigger_event(
+                event="cache.cleared",
+                context={
+                    "user_id": str(current_user.id),
+                    "namespace": "all",
+                    "keys_deleted": count,
+                    "cleared_by": str(current_user.id),
+                },
+                db=session,
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to trigger cache.cleared hook: {e}")
+
         return {
             "success": True,
             "message": "All cache cleared",
@@ -125,6 +160,22 @@ async def delete_cache_key(
 
     if not deleted:
         raise HTTPException(status_code=404, detail="Key not found")
+
+    # Trigger hook: cache.key_deleted
+    try:
+        await hook_trigger.trigger_event(
+            event="cache.key_deleted",
+            context={
+                "user_id": str(current_user.id),
+                "key": key,
+                "namespace": namespace,
+                "deleted_by": str(current_user.id),
+            },
+            db=session,
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to trigger cache.key_deleted hook: {e}")
 
     return {
         "success": True,

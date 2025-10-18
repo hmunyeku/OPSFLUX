@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Response
 from app.api.deps import CurrentUser, SessionDep
 from app.core.metrics_service import metrics_service
 from app.core.rbac import require_permission
+from app.core.hook_trigger_service import hook_trigger
 from app.models import User
 
 
@@ -61,6 +62,20 @@ async def reset_metrics(
     Requiert la permission: core.metrics.delete
     """
     metrics_service.reset_all()
+
+    # Trigger hook: metrics.reset
+    try:
+        await hook_trigger.trigger_event(
+            event="metrics.reset",
+            context={
+                "user_id": str(current_user.id),
+                "reset_by": str(current_user.id),
+            },
+            db=session,
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to trigger metrics.reset hook: {e}")
 
     return {
         "success": True,

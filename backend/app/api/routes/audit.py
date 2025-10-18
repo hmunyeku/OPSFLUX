@@ -1,11 +1,12 @@
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Query
 from sqlmodel import Session, col, select
 
-from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
+from app.api.deps import CurrentUser, SessionDep
 from app.models_audit import AuditLog
+from app.core.rbac import require_permission
 
 router = APIRouter()
 
@@ -134,9 +135,11 @@ MOCK_LOGS = [
 ]
 
 
-@router.get("/", dependencies=[Depends(get_current_active_superuser)])
+@router.get("/")
+@require_permission("core.audit.read")
 def get_audit_logs(
     session: SessionDep,
+    current_user: CurrentUser,
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, le=1000),
     level: Optional[str] = Query(default=None),
@@ -145,7 +148,6 @@ def get_audit_logs(
 ) -> dict[str, Any]:
     """
     Récupère les logs d'audit de l'application.
-    Nécessite les permissions superadmin.
 
     Paramètres:
     - skip: nombre de logs à ignorer (pagination)
@@ -153,6 +155,8 @@ def get_audit_logs(
     - level: filtrer par niveau (INFO, WARN, ERROR, DEBUG)
     - event_type: filtrer par type d'événement (API, AUTH, CRUD, SYSTEM)
     - search: rechercher dans les messages
+
+    Requiert la permission: core.audit.read
     """
     try:
         # Essayer de récupérer depuis la base de données
@@ -218,12 +222,16 @@ def get_audit_logs(
         return {"data": paginated_logs, "total": len(filtered_logs)}
 
 
-@router.get("/stats", dependencies=[Depends(get_current_active_superuser)])
+@router.get("/stats")
+@require_permission("core.audit.read")
 def get_audit_stats(
     session: SessionDep,
+    current_user: CurrentUser,
 ) -> dict[str, Any]:
     """
     Récupère des statistiques sur les logs d'audit.
+
+    Requiert la permission: core.audit.read
     """
     try:
         # Compter par niveau

@@ -4,9 +4,11 @@ Routes API pour le Cache Service.
 
 from typing import Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, Body
+from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.api.deps import CurrentUser, get_current_active_superuser
+from app.api.deps import CurrentUser, get_session
 from app.core.cache_service import cache_service
+from app.core.rbac import require_permission
 from app.models import User
 
 
@@ -14,24 +16,26 @@ router = APIRouter(prefix="/cache", tags=["cache"])
 
 
 @router.get("/stats")
+@require_permission("core.cache.read")
 async def get_cache_stats(
     current_user: CurrentUser,
-    _: User = Depends(get_current_active_superuser),
+    session: AsyncSession = Depends(get_session),
 ) -> Any:
     """
     Récupère les statistiques du cache.
 
-    Requiert les privilèges superuser.
+    Requiert la permission: core.cache.read
     """
     stats = await cache_service.get_stats()
     return stats
 
 
 @router.post("/clear")
+@require_permission("core.cache.clear")
 async def clear_cache(
     current_user: CurrentUser,
+    session: AsyncSession = Depends(get_session),
     namespace: Optional[str] = Body(None, description="Namespace à vider (None = tout)"),
-    _: User = Depends(get_current_active_superuser),
 ) -> Any:
     """
     Vide le cache.
@@ -39,7 +43,7 @@ async def clear_cache(
     Args:
         namespace: Namespace spécifique à vider, ou None pour tout vider
 
-    Requiert les privilèges superuser.
+    Requiert la permission: core.cache.clear
     """
     if namespace:
         count = await cache_service.clear_namespace(namespace)
@@ -59,11 +63,15 @@ async def clear_cache(
 
 
 @router.get("/health")
+@require_permission("core.cache.read")
 async def check_cache_health(
     current_user: CurrentUser,
+    session: AsyncSession = Depends(get_session),
 ) -> Any:
     """
     Vérifie que Redis est accessible.
+
+    Requiert la permission: core.cache.read
     """
     is_healthy = await cache_service.ping()
 
@@ -77,16 +85,17 @@ async def check_cache_health(
 
 
 @router.get("/get/{key}")
+@require_permission("core.cache.search")
 async def get_cache_value(
     key: str,
     namespace: Optional[str] = None,
     current_user: CurrentUser = None,
-    _: User = Depends(get_current_active_superuser),
+    session: AsyncSession = Depends(get_session),
 ) -> Any:
     """
     Récupère une valeur du cache (debug).
 
-    Requiert les privilèges superuser.
+    Requiert la permission: core.cache.search
     """
     value = await cache_service.get(key, namespace=namespace)
 
@@ -101,16 +110,17 @@ async def get_cache_value(
 
 
 @router.delete("/delete/{key}")
+@require_permission("core.cache.delete_key")
 async def delete_cache_key(
     key: str,
     namespace: Optional[str] = None,
     current_user: CurrentUser = None,
-    _: User = Depends(get_current_active_superuser),
+    session: AsyncSession = Depends(get_session),
 ) -> Any:
     """
     Supprime une clé du cache (debug).
 
-    Requiert les privilèges superuser.
+    Requiert la permission: core.cache.delete_key
     """
     deleted = await cache_service.delete(key, namespace=namespace)
 

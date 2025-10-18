@@ -5,9 +5,11 @@ Routes API pour le File Storage Service.
 from typing import Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from fastapi.responses import StreamingResponse
+from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.api.deps import CurrentUser, get_current_active_superuser
+from app.api.deps import CurrentUser, get_session
 from app.core.storage_service import storage_service, FileCategory
+from app.core.rbac import require_permission
 from app.models import User
 from io import BytesIO
 
@@ -16,8 +18,10 @@ router = APIRouter(prefix="/storage", tags=["storage"])
 
 
 @router.post("/upload")
+@require_permission("core.storage.upload")
 async def upload_file(
     current_user: CurrentUser,
+    session: AsyncSession = Depends(get_session),
     file: UploadFile = File(...),
     module: str = Query(..., description="Module propriétaire du fichier"),
     category: Optional[FileCategory] = Query(None, description="Catégorie du fichier"),
@@ -27,6 +31,8 @@ async def upload_file(
     Upload un fichier.
 
     Le fichier sera validé (type, taille) et stocké de manière organisée.
+
+    Requiert la permission: core.storage.upload
     """
     try:
         file_info = await storage_service.upload(
@@ -49,15 +55,19 @@ async def upload_file(
 
 
 @router.get("/files/{path:path}")
+@require_permission("core.storage.read")
 async def download_file(
     path: str,
     current_user: CurrentUser,
+    session: AsyncSession = Depends(get_session),
 ) -> StreamingResponse:
     """
     Télécharge un fichier.
 
     Args:
         path: Chemin du fichier (ex: "hse/images/2025/01/uuid.jpg")
+
+    Requiert la permission: core.storage.read
     """
     content = await storage_service.download(path)
 
@@ -79,15 +89,19 @@ async def download_file(
 
 
 @router.delete("/files/{path:path}")
+@require_permission("core.storage.delete")
 async def delete_file(
     path: str,
     current_user: CurrentUser,
+    session: AsyncSession = Depends(get_session),
 ) -> Any:
     """
     Supprime un fichier.
 
     Args:
         path: Chemin du fichier
+
+    Requiert la permission: core.storage.delete
     """
     success = await storage_service.delete(path)
 
@@ -98,15 +112,19 @@ async def delete_file(
 
 
 @router.get("/files/{path:path}/info")
+@require_permission("core.storage.read")
 async def get_file_info(
     path: str,
     current_user: CurrentUser,
+    session: AsyncSession = Depends(get_session),
 ) -> Any:
     """
     Récupère les informations d'un fichier.
 
     Args:
         path: Chemin du fichier
+
+    Requiert la permission: core.storage.read
     """
     info = await storage_service.get_info(path)
 
@@ -117,8 +135,10 @@ async def get_file_info(
 
 
 @router.get("/list")
+@require_permission("core.storage.read")
 async def list_files(
     current_user: CurrentUser,
+    session: AsyncSession = Depends(get_session),
     module: Optional[str] = Query(None, description="Filtrer par module"),
     category: Optional[FileCategory] = Query(None, description="Filtrer par catégorie"),
 ) -> Any:
@@ -128,6 +148,8 @@ async def list_files(
     Args:
         module: Filtrer par module
         category: Filtrer par catégorie
+
+    Requiert la permission: core.storage.read
     """
     files = await storage_service.list_files(
         module=module,
@@ -142,14 +164,15 @@ async def list_files(
 
 
 @router.get("/stats")
+@require_permission("core.storage.read")
 async def get_storage_stats(
     current_user: CurrentUser,
-    _: User = Depends(get_current_active_superuser),
+    session: AsyncSession = Depends(get_session),
 ) -> Any:
     """
     Récupère les statistiques de stockage.
 
-    Requiert les privilèges superuser.
+    Requiert la permission: core.storage.read
     """
     # TODO: Implémenter stats (taille totale, par module, etc.)
     return {

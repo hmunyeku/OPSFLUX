@@ -5,11 +5,12 @@ Routes API pour le système de Hooks & Triggers.
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from sqlmodel import func, select
 
-from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
+from app.api.deps import CurrentUser, SessionDep
 from app.models import Message
+from app.core.rbac import require_permission
 from app.models_hooks import (
     Hook,
     HookCreate,
@@ -26,6 +27,7 @@ router = APIRouter(prefix="/hooks", tags=["hooks"])
 
 
 @router.get("/", response_model=HooksPublic)
+@require_permission("core.hooks.read")
 def read_hooks(
     session: SessionDep,
     current_user: CurrentUser,
@@ -40,6 +42,8 @@ def read_hooks(
     Filtres:
     - event: Filtrer par nom d'événement
     - is_active: Filtrer par statut actif/inactif
+
+    Requiert la permission: core.hooks.read
     """
     # Base query
     statement = select(Hook).where(Hook.deleted_at == None)  # noqa: E711
@@ -86,7 +90,8 @@ def read_hooks(
     return HooksPublic(data=public_hooks, count=count)
 
 
-@router.post("/", response_model=HookPublic, dependencies=[Depends(get_current_active_superuser)])
+@router.post("/", response_model=HookPublic)
+@require_permission("core.hooks.create")
 def create_hook(
     *,
     session: SessionDep,
@@ -96,7 +101,7 @@ def create_hook(
     """
     Créer un nouveau hook.
 
-    Requiert les privilèges superuser.
+    Requiert la permission: core.hooks.create
     """
     # Valider qu'il y a au moins une action
     if not hook_in.actions or len(hook_in.actions) == 0:
@@ -136,6 +141,7 @@ def create_hook(
 
 
 @router.get("/{hook_id}", response_model=HookPublic)
+@require_permission("core.hooks.read")
 def read_hook(
     hook_id: uuid.UUID,
     session: SessionDep,
@@ -143,6 +149,8 @@ def read_hook(
 ) -> Any:
     """
     Récupérer un hook spécifique par ID.
+
+    Requiert la permission: core.hooks.read
     """
     hook = session.get(Hook, hook_id)
     if not hook or hook.deleted_at:
@@ -162,7 +170,8 @@ def read_hook(
     )
 
 
-@router.patch("/{hook_id}", response_model=HookPublic, dependencies=[Depends(get_current_active_superuser)])
+@router.patch("/{hook_id}", response_model=HookPublic)
+@require_permission("core.hooks.update")
 def update_hook(
     *,
     session: SessionDep,
@@ -173,7 +182,7 @@ def update_hook(
     """
     Mettre à jour un hook.
 
-    Requiert les privilèges superuser.
+    Requiert la permission: core.hooks.update
     """
     db_hook = session.get(Hook, hook_id)
     if not db_hook or db_hook.deleted_at:
@@ -210,7 +219,8 @@ def update_hook(
     )
 
 
-@router.delete("/{hook_id}", response_model=Message, dependencies=[Depends(get_current_active_superuser)])
+@router.delete("/{hook_id}", response_model=Message)
+@require_permission("core.hooks.delete")
 def delete_hook(
     session: SessionDep,
     current_user: CurrentUser,
@@ -219,7 +229,7 @@ def delete_hook(
     """
     Supprimer un hook (soft delete).
 
-    Requiert les privilèges superuser.
+    Requiert la permission: core.hooks.delete
     """
     hook = session.get(Hook, hook_id)
     if not hook or hook.deleted_at:
@@ -234,6 +244,7 @@ def delete_hook(
 
 
 @router.get("/{hook_id}/executions", response_model=HookExecutionsPublic)
+@require_permission("core.hooks.read")
 def read_hook_executions(
     hook_id: uuid.UUID,
     session: SessionDep,
@@ -247,6 +258,8 @@ def read_hook_executions(
 
     Filtres:
     - success: Filtrer par succès (True) ou échec (False)
+
+    Requiert la permission: core.hooks.read
     """
     # Vérifier que le hook existe
     hook = session.get(Hook, hook_id)
@@ -281,6 +294,7 @@ def read_hook_executions(
 
 
 @router.get("/executions/all", response_model=HookExecutionsPublic)
+@require_permission("core.hooks.read")
 def read_all_executions(
     session: SessionDep,
     current_user: CurrentUser,
@@ -293,6 +307,8 @@ def read_all_executions(
 
     Filtres:
     - success: Filtrer par succès (True) ou échec (False)
+
+    Requiert la permission: core.hooks.read
     """
     # Utiliser le service pour récupérer toutes les exécutions
     executions, count = get_hook_executions(

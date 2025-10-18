@@ -4,9 +4,11 @@ Routes API pour le Metrics Service.
 
 from typing import Any
 from fastapi import APIRouter, Depends, Response
+from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.api.deps import CurrentUser, get_current_active_superuser
+from app.api.deps import CurrentUser, get_session
 from app.core.metrics_service import metrics_service
+from app.core.rbac import require_permission
 from app.models import User
 
 
@@ -32,30 +34,32 @@ async def get_metrics_prometheus(
 
 
 @router.get("/stats")
+@require_permission("core.metrics.read")
 async def get_metrics_stats(
     current_user: CurrentUser,
-    _: User = Depends(get_current_active_superuser),
+    session: AsyncSession = Depends(get_session),
 ) -> Any:
     """
     Récupère les statistiques de toutes les métriques.
 
-    Requiert les privilèges superuser.
+    Requiert la permission: core.metrics.read
     """
     stats = metrics_service.get_stats()
     return stats
 
 
 @router.post("/reset")
+@require_permission("core.metrics.delete")
 async def reset_metrics(
     current_user: CurrentUser,
-    _: User = Depends(get_current_active_superuser),
+    session: AsyncSession = Depends(get_session),
 ) -> Any:
     """
     Réinitialise toutes les métriques.
 
     ATTENTION: Opération destructive!
 
-    Requiert les privilèges superuser.
+    Requiert la permission: core.metrics.delete
     """
     metrics_service.reset_all()
 

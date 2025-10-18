@@ -8,8 +8,9 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import func, select
 
-from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
-from app.models import Message, User
+from app.api.deps import CurrentUser, SessionDep
+from app.models import Message
+from app.core.rbac import require_permission
 from app.models_email_templates import (
     EmailTemplate,
     EmailTemplateCreate,
@@ -26,6 +27,7 @@ router = APIRouter(prefix="/email-templates", tags=["email-templates"])
 
 
 @router.get("/", response_model=EmailTemplatesPublic)
+@require_permission("core.email_templates.read")
 def read_email_templates(
     session: SessionDep,
     current_user: CurrentUser,
@@ -42,6 +44,8 @@ def read_email_templates(
     - category: Filtrer par catégorie
     - is_active: Filtrer par statut actif/inactif
     - search: Recherche par nom ou description
+
+    Requiert la permission: core.email_templates.read
     """
     # Base query
     statement = select(EmailTemplate).where(EmailTemplate.deleted_at == None)  # noqa: E711
@@ -97,6 +101,7 @@ def read_email_templates(
 
 
 @router.get("/{template_id}", response_model=EmailTemplatePublic)
+@require_permission("core.email_templates.read")
 def read_email_template(
     template_id: uuid.UUID,
     session: SessionDep,
@@ -104,6 +109,8 @@ def read_email_template(
 ) -> Any:
     """
     Récupère un template d'email spécifique par ID.
+
+    Requiert la permission: core.email_templates.read
     """
     template = session.get(EmailTemplate, template_id)
     if not template or template.deleted_at:
@@ -130,17 +137,17 @@ def read_email_template(
 
 
 @router.post("/", response_model=EmailTemplatePublic)
+@require_permission("core.email_templates.create")
 def create_email_template(
     *,
     session: SessionDep,
     current_user: CurrentUser,
     template_in: EmailTemplateCreate,
-    _: User = Depends(get_current_active_superuser),
 ) -> Any:
     """
     Crée un nouveau template d'email.
 
-    Requiert les privilèges superuser.
+    Requiert la permission: core.email_templates.create
     """
     # Vérifier que le slug est unique
     existing = session.exec(
@@ -193,18 +200,18 @@ def create_email_template(
 
 
 @router.patch("/{template_id}", response_model=EmailTemplatePublic)
+@require_permission("core.email_templates.update")
 def update_email_template(
     *,
     template_id: uuid.UUID,
     session: SessionDep,
     current_user: CurrentUser,
     template_in: EmailTemplateUpdate,
-    _: User = Depends(get_current_active_superuser),
 ) -> Any:
     """
     Met à jour un template d'email.
 
-    Requiert les privilèges superuser.
+    Requiert la permission: core.email_templates.update
     """
     template = session.get(EmailTemplate, template_id)
     if not template or template.deleted_at:
@@ -264,16 +271,16 @@ def update_email_template(
 
 
 @router.delete("/{template_id}", response_model=Message)
+@require_permission("core.email_templates.delete")
 def delete_email_template(
     template_id: uuid.UUID,
     session: SessionDep,
     current_user: CurrentUser,
-    _: User = Depends(get_current_active_superuser),
 ) -> Message:
     """
     Supprime un template d'email (soft delete).
 
-    Requiert les privilèges superuser.
+    Requiert la permission: core.email_templates.delete
     """
     template = session.get(EmailTemplate, template_id)
     if not template or template.deleted_at:
@@ -297,17 +304,17 @@ def delete_email_template(
 
 
 @router.post("/send-test", response_model=EmailTemplateSendTestResponse)
+@require_permission("core.email_templates.send_test")
 def send_test_email(
     *,
     session: SessionDep,
     current_user: CurrentUser,
     request: EmailTemplateSendTestRequest,
-    _: User = Depends(get_current_active_superuser),
 ) -> Any:
     """
     Envoie un email de test avec un template.
 
-    Requiert les privilèges superuser.
+    Requiert la permission: core.email_templates.send_test
     """
     template = session.get(EmailTemplate, request.template_id)
     if not template or template.deleted_at:

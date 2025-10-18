@@ -4,9 +4,11 @@ Routes API pour le Queue Service (Celery).
 
 from typing import Any, Optional, List, Dict
 from fastapi import APIRouter, Depends, HTTPException, Body
+from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.api.deps import CurrentUser, get_current_active_superuser
+from app.api.deps import CurrentUser, get_session
 from app.core.queue_service import queue_service, TaskPriority
+from app.core.rbac import require_permission
 from app.models import User
 
 
@@ -14,20 +16,21 @@ router = APIRouter(prefix="/queue", tags=["queue"])
 
 
 @router.post("/enqueue")
+@require_permission("core.queue.enqueue")
 async def enqueue_task(
     current_user: CurrentUser,
+    session: AsyncSession = Depends(get_session),
     task_name: str = Body(..., description="Nom de la tâche"),
     args: List[Any] = Body(default=[], description="Arguments positionnels"),
     kwargs: Dict[str, Any] = Body(default={}, description="Arguments nommés"),
     priority: TaskPriority = Body(default=TaskPriority.NORMAL, description="Priorité"),
     countdown: Optional[int] = Body(None, description="Délai avant exécution (secondes)"),
     queue: Optional[str] = Body(None, description="Queue spécifique"),
-    _: User = Depends(get_current_active_superuser),
 ) -> Any:
     """
     Enqueue une tâche pour exécution asynchrone.
 
-    Requiert les privilèges superuser.
+    Requiert la permission: core.queue.enqueue
     """
     try:
         task_id = await queue_service.enqueue(
@@ -50,26 +53,28 @@ async def enqueue_task(
 
 
 @router.get("/status/{task_id}")
+@require_permission("core.queue.read")
 async def get_task_status(
     task_id: str,
     current_user: CurrentUser,
-    _: User = Depends(get_current_active_superuser),
+    session: AsyncSession = Depends(get_session),
 ) -> Any:
     """
     Récupère le statut d'une tâche.
 
-    Requiert les privilèges superuser.
+    Requiert la permission: core.queue.read
     """
     status = await queue_service.get_status(task_id)
     return status
 
 
 @router.get("/result/{task_id}")
+@require_permission("core.queue.read")
 async def get_task_result(
     task_id: str,
     timeout: int = 30,
     current_user: CurrentUser = None,
-    _: User = Depends(get_current_active_superuser),
+    session: AsyncSession = Depends(get_session),
 ) -> Any:
     """
     Attend et récupère le résultat d'une tâche.
@@ -78,7 +83,7 @@ async def get_task_result(
         task_id: ID de la tâche
         timeout: Timeout en secondes
 
-    Requiert les privilèges superuser.
+    Requiert la permission: core.queue.read
     """
     try:
         result = await queue_service.get_result(task_id, timeout=timeout)
@@ -94,16 +99,17 @@ async def get_task_result(
 
 
 @router.post("/cancel/{task_id}")
+@require_permission("core.queue.cancel")
 async def cancel_task(
     task_id: str,
     terminate: bool = Body(default=False, description="Terminer brutalement"),
     current_user: CurrentUser = None,
-    _: User = Depends(get_current_active_superuser),
+    session: AsyncSession = Depends(get_session),
 ) -> Any:
     """
     Annule une tâche en cours.
 
-    Requiert les privilèges superuser.
+    Requiert la permission: core.queue.cancel
     """
     success = await queue_service.cancel(task_id, terminate=terminate)
 
@@ -115,31 +121,33 @@ async def cancel_task(
 
 
 @router.get("/stats")
+@require_permission("core.queue.read")
 async def get_queue_stats(
     current_user: CurrentUser,
-    _: User = Depends(get_current_active_superuser),
+    session: AsyncSession = Depends(get_session),
 ) -> Any:
     """
     Récupère les statistiques des workers et queues.
 
-    Requiert les privilèges superuser.
+    Requiert la permission: core.queue.read
     """
     stats = await queue_service.get_stats()
     return stats
 
 
 @router.post("/purge/{queue_name}")
+@require_permission("core.queue.purge")
 async def purge_queue(
     queue_name: str,
     current_user: CurrentUser,
-    _: User = Depends(get_current_active_superuser),
+    session: AsyncSession = Depends(get_session),
 ) -> Any:
     """
     Vide une queue.
 
     ATTENTION: Opération destructive!
 
-    Requiert les privilèges superuser.
+    Requiert la permission: core.queue.purge
     """
     count = await queue_service.purge_queue(queue_name)
 

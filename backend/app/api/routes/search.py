@@ -6,23 +6,28 @@ from typing import Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session
 
-from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
+from app.api.deps import CurrentUser, SessionDep
 from app.core.search_service import search_service
+from app.core.rbac import require_permission
 
 router = APIRouter(prefix="/search", tags=["search"])
 
 
-@router.post("/index", dependencies=[Depends(get_current_active_superuser)])
+@router.post("/index")
+@require_permission("core.search.index")
 def index_document(
     *,
     session: SessionDep,
+    current_user: CurrentUser,
     collection: str,
     doc_id: str,
     document: dict[str, Any],
     metadata: Optional[dict[str, Any]] = None,
 ) -> Any:
     """
-    Index a document for search (Admin only)
+    Index a document for search
+
+    Requiert la permission: core.search.index
     """
     try:
         result = search_service.index(
@@ -38,6 +43,7 @@ def index_document(
 
 
 @router.post("/")
+@require_permission("core.search.query")
 def search_documents(
     *,
     session: SessionDep,
@@ -51,6 +57,8 @@ def search_documents(
 ) -> Any:
     """
     Search documents across collections
+
+    Requiert la permission: core.search.query
     """
     try:
         results = search_service.search(
@@ -81,6 +89,7 @@ def search_documents(
 
 
 @router.get("/autocomplete")
+@require_permission("core.search.query")
 def autocomplete(
     *,
     session: SessionDep,
@@ -91,6 +100,8 @@ def autocomplete(
 ) -> Any:
     """
     Get autocomplete suggestions
+
+    Requiert la permission: core.search.query
     """
     try:
         suggestions = search_service.autocomplete(
@@ -104,15 +115,19 @@ def autocomplete(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/{collection}/{doc_id}", dependencies=[Depends(get_current_active_superuser)])
+@router.delete("/{collection}/{doc_id}")
+@require_permission("core.search.index")
 def delete_document(
     *,
     session: SessionDep,
+    current_user: CurrentUser,
     collection: str,
     doc_id: str,
 ) -> Any:
     """
-    Delete a document from search index (Admin only)
+    Delete a document from search index
+
+    Requiert la permission: core.search.index
     """
     try:
         deleted = search_service.delete(session=session, collection=collection, doc_id=doc_id)
@@ -121,14 +136,18 @@ def delete_document(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/collection/{collection}", dependencies=[Depends(get_current_active_superuser)])
+@router.delete("/collection/{collection}")
+@require_permission("core.search.reindex")
 def clear_collection(
     *,
     session: SessionDep,
+    current_user: CurrentUser,
     collection: str,
 ) -> Any:
     """
-    Clear all documents from a collection (Admin only)
+    Clear all documents from a collection
+
+    Requiert la permission: core.search.reindex
     """
     try:
         count = search_service.clear_collection(session=session, collection=collection)
@@ -137,14 +156,18 @@ def clear_collection(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/reindex/{collection}", dependencies=[Depends(get_current_active_superuser)])
+@router.post("/reindex/{collection}")
+@require_permission("core.search.reindex")
 def reindex_collection(
     *,
     session: SessionDep,
+    current_user: CurrentUser,
     collection: str,
 ) -> Any:
     """
-    Reindex all documents in a collection (Admin only)
+    Reindex all documents in a collection
+
+    Requiert la permission: core.search.reindex
     """
     try:
         count = search_service.reindex(session=session, collection=collection)

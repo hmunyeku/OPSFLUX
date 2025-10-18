@@ -156,7 +156,21 @@
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjE0NjQ3NjAsInN1YiI6IjA2MGM2Yjg5LTAxYmQtNDU2Ny05MTY0LTU2MWI5ZGVmOWU2ZiIsInR5cGUiOiJhY2Nlc3MifQ.nkbHmuExHzhylHGx52ostbjg5_V-AuRZmtR6xGgbKPA\" curl -s -X GET \"http://localhost:8000/api/v1/modules/\" -H \"Authorization: Bearer $TOKEN\")",
       "Bash(export:*)",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjE0NjQ3NjAsInN1YiI6IjA2MGM2Yjg5LTAxYmQtNDU2Ny05MTY0LTU2MWI5ZGVmOWU2ZiIsInR5cGUiOiJhY2Nlc3MifQ.nkbHmuExHzhylHGx52ostbjg5_V-AuRZmtR6xGgbKPA\" curl -s -X GET \"http://localhost:8000/api/v1/languages/translations/?namespace_id=724ec53e-91c0-4ddd-9bb7-605f1eb791dc&language_id=0f12a12d-f56c-46a0-a3cd-1987b79695bf&limit=3\" -H \"Authorization: Bearer $TOKEN\")",
-      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjE0Njc5MjksInN1YiI6IjA2MGM2Yjg5LTAxYmQtNDU2Ny05MTY0LTU2MWI5ZGVmOWU2ZiIsInR5cGUiOiJhY2Nlc3MifQ.8r-CS24VGReanhi4uMIr4zNvP9B-UGQPY_GtU6flvyk\" curl -s -X GET \"http://localhost:8000/api/v1/languages/translations/?namespace_id=724ec53e-91c0-4ddd-9bb7-605f1eb791dc&language_id=0f12a12d-f56c-46a0-a3cd-1987b79695bf&limit=3\" -H \"Authorization: Bearer $TOKEN\")"
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjE0Njc5MjksInN1YiI6IjA2MGM2Yjg5LTAxYmQtNDU2Ny05MTY0LTU2MWI5ZGVmOWU2ZiIsInR5cGUiOiJhY2Nlc3MifQ.8r-CS24VGReanhi4uMIr4zNvP9B-UGQPY_GtU6flvyk\" curl -s -X GET \"http://localhost:8000/api/v1/languages/translations/?namespace_id=724ec53e-91c0-4ddd-9bb7-605f1eb791dc&language_id=0f12a12d-f56c-46a0-a3cd-1987b79695bf&limit=3\" -H \"Authorization: Bearer $TOKEN\")",
+      "Bash(python -m py_compile app/models_api_keys.py app/core/api_key_auth.py app/api/routes/user_api_keys.py)",
+      "Bash(uv run python -m py_compile app/models_api_keys.py app/core/api_key_auth.py app/api/routes/user_api_keys.py)",
+      "Bash(uv run python test_api_key_generation.py)",
+      "Bash(chmod +x /etc/dokploy/compose/perenco-opsflux-gwxapr/code/backend/test_api_key_integration.sh)",
+      "Bash(wc -l /etc/dokploy/compose/perenco-opsflux-gwxapr/code/frontend/src/app/(dashboard)/settings/profile/components/user-api-key-card.tsx)",
+      "Bash(python -m py_compile app/api/routes/email_templates.py app/api/routes/hooks.py app/api/routes/audit.py)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjE0NzM1NjAsInN1YiI6IjA2MGM2Yjg5LTAxYmQtNDU2Ny05MTY0LTU2MWI5ZGVmOWU2ZiIsInR5cGUiOiJhY2Nlc3MifQ.uO-F_9ETj5kuQ382fszSND0_R5wzDq18Egj8ESt_sTM\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjE0NzM1NjAsInN1YiI6IjA2MGM2Yjg5LTAxYmQtNDU2Ny05MTY0LTU2MWI5ZGVmOWU2ZiIsInR5cGUiOiJhY2Nlc3MifQ.uO-F_9ETj5kuQ382fszSND0_R5wzDq18Egj8ESt_sTM\" curl -s -X GET \"http://localhost:8000/api/v1/settings/\" -H \"Authorization: Bearer $TOKEN\")",
+      "Bash(npx eslint --no-eslintrc --parser @typescript-eslint/parser --plugin @typescript-eslint \"src/app/(dashboard)/settings/components/general-form.tsx\" --rule '{\"\"\"\"@typescript-eslint/no-explicit-any\"\"\"\": \"\"\"\"error\"\"\"\", \"\"\"\"@typescript-eslint/no-unused-vars\"\"\"\": \"\"\"\"error\"\"\"\"}')",
+      "Bash(psql -h localhost -U opsflux -d opsflux -c \"\\dt\")",
+      "Bash(for file in backend/app/api/routes/storage.py backend/app/api/routes/queue.py backend/app/api/routes/metrics.py)",
+      "Bash(do echo \"=== $file ===\")",
+      "Bash(done)",
+      "Bash(uv run python -m py_compile app/services/module_service.py)"
     ],
     "deny": [],
     "ask": []

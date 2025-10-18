@@ -22,10 +22,13 @@ from app.models import SQLModel  # noqa
 from app.core.config import settings # noqa
 
 # Import all models for Alembic autogenerate
+# IMPORTANT: Order matters for foreign keys!
 from app import models  # noqa
 from app import models_auth  # noqa
 from app import models_2fa  # noqa
+from app import models_modules  # noqa - Must be before models_i18n (FK dependency)
 from app import models_i18n  # noqa
+from app import models_preferences  # noqa
 
 target_metadata = SQLModel.metadata
 

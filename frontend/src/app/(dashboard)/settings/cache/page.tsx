@@ -26,6 +26,7 @@ import {
 import ContentSection from "../components/content-section"
 import { useToast } from "@/hooks/use-toast"
 import { getCacheStats, getCacheHealth, clearCache, type CacheStats, type CacheHealth } from "@/api/cache"
+import { useTranslation } from "@/hooks/use-translation"
 
 export default function CachePage() {
   const [stats, setStats] = useState<CacheStats | null>(null)
@@ -34,6 +35,7 @@ export default function CachePage() {
   const [clearing, setClearing] = useState(false)
   const [clearDialogOpen, setClearDialogOpen] = useState(false)
   const { toast } = useToast()
+  const { t } = useTranslation("core.cache")
 
   const fetchData = async () => {
     setLoading(true)
@@ -44,11 +46,11 @@ export default function CachePage() {
       ])
       setStats(statsData)
       setHealth(healthData)
-    } catch (error) {
+    } catch (_error) {
       toast({
         variant: "destructive",
-        title: "Erreur",
-        description: "Impossible de charger les données du cache.",
+        title: t("toast.error.title"),
+        description: t("toast.error.load"),
       })
     } finally {
       setLoading(false)
@@ -64,16 +66,16 @@ export default function CachePage() {
     try {
       const result = await clearCache()
       toast({
-        title: "Cache vidé",
-        description: `${result.keys_deleted} clés supprimées`,
+        title: t("toast.clear.success"),
+        description: t("toast.clear.success_description", { keys_deleted: result.keys_deleted }),
       })
       setClearDialogOpen(false)
       await fetchData()
-    } catch (error) {
+    } catch (_error) {
       toast({
         variant: "destructive",
-        title: "Erreur",
-        description: "Impossible de vider le cache.",
+        title: t("toast.error.title"),
+        description: t("toast.error.load"),
       })
     } finally {
       setClearing(false)
@@ -83,8 +85,8 @@ export default function CachePage() {
   if (loading) {
     return (
       <ContentSection
-        title="Gestion du Cache"
-        desc="Monitoring et gestion du cache Redis"
+        title={t("page.title")}
+        desc={t("page.description")}
         className="w-full lg:max-w-full"
       >
         <div className="flex items-center justify-center py-8">
@@ -99,8 +101,8 @@ export default function CachePage() {
 
   return (
     <ContentSection
-      title="Gestion du Cache"
-      desc="Monitoring et gestion du cache Redis"
+      title={t("page.title")}
+      desc={t("page.description")}
       className="w-full lg:max-w-full"
     >
       <div className="space-y-6">
@@ -110,21 +112,21 @@ export default function CachePage() {
             <IconDatabase className="h-5 w-5 text-muted-foreground" />
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-medium">Redis Status</span>
+                <span className="font-medium">{t("status.label")}</span>
                 {isHealthy ? (
                   <Badge variant="default" className="bg-green-600">
                     <IconCheck className="mr-1 h-3 w-3" />
-                    Connecté
+                    {t("status.connected")}
                   </Badge>
                 ) : (
                   <Badge variant="destructive">
                     <IconX className="mr-1 h-3 w-3" />
-                    Déconnecté
+                    {t("status.disconnected")}
                   </Badge>
                 )}
               </div>
               <p className="text-sm text-muted-foreground">
-                Backend: {health?.backend || 'N/A'}
+                {t("status.backend")}: {health?.backend || 'N/A'}
               </p>
             </div>
           </div>
@@ -136,7 +138,7 @@ export default function CachePage() {
               onClick={fetchData}
             >
               <IconRefresh className="mr-2 h-4 w-4" />
-              Actualiser
+              {t("actions.refresh")}
             </Button>
             <Button
               variant="destructive"
@@ -144,7 +146,7 @@ export default function CachePage() {
               onClick={() => setClearDialogOpen(true)}
             >
               <IconTrash className="mr-2 h-4 w-4" />
-              Vider le cache
+              {t("actions.clear_cache")}
             </Button>
           </div>
         </div>
@@ -154,13 +156,13 @@ export default function CachePage() {
           {/* Hits */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Hits</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("stats.hits")}</CardTitle>
               <IconCheck className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats?.hits.toLocaleString() || 0}</div>
               <p className="text-xs text-muted-foreground">
-                Requêtes trouvées dans le cache
+                {t("stats.hits_description")}
               </p>
             </CardContent>
           </Card>
@@ -168,13 +170,13 @@ export default function CachePage() {
           {/* Misses */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Misses</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("stats.misses")}</CardTitle>
               <IconX className="h-4 w-4 text-red-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats?.misses.toLocaleString() || 0}</div>
               <p className="text-xs text-muted-foreground">
-                Requêtes non trouvées
+                {t("stats.misses_description")}
               </p>
             </CardContent>
           </Card>
@@ -182,13 +184,13 @@ export default function CachePage() {
           {/* Hit Rate */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Taux de succès</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("stats.hit_rate")}</CardTitle>
               <IconChartBar className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{hitRate.toFixed(1)}%</div>
               <p className="text-xs text-muted-foreground">
-                Efficacité du cache
+                {t("stats.hit_rate_description")}
               </p>
             </CardContent>
           </Card>
@@ -196,13 +198,13 @@ export default function CachePage() {
           {/* Total Requests */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total requêtes</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("stats.total_requests")}</CardTitle>
               <IconActivity className="h-4 w-4 text-purple-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats?.total_requests.toLocaleString() || 0}</div>
               <p className="text-xs text-muted-foreground">
-                Hits + Misses
+                {t("stats.total_requests_description")}
               </p>
             </CardContent>
           </Card>
@@ -211,23 +213,23 @@ export default function CachePage() {
         {/* Operations Stats */}
         <Card>
           <CardHeader>
-            <CardTitle>Opérations</CardTitle>
+            <CardTitle>{t("operations.title")}</CardTitle>
             <CardDescription>
-              Statistiques des opérations de cache
+              {t("operations.description")}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-3">
               <div>
-                <div className="text-sm font-medium text-muted-foreground">Sets</div>
+                <div className="text-sm font-medium text-muted-foreground">{t("operations.sets")}</div>
                 <div className="text-2xl font-bold">{stats?.sets.toLocaleString() || 0}</div>
               </div>
               <div>
-                <div className="text-sm font-medium text-muted-foreground">Deletes</div>
+                <div className="text-sm font-medium text-muted-foreground">{t("operations.deletes")}</div>
                 <div className="text-2xl font-bold">{stats?.deletes.toLocaleString() || 0}</div>
               </div>
               <div>
-                <div className="text-sm font-medium text-muted-foreground">Redis Hits</div>
+                <div className="text-sm font-medium text-muted-foreground">{t("operations.redis_hits")}</div>
                 <div className="text-2xl font-bold">{stats?.redis_hits?.toLocaleString() || 'N/A'}</div>
               </div>
             </div>
@@ -237,7 +239,7 @@ export default function CachePage() {
         {/* Performance Tips */}
         <Card>
           <CardHeader>
-            <CardTitle>Recommandations</CardTitle>
+            <CardTitle>{t("recommendations.title")}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2 text-sm">
@@ -245,9 +247,9 @@ export default function CachePage() {
                 <div className="flex items-start gap-2 text-amber-600">
                   <IconActivity className="h-4 w-4 mt-0.5" />
                   <div>
-                    <p className="font-medium">Taux de succès faible</p>
+                    <p className="font-medium">{t("recommendations.low_hit_rate")}</p>
                     <p className="text-xs text-muted-foreground">
-                      Considérez augmenter les TTL ou revoir la stratégie de cache
+                      {t("recommendations.low_hit_rate_description")}
                     </p>
                   </div>
                 </div>
@@ -256,9 +258,9 @@ export default function CachePage() {
                 <div className="flex items-start gap-2 text-green-600">
                   <IconCheck className="h-4 w-4 mt-0.5" />
                   <div>
-                    <p className="font-medium">Excellente performance du cache</p>
+                    <p className="font-medium">{t("recommendations.excellent_performance")}</p>
                     <p className="text-xs text-muted-foreground">
-                      Le cache est bien optimisé
+                      {t("recommendations.excellent_performance_description")}
                     </p>
                   </div>
                 </div>
@@ -272,21 +274,19 @@ export default function CachePage() {
       <AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Vider le cache ?</AlertDialogTitle>
+            <AlertDialogTitle>{t("dialog.clear.title")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Cette action supprimera toutes les données en cache. L&apos;application
-              continuera de fonctionner mais les performances pourraient être
-              temporairement réduites.
+              {t("dialog.clear.description")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogCancel>{t("dialog.clear.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleClearCache}
               disabled={clearing}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {clearing ? "En cours..." : "Vider le cache"}
+              {clearing ? t("dialog.clear.confirming") : t("dialog.clear.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

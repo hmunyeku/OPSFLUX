@@ -123,14 +123,32 @@ export function useTranslation(
   }, [namespaceCode, currentLanguage, languages, options.enableFallback])
 
   /**
-   * Fonction de traduction avec fallback automatique
+   * Fonction de traduction avec fallback automatique et interpolation
    * 1. Cherche dans les traductions de la langue courante
    * 2. Si non trouvé, cherche dans les traductions de la langue par défaut
    * 3. Si non trouvé, utilise le fallback manuel fourni
    * 4. Sinon, retourne la clé elle-même
+   *
+   * Support de l'interpolation : t("key", { name: "John" }) remplace {name} dans le texte
    */
-  const t = (key: string, fallback?: string): string => {
-    return translations[key] || fallbackTranslations[key] || fallback || key
+  const t = (key: string, params?: Record<string, unknown> | string): string => {
+    // Si params est une string, c'est un fallback simple (compatibilité)
+    if (typeof params === "string") {
+      return translations[key] || fallbackTranslations[key] || params || key
+    }
+
+    // Récupérer la traduction
+    let text = translations[key] || fallbackTranslations[key] || key
+
+    // Appliquer l'interpolation si des paramètres sont fournis
+    if (params && typeof params === "object") {
+      Object.keys(params).forEach((paramKey) => {
+        const regex = new RegExp(`\\{${paramKey}\\}`, "g")
+        text = text.replace(regex, String(params[paramKey]))
+      })
+    }
+
+    return text
   }
 
   return {

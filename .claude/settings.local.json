@@ -149,7 +149,14 @@
       "Bash(git rm:*)",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzODQwNDMsInN1YiI6IjA2MGM2Yjg5LTAxYmQtNDU2Ny05MTY0LTU2MWI5ZGVmOWU2ZiIsInR5cGUiOiJhY2Nlc3MifQ.ucZuw8eI996wk4tKsIrLJUoKJISUR24hoawyD6g8DkY\" curl -s -X GET \"http://localhost:8000/api/v1/languages/?is_active=true\" -H \"Authorization: Bearer $TOKEN\")",
       "Bash(uv run python3:*)",
-      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzODQwNDMsInN1YiI6IjA2MGM2Yjg5LTAxYmQtNDU2Ny05MTY0LTU2MWI5ZGVmOWU2ZiIsInR5cGUiOiJhY2Nlc3MifQ.ucZuw8eI996wk4tKsIrLJUoKJISUR24hoawyD6g8DkY\" curl -s -X GET \"http://localhost:8000/api/v1/roles/\" -H \"Authorization: Bearer $TOKEN\")"
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzODQwNDMsInN1YiI6IjA2MGM2Yjg5LTAxYmQtNDU2Ny05MTY0LTU2MWI5ZGVmOWU2ZiIsInR5cGUiOiJhY2Nlc3MifQ.ucZuw8eI996wk4tKsIrLJUoKJISUR24hoawyD6g8DkY\" curl -s -X GET \"http://localhost:8000/api/v1/roles/\" -H \"Authorization: Bearer $TOKEN\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjEzODQwNDMsInN1YiI6IjA2MGM2Yjg5LTAxYmQtNDU2Ny05MTY0LTU2MWI5ZGVmOWU2ZiIsInR5cGUiOiJhY2Nlc3MifQ.ucZuw8eI996wk4tKsIrLJUoKJISUR24hoawyD6g8DkY\" curl -s -X POST \"http://localhost:8000/api/v1/settings/verify-email-connection\" -H \"Authorization: Bearer $TOKEN\" -H \"Content-Type: application/json\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjE0MTI0NzIsInN1YiI6IjA2MGM2Yjg5LTAxYmQtNDU2Ny05MTY0LTU2MWI5ZGVmOWU2ZiIsInR5cGUiOiJhY2Nlc3MifQ.F_VThnxwCqEJGnL_fQmkyHXboOs_tKIyPON98h9aL7o\")",
+      "Bash(git restore:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjE0NjQ3NjAsInN1YiI6IjA2MGM2Yjg5LTAxYmQtNDU2Ny05MTY0LTU2MWI5ZGVmOWU2ZiIsInR5cGUiOiJhY2Nlc3MifQ.nkbHmuExHzhylHGx52ostbjg5_V-AuRZmtR6xGgbKPA\" curl -s -X GET \"http://localhost:8000/api/v1/modules/\" -H \"Authorization: Bearer $TOKEN\")",
+      "Bash(export:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjE0NjQ3NjAsInN1YiI6IjA2MGM2Yjg5LTAxYmQtNDU2Ny05MTY0LTU2MWI5ZGVmOWU2ZiIsInR5cGUiOiJhY2Nlc3MifQ.nkbHmuExHzhylHGx52ostbjg5_V-AuRZmtR6xGgbKPA\" curl -s -X GET \"http://localhost:8000/api/v1/languages/translations/?namespace_id=724ec53e-91c0-4ddd-9bb7-605f1eb791dc&language_id=0f12a12d-f56c-46a0-a3cd-1987b79695bf&limit=3\" -H \"Authorization: Bearer $TOKEN\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjE0Njc5MjksInN1YiI6IjA2MGM2Yjg5LTAxYmQtNDU2Ny05MTY0LTU2MWI5ZGVmOWU2ZiIsInR5cGUiOiJhY2Nlc3MifQ.8r-CS24VGReanhi4uMIr4zNvP9B-UGQPY_GtU6flvyk\" curl -s -X GET \"http://localhost:8000/api/v1/languages/translations/?namespace_id=724ec53e-91c0-4ddd-9bb7-605f1eb791dc&language_id=0f12a12d-f56c-46a0-a3cd-1987b79695bf&limit=3\" -H \"Authorization: Bearer $TOKEN\")"
     ],
     "deny": [],
     "ask": []

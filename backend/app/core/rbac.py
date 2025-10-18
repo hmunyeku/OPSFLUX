@@ -7,7 +7,8 @@ from functools import wraps
 from typing import Callable
 from fastapi import HTTPException, status
 from sqlmodel import select, Session
-from app.models import User, Permission, RolePermissionLink, UserRoleLink
+from app.models import User
+from app.models_rbac import Permission, RolePermissionLink, UserRoleLink
 
 
 async def has_permission(

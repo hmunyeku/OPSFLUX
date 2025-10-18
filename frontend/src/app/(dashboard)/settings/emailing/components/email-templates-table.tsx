@@ -35,6 +35,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { IconDotsVertical, IconEdit, IconMail, IconTrash, IconChevronLeft, IconChevronRight, IconChevronsLeft, IconChevronsRight, IconArrowUp } from "@tabler/icons-react"
 import { useToast } from "@/hooks/use-toast"
 import { apiClient } from "@/lib/api-client"
@@ -200,7 +206,16 @@ export default function EmailTemplatesTable({ onEdit }: EmailTemplatesTableProps
         header: "Sujet",
         cell: ({ row }) => {
           const subject = row.getValue("subject") as string
-          return <div className="max-w-md truncate">{subject}</div>
+          return (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="max-w-md truncate cursor-help">{subject}</div>
+                </TooltipTrigger>
+                <TooltipContent>{subject}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )
         },
       },
       {
@@ -284,8 +299,8 @@ export default function EmailTemplatesTable({ onEdit }: EmailTemplatesTableProps
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border">
-        <Table>
+      <div className="rounded-md border overflow-x-auto">
+        <Table className="min-w-[800px]">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
@@ -322,14 +337,16 @@ export default function EmailTemplatesTable({ onEdit }: EmailTemplatesTableProps
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <p className="text-sm text-muted-foreground">
-            Affichage de {pagination.pageIndex * pagination.pageSize + 1} à{" "}
-            {Math.min((pagination.pageIndex + 1) * pagination.pageSize, total)} sur {total} résultats
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center space-x-2 text-xs sm:text-sm">
+          <p className="text-muted-foreground">
+            <span className="hidden sm:inline">Affichage de </span>
+            {pagination.pageIndex * pagination.pageSize + 1}-{Math.min((pagination.pageIndex + 1) * pagination.pageSize, total)}
+            <span className="hidden sm:inline"> sur</span>
+            <span className="sm:hidden">/</span> {total}
           </p>
         </div>
-        <div className="flex items-center space-x-6">
+        <div className="flex items-center justify-between sm:justify-end space-x-4 sm:space-x-6">
           <div className="flex items-center space-x-2">
             <p className="text-sm font-medium">Lignes par page</p>
             <Select

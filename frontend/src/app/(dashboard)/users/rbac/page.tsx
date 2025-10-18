@@ -236,9 +236,9 @@ export default function RBACPage() {
         </Card>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-[350px_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[350px_1fr]">
         {/* Left Panel - Roles List */}
-        <Card>
+        <Card className="lg:h-[calc(100vh-200px)] lg:sticky lg:top-4">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5" />
@@ -293,12 +293,12 @@ export default function RBACPage() {
                               {role.description}
                             </p>
                           )}
-                          <div className="flex items-center gap-2 text-xs">
-                            <Badge variant="outline" className="text-xs">
-                              {role.permissions?.length || 0} permission(s)
+                          <div className="flex flex-wrap items-center gap-2 text-xs">
+                            <Badge variant="outline" className="text-xs whitespace-nowrap">
+                              {role.permissions?.length || 0} perm{role.permissions?.length > 1 ? 's' : ''}
                             </Badge>
                             {role.is_system && (
-                              <Badge variant="secondary" className="text-xs">
+                              <Badge variant="secondary" className="text-xs whitespace-nowrap">
                                 Système
                               </Badge>
                             )}

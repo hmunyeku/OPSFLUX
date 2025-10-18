@@ -714,9 +714,18 @@ export default function ModulesPage() {
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
             <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="overview" className="text-xs">Aperçu</TabsTrigger>
-              <TabsTrigger value="details" className="text-xs">Détails</TabsTrigger>
-              <TabsTrigger value="config" className="text-xs">Configuration</TabsTrigger>
+              <TabsTrigger value="overview" className="text-sm">
+                <span className="hidden sm:inline">Aperçu</span>
+                <span className="sm:hidden">Aperçu</span>
+              </TabsTrigger>
+              <TabsTrigger value="details" className="text-sm">
+                <span className="hidden sm:inline">Détails</span>
+                <span className="sm:hidden">Détails</span>
+              </TabsTrigger>
+              <TabsTrigger value="config" className="text-sm">
+                <span className="hidden sm:inline">Configuration</span>
+                <span className="sm:hidden">Config</span>
+              </TabsTrigger>
             </TabsList>
 
             {/* Tab: Aperçu */}

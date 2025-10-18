@@ -30,16 +30,17 @@ export default function EmailTemplatesClient() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Templates d&apos;Email</h1>
-          <p className="text-muted-foreground">
-            Gérez vos templates d&apos;email réutilisables avec variables dynamiques
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Templates d&apos;Email</h1>
+          <p className="text-sm text-muted-foreground">
+            Gérez vos templates d&apos;email
           </p>
         </div>
-        <Button onClick={handleCreate}>
+        <Button onClick={handleCreate} className="w-full sm:w-auto">
           <IconPlus className="mr-2 h-4 w-4" />
-          Nouveau Template
+          <span className="hidden sm:inline">Nouveau Template</span>
+          <span className="sm:hidden">Nouveau</span>
         </Button>
       </div>
 

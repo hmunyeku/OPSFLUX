@@ -129,7 +129,7 @@ export default function ApiKeysPage() {
           </BreadcrumbList>
         </Breadcrumb>
 
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:flex-wrap">
           <div>
             <h2 className="text-2xl font-bold">{t("api_keys.title")}</h2>
             <p className="text-muted-foreground text-sm">
@@ -137,7 +137,7 @@ export default function ApiKeysPage() {
             </p>
           </div>
           <Select value={environmentFilter} onValueChange={setEnvironmentFilter}>
-            <SelectTrigger className="w-fit gap-2 text-sm">
+            <SelectTrigger className="w-full sm:w-[200px] gap-2 text-sm">
               <SelectValue placeholder="Environnement" />
             </SelectTrigger>
             <SelectContent>
@@ -211,29 +211,33 @@ export default function ApiKeysPage() {
                   {secretKeys.map((key) => (
                     <div
                       key={key.id}
-                      className="flex flex-col gap-2 rounded-lg border p-4"
+                      className="flex flex-col gap-3 rounded-lg border p-4"
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold">{key.name}</h3>
-                          <Badge variant={key.is_active ? "default" : "secondary"}>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <h3 className="font-semibold truncate">{key.name}</h3>
+                          <Badge variant={key.is_active ? "default" : "secondary"} className="shrink-0">
                             {key.is_active ? "Active" : "Inactive"}
                           </Badge>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 justify-end sm:justify-start">
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="h-8 w-8 p-0"
                             onClick={() => handleToggleActive(key.id, key.is_active)}
                           >
                             {key.is_active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            <span className="sr-only">Toggle</span>
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="h-8 w-8 p-0"
                             onClick={() => handleDeleteKey(key.id)}
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
+                            <span className="sr-only">Supprimer</span>
                           </Button>
                         </div>
                       </div>
@@ -241,9 +245,9 @@ export default function ApiKeysPage() {
                         <Input
                           readOnly
                           value={key.key_preview}
-                          className="font-mono text-xs"
+                          className="font-mono text-xs min-w-0"
                         />
-                        <CopyButton text={key.key_preview} />
+                        <CopyButton text={key.key_preview} className="shrink-0" />
                       </div>
                       <p className="text-xs text-muted-foreground">
                         Créée le {format(new Date(key.created_at), "dd/MM/yyyy à HH:mm")}

@@ -98,9 +98,9 @@ export default function PlanDetail() {
             <IconArrowUpRight />
           </Button>
         </div>
-        <div className="border-muted-foreground grid grid-cols-6 gap-4 rounded-md border-[1px] p-4">
+        <div className="border-muted-foreground grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 rounded-md border-[1px] p-4">
           {plan?.features.map((feature) => (
-            <div key={feature} className="col-span-3 flex items-center gap-2">
+            <div key={feature} className="sm:col-span-1 lg:col-span-3 flex items-center gap-2">
               <IconCheck size={18} strokeWidth={1.5} />
               <p className="text-sm">{feature}</p>
             </div>
@@ -119,9 +119,9 @@ export default function PlanDetail() {
             <IconArrowUpRight />
           </Button>
         </div>
-        <div className="border-muted-foreground grid grid-cols-6 gap-4 rounded-md border-[1px] p-4">
+        <div className="border-muted-foreground grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 rounded-md border-[1px] p-4">
           {plan?.additionalResources.map((resource) => (
-            <div key={resource} className="col-span-3 flex items-center gap-2">
+            <div key={resource} className="sm:col-span-1 lg:col-span-3 flex items-center gap-2">
               <IconCheck size={18} strokeWidth={1.5} />
               <p className="text-sm">{resource}</p>
             </div>

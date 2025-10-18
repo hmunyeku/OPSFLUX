@@ -69,7 +69,7 @@ export default function BillingForm() {
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
-        className="mb-4xx grid grid-cols-6 gap-5"
+        className="mb-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-5"
       >
         <FormField
           control={form.control}
@@ -110,7 +110,7 @@ export default function BillingForm() {
                   onValueChange={field.onChange}
                   defaultValue={field.value}
                   value={field.value}
-                  className="grid grid-cols-3 gap-4"
+                  className="grid grid-cols-1 sm:grid-cols-3 gap-4"
                 >
                   <FormItem className="col-span-1 flex items-center">
                     <FormControl>

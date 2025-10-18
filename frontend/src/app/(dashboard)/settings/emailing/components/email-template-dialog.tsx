@@ -190,7 +190,7 @@ export default function EmailTemplateDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-[95vw] sm:max-w-2xl lg:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {templateId ? "Modifier le Template" : "Nouveau Template d'Email"}
@@ -202,7 +202,7 @@ export default function EmailTemplateDialog({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="name"
@@ -235,7 +235,7 @@ export default function EmailTemplateDialog({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="category"
@@ -330,13 +330,15 @@ export default function EmailTemplateDialog({
 
             <Tabs defaultValue="editor" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="editor">
-                  <IconCode className="mr-2 h-4 w-4" />
-                  Éditeur HTML
+                <TabsTrigger value="editor" className="text-sm">
+                  <IconCode className="mr-1 h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Éditeur HTML</span>
+                  <span className="sm:hidden">Éditeur</span>
                 </TabsTrigger>
-                <TabsTrigger value="preview">
-                  <IconEye className="mr-2 h-4 w-4" />
-                  Aperçu
+                <TabsTrigger value="preview" className="text-sm">
+                  <IconEye className="mr-1 h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Aperçu</span>
+                  <span className="sm:hidden">Preview</span>
                 </TabsTrigger>
               </TabsList>
 
@@ -350,8 +352,7 @@ export default function EmailTemplateDialog({
                       <FormControl>
                         <Textarea
                           placeholder="<html><body>...</body></html>"
-                          className="font-mono text-xs"
-                          rows={15}
+                          className="font-mono text-xs min-h-[200px] sm:min-h-[400px]"
                           {...field}
                           onChange={(e) => handleHtmlChange(e.target.value)}
                         />

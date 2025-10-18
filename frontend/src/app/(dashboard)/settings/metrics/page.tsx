@@ -137,7 +137,7 @@ export default function MetricsPage() {
             return (
               <div key={label} className="space-y-1">
                 <div className="text-xs text-muted-foreground">{label || "total"}</div>
-                <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                   <div>
                     <span className="text-muted-foreground">Count: </span>
                     <span className="font-medium">{histData.count}</span>
@@ -150,7 +150,7 @@ export default function MetricsPage() {
                 {histData.buckets && Object.keys(histData.buckets).length > 0 && (
                   <div className="mt-1">
                     <div className="text-xs text-muted-foreground mb-1">Buckets:</div>
-                    <div className="grid grid-cols-3 gap-1 text-xs">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1 text-xs">
                       {Object.entries(histData.buckets).slice(0, 6).map(([bucket, count]) => (
                         <div key={bucket} className="flex justify-between">
                           <span className="text-muted-foreground">≤{bucket}:</span>
@@ -197,18 +197,18 @@ export default function MetricsPage() {
     >
       <div className="space-y-6">
         {/* Actions */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
             <IconChartBar className="h-5 w-5 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">
-              Total métriques: {totalMetrics}
+              Total: {totalMetrics}
             </span>
           </div>
 
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={fetchStats}>
               <IconRefresh className="mr-2 h-4 w-4" />
-              Actualiser
+              <span className="hidden sm:inline">Actualiser</span>
             </Button>
             <Button
               variant="destructive"
@@ -216,7 +216,7 @@ export default function MetricsPage() {
               onClick={() => setResetDialogOpen(true)}
             >
               <IconTrash className="mr-2 h-4 w-4" />
-              Réinitialiser
+              <span className="hidden sm:inline">Réinitialiser</span>
             </Button>
           </div>
         </div>

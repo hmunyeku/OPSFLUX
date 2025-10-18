@@ -198,7 +198,7 @@ export default function QueuePage() {
                         Actif
                       </Badge>
                     </div>
-                    <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                       <div>
                         <div className="text-muted-foreground">Actives</div>
                         <div className="font-semibold">{worker.active}</div>

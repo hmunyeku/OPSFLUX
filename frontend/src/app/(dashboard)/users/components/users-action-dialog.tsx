@@ -159,19 +159,20 @@ export function UsersActionDialog({ currentRow, open, onOpenChange }: Props) {
               control={form.control}
               name="firstName"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-6 items-center gap-x-4 space-y-0 gap-y-1">
-                  <FormLabel className="col-span-2 text-right">
+                <FormItem className="grid grid-cols-1 sm:grid-cols-6 items-start sm:items-center gap-2 sm:gap-x-4">
+                  <FormLabel className="sm:col-span-2 sm:text-right">
                     First Name
                   </FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="John"
-                      className="col-span-4"
-                      autoComplete="off"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage className="col-span-4 col-start-3" />
+                  <div className="sm:col-span-4">
+                    <FormControl>
+                      <Input
+                        placeholder="John"
+                        autoComplete="off"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </div>
                 </FormItem>
               )}
             />
@@ -179,19 +180,20 @@ export function UsersActionDialog({ currentRow, open, onOpenChange }: Props) {
               control={form.control}
               name="lastName"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-6 items-center gap-x-4 space-y-0 gap-y-1">
-                  <FormLabel className="col-span-2 text-right">
+                <FormItem className="grid grid-cols-1 sm:grid-cols-6 items-start sm:items-center gap-2 sm:gap-x-4">
+                  <FormLabel className="sm:col-span-2 sm:text-right">
                     Last Name
                   </FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Doe"
-                      className="col-span-4"
-                      autoComplete="off"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage className="col-span-4 col-start-3" />
+                  <div className="sm:col-span-4">
+                    <FormControl>
+                      <Input
+                        placeholder="Doe"
+                        autoComplete="off"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </div>
                 </FormItem>
               )}
             />
@@ -199,18 +201,19 @@ export function UsersActionDialog({ currentRow, open, onOpenChange }: Props) {
               control={form.control}
               name="username"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-6 items-center gap-x-4 space-y-0 gap-y-1">
-                  <FormLabel className="col-span-2 text-right">
+                <FormItem className="grid grid-cols-1 sm:grid-cols-6 items-start sm:items-center gap-2 sm:gap-x-4">
+                  <FormLabel className="sm:col-span-2 sm:text-right">
                     Username
                   </FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="john_doe"
-                      className="col-span-4"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage className="col-span-4 col-start-3" />
+                  <div className="sm:col-span-4">
+                    <FormControl>
+                      <Input
+                        placeholder="john_doe"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </div>
                 </FormItem>
               )}
             />
@@ -218,16 +221,17 @@ export function UsersActionDialog({ currentRow, open, onOpenChange }: Props) {
               control={form.control}
               name="email"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-6 items-center gap-x-4 space-y-0 gap-y-1">
-                  <FormLabel className="col-span-2 text-right">Email</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="john.doe@gmail.com"
-                      className="col-span-4"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage className="col-span-4 col-start-3" />
+                <FormItem className="grid grid-cols-1 sm:grid-cols-6 items-start sm:items-center gap-2 sm:gap-x-4">
+                  <FormLabel className="sm:col-span-2 sm:text-right">Email</FormLabel>
+                  <div className="sm:col-span-4">
+                    <FormControl>
+                      <Input
+                        placeholder="john.doe@gmail.com"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </div>
                 </FormItem>
               )}
             />
@@ -235,18 +239,19 @@ export function UsersActionDialog({ currentRow, open, onOpenChange }: Props) {
               control={form.control}
               name="phoneNumber"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-6 items-center gap-x-4 space-y-0 gap-y-1">
-                  <FormLabel className="col-span-2 text-right">
+                <FormItem className="grid grid-cols-1 sm:grid-cols-6 items-start sm:items-center gap-2 sm:gap-x-4">
+                  <FormLabel className="sm:col-span-2 sm:text-right">
                     Phone Number
                   </FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="+123456789"
-                      className="col-span-4"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage className="col-span-4 col-start-3" />
+                  <div className="sm:col-span-4">
+                    <FormControl>
+                      <Input
+                        placeholder="+123456789"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </div>
                 </FormItem>
               )}
             />
@@ -254,19 +259,20 @@ export function UsersActionDialog({ currentRow, open, onOpenChange }: Props) {
               control={form.control}
               name="role"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-6 items-center gap-x-4 space-y-0 gap-y-1">
-                  <FormLabel className="col-span-2 text-right">Role</FormLabel>
-                  <SelectDropdown
-                    defaultValue={field.value}
-                    onValueChange={field.onChange}
-                    placeholder="Select a role"
-                    className="col-span-4"
-                    items={userTypes.map(({ label, value }) => ({
-                      label,
-                      value,
-                    }))}
-                  />
-                  <FormMessage className="col-span-4 col-start-3" />
+                <FormItem className="grid grid-cols-1 sm:grid-cols-6 items-start sm:items-center gap-2 sm:gap-x-4">
+                  <FormLabel className="sm:col-span-2 sm:text-right">Role</FormLabel>
+                  <div className="sm:col-span-4">
+                    <SelectDropdown
+                      defaultValue={field.value}
+                      onValueChange={field.onChange}
+                      placeholder="Select a role"
+                      items={userTypes.map(({ label, value }) => ({
+                        label,
+                        value,
+                      }))}
+                    />
+                    <FormMessage />
+                  </div>
                 </FormItem>
               )}
             />
@@ -274,18 +280,19 @@ export function UsersActionDialog({ currentRow, open, onOpenChange }: Props) {
               control={form.control}
               name="password"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-6 items-center gap-x-4 space-y-0 gap-y-1">
-                  <FormLabel className="col-span-2 text-right">
+                <FormItem className="grid grid-cols-1 sm:grid-cols-6 items-start sm:items-center gap-2 sm:gap-x-4">
+                  <FormLabel className="sm:col-span-2 sm:text-right">
                     Password
                   </FormLabel>
-                  <FormControl>
-                    <PasswordInput
-                      placeholder="********"
-                      className="col-span-4"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage className="col-span-4 col-start-3" />
+                  <div className="sm:col-span-4">
+                    <FormControl>
+                      <PasswordInput
+                        placeholder="********"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </div>
                 </FormItem>
               )}
             />
@@ -293,19 +300,20 @@ export function UsersActionDialog({ currentRow, open, onOpenChange }: Props) {
               control={form.control}
               name="confirmPassword"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-6 items-center gap-x-4 space-y-0 gap-y-1">
-                  <FormLabel className="col-span-2 text-right">
+                <FormItem className="grid grid-cols-1 sm:grid-cols-6 items-start sm:items-center gap-2 sm:gap-x-4">
+                  <FormLabel className="sm:col-span-2 sm:text-right">
                     Confirm Password
                   </FormLabel>
-                  <FormControl>
-                    <PasswordInput
-                      disabled={!isPasswordTouched}
-                      placeholder="********"
-                      className="col-span-4"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage className="col-span-4 col-start-3" />
+                  <div className="sm:col-span-4">
+                    <FormControl>
+                      <PasswordInput
+                        disabled={!isPasswordTouched}
+                        placeholder="********"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </div>
                 </FormItem>
               )}
             />

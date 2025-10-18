@@ -230,9 +230,9 @@ export default function GroupsPage() {
         </Card>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-[350px_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[350px_1fr]">
         {/* Left Panel - Groups Tree */}
-        <Card>
+        <Card className="lg:h-[calc(100vh-200px)] lg:sticky lg:top-4">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FolderTree className="h-5 w-5" />
@@ -283,12 +283,12 @@ export default function GroupsPage() {
                               {group.description}
                             </p>
                           )}
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <Badge variant="secondary" className="text-xs">
-                              {group.users_count || 0} utilisateur(s)
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                            <Badge variant="secondary" className="text-xs whitespace-nowrap">
+                              {group.users_count || 0} user{group.users_count > 1 ? 's' : ''}
                             </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              {group.permissions?.length || 0} permission(s)
+                            <Badge variant="outline" className="text-xs whitespace-nowrap">
+                              {group.permissions?.length || 0} perm{group.permissions?.length > 1 ? 's' : ''}
                             </Badge>
                           </div>
                         </div>

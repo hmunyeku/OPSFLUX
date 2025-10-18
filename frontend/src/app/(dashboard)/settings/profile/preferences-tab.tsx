@@ -1096,7 +1096,7 @@ export function PreferencesTab() {
               </AlertDescription>
             </Alert>
 
-            <div className="grid grid-cols-2 gap-2 p-4 bg-muted rounded-lg font-mono text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-4 bg-muted rounded-lg font-mono text-xs sm:text-sm overflow-x-auto">
               {backupCodes.map((code, index) => (
                 <div key={index} className="text-center">
                   {code}

@@ -174,9 +174,9 @@ export default function StoragePage() {
     >
       <div className="space-y-6">
         {/* Filters & Actions */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="relative flex-1 min-w-[200px]">
+            <div className="relative flex-1 w-full sm:min-w-[200px]">
               <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder={t("actions.search")}
@@ -186,7 +186,7 @@ export default function StoragePage() {
               />
             </div>
             <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="w-full sm:w-[160px]">
                 <SelectValue placeholder={t("actions.category")} />
               </SelectTrigger>
               <SelectContent>
@@ -200,7 +200,7 @@ export default function StoragePage() {
             </Select>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 justify-end sm:justify-start">
             <Button variant="outline" size="sm" onClick={fetchFiles}>
               <IconRefresh className="mr-2 h-4 w-4" />
               {t("actions.refresh")}
@@ -268,40 +268,44 @@ export default function StoragePage() {
                 {filteredFiles.map((file) => (
                   <div
                     key={file.path}
-                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 p-3 border rounded-lg hover:bg-muted/50"
                   >
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       {getCategoryIcon(file.category)}
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{file.filename}</p>
-                        <div className="flex gap-2 text-xs text-muted-foreground">
+                        <div className="flex flex-wrap gap-x-2 gap-y-1 text-xs text-muted-foreground">
                           <span>{formatFileSize(file.size)}</span>
-                          <span>•</span>
+                          <span className="hidden sm:inline">•</span>
                           <Badge variant="outline" className="text-xs">
                             {file.category}
                           </Badge>
-                          <span>•</span>
-                          <span>{file.module}</span>
+                          <span className="hidden sm:inline">•</span>
+                          <span className="truncate max-w-[100px]">{file.module}</span>
                         </div>
                       </div>
                     </div>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1 justify-end sm:justify-start">
                       <Button
                         variant="ghost"
                         size="sm"
+                        className="h-8 w-8 p-0"
                         onClick={() => window.open(getFileUrl(file.path), "_blank")}
                       >
                         <IconDownload className="h-4 w-4" />
+                        <span className="sr-only">Télécharger</span>
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
+                        className="h-8 w-8 p-0"
                         onClick={() => {
                           setFileToDelete(file)
                           setDeleteDialogOpen(true)
                         }}
                       >
                         <IconTrash className="h-4 w-4 text-destructive" />
+                        <span className="sr-only">Supprimer</span>
                       </Button>
                     </div>
                   </div>

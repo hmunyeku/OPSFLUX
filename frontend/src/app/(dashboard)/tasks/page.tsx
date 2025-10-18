@@ -43,7 +43,7 @@ export default function TasksPage() {
 
   return (
     <>
-      <div className="mb-2 flex items-baseline justify-between gap-2">
+      <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">{t("page.title")}</h2>
           <p className="text-muted-foreground">

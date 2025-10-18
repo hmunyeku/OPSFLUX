@@ -17,11 +17,22 @@ export default function SettingsProfilePage() {
   return (
     <ContentSection title={t("profile.title")} desc={t("profile.description")} className="w-full lg:max-w-full">
       <Tabs defaultValue={tab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="profile">{t("profile.tabs.profile")}</TabsTrigger>
-          <TabsTrigger value="preferences">{t("profile.tabs.preferences")}</TabsTrigger>
-          <TabsTrigger value="informations">{t("profile.tabs.informations")}</TabsTrigger>
-          <TabsTrigger value="api">{t("profile.tabs.api")}</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-1">
+          <TabsTrigger value="profile" className="text-xs sm:text-sm">
+            <span className="hidden sm:inline">{t("profile.tabs.profile")}</span>
+            <span className="sm:hidden">Profil</span>
+          </TabsTrigger>
+          <TabsTrigger value="preferences" className="text-xs sm:text-sm">
+            <span className="hidden sm:inline">{t("profile.tabs.preferences")}</span>
+            <span className="sm:hidden">Préf.</span>
+          </TabsTrigger>
+          <TabsTrigger value="informations" className="text-xs sm:text-sm">
+            <span className="hidden sm:inline">{t("profile.tabs.informations")}</span>
+            <span className="sm:hidden">Infos</span>
+          </TabsTrigger>
+          <TabsTrigger value="api" className="text-xs sm:text-sm">
+            API
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="profile" className="space-y-4">
           <AccountForm />

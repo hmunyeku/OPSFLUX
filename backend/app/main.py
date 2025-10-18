@@ -14,7 +14,9 @@ from app.core.api_key_auth import verify_api_key
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
-    return f"{route.tags[0]}-{route.name}"
+    if route.tags:
+        return f"{route.tags[0]}-{route.name}"
+    return route.name or "default"
 
 
 @asynccontextmanager

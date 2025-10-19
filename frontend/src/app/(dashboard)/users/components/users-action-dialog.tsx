@@ -17,6 +17,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -25,11 +26,14 @@ import {
 import { Input } from "@/components/ui/input"
 import { PasswordInput } from "@/components/password-input"
 import SelectDropdown from "@/components/select-dropdown"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Separator } from "@/components/ui/separator"
 import { User } from "../data/schema"
 import { createUser, updateUser } from "../data/users-api"
 import { getRoles } from "../roles/data/roles-api"
 import { Role } from "../roles/data/schema"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
+import { IconLoader2, IconCheck, IconX } from "@tabler/icons-react"
 
 interface Props {
   currentRow?: User
@@ -204,6 +208,17 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
     }
   }
 
+  // Password strength indicators
+  const password = form.watch("password")
+  const passwordStrength = useMemo(() => {
+    if (!password || isEdit) return null
+    return {
+      hasMinLength: password.length >= 8,
+      hasLowercase: /[a-z]/.test(password),
+      hasNumber: /\d/.test(password),
+    }
+  }, [password, isEdit])
+
   const isPasswordTouched = !!form.formState.dirtyFields.password
 
   return (
@@ -214,8 +229,8 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
         onOpenChange(state)
       }}
     >
-      <SheetContent className="overflow-y-auto sm:max-w-lg">
-        <SheetHeader>
+      <SheetContent className="flex flex-col overflow-hidden w-full sm:max-w-xl lg:max-w-2xl">
+        <SheetHeader className="flex-shrink-0">
           <SheetTitle>
             {isEdit ? t("create_dialog.title_edit") : t("create_dialog.title_create")}
           </SheetTitle>
@@ -223,165 +238,249 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
             {isEdit ? t("create_dialog.description_edit") : t("create_dialog.description_create")}
           </SheetDescription>
         </SheetHeader>
-        <Form {...form}>
-          <form
-            id="user-form"
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="space-y-4"
-          >
-            <FormField
-              control={form.control}
-              name="firstName"
-              render={({ field }) => (
-                <FormItem className="grid grid-cols-1 sm:grid-cols-6 items-start sm:items-center gap-2 sm:gap-x-4">
-                  <FormLabel className="sm:col-span-2 sm:text-right">
-                    {t("fields.first_name.label")}
-                  </FormLabel>
-                  <div className="sm:col-span-4">
-                    <FormControl>
-                      <Input
-                        placeholder={t("fields.first_name.placeholder")}
-                        autoComplete="off"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
+
+        <div className="flex-1 overflow-y-auto px-1 -mx-1">
+          <Form {...form}>
+            <form
+              id="user-form"
+              onSubmit={form.handleSubmit(onSubmit)}
+              className="space-y-6 py-4"
+            >
+              {/* Personal Information Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-medium text-foreground">
+                    {t("sections.personal_info", "Personal Information")}
+                  </h3>
+                  <Separator className="flex-1" />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="firstName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t("fields.first_name.label")}</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder={t("fields.first_name.placeholder")}
+                            autoComplete="given-name"
+                            className="h-11"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="lastName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t("fields.last_name.label")}</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder={t("fields.last_name.placeholder")}
+                            autoComplete="family-name"
+                            className="h-11"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("fields.email.label")}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          placeholder={t("fields.email.placeholder")}
+                          autoComplete="email"
+                          inputMode="email"
+                          className="h-11"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        {t("fields.email.helper", "User will receive notifications at this address")}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="phoneNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("fields.phone_number.label")}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="tel"
+                          placeholder={t("fields.phone_number.placeholder")}
+                          autoComplete="tel"
+                          inputMode="tel"
+                          className="h-11"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Account Details Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-medium text-foreground">
+                    {t("sections.account", "Account Details")}
+                  </h3>
+                  <Separator className="flex-1" />
+                </div>
+
+                {isLoadingRoles ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-11 w-full" />
                   </div>
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="lastName"
-              render={({ field }) => (
-                <FormItem className="grid grid-cols-1 sm:grid-cols-6 items-start sm:items-center gap-2 sm:gap-x-4">
-                  <FormLabel className="sm:col-span-2 sm:text-right">
-                    {t("fields.last_name.label")}
-                  </FormLabel>
-                  <div className="sm:col-span-4">
-                    <FormControl>
-                      <Input
-                        placeholder={t("fields.last_name.placeholder")}
-                        autoComplete="off"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </div>
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem className="grid grid-cols-1 sm:grid-cols-6 items-start sm:items-center gap-2 sm:gap-x-4">
-                  <FormLabel className="sm:col-span-2 sm:text-right">
-                    {t("fields.email.label")}
-                  </FormLabel>
-                  <div className="sm:col-span-4">
-                    <FormControl>
-                      <Input
-                        placeholder={t("fields.email.placeholder")}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </div>
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="phoneNumber"
-              render={({ field }) => (
-                <FormItem className="grid grid-cols-1 sm:grid-cols-6 items-start sm:items-center gap-2 sm:gap-x-4">
-                  <FormLabel className="sm:col-span-2 sm:text-right">
-                    {t("fields.phone_number.label")}
-                  </FormLabel>
-                  <div className="sm:col-span-4">
-                    <FormControl>
-                      <Input
-                        placeholder={t("fields.phone_number.placeholder")}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </div>
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="role_id"
-              render={({ field }) => (
-                <FormItem className="grid grid-cols-1 sm:grid-cols-6 items-start sm:items-center gap-2 sm:gap-x-4">
-                  <FormLabel className="sm:col-span-2 sm:text-right">
-                    {t("fields.role.label")}
-                  </FormLabel>
-                  <div className="sm:col-span-4">
-                    <SelectDropdown
-                      defaultValue={field.value}
-                      onValueChange={field.onChange}
-                      placeholder={isLoadingRoles ? t("fields.role.loading") : t("fields.role.placeholder")}
-                      disabled={isLoadingRoles}
-                      items={roles.map((role) => ({
-                        label: role.name,
-                        value: role.id,
-                      }))}
-                    />
-                    <FormMessage />
-                  </div>
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem className="grid grid-cols-1 sm:grid-cols-6 items-start sm:items-center gap-2 sm:gap-x-4">
-                  <FormLabel className="sm:col-span-2 sm:text-right">
-                    {t("fields.password.label")}
-                  </FormLabel>
-                  <div className="sm:col-span-4">
-                    <FormControl>
-                      <PasswordInput
-                        placeholder={t("fields.password.placeholder")}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </div>
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="confirmPassword"
-              render={({ field }) => (
-                <FormItem className="grid grid-cols-1 sm:grid-cols-6 items-start sm:items-center gap-2 sm:gap-x-4">
-                  <FormLabel className="sm:col-span-2 sm:text-right">
-                    {t("fields.confirm_password.label")}
-                  </FormLabel>
-                  <div className="sm:col-span-4">
-                    <FormControl>
-                      <PasswordInput
-                        disabled={!isPasswordTouched}
-                        placeholder={t("fields.confirm_password.placeholder")}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </div>
-                </FormItem>
-              )}
-            />
-          </form>
-        </Form>
-        <SheetFooter className="mt-6">
-          <Button type="submit" form="user-form" disabled={isSubmitting}>
-            {isSubmitting ? t("create_dialog.saving") : t("create_dialog.save_changes")}
-          </Button>
+                ) : (
+                  <FormField
+                    control={form.control}
+                    name="role_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t("fields.role.label")}</FormLabel>
+                        <SelectDropdown
+                          defaultValue={field.value}
+                          onValueChange={field.onChange}
+                          placeholder={t("fields.role.placeholder")}
+                          items={roles.map((role) => ({
+                            label: role.name,
+                            value: role.id,
+                          }))}
+                        />
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("fields.password.label")}</FormLabel>
+                      <FormControl>
+                        <PasswordInput
+                          placeholder={t("fields.password.placeholder")}
+                          autoComplete={isEdit ? "new-password" : "new-password"}
+                          className="h-11"
+                          {...field}
+                        />
+                      </FormControl>
+
+                      {/* Password strength indicator */}
+                      {passwordStrength && password && (
+                        <div className="text-xs space-y-1 mt-2">
+                          <p className="text-muted-foreground mb-1">
+                            {t("fields.password.requirements", "Password must contain:")}
+                          </p>
+                          <div className="space-y-0.5">
+                            <div className={`flex items-center gap-1.5 ${passwordStrength.hasMinLength ? "text-green-600 dark:text-green-500" : "text-muted-foreground"}`}>
+                              {passwordStrength.hasMinLength ? (
+                                <IconCheck className="h-3 w-3" />
+                              ) : (
+                                <IconX className="h-3 w-3" />
+                              )}
+                              <span>{t("fields.password.min_length", "At least 8 characters")}</span>
+                            </div>
+                            <div className={`flex items-center gap-1.5 ${passwordStrength.hasLowercase ? "text-green-600 dark:text-green-500" : "text-muted-foreground"}`}>
+                              {passwordStrength.hasLowercase ? (
+                                <IconCheck className="h-3 w-3" />
+                              ) : (
+                                <IconX className="h-3 w-3" />
+                              )}
+                              <span>{t("fields.password.lowercase", "One lowercase letter")}</span>
+                            </div>
+                            <div className={`flex items-center gap-1.5 ${passwordStrength.hasNumber ? "text-green-600 dark:text-green-500" : "text-muted-foreground"}`}>
+                              {passwordStrength.hasNumber ? (
+                                <IconCheck className="h-3 w-3" />
+                              ) : (
+                                <IconX className="h-3 w-3" />
+                              )}
+                              <span>{t("fields.password.number", "One number")}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("fields.confirm_password.label")}</FormLabel>
+                      <FormControl>
+                        <PasswordInput
+                          disabled={!isPasswordTouched}
+                          placeholder={t("fields.confirm_password.placeholder")}
+                          autoComplete="new-password"
+                          className="h-11"
+                          {...field}
+                        />
+                      </FormControl>
+                      {!isPasswordTouched && (
+                        <FormDescription>
+                          {t("fields.confirm_password.helper", "Enter a password first")}
+                        </FormDescription>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </form>
+          </Form>
+        </div>
+
+        <SheetFooter className="flex-shrink-0 border-t pt-4 bg-background">
+          <div className="flex flex-col-reverse sm:flex-row gap-2 w-full sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isSubmitting}
+              className="w-full sm:w-auto"
+            >
+              {t("create_dialog.cancel", "Cancel")}
+            </Button>
+            <Button
+              type="submit"
+              form="user-form"
+              disabled={isSubmitting || isLoadingRoles}
+              className="w-full sm:w-auto"
+            >
+              {isSubmitting && <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isSubmitting ? t("create_dialog.saving") : t("create_dialog.save_changes")}
+            </Button>
+          </div>
         </SheetFooter>
       </SheetContent>
     </Sheet>

@@ -20,7 +20,11 @@ depends_on = None
 
 def upgrade():
     # Créer la table hse_incident pour le module HSE
-    op.create_table(
+    # Vérifier si la table existe déjà
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if 'hse_incident' not in inspector.get_table_names():
+        op.create_table(
         'hse_incident',
         sa.Column('id', postgresql.UUID(), nullable=False),
         sa.Column('external_id', sa.String(length=255), nullable=True),
@@ -61,14 +65,14 @@ def upgrade():
         sa.ForeignKeyConstraint(['created_by_id'], ['user.id']),
         sa.ForeignKeyConstraint(['updated_by_id'], ['user.id']),
         sa.ForeignKeyConstraint(['deleted_by_id'], ['user.id']),
-    )
+        )
 
-    # Créer les index
-    op.create_index('ix_hse_incident_number', 'hse_incident', ['number'], unique=True)
-    op.create_index('ix_hse_incident_type', 'hse_incident', ['type'])
-    op.create_index('ix_hse_incident_severity_level', 'hse_incident', ['severity_level'])
-    op.create_index('ix_hse_incident_is_closed', 'hse_incident', ['is_closed'])
-    op.create_index('ix_hse_incident_incident_date', 'hse_incident', ['incident_date'])
+        # Créer les index
+        op.create_index('ix_hse_incident_number', 'hse_incident', ['number'], unique=True)
+        op.create_index('ix_hse_incident_type', 'hse_incident', ['type'])
+        op.create_index('ix_hse_incident_severity_level', 'hse_incident', ['severity_level'])
+        op.create_index('ix_hse_incident_is_closed', 'hse_incident', ['is_closed'])
+        op.create_index('ix_hse_incident_incident_date', 'hse_incident', ['incident_date'])
 
 
 def downgrade():

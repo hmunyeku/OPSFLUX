@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge"
 import {
   IconRefresh,
   IconPlayerPlay,
-  IconX,
   IconClock,
   IconCheck,
   IconAlertTriangle,
@@ -15,7 +14,7 @@ import {
 import ContentSection from "../components/content-section"
 import { useToast } from "@/hooks/use-toast"
 import { useTranslation } from "@/hooks/use-translation"
-import { getQueueStats, type QueueStats, TaskStatus } from "@/api/queue"
+import { getQueueStats, type QueueStats } from "@/api/queue"
 import { PermissionGuard } from "@/components/permission-guard"
 
 export default function QueuePage() {
@@ -55,48 +54,6 @@ function QueuePageContent() {
     return () => clearInterval(interval)
   }, [fetchStats])
 
-  const _getStatusBadge = (status: string) => {
-    switch (status) {
-      case TaskStatus.SUCCESS:
-        return (
-          <Badge variant="default" className="bg-green-600">
-            <IconCheck className="mr-1 h-3 w-3" />
-            Succès
-          </Badge>
-        )
-      case TaskStatus.PENDING:
-        return (
-          <Badge variant="secondary">
-            <IconClock className="mr-1 h-3 w-3" />
-            En attente
-          </Badge>
-        )
-      case TaskStatus.STARTED:
-        return (
-          <Badge variant="default" className="bg-blue-600">
-            <IconPlayerPlay className="mr-1 h-3 w-3" />
-            En cours
-          </Badge>
-        )
-      case TaskStatus.FAILURE:
-        return (
-          <Badge variant="destructive">
-            <IconX className="mr-1 h-3 w-3" />
-            Échec
-          </Badge>
-        )
-      case TaskStatus.RETRY:
-        return (
-          <Badge variant="default" className="bg-amber-600">
-            <IconRefresh className="mr-1 h-3 w-3" />
-            Retry
-          </Badge>
-        )
-      default:
-        return <Badge variant="outline">{status}</Badge>
-    }
-  }
-
   if (loading && !stats) {
     return (
       <ContentSection
@@ -128,13 +85,13 @@ function QueuePageContent() {
           <div className="flex items-center gap-2">
             <IconPlayerPlay className="h-5 w-5 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">
-              Workers actifs: {totalWorkers}
+              {t("workers.active_count", { count: totalWorkers })}
             </span>
           </div>
 
           <Button variant="outline" size="sm" onClick={fetchStats}>
             <IconRefresh className="mr-2 h-4 w-4" />
-            Actualiser
+            {t("actions.refresh")}
           </Button>
         </div>
 
@@ -142,41 +99,41 @@ function QueuePageContent() {
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Tâches actives</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("stats.active_tasks")}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{totalActive}</div>
-              <p className="text-xs text-muted-foreground">En cours d&apos;exécution</p>
+              <p className="text-xs text-muted-foreground">{t("stats.running")}</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Tâches planifiées</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("stats.scheduled_tasks")}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{totalScheduled}</div>
-              <p className="text-xs text-muted-foreground">Programmées</p>
+              <p className="text-xs text-muted-foreground">{t("stats.scheduled")}</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Tâches réservées</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("stats.reserved_tasks")}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{totalReserved}</div>
-              <p className="text-xs text-muted-foreground">Pré-allouées</p>
+              <p className="text-xs text-muted-foreground">{t("stats.reserved")}</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Workers</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("workers.title")}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{totalWorkers}</div>
-              <p className="text-xs text-muted-foreground">Connectés</p>
+              <p className="text-xs text-muted-foreground">{t("workers.connected")}</p>
             </CardContent>
           </Card>
         </div>
@@ -184,16 +141,16 @@ function QueuePageContent() {
         {/* Workers */}
         <Card>
           <CardHeader>
-            <CardTitle>Workers</CardTitle>
-            <CardDescription>État des workers Celery</CardDescription>
+            <CardTitle>{t("workers.title")}</CardTitle>
+            <CardDescription>{t("workers.description")}</CardDescription>
           </CardHeader>
           <CardContent>
             {totalWorkers === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <IconAlertTriangle className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>Aucun worker connecté</p>
+                <p>{t("workers.none")}</p>
                 <p className="text-xs mt-1">
-                  Démarrez les workers Celery pour traiter les tâches
+                  {t("workers.none_description")}
                 </p>
               </div>
             ) : (
@@ -204,20 +161,20 @@ function QueuePageContent() {
                       <div className="font-medium">{name}</div>
                       <Badge variant="default" className="bg-green-600">
                         <IconCheck className="mr-1 h-3 w-3" />
-                        Actif
+                        {t("workers.active")}
                       </Badge>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                       <div>
-                        <div className="text-muted-foreground">Actives</div>
+                        <div className="text-muted-foreground">{t("workers.active_tasks")}</div>
                         <div className="font-semibold">{worker.active}</div>
                       </div>
                       <div>
-                        <div className="text-muted-foreground">Planifiées</div>
+                        <div className="text-muted-foreground">{t("workers.scheduled_tasks")}</div>
                         <div className="font-semibold">{worker.scheduled}</div>
                       </div>
                       <div>
-                        <div className="text-muted-foreground">Réservées</div>
+                        <div className="text-muted-foreground">{t("workers.reserved_tasks")}</div>
                         <div className="font-semibold">{worker.reserved}</div>
                       </div>
                     </div>
@@ -231,8 +188,8 @@ function QueuePageContent() {
         {/* Queues */}
         <Card>
           <CardHeader>
-            <CardTitle>Queues</CardTitle>
-            <CardDescription>État des files d&apos;attente</CardDescription>
+            <CardTitle>{t("queues.title")}</CardTitle>
+            <CardDescription>{t("queues.description")}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -246,7 +203,7 @@ function QueuePageContent() {
                     <span className="font-medium">{name}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline">{queue.length} tâche(s)</Badge>
+                    <Badge variant="outline">{t("queues.tasks_count", { count: queue.length })}</Badge>
                   </div>
                 </div>
               ))}
@@ -257,18 +214,12 @@ function QueuePageContent() {
         {/* Info */}
         <Card>
           <CardHeader>
-            <CardTitle>Information</CardTitle>
+            <CardTitle>{t("info.title")}</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground space-y-2">
-            <p>
-              • Les workers Celery traitent les tâches asynchrones en arrière-plan
-            </p>
-            <p>
-              • Les tâches sont réparties selon leur priorité et leur queue
-            </p>
-            <p>
-              • Les workers peuvent être scalés horizontalement
-            </p>
+            <p>• {t("info.workers_description")}</p>
+            <p>• {t("info.distribution_description")}</p>
+            <p>• {t("info.scaling_description")}</p>
           </CardContent>
         </Card>
       </div>

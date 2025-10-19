@@ -74,7 +74,6 @@ function StoragePageContent() {
   const [fileToDelete, setFileToDelete] = useState<FileInfo | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
-  const [_filterModule, _setFilterModule] = useState<string>("")
   const [filterCategory, setFilterCategory] = useState<FileCategory | "all">("all")
   const [searchQuery, setSearchQuery] = useState("")
   const { toast } = useToast()
@@ -84,7 +83,7 @@ function StoragePageContent() {
     setLoading(true)
     try {
       const data = await listFiles(
-        _filterModule || undefined,
+        undefined,
         filterCategory !== "all" ? (filterCategory as FileCategory) : undefined
       )
       setFiles(data.files)
@@ -97,7 +96,7 @@ function StoragePageContent() {
     } finally {
       setLoading(false)
     }
-  }, [_filterModule, filterCategory, toast, t])
+  }, [filterCategory, toast, t])
 
   useEffect(() => {
     fetchFiles()

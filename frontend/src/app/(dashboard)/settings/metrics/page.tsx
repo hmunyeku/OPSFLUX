@@ -40,7 +40,7 @@ export default function MetricsPage() {
 
 function MetricsPageContent() {
   const { hasPermission } = usePermissions()
-  const { t } = useTranslation("core.settings")
+  const { t } = useTranslation("core.metrics")
   const [stats, setStats] = useState<MetricsStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [resetting, setResetting] = useState(false)
@@ -55,8 +55,8 @@ function MetricsPageContent() {
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Erreur",
-        description: "Impossible de charger les métriques.",
+        title: t("toast.error.title"),
+        description: t("toast.error.load"),
       })
     } finally {
       setLoading(false)
@@ -75,16 +75,16 @@ function MetricsPageContent() {
     try {
       await resetMetrics()
       toast({
-        title: "Métriques réinitialisées",
-        description: "Toutes les métriques ont été remises à zéro.",
+        title: t("toast.reset.success"),
+        description: t("toast.reset.description"),
       })
       setResetDialogOpen(false)
       await fetchStats()
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Erreur",
-        description: "Impossible de réinitialiser les métriques.",
+        title: t("toast.error.title"),
+        description: t("toast.error.reset"),
       })
     } finally {
       setResetting(false)

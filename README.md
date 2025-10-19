@@ -1,3 +1,29 @@
+# OpsFlux - Oil & Gas Operations Management Platform
+
+Application de gestion des opérations pétrolières et gazières basée sur FastAPI et Next.js.
+
+## Structure du Projet
+
+```
+.
+├── backend/           # API FastAPI
+├── frontend/          # Application Next.js
+├── docker/            # Configurations Docker Compose
+│   ├── docker-compose.dokploy.yml
+│   ├── docker-compose.traefik.yml
+│   └── README.md
+├── docs/              # Documentation
+│   ├── architecture/  # Architecture système (RBAC, Permissions)
+│   ├── implementation/# Guides d'implémentation
+│   ├── deployment/    # Guides de déploiement
+│   └── README.md
+├── modules/           # Modules métiers
+├── scripts/           # Scripts utilitaires
+└── docker-compose.yml # Configuration principale
+```
+
+---
+
 # Full Stack FastAPI Template
 
 <a href="https://github.com/fastapi/full-stack-fastapi-template/actions?query=workflow%3ATest" target="_blank"><img src="https://github.com/fastapi/full-stack-fastapi-template/workflows/Test/badge.svg" alt="Test"></a>

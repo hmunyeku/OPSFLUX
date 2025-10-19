@@ -401,9 +401,7 @@
 @layer components {
   /* Layout principal de page */
   .page-layout {
-    @apply flex flex-col;
-    @apply spacing-section;
-    @apply container-padding container-padding-y;
+    @apply flex flex-col gap-6 px-4 py-4 md:px-6 md:py-6 lg:px-8 lg:py-8;
   }
 
   /* Header de page avec titre et description */
@@ -434,31 +432,27 @@
 
   /* Conteneur de formulaire */
   .form-container {
-    @apply flex flex-col;
-    @apply spacing-form-section;
-    @apply max-w-2xl;
+    @apply flex flex-col gap-6 max-w-2xl;
   }
 
   .form-group {
-    @apply flex flex-col;
-    @apply spacing-form-group;
+    @apply flex flex-col gap-4;
   }
 
   .form-field {
-    @apply flex flex-col;
-    @apply spacing-form-field;
+    @apply flex flex-col gap-2;
   }
 
   /* Stack vertical avec espacement cohérent */
   .stack {
-    @apply flex flex-col spacing-section;
+    @apply flex flex-col gap-6;
   }
 
   .stack-sm {
-    @apply flex flex-col spacing-section-sm;
+    @apply flex flex-col gap-4;
   }
 
   .stack-lg {
-    @apply flex flex-col spacing-section-lg;
+    @apply flex flex-col gap-8;
   }
 }

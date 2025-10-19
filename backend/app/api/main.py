@@ -6,6 +6,7 @@ from app.api.routes import (
     api_keys,
     audit,
     auth,
+    backups,
     bookmarks,
     cache,
     email_templates,
@@ -28,6 +29,7 @@ from app.api.routes import (
     tasks,
     twofa,
     user_api_keys,
+    user_invitations,
     user_permissions,
     user_preferences,
     users,
@@ -56,6 +58,7 @@ api_router.include_router(notifications.router)  # Real-time notifications
 api_router.include_router(websocket.router)  # WebSocket for notifications
 api_router.include_router(api_keys.router)  # API Keys management (legacy)
 api_router.include_router(user_api_keys.router)  # User API Keys management (personal)
+api_router.include_router(user_invitations.router)  # User invitations management
 api_router.include_router(webhooks.router)  # Webhooks management
 api_router.include_router(hooks.router)  # Hooks & Triggers system
 api_router.include_router(tasks.router)  # Tasks management
@@ -72,6 +75,7 @@ api_router.include_router(cache.router)  # Cache service (Redis)
 api_router.include_router(queue.router)  # Queue service (Celery)
 api_router.include_router(metrics.router)  # Metrics service (Prometheus)
 api_router.include_router(search.router)  # Search service (PostgreSQL FTS)
+api_router.include_router(backups.router)  # Backup & Restore service
 
 
 if settings.ENVIRONMENT == "local":

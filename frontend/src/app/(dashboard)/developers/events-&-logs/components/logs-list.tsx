@@ -9,6 +9,7 @@ interface Props {
   onLevelFilterChange: (levels: string[]) => void
   onEventTypeFilterChange: (eventTypes: string[]) => void
   onRefresh: () => void
+  onClearLogs: () => void
   refreshTrigger: number
 }
 
@@ -19,6 +20,7 @@ export default function LogsList({
   onLevelFilterChange,
   onEventTypeFilterChange,
   onRefresh,
+  onClearLogs,
   refreshTrigger,
 }: Props) {
   const [searchVal, setSearchVal] = useState("")
@@ -32,6 +34,7 @@ export default function LogsList({
         onLevelFilterChange={onLevelFilterChange}
         onEventTypeFilterChange={onEventTypeFilterChange}
         onRefresh={onRefresh}
+        onClearLogs={onClearLogs}
       />
       <LogsTable
         searchVal={searchVal}

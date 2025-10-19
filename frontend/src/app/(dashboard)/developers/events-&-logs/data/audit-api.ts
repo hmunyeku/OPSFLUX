@@ -107,3 +107,21 @@ export async function getAuditStats(): Promise<AuditStats> {
     }
   }
 }
+
+export async function clearAuditLogs(): Promise<void> {
+  try {
+    const response = await fetch(`${API_URL}/api/v1/audit/clear`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.detail || `Failed to clear audit logs: ${response.statusText}`)
+    }
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Error clearing audit logs:', error)
+    throw error
+  }
+}

@@ -3,10 +3,13 @@
 import { useState, useCallback } from "react"
 import { cn } from "@/lib/utils"
 import { Card } from "@/components/ui/card"
+import { useToast } from "@/hooks/use-toast"
+import { clearAuditLogs } from "../data/audit-api"
 import Filters from "./filters"
 import LogsList from "./logs-list"
 
 export default function Logs() {
+  const { toast } = useToast()
   const [openedFilter, setOpenedFilter] = useState(true)
   const [levelFilter, setLevelFilter] = useState<string[]>([])
   const [eventTypeFilter, setEventTypeFilter] = useState<string[]>([])
@@ -33,6 +36,23 @@ export default function Logs() {
     setEventTypeFilter([])
     setRefreshTrigger((prev) => prev + 1)
   }, [])
+
+  const handleClearLogs = useCallback(async () => {
+    try {
+      await clearAuditLogs()
+      toast({
+        title: "Logs vidés",
+        description: "Tous les logs d'audit ont été supprimés avec succès",
+      })
+      setRefreshTrigger((prev) => prev + 1)
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: error instanceof Error ? error.message : "Impossible de vider les logs",
+      })
+    }
+  }, [toast])
 
   return (
     <Card>
@@ -69,6 +89,7 @@ export default function Logs() {
             onLevelFilterChange={handleLevelFilterChange}
             onEventTypeFilterChange={handleEventTypeFilterChange}
             onRefresh={handleRefresh}
+            onClearLogs={handleClearLogs}
             refreshTrigger={refreshTrigger}
           />
         </div>

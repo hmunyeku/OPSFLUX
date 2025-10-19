@@ -29,6 +29,7 @@ import { getCacheStats, getCacheHealth, clearCache, type CacheStats, type CacheH
 import { useTranslation } from "@/hooks/use-translation"
 import { PermissionGuard } from "@/components/permission-guard"
 import { usePermissions } from "@/hooks/use-permissions"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function CachePage() {
   return (
@@ -100,8 +101,14 @@ function CachePageContent() {
         desc={t("page.description", "Description")}
         className="w-full lg:max-w-full"
       >
-        <div className="flex items-center justify-center py-8">
-          <IconRefresh className="h-6 w-6 animate-spin" />
+        <div className="space-y-6">
+          <Skeleton className="h-24 w-full" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-32 w-full" />
+          </div>
         </div>
       </ContentSection>
     )

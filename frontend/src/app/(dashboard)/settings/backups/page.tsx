@@ -78,6 +78,8 @@ import { usePermissions } from "@/hooks/use-permissions"
 import { formatDistanceToNow } from "date-fns"
 import { fr } from "date-fns/locale"
 import { useTranslation } from "@/hooks/use-translation"
+import { EmptyState } from "@/components/empty-state"
+import { DataLoadingState } from "@/components/data-loading-state"
 
 type ViewMode = "grid" | "table"
 
@@ -375,26 +377,24 @@ function BackupsPageContent() {
             )}
           </div>
 
-          {loading ? (
-            <Card>
-              <CardContent className="py-8">
-                <div className="flex items-center justify-center">
-                  <IconLoader className="h-6 w-6 animate-spin" />
-                  <span className="ml-2">Chargement...</span>
-                </div>
-              </CardContent>
-            </Card>
-          ) : backups.length === 0 ? (
-            <Card className="w-full">
-              <CardContent className="py-12">
-                <div className="text-center text-muted-foreground">
-                  <IconDatabase className="h-16 w-16 mx-auto mb-4 opacity-40" />
-                  <p className="text-lg font-medium mb-1">Aucun backup disponible</p>
-                  <p className="text-sm">Créez votre premier backup pour sauvegarder vos données</p>
-                </div>
-              </CardContent>
-            </Card>
-          ) : viewMode === "grid" ? (
+          <DataLoadingState
+            loading={loading}
+            empty={backups.length === 0}
+            emptyIcon={IconDatabase}
+            emptyTitle={t("backups.empty_title", "Aucune sauvegarde")}
+            emptyDescription={t("backups.empty_desc", "Créez votre première sauvegarde pour protéger vos données")}
+            emptyAction={
+              hasPermission("core.backups.create") && (
+                <Button onClick={() => setCreateDialogOpen(true)}>
+                  <IconPlus className="h-4 w-4 mr-2" />
+                  {t("backups.create", "Créer une sauvegarde")}
+                </Button>
+              )
+            }
+            skeletonCount={3}
+            skeletonClassName="h-32 w-full"
+          >
+            {viewMode === "grid" ? (
             <div className="w-full space-y-3">
               {backups.map((backup) => (
                 <Card key={backup.id} className="w-full hover:shadow-md transition-all border-l-4 border-l-transparent hover:border-l-primary">
@@ -618,7 +618,8 @@ function BackupsPageContent() {
                 </TableBody>
               </Table>
             </Card>
-          )}
+            )}
+          </DataLoadingState>
         </TabsContent>
 
         <TabsContent value="scheduled" className="space-y-4">

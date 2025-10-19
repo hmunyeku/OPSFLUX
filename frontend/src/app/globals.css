@@ -258,3 +258,207 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ============================================
+   DESIGN TOKENS - ESPACEMENTS STANDARDISÉS
+   ============================================ */
+@layer utilities {
+  /* Espacements pour sections principales */
+  .spacing-section {
+    @apply gap-6;
+  }
+
+  .spacing-section-sm {
+    @apply gap-4;
+  }
+
+  .spacing-section-lg {
+    @apply gap-8;
+  }
+
+  /* Espacements pour cartes */
+  .spacing-card {
+    @apply gap-4 p-4;
+  }
+
+  .spacing-card-sm {
+    @apply gap-3 p-3;
+  }
+
+  .spacing-card-lg {
+    @apply gap-6 p-6;
+  }
+
+  /* Espacements pour formulaires */
+  .spacing-form-field {
+    @apply gap-2;
+  }
+
+  .spacing-form-group {
+    @apply gap-4;
+  }
+
+  .spacing-form-section {
+    @apply gap-6;
+  }
+
+  /* Padding cohérents pour conteneurs */
+  .container-padding {
+    @apply px-4 md:px-6 lg:px-8;
+  }
+
+  .container-padding-y {
+    @apply py-4 md:py-6 lg:py-8;
+  }
+
+  /* Marges entre éléments de liste */
+  .list-spacing {
+    @apply space-y-3;
+  }
+
+  .list-spacing-sm {
+    @apply space-y-2;
+  }
+
+  .list-spacing-lg {
+    @apply space-y-4;
+  }
+}
+
+/* ============================================
+   TYPOGRAPHIE STANDARDISÉE
+   ============================================ */
+@layer components {
+  /* Titres de page */
+  .heading-page {
+    @apply text-2xl font-bold tracking-tight;
+    @apply md:text-3xl;
+  }
+
+  /* Titres de section */
+  .heading-section {
+    @apply text-xl font-semibold tracking-tight;
+    @apply md:text-2xl;
+  }
+
+  /* Titres de card/bloc */
+  .heading-card {
+    @apply text-lg font-medium;
+  }
+
+  /* Titres de sous-section */
+  .heading-subsection {
+    @apply text-base font-medium;
+  }
+
+  /* Texte body variants */
+  .text-body {
+    @apply text-base text-foreground;
+  }
+
+  .text-body-sm {
+    @apply text-sm text-foreground;
+  }
+
+  .text-body-lg {
+    @apply text-lg text-foreground;
+  }
+
+  /* Texte muted (descriptions, hints) */
+  .text-muted {
+    @apply text-sm text-muted-foreground;
+  }
+
+  .text-muted-xs {
+    @apply text-xs text-muted-foreground;
+  }
+
+  /* Texte code/mono */
+  .text-code {
+    @apply font-mono text-sm;
+  }
+
+  /* Labels de formulaire */
+  .label-form {
+    @apply text-sm font-medium leading-none;
+    @apply peer-disabled:cursor-not-allowed peer-disabled:opacity-70;
+  }
+
+  /* Messages d'erreur */
+  .text-error {
+    @apply text-sm font-medium text-destructive;
+  }
+
+  /* Texte success */
+  .text-success {
+    @apply text-sm font-medium text-green-600 dark:text-green-400;
+  }
+}
+
+/* ============================================
+   LAYOUTS STANDARDISÉS
+   ============================================ */
+@layer components {
+  /* Layout principal de page */
+  .page-layout {
+    @apply flex flex-col;
+    @apply spacing-section;
+    @apply container-padding container-padding-y;
+  }
+
+  /* Header de page avec titre et description */
+  .page-header {
+    @apply flex flex-col gap-2;
+  }
+
+  .page-header-with-actions {
+    @apply flex flex-col gap-4;
+    @apply md:flex-row md:items-center md:justify-between;
+  }
+
+  /* Grid responsive standard */
+  .grid-responsive {
+    @apply grid gap-4;
+    @apply grid-cols-1 md:grid-cols-2 lg:grid-cols-3;
+  }
+
+  .grid-responsive-2 {
+    @apply grid gap-4;
+    @apply grid-cols-1 lg:grid-cols-2;
+  }
+
+  .grid-responsive-4 {
+    @apply grid gap-4;
+    @apply grid-cols-1 sm:grid-cols-2 lg:grid-cols-4;
+  }
+
+  /* Conteneur de formulaire */
+  .form-container {
+    @apply flex flex-col;
+    @apply spacing-form-section;
+    @apply max-w-2xl;
+  }
+
+  .form-group {
+    @apply flex flex-col;
+    @apply spacing-form-group;
+  }
+
+  .form-field {
+    @apply flex flex-col;
+    @apply spacing-form-field;
+  }
+
+  /* Stack vertical avec espacement cohérent */
+  .stack {
+    @apply flex flex-col spacing-section;
+  }
+
+  .stack-sm {
+    @apply flex flex-col spacing-section-sm;
+  }
+
+  .stack-lg {
+    @apply flex flex-col spacing-section-lg;
+  }
+}

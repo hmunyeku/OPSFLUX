@@ -149,6 +149,8 @@ services:
         restart: true
       redis:
         condition: service_healthy
+    volumes:
+      - ./modules:/modules
     env_file:
       - .env
     environment:

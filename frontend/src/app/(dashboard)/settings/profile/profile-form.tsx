@@ -86,7 +86,7 @@ interface PasswordStrength {
 }
 
 export function AccountForm() {
-  const { t } = useTranslation("core.profile.form")
+  const { t } = useTranslation("core.profile")
   const { user, isLoading } = useAuth()
   const { config } = useAppConfig()
   const { toast } = useToast()

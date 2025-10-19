@@ -74,7 +74,7 @@ interface TwoFactorConfig {
 }
 
 export function PreferencesTab() {
-  const { t } = useTranslation("core.profile.preferences")
+  const { t } = useTranslation("core.profile")
   const { preferences, updatePreferences } = usePreferencesContext()
   const { changeTheme } = useThemeColors()
   const { setTheme } = useTheme()

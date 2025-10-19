@@ -14,7 +14,7 @@ import {
 import { useTranslation } from "@/hooks/use-translation"
 
 export function InformationsTab() {
-  const { t } = useTranslation("core.profile.informations")
+  const { t } = useTranslation("core.profile")
   // Ces données seraient normalement récupérées depuis l'API
   const userInfo = {
     role: "Administrator",

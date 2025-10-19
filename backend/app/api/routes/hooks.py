@@ -48,6 +48,10 @@ async def read_hooks(
 
     Requiert la permission: core.hooks.read
     """
+    # Get list of DISABLED module codes to exclude them
+    disabled_modules_statement = select(Module.code).where(Module.status != ModuleStatus.ACTIVE)
+    disabled_module_codes = list(session.exec(disabled_modules_statement).all())
+
     # Base query
     statement = select(Hook).where(Hook.deleted_at == None)  # noqa: E711
 
@@ -59,30 +63,23 @@ async def read_hooks(
     if is_active is not None:
         statement = statement.where(Hook.is_active == is_active)
 
-    # Filter by module status: only show hooks from ACTIVE modules
-    # Extract module code from event (prefix before first dot)
-    # Core events (core.*) are always shown
-    # We need to use a SQL expression to extract the module code from the event string
-    # and join with the Module table
-    from sqlalchemy import func as sa_func
-
-    # Create a subquery to extract module code from event
-    # event format: "module.entity.action" -> extract "module"
-    module_code_expr = sa_func.split_part(Hook.event, '.', 1)
-
-    # Left join with Module table on the extracted module code
-    statement = statement.outerjoin(
-        Module, module_code_expr == Module.code
-    ).where(
-        # Show if event starts with "core." OR if module status is ACTIVE
-        or_(
-            Hook.event.startswith("core."),
-            Module.status == ModuleStatus.ACTIVE
-        )
-    )
+    # Filter by module status: exclude hooks from DISABLED modules
+    # event format: "module.entity.action" -> check if "module" is in disabled_module_codes
+    # Build AND NOT conditions for each disabled module
+    for module_code in disabled_module_codes:
+        statement = statement.where(~Hook.event.startswith(f"{module_code}."))
 
     # Compter le total
-    count_statement = select(func.count()).select_from(statement.subquery())
+    count_statement = select(func.count()).select_from(Hook).where(
+        Hook.deleted_at == None  # noqa: E711
+    )
+    if event:
+        count_statement = count_statement.where(Hook.event == event)
+    if is_active is not None:
+        count_statement = count_statement.where(Hook.is_active == is_active)
+    for module_code in disabled_module_codes:
+        count_statement = count_statement.where(~Hook.event.startswith(f"{module_code}."))
+
     count = session.exec(count_statement).one()
 
     # Récupérer avec pagination (tri par priorité puis date)

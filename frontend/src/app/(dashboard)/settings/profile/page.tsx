@@ -17,21 +17,21 @@ export default function SettingsProfilePage() {
   return (
     <ContentSection title={t("profile.title")} desc={t("profile.description")} className="w-full lg:max-w-full">
       <Tabs defaultValue={tab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-1">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-2">
           <TabsTrigger value="profile" className="text-xs sm:text-sm">
             <span className="hidden sm:inline">{t("profile.tabs.profile")}</span>
-            <span className="sm:hidden">Profil</span>
+            <span className="sm:hidden">{t("profile.tabs.profile_mobile", "Profile")}</span>
           </TabsTrigger>
           <TabsTrigger value="preferences" className="text-xs sm:text-sm">
             <span className="hidden sm:inline">{t("profile.tabs.preferences")}</span>
-            <span className="sm:hidden">Préf.</span>
+            <span className="sm:hidden">{t("profile.tabs.preferences_mobile", "Pref.")}</span>
           </TabsTrigger>
           <TabsTrigger value="informations" className="text-xs sm:text-sm">
             <span className="hidden sm:inline">{t("profile.tabs.informations")}</span>
-            <span className="sm:hidden">Infos</span>
+            <span className="sm:hidden">{t("profile.tabs.informations_mobile", "Info")}</span>
           </TabsTrigger>
           <TabsTrigger value="api" className="text-xs sm:text-sm">
-            API
+            {t("profile.tabs.api", "API")}
           </TabsTrigger>
         </TabsList>
         <TabsContent value="profile" className="space-y-4">

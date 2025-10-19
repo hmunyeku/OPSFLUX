@@ -7,6 +7,7 @@ import { useThemeColors } from "@/hooks/use-theme-colors"
 import { useTheme } from "next-themes"
 import { useSidebar } from "@/components/ui/sidebar"
 import { themes, type ThemeName } from "@/config/themes"
+import { useTranslation } from "@/hooks/use-translation"
 import {
   ColumnDef,
   flexRender,
@@ -73,6 +74,7 @@ interface TwoFactorConfig {
 }
 
 export function PreferencesTab() {
+  const { t } = useTranslation("core.profile.preferences")
   const { preferences, updatePreferences } = usePreferencesContext()
   const { changeTheme } = useThemeColors()
   const { setTheme } = useTheme()
@@ -160,8 +162,8 @@ export function PreferencesTab() {
       const token = auth.getToken()
       if (!token) {
         toast({
-          title: "Erreur",
-          description: "Vous devez être connecté",
+          title: t("toast.error"),
+          description: t("toast.error_auth"),
           variant: "destructive",
         })
         return
@@ -186,15 +188,15 @@ export function PreferencesTab() {
         // Get error detail from backend
         const errorData = await response.json().catch(() => ({ detail: "Erreur inconnue" }))
         toast({
-          title: "Erreur de configuration 2FA",
-          description: errorData.detail || "Impossible de configurer l'authentification à deux facteurs",
+          title: t("toast.error"),
+          description: errorData.detail || t("toast.error_setup"),
           variant: "destructive",
         })
       }
     } catch (error) {
       toast({
-        title: "Erreur",
-        description: error instanceof Error ? error.message : "Une erreur s'est produite",
+        title: t("toast.error"),
+        description: error instanceof Error ? error.message : t("toast.error_generic"),
         variant: "destructive",
       })
     }
@@ -203,8 +205,8 @@ export function PreferencesTab() {
   const handleEnable2FA = async () => {
     if (!verificationCode) {
       toast({
-        title: "Code requis",
-        description: "Veuillez entrer le code de vérification",
+        title: t("toast.code_required"),
+        description: t("toast.code_required_desc"),
         variant: "destructive",
       })
       return
@@ -214,8 +216,8 @@ export function PreferencesTab() {
       const token = auth.getToken()
       if (!token) {
         toast({
-          title: "Erreur",
-          description: "Vous devez être connecté",
+          title: t("toast.error"),
+          description: t("toast.error_auth"),
           variant: "destructive",
         })
         return
@@ -240,30 +242,30 @@ export function PreferencesTab() {
         setSetupDialogOpen(false)
 
         toast({
-          title: "2FA activé",
-          description: "L'authentification à deux facteurs a été activée avec succès",
+          title: t("toast.2fa_enabled"),
+          description: t("toast.2fa_enabled_desc"),
         })
 
         await fetchTwoFactorConfig()
       } else {
         const error = await response.json()
         toast({
-          title: "Code invalide",
-          description: error.detail || "Le code de vérification est incorrect",
+          title: t("toast.code_invalid"),
+          description: error.detail || t("toast.code_invalid_desc"),
           variant: "destructive",
         })
       }
     } catch (_error) {
       toast({
-        title: "Erreur",
-        description: "Une erreur s'est produite",
+        title: t("toast.error"),
+        description: t("toast.error_generic"),
         variant: "destructive",
       })
     }
   }
 
   const handleDisable2FA = async () => {
-    if (!confirm("Êtes-vous sûr de vouloir désactiver l'authentification à deux facteurs ?")) {
+    if (!confirm(t("2fa.confirm.disable"))) {
       return
     }
 
@@ -271,8 +273,8 @@ export function PreferencesTab() {
       const token = auth.getToken()
       if (!token) {
         toast({
-          title: "Erreur",
-          description: "Vous devez être connecté",
+          title: t("toast.error"),
+          description: t("toast.error_auth"),
           variant: "destructive",
         })
         return
@@ -287,28 +289,28 @@ export function PreferencesTab() {
 
       if (response.ok) {
         toast({
-          title: "2FA désactivé",
-          description: "L'authentification à deux facteurs a été désactivée",
+          title: t("toast.2fa_disabled"),
+          description: t("toast.2fa_disabled_desc"),
         })
         await fetchTwoFactorConfig()
       } else {
         toast({
-          title: "Erreur",
-          description: "Impossible de désactiver l'authentification à deux facteurs",
+          title: t("toast.error"),
+          description: t("toast.error_disable"),
           variant: "destructive",
         })
       }
     } catch (_error) {
       toast({
-        title: "Erreur",
-        description: "Une erreur s'est produite",
+        title: t("toast.error"),
+        description: t("toast.error_generic"),
         variant: "destructive",
       })
     }
   }
 
   const handleRegenerateBackupCodes = async () => {
-    if (!confirm("Êtes-vous sûr de vouloir régénérer les codes de secours ? Les anciens codes ne fonctionneront plus.")) {
+    if (!confirm(t("2fa.confirm.regenerate"))) {
       return
     }
 
@@ -316,8 +318,8 @@ export function PreferencesTab() {
       const token = auth.getToken()
       if (!token) {
         toast({
-          title: "Erreur",
-          description: "Vous devez être connecté",
+          title: t("toast.error"),
+          description: t("toast.error_auth"),
           variant: "destructive",
         })
         return
@@ -336,22 +338,22 @@ export function PreferencesTab() {
         setShowBackupCodes(true)
 
         toast({
-          title: "Codes régénérés",
-          description: "Les nouveaux codes de secours ont été générés",
+          title: t("toast.codes_regenerated"),
+          description: t("toast.codes_regenerated_desc"),
         })
 
         await fetchTwoFactorConfig()
       } else {
         toast({
-          title: "Erreur",
-          description: "Impossible de régénérer les codes de secours",
+          title: t("toast.error"),
+          description: t("toast.error_regenerate"),
           variant: "destructive",
         })
       }
     } catch (_error) {
       toast({
-        title: "Erreur",
-        description: "Une erreur s'est produite",
+        title: t("toast.error"),
+        description: t("toast.error_generic"),
         variant: "destructive",
       })
     }
@@ -392,9 +394,9 @@ export function PreferencesTab() {
     // Apparence
     {
       key: "colorTheme",
-      label: "Thème de couleur",
-      description: "Personnaliser les couleurs de l'interface",
-      category: "Apparence",
+      label: t("items.color_theme.label"),
+      description: t("items.color_theme.desc"),
+      category: t("categories.appearance"),
       renderValue: (value, onChange) => (
         <Select value={value as string} onValueChange={onChange}>
           <SelectTrigger className="w-[220px]">
@@ -412,27 +414,27 @@ export function PreferencesTab() {
     },
     {
       key: "darkMode",
-      label: "Mode d'affichage",
-      description: "Choisir entre clair, sombre ou système",
-      category: "Apparence",
+      label: t("items.dark_mode.label"),
+      description: t("items.dark_mode.desc"),
+      category: t("categories.appearance"),
       renderValue: (value, onChange) => (
         <Select value={value as string} onValueChange={onChange}>
           <SelectTrigger className="w-[220px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="light">Clair</SelectItem>
-            <SelectItem value="dark">Sombre</SelectItem>
-            <SelectItem value="system">Système</SelectItem>
+            <SelectItem value="light">{t("items.dark_mode.light")}</SelectItem>
+            <SelectItem value="dark">{t("items.dark_mode.dark")}</SelectItem>
+            <SelectItem value="system">{t("items.dark_mode.system")}</SelectItem>
           </SelectContent>
         </Select>
       ),
     },
     {
       key: "sidebarCollapsed",
-      label: "Barre latérale réduite",
-      description: "Réduire la barre latérale par défaut",
-      category: "Apparence",
+      label: t("items.sidebar_collapsed.label"),
+      description: t("items.sidebar_collapsed.desc"),
+      category: t("categories.appearance"),
       renderValue: (value, onChange) => (
         <div className="flex items-center gap-3">
           <Switch
@@ -440,42 +442,42 @@ export function PreferencesTab() {
             onCheckedChange={onChange}
           />
           <span className="text-sm text-muted-foreground">
-            {(value as boolean) ? "Activé" : "Désactivé"}
+            {(value as boolean) ? t("items.sidebar_collapsed.enabled") : t("items.sidebar_collapsed.disabled")}
           </span>
         </div>
       ),
     },
     {
       key: "sidebarVariant",
-      label: "Style de la barre latérale",
-      description: "Choisir entre flottante ou intégrée",
-      category: "Apparence",
+      label: t("items.sidebar_variant.label"),
+      description: t("items.sidebar_variant.desc"),
+      category: t("categories.appearance"),
       renderValue: (value, onChange) => (
         <Select value={value as string} onValueChange={onChange}>
           <SelectTrigger className="w-[220px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="inset">Intégrée</SelectItem>
-            <SelectItem value="floating">Flottante</SelectItem>
+            <SelectItem value="inset">{t("items.sidebar_variant.inset")}</SelectItem>
+            <SelectItem value="floating">{t("items.sidebar_variant.floating")}</SelectItem>
           </SelectContent>
         </Select>
       ),
     },
     {
       key: "fontSize",
-      label: "Taille du texte",
-      description: "Ajuster la taille du texte de l'interface",
-      category: "Apparence",
+      label: t("items.font_size.label"),
+      description: t("items.font_size.desc"),
+      category: t("categories.appearance"),
       renderValue: (value, onChange) => (
         <Select value={value as string} onValueChange={onChange}>
           <SelectTrigger className="w-[220px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="small">Petit</SelectItem>
-            <SelectItem value="normal">Normal</SelectItem>
-            <SelectItem value="large">Grand</SelectItem>
+            <SelectItem value="small">{t("items.font_size.small")}</SelectItem>
+            <SelectItem value="normal">{t("items.font_size.normal")}</SelectItem>
+            <SelectItem value="large">{t("items.font_size.large")}</SelectItem>
           </SelectContent>
         </Select>
       ),
@@ -483,9 +485,9 @@ export function PreferencesTab() {
     // Langue & Région
     {
       key: "language",
-      label: "Langue",
-      description: "Langue de l'interface utilisateur",
-      category: "Région",
+      label: t("items.language.label"),
+      description: t("items.language.desc"),
+      category: t("categories.region"),
       renderValue: (value, onChange) => (
         <Select value={value as string} onValueChange={onChange}>
           <SelectTrigger className="w-[220px]">
@@ -500,9 +502,9 @@ export function PreferencesTab() {
     },
     {
       key: "timezone",
-      label: "Fuseau horaire",
-      description: "Fuseau horaire pour l'affichage des dates",
-      category: "Région",
+      label: t("items.timezone.label"),
+      description: t("items.timezone.desc"),
+      category: t("categories.region"),
       renderValue: (value, onChange) => (
         <Select value={value as string} onValueChange={onChange}>
           <SelectTrigger className="w-[220px]">
@@ -519,9 +521,9 @@ export function PreferencesTab() {
     },
     {
       key: "dateFormat",
-      label: "Format de date",
-      description: "Format d'affichage des dates",
-      category: "Région",
+      label: t("items.date_format.label"),
+      description: t("items.date_format.desc"),
+      category: t("categories.region"),
       renderValue: (value, onChange) => (
         <Select value={value as string} onValueChange={onChange}>
           <SelectTrigger className="w-[220px]">
@@ -537,17 +539,17 @@ export function PreferencesTab() {
     },
     {
       key: "timeFormat",
-      label: "Format d'heure",
-      description: "Format d'affichage de l'heure",
-      category: "Région",
+      label: t("items.time_format.label"),
+      description: t("items.time_format.desc"),
+      category: t("categories.region"),
       renderValue: (value, onChange) => (
         <Select value={value as string} onValueChange={onChange}>
           <SelectTrigger className="w-[220px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="12h">12 heures</SelectItem>
-            <SelectItem value="24h">24 heures</SelectItem>
+            <SelectItem value="12h">{t("items.time_format.12h")}</SelectItem>
+            <SelectItem value="24h">{t("items.time_format.24h")}</SelectItem>
           </SelectContent>
         </Select>
       ),
@@ -555,9 +557,9 @@ export function PreferencesTab() {
     // Notifications
     {
       key: "emailNotifications",
-      label: "Notifications par email",
-      description: "Recevoir des notifications par email",
-      category: "Notifications",
+      label: t("items.email_notifications.label"),
+      description: t("items.email_notifications.desc"),
+      category: t("categories.notifications"),
       renderValue: (value, onChange) => (
         <div className="flex items-center gap-3">
           <Switch
@@ -565,16 +567,16 @@ export function PreferencesTab() {
             onCheckedChange={onChange}
           />
           <span className="text-sm text-muted-foreground">
-            {(value as boolean) ? "Activé" : "Désactivé"}
+            {(value as boolean) ? t("items.sidebar_collapsed.enabled") : t("items.sidebar_collapsed.disabled")}
           </span>
         </div>
       ),
     },
     {
       key: "pushNotifications",
-      label: "Notifications push",
-      description: "Recevoir des notifications dans le navigateur",
-      category: "Notifications",
+      label: t("items.push_notifications.label"),
+      description: t("items.push_notifications.desc"),
+      category: t("categories.notifications"),
       renderValue: (value, onChange) => (
         <div className="flex items-center gap-3">
           <Switch
@@ -582,16 +584,16 @@ export function PreferencesTab() {
             onCheckedChange={onChange}
           />
           <span className="text-sm text-muted-foreground">
-            {(value as boolean) ? "Activé" : "Désactivé"}
+            {(value as boolean) ? t("items.sidebar_collapsed.enabled") : t("items.sidebar_collapsed.disabled")}
           </span>
         </div>
       ),
     },
     {
       key: "notificationSound",
-      label: "Son des notifications",
-      description: "Jouer un son lors de la réception de notifications",
-      category: "Notifications",
+      label: t("items.notification_sound.label"),
+      description: t("items.notification_sound.desc"),
+      category: t("categories.notifications"),
       renderValue: (value, onChange) => (
         <div className="flex items-center gap-3">
           <Switch
@@ -599,7 +601,7 @@ export function PreferencesTab() {
             onCheckedChange={onChange}
           />
           <span className="text-sm text-muted-foreground">
-            {(value as boolean) ? "Activé" : "Désactivé"}
+            {(value as boolean) ? t("items.sidebar_collapsed.enabled") : t("items.sidebar_collapsed.disabled")}
           </span>
         </div>
       ),
@@ -607,9 +609,9 @@ export function PreferencesTab() {
     // Affichage
     {
       key: "itemsPerPage",
-      label: "Éléments par page",
-      description: "Nombre d'éléments affichés par page dans les listes",
-      category: "Affichage",
+      label: t("items.items_per_page.label"),
+      description: t("items.items_per_page.desc"),
+      category: t("categories.display"),
       renderValue: (value, onChange) => (
         <Select value={value.toString()} onValueChange={(v) => onChange(parseInt(v, 10))}>
           <SelectTrigger className="w-[220px]">
@@ -669,7 +671,7 @@ export function PreferencesTab() {
               className="-ml-3 h-8 data-[state=open]:bg-accent"
               onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
             >
-              Catégorie
+              {t("table.category")}
               <IconArrowsSort className="ml-2 h-4 w-4" />
             </Button>
           )
@@ -683,7 +685,7 @@ export function PreferencesTab() {
                 size="sm"
                 className="h-6 text-xs px-2 cursor-pointer transition-colors gap-1.5"
                 onClick={() => setCategoryFilter(isFiltered ? "all" : row.original.category)}
-                title={isFiltered ? "Cliquer pour retirer le filtre" : `Filtrer par ${row.original.category}`}
+                title={isFiltered ? t("table.filter_tooltip") : t("table.filter_by", { category: row.original.category })}
               >
                 {row.original.category}
                 {isFiltered && <IconX className="h-3 w-3 ml-0.5" />}
@@ -703,7 +705,7 @@ export function PreferencesTab() {
               className="-ml-3 h-8 data-[state=open]:bg-accent"
               onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
             >
-              Préférence
+              {t("table.preference")}
               <IconArrowsSort className="ml-2 h-4 w-4" />
             </Button>
           )
@@ -715,7 +717,7 @@ export function PreferencesTab() {
               <span className="font-medium">{row.original.label}</span>
               {isRecentlyModified && (
                 <Badge variant="outline" className="text-green-600 border-green-600 dark:text-green-400 dark:border-green-400 text-xs">
-                  Modifié
+                  {t("table.modified")}
                 </Badge>
               )}
             </div>
@@ -733,7 +735,7 @@ export function PreferencesTab() {
               className="-ml-3 h-8 data-[state=open]:bg-accent"
               onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
             >
-              Description
+              {t("table.description")}
               <IconArrowsSort className="ml-2 h-4 w-4" />
             </Button>
           )
@@ -747,7 +749,7 @@ export function PreferencesTab() {
       },
       {
         accessorKey: "value",
-        header: "Valeur",
+        header: t("table.value"),
         cell: ({ row }) => {
           const currentValue = preferences[row.original.key]
           return (
@@ -760,7 +762,7 @@ export function PreferencesTab() {
         },
       },
     ],
-    [recentlyModified, preferences, handleImmediateChange]
+    [recentlyModified, preferences, handleImmediateChange, categoryFilter, t]
   )
 
   // Create table instance
@@ -781,32 +783,32 @@ export function PreferencesTab() {
             <div className="space-y-1">
               <CardTitle className="flex items-center gap-2">
                 <Shield className="h-5 w-5" />
-                Authentification à deux facteurs (2FA)
+                {t("2fa.title")}
               </CardTitle>
               <CardDescription>
-                Ajoutez une couche de sécurité supplémentaire à votre compte
+                {t("2fa.description")}
               </CardDescription>
             </div>
             {twoFactorConfig?.is_enabled && (
               <Badge variant="default" className="gap-1">
                 <ShieldCheck className="h-3 w-3" />
-                Activé
+                {t("2fa.enabled_badge")}
               </Badge>
             )}
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {loading2FA ? (
-            <div className="text-sm text-muted-foreground">Chargement...</div>
+            <div className="text-sm text-muted-foreground">{t("2fa.loading")}</div>
           ) : (
             <>
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label>État de la 2FA</Label>
+                  <Label>{t("2fa.status")}</Label>
                   <div className="text-sm text-muted-foreground">
                     {twoFactorConfig?.is_enabled
-                      ? "L'authentification à deux facteurs est active"
-                      : "L'authentification à deux facteurs est désactivée"
+                      ? t("2fa.enabled")
+                      : t("2fa.disabled")
                     }
                   </div>
                 </div>
@@ -829,12 +831,12 @@ export function PreferencesTab() {
                       <div className="space-y-0.5">
                         <Label className="flex items-center gap-2">
                           <Smartphone className="h-4 w-4" />
-                          Méthode principale
+                          {t("2fa.primary_method")}
                         </Label>
                         <div className="text-sm text-muted-foreground">
                           {twoFactorConfig.primary_method === "totp"
-                            ? "Application d'authentification (TOTP)"
-                            : "SMS"
+                            ? t("2fa.method_totp")
+                            : t("2fa.method_sms")
                           }
                         </div>
                       </div>
@@ -844,10 +846,10 @@ export function PreferencesTab() {
                       <div className="space-y-0.5">
                         <Label className="flex items-center gap-2">
                           <Key className="h-4 w-4" />
-                          Codes de secours
+                          {t("2fa.backup_codes")}
                         </Label>
                         <div className="text-sm text-muted-foreground">
-                          {twoFactorConfig.backup_codes_count} code(s) disponible(s)
+                          {t("2fa.backup_codes_count", { count: twoFactorConfig.backup_codes_count })}
                         </div>
                       </div>
                       <Button
@@ -856,7 +858,7 @@ export function PreferencesTab() {
                         onClick={handleRegenerateBackupCodes}
                       >
                         <RefreshCw className="h-4 w-4 mr-2" />
-                        Régénérer
+                        {t("2fa.regenerate")}
                       </Button>
                     </div>
                   </div>
@@ -864,7 +866,7 @@ export function PreferencesTab() {
                   {twoFactorConfig.last_used_at && (
                     <Alert>
                       <AlertDescription>
-                        Dernière utilisation : {new Date(twoFactorConfig.last_used_at).toLocaleString("fr-FR")}
+                        {t("2fa.last_used", { date: new Date(twoFactorConfig.last_used_at).toLocaleString("fr-FR") })}
                       </AlertDescription>
                     </Alert>
                   )}
@@ -880,20 +882,20 @@ export function PreferencesTab() {
         <div className="relative flex-1 w-full">
           <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Rechercher une préférence..."
+            placeholder={t("search")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 w-full"
+            className="pl-10 w-full h-11"
           />
         </div>
         <div className="flex items-center gap-2 w-full md:w-auto">
           <IconFilter className="h-4 w-4 text-muted-foreground" />
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
             <SelectTrigger className="w-full md:w-[250px]">
-              <SelectValue placeholder="Toutes les catégories" />
+              <SelectValue placeholder={t("filter")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Toutes les catégories</SelectItem>
+              <SelectItem value="all">{t("filter")}</SelectItem>
               {categories.filter(cat => cat !== "all").map((category) => (
                 <SelectItem key={category} value={category}>
                   {category}
@@ -908,7 +910,7 @@ export function PreferencesTab() {
               onClick={() => setCategoryFilter("all")}
               className="h-8"
             >
-              Effacer
+              {t("clear_filter")}
             </Button>
           )}
         </div>
@@ -963,7 +965,7 @@ export function PreferencesTab() {
                   colSpan={columns.length}
                   className="h-24 text-center"
                 >
-                  Aucune préférence ne correspond à votre recherche.
+                  {t("no_results")}
                 </TableCell>
               </TableRow>
             )}
@@ -996,7 +998,7 @@ export function PreferencesTab() {
                         size="sm"
                         className="h-6 text-xs px-2 cursor-pointer transition-colors gap-1.5"
                         onClick={() => setCategoryFilter(isFiltered ? "all" : pref.category)}
-                        title={isFiltered ? "Cliquer pour retirer le filtre" : `Filtrer par ${pref.category}`}
+                        title={isFiltered ? t("table.filter_tooltip") : t("table.filter_by", { category: pref.category })}
                       >
                         {pref.category}
                         {isFiltered && <IconX className="h-3 w-3 ml-0.5" />}
@@ -1007,7 +1009,7 @@ export function PreferencesTab() {
                     <h4 className="font-medium text-sm">{pref.label}</h4>
                     {isRecentlyModified && (
                       <Badge variant="outline" className="text-green-600 border-green-600 dark:text-green-400 dark:border-green-400 text-xs">
-                        Modifié
+                        {t("table.modified")}
                       </Badge>
                     )}
                   </div>
@@ -1025,18 +1027,18 @@ export function PreferencesTab() {
           })
         ) : (
           <div className="text-center py-12 text-muted-foreground">
-            Aucune préférence ne correspond à votre recherche.
+            {t("no_results")}
           </div>
         )}
       </div>
 
       {/* Dialog de configuration TOTP */}
       <Dialog open={setupDialogOpen} onOpenChange={setSetupDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="w-full sm:max-w-md lg:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Configurer l&apos;authentification à deux facteurs</DialogTitle>
+            <DialogTitle>{t("2fa.setup_dialog.title")}</DialogTitle>
             <DialogDescription>
-              Scannez le QR code avec votre application d&apos;authentification (Google Authenticator, Authy, etc.)
+              {t("2fa.setup_dialog.description")}
             </DialogDescription>
           </DialogHeader>
 
@@ -1049,31 +1051,33 @@ export function PreferencesTab() {
 
             <Alert>
               <AlertDescription className="font-mono text-xs break-all">
-                Si vous ne pouvez pas scanner le QR code, entrez manuellement cette clé : <strong>{totpSecret}</strong>
+                {t("2fa.setup_dialog.manual_key")} <strong>{totpSecret}</strong>
               </AlertDescription>
             </Alert>
 
             <div className="space-y-2">
-              <Label htmlFor="verification-code">Code de vérification</Label>
+              <Label htmlFor="verification-code">{t("2fa.setup_dialog.verification_code")}</Label>
               <Input
                 id="verification-code"
-                placeholder="000000"
+                placeholder={t("2fa.setup_dialog.verification_placeholder")}
                 maxLength={6}
+                inputMode="numeric"
+                className="h-11"
                 value={verificationCode}
                 onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ""))}
               />
               <p className="text-sm text-muted-foreground">
-                Entrez le code à 6 chiffres de votre application
+                {t("2fa.setup_dialog.verification_helper")}
               </p>
             </div>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setSetupDialogOpen(false)}>
-              Annuler
+              {t("2fa.setup_dialog.cancel")}
             </Button>
             <Button onClick={handleEnable2FA}>
-              Activer
+              {t("2fa.setup_dialog.activate")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1081,22 +1085,22 @@ export function PreferencesTab() {
 
       {/* Dialog des codes de secours */}
       <Dialog open={showBackupCodes} onOpenChange={setShowBackupCodes}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="w-full sm:max-w-md lg:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Codes de secours</DialogTitle>
+            <DialogTitle>{t("2fa.backup_dialog.title")}</DialogTitle>
             <DialogDescription>
-              Conservez ces codes dans un endroit sûr. Chaque code ne peut être utilisé qu&apos;une seule fois.
+              {t("2fa.backup_dialog.description")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <Alert variant="destructive">
               <AlertDescription>
-                ⚠️ Ces codes ne seront affichés qu&apos;une seule fois. Téléchargez-les ou notez-les maintenant.
+                {t("2fa.backup_dialog.warning")}
               </AlertDescription>
             </Alert>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-4 bg-muted rounded-lg font-mono text-xs sm:text-sm overflow-x-auto">
+            <div className="grid grid-cols-2 gap-2 p-4 bg-muted rounded-lg font-mono text-xs sm:text-sm overflow-x-auto">
               {backupCodes.map((code, index) => (
                 <div key={index} className="text-center">
                   {code}
@@ -1108,10 +1112,10 @@ export function PreferencesTab() {
           <DialogFooter>
             <Button onClick={downloadBackupCodes}>
               <Download className="h-4 w-4 mr-2" />
-              Télécharger
+              {t("2fa.backup_dialog.download")}
             </Button>
             <Button variant="outline" onClick={() => setShowBackupCodes(false)}>
-              J&apos;ai sauvegardé mes codes
+              {t("2fa.backup_dialog.saved")}
             </Button>
           </DialogFooter>
         </DialogContent>

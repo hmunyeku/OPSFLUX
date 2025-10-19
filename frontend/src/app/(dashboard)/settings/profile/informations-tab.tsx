@@ -11,8 +11,10 @@ import {
   IconChartBar,
   IconKey,
 } from "@tabler/icons-react"
+import { useTranslation } from "@/hooks/use-translation"
 
 export function InformationsTab() {
+  const { t } = useTranslation("core.profile.informations")
   // Ces données seraient normalement récupérées depuis l'API
   const userInfo = {
     role: "Administrator",
@@ -44,18 +46,18 @@ export function InformationsTab() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <IconShieldCheck className="h-5 w-5 text-primary" />
-            <CardTitle>Rôle et groupe</CardTitle>
+            <CardTitle>{t("role_group.title")}</CardTitle>
           </div>
           <CardDescription>
-            Votre rôle et groupe d&apos;appartenance dans l&apos;organisation
+            {t("role_group.description")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <p className="text-sm font-medium">Rôle</p>
+              <p className="text-sm font-medium">{t("role_group.role_label")}</p>
               <p className="text-sm text-muted-foreground">
-                Définit vos privilèges dans le système
+                {t("role_group.role_desc")}
               </p>
             </div>
             <Badge variant="default" className="text-sm px-3 py-1">
@@ -67,9 +69,9 @@ export function InformationsTab() {
 
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <p className="text-sm font-medium">Groupe</p>
+              <p className="text-sm font-medium">{t("role_group.group_label")}</p>
               <p className="text-sm text-muted-foreground">
-                Votre groupe d&apos;appartenance organisationnel
+                {t("role_group.group_desc")}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -85,10 +87,10 @@ export function InformationsTab() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <IconKey className="h-5 w-5 text-primary" />
-            <CardTitle>Permissions</CardTitle>
+            <CardTitle>{t("permissions.title")}</CardTitle>
           </div>
           <CardDescription>
-            Liste des permissions accordées à votre compte
+            {t("permissions.description")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -107,18 +109,18 @@ export function InformationsTab() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <IconLogin className="h-5 w-5 text-primary" />
-            <CardTitle>Connexion</CardTitle>
+            <CardTitle>{t("connection.title")}</CardTitle>
           </div>
           <CardDescription>
-            Informations sur votre dernière connexion
+            {t("connection.description")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <p className="text-sm font-medium">Dernière connexion</p>
+              <p className="text-sm font-medium">{t("connection.last_login")}</p>
               <p className="text-sm text-muted-foreground">
-                Date et heure de votre dernière connexion
+                {t("connection.last_login_desc")}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -131,9 +133,9 @@ export function InformationsTab() {
 
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <p className="text-sm font-medium">Dernière activité</p>
+              <p className="text-sm font-medium">{t("connection.last_activity")}</p>
               <p className="text-sm text-muted-foreground">
-                Votre dernière action dans le système
+                {t("connection.last_activity_desc")}
               </p>
             </div>
             <span className="text-sm font-medium text-green-600 dark:text-green-400">
@@ -145,13 +147,13 @@ export function InformationsTab() {
 
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <p className="text-sm font-medium">Sessions actives</p>
+              <p className="text-sm font-medium">{t("connection.active_sessions")}</p>
               <p className="text-sm text-muted-foreground">
-                Nombre de sessions actuellement ouvertes
+                {t("connection.active_sessions_desc")}
               </p>
             </div>
             <Badge variant="secondary" className="text-sm">
-              {userInfo.stats.sessionsActives} session{userInfo.stats.sessionsActives > 1 ? "s" : ""}
+              {userInfo.stats.sessionsActives} {userInfo.stats.sessionsActives > 1 ? t("connection.sessions") : t("connection.session")}
             </Badge>
           </div>
         </CardContent>
@@ -162,21 +164,21 @@ export function InformationsTab() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <IconChartBar className="h-5 w-5 text-primary" />
-            <CardTitle>Statistiques d&apos;utilisation</CardTitle>
+            <CardTitle>{t("stats.title")}</CardTitle>
           </div>
           <CardDescription>
-            Vos statistiques d&apos;utilisation du système
+            {t("stats.description")}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2 rounded-lg border p-4">
-              <p className="text-sm font-medium text-muted-foreground">Total de connexions</p>
+              <p className="text-sm font-medium text-muted-foreground">{t("stats.total_logins")}</p>
               <p className="text-2xl font-bold">{userInfo.stats.totalConnexions}</p>
             </div>
 
             <div className="space-y-2 rounded-lg border p-4">
-              <p className="text-sm font-medium text-muted-foreground">Temps de connexion moyen</p>
+              <p className="text-sm font-medium text-muted-foreground">{t("stats.avg_time")}</p>
               <p className="text-2xl font-bold">{userInfo.stats.tempsConnexionMoyen}</p>
             </div>
           </div>

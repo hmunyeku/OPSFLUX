@@ -24,41 +24,43 @@ import { api, UserUpdate, PasswordPolicy } from "@/lib/api"
 import { auth } from "@/lib/auth"
 import { useToast } from "@/hooks/use-toast"
 import { useAppConfig } from "@/contexts/app-config-context"
+import { useTranslation } from "@/hooks/use-translation"
 import { Lock, CheckCircle2, XCircle, AlertCircle, Plus, X, ExternalLink } from "lucide-react"
 
-const accountFormSchema = z.object({
+// Function to create form schema with translations
+const createAccountFormSchema = (t: (key: string) => string) => z.object({
   first_name: z
     .string()
     .min(2, {
-      message: "Le prénom doit contenir au moins 2 caractères.",
+      message: t("validation.first_name_min"),
     })
     .max(100, {
-      message: "Le prénom ne doit pas dépasser 100 caractères.",
+      message: t("validation.first_name_max"),
     })
     .optional(),
   last_name: z
     .string()
     .min(2, {
-      message: "Le nom doit contenir au moins 2 caractères.",
+      message: t("validation.last_name_min"),
     })
     .max(100, {
-      message: "Le nom ne doit pas dépasser 100 caractères.",
+      message: t("validation.last_name_max"),
     })
     .optional(),
   initials: z
     .string()
     .max(10, {
-      message: "Les initiales ne doivent pas dépasser 10 caractères.",
+      message: t("validation.initials_max"),
     })
     .optional(),
   email: z
     .string({
-      required_error: "L'email est requis.",
+      required_error: t("validation.email_required"),
     })
-    .email("Email invalide."),
+    .email(t("validation.email_invalid")),
   recovery_email: z
     .string()
-    .email("Email de récupération invalide.")
+    .email(t("validation.recovery_email_invalid"))
     .optional()
     .or(z.literal("")),
   avatar_url: z.string().nullable().optional(),
@@ -66,7 +68,16 @@ const accountFormSchema = z.object({
   intranet_identifier: z.string().max(255).optional().or(z.literal("")),
 })
 
-type AccountFormValues = z.infer<typeof accountFormSchema>
+type AccountFormValues = {
+  first_name?: string
+  last_name?: string
+  initials?: string
+  email: string
+  recovery_email?: string
+  avatar_url?: string | null
+  phone_numbers?: string[]
+  intranet_identifier?: string
+}
 
 interface PasswordStrength {
   score: number
@@ -75,6 +86,7 @@ interface PasswordStrength {
 }
 
 export function AccountForm() {
+  const { t } = useTranslation("core.profile.form")
   const { user, isLoading } = useAuth()
   const { config } = useAppConfig()
   const { toast } = useToast()
@@ -92,7 +104,7 @@ export function AccountForm() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   const form = useForm<AccountFormValues>({
-    resolver: zodResolver(accountFormSchema),
+    resolver: zodResolver(createAccountFormSchema(t)),
     defaultValues: {
       first_name: "",
       last_name: "",
@@ -179,19 +191,19 @@ export function AccountForm() {
     if (password.length >= policy.min_length + 8) score++
 
     if (score <= 3) {
-      return { score, label: "Faible", color: "red" }
+      return { score, label: t("password.strength_weak"), color: "red" }
     } else if (score <= 5) {
-      return { score, label: "Moyen", color: "orange" }
+      return { score, label: t("password.strength_medium"), color: "orange" }
     } else {
-      return { score, label: "Fort", color: "green" }
+      return { score, label: t("password.strength_strong"), color: "green" }
     }
   }
 
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
       toast({
-        title: "Champs requis",
-        description: "Veuillez remplir tous les champs",
+        title: t("toast.fields_required"),
+        description: t("toast.fields_required_desc"),
         variant: "destructive",
       })
       return
@@ -199,8 +211,8 @@ export function AccountForm() {
 
     if (newPassword !== confirmPassword) {
       toast({
-        title: "Erreur",
-        description: "Les nouveaux mots de passe ne correspondent pas",
+        title: t("toast.password_mismatch"),
+        description: t("toast.password_mismatch_desc"),
         variant: "destructive",
       })
       return
@@ -208,8 +220,8 @@ export function AccountForm() {
 
     if (passwordStrength.score <= 3) {
       toast({
-        title: "Mot de passe trop faible",
-        description: "Veuillez choisir un mot de passe plus fort",
+        title: t("toast.password_weak"),
+        description: t("toast.password_weak_desc"),
         variant: "destructive",
       })
       return
@@ -221,8 +233,8 @@ export function AccountForm() {
       const token = auth.getToken()
       if (!token) {
         toast({
-          title: "Erreur",
-          description: "Vous devez être connecté",
+          title: t("toast.error"),
+          description: t("toast.error_auth"),
           variant: "destructive",
         })
         setIsChangingPassword(false)
@@ -243,8 +255,8 @@ export function AccountForm() {
 
       if (response.ok) {
         toast({
-          title: "Mot de passe changé",
-          description: "Votre mot de passe a été changé avec succès",
+          title: t("toast.password_changed"),
+          description: t("toast.password_changed_desc"),
         })
         setCurrentPassword("")
         setNewPassword("")
@@ -252,15 +264,15 @@ export function AccountForm() {
       } else {
         const error = await response.json()
         toast({
-          title: "Erreur",
-          description: error.detail || "Impossible de changer le mot de passe",
+          title: t("toast.error"),
+          description: error.detail || t("toast.error_password"),
           variant: "destructive",
         })
       }
     } catch (_error) {
       toast({
-        title: "Erreur",
-        description: "Une erreur s'est produite",
+        title: t("toast.error"),
+        description: t("toast.error_generic"),
         variant: "destructive",
       })
     } finally {
@@ -289,8 +301,8 @@ export function AccountForm() {
       const token = auth.getToken()
       if (!token) {
         toast({
-          title: "Erreur",
-          description: "Vous devez être connecté pour mettre à jour votre profil",
+          title: t("toast.error"),
+          description: t("toast.error_auth"),
           variant: "destructive",
         })
         return
@@ -314,16 +326,16 @@ export function AccountForm() {
       await api.updateMe(token, updateData)
 
       toast({
-        title: "Profil mis à jour",
-        description: "Vos informations ont été mises à jour avec succès.",
+        title: t("toast.profile_updated"),
+        description: t("toast.profile_updated_desc"),
       })
 
       // Reload the page to refresh user data
       window.location.reload()
     } catch (error: unknown) {
       toast({
-        title: "Erreur",
-        description: error instanceof Error ? error.message : "Une erreur s'est produite lors de la mise à jour du profil",
+        title: t("toast.error"),
+        description: error instanceof Error ? error.message : t("toast.error_update"),
         variant: "destructive",
       })
     } finally {
@@ -332,7 +344,7 @@ export function AccountForm() {
   }
 
   if (isLoading) {
-    return <div className="space-y-4">Chargement...</div>
+    return <div className="space-y-4">{t("loading")}</div>
   }
 
   return (
@@ -340,16 +352,16 @@ export function AccountForm() {
       {/* Informations du profil */}
       <Card>
         <CardHeader>
-          <CardTitle>Informations personnelles</CardTitle>
+          <CardTitle>{t("title")}</CardTitle>
           <CardDescription>
-            Mettez à jour vos informations de profil
+            {t("description")}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               {/* Grid Layout: Avatar à gauche, informations à droite */}
-              <div className="grid gap-6 md:grid-cols-[250px_1fr]">
+              <div className="grid gap-6 grid-cols-1 md:grid-cols-[250px_1fr]">
                 {/* Colonne gauche : Photo de profil */}
                 <div className="space-y-4">
                   <FormField
@@ -357,7 +369,7 @@ export function AccountForm() {
                     name="avatar_url"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Photo de profil</FormLabel>
+                        <FormLabel>{t("fields.avatar.label")}</FormLabel>
                         <FormControl>
                           <ProfileAvatar
                             currentAvatarUrl={field.value}
@@ -369,7 +381,7 @@ export function AccountForm() {
                           />
                         </FormControl>
                         <FormDescription className="text-xs">
-                          Visible par les autres utilisateurs
+                          {t("fields.avatar.helper")}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -378,16 +390,16 @@ export function AccountForm() {
                 </div>
 
                 {/* Colonne droite : Informations personnelles */}
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
                   {/* Prénom */}
                   <FormField
                     control={form.control}
                     name="first_name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Prénom</FormLabel>
+                        <FormLabel>{t("fields.first_name.label")}</FormLabel>
                         <FormControl>
-                          <Input placeholder="Jean" {...field} value={field.value || ""} />
+                          <Input placeholder={t("fields.first_name.placeholder")} className="h-11" {...field} value={field.value || ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -400,9 +412,9 @@ export function AccountForm() {
                     name="last_name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Nom</FormLabel>
+                        <FormLabel>{t("fields.last_name.label")}</FormLabel>
                         <FormControl>
-                          <Input placeholder="Dupont" {...field} value={field.value || ""} />
+                          <Input placeholder={t("fields.last_name.placeholder")} className="h-11" {...field} value={field.value || ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -415,12 +427,12 @@ export function AccountForm() {
                     name="initials"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Initiales</FormLabel>
+                        <FormLabel>{t("fields.initials.label")}</FormLabel>
                         <FormControl>
-                          <Input placeholder="JD" maxLength={10} {...field} value={field.value || ""} />
+                          <Input placeholder={t("fields.initials.placeholder")} maxLength={10} className="h-11" {...field} value={field.value || ""} />
                         </FormControl>
                         <FormDescription className="text-xs">
-                          Affichées dans l&apos;avatar
+                          {t("fields.initials.helper")}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -433,12 +445,12 @@ export function AccountForm() {
                     name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Adresse email</FormLabel>
+                        <FormLabel>{t("fields.email.label")}</FormLabel>
                         <FormControl>
-                          <Input type="email" placeholder="jean.dupont@example.com" {...field} disabled className="bg-muted" />
+                          <Input type="email" placeholder={t("fields.email.placeholder")} inputMode="email" className="h-11 bg-muted" {...field} disabled />
                         </FormControl>
                         <FormDescription className="text-xs">
-                          Email de connexion (non modifiable)
+                          {t("fields.email.helper")}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -451,12 +463,12 @@ export function AccountForm() {
                     name="recovery_email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Email de récupération</FormLabel>
+                        <FormLabel>{t("fields.recovery_email.label")}</FormLabel>
                         <FormControl>
-                          <Input type="email" placeholder="recuperation@example.com" {...field} value={field.value || ""} />
+                          <Input type="email" placeholder={t("fields.recovery_email.placeholder")} inputMode="email" className="h-11" {...field} value={field.value || ""} />
                         </FormControl>
                         <FormDescription className="text-xs">
-                          Pour récupérer votre compte
+                          {t("fields.recovery_email.helper")}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -469,10 +481,10 @@ export function AccountForm() {
                     name="intranet_identifier"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Identifiant Intranet</FormLabel>
+                        <FormLabel>{t("fields.intranet_id.label")}</FormLabel>
                         <div className="flex gap-2">
                           <FormControl>
-                            <Input placeholder="user123" {...field} value={field.value || ""} />
+                            <Input placeholder={t("fields.intranet_id.placeholder")} className="h-11" {...field} value={field.value || ""} />
                           </FormControl>
                           {config.intranet_url && field.value && (
                             <Button
@@ -483,14 +495,14 @@ export function AccountForm() {
                                 const url = config.intranet_url?.replace('{user_id}', field.value || '')
                                 window.open(url, '_blank')
                               }}
-                              title="Accéder à mon intranet"
+                              title={t("fields.intranet_id.access")}
                             >
                               <ExternalLink className="h-4 w-4" />
                             </Button>
                           )}
                         </div>
                         <FormDescription className="text-xs">
-                          Votre identifiant sur l&apos;intranet de l&apos;entreprise
+                          {t("fields.intranet_id.helper")}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -498,11 +510,14 @@ export function AccountForm() {
                   />
 
                   {/* Téléphones */}
-                  <div className="md:col-span-2 space-y-2">
-                    <Label>Numéros de téléphone</Label>
+                  <div className="col-span-1 md:col-span-2 space-y-2">
+                    <Label>{t("fields.phone_numbers.label")}</Label>
                     <div className="flex gap-2">
                       <Input
-                        placeholder="+33 6 12 34 56 78"
+                        type="tel"
+                        placeholder={t("fields.phone_numbers.placeholder")}
+                        inputMode="tel"
+                        className="h-11"
                         value={newPhone}
                         onChange={(e) => setNewPhone(e.target.value)}
                         onKeyPress={(e) => {
@@ -541,7 +556,7 @@ export function AccountForm() {
                       </div>
                     )}
                     <p className="text-xs text-muted-foreground">
-                      Ajoutez un ou plusieurs numéros de téléphone
+                      {t("fields.phone_numbers.helper")}
                     </p>
                   </div>
                 </div>
@@ -550,9 +565,9 @@ export function AccountForm() {
               <LoadingButton
                 type="submit"
                 loading={isSubmitting}
-                loadingText="Mise à jour en cours..."
+                loadingText={t("actions.updating")}
               >
-                Mettre à jour le profil
+                {t("actions.update")}
               </LoadingButton>
             </form>
           </Form>
@@ -564,23 +579,24 @@ export function AccountForm() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <Lock className="h-5 w-5" />
-            <CardTitle>Mot de passe</CardTitle>
+            <CardTitle>{t("password.title")}</CardTitle>
           </div>
           <CardDescription>
-            Modifiez votre mot de passe pour sécuriser votre compte
+            {t("password.description")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="current-password">Mot de passe actuel</Label>
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+            <div className="space-y-2 col-span-1 md:col-span-2">
+              <Label htmlFor="current-password">{t("password.current")}</Label>
               <div className="relative">
                 <Input
                   id="current-password"
                   type={showCurrentPassword ? "text" : "password"}
+                  className="h-11"
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder="Entrez votre mot de passe actuel"
+                  placeholder={t("password.current_placeholder")}
                 />
                 <Button
                   type="button"
@@ -589,20 +605,21 @@ export function AccountForm() {
                   className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                   onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                 >
-                  {showCurrentPassword ? "Masquer" : "Afficher"}
+                  {showCurrentPassword ? t("password.hide") : t("password.show")}
                 </Button>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="new-password">Nouveau mot de passe</Label>
+              <Label htmlFor="new-password">{t("password.new")}</Label>
               <div className="relative">
                 <Input
                   id="new-password"
                   type={showNewPassword ? "text" : "password"}
+                  className="h-11"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Entrez votre nouveau mot de passe"
+                  placeholder={t("password.new_placeholder")}
                 />
                 <Button
                   type="button"
@@ -611,20 +628,21 @@ export function AccountForm() {
                   className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                   onClick={() => setShowNewPassword(!showNewPassword)}
                 >
-                  {showNewPassword ? "Masquer" : "Afficher"}
+                  {showNewPassword ? t("password.hide") : t("password.show")}
                 </Button>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirm-password">Confirmer le mot de passe</Label>
+              <Label htmlFor="confirm-password">{t("password.confirm")}</Label>
               <div className="relative">
                 <Input
                   id="confirm-password"
                   type={showConfirmPassword ? "text" : "password"}
+                  className="h-11"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirmez votre nouveau mot de passe"
+                  placeholder={t("password.confirm_placeholder")}
                 />
                 <Button
                   type="button"
@@ -633,13 +651,13 @@ export function AccountForm() {
                   className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 >
-                  {showConfirmPassword ? "Masquer" : "Afficher"}
+                  {showConfirmPassword ? t("password.hide") : t("password.show")}
                 </Button>
               </div>
               {confirmPassword && newPassword !== confirmPassword && (
                 <div className="flex items-center gap-1.5 text-xs text-red-600">
                   <AlertCircle className="h-3.5 w-3.5" />
-                  <span>Les mots de passe ne correspondent pas</span>
+                  <span>{t("password.mismatch")}</span>
                 </div>
               )}
             </div>
@@ -649,7 +667,7 @@ export function AccountForm() {
           {newPassword && (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Force du mot de passe</span>
+                <span className="text-muted-foreground">{t("password.strength")}</span>
                 <span className={`font-medium ${
                   passwordStrength.color === "green" ? "text-green-600" :
                   passwordStrength.color === "orange" ? "text-orange-600" :
@@ -672,8 +690,8 @@ export function AccountForm() {
               {/* Password policy checks */}
               {passwordPolicy && (
                 <div className="space-y-1 pt-2">
-                  <p className="text-xs text-muted-foreground mb-1">Exigences :</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-1 text-xs">
+                  <p className="text-xs text-muted-foreground mb-1">{t("password.requirements")}</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs">
                     <div className={`flex items-center gap-1.5 ${
                       newPassword.length >= passwordPolicy.min_length ? "text-green-600" : "text-gray-500"
                     }`}>
@@ -682,7 +700,7 @@ export function AccountForm() {
                       ) : (
                         <XCircle className="h-3.5 w-3.5" />
                       )}
-                      <span>Au moins {passwordPolicy.min_length} caractères</span>
+                      <span>{t("password.req_length", { count: passwordPolicy.min_length })}</span>
                     </div>
 
                     {passwordPolicy.require_uppercase && (
@@ -694,7 +712,7 @@ export function AccountForm() {
                         ) : (
                           <XCircle className="h-3.5 w-3.5" />
                         )}
-                        <span>Une lettre majuscule</span>
+                        <span>{t("password.req_uppercase")}</span>
                       </div>
                     )}
 
@@ -707,7 +725,7 @@ export function AccountForm() {
                         ) : (
                           <XCircle className="h-3.5 w-3.5" />
                         )}
-                        <span>Une lettre minuscule</span>
+                        <span>{t("password.req_lowercase")}</span>
                       </div>
                     )}
 
@@ -720,7 +738,7 @@ export function AccountForm() {
                         ) : (
                           <XCircle className="h-3.5 w-3.5" />
                         )}
-                        <span>Un chiffre</span>
+                        <span>{t("password.req_digit")}</span>
                       </div>
                     )}
 
@@ -733,7 +751,7 @@ export function AccountForm() {
                         ) : (
                           <XCircle className="h-3.5 w-3.5" />
                         )}
-                        <span>Un caractère spécial</span>
+                        <span>{t("password.req_special")}</span>
                       </div>
                     )}
                   </div>
@@ -745,7 +763,7 @@ export function AccountForm() {
           <LoadingButton
             onClick={handleChangePassword}
             loading={isChangingPassword}
-            loadingText="Changement en cours..."
+            loadingText={t("actions.changing")}
             disabled={
               !currentPassword ||
               !newPassword ||
@@ -755,7 +773,7 @@ export function AccountForm() {
             }
             className="w-full sm:w-auto"
           >
-            Changer le mot de passe
+            {t("actions.change_password")}
           </LoadingButton>
         </CardContent>
       </Card>

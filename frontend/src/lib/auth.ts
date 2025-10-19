@@ -38,3 +38,11 @@ export const auth = {
     localStorage.removeItem(TOKEN_KEY)
   },
 }
+
+/**
+ * Get the current access token (async version for compatibility)
+ * @returns Promise resolving to the stored token or null if not found
+ */
+export async function getAccessToken(): Promise<string | null> {
+  return auth.getToken()
+}

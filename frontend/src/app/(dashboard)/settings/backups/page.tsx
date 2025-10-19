@@ -77,6 +77,7 @@ import { PermissionGuard } from "@/components/permission-guard"
 import { usePermissions } from "@/hooks/use-permissions"
 import { formatDistanceToNow } from "date-fns"
 import { fr } from "date-fns/locale"
+import { useTranslation } from "@/hooks/use-translation"
 
 type ViewMode = "grid" | "table"
 
@@ -103,6 +104,7 @@ export default function BackupsPage() {
 
 function BackupsPageContent() {
   const { hasPermission } = usePermissions()
+  const { t } = useTranslation("core.backups")
   const [backups, setBackups] = useState<Backup[]>([])
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>("grid")
@@ -329,8 +331,9 @@ function BackupsPageContent() {
 
   return (
     <ContentSection
-      title="Backups & Restore"
-      description="Gérez les sauvegardes de votre système (base de données, fichiers et configuration)"
+      title={t("title", "Sauvegardes & Restauration")}
+      desc={t("description", "Gérez les sauvegardes de votre système (base de données, fichiers et configuration)")}
+      className="lg:max-w-full"
     >
       <Tabs defaultValue="backups" className="space-y-4">
         <TabsList>
@@ -674,41 +677,57 @@ function BackupsPageContent() {
             <div className="space-y-2">
               <Label>Éléments à inclure</Label>
               <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="includes_database"
-                    checked={newBackup.includes_database}
-                    onCheckedChange={(checked) =>
-                      setNewBackup({ ...newBackup, includes_database: !!checked })
-                    }
-                  />
-                  <Label htmlFor="includes_database" className="font-normal">
-                    Base de données (PostgreSQL)
-                  </Label>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="includes_database"
+                      checked={newBackup.includes_database}
+                      onCheckedChange={(checked) =>
+                        setNewBackup({ ...newBackup, includes_database: !!checked })
+                      }
+                    />
+                    <Label htmlFor="includes_database" className="font-normal">
+                      Base de données (PostgreSQL)
+                    </Label>
+                  </div>
+                  <Badge variant="outline" className="text-xs">
+                    <IconDatabase className="h-3 w-3 mr-1" />
+                    Taille estimée
+                  </Badge>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="includes_storage"
-                    checked={newBackup.includes_storage}
-                    onCheckedChange={(checked) =>
-                      setNewBackup({ ...newBackup, includes_storage: !!checked })
-                    }
-                  />
-                  <Label htmlFor="includes_storage" className="font-normal">
-                    Fichiers uploadés (storage)
-                  </Label>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="includes_storage"
+                      checked={newBackup.includes_storage}
+                      onCheckedChange={(checked) =>
+                        setNewBackup({ ...newBackup, includes_storage: !!checked })
+                      }
+                    />
+                    <Label htmlFor="includes_storage" className="font-normal">
+                      Fichiers uploadés (storage)
+                    </Label>
+                  </div>
+                  <Badge variant="outline" className="text-xs">
+                    Taille estimée
+                  </Badge>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="includes_config"
-                    checked={newBackup.includes_config}
-                    onCheckedChange={(checked) =>
-                      setNewBackup({ ...newBackup, includes_config: !!checked })
-                    }
-                  />
-                  <Label htmlFor="includes_config" className="font-normal">
-                    Configuration de l'application
-                  </Label>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="includes_config"
+                      checked={newBackup.includes_config}
+                      onCheckedChange={(checked) =>
+                        setNewBackup({ ...newBackup, includes_config: !!checked })
+                      }
+                    />
+                    <Label htmlFor="includes_config" className="font-normal">
+                      Configuration de l'application
+                    </Label>
+                  </div>
+                  <Badge variant="outline" className="text-xs">
+                    Taille estimée
+                  </Badge>
                 </div>
               </div>
             </div>

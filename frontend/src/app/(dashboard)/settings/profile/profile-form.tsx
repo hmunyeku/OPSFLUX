@@ -30,6 +30,7 @@ import { Lock, CheckCircle2, XCircle, AlertCircle, Plus, X, ExternalLink } from 
 import { PhoneInput } from "@/components/ui/phone-input"
 import { SignatureInput } from "@/components/ui/signature-input"
 import { UserAddressesCard } from "./components/user-addresses-card"
+import { DeleteActions } from "../components/delete-actions"
 
 // Function to create form schema with translations
 const createAccountFormSchema = (t: (key: string) => string) => z.object({
@@ -615,7 +616,7 @@ export function AccountForm() {
                   />
 
                   {/* Signature Texte */}
-                  <div className="col-span-1 md:col-span-2">
+                  <div className="col-span-1">
                     <FormField
                       control={form.control}
                       name="signature"
@@ -644,7 +645,7 @@ export function AccountForm() {
                   </div>
 
                   {/* Signature Image */}
-                  <div className="col-span-1 md:col-span-2">
+                  <div className="col-span-1">
                     <FormField
                       control={form.control}
                       name="signature_image"
@@ -924,6 +925,19 @@ export function AccountForm() {
 
       {/* Mes Adresses */}
       <UserAddressesCard />
+
+      {/* Désactivation du compte */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("account.deactivate_title", "Désactiver le compte")}</CardTitle>
+          <CardDescription>
+            {t("account.deactivate_desc", "Vous pouvez désactiver votre compte pour faire une pause.")}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DeleteActions />
+        </CardContent>
+      </Card>
     </div>
   )
 }

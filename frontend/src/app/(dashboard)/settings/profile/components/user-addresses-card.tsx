@@ -5,14 +5,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer"
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,9 +42,9 @@ export function UserAddressesCard() {
   const [loading, setLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Drawer states
-  const [addDrawerOpen, setAddDrawerOpen] = useState(false)
-  const [editDrawerOpen, setEditDrawerOpen] = useState(false)
+  // Sheet states
+  const [addSheetOpen, setAddSheetOpen] = useState(false)
+  const [editSheetOpen, setEditSheetOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [currentAddress, setCurrentAddress] = useState<Address | null>(null)
   const [addressData, setAddressData] = useState<AddressData | undefined>(undefined)
@@ -78,7 +78,7 @@ export function UserAddressesCard() {
 
   function handleAddClick() {
     setAddressData(undefined)
-    setAddDrawerOpen(true)
+    setAddSheetOpen(true)
   }
 
   function handleEditClick(address: Address) {
@@ -101,7 +101,7 @@ export function UserAddressesCard() {
       notes: address.notes || "",
       is_default: address.is_default,
     })
-    setEditDrawerOpen(true)
+    setEditSheetOpen(true)
   }
 
   function handleDeleteClick(address: Address) {
@@ -125,7 +125,7 @@ export function UserAddressesCard() {
         description: t("toast.address_added", "Adresse ajoutée avec succès"),
       })
 
-      setAddDrawerOpen(false)
+      setAddSheetOpen(false)
       setAddressData(undefined)
       await loadData()
     } catch (error) {
@@ -151,7 +151,7 @@ export function UserAddressesCard() {
         description: t("toast.address_updated", "Adresse mise à jour avec succès"),
       })
 
-      setEditDrawerOpen(false)
+      setEditSheetOpen(false)
       setCurrentAddress(null)
       setAddressData(undefined)
       await loadData()
@@ -262,12 +262,12 @@ export function UserAddressesCard() {
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="inline-flex rounded-md border border-input shrink-0" role="group">
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleEditClick(address)}
-                        className="h-8 w-8 p-0"
+                        className="h-8 w-8 p-0 rounded-none rounded-l-md border-r"
                       >
                         <IconPencil className="h-4 w-4" />
                       </Button>
@@ -275,7 +275,7 @@ export function UserAddressesCard() {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDeleteClick(address)}
-                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                        className="h-8 w-8 p-0 rounded-none rounded-r-md text-destructive hover:text-destructive"
                       >
                         <IconTrash className="h-4 w-4" />
                       </Button>
@@ -288,16 +288,16 @@ export function UserAddressesCard() {
         </CardContent>
       </Card>
 
-      {/* Drawer Ajouter */}
-      <Drawer open={addDrawerOpen} onOpenChange={setAddDrawerOpen}>
-        <DrawerContent>
-          <DrawerHeader>
-            <DrawerTitle>{t("addresses.add_title", "Ajouter une adresse")}</DrawerTitle>
-            <DrawerDescription>
+      {/* Sheet Ajouter */}
+      <Sheet open={addSheetOpen} onOpenChange={setAddSheetOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>{t("addresses.add_title", "Ajouter une adresse")}</SheetTitle>
+            <SheetDescription>
               {t("addresses.add_desc", "Remplissez les informations de votre nouvelle adresse")}
-            </DrawerDescription>
-          </DrawerHeader>
-          <div className="px-4 max-h-[70vh] overflow-y-auto">
+            </SheetDescription>
+          </SheetHeader>
+          <div className="py-4">
             <AddressInput
               value={addressData}
               onChange={setAddressData}
@@ -305,29 +305,29 @@ export function UserAddressesCard() {
               required
             />
           </div>
-          <DrawerFooter>
+          <SheetFooter className="gap-2">
+            <SheetClose asChild>
+              <Button variant="outline">
+                {t("actions.cancel", "Annuler")}
+              </Button>
+            </SheetClose>
             <Button onClick={handleAddAddress} disabled={isSubmitting}>
               {isSubmitting ? t("actions.adding", "Ajout...") : t("actions.add", "Ajouter")}
             </Button>
-            <DrawerClose asChild>
-              <Button variant="outline">
-                {t("actions.cancel", "Annuler")}
-              </Button>
-            </DrawerClose>
-          </DrawerFooter>
-        </DrawerContent>
-      </Drawer>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
-      {/* Drawer Modifier */}
-      <Drawer open={editDrawerOpen} onOpenChange={setEditDrawerOpen}>
-        <DrawerContent>
-          <DrawerHeader>
-            <DrawerTitle>{t("addresses.edit_title", "Modifier l'adresse")}</DrawerTitle>
-            <DrawerDescription>
+      {/* Sheet Modifier */}
+      <Sheet open={editSheetOpen} onOpenChange={setEditSheetOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>{t("addresses.edit_title", "Modifier l'adresse")}</SheetTitle>
+            <SheetDescription>
               {t("addresses.edit_desc", "Modifiez les informations de cette adresse")}
-            </DrawerDescription>
-          </DrawerHeader>
-          <div className="px-4 max-h-[70vh] overflow-y-auto">
+            </SheetDescription>
+          </SheetHeader>
+          <div className="py-4">
             <AddressInput
               value={addressData}
               onChange={setAddressData}
@@ -335,18 +335,18 @@ export function UserAddressesCard() {
               required
             />
           </div>
-          <DrawerFooter>
-            <Button onClick={handleUpdateAddress} disabled={isSubmitting}>
-              {isSubmitting ? t("actions.updating", "Mise à jour...") : t("actions.update", "Modifier")}
-            </Button>
-            <DrawerClose asChild>
+          <SheetFooter className="gap-2">
+            <SheetClose asChild>
               <Button variant="outline">
                 {t("actions.cancel", "Annuler")}
               </Button>
-            </DrawerClose>
-          </DrawerFooter>
-        </DrawerContent>
-      </Drawer>
+            </SheetClose>
+            <Button onClick={handleUpdateAddress} disabled={isSubmitting}>
+              {isSubmitting ? t("actions.updating", "Mise à jour...") : t("actions.update", "Modifier")}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
       {/* AlertDialog Supprimer */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

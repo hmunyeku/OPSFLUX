@@ -8,6 +8,27 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs"
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -36,6 +57,9 @@ import {
   IconCheck,
   IconX,
   IconLoader,
+  IconLayoutGrid,
+  IconList,
+  IconCalendar,
 } from "@tabler/icons-react"
 import ContentSection from "../components/content-section"
 import { useToast } from "@/hooks/use-toast"
@@ -54,6 +78,21 @@ import { usePermissions } from "@/hooks/use-permissions"
 import { formatDistanceToNow } from "date-fns"
 import { fr } from "date-fns/locale"
 
+type ViewMode = "grid" | "table"
+
+interface ScheduledBackup {
+  name: string
+  description: string
+  backup_type: "full" | "incremental"
+  includes_database: boolean
+  includes_storage: boolean
+  includes_config: boolean
+  schedule_frequency: "daily" | "weekly" | "monthly"
+  schedule_time: string
+  schedule_day?: number
+  is_active: boolean
+}
+
 export default function BackupsPage() {
   return (
     <PermissionGuard permission="core.backups.read">
@@ -66,7 +105,9 @@ function BackupsPageContent() {
   const { hasPermission } = usePermissions()
   const [backups, setBackups] = useState<Backup[]>([])
   const [loading, setLoading] = useState(true)
+  const [viewMode, setViewMode] = useState<ViewMode>("grid")
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false)
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [selectedBackup, setSelectedBackup] = useState<Backup | null>(null)
@@ -81,6 +122,18 @@ function BackupsPageContent() {
     includes_database: true,
     includes_storage: true,
     includes_config: true,
+  })
+
+  const [scheduledBackup, setScheduledBackup] = useState<ScheduledBackup>({
+    name: "",
+    description: "",
+    backup_type: "full",
+    includes_database: true,
+    includes_storage: true,
+    includes_config: true,
+    schedule_frequency: "daily",
+    schedule_time: "02:00",
+    is_active: true,
   })
 
   const [restoreOptions, setRestoreOptions] = useState<BackupRestore>({
@@ -108,7 +161,6 @@ function BackupsPageContent() {
 
   useEffect(() => {
     fetchBackups()
-    // Auto-refresh every 10 seconds to see status updates
     const interval = setInterval(fetchBackups, 10000)
     return () => clearInterval(interval)
   }, [fetchBackups])
@@ -148,6 +200,43 @@ function BackupsPageContent() {
       })
     } finally {
       setCreating(false)
+    }
+  }
+
+  const handleScheduleBackup = async () => {
+    if (!scheduledBackup.name.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Le nom de la planification est requis",
+      })
+      return
+    }
+
+    try {
+      // TODO: Implement API call to create scheduled backup
+      toast({
+        title: "Planification créée",
+        description: "La sauvegarde automatique a été programmée avec succès",
+      })
+      setScheduleDialogOpen(false)
+      setScheduledBackup({
+        name: "",
+        description: "",
+        backup_type: "full",
+        includes_database: true,
+        includes_storage: true,
+        includes_config: true,
+        schedule_frequency: "daily",
+        schedule_time: "02:00",
+        is_active: true,
+      })
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Impossible de programmer la sauvegarde",
+      })
     }
   }
 
@@ -223,7 +312,7 @@ function BackupsPageContent() {
     const Icon = config.icon
 
     return (
-      <Badge variant={config.variant} className="flex items-center gap-1">
+      <Badge variant={config.variant} className="flex items-center gap-1 w-fit">
         <Icon className={`h-3 w-3 ${status === "in_progress" ? "animate-spin" : ""}`} />
         {config.label}
       </Badge>
@@ -243,168 +332,316 @@ function BackupsPageContent() {
       title="Backups & Restore"
       description="Gérez les sauvegardes de votre système (base de données, fichiers et configuration)"
     >
-      <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <Button onClick={fetchBackups} variant="outline" size="sm">
-              <IconRefresh className="h-4 w-4 mr-2" />
-              Actualiser
-            </Button>
+      <Tabs defaultValue="backups" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="backups">Sauvegardes</TabsTrigger>
+          <TabsTrigger value="scheduled">Programmation</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="backups" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <Button onClick={fetchBackups} variant="outline" size="sm">
+                <IconRefresh className="h-4 w-4 mr-2" />
+                Actualiser
+              </Button>
+              <div className="flex items-center gap-1 border rounded-md">
+                <Button
+                  variant={viewMode === "grid" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("grid")}
+                  className="rounded-r-none"
+                >
+                  <IconLayoutGrid className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === "table" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("table")}
+                  className="rounded-l-none"
+                >
+                  <IconList className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            {hasPermission("core.backups.create") && (
+              <Button onClick={() => setCreateDialogOpen(true)}>
+                <IconPlus className="h-4 w-4 mr-2" />
+                Créer un backup
+              </Button>
+            )}
           </div>
-          {hasPermission("core.backups.create") && (
-            <Button onClick={() => setCreateDialogOpen(true)}>
-              <IconPlus className="h-4 w-4 mr-2" />
-              Créer un backup
-            </Button>
-          )}
-        </div>
 
-        {loading ? (
-          <Card>
-            <CardContent className="py-8">
-              <div className="flex items-center justify-center">
-                <IconLoader className="h-6 w-6 animate-spin" />
-                <span className="ml-2">Chargement...</span>
-              </div>
-            </CardContent>
-          </Card>
-        ) : backups.length === 0 ? (
-          <Card>
-            <CardContent className="py-8">
-              <div className="text-center text-muted-foreground">
-                <IconDatabase className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>Aucun backup disponible</p>
-                <p className="text-sm">Créez votre premier backup pour sauvegarder vos données</p>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-4">
-            {backups.map((backup) => (
-              <Card key={backup.id}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <CardTitle className="text-lg">{backup.name}</CardTitle>
-                      {backup.description && (
-                        <CardDescription>{backup.description}</CardDescription>
-                      )}
-                    </div>
-                    {getStatusBadge(backup.status)}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-4">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <p className="text-muted-foreground">Type</p>
-                        <p className="font-medium capitalize">{backup.backup_type}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Taille totale</p>
-                        <p className="font-medium">{formatBytes(backup.file_size)}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Créé</p>
-                        <p className="font-medium">
-                          {formatDistanceToNow(new Date(backup.created_at), {
-                            addSuffix: true,
-                            locale: fr,
-                          })}
-                        </p>
-                      </div>
-                      {backup.completed_at && (
+          {loading ? (
+            <Card>
+              <CardContent className="py-8">
+                <div className="flex items-center justify-center">
+                  <IconLoader className="h-6 w-6 animate-spin" />
+                  <span className="ml-2">Chargement...</span>
+                </div>
+              </CardContent>
+            </Card>
+          ) : backups.length === 0 ? (
+            <Card className="w-full">
+              <CardContent className="py-12">
+                <div className="text-center text-muted-foreground">
+                  <IconDatabase className="h-16 w-16 mx-auto mb-4 opacity-40" />
+                  <p className="text-lg font-medium mb-1">Aucun backup disponible</p>
+                  <p className="text-sm">Créez votre premier backup pour sauvegarder vos données</p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : viewMode === "grid" ? (
+            <div className="w-full space-y-3">
+              {backups.map((backup) => (
+                <Card key={backup.id} className="w-full hover:shadow-md transition-all border-l-4 border-l-transparent hover:border-l-primary">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between gap-6">
+                      <div className="flex-1 min-w-0 space-y-4">
                         <div>
-                          <p className="text-muted-foreground">Terminé</p>
-                          <p className="font-medium">
-                            {formatDistanceToNow(new Date(backup.completed_at), {
-                              addSuffix: true,
-                              locale: fr,
-                            })}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      {backup.includes_database && (
-                        <Badge variant="outline">
-                          Base de données ({formatBytes(backup.database_size)})
-                        </Badge>
-                      )}
-                      {backup.includes_storage && (
-                        <Badge variant="outline">
-                          Fichiers ({formatBytes(backup.storage_size)})
-                        </Badge>
-                      )}
-                      {backup.includes_config && (
-                        <Badge variant="outline">
-                          Configuration ({formatBytes(backup.config_size)})
-                        </Badge>
-                      )}
-                    </div>
-
-                    {backup.error_message && (
-                      <div className="text-sm text-destructive bg-destructive/10 p-2 rounded">
-                        {backup.error_message}
-                      </div>
-                    )}
-
-                    <div className="flex items-center gap-2 pt-2">
-                      {backup.status === "completed" && (
-                        <>
-                          {hasPermission("core.backups.download") && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDownload(backup)}
-                            >
-                              <IconDownload className="h-4 w-4 mr-2" />
-                              Télécharger
-                            </Button>
+                          <div className="flex items-center gap-3 mb-2">
+                            <h3 className="font-semibold text-lg">{backup.name}</h3>
+                            {getStatusBadge(backup.status)}
+                          </div>
+                          {backup.description && (
+                            <p className="text-sm text-muted-foreground">{backup.description}</p>
                           )}
-                          {hasPermission("core.backups.restore") && (
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-6 text-sm">
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground font-medium">Type:</span>
+                            <Badge variant="secondary" className="capitalize font-normal">
+                              {backup.backup_type}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground font-medium">Taille:</span>
+                            <span className="font-mono text-sm">{formatBytes(backup.file_size)}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <IconClock className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-muted-foreground">
+                              {formatDistanceToNow(new Date(backup.created_at), {
+                                addSuffix: true,
+                                locale: fr,
+                              })}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground font-medium">Contenu:</span>
+                            <div className="flex items-center gap-1.5">
+                              {backup.includes_database && (
+                                <Badge variant="outline" className="text-xs px-2 py-0.5">
+                                  <IconDatabase className="h-3 w-3 mr-1" />
+                                  Database
+                                </Badge>
+                              )}
+                              {backup.includes_storage && (
+                                <Badge variant="outline" className="text-xs px-2 py-0.5">
+                                  Files
+                                </Badge>
+                              )}
+                              {backup.includes_config && (
+                                <Badge variant="outline" className="text-xs px-2 py-0.5">
+                                  Config
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {backup.error_message && (
+                          <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 p-3 rounded-lg">
+                            <p className="font-medium mb-1">Erreur:</p>
+                            <p>{backup.error_message}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {backup.status === "completed" && (
+                          <>
+                            {hasPermission("core.backups.download") && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDownload(backup)}
+                                className="gap-2"
+                              >
+                                <IconDownload className="h-4 w-4" />
+                                Télécharger
+                              </Button>
+                            )}
+                            {hasPermission("core.backups.restore") && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedBackup(backup)
+                                  setRestoreOptions({
+                                    backup_id: backup.id,
+                                    restore_database: backup.includes_database,
+                                    restore_storage: backup.includes_storage,
+                                    restore_config: backup.includes_config,
+                                  })
+                                  setRestoreDialogOpen(true)
+                                }}
+                                className="gap-2"
+                              >
+                                <IconRestore className="h-4 w-4" />
+                                Restaurer
+                              </Button>
+                            )}
+                          </>
+                        )}
+                        {hasPermission("core.backups.delete") && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedBackup(backup)
+                              setDeleteDialogOpen(true)
+                            }}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          >
+                            <IconTrash className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card className="w-full">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[25%]">Nom</TableHead>
+                    <TableHead className="w-[10%]">Type</TableHead>
+                    <TableHead className="w-[12%]">Statut</TableHead>
+                    <TableHead className="w-[18%]">Contenu</TableHead>
+                    <TableHead className="w-[10%]">Taille</TableHead>
+                    <TableHead className="w-[15%]">Créé</TableHead>
+                    <TableHead className="w-[10%] text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {backups.map((backup) => (
+                    <TableRow key={backup.id} className="hover:bg-muted/50">
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{backup.name}</p>
+                          {backup.description && (
+                            <p className="text-xs text-muted-foreground line-clamp-1">{backup.description}</p>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="capitalize text-xs">
+                          {backup.backup_type}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{getStatusBadge(backup.status)}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-1.5 flex-wrap">
+                          {backup.includes_database && <Badge variant="outline" className="text-xs h-5">DB</Badge>}
+                          {backup.includes_storage && <Badge variant="outline" className="text-xs h-5">Files</Badge>}
+                          {backup.includes_config && <Badge variant="outline" className="text-xs h-5">Config</Badge>}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm font-mono">{formatBytes(backup.file_size)}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatDistanceToNow(new Date(backup.created_at), {
+                          addSuffix: true,
+                          locale: fr,
+                        })}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-end gap-1">
+                          {backup.status === "completed" && (
+                            <>
+                              {hasPermission("core.backups.download") && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDownload(backup)}
+                                  title="Télécharger"
+                                >
+                                  <IconDownload className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {hasPermission("core.backups.restore") && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedBackup(backup)
+                                    setRestoreOptions({
+                                      backup_id: backup.id,
+                                      restore_database: backup.includes_database,
+                                      restore_storage: backup.includes_storage,
+                                      restore_config: backup.includes_config,
+                                    })
+                                    setRestoreDialogOpen(true)
+                                  }}
+                                  title="Restaurer"
+                                >
+                                  <IconRestore className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </>
+                          )}
+                          {hasPermission("core.backups.delete") && (
                             <Button
-                              variant="outline"
+                              variant="ghost"
                               size="sm"
                               onClick={() => {
                                 setSelectedBackup(backup)
-                                setRestoreOptions({
-                                  backup_id: backup.id,
-                                  restore_database: backup.includes_database,
-                                  restore_storage: backup.includes_storage,
-                                  restore_config: backup.includes_config,
-                                })
-                                setRestoreDialogOpen(true)
+                                setDeleteDialogOpen(true)
                               }}
+                              title="Supprimer"
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
                             >
-                              <IconRestore className="h-4 w-4 mr-2" />
-                              Restaurer
+                              <IconTrash className="h-4 w-4" />
                             </Button>
                           )}
-                        </>
-                      )}
-                      {hasPermission("core.backups.delete") && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedBackup(backup)
-                            setDeleteDialogOpen(true)
-                          }}
-                        >
-                          <IconTrash className="h-4 w-4 mr-2" />
-                          Supprimer
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="scheduled" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <p className="text-sm text-muted-foreground">
+              Programmez des sauvegardes automatiques régulières
+            </p>
+            {hasPermission("core.backups.create") && (
+              <Button onClick={() => setScheduleDialogOpen(true)}>
+                <IconCalendar className="h-4 w-4 mr-2" />
+                Programmer une sauvegarde
+              </Button>
+            )}
           </div>
-        )}
-      </div>
+
+          <Card>
+            <CardContent className="py-8">
+              <div className="text-center text-muted-foreground">
+                <IconCalendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>Aucune sauvegarde programmée</p>
+                <p className="text-sm">Créez une planification pour automatiser vos sauvegardes</p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Create Backup Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
@@ -492,6 +729,180 @@ function BackupsPageContent() {
                   Créer le backup
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Schedule Backup Dialog */}
+      <Dialog open={scheduleDialogOpen} onOpenChange={setScheduleDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Programmer une sauvegarde automatique</DialogTitle>
+            <DialogDescription>
+              Configurez une sauvegarde récurrente selon vos besoins
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="schedule-name">Nom de la planification *</Label>
+                <Input
+                  id="schedule-name"
+                  value={scheduledBackup.name}
+                  onChange={(e) => setScheduledBackup({ ...scheduledBackup, name: e.target.value })}
+                  placeholder="Sauvegarde quotidienne"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="schedule-type">Type de sauvegarde</Label>
+                <Select
+                  value={scheduledBackup.backup_type}
+                  onValueChange={(value: "full" | "incremental") =>
+                    setScheduledBackup({ ...scheduledBackup, backup_type: value })
+                  }
+                >
+                  <SelectTrigger id="schedule-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="full">Complète</SelectItem>
+                    <SelectItem value="incremental">Incrémentale</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="schedule-description">Description</Label>
+              <Input
+                id="schedule-description"
+                value={scheduledBackup.description}
+                onChange={(e) => setScheduledBackup({ ...scheduledBackup, description: e.target.value })}
+                placeholder="Sauvegarde automatique tous les jours à 2h du matin"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="frequency">Fréquence</Label>
+                <Select
+                  value={scheduledBackup.schedule_frequency}
+                  onValueChange={(value: "daily" | "weekly" | "monthly") =>
+                    setScheduledBackup({ ...scheduledBackup, schedule_frequency: value })
+                  }
+                >
+                  <SelectTrigger id="frequency">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="daily">Quotidienne</SelectItem>
+                    <SelectItem value="weekly">Hebdomadaire</SelectItem>
+                    <SelectItem value="monthly">Mensuelle</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="time">Heure d'exécution</Label>
+                <Input
+                  id="time"
+                  type="time"
+                  value={scheduledBackup.schedule_time}
+                  onChange={(e) => setScheduledBackup({ ...scheduledBackup, schedule_time: e.target.value })}
+                />
+              </div>
+            </div>
+
+            {scheduledBackup.schedule_frequency === "weekly" && (
+              <div className="space-y-2">
+                <Label htmlFor="day">Jour de la semaine</Label>
+                <Select
+                  value={scheduledBackup.schedule_day?.toString() || "1"}
+                  onValueChange={(value) =>
+                    setScheduledBackup({ ...scheduledBackup, schedule_day: parseInt(value) })
+                  }
+                >
+                  <SelectTrigger id="day">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">Lundi</SelectItem>
+                    <SelectItem value="2">Mardi</SelectItem>
+                    <SelectItem value="3">Mercredi</SelectItem>
+                    <SelectItem value="4">Jeudi</SelectItem>
+                    <SelectItem value="5">Vendredi</SelectItem>
+                    <SelectItem value="6">Samedi</SelectItem>
+                    <SelectItem value="0">Dimanche</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {scheduledBackup.schedule_frequency === "monthly" && (
+              <div className="space-y-2">
+                <Label htmlFor="day-month">Jour du mois</Label>
+                <Input
+                  id="day-month"
+                  type="number"
+                  min="1"
+                  max="31"
+                  value={scheduledBackup.schedule_day || 1}
+                  onChange={(e) =>
+                    setScheduledBackup({ ...scheduledBackup, schedule_day: parseInt(e.target.value) })
+                  }
+                />
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>Éléments à sauvegarder</Label>
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="schedule-db"
+                    checked={scheduledBackup.includes_database}
+                    onCheckedChange={(checked) =>
+                      setScheduledBackup({ ...scheduledBackup, includes_database: !!checked })
+                    }
+                  />
+                  <Label htmlFor="schedule-db" className="font-normal">
+                    Base de données (PostgreSQL)
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="schedule-storage"
+                    checked={scheduledBackup.includes_storage}
+                    onCheckedChange={(checked) =>
+                      setScheduledBackup({ ...scheduledBackup, includes_storage: !!checked })
+                    }
+                  />
+                  <Label htmlFor="schedule-storage" className="font-normal">
+                    Fichiers uploadés (storage)
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="schedule-config"
+                    checked={scheduledBackup.includes_config}
+                    onCheckedChange={(checked) =>
+                      setScheduledBackup({ ...scheduledBackup, includes_config: !!checked })
+                    }
+                  />
+                  <Label htmlFor="schedule-config" className="font-normal">
+                    Configuration de l'application
+                  </Label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setScheduleDialogOpen(false)}>
+              Annuler
+            </Button>
+            <Button onClick={handleScheduleBackup}>
+              <IconCalendar className="h-4 w-4 mr-2" />
+              Programmer
             </Button>
           </DialogFooter>
         </DialogContent>

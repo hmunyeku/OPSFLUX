@@ -44,6 +44,16 @@ import {
   DialogTitle,
   DialogFooter
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { IconSearch, IconFilter, IconArrowsSort, IconX } from "@tabler/icons-react"
 import { Shield, ShieldCheck, Key, Download, RefreshCw, Smartphone } from "lucide-react"
@@ -93,6 +103,10 @@ export function PreferencesTab() {
   const [verificationCode, setVerificationCode] = useState("")
   const [backupCodes, setBackupCodes] = useState<string[]>([])
   const [showBackupCodes, setShowBackupCodes] = useState(false)
+
+  // Confirmation dialogs
+  const [disable2FADialogOpen, setDisable2FADialogOpen] = useState(false)
+  const [regenerateCodesDialogOpen, setRegenerateCodesDialogOpen] = useState(false)
 
   // Fetch 2FA config on mount
   useEffect(() => {
@@ -264,10 +278,8 @@ export function PreferencesTab() {
     }
   }
 
-  const handleDisable2FA = async () => {
-    if (!confirm(t("2fa.confirm.disable"))) {
-      return
-    }
+  const confirmDisable2FA = async () => {
+    setDisable2FADialogOpen(false)
 
     try {
       const token = auth.getToken()
@@ -309,10 +321,8 @@ export function PreferencesTab() {
     }
   }
 
-  const handleRegenerateBackupCodes = async () => {
-    if (!confirm(t("2fa.confirm.regenerate"))) {
-      return
-    }
+  const confirmRegenerateBackupCodes = async () => {
+    setRegenerateCodesDialogOpen(false)
 
     try {
       const token = auth.getToken()
@@ -818,7 +828,7 @@ export function PreferencesTab() {
                     if (checked) {
                       handleSetupTotp()
                     } else {
-                      handleDisable2FA()
+                      setDisable2FADialogOpen(true)
                     }
                   }}
                 />
@@ -855,7 +865,7 @@ export function PreferencesTab() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={handleRegenerateBackupCodes}
+                        onClick={() => setRegenerateCodesDialogOpen(true)}
                       >
                         <RefreshCw className="h-4 w-4 mr-2" />
                         {t("2fa.regenerate")}
@@ -1120,6 +1130,42 @@ export function PreferencesTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* AlertDialog pour confirmer la désactivation de 2FA */}
+      <AlertDialog open={disable2FADialogOpen} onOpenChange={setDisable2FADialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("2fa.confirm.disable_title") || "Désactiver l'authentification à deux facteurs ?"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("2fa.confirm.disable")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("2fa.confirm.cancel") || "Annuler"}</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDisable2FA}>
+              {t("2fa.confirm.confirm") || "Confirmer"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* AlertDialog pour confirmer la régénération des codes de secours */}
+      <AlertDialog open={regenerateCodesDialogOpen} onOpenChange={setRegenerateCodesDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("2fa.confirm.regenerate_title") || "Régénérer les codes de secours ?"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("2fa.confirm.regenerate")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("2fa.confirm.cancel") || "Annuler"}</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmRegenerateBackupCodes}>
+              {t("2fa.confirm.confirm") || "Confirmer"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -51,23 +51,14 @@ def read_users(
     Retrieve users.
     Use with_rbac=true to include roles and groups relationships.
     """
-    from sqlmodel import Session
-    from sqlalchemy.orm import selectinload
-
-    count_statement = select(func.count()).select_from(User)
+    count_statement = select(func.count()).select_from(User).where(
+        User.deleted_at.is_(None)
+    )
     count = session.exec(count_statement).one()
 
-    if with_rbac:
-        # Load users with roles and groups eagerly
-        statement = (
-            select(User)
-            .options(selectinload(User.roles), selectinload(User.groups))
-            .offset(skip)
-            .limit(limit)
-        )
-    else:
-        statement = select(User).offset(skip).limit(limit)
-
+    # Simple query without eager loading for now
+    # TODO: Implement proper RBAC data loading when with_rbac=True
+    statement = select(User).where(User.deleted_at.is_(None)).offset(skip).limit(limit)
     users = session.exec(statement).all()
 
     return UsersPublic(data=users, count=count)

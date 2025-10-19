@@ -362,6 +362,132 @@ class BackupService:
             logger.error(f"Failed to get backup size: {e}")
             return None
 
+    def estimate_backup_size(
+        self,
+        includes_database: bool = True,
+        includes_storage: bool = True,
+        includes_config: bool = True,
+    ) -> int:
+        """
+        Estime la taille d'un backup avant sa création.
+
+        Returns:
+            int: Taille estimée en octets
+        """
+        try:
+            total_size = 0
+
+            # 1. Estimer la taille de la base de données
+            if includes_database:
+                db_size = self._estimate_database_size()
+                total_size += db_size
+                logger.info(f"Estimated database size: {db_size} bytes")
+
+            # 2. Estimer la taille du storage
+            if includes_storage:
+                storage_size = self._estimate_storage_size()
+                total_size += storage_size
+                logger.info(f"Estimated storage size: {storage_size} bytes")
+
+            # 3. Estimer la taille de la configuration (négligeable)
+            if includes_config:
+                config_size = 1024 * 100  # ~100 KB pour la config
+                total_size += config_size
+                logger.info(f"Estimated config size: {config_size} bytes")
+
+            # Ajouter 20% de marge pour la compression et les métadonnées
+            estimated_size = int(total_size * 1.2)
+
+            logger.info(f"Total estimated backup size: {estimated_size} bytes")
+            return estimated_size
+
+        except Exception as e:
+            logger.error(f"Error estimating backup size: {e}")
+            raise
+
+    def _estimate_database_size(self) -> int:
+        """Estime la taille de la base de données."""
+        try:
+            env = os.environ.copy()
+            env["PGPASSWORD"] = settings.POSTGRES_PASSWORD
+
+            # Requête SQL pour obtenir la taille de la base
+            query = f"SELECT pg_database_size('{settings.POSTGRES_DB}');"
+
+            cmd = [
+                "psql",
+                "-h", settings.POSTGRES_SERVER,
+                "-p", str(settings.POSTGRES_PORT),
+                "-U", settings.POSTGRES_USER,
+                "-d", settings.POSTGRES_DB,
+                "-t",  # Tuple only (no headers)
+                "-c", query
+            ]
+
+            result = subprocess.run(
+                cmd,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=True
+            )
+
+            # Extraire la taille en octets
+            size_str = result.stdout.strip()
+            db_size = int(size_str)
+
+            return db_size
+
+        except Exception as e:
+            logger.error(f"Error estimating database size: {e}")
+            # En cas d'erreur, retourner une estimation par défaut de 100 MB
+            return 100 * 1024 * 1024
+
+    def _estimate_storage_size(self) -> int:
+        """Estime la taille du dossier storage."""
+        try:
+            storage_path = Path("/app/storage")
+            if not storage_path.exists():
+                return 0
+
+            total_size = 0
+            for path in storage_path.rglob("*"):
+                if path.is_file():
+                    total_size += path.stat().st_size
+
+            return total_size
+
+        except Exception as e:
+            logger.error(f"Error estimating storage size: {e}")
+            return 0
+
+    def get_disk_space(self) -> dict:
+        """
+        Récupère les informations sur l'espace disque disponible.
+
+        Returns:
+            dict: {
+                "total": int,  # Total space in bytes
+                "used": int,   # Used space in bytes
+                "available": int,  # Available space in bytes
+                "percent": float  # Percentage used
+            }
+        """
+        try:
+            import shutil
+            stat = shutil.disk_usage(self.backup_dir)
+
+            return {
+                "total": stat.total,
+                "used": stat.used,
+                "available": stat.free,
+                "percent": (stat.used / stat.total) * 100 if stat.total > 0 else 0
+            }
+
+        except Exception as e:
+            logger.error(f"Error getting disk space: {e}")
+            raise
+
 
 # Instance singleton
 backup_service = BackupService()

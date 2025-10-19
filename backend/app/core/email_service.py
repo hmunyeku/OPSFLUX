@@ -141,36 +141,32 @@ class EmailService:
 
         Args:
             email_to: Adresse email destinataire
-            db: Session SQLModel (optionnel)
+            db: Session SQLModel (requis pour récupérer le template)
 
         Returns:
             bool: True si envoyé avec succès, False sinon
         """
+        if not db:
+            logger.error("Session DB requise pour send_test_email")
+            return False
+
         config = EmailService._get_email_config(db)
 
-        subject = f"{settings.PROJECT_NAME} - Email de test"
-        html_content = f"""
-        <html>
-            <body>
-                <h2>Email de test</h2>
-                <p>Cet email confirme que votre configuration SMTP fonctionne correctement.</p>
-                <hr>
-                <p><strong>Configuration utilisée:</strong></p>
-                <ul>
-                    <li>Serveur SMTP: {config["host"]}</li>
-                    <li>Port: {config["port"]}</li>
-                    <li>TLS: {config["use_tls"]}</li>
-                    <li>SSL: {config["use_ssl"]}</li>
-                    <li>Expéditeur: {config["from_email"]}</li>
-                </ul>
-            </body>
-        </html>
-        """
+        # Variables pour le template
+        variables = {
+            "project_name": settings.PROJECT_NAME,
+            "smtp_host": config["host"] or "Non configuré",
+            "smtp_port": str(config["port"]) or "Non configuré",
+            "smtp_tls": str(config["use_tls"]),
+            "smtp_ssl": str(config["use_ssl"]),
+            "from_email": config["from_email"] or "Non configuré",
+        }
 
-        return EmailService.send_email(
+        # Utiliser le template de la DB
+        return EmailService.send_templated_email_by_slug(
             email_to=email_to,
-            subject=subject,
-            html_content=html_content,
+            template_slug="test_email",
+            variables=variables,
             db=db,
         )
 
@@ -188,51 +184,31 @@ class EmailService:
             email_to: Adresse email destinataire
             email: Email de l'utilisateur (pour affichage)
             token: Token de réinitialisation
-            db: Session SQLModel (optionnel)
+            db: Session SQLModel (requis pour récupérer le template)
 
         Returns:
             bool: True si envoyé avec succès, False sinon
         """
-        subject = f"{settings.PROJECT_NAME} - Réinitialisation de votre mot de passe"
+        if not db:
+            logger.error("Session DB requise pour send_reset_password_email")
+            return False
 
         # Construire le lien de réinitialisation
         reset_link = f"{settings.FRONTEND_HOST}/reset-password?token={token}"
 
-        html_content = f"""
-        <html>
-            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                    <h2 style="color: #2563eb;">Réinitialisation de mot de passe</h2>
-                    <p>Bonjour,</p>
-                    <p>Vous avez demandé à réinitialiser le mot de passe de votre compte <strong>{email}</strong>.</p>
-                    <p>Pour réinitialiser votre mot de passe, cliquez sur le bouton ci-dessous :</p>
-                    <div style="text-align: center; margin: 30px 0;">
-                        <a href="{reset_link}"
-                           style="background-color: #2563eb; color: white; padding: 12px 30px;
-                                  text-decoration: none; border-radius: 5px; display: inline-block;">
-                            Réinitialiser mon mot de passe
-                        </a>
-                    </div>
-                    <p>Ou copiez ce lien dans votre navigateur :</p>
-                    <p style="word-break: break-all; background-color: #f3f4f6; padding: 10px; border-radius: 5px;">
-                        {reset_link}
-                    </p>
-                    <p><strong>Ce lien est valable pendant {settings.EMAIL_RESET_TOKEN_EXPIRE_HOURS} heures.</strong></p>
-                    <p>Si vous n'avez pas demandé cette réinitialisation, vous pouvez ignorer cet email en toute sécurité.</p>
-                    <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
-                    <p style="color: #6b7280; font-size: 12px;">
-                        Cet email a été envoyé par {settings.PROJECT_NAME}.
-                        Pour des raisons de sécurité, ne partagez jamais ce lien avec personne.
-                    </p>
-                </div>
-            </body>
-        </html>
-        """
+        # Variables pour le template
+        variables = {
+            "project_name": settings.PROJECT_NAME,
+            "user_email": email,
+            "reset_link": reset_link,
+            "expiry_hours": str(settings.EMAIL_RESET_TOKEN_EXPIRE_HOURS),
+        }
 
-        return EmailService.send_email(
+        # Utiliser le template de la DB
+        return EmailService.send_templated_email_by_slug(
             email_to=email_to,
-            subject=subject,
-            html_content=html_content,
+            template_slug="password_reset",
+            variables=variables,
             db=db,
         )
 
@@ -250,50 +226,36 @@ class EmailService:
             email_to: Adresse email du nouvel utilisateur
             inviter_name: Nom de la personne qui invite
             invitation_token: Token d'invitation
-            db: Session SQLModel (optionnel)
+            db: Session SQLModel (requis pour récupérer le template)
 
         Returns:
             bool: True si envoyé avec succès, False sinon
         """
-        subject = f"{settings.PROJECT_NAME} - Vous êtes invité(e) à rejoindre l'équipe"
+        if not db:
+            logger.error("Session DB requise pour send_user_invitation_email")
+            return False
+
+        # Récupérer le délai d'expiration depuis les settings
+        from app.models import AppSettings
+        app_settings = db.exec(select(AppSettings)).first()
+        expiry_days = app_settings.invitation_expiry_days if app_settings and app_settings.invitation_expiry_days else 7
 
         # Construire le lien d'inscription
-        signup_link = f"{settings.FRONTEND_HOST}/signup?token={invitation_token}"
+        signup_link = f"{settings.FRONTEND_HOST}/accept-invitation?token={invitation_token}"
 
-        html_content = f"""
-        <html>
-            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                    <h2 style="color: #2563eb;">Invitation à rejoindre {settings.PROJECT_NAME}</h2>
-                    <p>Bonjour,</p>
-                    <p><strong>{inviter_name}</strong> vous invite à rejoindre {settings.PROJECT_NAME}.</p>
-                    <p>Pour créer votre compte et rejoindre l'équipe, cliquez sur le bouton ci-dessous :</p>
-                    <div style="text-align: center; margin: 30px 0;">
-                        <a href="{signup_link}"
-                           style="background-color: #2563eb; color: white; padding: 12px 30px;
-                                  text-decoration: none; border-radius: 5px; display: inline-block;">
-                            Créer mon compte
-                        </a>
-                    </div>
-                    <p>Ou copiez ce lien dans votre navigateur :</p>
-                    <p style="word-break: break-all; background-color: #f3f4f6; padding: 10px; border-radius: 5px;">
-                        {signup_link}
-                    </p>
-                    <p><strong>Cette invitation expire dans 7 jours.</strong></p>
-                    <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
-                    <p style="color: #6b7280; font-size: 12px;">
-                        Cet email a été envoyé par {settings.PROJECT_NAME}.
-                        Si vous n'êtes pas censé(e) recevoir cette invitation, vous pouvez l'ignorer.
-                    </p>
-                </div>
-            </body>
-        </html>
-        """
+        # Variables pour le template
+        variables = {
+            "project_name": settings.PROJECT_NAME,
+            "inviter_name": inviter_name,
+            "signup_link": signup_link,
+            "expiry_days": str(expiry_days),
+        }
 
-        return EmailService.send_email(
+        # Utiliser le template de la DB
+        return EmailService.send_templated_email_by_slug(
             email_to=email_to,
-            subject=subject,
-            html_content=html_content,
+            template_slug="user_invitation",
+            variables=variables,
             db=db,
         )
 
@@ -309,43 +271,27 @@ class EmailService:
         Args:
             email_to: Adresse email de l'utilisateur
             user_name: Nom de l'utilisateur
-            db: Session SQLModel (optionnel)
+            db: Session SQLModel (requis pour récupérer le template)
 
         Returns:
             bool: True si envoyé avec succès, False sinon
         """
-        subject = f"Bienvenue sur {settings.PROJECT_NAME} !"
+        if not db:
+            logger.error("Session DB requise pour send_welcome_email")
+            return False
 
-        html_content = f"""
-        <html>
-            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                    <h2 style="color: #2563eb;">Bienvenue sur {settings.PROJECT_NAME} !</h2>
-                    <p>Bonjour <strong>{user_name}</strong>,</p>
-                    <p>Nous sommes ravis de vous accueillir sur {settings.PROJECT_NAME} !</p>
-                    <p>Votre compte a été créé avec succès. Vous pouvez maintenant accéder à toutes les fonctionnalités de la plateforme.</p>
-                    <div style="text-align: center; margin: 30px 0;">
-                        <a href="{settings.FRONTEND_HOST}"
-                           style="background-color: #2563eb; color: white; padding: 12px 30px;
-                                  text-decoration: none; border-radius: 5px; display: inline-block;">
-                            Accéder à la plateforme
-                        </a>
-                    </div>
-                    <p><strong>Besoin d'aide ?</strong></p>
-                    <p>Consultez notre documentation ou contactez le support si vous avez des questions.</p>
-                    <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
-                    <p style="color: #6b7280; font-size: 12px;">
-                        Cet email a été envoyé par {settings.PROJECT_NAME}.
-                    </p>
-                </div>
-            </body>
-        </html>
-        """
+        # Variables pour le template
+        variables = {
+            "project_name": settings.PROJECT_NAME,
+            "user_name": user_name,
+            "platform_url": settings.FRONTEND_HOST,
+        }
 
-        return EmailService.send_email(
+        # Utiliser le template de la DB
+        return EmailService.send_templated_email_by_slug(
             email_to=email_to,
-            subject=subject,
-            html_content=html_content,
+            template_slug="welcome",
+            variables=variables,
             db=db,
         )
 
@@ -510,6 +456,63 @@ class EmailService:
             return False
         except Exception as e:
             logger.error(f"Erreur lors de l'envoi de l'email templé {template_id}: {e}")
+            return False
+
+    @staticmethod
+    def send_templated_email_by_slug(
+        *,
+        email_to: str,
+        template_slug: str,
+        variables: dict[str, Any],
+        db: Session,
+    ) -> bool:
+        """
+        Envoie un email en utilisant un template de la base de données identifié par son slug.
+
+        Cette méthode est un wrapper autour de send_templated_email qui récupère
+        le template par son slug au lieu de son UUID.
+
+        Args:
+            email_to: Adresse email destinataire
+            template_slug: Slug du template EmailTemplate (ex: "user_invitation", "password_reset")
+            variables: Dictionnaire de variables pour le rendu
+            db: Session SQLModel (requis pour récupérer le template)
+
+        Returns:
+            bool: True si envoyé avec succès, False sinon
+
+        Example:
+            >>> send_templated_email_by_slug(
+            ...     email_to="user@example.com",
+            ...     template_slug="user_invitation",
+            ...     variables={"inviter_name": "John", "signup_link": "https://..."},
+            ...     db=session
+            ... )
+            True
+        """
+        try:
+            # Récupérer le template par slug
+            statement = select(EmailTemplate).where(
+                EmailTemplate.slug == template_slug,
+                EmailTemplate.is_active == True
+            )
+            result = db.exec(statement)
+            template = result.one_or_none()
+
+            if not template:
+                logger.error(f"Template avec slug '{template_slug}' non trouvé ou inactif")
+                return False
+
+            # Utiliser la méthode send_templated_email avec l'ID du template
+            return EmailService.send_templated_email(
+                email_to=email_to,
+                template_id=template.id,
+                variables=variables,
+                db=db,
+            )
+
+        except Exception as e:
+            logger.error(f"Erreur lors de l'envoi de l'email avec template slug '{template_slug}': {e}")
             return False
 
     @staticmethod

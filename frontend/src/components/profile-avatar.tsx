@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Camera, Upload, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useToast } from "@/hooks/use-toast"
 
 interface ProfileAvatarProps {
   currentAvatarUrl?: string | null
@@ -33,6 +34,7 @@ export function ProfileAvatar({
   editable = true,
   className,
 }: ProfileAvatarProps) {
+  const { toast } = useToast()
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentAvatarUrl || null)
   const [isHovering, setIsHovering] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -83,13 +85,21 @@ export function ProfileAvatar({
 
     // Validate file type
     if (!file.type.startsWith("image/")) {
-      alert("Veuillez sélectionner une image")
+      toast({
+        title: "Fichier invalide",
+        description: "Veuillez sélectionner une image",
+        variant: "destructive",
+      })
       return
     }
 
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      alert("L'image est trop grande (max 5MB)")
+      toast({
+        title: "Fichier trop volumineux",
+        description: "L'image est trop grande (max 5MB)",
+        variant: "destructive",
+      })
       return
     }
 
@@ -99,7 +109,11 @@ export function ProfileAvatar({
       setPreviewUrl(compressedDataUrl)
       onAvatarChange(compressedDataUrl)
     } catch {
-      alert("Erreur lors du traitement de l'image")
+      toast({
+        title: "Erreur",
+        description: "Erreur lors du traitement de l'image",
+        variant: "destructive",
+      })
     }
   }
 

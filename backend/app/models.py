@@ -116,6 +116,57 @@ class UserGroupAssignment(SQLModel):
     group_ids: list[uuid.UUID]
 
 
+# User Invitation models
+class UserInvitationBase(SQLModel):
+    email: EmailStr = Field(max_length=255, index=True)
+    role_id: uuid.UUID | None = Field(default=None, description="Rôle à assigner à l'utilisateur après acceptation")
+    first_name: str | None = Field(default=None, max_length=100)
+    last_name: str | None = Field(default=None, max_length=100)
+
+
+class UserInvitationCreate(UserInvitationBase):
+    """Schéma pour créer une invitation"""
+    pass
+
+
+class UserInvitation(AbstractBaseModel, UserInvitationBase, table=True):
+    """
+    Modèle pour les invitations d'utilisateurs.
+    Stocke les invitations en attente avec un token unique et une date d'expiration.
+    """
+    token: str = Field(unique=True, index=True, max_length=255, description="Token unique pour l'invitation")
+    invited_by_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, description="Utilisateur qui a envoyé l'invitation")
+    expires_at: str = Field(description="Date d'expiration de l'invitation (ISO format)")
+    accepted_at: str | None = Field(default=None, description="Date d'acceptation de l'invitation (ISO format)")
+
+    # Relationships
+    invited_by: User | None = Relationship()
+
+
+class UserInvitationPublic(UserInvitationBase):
+    """Schéma public pour les invitations (sans le token complet)"""
+    id: uuid.UUID
+    invited_by_id: uuid.UUID
+    expires_at: str
+    accepted_at: str | None = None
+    created_at: str
+    is_active: bool
+
+
+class UserInvitationsPublic(SQLModel):
+    """Liste paginée d'invitations"""
+    data: list[UserInvitationPublic]
+    count: int
+
+
+class AcceptInvitation(SQLModel):
+    """Schéma pour accepter une invitation"""
+    token: str = Field(description="Token d'invitation")
+    password: str = Field(min_length=8, max_length=40, description="Mot de passe choisi par l'utilisateur")
+    first_name: str | None = Field(default=None, max_length=100)
+    last_name: str | None = Field(default=None, max_length=100)
+
+
 # Shared properties
 class ItemBase(SQLModel):
     title: str = Field(min_length=1, max_length=255)
@@ -235,6 +286,22 @@ class AppSettingsBase(SQLModel):
     # Configuration Intranet
     intranet_url: str | None = Field(default=None, max_length=500, description="URL de l'intranet avec placeholder {user_id}")
 
+    # === Backup Configuration ===
+    backup_storage_type: str = Field(default="local", max_length=50, description="Type de stockage: local, s3, ftp, sftp")
+    backup_local_path: str | None = Field(default="/backups", max_length=500, description="Chemin local pour les backups")
+    backup_s3_bucket: str | None = Field(default=None, max_length=255, description="Nom du bucket S3 pour backups")
+    backup_s3_endpoint: str | None = Field(default=None, max_length=500, description="Endpoint S3 personnalisé (MinIO, etc.)")
+    backup_s3_access_key: str | None = Field(default=None, max_length=255, description="Clé d'accès S3")
+    backup_s3_secret_key: str | None = Field(default=None, max_length=255, description="Clé secrète S3")
+    backup_s3_region: str | None = Field(default=None, max_length=100, description="Région S3")
+    backup_ftp_host: str | None = Field(default=None, max_length=255, description="Hôte FTP/SFTP")
+    backup_ftp_port: int | None = Field(default=21, description="Port FTP/SFTP")
+    backup_ftp_username: str | None = Field(default=None, max_length=255, description="Utilisateur FTP/SFTP")
+    backup_ftp_password: str | None = Field(default=None, max_length=255, description="Mot de passe FTP/SFTP")
+    backup_ftp_path: str | None = Field(default="/backups", max_length=500, description="Chemin distant pour backups")
+    backup_retention_days: int = Field(default=30, description="Nombre de jours de rétention des backups")
+    backup_auto_cleanup: bool = Field(default=True, description="Nettoyage automatique des anciens backups")
+
     # === CORE Services Configuration ===
 
     # Cache (Redis)
@@ -262,6 +329,9 @@ class AppSettingsBase(SQLModel):
     audit_retention_days: int = Field(default=90, description="Nombre de jours de rétention des logs d'audit")
     audit_log_level: str = Field(default="INFO", max_length=50, description="Niveau de log: DEBUG, INFO, WARNING, ERROR")
     audit_enabled: bool = Field(default=True, description="Activer/désactiver les logs d'audit")
+
+    # User Invitations
+    invitation_expiry_days: int = Field(default=7, description="Nombre de jours de validité d'une invitation utilisateur")
 
 
 class AppSettingsUpdate(SQLModel):
@@ -304,6 +374,22 @@ class AppSettingsUpdate(SQLModel):
     # Configuration Intranet
     intranet_url: str | None = Field(default=None, max_length=500, description="URL de l'intranet avec placeholder {user_id}")
 
+    # === Backup Configuration ===
+    backup_storage_type: str | None = Field(default=None, max_length=50, description="Type de stockage: local, s3, ftp, sftp")
+    backup_local_path: str | None = Field(default=None, max_length=500, description="Chemin local pour les backups")
+    backup_s3_bucket: str | None = Field(default=None, max_length=255, description="Nom du bucket S3 pour backups")
+    backup_s3_endpoint: str | None = Field(default=None, max_length=500, description="Endpoint S3 personnalisé (MinIO, etc.)")
+    backup_s3_access_key: str | None = Field(default=None, max_length=255, description="Clé d'accès S3")
+    backup_s3_secret_key: str | None = Field(default=None, max_length=255, description="Clé secrète S3")
+    backup_s3_region: str | None = Field(default=None, max_length=100, description="Région S3")
+    backup_ftp_host: str | None = Field(default=None, max_length=255, description="Hôte FTP/SFTP")
+    backup_ftp_port: int | None = Field(default=None, description="Port FTP/SFTP")
+    backup_ftp_username: str | None = Field(default=None, max_length=255, description="Utilisateur FTP/SFTP")
+    backup_ftp_password: str | None = Field(default=None, max_length=255, description="Mot de passe FTP/SFTP")
+    backup_ftp_path: str | None = Field(default=None, max_length=500, description="Chemin distant pour backups")
+    backup_retention_days: int | None = Field(default=None, description="Nombre de jours de rétention des backups")
+    backup_auto_cleanup: bool | None = Field(default=None, description="Nettoyage automatique des anciens backups")
+
     # === CORE Services Configuration ===
 
     # Cache (Redis)
@@ -331,6 +417,9 @@ class AppSettingsUpdate(SQLModel):
     audit_retention_days: int | None = Field(default=None, description="Nombre de jours de rétention des logs d'audit")
     audit_log_level: str | None = Field(default=None, max_length=50, description="Niveau de log: DEBUG, INFO, WARNING, ERROR")
     audit_enabled: bool | None = Field(default=None, description="Activer/désactiver les logs d'audit")
+
+    # User Invitations
+    invitation_expiry_days: int | None = Field(default=None, description="Nombre de jours de validité d'une invitation utilisateur")
 
 
 class AppSettings(AbstractBaseModel, AppSettingsBase, table=True):

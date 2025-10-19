@@ -144,56 +144,9 @@ export const sidebarData: SidebarData = {
       items: [
         {
           title: "Paramètres",
+          url: "/settings",
           icon: IconSettings,
           permission: "settings.read",
-          items: [
-            {
-              title: "Général",
-              icon: IconTool,
-              url: "/settings",
-              permission: "settings.read",
-            },
-            {
-              title: "Profil",
-              icon: IconUser,
-              url: "/settings/profile",
-            },
-            {
-              title: "Modules",
-              icon: IconPuzzle,
-              url: "/settings/modules",
-              permission: "modules.view",
-            },
-            {
-              title: "Facturation",
-              icon: IconCoin,
-              url: "/settings/billing",
-              permission: "billing.read",
-            },
-            {
-              title: "Plans",
-              icon: IconChecklist,
-              url: "/settings/plans",
-              permission: "plans.read",
-            },
-            {
-              title: "Applications connectées",
-              icon: IconApps,
-              url: "/settings/connected-apps",
-              permission: "apps.read",
-            },
-            {
-              title: "Notifications",
-              icon: IconNotification,
-              url: "/settings/notifications",
-            },
-            {
-              title: "Emailing",
-              icon: IconMail,
-              url: "/settings/emailing",
-              permission: "developers.read",
-            },
-          ],
         },
         {
           title: "Développeurs",

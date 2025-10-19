@@ -7,6 +7,16 @@ import Link from "next/link"
 import { PermissionGuard } from "@/components/permission-guard"
 import { useTranslation } from "@/hooks/use-translation"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import {
   Breadcrumb,
@@ -42,6 +52,10 @@ export default function ApiKeysPage() {
   const [environmentFilter, setEnvironmentFilter] = useState<string>("production")
   const { toast } = useToast()
 
+  // Delete confirmation dialog
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [keyToDelete, setKeyToDelete] = useState<string | null>(null)
+
   const loadApiKeys = async () => {
     setLoading(true)
     try {
@@ -62,13 +76,18 @@ export default function ApiKeysPage() {
     loadApiKeys()
   }, [])
 
-  const handleDeleteKey = async (id: string) => {
-    if (!confirm("Êtes-vous sûr de vouloir supprimer cette clé API ?")) {
-      return
-    }
+  const handleDeleteKey = (id: string) => {
+    setKeyToDelete(id)
+    setDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!keyToDelete) return
+
+    setDeleteDialogOpen(false)
 
     try {
-      await deleteApiKey(id)
+      await deleteApiKey(keyToDelete)
       toast({
         title: "Clé supprimée",
         description: "La clé API a été supprimée avec succès",
@@ -80,6 +99,8 @@ export default function ApiKeysPage() {
         description: error instanceof Error ? error.message : "Impossible de supprimer la clé",
         variant: "destructive",
       })
+    } finally {
+      setKeyToDelete(null)
     }
   }
 
@@ -338,6 +359,24 @@ export default function ApiKeysPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* AlertDialog pour confirmer la suppression */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer cette clé API ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer cette clé API ? Cette action est irréversible et toutes les applications utilisant cette clé ne pourront plus accéder à l'API.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PermissionGuard>
   )
 }

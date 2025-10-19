@@ -5,6 +5,7 @@ This module provides permission checking and enforcement for the API.
 """
 from functools import wraps
 from typing import Callable
+import inspect
 from fastapi import HTTPException, status
 from sqlmodel import select, Session
 from app.models import User
@@ -102,12 +103,8 @@ def require_permission(permission_code: str):
         - Nécessite que current_user et session soient dans les kwargs
     """
     def decorator(func: Callable):
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            # Extraire current_user et session des kwargs
-            current_user = kwargs.get('current_user')
-            session = kwargs.get('session')
-
+        # Vérifier si la permission avec une fonction helper synchrone
+        def check_permission_sync(current_user, session):
             if not current_user:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -120,17 +117,44 @@ def require_permission(permission_code: str):
                     detail="Database session not available"
                 )
 
-            # Vérifier la permission
-            if not await has_permission(current_user, permission_code, session):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Permission denied: {permission_code} required"
+            # Superadmin a toutes les permissions
+            if not current_user.is_superuser:
+                # Requête pour vérifier la permission via les rôles de l'utilisateur
+                query = (
+                    select(Permission)
+                    .join(RolePermissionLink, Permission.id == RolePermissionLink.permission_id)
+                    .join(UserRoleLink, RolePermissionLink.role_id == UserRoleLink.role_id)
+                    .where(UserRoleLink.user_id == current_user.id)
+                    .where(Permission.code == permission_code)
+                    .where(Permission.is_active == True)
                 )
 
-            # Appeler la fonction originale
-            return await func(*args, **kwargs)
+                permission = session.exec(query).first()
 
-        return wrapper
+                if permission is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail=f"Permission denied: {permission_code} required"
+                    )
+
+        # Détecter si la fonction est async ou sync
+        if inspect.iscoroutinefunction(func):
+            @wraps(func)
+            async def async_wrapper(*args, **kwargs):
+                current_user = kwargs.get('current_user')
+                session = kwargs.get('session')
+                check_permission_sync(current_user, session)
+                return await func(*args, **kwargs)
+            return async_wrapper
+        else:
+            @wraps(func)
+            def sync_wrapper(*args, **kwargs):
+                current_user = kwargs.get('current_user')
+                session = kwargs.get('session')
+                check_permission_sync(current_user, session)
+                return func(*args, **kwargs)
+            return sync_wrapper
+
     return decorator
 
 
@@ -166,7 +190,7 @@ def require_any_permission(*permission_codes: str):
     """
     def decorator(func: Callable):
         @wraps(func)
-        async def wrapper(*args, **kwargs):
+        def wrapper(*args, **kwargs):
             current_user = kwargs.get('current_user')
             session = kwargs.get('session')
 
@@ -182,11 +206,26 @@ def require_any_permission(*permission_codes: str):
                     detail="Database session not available"
                 )
 
+            # Superadmin a toutes les permissions
+            if current_user.is_superuser:
+                return func(*args, **kwargs)
+
             # Vérifier si l'utilisateur a au moins une des permissions
             for permission_code in permission_codes:
-                if await has_permission(current_user, permission_code, session):
+                query = (
+                    select(Permission)
+                    .join(RolePermissionLink, Permission.id == RolePermissionLink.permission_id)
+                    .join(UserRoleLink, RolePermissionLink.role_id == UserRoleLink.role_id)
+                    .where(UserRoleLink.user_id == current_user.id)
+                    .where(Permission.code == permission_code)
+                    .where(Permission.is_active == True)
+                )
+
+                permission = session.exec(query).first()
+
+                if permission is not None:
                     # Dès qu'une permission est trouvée, on autorise l'accès
-                    return await func(*args, **kwargs)
+                    return func(*args, **kwargs)
 
             # Aucune permission trouvée
             raise HTTPException(
@@ -232,7 +271,7 @@ def require_all_permissions(*permission_codes: str):
     """
     def decorator(func: Callable):
         @wraps(func)
-        async def wrapper(*args, **kwargs):
+        def wrapper(*args, **kwargs):
             current_user = kwargs.get('current_user')
             session = kwargs.get('session')
 
@@ -248,16 +287,29 @@ def require_all_permissions(*permission_codes: str):
                     detail="Database session not available"
                 )
 
-            # Vérifier que l'utilisateur a TOUTES les permissions
-            for permission_code in permission_codes:
-                if not await has_permission(current_user, permission_code, session):
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail=f"Permission denied: {permission_code} required (all permissions must be present)"
+            # Superadmin a toutes les permissions
+            if not current_user.is_superuser:
+                # Vérifier que l'utilisateur a TOUTES les permissions
+                for permission_code in permission_codes:
+                    query = (
+                        select(Permission)
+                        .join(RolePermissionLink, Permission.id == RolePermissionLink.permission_id)
+                        .join(UserRoleLink, RolePermissionLink.role_id == UserRoleLink.role_id)
+                        .where(UserRoleLink.user_id == current_user.id)
+                        .where(Permission.code == permission_code)
+                        .where(Permission.is_active == True)
                     )
 
+                    permission = session.exec(query).first()
+
+                    if permission is None:
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail=f"Permission denied: {permission_code} required (all permissions must be present)"
+                        )
+
             # Toutes les permissions sont présentes
-            return await func(*args, **kwargs)
+            return func(*args, **kwargs)
 
         return wrapper
     return decorator

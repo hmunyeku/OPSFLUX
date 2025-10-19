@@ -139,6 +139,9 @@ const formSchema = z.object({
   audit_retention_days: z.number().optional(),
   audit_log_level: z.enum(["DEBUG", "INFO", "WARNING", "ERROR"]).optional(),
   audit_enabled: z.boolean().optional(),
+
+  // User Invitations
+  invitation_expiry_days: z.number().min(1).max(365).optional(),
 })
 
 interface ConfigItem {
@@ -198,6 +201,7 @@ export default function GeneralForm() {
       audit_retention_days: config.audit_retention_days || 90,
       audit_log_level: (config.audit_log_level || "INFO") as "DEBUG" | "INFO" | "WARNING" | "ERROR",
       audit_enabled: config.audit_enabled ?? true,
+      invitation_expiry_days: config.invitation_expiry_days || 7,
     },
   })
 
@@ -258,6 +262,7 @@ export default function GeneralForm() {
         audit_retention_days: config.audit_retention_days || 90,
         audit_log_level: (config.audit_log_level || "INFO") as "DEBUG" | "INFO" | "WARNING" | "ERROR",
         audit_enabled: config.audit_enabled ?? true,
+        invitation_expiry_days: config.invitation_expiry_days || 7,
       })
     }
   }, [config, form, isInitialized])
@@ -340,6 +345,7 @@ export default function GeneralForm() {
           audit_retention_days: data.audit_retention_days || null,
           audit_log_level: data.audit_log_level || null,
           audit_enabled: data.audit_enabled ?? null,
+          invitation_expiry_days: data.invitation_expiry_days || null,
         }),
       })
 
@@ -1562,6 +1568,36 @@ export default function GeneralForm() {
                       <SelectItem value="false">Désactivé</SelectItem>
                     </SelectContent>
                   </Select>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ),
+      },
+
+      // User Invitations - 1 field
+      {
+        key: "invitation_expiry_days",
+        label: "Durée de validité des invitations",
+        description: "Nombre de jours de validité d'une invitation utilisateur (par défaut: 7)",
+        category: "Invitations utilisateurs",
+        renderField: (form) => (
+          <FormField
+            control={form.control}
+            name="invitation_expiry_days"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="365"
+                    placeholder="7"
+                    {...field}
+                    onChange={(e) => field.onChange(parseInt(e.target.value) || 7)}
+                    className="w-full md:w-[300px]"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>

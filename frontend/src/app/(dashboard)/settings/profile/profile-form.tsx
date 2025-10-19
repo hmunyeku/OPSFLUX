@@ -26,6 +26,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useAppConfig } from "@/contexts/app-config-context"
 import { useTranslation } from "@/hooks/use-translation"
 import { Lock, CheckCircle2, XCircle, AlertCircle, Plus, X, ExternalLink } from "lucide-react"
+import { PhoneInput } from "@/components/ui/phone-input"
 
 // Function to create form schema with translations
 const createAccountFormSchema = (t: (key: string) => string) => z.object({
@@ -333,9 +334,20 @@ export function AccountForm() {
       // Reload the page to refresh user data
       window.location.reload()
     } catch (error: unknown) {
+      // Extract error message from API response
+      let errorMessage = t("toast.error_update")
+
+      if (error instanceof Error) {
+        errorMessage = error.message
+      } else if (typeof error === "object" && error !== null) {
+        // Try to extract detail from API error response
+        const apiError = error as any
+        errorMessage = apiError.response?.data?.detail || apiError.detail || apiError.message || t("toast.error_update")
+      }
+
       toast({
         title: t("toast.error"),
-        description: error instanceof Error ? error.message : t("toast.error_update"),
+        description: errorMessage,
         variant: "destructive",
       })
     } finally {
@@ -513,19 +525,10 @@ export function AccountForm() {
                   <div className="col-span-1 md:col-span-2 space-y-2">
                     <Label>{t("fields.phone_numbers.label")}</Label>
                     <div className="flex gap-2">
-                      <Input
-                        type="tel"
-                        placeholder={t("fields.phone_numbers.placeholder")}
-                        inputMode="tel"
-                        className="h-11"
+                      <PhoneInput
                         value={newPhone}
-                        onChange={(e) => setNewPhone(e.target.value)}
-                        onKeyPress={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault()
-                            addPhoneNumber()
-                          }
-                        }}
+                        onChange={(value) => setNewPhone(value || "")}
+                        placeholder={t("fields.phone_numbers.placeholder")}
                       />
                       <Button
                         type="button"

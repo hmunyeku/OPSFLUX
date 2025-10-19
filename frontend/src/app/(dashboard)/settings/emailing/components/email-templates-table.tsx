@@ -12,6 +12,7 @@ import {
 } from "@tanstack/react-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Card } from "@/components/ui/card"
 import {
   Table,
   TableBody,
@@ -41,9 +42,22 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { IconDotsVertical, IconEdit, IconMail, IconTrash, IconChevronLeft, IconChevronRight, IconChevronsLeft, IconChevronsRight, IconArrowUp } from "@tabler/icons-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { IconDotsVertical, IconEdit, IconMail, IconTrash, IconChevronLeft, IconChevronRight, IconChevronsLeft, IconChevronsRight, IconArrowUp, IconClock } from "@tabler/icons-react"
 import { useToast } from "@/hooks/use-toast"
 import { apiClient } from "@/lib/api-client"
+import { formatDistanceToNow } from "date-fns"
+import { fr } from "date-fns/locale"
+import { usePreferences } from "@/hooks/use-preferences"
 
 interface EmailTemplate {
   id: string
@@ -68,11 +82,28 @@ export default function EmailTemplatesTable({ onEdit }: EmailTemplatesTableProps
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [sorting, setSorting] = useState<SortingState>([])
+  const { toast } = useToast()
+  const { preferences, isLoaded } = usePreferences()
+
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
   })
-  const { toast } = useToast()
+
+  // Delete confirmation dialog
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [templateToDelete, setTemplateToDelete] = useState<string | null>(null)
+
+  // Update page size when preferences are loaded
+  useEffect(() => {
+    if (isLoaded && preferences.itemsPerPage) {
+      setPagination((prev) => ({
+        ...prev,
+        pageSize: preferences.itemsPerPage,
+        pageIndex: 0, // Reset to first page when changing page size
+      }))
+    }
+  }, [isLoaded, preferences.itemsPerPage])
 
   const fetchTemplates = async () => {
     try {
@@ -87,7 +118,6 @@ export default function EmailTemplatesTable({ onEdit }: EmailTemplatesTableProps
       setTemplates(responseData.data)
       setTotal(responseData.count)
     } catch (_error) {
-      // Error fetching email templates
       toast({
         title: "Erreur",
         description: "Impossible de charger les templates d'email",
@@ -103,7 +133,7 @@ export default function EmailTemplatesTable({ onEdit }: EmailTemplatesTableProps
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pagination.pageIndex, pagination.pageSize])
 
-  const handleDelete = async (templateId: string, isSystem: boolean) => {
+  const handleDelete = (templateId: string, isSystem: boolean) => {
     if (isSystem) {
       toast({
         title: "Action impossible",
@@ -113,24 +143,30 @@ export default function EmailTemplatesTable({ onEdit }: EmailTemplatesTableProps
       return
     }
 
-    if (!confirm("Êtes-vous sûr de vouloir supprimer ce template ?")) {
-      return
-    }
+    setTemplateToDelete(templateId)
+    setDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!templateToDelete) return
+
+    setDeleteDialogOpen(false)
 
     try {
-      await apiClient.delete(`/api/v1/email-templates/${templateId}`)
+      await apiClient.delete(`/api/v1/email-templates/${templateToDelete}`)
       toast({
         title: "Succès",
         description: "Template supprimé avec succès",
       })
       fetchTemplates()
     } catch (_error) {
-      // Error deleting template
       toast({
         title: "Erreur",
         description: "Impossible de supprimer le template",
         variant: "destructive",
       })
+    } finally {
+      setTemplateToDelete(null)
     }
   }
 
@@ -149,7 +185,6 @@ export default function EmailTemplatesTable({ onEdit }: EmailTemplatesTableProps
         description: `Email de test envoyé à ${email}`,
       })
     } catch (error) {
-      // Error sending test email
       const err = error as { response?: { data?: { message?: string } } }
       toast({
         title: "Erreur",
@@ -168,7 +203,7 @@ export default function EmailTemplatesTable({ onEdit }: EmailTemplatesTableProps
       custom: { label: "Personnalisé", variant: "outline" },
     }
     const config = categoryMap[category] || { label: category, variant: "outline" }
-    return <Badge variant={config.variant}>{config.label}</Badge>
+    return <Badge variant={config.variant} className="text-xs">{config.label}</Badge>
   }
 
   const columns = useMemo<ColumnDef<EmailTemplate>[]>(() => [
@@ -179,7 +214,7 @@ export default function EmailTemplatesTable({ onEdit }: EmailTemplatesTableProps
             <Button
               variant="ghost"
               size="sm"
-              className="-ml-3 h-8"
+              className="-ml-3 h-8 text-xs sm:text-sm"
               onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
             >
               Nom
@@ -189,9 +224,9 @@ export default function EmailTemplatesTable({ onEdit }: EmailTemplatesTableProps
         },
         cell: ({ row }) => {
           return (
-            <div className="flex flex-col">
-              <span className="font-medium">{row.getValue("name")}</span>
-              <span className="text-xs text-muted-foreground">{row.original.slug}</span>
+            <div className="flex flex-col gap-1">
+              <span className="font-medium text-sm">{row.getValue("name")}</span>
+              <span className="text-xs text-muted-foreground font-mono">{row.original.slug}</span>
             </div>
           )
         },
@@ -210,9 +245,9 @@ export default function EmailTemplatesTable({ onEdit }: EmailTemplatesTableProps
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="max-w-md truncate cursor-help">{subject}</div>
+                  <div className="max-w-md truncate cursor-help text-sm">{subject}</div>
                 </TooltipTrigger>
-                <TooltipContent>{subject}</TooltipContent>
+                <TooltipContent className="max-w-sm">{subject}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
           )
@@ -224,7 +259,7 @@ export default function EmailTemplatesTable({ onEdit }: EmailTemplatesTableProps
         cell: ({ row }) => {
           const isActive = row.getValue("is_active") as boolean
           return (
-            <Badge variant={isActive ? "default" : "outline"}>
+            <Badge variant={isActive ? "default" : "outline"} className="text-xs">
               {isActive ? "Actif" : "Inactif"}
             </Badge>
           )
@@ -234,7 +269,7 @@ export default function EmailTemplatesTable({ onEdit }: EmailTemplatesTableProps
         accessorKey: "sent_count",
         header: "Envoyés",
         cell: ({ row }) => {
-          return <span className="text-muted-foreground">{row.getValue("sent_count")}</span>
+          return <span className="text-muted-foreground text-sm">{row.getValue("sent_count")}</span>
         },
       },
       {
@@ -245,7 +280,7 @@ export default function EmailTemplatesTable({ onEdit }: EmailTemplatesTableProps
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
+                <Button variant="ghost" size="icon" className="h-8 w-8">
                   <IconDotsVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -294,120 +329,215 @@ export default function EmailTemplatesTable({ onEdit }: EmailTemplatesTableProps
   })
 
   if (loading) {
-    return <div className="text-center py-8">Chargement...</div>
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-sm text-muted-foreground">Chargement des templates...</div>
+      </div>
+    )
+  }
+
+  if (templates.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+        <IconMail className="h-12 w-12 text-muted-foreground/50 mb-4" />
+        <p className="text-lg font-medium">Aucun template</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          Créez votre premier template d&apos;email pour commencer
+        </p>
+      </div>
+    )
   }
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border overflow-x-auto">
-        <Table className="min-w-[800px]">
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
+      {/* Vue Desktop - Table */}
+      <div className="hidden md:block">
+        <div className="rounded-md border overflow-x-auto">
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(header.column.columnDef.header, header.getContext())}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows.map((row) => (
+                <TableRow key={row.id} className="hover:bg-muted/50">
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
-                  Aucun template trouvé.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+
+      {/* Vue Mobile - Cards */}
+      <div className="md:hidden space-y-3 px-4">
+        {templates.map((template) => (
+          <Card key={template.id} className="p-4">
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-sm truncate">{template.name}</h3>
+                <p className="text-xs text-muted-foreground font-mono mt-0.5">{template.slug}</p>
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                    <IconDotsVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => onEdit(template.id)}>
+                    <IconEdit className="mr-2 h-4 w-4" />
+                    Modifier
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleSendTest(template.id)}>
+                    <IconMail className="mr-2 h-4 w-4" />
+                    Test
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onClick={() => handleDelete(template.id, template.is_system)}
+                    disabled={template.is_system}
+                  >
+                    <IconTrash className="mr-2 h-4 w-4" />
+                    Supprimer
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-start gap-2">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">Sujet:</span>
+                <p className="text-xs line-clamp-2">{template.subject}</p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {getCategoryBadge(template.category)}
+                <Badge variant={template.is_active ? "default" : "outline"} className="text-xs">
+                  {template.is_active ? "Actif" : "Inactif"}
+                </Badge>
+                {template.is_system && (
+                  <Badge variant="destructive" className="text-xs">Système</Badge>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
+                <span className="flex items-center gap-1">
+                  <IconMail className="h-3 w-3" />
+                  {template.sent_count} envoyés
+                </span>
+                <span className="flex items-center gap-1">
+                  <IconClock className="h-3 w-3" />
+                  {formatDistanceToNow(new Date(template.updated_at), { addSuffix: true, locale: fr })}
+                </span>
+              </div>
+            </div>
+          </Card>
+        ))}
       </div>
 
       {/* Pagination */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center space-x-2 text-xs sm:text-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-4 md:px-0 pt-2">
+        <div className="flex items-center justify-between sm:justify-start space-x-2 text-xs sm:text-sm">
           <p className="text-muted-foreground">
-            <span className="hidden sm:inline">Affichage de </span>
-            {pagination.pageIndex * pagination.pageSize + 1}-{Math.min((pagination.pageIndex + 1) * pagination.pageSize, total)}
-            <span className="hidden sm:inline"> sur</span>
-            <span className="sm:hidden">/</span> {total}
+            {pagination.pageIndex * pagination.pageSize + 1}-
+            {Math.min((pagination.pageIndex + 1) * pagination.pageSize, total)} sur {total}
           </p>
+          <Select
+            value={`${pagination.pageSize}`}
+            onValueChange={(value) => {
+              setPagination((prev) => ({ ...prev, pageSize: Number(value), pageIndex: 0 }))
+            }}
+          >
+            <SelectTrigger className="h-8 w-[70px]">
+              <SelectValue placeholder={pagination.pageSize} />
+            </SelectTrigger>
+            <SelectContent side="top">
+              {[10, 25, 50, 100].map((pageSize) => (
+                <SelectItem key={pageSize} value={`${pageSize}`}>
+                  {pageSize}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <div className="flex items-center justify-between sm:justify-end space-x-4 sm:space-x-6">
-          <div className="flex items-center space-x-2">
-            <p className="text-sm font-medium">Lignes par page</p>
-            <Select
-              value={`${pagination.pageSize}`}
-              onValueChange={(value) => {
-                setPagination((prev) => ({ ...prev, pageSize: Number(value), pageIndex: 0 }))
-              }}
-            >
-              <SelectTrigger className="h-8 w-[70px]">
-                <SelectValue placeholder={pagination.pageSize} />
-              </SelectTrigger>
-              <SelectContent side="top">
-                {[10, 20, 30, 50, 100].map((pageSize) => (
-                  <SelectItem key={pageSize} value={`${pageSize}`}>
-                    {pageSize}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+
+        <div className="flex items-center justify-center space-x-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => table.setPageIndex(0)}
+            disabled={!table.getCanPreviousPage()}
+          >
+            <IconChevronsLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+          >
+            <IconChevronLeft className="h-4 w-4" />
+          </Button>
+          <div className="text-xs sm:text-sm font-medium px-2">
+            Page {pagination.pageIndex + 1}/{table.getPageCount()}
           </div>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => table.setPageIndex(0)}
-              disabled={!table.getCanPreviousPage()}
-            >
-              <IconChevronsLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-            >
-              <IconChevronLeft className="h-4 w-4" />
-            </Button>
-            <div className="flex items-center gap-1">
-              <div className="text-sm font-medium">
-                Page {pagination.pageIndex + 1} sur {table.getPageCount()}
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-            >
-              <IconChevronRight className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-              disabled={!table.getCanNextPage()}
-            >
-              <IconChevronsRight className="h-4 w-4" />
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+          >
+            <IconChevronRight className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+            disabled={!table.getCanNextPage()}
+          >
+            <IconChevronsRight className="h-4 w-4" />
+          </Button>
         </div>
       </div>
+
+      {/* AlertDialog pour confirmer la suppression */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer ce template ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer ce template ? Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

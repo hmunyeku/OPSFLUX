@@ -300,3 +300,94 @@ async def delete_backup(
     session.commit()
 
     return {"success": True, "message": "Backup deleted"}
+
+
+@router.post("/estimate")
+@require_permission("core.backups.read")
+async def estimate_backup_size(
+    backup_data: BackupCreate,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Any:
+    """
+    Estime la taille d'un backup avant de le créer.
+
+    Calcule également l'espace disque disponible et vérifie s'il y a assez d'espace.
+
+    Requiert la permission: core.backups.read
+    """
+    try:
+        # Estimer la taille du backup
+        estimated_size = backup_service.estimate_backup_size(
+            includes_database=backup_data.includes_database,
+            includes_storage=backup_data.includes_storage,
+            includes_config=backup_data.includes_config,
+        )
+
+        # Récupérer l'espace disque disponible
+        disk_space = backup_service.get_disk_space()
+
+        # Vérifier s'il y a assez d'espace (avec marge de 10%)
+        required_space = estimated_size * 1.1
+        has_enough_space = disk_space["available"] >= required_space
+
+        return {
+            "estimated_size": estimated_size,
+            "estimated_size_formatted": _format_bytes(estimated_size),
+            "disk_space": {
+                "total": disk_space["total"],
+                "used": disk_space["used"],
+                "available": disk_space["available"],
+                "total_formatted": _format_bytes(disk_space["total"]),
+                "used_formatted": _format_bytes(disk_space["used"]),
+                "available_formatted": _format_bytes(disk_space["available"]),
+                "percent_used": disk_space["percent"],
+            },
+            "has_enough_space": has_enough_space,
+            "required_space": required_space,
+            "required_space_formatted": _format_bytes(required_space),
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to estimate backup size: {str(e)}"
+        )
+
+
+@router.get("/disk-space")
+@require_permission("core.backups.read")
+async def get_disk_space(
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Any:
+    """
+    Récupère les informations sur l'espace disque disponible.
+
+    Requiert la permission: core.backups.read
+    """
+    try:
+        disk_space = backup_service.get_disk_space()
+
+        return {
+            "total": disk_space["total"],
+            "used": disk_space["used"],
+            "available": disk_space["available"],
+            "total_formatted": _format_bytes(disk_space["total"]),
+            "used_formatted": _format_bytes(disk_space["used"]),
+            "available_formatted": _format_bytes(disk_space["available"]),
+            "percent_used": disk_space["percent"],
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get disk space: {str(e)}"
+        )
+
+
+def _format_bytes(bytes_value: int) -> str:
+    """Formate les octets en format lisible"""
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        if bytes_value < 1024.0:
+            return f"{bytes_value:.2f} {unit}"
+        bytes_value /= 1024.0
+    return f"{bytes_value:.2f} PB"

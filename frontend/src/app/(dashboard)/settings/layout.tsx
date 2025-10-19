@@ -10,6 +10,10 @@ import {
   IconFiles,
   IconPlayerPlay,
   IconChartBar,
+  IconCloudDownload,
+  IconMail,
+  IconFileText,
+  IconSearch,
 } from "@tabler/icons-react"
 import { Header } from "@/components/layout/header"
 import SidebarNav from "./components/sidebar-nav"
@@ -69,6 +73,26 @@ const sidebarNavItems = [
     title: "Métriques",
     icon: <IconChartBar />,
     href: "/settings/metrics",
+  },
+  {
+    title: "Sauvegardes",
+    icon: <IconCloudDownload />,
+    href: "/settings/backups",
+  },
+  {
+    title: "Emailing",
+    icon: <IconMail />,
+    href: "/settings/emailing",
+  },
+  {
+    title: "Audit",
+    icon: <IconFileText />,
+    href: "/settings/audit",
+  },
+  {
+    title: "Recherche",
+    icon: <IconSearch />,
+    href: "/settings/search",
   },
 ]
 

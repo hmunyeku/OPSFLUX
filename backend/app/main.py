@@ -1,7 +1,7 @@
 import sentry_sdk
 from fastapi import FastAPI, Depends
 from fastapi.routing import APIRoute
-from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
 from fastapi.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -57,6 +57,8 @@ if settings.SENTRY_DSN and settings.ENVIRONMENT != "local":
 app = FastAPI(
     title=settings.PROJECT_NAME,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    docs_url=None,  # Désactiver /docs par défaut (on utilise notre route sécurisée)
+    redoc_url=None,  # Désactiver /redoc par défaut (on ajoute une route sécurisée)
     generate_unique_id_function=custom_generate_unique_id,
     lifespan=lifespan,
 )
@@ -93,6 +95,24 @@ async def custom_swagger_ui_html(current_user=Depends(verify_api_key)):
         openapi_url=app.openapi_url,
         title=f"{app.title} - Swagger UI",
         swagger_favicon_url="/static/favicon.ico" if settings.ENVIRONMENT != "local" else None,
+    )
+
+
+@app.get("/redoc", include_in_schema=False)
+async def custom_redoc_html(current_user=Depends(verify_api_key)):
+    """
+    ReDoc UI accessible uniquement avec API Key valide.
+
+    Pour acceder a /redoc:
+    1. Generer votre cle API via POST /api/v1/users/me/api-key
+    2. Utiliser l'extension ModHeader ou similaire pour ajouter le header:
+       X-API-Key: ofs_votre_cle_ici
+    3. Acceder a /redoc
+    """
+    return get_redoc_html(
+        openapi_url=app.openapi_url,
+        title=f"{app.title} - ReDoc",
+        redoc_favicon_url="/static/favicon.ico" if settings.ENVIRONMENT != "local" else None,
     )
 
 

@@ -178,8 +178,8 @@ function StoragePageContent() {
 
   return (
     <ContentSection
-      title={t("page.title")}
-      desc={t("page.description")}
+      title={t("page.title", "Titre")}
+      desc={t("page.description", "Description")}
       className="w-full lg:max-w-full"
     >
       <div className="space-y-6">
@@ -189,7 +189,7 @@ function StoragePageContent() {
             <div className="relative flex-1 w-full sm:min-w-[200px]">
               <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder={t("actions.search")}
+                placeholder={t("actions.search", "Rechercher")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
@@ -197,15 +197,15 @@ function StoragePageContent() {
             </div>
             <Select value={filterCategory} onValueChange={setFilterCategory}>
               <SelectTrigger className="w-full sm:w-[160px]">
-                <SelectValue placeholder={t("actions.category")} />
+                <SelectValue placeholder={t("actions.category", "Category")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">{t("actions.category_all")}</SelectItem>
-                <SelectItem value={FileCategory.DOCUMENT}>{t("actions.category_documents")}</SelectItem>
-                <SelectItem value={FileCategory.IMAGE}>{t("actions.category_images")}</SelectItem>
-                <SelectItem value={FileCategory.VIDEO}>{t("actions.category_videos")}</SelectItem>
-                <SelectItem value={FileCategory.AUDIO}>{t("actions.category_audio")}</SelectItem>
-                <SelectItem value={FileCategory.ARCHIVE}>{t("actions.category_archives")}</SelectItem>
+                <SelectItem value="all">{t("actions.category_all", "Category all")}</SelectItem>
+                <SelectItem value={FileCategory.DOCUMENT}>{t("actions.category_documents", "Category documents")}</SelectItem>
+                <SelectItem value={FileCategory.IMAGE}>{t("actions.category_images", "Category images")}</SelectItem>
+                <SelectItem value={FileCategory.VIDEO}>{t("actions.category_videos", "Category videos")}</SelectItem>
+                <SelectItem value={FileCategory.AUDIO}>{t("actions.category_audio", "Category audio")}</SelectItem>
+                <SelectItem value={FileCategory.ARCHIVE}>{t("actions.category_archives", "Category archives")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -213,11 +213,11 @@ function StoragePageContent() {
           <div className="flex gap-2 justify-end sm:justify-start">
             <Button variant="outline" size="sm" onClick={fetchFiles}>
               <IconRefresh className="mr-2 h-4 w-4" />
-              {t("actions.refresh")}
+              {t("actions.refresh", "Refresh")}
             </Button>
             <Button size="sm" onClick={() => setUploadDialogOpen(true)} disabled={!hasPermission("core.storage.upload")}>
               <IconUpload className="mr-2 h-4 w-4" />
-              {t("actions.upload")}
+              {t("actions.upload", "Upload")}
             </Button>
           </div>
         </div>
@@ -226,7 +226,7 @@ function StoragePageContent() {
         <div className="grid gap-4 md:grid-cols-3">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">{t("stats.total_files")}</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("stats.total_files", "Total files")}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{files.length}</div>
@@ -234,7 +234,7 @@ function StoragePageContent() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">{t("stats.total_size")}</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("stats.total_size", "Total size")}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
@@ -244,7 +244,7 @@ function StoragePageContent() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">{t("stats.categories")}</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("stats.categories", "Categories")}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
@@ -257,7 +257,7 @@ function StoragePageContent() {
         {/* Files List */}
         <Card>
           <CardHeader>
-            <CardTitle>{t("files.title")}</CardTitle>
+            <CardTitle>{t("files.title", "Title")}</CardTitle>
             <CardDescription>
               {t("files.count", { count: filteredFiles.length })}
               {searchQuery && ` ${t("files.search_results", { query: searchQuery })}`}
@@ -271,7 +271,7 @@ function StoragePageContent() {
             ) : filteredFiles.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <IconFile className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>{t("files.empty")}</p>
+                <p>{t("files.empty", "Empty")}</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -331,9 +331,9 @@ function StoragePageContent() {
       <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t("dialog.upload.title")}</DialogTitle>
+            <DialogTitle>{t("dialog.upload.title", "Title")}</DialogTitle>
             <DialogDescription>
-              {t("dialog.upload.description")}
+              {t("dialog.upload.description", "Description")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -343,8 +343,8 @@ function StoragePageContent() {
             />
             {selectedFile && (
               <div className="text-sm text-muted-foreground">
-                <p>{t("dialog.upload.file_label")}: {selectedFile.name}</p>
-                <p>{t("dialog.upload.size_label")}: {formatFileSize(selectedFile.size)}</p>
+                <p>{t("dialog.upload.file_label", "File label")}: {selectedFile.name}</p>
+                <p>{t("dialog.upload.size_label", "Size label")}: {formatFileSize(selectedFile.size)}</p>
               </div>
             )}
           </div>
@@ -357,10 +357,10 @@ function StoragePageContent() {
               }}
               disabled={uploading}
             >
-              {t("dialog.upload.cancel")}
+              {t("dialog.upload.cancel", "Cancel")}
             </Button>
             <Button onClick={handleUpload} disabled={!selectedFile || uploading}>
-              {uploading ? t("dialog.upload.uploading") : t("dialog.upload.confirm")}
+              {uploading ? t("dialog.upload.uploading", "Uploading") : t("dialog.upload.confirm", "Confirm")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -370,18 +370,18 @@ function StoragePageContent() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("dialog.delete.title")}</AlertDialogTitle>
+            <AlertDialogTitle>{t("dialog.delete.title", "Title")}</AlertDialogTitle>
             <AlertDialogDescription>
               {t("dialog.delete.description", { filename: fileToDelete?.filename || "" })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t("dialog.delete.cancel")}</AlertDialogCancel>
+            <AlertDialogCancel>{t("dialog.delete.cancel", "Cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {t("dialog.delete.confirm")}
+              {t("dialog.delete.confirm", "Confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

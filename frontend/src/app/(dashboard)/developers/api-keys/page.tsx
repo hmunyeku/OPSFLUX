@@ -136,25 +136,25 @@ export default function ApiKeysPage() {
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link href="/">{t("breadcrumb.home")}</Link>
+                <Link href="/">{t("breadcrumb.home", "Accueil")}</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>{t("breadcrumb.developers")}</BreadcrumbPage>
+              <BreadcrumbPage>{t("breadcrumb.developers", "Développeurs")}</BreadcrumbPage>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>{t("api_keys.title")}</BreadcrumbPage>
+              <BreadcrumbPage>{t("api_keys.title", "Title")}</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:flex-wrap">
           <div>
-            <h2 className="text-2xl font-bold">{t("api_keys.title")}</h2>
+            <h2 className="text-2xl font-bold">{t("api_keys.title", "Title")}</h2>
             <p className="text-muted-foreground text-sm">
-              {t("api_keys.description")}
+              {t("api_keys.description", "Description")}
             </p>
           </div>
           <Select value={environmentFilter} onValueChange={setEnvironmentFilter}>
@@ -179,13 +179,13 @@ export default function ApiKeysPage() {
             value="api"
             className="rounded-none border-blue-600 py-1 shadow-none! data-[state=active]:border-b-[2px]"
           >
-            {t("api_keys.title")}
+            {t("api_keys.title", "Title")}
           </TabsTrigger>
         </TabsList>
         <TabsContent value="api" className="mt-5 w-full max-w-3xl">
           <div className="flex flex-col gap-5">
             <div className="flex flex-col gap-3">
-              <h2 className="text-lg font-semibold">{t("api_keys.version")}</h2>
+              <h2 className="text-lg font-semibold">{t("api_keys.version", "Version")}</h2>
               <div className="flex items-center justify-between">
                 <h1 className="text-sm font-semibold">Version globale</h1>
                 <div className="flex items-center gap-4">
@@ -201,7 +201,7 @@ export default function ApiKeysPage() {
             {/* Secret API Keys */}
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">{t("api_keys.secret_keys")}</h2>
+                <h2 className="text-lg font-semibold">{t("api_keys.secret_keys", "Secret keys")}</h2>
                 <CreateApiKeyDialog
                   keyType="secret"
                   environment={environmentFilter}
@@ -283,7 +283,7 @@ export default function ApiKeysPage() {
             {/* Publishable API Keys */}
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">{t("api_keys.publishable_keys")}</h2>
+                <h2 className="text-lg font-semibold">{t("api_keys.publishable_keys", "Publishable keys")}</h2>
                 <CreateApiKeyDialog
                   keyType="publishable"
                   environment={environmentFilter}

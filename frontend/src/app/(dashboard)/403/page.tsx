@@ -19,23 +19,23 @@ export default function ForbiddenPage() {
           <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-destructive/10">
             <Shield className="h-10 w-10 text-destructive" />
           </div>
-          <CardTitle className="text-2xl">{t("forbidden.title")}</CardTitle>
+          <CardTitle className="text-2xl">{t("forbidden.title", "Title")}</CardTitle>
           <CardDescription className="text-base">
-            {t("forbidden.description")}
+            {t("forbidden.description", "Description")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="rounded-lg bg-muted p-4">
-            <h3 className="font-semibold mb-2">{t("forbidden.why_title")}</h3>
+            <h3 className="font-semibold mb-2">{t("forbidden.why_title", "Why title")}</h3>
             <ul className="space-y-1 text-sm text-muted-foreground">
-              <li>• {t("forbidden.reason_1")}</li>
-              <li>• {t("forbidden.reason_2")}</li>
-              <li>• {t("forbidden.reason_3")}</li>
+              <li>• {t("forbidden.reason_1", "Reason 1")}</li>
+              <li>• {t("forbidden.reason_2", "Reason 2")}</li>
+              <li>• {t("forbidden.reason_3", "Reason 3")}</li>
             </ul>
           </div>
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950">
             <p className="text-sm text-amber-800 dark:text-amber-200">
-              {t("forbidden.contact_admin")}
+              {t("forbidden.contact_admin", "Contact admin")}
             </p>
           </div>
         </CardContent>

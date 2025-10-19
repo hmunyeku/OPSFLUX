@@ -75,25 +75,25 @@ function WebhooksPageContent() {
         <BreadcrumbList>
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/">{t("breadcrumb.home")}</Link>
+              <Link href="/">{t("breadcrumb.home", "Accueil")}</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbPage>{t("breadcrumb.developers")}</BreadcrumbPage>
+            <BreadcrumbPage>{t("breadcrumb.developers", "Développeurs")}</BreadcrumbPage>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbPage>{t("webhooks.title")}</BreadcrumbPage>
+            <BreadcrumbPage>{t("webhooks.title", "Title")}</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
 
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h2 className="text-2xl font-bold">{t("webhooks.title")}</h2>
+          <h2 className="text-2xl font-bold">{t("webhooks.title", "Title")}</h2>
           <p className="text-muted-foreground text-sm">
-            {t("webhooks.description")}
+            {t("webhooks.description", "Description")}
           </p>
         </div>
         <AddWebhook onWebhookAdded={loadWebhooks} disabled={!hasPermission("core.webhooks.create")} />
@@ -101,15 +101,15 @@ function WebhooksPageContent() {
 
       <div className="h-full flex-1">
         {loading ? (
-          <div className="mt-6 text-center text-sm text-muted-foreground">{t("webhooks.loading")}</div>
+          <div className="mt-6 text-center text-sm text-muted-foreground">{t("webhooks.loading", "Loading")}</div>
         ) : webhooks.length > 0 ? (
           <WebhooksTable data={webhooks} columns={columns} onWebhookUpdated={loadWebhooks} />
         ) : (
           <div className="border-border mt-6 flex flex-col items-center gap-4 rounded-lg border border-dashed px-6 py-10">
             <Frown className="size-32" />
-            <h2 className="text-lg font-semibold">{t("webhooks.empty_title")}</h2>
+            <h2 className="text-lg font-semibold">{t("webhooks.empty_title", "Empty title")}</h2>
             <p className="text-muted-foreground text-center">
-              {t("webhooks.empty_description")}
+              {t("webhooks.empty_description", "Empty description")}
             </p>
             <AddWebhook onWebhookAdded={loadWebhooks} disabled={!hasPermission("core.webhooks.create")} />
           </div>

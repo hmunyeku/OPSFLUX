@@ -153,27 +153,27 @@ export default function GroupsPage() {
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link href="/">{t("breadcrumb.home")}</Link>
+                <Link href="/">{t("breadcrumb.home", "Accueil")}</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link href="/users">{t("breadcrumb.users")}</Link>
+                <Link href="/users">{t("breadcrumb.users", "Utilisateurs")}</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>{t("breadcrumb.groups")}</BreadcrumbPage>
+              <BreadcrumbPage>{t("breadcrumb.groups", "Groups")}</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
 
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold tracking-tight">{t("page.title")}</h2>
+          <h2 className="text-2xl font-bold tracking-tight">{t("page.title", "Titre")}</h2>
           <Button onClick={() => setIsCreateDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
-            {t("action.create")}
+            {t("action.create", "Create")}
           </Button>
         </div>
       </div>
@@ -182,49 +182,49 @@ export default function GroupsPage() {
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("stats.total_groups")}</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("stats.total_groups", "Total groups")}</CardTitle>
             <FolderTree className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalGroups}</div>
             <p className="text-xs text-muted-foreground">
-              {stats.groupsWithPermissions} {t("stats.with_permissions")}
+              {stats.groupsWithPermissions} {t("stats.with_permissions", "With permissions")}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("stats.total_users")}</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("stats.total_users", "Total users")}</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalUsers}</div>
             <p className="text-xs text-muted-foreground">
-              {t("stats.in_all_groups")}
+              {t("stats.in_all_groups", "In all groups")}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("stats.permissions")}</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("stats.permissions", "Permissions")}</CardTitle>
             <Shield className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalPermissions}</div>
             <p className="text-xs text-muted-foreground">
-              {t("stats.assigned_to_groups")}
+              {t("stats.assigned_to_groups", "Assigned to groups")}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("stats.active_groups")}</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("stats.active_groups", "Active groups")}</CardTitle>
             <UserCheck className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.groupsWithPermissions}</div>
             <p className="text-xs text-muted-foreground">
-              {t("stats.with_configured_access")}
+              {t("stats.with_configured_access", "With configured access")}
             </p>
           </CardContent>
         </Card>
@@ -236,10 +236,10 @@ export default function GroupsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FolderTree className="h-5 w-5" />
-              {t("page.tree_title")}
+              {t("page.tree_title", "Tree title")}
             </CardTitle>
             <CardDescription>
-              {t("page.select_group")}
+              {t("page.select_group", "Select group")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -247,7 +247,7 @@ export default function GroupsPage() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder={t("action.search")}
+                placeholder={t("action.search", "Search")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
@@ -259,7 +259,7 @@ export default function GroupsPage() {
               <div className="space-y-2">
                 {filteredGroups.length === 0 ? (
                   <div className="py-8 text-center text-sm text-muted-foreground">
-                    {t("message.no_group_found")}
+                    {t("message.no_group_found", "No group found")}
                   </div>
                 ) : (
                   filteredGroups.map((group) => (

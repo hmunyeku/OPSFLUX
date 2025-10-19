@@ -24,17 +24,17 @@ export default function UsersPage() {
             <BreadcrumbList>
               <BreadcrumbItem>
                 <BreadcrumbLink asChild>
-                  <Link href="/">{t("breadcrumb.home")}</Link>
+                  <Link href="/">{t("breadcrumb.home", "Accueil")}</Link>
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
-                <BreadcrumbPage>{t("breadcrumb.users")}</BreadcrumbPage>
+                <BreadcrumbPage>{t("breadcrumb.users", "Utilisateurs")}</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
 
-          <h2 className="text-2xl font-bold tracking-tight">{t("page.description")}</h2>
+          <h2 className="text-2xl font-bold tracking-tight">{t("page.description", "Description")}</h2>
         </div>
 
         <UsersSection />

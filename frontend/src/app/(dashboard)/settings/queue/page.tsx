@@ -57,8 +57,8 @@ function QueuePageContent() {
   if (loading && !stats) {
     return (
       <ContentSection
-        title={t("page.title")}
-        desc={t("page.description")}
+        title={t("page.title", "Titre")}
+        desc={t("page.description", "Description")}
         className="w-full lg:max-w-full"
       >
         <div className="flex items-center justify-center py-8">
@@ -75,8 +75,8 @@ function QueuePageContent() {
 
   return (
     <ContentSection
-      title={t("page.title")}
-      desc={t("page.description")}
+      title={t("page.title", "Titre")}
+      desc={t("page.description", "Description")}
       className="w-full lg:max-w-full"
     >
       <div className="space-y-6">
@@ -91,7 +91,7 @@ function QueuePageContent() {
 
           <Button variant="outline" size="sm" onClick={fetchStats}>
             <IconRefresh className="mr-2 h-4 w-4" />
-            {t("actions.refresh")}
+            {t("actions.refresh", "Refresh")}
           </Button>
         </div>
 
@@ -99,41 +99,41 @@ function QueuePageContent() {
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">{t("stats.active_tasks")}</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("stats.active_tasks", "Active tasks")}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{totalActive}</div>
-              <p className="text-xs text-muted-foreground">{t("stats.running")}</p>
+              <p className="text-xs text-muted-foreground">{t("stats.running", "Running")}</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">{t("stats.scheduled_tasks")}</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("stats.scheduled_tasks", "Scheduled tasks")}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{totalScheduled}</div>
-              <p className="text-xs text-muted-foreground">{t("stats.scheduled")}</p>
+              <p className="text-xs text-muted-foreground">{t("stats.scheduled", "Scheduled")}</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">{t("stats.reserved_tasks")}</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("stats.reserved_tasks", "Reserved tasks")}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{totalReserved}</div>
-              <p className="text-xs text-muted-foreground">{t("stats.reserved")}</p>
+              <p className="text-xs text-muted-foreground">{t("stats.reserved", "Reserved")}</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">{t("workers.title")}</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("workers.title", "Title")}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{totalWorkers}</div>
-              <p className="text-xs text-muted-foreground">{t("workers.connected")}</p>
+              <p className="text-xs text-muted-foreground">{t("workers.connected", "Connected")}</p>
             </CardContent>
           </Card>
         </div>
@@ -141,16 +141,16 @@ function QueuePageContent() {
         {/* Workers */}
         <Card>
           <CardHeader>
-            <CardTitle>{t("workers.title")}</CardTitle>
-            <CardDescription>{t("workers.description")}</CardDescription>
+            <CardTitle>{t("workers.title", "Title")}</CardTitle>
+            <CardDescription>{t("workers.description", "Description")}</CardDescription>
           </CardHeader>
           <CardContent>
             {totalWorkers === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <IconAlertTriangle className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>{t("workers.none")}</p>
+                <p>{t("workers.none", "None")}</p>
                 <p className="text-xs mt-1">
-                  {t("workers.none_description")}
+                  {t("workers.none_description", "None description")}
                 </p>
               </div>
             ) : (
@@ -161,20 +161,20 @@ function QueuePageContent() {
                       <div className="font-medium">{name}</div>
                       <Badge variant="default" className="bg-green-600">
                         <IconCheck className="mr-1 h-3 w-3" />
-                        {t("workers.active")}
+                        {t("workers.active", "Active")}
                       </Badge>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                       <div>
-                        <div className="text-muted-foreground">{t("workers.active_tasks")}</div>
+                        <div className="text-muted-foreground">{t("workers.active_tasks", "Active tasks")}</div>
                         <div className="font-semibold">{worker.active}</div>
                       </div>
                       <div>
-                        <div className="text-muted-foreground">{t("workers.scheduled_tasks")}</div>
+                        <div className="text-muted-foreground">{t("workers.scheduled_tasks", "Scheduled tasks")}</div>
                         <div className="font-semibold">{worker.scheduled}</div>
                       </div>
                       <div>
-                        <div className="text-muted-foreground">{t("workers.reserved_tasks")}</div>
+                        <div className="text-muted-foreground">{t("workers.reserved_tasks", "Reserved tasks")}</div>
                         <div className="font-semibold">{worker.reserved}</div>
                       </div>
                     </div>
@@ -188,8 +188,8 @@ function QueuePageContent() {
         {/* Queues */}
         <Card>
           <CardHeader>
-            <CardTitle>{t("queues.title")}</CardTitle>
-            <CardDescription>{t("queues.description")}</CardDescription>
+            <CardTitle>{t("queues.title", "Title")}</CardTitle>
+            <CardDescription>{t("queues.description", "Description")}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -214,12 +214,12 @@ function QueuePageContent() {
         {/* Info */}
         <Card>
           <CardHeader>
-            <CardTitle>{t("info.title")}</CardTitle>
+            <CardTitle>{t("info.title", "Title")}</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground space-y-2">
-            <p>• {t("info.workers_description")}</p>
-            <p>• {t("info.distribution_description")}</p>
-            <p>• {t("info.scaling_description")}</p>
+            <p>• {t("info.workers_description", "Workers description")}</p>
+            <p>• {t("info.distribution_description", "Distribution description")}</p>
+            <p>• {t("info.scaling_description", "Scaling description")}</p>
           </CardContent>
         </Card>
       </div>

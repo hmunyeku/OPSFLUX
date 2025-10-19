@@ -86,10 +86,10 @@ export function InformationsTab() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <IconShieldCheck className="h-5 w-5 text-primary" />
-            <CardTitle>{t("role_group.title")}</CardTitle>
+            <CardTitle>{t("role_group.title", "Title")}</CardTitle>
           </div>
           <CardDescription>
-            {t("role_group.description")}
+            {t("role_group.description", "Description")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -115,9 +115,9 @@ export function InformationsTab() {
             <>
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
-                  <p className="text-sm font-medium">{t("role_group.role_label")}</p>
+                  <p className="text-sm font-medium">{t("role_group.role_label", "Role label")}</p>
                   <p className="text-sm text-muted-foreground">
-                    {t("role_group.role_desc")}
+                    {t("role_group.role_desc", "Role desc")}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2 justify-end">
@@ -139,9 +139,9 @@ export function InformationsTab() {
 
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
-                  <p className="text-sm font-medium">{t("role_group.group_label")}</p>
+                  <p className="text-sm font-medium">{t("role_group.group_label", "Group label")}</p>
                   <p className="text-sm text-muted-foreground">
-                    {t("role_group.group_desc")}
+                    {t("role_group.group_desc", "Group desc")}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2 justify-end items-center">
@@ -169,10 +169,10 @@ export function InformationsTab() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <IconKey className="h-5 w-5 text-primary" />
-            <CardTitle>{t("permissions.title")}</CardTitle>
+            <CardTitle>{t("permissions.title", "Title")}</CardTitle>
           </div>
           <CardDescription>
-            {t("permissions.description")}
+            {t("permissions.description", "Description")}
           </CardDescription>
         </CardHeader>
         <CardContent>

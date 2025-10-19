@@ -194,7 +194,9 @@
       "Bash(echo \"=== Test endpoint /users/ avec with_rbac=true ===\" curl -s -X GET \"http://localhost:8000/api/v1/users/?skip=0&limit=10&with_rbac=true\" -H \"Authorization: Bearer $TOKEN\")",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjE1NzAyNzcsInN1YiI6IjA2MGM2Yjg5LTAxYmQtNDU2Ny05MTY0LTU2MWI5ZGVmOWU2ZiIsInR5cGUiOiJhY2Nlc3MifQ.q68czwf-TNqHCTzd4clT1ecxxkW2emJLCkwZCPU1gzQ\" curl -s -X POST http://localhost:8000/api/v1/login/access-token -H \"Content-Type: application/x-www-form-urlencoded\" -d \"username=admin@opsflux.io\" -d \"password=adminopsflux\")",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjE1NzUxNzEsInN1YiI6IjA2MGM2Yjg5LTAxYmQtNDU2Ny05MTY0LTU2MWI5ZGVmOWU2ZiIsInR5cGUiOiJhY2Nlc3MifQ.bYepd51ATQjXAFC4E7y0wdq9TAbQzWtKEL1LQReykAY\" curl -s -X GET \"http://localhost:8000/api/v1/email-templates/\" -H \"Authorization: Bearer $TOKEN\")",
-      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjE1NzU4NzcsInN1YiI6IjA2MGM2Yjg5LTAxYmQtNDU2Ny05MTY0LTU2MWI5ZGVmOWU2ZiIsInR5cGUiOiJhY2Nlc3MifQ.Fozs1WA3UCZ5cxIsGTBDgDiq9m0uSlz5RnsnujJHumg\" curl -s -X GET \"http://localhost:8000/api/v1/email-templates/\" -H \"Authorization: Bearer $TOKEN\")"
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjE1NzU4NzcsInN1YiI6IjA2MGM2Yjg5LTAxYmQtNDU2Ny05MTY0LTU2MWI5ZGVmOWU2ZiIsInR5cGUiOiJhY2Nlc3MifQ.Fozs1WA3UCZ5cxIsGTBDgDiq9m0uSlz5RnsnujJHumg\" curl -s -X GET \"http://localhost:8000/api/v1/email-templates/\" -H \"Authorization: Bearer $TOKEN\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjE1NzUxNzEsInN1YiI6IjA2MGM2Yjg5LTAxYmQtNDU2Ny05MTY0LTU2MWI5ZGVmOWU2ZiIsInR5cGUiOiJhY2Nlc3MifQ.bYepd51ATQjXAFC4E7y0wdq9TAbQzWtKEL1LQReykAY\" curl -s -X GET \"http://localhost:8000/api/v1/users/me\" -H \"Authorization: Bearer $TOKEN\")",
+      "Bash(uv run python app/scripts/populate_missing_translations.py)"
     ],
     "deny": [],
     "ask": []

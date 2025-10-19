@@ -9,8 +9,8 @@ export default function SettingsPlansPage() {
 
   return (
     <ContentSection
-      title={t("plans.title")}
-      desc={t("plans.description")}
+      title={t("plans.title", "Title")}
+      desc={t("plans.description", "Description")}
       className="lg:max-w-3xl"
     >
       <PlanDetail />

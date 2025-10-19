@@ -70,7 +70,7 @@ export function DataTableToolbar<TData>({ table, onUserCreated }: Props<TData>) 
     <div className="flex items-center justify-between">
       <div className="flex flex-1 flex-col-reverse items-start gap-y-2 sm:flex-row sm:items-center sm:space-x-2">
         <Input
-          placeholder={t("filter.search")}
+          placeholder={t("filter.search", "Search")}
           value={(table.getColumn("email")?.getFilterValue() as string) ?? ""}
           onChange={(event) =>
             table.getColumn("email")?.setFilterValue(event.target.value)
@@ -81,7 +81,7 @@ export function DataTableToolbar<TData>({ table, onUserCreated }: Props<TData>) 
           {table.getColumn("status") && (
             <DataTableFacetedFilter
               column={table.getColumn("status")}
-              title={t("field.status")}
+              title={t("field.status", "Status")}
               options={[
                 { label: t("status.active"), value: "active" },
                 { label: t("status.inactive"), value: "inactive" },
@@ -93,7 +93,7 @@ export function DataTableToolbar<TData>({ table, onUserCreated }: Props<TData>) 
           {table.getColumn("role") && roles.length > 0 && (
             <DataTableFacetedFilter
               column={table.getColumn("role")}
-              title={t("field.role")}
+              title={t("field.role", "Role")}
               options={roles}
             />
           )}
@@ -104,7 +104,7 @@ export function DataTableToolbar<TData>({ table, onUserCreated }: Props<TData>) 
             onClick={() => table.resetColumnFilters()}
             className="h-8 px-2 lg:px-3"
           >
-            {t("filter.reset")}
+            {t("filter.reset", "Reset")}
             <Cross2Icon className="ml-2 h-4 w-4" />
           </Button>
         )}

@@ -9,8 +9,8 @@ export default function SettingsGeneralPage() {
 
   return (
     <ContentSection
-      title={t("general.title")}
-      desc={t("general.description")}
+      title={t("general.title", "Title")}
+      desc={t("general.description", "Description")}
       className="w-full lg:max-w-full"
     >
       <GeneralForm />

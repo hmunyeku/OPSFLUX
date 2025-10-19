@@ -36,24 +36,24 @@ function EventsAndLogsPageContent() {
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link href="/">{t("breadcrumb.home")}</Link>
+                <Link href="/">{t("breadcrumb.home", "Accueil")}</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>{t("breadcrumb.developers")}</BreadcrumbPage>
+              <BreadcrumbPage>{t("breadcrumb.developers", "Développeurs")}</BreadcrumbPage>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>{t("logs.title")}</BreadcrumbPage>
+              <BreadcrumbPage>{t("logs.title", "Title")}</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold">{t("logs.title")}</h2>
+            <h2 className="text-2xl font-bold">{t("logs.title", "Title")}</h2>
             <p className="text-muted-foreground text-sm">
-              {t("logs.description")}
+              {t("logs.description", "Description")}
             </p>
           </div>
           <ImportDialog disabled={!hasPermission("core.audit.configure")} />

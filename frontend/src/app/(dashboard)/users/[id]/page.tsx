@@ -81,26 +81,26 @@ export default function UserDetailPage() {
           <BreadcrumbSeparator />
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/users">{t("breadcrumb.users")}</Link>
+              <Link href="/users">{t("breadcrumb.users", "Utilisateurs")}</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbPage>{t("detail.breadcrumb")}</BreadcrumbPage>
+            <BreadcrumbPage>{t("detail.breadcrumb", "Breadcrumb")}</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
       <div className="mt-4 space-y-1">
         <div className="flex flex-wrap gap-2">
           <h1 className="text-lg font-bold">
-            {t("detail.title")}: {`${user.firstName} ${user.lastName}`}
+            {t("detail.title", "Title")}: {`${user.firstName} ${user.lastName}`}
           </h1>
           <Badge variant="outline" className="text-muted-foreground">
             {user.id}
           </Badge>
         </div>
         <p className="text-muted-foreground">
-          {t("detail.description")}
+          {t("detail.description", "Description")}
         </p>
       </div>
 

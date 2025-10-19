@@ -12,22 +12,22 @@ import { ApiTab } from "./api-tab"
 export default function SettingsProfilePage() {
   const { t } = useTranslation("core.profile")
   const searchParams = useSearchParams()
-  const tab = searchParams.get("tab") || "profile"
+  const tab = searchParams.get("tab", "Tab") || "profile"
 
   return (
     <ContentSection title={t("title", "Profile")} desc={t("description", "Manage your profile settings")} className="w-full lg:max-w-full">
       <Tabs defaultValue={tab} className="w-full">
         <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-2">
           <TabsTrigger value="profile" className="text-xs sm:text-sm">
-            <span className="hidden sm:inline">{t("tabs.profile")}</span>
+            <span className="hidden sm:inline">{t("tabs.profile", "Profile")}</span>
             <span className="sm:hidden">{t("tabs.profile_mobile", "Profile")}</span>
           </TabsTrigger>
           <TabsTrigger value="preferences" className="text-xs sm:text-sm">
-            <span className="hidden sm:inline">{t("tabs.preferences")}</span>
+            <span className="hidden sm:inline">{t("tabs.preferences", "Preferences")}</span>
             <span className="sm:hidden">{t("tabs.preferences_mobile", "Pref.")}</span>
           </TabsTrigger>
           <TabsTrigger value="informations" className="text-xs sm:text-sm">
-            <span className="hidden sm:inline">{t("tabs.informations")}</span>
+            <span className="hidden sm:inline">{t("tabs.informations", "Informations")}</span>
             <span className="sm:hidden">{t("tabs.informations_mobile", "Info")}</span>
           </TabsTrigger>
           <TabsTrigger value="api" className="text-xs sm:text-sm">

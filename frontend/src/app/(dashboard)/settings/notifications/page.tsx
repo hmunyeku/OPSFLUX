@@ -9,8 +9,8 @@ export default function SettingsNotificationsPage() {
 
   return (
     <ContentSection
-      title={t("notifications.title")}
-      desc={t("notifications.description")}
+      title={t("notifications.title", "Title")}
+      desc={t("notifications.description", "Description")}
     >
       <NotificationsForm />
     </ContentSection>

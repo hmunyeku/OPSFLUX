@@ -51,11 +51,11 @@ export function UsersInviteDialog({ open, onOpenChange, onUserCreated }: Props) 
     z.object({
       email: z
         .string()
-        .min(1, { message: t("validation.email_required") })
-        .email({ message: t("validation.email_invalid") }),
+        .min(1, { message: t("validation.email_required", "L'email est requis") })
+        .email({ message: t("validation.email_invalid", "Adresse email invalide") }),
       first_name: z.string().optional(),
       last_name: z.string().optional(),
-      role_id: z.string().min(1, { message: t("validation.role_required") }),
+      role_id: z.string().min(1, { message: t("validation.role_required", "Le rôle est requis") }),
     })
 
   type UserInviteForm = z.infer<ReturnType<typeof getFormSchema>>
@@ -117,7 +117,7 @@ export function UsersInviteDialog({ open, onOpenChange, onUserCreated }: Props) 
 
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.detail || t("toast.error_send_invitation"))
+        throw new Error(error.detail || t("toast.error_send_invitation", "Error send invitation"))
       }
 
       form.reset()
@@ -150,10 +150,10 @@ export function UsersInviteDialog({ open, onOpenChange, onUserCreated }: Props) 
         <SheetHeader className="flex-shrink-0">
           <SheetTitle className="flex items-center gap-2">
             <IconMailPlus className="h-5 w-5" />
-            {t("invite_dialog.title")}
+            {t("invite_dialog.title", "Title")}
           </SheetTitle>
           <SheetDescription>
-            {t("invite_dialog.description")}
+            {t("invite_dialog.description", "Description")}
           </SheetDescription>
         </SheetHeader>
 
@@ -179,10 +179,10 @@ export function UsersInviteDialog({ open, onOpenChange, onUserCreated }: Props) 
                     name="first_name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{t("fields.first_name.label")}</FormLabel>
+                        <FormLabel>{t("fields.first_name.label", "Prénom")}</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder={t("fields.first_name.placeholder")}
+                            placeholder={t("fields.first_name.placeholder", "Jean")}
                             autoComplete="given-name"
                             className="h-11"
                             {...field}
@@ -197,10 +197,10 @@ export function UsersInviteDialog({ open, onOpenChange, onUserCreated }: Props) 
                     name="last_name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{t("fields.last_name.label")}</FormLabel>
+                        <FormLabel>{t("fields.last_name.label", "Nom")}</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder={t("fields.last_name.placeholder")}
+                            placeholder={t("fields.last_name.placeholder", "Dupont")}
                             autoComplete="family-name"
                             className="h-11"
                             {...field}
@@ -217,11 +217,11 @@ export function UsersInviteDialog({ open, onOpenChange, onUserCreated }: Props) 
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t("fields.email.label")}</FormLabel>
+                      <FormLabel>{t("fields.email.label", "Email")}</FormLabel>
                       <FormControl>
                         <Input
                           type="email"
-                          placeholder={t("fields.email.placeholder")}
+                          placeholder={t("fields.email.placeholder", "jean.dupont@example.com")}
                           autoComplete="email"
                           inputMode="email"
                           className="h-11"
@@ -257,11 +257,11 @@ export function UsersInviteDialog({ open, onOpenChange, onUserCreated }: Props) 
                     name="role_id"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{t("fields.role.label")}</FormLabel>
+                        <FormLabel>{t("fields.role.label", "Rôle")}</FormLabel>
                         <SelectDropdown
                           defaultValue={field.value}
                           onValueChange={field.onChange}
-                          placeholder={t("fields.role.placeholder")}
+                          placeholder={t("fields.role.placeholder", "Sélectionnez un rôle")}
                           items={roles.map((role) => ({
                             label: role.name,
                             value: role.id,
@@ -289,7 +289,7 @@ export function UsersInviteDialog({ open, onOpenChange, onUserCreated }: Props) 
                 disabled={isSubmitting}
                 className="w-full sm:w-auto"
               >
-                {t("invite_dialog.cancel")}
+                {t("invite_dialog.cancel", "Cancel")}
               </Button>
             </SheetClose>
             <Button
@@ -301,12 +301,12 @@ export function UsersInviteDialog({ open, onOpenChange, onUserCreated }: Props) 
               {isSubmitting ? (
                 <>
                   <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {t("invite_dialog.sending")}
+                  {t("invite_dialog.sending", "Sending")}
                 </>
               ) : (
                 <>
                   <IconSend className="mr-2 h-4 w-4" />
-                  {t("invite_dialog.send_invitation")}
+                  {t("invite_dialog.send_invitation", "Send invitation")}
                 </>
               )}
             </Button>

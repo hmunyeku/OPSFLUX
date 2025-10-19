@@ -9,8 +9,8 @@ export default function SettingsConnectedAppsPage() {
 
   return (
     <ContentSection
-      title={t("connected_apps.title")}
-      desc={t("connected_apps.description")}
+      title={t("connected_apps.title", "Title")}
+      desc={t("connected_apps.description", "Description")}
     >
       <ConnectAppForm />
     </ContentSection>

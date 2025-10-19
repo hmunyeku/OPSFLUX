@@ -161,12 +161,12 @@ export function UserApiKeyCard() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <IconKey className="h-5 w-5 text-primary" />
-            <CardTitle>{t("api_key.title")}</CardTitle>
+            <CardTitle>{t("api_key.title", "Title")}</CardTitle>
           </div>
-          <CardDescription>{t("api_key.description")}</CardDescription>
+          <CardDescription>{t("api_key.description", "Description")}</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">{t("message.loading")}</p>
+          <p className="text-sm text-muted-foreground">{t("message.loading", "Loading")}</p>
         </CardContent>
       </Card>
     )
@@ -178,16 +178,16 @@ export function UserApiKeyCard() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <IconKey className="h-5 w-5 text-primary" />
-            <CardTitle>{t("api_key.title")}</CardTitle>
+            <CardTitle>{t("api_key.title", "Title")}</CardTitle>
           </div>
-          <CardDescription>{t("api_key.description")}</CardDescription>
+          <CardDescription>{t("api_key.description", "Description")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {!apiKey ? (
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">{t("api_key.no_key")}</p>
+              <p className="text-sm text-muted-foreground">{t("api_key.no_key", "No key")}</p>
               <Button onClick={handleGenerate} disabled={isGenerating}>
-                {isGenerating ? t("message.loading") : t("api_key.generate")}
+                {isGenerating ? t("message.loading", "Loading") : t("api_key.generate", "Generate")}
               </Button>
             </div>
           ) : (
@@ -199,7 +199,7 @@ export function UserApiKeyCard() {
                   variant="outline"
                   size="icon"
                   onClick={() => handleCopy(apiKey.key_prefix)}
-                  title={t("api_key.copy")}
+                  title={t("api_key.copy", "Copy")}
                 >
                   <IconCopy className="h-4 w-4" />
                 </Button>
@@ -215,25 +215,25 @@ export function UserApiKeyCard() {
               {/* Informations */}
               <div className="space-y-2 text-sm text-muted-foreground">
                 <div className="flex justify-between">
-                  <span>{t("api_key.created_at")} :</span>
+                  <span>{t("api_key.created_at", "Created at")} :</span>
                   <span className="font-medium">{formatDate(apiKey.created_at)}</span>
                 </div>
                 {apiKey.last_used_at ? (
                   <div className="flex justify-between">
-                    <span>{t("api_key.last_used")} :</span>
+                    <span>{t("api_key.last_used", "Last used")} :</span>
                     <span className="font-medium">{formatDate(apiKey.last_used_at)}</span>
                   </div>
                 ) : (
                   <div className="flex justify-between">
-                    <span>{t("api_key.last_used")} :</span>
-                    <span className="font-medium text-muted-foreground">{t("api_key.never_used")}</span>
+                    <span>{t("api_key.last_used", "Last used")} :</span>
+                    <span className="font-medium text-muted-foreground">{t("api_key.never_used", "Never used")}</span>
                   </div>
                 )}
               </div>
 
               {/* Instructions d'utilisation */}
               <div className="rounded-lg border bg-muted/50 p-4 space-y-2">
-                <p className="text-sm font-medium">{t("api_key.usage_instructions")}</p>
+                <p className="text-sm font-medium">{t("api_key.usage_instructions", "Usage instructions")}</p>
                 <code className="block text-xs bg-background p-2 rounded border">
                   X-API-Key: {apiKey.key_prefix}
                 </code>
@@ -247,14 +247,14 @@ export function UserApiKeyCard() {
                   disabled={isGenerating}
                 >
                   <IconRefresh className="h-4 w-4 mr-2" />
-                  {t("api_key.regenerate")}
+                  {t("api_key.regenerate", "Regenerate")}
                 </Button>
                 <Button
                   variant="destructive"
                   onClick={() => setShowRevokeDialog(true)}
                 >
                   <IconTrash className="h-4 w-4 mr-2" />
-                  {t("api_key.revoke")}
+                  {t("api_key.revoke", "Revoke")}
                 </Button>
               </div>
             </div>
@@ -266,13 +266,13 @@ export function UserApiKeyCard() {
       <Dialog open={showKeyDialog} onOpenChange={setShowKeyDialog}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>{t("api_key.title")}</DialogTitle>
+            <DialogTitle>{t("api_key.title", "Title")}</DialogTitle>
             <DialogDescription className="space-y-2">
               <div className="flex items-start gap-2 text-amber-600 dark:text-amber-400">
                 <IconAlertTriangle className="h-5 w-5 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="font-semibold">{t("api_key.warning_title")}</p>
-                  <p>{t("api_key.warning_message")}</p>
+                  <p className="font-semibold">{t("api_key.warning_title", "Warning title")}</p>
+                  <p>{t("api_key.warning_message", "Warning message")}</p>
                 </div>
               </div>
             </DialogDescription>
@@ -293,7 +293,7 @@ export function UserApiKeyCard() {
               </Button>
             </div>
             <div className="rounded-lg border bg-muted/50 p-4 space-y-2">
-              <p className="text-sm font-medium">{t("api_key.usage_instructions")}</p>
+              <p className="text-sm font-medium">{t("api_key.usage_instructions", "Usage instructions")}</p>
               <code className="block text-xs bg-background p-2 rounded border">
                 X-API-Key: {generatedKey}
               </code>
@@ -301,7 +301,7 @@ export function UserApiKeyCard() {
           </div>
           <DialogFooter>
             <Button onClick={() => setShowKeyDialog(false)}>
-              {t("button.close")}
+              {t("button.close", "Close")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -311,15 +311,15 @@ export function UserApiKeyCard() {
       <AlertDialog open={showRegenerateDialog} onOpenChange={setShowRegenerateDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("api_key.regenerate")}</AlertDialogTitle>
+            <AlertDialogTitle>{t("api_key.regenerate", "Regenerate")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("api_key.confirm_regenerate")}
+              {t("api_key.confirm_regenerate", "Confirm regenerate")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t("button.cancel")}</AlertDialogCancel>
+            <AlertDialogCancel>{t("button.cancel", "Cancel")}</AlertDialogCancel>
             <AlertDialogAction onClick={handleRegenerate} disabled={isGenerating}>
-              {isGenerating ? t("message.loading") : t("button.confirm")}
+              {isGenerating ? t("message.loading", "Loading") : t("button.confirm", "Confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -329,15 +329,15 @@ export function UserApiKeyCard() {
       <AlertDialog open={showRevokeDialog} onOpenChange={setShowRevokeDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("api_key.revoke")}</AlertDialogTitle>
+            <AlertDialogTitle>{t("api_key.revoke", "Revoke")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("api_key.confirm_revoke")}
+              {t("api_key.confirm_revoke", "Confirm revoke")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t("button.cancel")}</AlertDialogCancel>
+            <AlertDialogCancel>{t("button.cancel", "Cancel")}</AlertDialogCancel>
             <AlertDialogAction onClick={handleRevoke} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              {t("button.confirm")}
+              {t("button.confirm", "Confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

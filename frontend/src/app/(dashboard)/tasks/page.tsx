@@ -45,9 +45,9 @@ export default function TasksPage() {
     <>
       <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">{t("page.title")}</h2>
+          <h2 className="text-2xl font-bold tracking-tight">{t("page.title", "Titre")}</h2>
           <p className="text-muted-foreground">
-            {t("page.description")}
+            {t("page.description", "Description")}
           </p>
         </div>
         <TasksPrimaryActions />

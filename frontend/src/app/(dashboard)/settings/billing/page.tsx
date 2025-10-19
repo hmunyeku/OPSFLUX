@@ -8,7 +8,7 @@ export default function SettingsBillingPage() {
   const { t } = useTranslation("core.settings")
 
   return (
-    <ContentSection title={t("billing.title")} desc={t("billing.description")}>
+    <ContentSection title={t("billing.title", "Title")} desc={t("billing.description", "Description")}>
       <BillingForm />
     </ContentSection>
   )

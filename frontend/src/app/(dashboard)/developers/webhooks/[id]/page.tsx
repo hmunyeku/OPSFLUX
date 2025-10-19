@@ -49,13 +49,13 @@ function WebhookDetailContent({ id }: { id: string }) {
           <BreadcrumbSeparator />
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/developers/overview">{t("breadcrumb.developers")}</Link>
+              <Link href="/developers/overview">{t("breadcrumb.developers", "Développeurs")}</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/developers/webhooks">{t("webhooks.breadcrumb")}</Link>
+              <Link href="/developers/webhooks">{t("webhooks.breadcrumb", "Breadcrumb")}</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
@@ -67,7 +67,7 @@ function WebhookDetailContent({ id }: { id: string }) {
 
       <div className="space-y-2">
         <div className="flex items-center gap-2">
-          <h2 className="text-2xl font-bold">{t("webhooks.detail.title")}</h2>
+          <h2 className="text-2xl font-bold">{t("webhooks.detail.title", "Title")}</h2>
           <WebhookDetailActions data={webhook} />
         </div>
         <div className="flex flex-col items-stretch sm:flex-row sm:items-start">

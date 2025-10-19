@@ -159,27 +159,27 @@ export default function RBACPage() {
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link href="/">{t("breadcrumb.home")}</Link>
+                <Link href="/">{t("breadcrumb.home", "Accueil")}</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link href="/users">{t("breadcrumb.users")}</Link>
+                <Link href="/users">{t("breadcrumb.users", "Utilisateurs")}</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>{t("breadcrumb.rbac")}</BreadcrumbPage>
+              <BreadcrumbPage>{t("breadcrumb.rbac", "RBAC")}</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
 
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold tracking-tight">{t("page.title")}</h2>
+          <h2 className="text-2xl font-bold tracking-tight">{t("page.title", "Titre")}</h2>
           <Button onClick={() => setIsCreateDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
-            {t("roles.create")}
+            {t("roles.create", "Create")}
           </Button>
         </div>
       </div>
@@ -188,49 +188,49 @@ export default function RBACPage() {
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("roles.total")}</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("roles.total", "Total")}</CardTitle>
             <Shield className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalRoles}</div>
             <p className="text-xs text-muted-foreground">
-              {stats.systemRoles} {t("roles.system")}, {stats.customRoles} {t("roles.custom")}
+              {stats.systemRoles} {t("roles.system", "System")}, {stats.customRoles} {t("roles.custom", "Custom")}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("permissions.title")}</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("permissions.title", "Title")}</CardTitle>
             <Key className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalPermissions}</div>
             <p className="text-xs text-muted-foreground">
-              {t("permissions.assigned_to_roles")}
+              {t("permissions.assigned_to_roles", "Assigned to roles")}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("roles.system_roles")}</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("roles.system_roles", "System roles")}</CardTitle>
             <Lock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.systemRoles}</div>
             <p className="text-xs text-muted-foreground">
-              {t("roles.not_modifiable")}
+              {t("roles.not_modifiable", "Not modifiable")}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("roles.custom_roles")}</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("roles.custom_roles", "Custom roles")}</CardTitle>
             <Unlock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.customRoles}</div>
             <p className="text-xs text-muted-foreground">
-              {t("roles.modifiable")}
+              {t("roles.modifiable", "Modifiable")}
             </p>
           </CardContent>
         </Card>
@@ -242,10 +242,10 @@ export default function RBACPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5" />
-              {t("roles.list")}
+              {t("roles.list", "List")}
             </CardTitle>
             <CardDescription>
-              {t("roles.select_description")}
+              {t("roles.select_description", "Select description")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -253,7 +253,7 @@ export default function RBACPage() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder={t("field.search_role")}
+                placeholder={t("field.search_role", "Search role")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
@@ -265,7 +265,7 @@ export default function RBACPage() {
               <div className="space-y-2">
                 {filteredRoles.length === 0 ? (
                   <div className="py-8 text-center text-sm text-muted-foreground">
-                    {t("message.no_role_found")}
+                    {t("message.no_role_found", "No role found")}
                   </div>
                 ) : (
                   filteredRoles.map((role) => (

@@ -18,9 +18,9 @@ export default function Dashboard2Page() {
       <div className="flex flex-col gap-4 p-4">
         <div className="flex flex-col items-start justify-between gap-2 md:flex-row">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight">{t("page.title")}</h2>
+            <h2 className="text-2xl font-bold tracking-tight">{t("page.title", "Titre")}</h2>
             <p className="text-muted-foreground">
-              {t("page.description")}
+              {t("page.description", "Description")}
             </p>
           </div>
           <Dashboard2Actions />

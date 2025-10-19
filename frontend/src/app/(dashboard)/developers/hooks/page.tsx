@@ -271,46 +271,46 @@ function HooksPageContent() {
         <BreadcrumbList>
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/">{t("breadcrumb.home")}</Link>
+              <Link href="/">{t("breadcrumb.home", "Accueil")}</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbPage>{t("breadcrumb.developers")}</BreadcrumbPage>
+            <BreadcrumbPage>{t("breadcrumb.developers", "Développeurs")}</BreadcrumbPage>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbPage>{t("hooks.title")}</BreadcrumbPage>
+            <BreadcrumbPage>{t("hooks.title", "Title")}</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
 
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h2 className="text-2xl font-bold">{t("hooks.title")}</h2>
+          <h2 className="text-2xl font-bold">{t("hooks.title", "Title")}</h2>
           <p className="text-muted-foreground text-sm">
-            {t("hooks.description")}
+            {t("hooks.description", "Description")}
           </p>
         </div>
       </div>
 
       <Alert>
         <Info className="h-4 w-4" />
-        <AlertTitle>{t("hooks.system_title")}</AlertTitle>
+        <AlertTitle>{t("hooks.system_title", "System title")}</AlertTitle>
         <AlertDescription>
-          {t("hooks.system_description")}
+          {t("hooks.system_description", "System description")}
         </AlertDescription>
       </Alert>
 
       <div className="h-full flex-1">
         {loading ? (
-          <div className="mt-6 text-center text-sm text-muted-foreground">{t("hooks.loading")}</div>
+          <div className="mt-6 text-center text-sm text-muted-foreground">{t("hooks.loading", "Loading")}</div>
         ) : hooks.length > 0 ? (
           <Card>
             <CardHeader>
-              <CardTitle>{t("hooks.available")}</CardTitle>
+              <CardTitle>{t("hooks.available", "Available")}</CardTitle>
               <CardDescription>
-                {filteredHooks.length} {t("hooks.on")} {hooks.length} hook{hooks.length > 1 ? "s" : ""} {t("hooks.displayed")}
+                {filteredHooks.length} {t("hooks.on", "On")} {hooks.length} hook{hooks.length > 1 ? "s" : ""} {t("hooks.displayed", "Displayed")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -319,7 +319,7 @@ function HooksPageContent() {
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder={t("hooks.search")}
+                    placeholder={t("hooks.search", "Search")}
                     value={globalFilter}
                     onChange={(e) => setGlobalFilter(e.target.value)}
                     className="pl-10"

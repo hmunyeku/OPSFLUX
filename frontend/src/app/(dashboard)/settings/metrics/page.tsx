@@ -184,8 +184,8 @@ function MetricsPageContent() {
   if (loading && !stats) {
     return (
       <ContentSection
-        title={t("metrics.title")}
-        desc={t("metrics.description")}
+        title={t("metrics.title", "Title")}
+        desc={t("metrics.description", "Description")}
         className="w-full lg:max-w-full"
       >
         <div className="flex items-center justify-center py-8">
@@ -202,8 +202,8 @@ function MetricsPageContent() {
 
   return (
     <ContentSection
-      title={t("metrics.title")}
-      desc={t("metrics.description")}
+      title={t("metrics.title", "Title")}
+      desc={t("metrics.description", "Description")}
       className="w-full lg:max-w-full"
     >
       <div className="space-y-6">

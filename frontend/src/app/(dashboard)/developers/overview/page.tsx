@@ -43,20 +43,20 @@ export default function OverviewPage() {
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>{t("breadcrumb.developers")}</BreadcrumbPage>
+              <BreadcrumbPage>{t("breadcrumb.developers", "Développeurs")}</BreadcrumbPage>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>{t("overview.breadcrumb")}</BreadcrumbPage>
+              <BreadcrumbPage>{t("overview.breadcrumb", "Breadcrumb")}</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
 
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h2 className="text-2xl font-bold">{t("overview.title")}</h2>
+            <h2 className="text-2xl font-bold">{t("overview.title", "Title")}</h2>
             <p className="text-muted-foreground text-sm">
-              {t("overview.description")}
+              {t("overview.description", "Description")}
             </p>
           </div>
           <div className="flex items-center gap-3">

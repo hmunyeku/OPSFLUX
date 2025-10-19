@@ -403,8 +403,8 @@ export default function ModulesPage() {
   if (loading) {
     return (
       <ContentSection
-        title={t("modules.title")}
-        desc={t("modules.description")}
+        title={t("modules.title", "Title")}
+        desc={t("modules.description", "Description")}
         className="w-full lg:max-w-full"
       >
         <div className="flex items-center justify-center py-8">
@@ -416,8 +416,8 @@ export default function ModulesPage() {
 
   return (
     <ContentSection
-      title={t("modules.title")}
-      desc={t("modules.description")}
+      title={t("modules.title", "Title")}
+      desc={t("modules.description", "Description")}
       className="w-full lg:max-w-full"
     >
       <>

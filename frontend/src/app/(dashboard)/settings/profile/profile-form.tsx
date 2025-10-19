@@ -61,10 +61,10 @@ const createAccountFormSchema = (t: (key: string) => string) => z.object({
     .string({
       required_error: t("validation.email_required"),
     })
-    .email(t("validation.email_invalid")),
+    .email(t("validation.email_invalid", "Adresse email invalide")),
   recovery_email: z
     .string()
-    .email(t("validation.recovery_email_invalid"))
+    .email(t("validation.recovery_email_invalid", "Recovery email invalid"))
     .optional()
     .or(z.literal("")),
   avatar_url: z.string().nullable().optional(),
@@ -363,14 +363,14 @@ export function AccountForm() {
       await refreshUser()
     } catch (error: unknown) {
       // Extract error message from API response
-      let errorMessage = t("toast.error_update")
+      let errorMessage = t("toast.error_update", "Error update")
 
       if (error instanceof Error) {
         errorMessage = error.message
       } else if (typeof error === "object" && error !== null) {
         // Try to extract detail from API error response
         const apiError = error as any
-        errorMessage = apiError.response?.data?.detail || apiError.detail || apiError.message || t("toast.error_update")
+        errorMessage = apiError.response?.data?.detail || apiError.detail || apiError.message || t("toast.error_update", "Error update")
       }
 
       toast({
@@ -384,7 +384,7 @@ export function AccountForm() {
   }
 
   if (isLoading) {
-    return <div className="space-y-4">{t("loading")}</div>
+    return <div className="space-y-4">{t("loading", "Loading")}</div>
   }
 
   return (
@@ -392,9 +392,9 @@ export function AccountForm() {
       {/* Informations du profil */}
       <Card>
         <CardHeader>
-          <CardTitle>{t("title")}</CardTitle>
+          <CardTitle>{t("title", "Title")}</CardTitle>
           <CardDescription>
-            {t("description")}
+            {t("description", "Description")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -409,7 +409,7 @@ export function AccountForm() {
                     name="avatar_url"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{t("fields.avatar.label")}</FormLabel>
+                        <FormLabel>{t("fields.avatar.label", "Label")}</FormLabel>
                         <FormControl>
                           <ProfileAvatar
                             currentAvatarUrl={field.value}
@@ -421,7 +421,7 @@ export function AccountForm() {
                           />
                         </FormControl>
                         <FormDescription className="text-xs">
-                          {t("fields.avatar.helper")}
+                          {t("fields.avatar.helper", "Helper")}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -437,9 +437,9 @@ export function AccountForm() {
                     name="first_name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{t("fields.first_name.label")}</FormLabel>
+                        <FormLabel>{t("fields.first_name.label", "Prénom")}</FormLabel>
                         <FormControl>
-                          <Input placeholder={t("fields.first_name.placeholder")} className="h-11" {...field} value={field.value || ""} />
+                          <Input placeholder={t("fields.first_name.placeholder", "Jean")} className="h-11" {...field} value={field.value || ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -452,9 +452,9 @@ export function AccountForm() {
                     name="last_name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{t("fields.last_name.label")}</FormLabel>
+                        <FormLabel>{t("fields.last_name.label", "Nom")}</FormLabel>
                         <FormControl>
-                          <Input placeholder={t("fields.last_name.placeholder")} className="h-11" {...field} value={field.value || ""} />
+                          <Input placeholder={t("fields.last_name.placeholder", "Dupont")} className="h-11" {...field} value={field.value || ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -467,12 +467,12 @@ export function AccountForm() {
                     name="initials"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{t("fields.initials.label")}</FormLabel>
+                        <FormLabel>{t("fields.initials.label", "Label")}</FormLabel>
                         <FormControl>
-                          <Input placeholder={t("fields.initials.placeholder")} maxLength={10} className="h-11" {...field} value={field.value || ""} />
+                          <Input placeholder={t("fields.initials.placeholder", "Placeholder")} maxLength={10} className="h-11" {...field} value={field.value || ""} />
                         </FormControl>
                         <FormDescription className="text-xs">
-                          {t("fields.initials.helper")}
+                          {t("fields.initials.helper", "Helper")}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -550,12 +550,12 @@ export function AccountForm() {
                     name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{t("fields.email.label")}</FormLabel>
+                        <FormLabel>{t("fields.email.label", "Email")}</FormLabel>
                         <FormControl>
-                          <Input type="email" placeholder={t("fields.email.placeholder")} inputMode="email" className="h-11 bg-muted" {...field} disabled />
+                          <Input type="email" placeholder={t("fields.email.placeholder", "jean.dupont@example.com")} inputMode="email" className="h-11 bg-muted" {...field} disabled />
                         </FormControl>
                         <FormDescription className="text-xs">
-                          {t("fields.email.helper")}
+                          {t("fields.email.helper", "L'utilisateur recevra des notifications à cette adresse")}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -568,12 +568,12 @@ export function AccountForm() {
                     name="recovery_email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{t("fields.recovery_email.label")}</FormLabel>
+                        <FormLabel>{t("fields.recovery_email.label", "Label")}</FormLabel>
                         <FormControl>
-                          <Input type="email" placeholder={t("fields.recovery_email.placeholder")} inputMode="email" className="h-11" {...field} value={field.value || ""} />
+                          <Input type="email" placeholder={t("fields.recovery_email.placeholder", "Placeholder")} inputMode="email" className="h-11" {...field} value={field.value || ""} />
                         </FormControl>
                         <FormDescription className="text-xs">
-                          {t("fields.recovery_email.helper")}
+                          {t("fields.recovery_email.helper", "Helper")}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -586,10 +586,10 @@ export function AccountForm() {
                     name="intranet_identifier"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{t("fields.intranet_id.label")}</FormLabel>
+                        <FormLabel>{t("fields.intranet_id.label", "Label")}</FormLabel>
                         <div className="flex gap-2">
                           <FormControl>
-                            <Input placeholder={t("fields.intranet_id.placeholder")} className="h-11" {...field} value={field.value || ""} />
+                            <Input placeholder={t("fields.intranet_id.placeholder", "Placeholder")} className="h-11" {...field} value={field.value || ""} />
                           </FormControl>
                           {config.intranet_url && field.value && (
                             <Button
@@ -600,14 +600,14 @@ export function AccountForm() {
                                 const url = config.intranet_url?.replace('{user_id}', field.value || '')
                                 window.open(url, '_blank')
                               }}
-                              title={t("fields.intranet_id.access")}
+                              title={t("fields.intranet_id.access", "Access")}
                             >
                               <ExternalLink className="h-4 w-4" />
                             </Button>
                           )}
                         </div>
                         <FormDescription className="text-xs">
-                          {t("fields.intranet_id.helper")}
+                          {t("fields.intranet_id.helper", "Helper")}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -664,12 +664,12 @@ export function AccountForm() {
 
                   {/* Téléphones */}
                   <div className="col-span-1 md:col-span-2 space-y-2">
-                    <Label>{t("fields.phone_numbers.label")}</Label>
+                    <Label>{t("fields.phone_numbers.label", "Label")}</Label>
                     <div className="flex gap-2">
                       <PhoneInput
                         value={newPhone}
                         onChange={(value) => setNewPhone(value || "")}
-                        placeholder={t("fields.phone_numbers.placeholder")}
+                        placeholder={t("fields.phone_numbers.placeholder", "Placeholder")}
                       />
                       <Button
                         type="button"
@@ -700,7 +700,7 @@ export function AccountForm() {
                       </div>
                     )}
                     <p className="text-xs text-muted-foreground">
-                      {t("fields.phone_numbers.helper")}
+                      {t("fields.phone_numbers.helper", "Helper")}
                     </p>
                   </div>
                 </div>
@@ -709,9 +709,9 @@ export function AccountForm() {
               <LoadingButton
                 type="submit"
                 loading={isSubmitting}
-                loadingText={t("actions.updating")}
+                loadingText={t("actions.updating", "Mise à jour...")}
               >
-                {t("actions.update")}
+                {t("actions.update", "Mettre à jour")}
               </LoadingButton>
             </form>
           </Form>
@@ -723,16 +723,16 @@ export function AccountForm() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <Lock className="h-5 w-5" />
-            <CardTitle>{t("password.title")}</CardTitle>
+            <CardTitle>{t("password.title", "Title")}</CardTitle>
           </div>
           <CardDescription>
-            {t("password.description")}
+            {t("password.description", "Description")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
             <div className="space-y-2 col-span-1 md:col-span-2">
-              <Label htmlFor="current-password">{t("password.current")}</Label>
+              <Label htmlFor="current-password">{t("password.current", "Current")}</Label>
               <div className="relative">
                 <Input
                   id="current-password"
@@ -740,7 +740,7 @@ export function AccountForm() {
                   className="h-11"
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder={t("password.current_placeholder")}
+                  placeholder={t("password.current_placeholder", "Current placeholder")}
                 />
                 <Button
                   type="button"
@@ -749,13 +749,13 @@ export function AccountForm() {
                   className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                   onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                 >
-                  {showCurrentPassword ? t("password.hide") : t("password.show")}
+                  {showCurrentPassword ? t("password.hide", "Hide") : t("password.show", "Show")}
                 </Button>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="new-password">{t("password.new")}</Label>
+              <Label htmlFor="new-password">{t("password.new", "New")}</Label>
               <div className="relative">
                 <Input
                   id="new-password"
@@ -763,7 +763,7 @@ export function AccountForm() {
                   className="h-11"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder={t("password.new_placeholder")}
+                  placeholder={t("password.new_placeholder", "New placeholder")}
                 />
                 <Button
                   type="button"
@@ -772,13 +772,13 @@ export function AccountForm() {
                   className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                   onClick={() => setShowNewPassword(!showNewPassword)}
                 >
-                  {showNewPassword ? t("password.hide") : t("password.show")}
+                  {showNewPassword ? t("password.hide", "Hide") : t("password.show", "Show")}
                 </Button>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirm-password">{t("password.confirm")}</Label>
+              <Label htmlFor="confirm-password">{t("password.confirm", "Confirm")}</Label>
               <div className="relative">
                 <Input
                   id="confirm-password"
@@ -786,7 +786,7 @@ export function AccountForm() {
                   className="h-11"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder={t("password.confirm_placeholder")}
+                  placeholder={t("password.confirm_placeholder", "Confirm placeholder")}
                 />
                 <Button
                   type="button"
@@ -795,13 +795,13 @@ export function AccountForm() {
                   className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 >
-                  {showConfirmPassword ? t("password.hide") : t("password.show")}
+                  {showConfirmPassword ? t("password.hide", "Hide") : t("password.show", "Show")}
                 </Button>
               </div>
               {confirmPassword && newPassword !== confirmPassword && (
                 <div className="flex items-center gap-1.5 text-xs text-red-600">
                   <AlertCircle className="h-3.5 w-3.5" />
-                  <span>{t("password.mismatch")}</span>
+                  <span>{t("password.mismatch", "Mismatch")}</span>
                 </div>
               )}
             </div>
@@ -811,7 +811,7 @@ export function AccountForm() {
           {newPassword && (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">{t("password.strength")}</span>
+                <span className="text-muted-foreground">{t("password.strength", "Strength")}</span>
                 <span className={`font-medium ${
                   passwordStrength.color === "green" ? "text-green-600" :
                   passwordStrength.color === "orange" ? "text-orange-600" :
@@ -834,7 +834,7 @@ export function AccountForm() {
               {/* Password policy checks */}
               {passwordPolicy && (
                 <div className="space-y-1 pt-2">
-                  <p className="text-xs text-muted-foreground mb-1">{t("password.requirements")}</p>
+                  <p className="text-xs text-muted-foreground mb-1">{t("password.requirements", "Requirements")}</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs">
                     <div className={`flex items-center gap-1.5 ${
                       newPassword.length >= passwordPolicy.min_length ? "text-green-600" : "text-gray-500"
@@ -856,7 +856,7 @@ export function AccountForm() {
                         ) : (
                           <XCircle className="h-3.5 w-3.5" />
                         )}
-                        <span>{t("password.req_uppercase")}</span>
+                        <span>{t("password.req_uppercase", "Req uppercase")}</span>
                       </div>
                     )}
 
@@ -869,7 +869,7 @@ export function AccountForm() {
                         ) : (
                           <XCircle className="h-3.5 w-3.5" />
                         )}
-                        <span>{t("password.req_lowercase")}</span>
+                        <span>{t("password.req_lowercase", "Req lowercase")}</span>
                       </div>
                     )}
 
@@ -882,7 +882,7 @@ export function AccountForm() {
                         ) : (
                           <XCircle className="h-3.5 w-3.5" />
                         )}
-                        <span>{t("password.req_digit")}</span>
+                        <span>{t("password.req_digit", "Req digit")}</span>
                       </div>
                     )}
 
@@ -895,7 +895,7 @@ export function AccountForm() {
                         ) : (
                           <XCircle className="h-3.5 w-3.5" />
                         )}
-                        <span>{t("password.req_special")}</span>
+                        <span>{t("password.req_special", "Req special")}</span>
                       </div>
                     )}
                   </div>
@@ -907,7 +907,7 @@ export function AccountForm() {
           <LoadingButton
             onClick={handleChangePassword}
             loading={isChangingPassword}
-            loadingText={t("actions.changing")}
+            loadingText={t("actions.changing", "Changing")}
             disabled={
               !currentPassword ||
               !newPassword ||
@@ -917,7 +917,7 @@ export function AccountForm() {
             }
             className="w-full sm:w-auto"
           >
-            {t("actions.change_password")}
+            {t("actions.change_password", "Change password")}
           </LoadingButton>
         </CardContent>
       </Card>

@@ -20,10 +20,10 @@ export default function Dashboard3Page() {
         <div className="flex flex-col items-start justify-between gap-2 md:flex-row">
           <div>
             <h2 className="text-2xl font-bold tracking-tight">
-              {t("page.title")}
+              {t("page.title", "Titre")}
             </h2>
             <p className="text-muted-foreground">
-              {t("page.description")}
+              {t("page.description", "Description")}
             </p>
           </div>
           <Dashboard3Actions />

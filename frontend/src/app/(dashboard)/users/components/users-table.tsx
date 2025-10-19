@@ -124,7 +124,7 @@ export function UsersTable({ columns, data, onUserCreated }: Props) {
                   colSpan={columns.length}
                   className="h-24 text-center"
                 >
-                  {t("table.no_results")}
+                  {t("table.no_results", "No results")}
                 </TableCell>
               </TableRow>
             )}

@@ -22,7 +22,7 @@ export default function Dashboard1Page() {
 
       <div className="space-y-4 p-4">
         <div className="mb-2 flex flex-col items-start justify-between space-y-2 md:flex-row md:items-center">
-          <h1 className="text-2xl font-bold tracking-tight">{t("page.title")}</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t("page.title", "Titre")}</h1>
           <Dashboard1Actions />
         </div>
         <Tabs
@@ -34,14 +34,14 @@ export default function Dashboard1Page() {
             <TabsList>
               <TabsTrigger value="overview" className="flex items-center gap-2">
                 <IconSettings2 size={14} />
-                {t("widgets.overview")}
+                {t("widgets.overview", "Overview")}
               </TabsTrigger>
               <TabsTrigger
                 value="analytics"
                 className="flex items-center gap-2"
               >
                 <IconAnalyze size={16} />
-                {t("widgets.analytics")}
+                {t("widgets.analytics", "Analytics")}
               </TabsTrigger>
               <TabsTrigger
                 value="reports"
@@ -49,7 +49,7 @@ export default function Dashboard1Page() {
                 disabled
               >
                 <IconFileReport size={16} />
-                {t("widgets.reports")}
+                {t("widgets.reports", "Reports")}
               </TabsTrigger>
               <TabsTrigger
                 value="notifications"
@@ -57,7 +57,7 @@ export default function Dashboard1Page() {
                 disabled
               >
                 <IconNotification size={16} />
-                {t("widgets.notifications")}
+                {t("widgets.notifications", "Notifications")}
               </TabsTrigger>
             </TabsList>
           </div>

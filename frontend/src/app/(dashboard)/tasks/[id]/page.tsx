@@ -75,7 +75,7 @@ function TaskDetailContent({ id }: { id: string }) {
             <BreadcrumbSeparator />
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link href="/tasks">{t("breadcrumb.tasks")}</Link>
+                <Link href="/tasks">{t("breadcrumb.tasks", "Tâches")}</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
@@ -122,7 +122,7 @@ function TaskDetailContent({ id }: { id: string }) {
 
             {/* Team Members */}
             <div className="flex items-center gap-2">
-              <span className="text-muted-foreground w-24">{t("detail.assignees")}</span>
+              <span className="text-muted-foreground w-24">{t("detail.assignees", "Assignees")}</span>
               <div>
                 <div className="flex -space-x-2">
                   {assignees.map((assignee, index) => (
@@ -145,7 +145,7 @@ function TaskDetailContent({ id }: { id: string }) {
 
             {/* Dates */}
             <div className="flex items-center gap-2">
-              <span className="text-muted-foreground w-24">{t("detail.due_date")}</span>
+              <span className="text-muted-foreground w-24">{t("detail.due_date", "Due date")}</span>
               <div className="flex items-center gap-1">
                 <IconCalendar className="text-muted-foreground h-3.5 w-3.5" />
                 <span>{format(task.dueDate, "MMM dd, yyyy")}</span>
@@ -216,8 +216,8 @@ function TaskDetailContent({ id }: { id: string }) {
         {/* Task Details Tabs */}
         <Tabs defaultValue="description" className="w-full">
           <TabsList className="text-sm">
-            <TabsTrigger value="description">{t("detail.tabs.description")}</TabsTrigger>
-            <TabsTrigger value="comments">{t("detail.tabs.comments")}</TabsTrigger>
+            <TabsTrigger value="description">{t("detail.tabs.description", "Description")}</TabsTrigger>
+            <TabsTrigger value="comments">{t("detail.tabs.comments", "Comments")}</TabsTrigger>
           </TabsList>
           <TabsContent value="description" className="mt-4">
             {/* Task Description Content */}

@@ -10,28 +10,28 @@ import { InformationsTab } from "./informations-tab"
 import { ApiTab } from "./api-tab"
 
 export default function SettingsProfilePage() {
-  const { t } = useTranslation("core.settings")
+  const { t } = useTranslation("core.profile")
   const searchParams = useSearchParams()
   const tab = searchParams.get("tab") || "profile"
 
   return (
-    <ContentSection title={t("profile.title")} desc={t("profile.description")} className="w-full lg:max-w-full">
+    <ContentSection title={t("title", "Profile")} desc={t("description", "Manage your profile settings")} className="w-full lg:max-w-full">
       <Tabs defaultValue={tab} className="w-full">
         <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-2">
           <TabsTrigger value="profile" className="text-xs sm:text-sm">
-            <span className="hidden sm:inline">{t("profile.tabs.profile")}</span>
-            <span className="sm:hidden">{t("profile.tabs.profile_mobile", "Profile")}</span>
+            <span className="hidden sm:inline">{t("tabs.profile")}</span>
+            <span className="sm:hidden">{t("tabs.profile_mobile", "Profile")}</span>
           </TabsTrigger>
           <TabsTrigger value="preferences" className="text-xs sm:text-sm">
-            <span className="hidden sm:inline">{t("profile.tabs.preferences")}</span>
-            <span className="sm:hidden">{t("profile.tabs.preferences_mobile", "Pref.")}</span>
+            <span className="hidden sm:inline">{t("tabs.preferences")}</span>
+            <span className="sm:hidden">{t("tabs.preferences_mobile", "Pref.")}</span>
           </TabsTrigger>
           <TabsTrigger value="informations" className="text-xs sm:text-sm">
-            <span className="hidden sm:inline">{t("profile.tabs.informations")}</span>
-            <span className="sm:hidden">{t("profile.tabs.informations_mobile", "Info")}</span>
+            <span className="hidden sm:inline">{t("tabs.informations")}</span>
+            <span className="sm:hidden">{t("tabs.informations_mobile", "Info")}</span>
           </TabsTrigger>
           <TabsTrigger value="api" className="text-xs sm:text-sm">
-            {t("profile.tabs.api", "API")}
+            {t("tabs.api", "API")}
           </TabsTrigger>
         </TabsList>
         <TabsContent value="profile" className="space-y-4">

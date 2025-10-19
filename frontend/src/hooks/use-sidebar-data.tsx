@@ -155,55 +155,8 @@ export function useSidebarData(): SidebarData {
           {
             title: t("settings", "Paramètres"),
             icon: IconSettings,
+            url: "/settings",
             permission: "settings.read",
-            items: [
-              {
-                title: t("settings.general", "Général"),
-                icon: IconTool,
-                url: "/settings",
-                permission: "settings.read",
-              },
-              {
-                title: t("settings.profile", "Profil"),
-                icon: IconUser,
-                url: "/settings/profile",
-              },
-              {
-                title: t("settings.modules", "Modules"),
-                icon: IconPuzzle,
-                url: "/settings/modules",
-                permission: "modules.view",
-              },
-              {
-                title: t("settings.billing", "Facturation"),
-                icon: IconCoin,
-                url: "/settings/billing",
-                permission: "billing.read",
-              },
-              {
-                title: t("settings.plans", "Plans"),
-                icon: IconChecklist,
-                url: "/settings/plans",
-                permission: "plans.read",
-              },
-              {
-                title: t("settings.connected_apps", "Applications connectées"),
-                icon: IconApps,
-                url: "/settings/connected-apps",
-                permission: "apps.read",
-              },
-              {
-                title: t("settings.notifications", "Notifications"),
-                icon: IconNotification,
-                url: "/settings/notifications",
-              },
-              {
-                title: t("settings.emailing", "Emailing"),
-                icon: IconMail,
-                url: "/settings/emailing",
-                permission: "developers.read",
-              },
-            ],
           },
           {
             title: t("developers", "Développeurs"),

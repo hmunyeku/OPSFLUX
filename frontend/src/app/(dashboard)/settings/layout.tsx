@@ -20,29 +20,19 @@ import SidebarNav from "./components/sidebar-nav"
 
 const sidebarNavItems = [
   {
-    title: "Général",
-    icon: <IconTool />,
-    href: "/settings",
-  },
-  {
     title: "Profil",
     icon: <IconUser />,
     href: "/settings/profile",
   },
   {
+    title: "Général",
+    icon: <IconTool />,
+    href: "/settings",
+  },
+  {
     title: "Modules",
     icon: <IconPuzzle />,
     href: "/settings/modules",
-  },
-  {
-    title: "Facturation",
-    icon: <IconCoin />,
-    href: "/settings/billing",
-  },
-  {
-    title: "Plans",
-    icon: <IconChecklist />,
-    href: "/settings/plans",
   },
   {
     title: "Applications connectées",
@@ -83,11 +73,6 @@ const sidebarNavItems = [
     title: "Emailing",
     icon: <IconMail />,
     href: "/settings/emailing",
-  },
-  {
-    title: "Audit",
-    icon: <IconFileText />,
-    href: "/settings/audit",
   },
   {
     title: "Recherche",

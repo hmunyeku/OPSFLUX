@@ -1747,28 +1747,7 @@ export default function GeneralForm() {
 
   return (
     <Form {...form}>
-      <div className="flex w-full flex-col items-start justify-between gap-4 rounded-lg border p-4 md:flex-row md:items-center">
-        <div className="flex flex-col items-start text-sm">
-          <p className="font-bold tracking-wide">
-            Votre application est actuellement sur le plan gratuit
-          </p>
-          <p className="text-muted-foreground font-medium">
-            Les plans payants offrent des limites d&apos;utilisation plus élevées, des branches supplémentaires et bien plus encore. En savoir plus{" "}
-            <Link href="" className="underline">
-              ici
-            </Link>
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="secondary">
-            <IconMessage2Question />
-            Nous contacter
-          </Button>
-          <Button variant="outline">Mettre à niveau</Button>
-        </div>
-      </div>
-
-      <div className="space-y-6 py-8">
+      <div className="space-y-6">
         {/* Search and Filter Bar */}
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
           <div className="relative flex-1 w-full">
@@ -1908,18 +1887,6 @@ export default function GeneralForm() {
               Aucun paramètre ne correspond à votre recherche.
             </div>
           )}
-        </div>
-      </div>
-
-      <div className="mt-10 mb-4 flex w-full flex-col items-start justify-between gap-4 rounded-lg border p-4 md:flex-row md:items-center">
-        <div className="flex flex-col items-start text-sm">
-          <p className="font-bold tracking-wide">Supprimer le compte</p>
-          <p className="text-muted-foreground font-medium">
-            Vous pouvez désactiver votre compte pour faire une pause.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <DeleteActions />
         </div>
       </div>
     </Form>

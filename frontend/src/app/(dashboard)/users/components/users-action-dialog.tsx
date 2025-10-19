@@ -118,6 +118,7 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
 
   const form = useForm<UserForm>({
     resolver: zodResolver(getFormSchema()),
+    mode: "onChange",
     defaultValues: isEdit
       ? {
           ...currentRow,

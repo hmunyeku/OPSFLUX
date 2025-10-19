@@ -59,6 +59,7 @@ export function InviteUserDialog({ open, onOpenChange }: InviteUserDialogProps) 
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
+    mode: "onChange",
     defaultValues: {
       email: "",
       first_name: "",

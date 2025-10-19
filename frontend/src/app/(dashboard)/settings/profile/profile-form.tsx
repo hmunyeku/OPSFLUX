@@ -120,6 +120,7 @@ export function AccountForm() {
 
   const form = useForm<AccountFormValues>({
     resolver: zodResolver(createAccountFormSchema(t)),
+    mode: "onChange",
     defaultValues: {
       first_name: "",
       last_name: "",

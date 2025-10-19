@@ -157,6 +157,7 @@ export default function GeneralForm() {
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
+    mode: "onChange",
     defaultValues: {
       app_name: config.app_name || "OpsFlux",
       default_theme: config.default_theme || "amethyst-haze",

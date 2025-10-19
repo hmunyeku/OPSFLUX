@@ -2,11 +2,21 @@
 
 import { useTranslation } from "@/hooks/use-translation"
 import { Header } from "@/components/layout/header"
+import { lazyLoadComponent, ChartFallback } from "@/lib/lazy-load"
 import Dashboard2Actions from "./components/dashboard-2-actions"
 import RecentActivity from "./components/recent-activity"
-import RevenueChart from "./components/revenue-chart"
 import Stats from "./components/stats"
-import Visitors from "./components/visitors"
+
+// Lazy load des charts pour optimiser les performances
+const RevenueChart = lazyLoadComponent(
+  () => import("./components/revenue-chart"),
+  <ChartFallback />
+)
+
+const Visitors = lazyLoadComponent(
+  () => import("./components/visitors"),
+  <ChartFallback />
+)
 
 export default function Dashboard2Page() {
   const { t } = useTranslation("core.dashboard")

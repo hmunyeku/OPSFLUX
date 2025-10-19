@@ -22,10 +22,24 @@ import {
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { DateRangePicker } from "@/components/date-range-picker"
-import { ApiRequestsChart } from "./components/api-requests-chart"
-import { ApiResponseTimeChart } from "./components/api-response-time-chart"
+import { lazyLoadComponent, ChartFallback } from "@/lib/lazy-load"
 import RecentActivity from "./components/recent-activity"
-import { TotalVisitorsChart } from "./components/total-visitors-chart"
+
+// Lazy load des composants charts pour meilleures performances
+const ApiRequestsChart = lazyLoadComponent(
+  () => import("./components/api-requests-chart").then(m => ({ default: m.ApiRequestsChart })),
+  <ChartFallback />
+)
+
+const ApiResponseTimeChart = lazyLoadComponent(
+  () => import("./components/api-response-time-chart").then(m => ({ default: m.ApiResponseTimeChart })),
+  <ChartFallback />
+)
+
+const TotalVisitorsChart = lazyLoadComponent(
+  () => import("./components/total-visitors-chart").then(m => ({ default: m.TotalVisitorsChart })),
+  <ChartFallback />
+)
 
 export default function OverviewPage() {
   const { t } = useTranslation("core.developers")

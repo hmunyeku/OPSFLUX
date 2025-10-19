@@ -62,7 +62,6 @@ import {
   IconCalendar,
 } from "@tabler/icons-react"
 import ContentSection from "../components/content-section"
-import { useToast } from "@/hooks/use-toast"
 import {
   getBackups,
   createBackup,
@@ -80,6 +79,14 @@ import { fr } from "date-fns/locale"
 import { useTranslation } from "@/hooks/use-translation"
 import { EmptyState } from "@/components/empty-state"
 import { DataLoadingState } from "@/components/data-loading-state"
+import {
+  showLoadError,
+  showCreateSuccess,
+  showDeleteSuccess,
+  showErrorToast,
+  showSuccessToast,
+  showInfoToast,
+} from "@/lib/toast-helpers"
 
 type ViewMode = "grid" | "table"
 
@@ -117,7 +124,6 @@ function BackupsPageContent() {
   const [selectedBackup, setSelectedBackup] = useState<Backup | null>(null)
   const [creating, setCreating] = useState(false)
   const [restoring, setRestoring] = useState(false)
-  const { toast } = useToast()
 
   const [newBackup, setNewBackup] = useState<BackupCreate>({
     name: "",
@@ -153,15 +159,11 @@ function BackupsPageContent() {
       const data = await getBackups({ limit: 100 })
       setBackups(data.data)
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Erreur",
-        description: "Impossible de charger les backups",
-      })
+      showLoadError(t("page.title", "les sauvegardes"), fetchBackups)
     } finally {
       setLoading(false)
     }
-  }, [toast])
+  }, [t])
 
   useEffect(() => {
     fetchBackups()
@@ -171,21 +173,17 @@ function BackupsPageContent() {
 
   const handleCreateBackup = async () => {
     if (!newBackup.name.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Erreur",
-        description: "Le nom du backup est requis",
-      })
+      showErrorToast(
+        t("create.validation.title", "Erreur de validation"),
+        t("create.validation.name_required", "Le nom du backup est requis")
+      )
       return
     }
 
     setCreating(true)
     try {
       await createBackup(newBackup)
-      toast({
-        title: "Backup créé",
-        description: "Le backup a été créé avec succès et est en cours de traitement",
-      })
+      showCreateSuccess(t("entity.backup", "Le backup"))
       setCreateDialogOpen(false)
       setNewBackup({
         name: "",
@@ -197,11 +195,11 @@ function BackupsPageContent() {
       })
       fetchBackups()
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Erreur",
-        description: error instanceof Error ? error.message : "Impossible de créer le backup",
-      })
+      showErrorToast(
+        t("create.error.title", "Échec de la création"),
+        error,
+        handleCreateBackup
+      )
     } finally {
       setCreating(false)
     }
@@ -209,20 +207,16 @@ function BackupsPageContent() {
 
   const handleScheduleBackup = async () => {
     if (!scheduledBackup.name.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Erreur",
-        description: "Le nom de la planification est requis",
-      })
+      showErrorToast(
+        t("schedule.validation.title", "Erreur de validation"),
+        t("schedule.validation.name_required", "Le nom de la planification est requis")
+      )
       return
     }
 
     try {
       // TODO: Implement API call to create scheduled backup
-      toast({
-        title: "Planification créée",
-        description: "La sauvegarde automatique a été programmée avec succès",
-      })
+      showCreateSuccess(t("entity.schedule", "La planification"))
       setScheduleDialogOpen(false)
       setScheduledBackup({
         name: "",
@@ -236,27 +230,26 @@ function BackupsPageContent() {
         is_active: true,
       })
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Erreur",
-        description: "Impossible de programmer la sauvegarde",
-      })
+      showErrorToast(
+        t("schedule.error.title", "Échec de la planification"),
+        error
+      )
     }
   }
 
   const handleDownload = async (backup: Backup) => {
     try {
       await downloadBackup(backup.id)
-      toast({
-        title: "Téléchargement démarré",
-        description: "Le fichier de backup va être téléchargé",
-      })
+      showInfoToast(
+        t("download.started.title", "Téléchargement démarré"),
+        t("download.started.description", "Le fichier de backup va être téléchargé")
+      )
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Erreur",
-        description: "Impossible de télécharger le backup",
-      })
+      showErrorToast(
+        t("download.error.title", "Échec du téléchargement"),
+        error,
+        () => handleDownload(backup)
+      )
     }
   }
 
@@ -266,18 +259,18 @@ function BackupsPageContent() {
     setRestoring(true)
     try {
       await restoreBackup(selectedBackup.id, restoreOptions)
-      toast({
-        title: "Restauration démarrée",
-        description: "La restauration du backup a été lancée en arrière-plan",
-      })
+      showSuccessToast(
+        t("restore.started.title", "Restauration démarrée"),
+        t("restore.started.description", "La restauration du backup a été lancée en arrière-plan")
+      )
       setRestoreDialogOpen(false)
       setSelectedBackup(null)
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Erreur",
-        description: error instanceof Error ? error.message : "Impossible de restaurer le backup",
-      })
+      showErrorToast(
+        t("restore.error.title", "Échec de la restauration"),
+        error,
+        handleRestoreBackup
+      )
     } finally {
       setRestoring(false)
     }
@@ -288,19 +281,16 @@ function BackupsPageContent() {
 
     try {
       await deleteBackup(selectedBackup.id)
-      toast({
-        title: "Backup supprimé",
-        description: "Le backup a été supprimé avec succès",
-      })
+      showDeleteSuccess(t("entity.backup", "Le backup"))
       setDeleteDialogOpen(false)
       setSelectedBackup(null)
       fetchBackups()
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Erreur",
-        description: "Impossible de supprimer le backup",
-      })
+      showErrorToast(
+        t("delete.error.title", "Échec de la suppression"),
+        error,
+        handleDeleteBackup
+      )
     }
   }
 

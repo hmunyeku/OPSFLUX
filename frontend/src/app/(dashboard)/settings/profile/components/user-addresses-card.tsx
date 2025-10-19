@@ -25,16 +25,15 @@ import {
 } from "@/components/ui/alert-dialog"
 import { IconMapPin, IconPlus, IconPencil, IconTrash, IconStar } from "@tabler/icons-react"
 import { useTranslation } from "@/hooks/use-translation"
-import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth"
 import { auth } from "@/lib/auth"
 import { Skeleton } from "@/components/ui/skeleton"
 import { AddressInput, type AddressData } from "@/components/ui/address-input"
 import { getUserAddresses, getAddressTypes, createAddress, updateAddress, deleteAddress, type Address, type AddressType } from "../../../users/data/addresses-api"
+import { showLoadError, showCreateSuccess, showUpdateSuccess, showDeleteSuccess, showErrorToast } from "@/lib/toast-helpers"
 
 export function UserAddressesCard() {
   const { t } = useTranslation("core.profile")
-  const { toast } = useToast()
   const { user } = useAuth()
 
   const [addresses, setAddresses] = useState<Address[]>([])
@@ -66,11 +65,7 @@ export function UserAddressesCard() {
       setAddressTypes(typesData)
     } catch (error) {
       console.error("Failed to load addresses:", error)
-      toast({
-        title: t("toast.error"),
-        description: t("toast.error_loading_addresses", "Impossible de charger les adresses"),
-        variant: "destructive",
-      })
+      showLoadError(t("addresses.title", "les adresses"), loadData)
     } finally {
       setLoading(false)
     }
@@ -120,20 +115,17 @@ export function UserAddressesCard() {
         entity_id: user.id,
       })
 
-      toast({
-        title: t("toast.success", "Succès"),
-        description: t("toast.address_added", "Adresse ajoutée avec succès"),
-      })
+      showCreateSuccess(t("entity.address", "L'adresse"))
 
       setAddSheetOpen(false)
       setAddressData(undefined)
       await loadData()
     } catch (error) {
-      toast({
-        title: t("toast.error"),
-        description: error instanceof Error ? error.message : t("toast.error_adding", "Erreur lors de l'ajout"),
-        variant: "destructive",
-      })
+      showErrorToast(
+        t("toast.error_adding", "Échec de l'ajout"),
+        error,
+        handleAddAddress
+      )
     } finally {
       setIsSubmitting(false)
     }
@@ -146,21 +138,18 @@ export function UserAddressesCard() {
       setIsSubmitting(true)
       await updateAddress(currentAddress.id, addressData)
 
-      toast({
-        title: t("toast.success", "Succès"),
-        description: t("toast.address_updated", "Adresse mise à jour avec succès"),
-      })
+      showUpdateSuccess(t("entity.address", "L'adresse"))
 
       setEditSheetOpen(false)
       setCurrentAddress(null)
       setAddressData(undefined)
       await loadData()
     } catch (error) {
-      toast({
-        title: t("toast.error"),
-        description: error instanceof Error ? error.message : t("toast.error_updating", "Erreur lors de la mise à jour"),
-        variant: "destructive",
-      })
+      showErrorToast(
+        t("toast.error_updating", "Échec de la mise à jour"),
+        error,
+        handleUpdateAddress
+      )
     } finally {
       setIsSubmitting(false)
     }
@@ -172,20 +161,17 @@ export function UserAddressesCard() {
     try {
       await deleteAddress(currentAddress.id)
 
-      toast({
-        title: t("toast.success", "Succès"),
-        description: t("toast.address_deleted", "Adresse supprimée avec succès"),
-      })
+      showDeleteSuccess(t("entity.address", "L'adresse"))
 
       setDeleteDialogOpen(false)
       setCurrentAddress(null)
       await loadData()
     } catch (error) {
-      toast({
-        title: t("toast.error"),
-        description: error instanceof Error ? error.message : t("toast.error_deleting", "Erreur lors de la suppression"),
-        variant: "destructive",
-      })
+      showErrorToast(
+        t("toast.error_deleting", "Échec de la suppression"),
+        error,
+        confirmDelete
+      )
     }
   }
 

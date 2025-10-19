@@ -24,12 +24,12 @@ import {
   IconChartBar,
 } from "@tabler/icons-react"
 import ContentSection from "../components/content-section"
-import { useToast } from "@/hooks/use-toast"
 import { getCacheStats, getCacheHealth, clearCache, type CacheStats, type CacheHealth } from "@/api/cache"
 import { useTranslation } from "@/hooks/use-translation"
 import { PermissionGuard } from "@/components/permission-guard"
 import { usePermissions } from "@/hooks/use-permissions"
 import { Skeleton } from "@/components/ui/skeleton"
+import { showLoadError, showSuccessToast } from "@/lib/toast-helpers"
 
 export default function CachePage() {
   return (
@@ -46,7 +46,6 @@ function CachePageContent() {
   const [loading, setLoading] = useState(true)
   const [clearing, setClearing] = useState(false)
   const [clearDialogOpen, setClearDialogOpen] = useState(false)
-  const { toast } = useToast()
   const { t } = useTranslation("core.cache")
 
   const fetchData = async () => {
@@ -58,12 +57,8 @@ function CachePageContent() {
       ])
       setStats(statsData)
       setHealth(healthData)
-    } catch (_error) {
-      toast({
-        variant: "destructive",
-        title: t("toast.error.title"),
-        description: t("toast.error.load"),
-      })
+    } catch (error) {
+      showLoadError(t("page.title", "le cache"), fetchData)
     } finally {
       setLoading(false)
     }
@@ -77,18 +72,14 @@ function CachePageContent() {
     setClearing(true)
     try {
       const result = await clearCache()
-      toast({
-        title: t("toast.clear.success"),
-        description: t("toast.clear.success_description", { keys_deleted: result.keys_deleted }),
-      })
+      showSuccessToast(
+        t("toast.clear.success"),
+        t("toast.clear.success_description", { keys_deleted: result.keys_deleted })
+      )
       setClearDialogOpen(false)
       await fetchData()
-    } catch (_error) {
-      toast({
-        variant: "destructive",
-        title: t("toast.error.title"),
-        description: t("toast.error.load"),
-      })
+    } catch (error) {
+      showLoadError(t("page.title", "le cache"), handleClearCache)
     } finally {
       setClearing(false)
     }

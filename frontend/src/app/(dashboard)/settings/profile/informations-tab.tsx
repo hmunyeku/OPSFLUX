@@ -16,7 +16,7 @@ import {
 import { useTranslation } from "@/hooks/use-translation"
 import { useAuth } from "@/hooks/use-auth"
 import { auth } from "@/lib/auth"
-import { useToast } from "@/hooks/use-toast"
+import { showLoadError } from "@/lib/toast-helpers"
 
 interface UserRbacInfo {
   roles: Array<{
@@ -35,7 +35,6 @@ interface UserRbacInfo {
 export function InformationsTab() {
   const { t } = useTranslation("core.profile")
   const { user } = useAuth()
-  const { toast } = useToast()
   const [rbacInfo, setRbacInfo] = useState<UserRbacInfo | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -69,11 +68,7 @@ export function InformationsTab() {
       }
     } catch (error) {
       console.error("Failed to load RBAC info:", error)
-      toast({
-        title: t("toast.error"),
-        description: t("toast.error_rbac"),
-        variant: "destructive",
-      })
+      showLoadError(t("rbac.title", "les informations RBAC"), loadRbacInfo)
     } finally {
       setLoading(false)
     }

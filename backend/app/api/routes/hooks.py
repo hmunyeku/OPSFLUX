@@ -6,7 +6,7 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from sqlmodel import func, select
+from sqlmodel import func, select, or_
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models import Message
@@ -21,6 +21,7 @@ from app.models_hooks import (
     HooksPublic,
     HookUpdate,
 )
+from app.models_modules import Module, ModuleStatus
 from app.services.hook_service import get_hook_executions
 
 router = APIRouter(prefix="/hooks", tags=["hooks"])
@@ -43,6 +44,8 @@ async def read_hooks(
     - event: Filtrer par nom d'événement
     - is_active: Filtrer par statut actif/inactif
 
+    Only shows hooks from ACTIVE modules (core.* events are always shown).
+
     Requiert la permission: core.hooks.read
     """
     # Base query
@@ -55,6 +58,28 @@ async def read_hooks(
     # Filtrer par statut
     if is_active is not None:
         statement = statement.where(Hook.is_active == is_active)
+
+    # Filter by module status: only show hooks from ACTIVE modules
+    # Extract module code from event (prefix before first dot)
+    # Core events (core.*) are always shown
+    # We need to use a SQL expression to extract the module code from the event string
+    # and join with the Module table
+    from sqlalchemy import func as sa_func
+
+    # Create a subquery to extract module code from event
+    # event format: "module.entity.action" -> extract "module"
+    module_code_expr = sa_func.split_part(Hook.event, '.', 1)
+
+    # Left join with Module table on the extracted module code
+    statement = statement.outerjoin(
+        Module, module_code_expr == Module.code
+    ).where(
+        # Show if event starts with "core." OR if module status is ACTIVE
+        or_(
+            Hook.event.startswith("core."),
+            Module.status == ModuleStatus.ACTIVE
+        )
+    )
 
     # Compter le total
     count_statement = select(func.count()).select_from(statement.subquery())

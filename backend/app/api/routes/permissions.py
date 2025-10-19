@@ -22,6 +22,7 @@ from app.models_rbac import (
     PermissionUpdate,
     Message,
 )
+from app.models_modules import Module, ModuleStatus
 
 router = APIRouter(prefix="/permissions", tags=["permissions"])
 
@@ -39,6 +40,7 @@ def read_permissions(
     """
     Retrieve permissions.
     Requires rbac.read permission.
+    Only shows permissions from ACTIVE modules (core permissions are always shown).
     """
     # TODO: Check rbac.read permission
     count_statement = select(func.count()).select_from(Permission)
@@ -60,6 +62,20 @@ def read_permissions(
     # Filter deleted items
     count_statement = count_statement.where(Permission.deleted_at.is_(None))
     statement = statement.where(Permission.deleted_at.is_(None))
+
+    # Filter by module status: only show permissions from ACTIVE modules
+    # Core permissions are always shown (module == "core")
+    count_statement = count_statement.outerjoin(
+        Module, Permission.module == Module.code
+    ).where(
+        (Permission.module == "core") | (Module.status == ModuleStatus.ACTIVE)
+    )
+
+    statement = statement.outerjoin(
+        Module, Permission.module == Module.code
+    ).where(
+        (Permission.module == "core") | (Module.status == ModuleStatus.ACTIVE)
+    )
 
     count = session.exec(count_statement).one()
     statement = statement.offset(skip).limit(limit).order_by(Permission.module, Permission.name)
@@ -201,13 +217,16 @@ def list_modules(
     current_user: CurrentUser,
 ) -> Any:
     """
-    Get list of all permission modules.
+    Get list of all permission modules from ACTIVE modules.
     Requires rbac.read permission.
     """
     # TODO: Check rbac.read permission
-    statement = select(Permission.module).where(
+    statement = select(Permission.module).outerjoin(
+        Module, Permission.module == Module.code
+    ).where(
         Permission.deleted_at.is_(None),
-        Permission.is_active == True
+        Permission.is_active == True,
+        (Permission.module == "core") | (Module.status == ModuleStatus.ACTIVE)
     ).distinct()
     modules = session.exec(statement).all()
     return sorted(modules)

@@ -28,6 +28,7 @@ import { useAppConfig } from "@/contexts/app-config-context"
 import { useTranslation } from "@/hooks/use-translation"
 import { Lock, CheckCircle2, XCircle, AlertCircle, Plus, X, ExternalLink } from "lucide-react"
 import { PhoneInput } from "@/components/ui/phone-input"
+import { SignatureInput } from "@/components/ui/signature-input"
 import { UserAddressesCard } from "./components/user-addresses-card"
 
 // Function to create form schema with translations
@@ -73,6 +74,7 @@ const createAccountFormSchema = (t: (key: string) => string) => z.object({
   birth_date: z.string().optional().or(z.literal("")),
   extension: z.string().max(20).optional().or(z.literal("")),
   signature: z.string().max(500).optional().or(z.literal("")),
+  signature_image: z.string().optional().nullable(),
 })
 
 type AccountFormValues = {
@@ -88,6 +90,7 @@ type AccountFormValues = {
   birth_date?: string
   extension?: string
   signature?: string
+  signature_image?: string | null
 }
 
 interface PasswordStrength {
@@ -129,6 +132,7 @@ export function AccountForm() {
       birth_date: "",
       extension: "",
       signature: "",
+      signature_image: null,
     },
   })
 
@@ -152,6 +156,7 @@ export function AccountForm() {
         birth_date: user.birth_date || "",
         extension: user.extension || "",
         signature: user.signature || "",
+        signature_image: user.signature_image || null,
       })
       setPhoneNumbers(user.phone_numbers || [])
     }
@@ -344,6 +349,7 @@ export function AccountForm() {
         birth_date: data.birth_date || undefined,
         extension: data.extension || undefined,
         signature: data.signature || undefined,
+        signature_image: data.signature_image || undefined,
       }
 
       await api.updateMe(token, updateData)
@@ -608,14 +614,14 @@ export function AccountForm() {
                     )}
                   />
 
-                  {/* Signature */}
+                  {/* Signature Texte */}
                   <div className="col-span-1 md:col-span-2">
                     <FormField
                       control={form.control}
                       name="signature"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>{t("fields.signature.label", "Signature")}</FormLabel>
+                          <FormLabel>{t("fields.signature.label", "Signature (Texte)")}</FormLabel>
                           <FormControl>
                             <Textarea
                               placeholder={t("fields.signature.placeholder", "Votre signature professionnelle...")}
@@ -631,6 +637,25 @@ export function AccountForm() {
                               {(field.value || "").length}/500
                             </span>
                           </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {/* Signature Image */}
+                  <div className="col-span-1 md:col-span-2">
+                    <FormField
+                      control={form.control}
+                      name="signature_image"
+                      render={({ field }) => (
+                        <FormItem>
+                          <SignatureInput
+                            value={field.value}
+                            onChange={field.onChange}
+                            label={t("fields.signature_image.label", "Signature (Image)")}
+                            description={t("fields.signature_image.helper", "Dessinez votre signature ou importez une image")}
+                          />
                           <FormMessage />
                         </FormItem>
                       )}

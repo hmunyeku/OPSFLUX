@@ -29,6 +29,7 @@ class UserBase(SQLModel):
     birth_date: str | None = Field(default=None, description="Date de naissance (ISO format)")
     extension: str | None = Field(default=None, max_length=20, description="Extension téléphonique")
     signature: str | None = Field(default=None, max_length=500, description="Signature de l'utilisateur")
+    signature_image: str | None = Field(default=None, description="Signature image en base64 ou URL")
 
 
 # Properties to receive via API on creation
@@ -64,6 +65,7 @@ class UserUpdateMe(SQLModel):
     birth_date: str | None = Field(default=None)
     extension: str | None = Field(default=None, max_length=20)
     signature: str | None = Field(default=None, max_length=500)
+    signature_image: str | None = Field(default=None)
 
 
 class UpdatePassword(SQLModel):

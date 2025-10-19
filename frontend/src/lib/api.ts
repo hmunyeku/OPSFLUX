@@ -80,6 +80,11 @@ export interface User {
   avatar_url?: string
   phone_numbers?: string[]
   intranet_identifier?: string
+  civility?: string
+  birth_date?: string
+  extension?: string
+  signature?: string
+  signature_image?: string
   roles?: Role[]
   groups?: Group[]
   permissions?: Permission[]
@@ -95,6 +100,11 @@ export interface UserUpdate {
   avatar_url?: string | null
   phone_numbers?: string[]
   intranet_identifier?: string
+  civility?: string
+  birth_date?: string
+  extension?: string
+  signature?: string
+  signature_image?: string
 }
 
 export interface PasswordPolicy {

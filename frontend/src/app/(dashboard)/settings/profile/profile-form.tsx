@@ -18,6 +18,7 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { ProfileAvatar } from "@/components/profile-avatar"
 import { useAuth } from "@/hooks/use-auth"
 import { api, UserUpdate, PasswordPolicy } from "@/lib/api"
@@ -27,6 +28,7 @@ import { useAppConfig } from "@/contexts/app-config-context"
 import { useTranslation } from "@/hooks/use-translation"
 import { Lock, CheckCircle2, XCircle, AlertCircle, Plus, X, ExternalLink } from "lucide-react"
 import { PhoneInput } from "@/components/ui/phone-input"
+import { UserAddressesCard } from "./components/user-addresses-card"
 
 // Function to create form schema with translations
 const createAccountFormSchema = (t: (key: string) => string) => z.object({
@@ -67,6 +69,10 @@ const createAccountFormSchema = (t: (key: string) => string) => z.object({
   avatar_url: z.string().nullable().optional(),
   phone_numbers: z.array(z.string()).optional(),
   intranet_identifier: z.string().max(255).optional().or(z.literal("")),
+  civility: z.string().max(10).optional().or(z.literal("")),
+  birth_date: z.string().optional().or(z.literal("")),
+  extension: z.string().max(20).optional().or(z.literal("")),
+  signature: z.string().max(500).optional().or(z.literal("")),
 })
 
 type AccountFormValues = {
@@ -78,6 +84,10 @@ type AccountFormValues = {
   avatar_url?: string | null
   phone_numbers?: string[]
   intranet_identifier?: string
+  civility?: string
+  birth_date?: string
+  extension?: string
+  signature?: string
 }
 
 interface PasswordStrength {
@@ -88,7 +98,7 @@ interface PasswordStrength {
 
 export function AccountForm() {
   const { t } = useTranslation("core.profile")
-  const { user, isLoading } = useAuth()
+  const { user, isLoading, refreshUser } = useAuth()
   const { config } = useAppConfig()
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -115,6 +125,10 @@ export function AccountForm() {
       avatar_url: null,
       phone_numbers: [],
       intranet_identifier: "",
+      civility: "",
+      birth_date: "",
+      extension: "",
+      signature: "",
     },
   })
 
@@ -134,6 +148,10 @@ export function AccountForm() {
         avatar_url: user.avatar_url || null,
         phone_numbers: user.phone_numbers || [],
         intranet_identifier: user.intranet_identifier || "",
+        civility: user.civility || "",
+        birth_date: user.birth_date || "",
+        extension: user.extension || "",
+        signature: user.signature || "",
       })
       setPhoneNumbers(user.phone_numbers || [])
     }
@@ -322,6 +340,10 @@ export function AccountForm() {
         avatar_url: data.avatar_url,
         phone_numbers: phoneNumbers,
         intranet_identifier: data.intranet_identifier || undefined,
+        civility: data.civility || undefined,
+        birth_date: data.birth_date || undefined,
+        extension: data.extension || undefined,
+        signature: data.signature || undefined,
       }
 
       await api.updateMe(token, updateData)
@@ -331,8 +353,8 @@ export function AccountForm() {
         description: t("toast.profile_updated_desc"),
       })
 
-      // Reload the page to refresh user data
-      window.location.reload()
+      // Refresh user data without full page reload
+      await refreshUser()
     } catch (error: unknown) {
       // Extract error message from API response
       let errorMessage = t("toast.error_update")
@@ -451,6 +473,71 @@ export function AccountForm() {
                     )}
                   />
 
+                  {/* Civilité */}
+                  <FormField
+                    control={form.control}
+                    name="civility"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t("fields.civility.label", "Civilité")}</FormLabel>
+                        <FormControl>
+                          <select
+                            {...field}
+                            value={field.value || ""}
+                            className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <option value="">{t("fields.civility.placeholder", "Sélectionner")}</option>
+                            <option value="M.">M.</option>
+                            <option value="Mme">Mme</option>
+                            <option value="Mlle">Mlle</option>
+                            <option value="Dr.">Dr.</option>
+                            <option value="Prof.">Prof.</option>
+                          </select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Date de naissance */}
+                  <FormField
+                    control={form.control}
+                    name="birth_date"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t("fields.birth_date.label", "Date de naissance")}</FormLabel>
+                        <FormControl>
+                          <Input type="date" className="h-11" {...field} value={field.value || ""} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Extension téléphonique */}
+                  <FormField
+                    control={form.control}
+                    name="extension"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t("fields.extension.label", "Extension")}</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder={t("fields.extension.placeholder", "Ex: 1234")}
+                            maxLength={20}
+                            className="h-11"
+                            {...field}
+                            value={field.value || ""}
+                          />
+                        </FormControl>
+                        <FormDescription className="text-xs">
+                          {t("fields.extension.helper", "Extension téléphonique interne")}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
                   {/* Email principal */}
                   <FormField
                     control={form.control}
@@ -520,6 +607,35 @@ export function AccountForm() {
                       </FormItem>
                     )}
                   />
+
+                  {/* Signature */}
+                  <div className="col-span-1 md:col-span-2">
+                    <FormField
+                      control={form.control}
+                      name="signature"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t("fields.signature.label", "Signature")}</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder={t("fields.signature.placeholder", "Votre signature professionnelle...")}
+                              className="resize-none min-h-[80px]"
+                              maxLength={500}
+                              {...field}
+                              value={field.value || ""}
+                            />
+                          </FormControl>
+                          <FormDescription className="text-xs flex justify-between">
+                            <span>{t("fields.signature.helper", "Utilisée dans les emails et documents")}</span>
+                            <span className="text-muted-foreground">
+                              {(field.value || "").length}/500
+                            </span>
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
                   {/* Téléphones */}
                   <div className="col-span-1 md:col-span-2 space-y-2">
@@ -780,6 +896,9 @@ export function AccountForm() {
           </LoadingButton>
         </CardContent>
       </Card>
+
+      {/* Mes Adresses */}
+      <UserAddressesCard />
     </div>
   )
 }

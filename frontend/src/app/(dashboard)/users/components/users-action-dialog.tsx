@@ -32,6 +32,8 @@ import { User } from "../data/schema"
 import { createUser, updateUser } from "../data/users-api"
 import { getRoles } from "../roles/data/roles-api"
 import { Role } from "../roles/data/schema"
+import { getAddressTypes, createAddress, type AddressType } from "../data/addresses-api"
+import { AddressInput, type AddressData } from "@/components/ui/address-input"
 import { useState, useEffect, useMemo } from "react"
 import { IconLoader2, IconCheck, IconX } from "@tabler/icons-react"
 
@@ -48,6 +50,9 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [roles, setRoles] = useState<Role[]>([])
   const [isLoadingRoles, setIsLoadingRoles] = useState(false)
+  const [addressTypes, setAddressTypes] = useState<AddressType[]>([])
+  const [isLoadingAddressTypes, setIsLoadingAddressTypes] = useState(false)
+  const [address, setAddress] = useState<AddressData | undefined>(undefined)
 
   // Zod schema with dynamic translations
   const getFormSchema = () =>
@@ -133,10 +138,11 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
         },
   })
 
-  // Load roles from API
+  // Load roles and address types from API
   useEffect(() => {
     if (open) {
       loadRoles()
+      loadAddressTypes()
     }
   }, [open])
 
@@ -153,6 +159,22 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
       })
     } finally {
       setIsLoadingRoles(false)
+    }
+  }
+
+  const loadAddressTypes = async () => {
+    try {
+      setIsLoadingAddressTypes(true)
+      const data = await getAddressTypes()
+      setAddressTypes(data)
+    } catch (_error) {
+      toast({
+        title: t("toast.error_title"),
+        description: "Erreur lors du chargement des types d'adresse",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoadingAddressTypes(false)
     }
   }
 
@@ -175,7 +197,7 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
         })
       } else {
         // Create new user
-        await createUser({
+        const newUser = await createUser({
           email: values.email,
           password: values.password,
           first_name: values.firstName,
@@ -183,6 +205,20 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
           phone_numbers: values.phoneNumber ? [values.phoneNumber] : [],
           is_active: true,
         })
+
+        // Create address if provided
+        if (address && address.address_type_id && address.street_line1 && address.city) {
+          try {
+            await createAddress({
+              ...address,
+              entity_type: "user",
+              entity_id: newUser.id,
+            })
+          } catch (addressError) {
+            console.error("Failed to create address:", addressError)
+            // Don't block user creation if address fails
+          }
+        }
 
         toast({
           title: t("toast.user_created_title"),
@@ -456,6 +492,31 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
                   )}
                 />
               </div>
+
+              {/* Address Section - Only for new users */}
+              {!isEdit && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-medium text-foreground">
+                      {t("sections.address", "Address (Optional)")}
+                    </h3>
+                    <Separator className="flex-1" />
+                  </div>
+
+                  {isLoadingAddressTypes ? (
+                    <div className="space-y-2">
+                      <Skeleton className="h-32 w-full" />
+                    </div>
+                  ) : (
+                    <AddressInput
+                      value={address}
+                      onChange={setAddress}
+                      addressTypes={addressTypes}
+                      required={false}
+                    />
+                  )}
+                </div>
+              )}
             </form>
           </Form>
         </div>

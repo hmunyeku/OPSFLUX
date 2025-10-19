@@ -55,7 +55,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { IconSearch, IconFilter, IconArrowsSort, IconX } from "@tabler/icons-react"
+import { IconSearch, IconFilter, IconArrowsSort, IconX, IconLoader2 } from "@tabler/icons-react"
 import { Shield, ShieldCheck, Key, Download, RefreshCw, Smartphone } from "lucide-react"
 import { type UserPreferences } from "@/types/preferences"
 import { Switch } from "@/components/ui/switch"
@@ -92,6 +92,7 @@ export function PreferencesTab() {
   const { toast } = useToast()
 
   const [recentlyModified, setRecentlyModified] = useState<Map<keyof UserPreferences, number>>(new Map())
+  const [savingPreference, setSavingPreference] = useState<keyof UserPreferences | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
 
   // 2FA states
@@ -382,23 +383,37 @@ export function PreferencesTab() {
     URL.revokeObjectURL(url)
   }
 
-  const handleImmediateChange = useCallback((key: keyof UserPreferences, value: PreferenceValue) => {
-    // Sauvegarder immédiatement
-    updatePreferences({ [key]: value })
+  const handleImmediateChange = useCallback(async (key: keyof UserPreferences, value: PreferenceValue) => {
+    // Indiquer qu'on est en train de sauvegarder
+    setSavingPreference(key)
 
-    // Marquer comme récemment modifié
-    setRecentlyModified(prev => new Map(prev).set(key, Date.now()))
+    try {
+      // Sauvegarder immédiatement
+      await updatePreferences({ [key]: value })
 
-    // Appliquer les changements de thème
-    if (key === 'colorTheme') {
-      changeTheme(value as ThemeName)
-    } else if (key === 'darkMode') {
-      setTheme(value as string)
-    } else if (key === 'sidebarCollapsed') {
-      // Synchroniser avec l'état de la sidebar (inversé car collapsed = !open)
-      setOpen(!(value as boolean))
+      // Marquer comme récemment modifié
+      setRecentlyModified(prev => new Map(prev).set(key, Date.now()))
+
+      // Appliquer les changements de thème
+      if (key === 'colorTheme') {
+        changeTheme(value as ThemeName)
+      } else if (key === 'darkMode') {
+        setTheme(value as string)
+      } else if (key === 'sidebarCollapsed') {
+        // Synchroniser avec l'état de la sidebar (inversé car collapsed = !open)
+        setOpen(!(value as boolean))
+      }
+    } catch (error) {
+      console.error('Failed to save preference:', error)
+      toast({
+        title: t("toast.error"),
+        description: t("toast.error_saving_pref", "Erreur lors de la sauvegarde de la préférence"),
+        variant: "destructive",
+      })
+    } finally {
+      setSavingPreference(null)
     }
-  }, [updatePreferences, changeTheme, setTheme, setOpen])
+  }, [updatePreferences, changeTheme, setTheme, setOpen, toast, t])
 
   const preferencesConfig: PreferenceItem[] = [
     // Apparence
@@ -722,10 +737,14 @@ export function PreferencesTab() {
         },
         cell: ({ row }) => {
           const isRecentlyModified = recentlyModified.has(row.original.key)
+          const isSaving = savingPreference === row.original.key
           return (
             <div className="min-w-[200px] flex items-center gap-2">
               <span className="font-medium">{row.original.label}</span>
-              {isRecentlyModified && (
+              {isSaving && (
+                <IconLoader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+              )}
+              {!isSaving && isRecentlyModified && (
                 <Badge variant="outline" className="text-green-600 border-green-600 dark:text-green-400 dark:border-green-400 text-xs">
                   {t("table.modified")}
                 </Badge>
@@ -772,7 +791,7 @@ export function PreferencesTab() {
         },
       },
     ],
-    [recentlyModified, preferences, handleImmediateChange, categoryFilter, t]
+    [recentlyModified, savingPreference, preferences, handleImmediateChange, categoryFilter, t]
   )
 
   // Create table instance
@@ -988,6 +1007,7 @@ export function PreferencesTab() {
         {filteredPreferencesData.length > 0 ? (
           filteredPreferencesData.map((pref) => {
             const isRecentlyModified = recentlyModified.has(pref.key)
+            const isSaving = savingPreference === pref.key
             const currentValue = preferences[pref.key]
 
             return (
@@ -1017,7 +1037,10 @@ export function PreferencesTab() {
                   })()}
                   <div className="flex items-center gap-2">
                     <h4 className="font-medium text-sm">{pref.label}</h4>
-                    {isRecentlyModified && (
+                    {isSaving && (
+                      <IconLoader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                    )}
+                    {!isSaving && isRecentlyModified && (
                       <Badge variant="outline" className="text-green-600 border-green-600 dark:text-green-400 dark:border-green-400 text-xs">
                         {t("table.modified")}
                       </Badge>

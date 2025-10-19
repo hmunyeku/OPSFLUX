@@ -16,6 +16,7 @@ interface UseAuthReturn {
   verify2FA: (code: string, method: string) => Promise<void>
   cancel2FA: () => void
   logout: () => void
+  refreshUser: () => Promise<void>
 }
 
 export function useAuth(): UseAuthReturn {
@@ -106,6 +107,19 @@ export function useAuth(): UseAuthReturn {
     window.location.href = '/login'
   }
 
+  const refreshUser = async () => {
+    const token = auth.getToken()
+    if (token) {
+      try {
+        const userData = await api.getMe(token)
+        setUser(userData)
+      } catch (error) {
+        console.error('Failed to refresh user:', error)
+        throw error
+      }
+    }
+  }
+
   return {
     user,
     isLoading,
@@ -116,5 +130,6 @@ export function useAuth(): UseAuthReturn {
     verify2FA,
     cancel2FA,
     logout,
+    refreshUser,
   }
 }

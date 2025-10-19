@@ -5,13 +5,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,9 +42,9 @@ export function UserAddressesCard() {
   const [loading, setLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Dialog states
-  const [addDialogOpen, setAddDialogOpen] = useState(false)
-  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  // Drawer states
+  const [addDrawerOpen, setAddDrawerOpen] = useState(false)
+  const [editDrawerOpen, setEditDrawerOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [currentAddress, setCurrentAddress] = useState<Address | null>(null)
   const [addressData, setAddressData] = useState<AddressData | undefined>(undefined)
@@ -77,7 +78,7 @@ export function UserAddressesCard() {
 
   function handleAddClick() {
     setAddressData(undefined)
-    setAddDialogOpen(true)
+    setAddDrawerOpen(true)
   }
 
   function handleEditClick(address: Address) {
@@ -100,7 +101,7 @@ export function UserAddressesCard() {
       notes: address.notes || "",
       is_default: address.is_default,
     })
-    setEditDialogOpen(true)
+    setEditDrawerOpen(true)
   }
 
   function handleDeleteClick(address: Address) {
@@ -124,7 +125,7 @@ export function UserAddressesCard() {
         description: t("toast.address_added", "Adresse ajoutée avec succès"),
       })
 
-      setAddDialogOpen(false)
+      setAddDrawerOpen(false)
       setAddressData(undefined)
       await loadData()
     } catch (error) {
@@ -150,7 +151,7 @@ export function UserAddressesCard() {
         description: t("toast.address_updated", "Adresse mise à jour avec succès"),
       })
 
-      setEditDialogOpen(false)
+      setEditDrawerOpen(false)
       setCurrentAddress(null)
       setAddressData(undefined)
       await loadData()
@@ -287,57 +288,65 @@ export function UserAddressesCard() {
         </CardContent>
       </Card>
 
-      {/* Dialog Ajouter */}
-      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{t("addresses.add_title", "Ajouter une adresse")}</DialogTitle>
-            <DialogDescription>
+      {/* Drawer Ajouter */}
+      <Drawer open={addDrawerOpen} onOpenChange={setAddDrawerOpen}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>{t("addresses.add_title", "Ajouter une adresse")}</DrawerTitle>
+            <DrawerDescription>
               {t("addresses.add_desc", "Remplissez les informations de votre nouvelle adresse")}
-            </DialogDescription>
-          </DialogHeader>
-          <AddressInput
-            value={addressData}
-            onChange={setAddressData}
-            addressTypes={addressTypes}
-            required
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddDialogOpen(false)}>
-              {t("actions.cancel", "Annuler")}
-            </Button>
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="px-4 max-h-[70vh] overflow-y-auto">
+            <AddressInput
+              value={addressData}
+              onChange={setAddressData}
+              addressTypes={addressTypes}
+              required
+            />
+          </div>
+          <DrawerFooter>
             <Button onClick={handleAddAddress} disabled={isSubmitting}>
               {isSubmitting ? t("actions.adding", "Ajout...") : t("actions.add", "Ajouter")}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DrawerClose asChild>
+              <Button variant="outline">
+                {t("actions.cancel", "Annuler")}
+              </Button>
+            </DrawerClose>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
 
-      {/* Dialog Modifier */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{t("addresses.edit_title", "Modifier l'adresse")}</DialogTitle>
-            <DialogDescription>
+      {/* Drawer Modifier */}
+      <Drawer open={editDrawerOpen} onOpenChange={setEditDrawerOpen}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>{t("addresses.edit_title", "Modifier l'adresse")}</DrawerTitle>
+            <DrawerDescription>
               {t("addresses.edit_desc", "Modifiez les informations de cette adresse")}
-            </DialogDescription>
-          </DialogHeader>
-          <AddressInput
-            value={addressData}
-            onChange={setAddressData}
-            addressTypes={addressTypes}
-            required
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
-              {t("actions.cancel", "Annuler")}
-            </Button>
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="px-4 max-h-[70vh] overflow-y-auto">
+            <AddressInput
+              value={addressData}
+              onChange={setAddressData}
+              addressTypes={addressTypes}
+              required
+            />
+          </div>
+          <DrawerFooter>
             <Button onClick={handleUpdateAddress} disabled={isSubmitting}>
               {isSubmitting ? t("actions.updating", "Mise à jour...") : t("actions.update", "Modifier")}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DrawerClose asChild>
+              <Button variant="outline">
+                {t("actions.cancel", "Annuler")}
+              </Button>
+            </DrawerClose>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
 
       {/* AlertDialog Supprimer */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

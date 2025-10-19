@@ -11,24 +11,24 @@ export default function LoginPage() {
     <Card className="p-6">
       <div className="flex flex-col space-y-2 text-center mb-4">
         <p className="text-muted-foreground text-sm">
-          {t("login.subtitle")}
+          {t("login.subtitle", "Connectez-vous à votre compte")}
         </p>
       </div>
       <UserAuthForm />
       <p className="text-muted-foreground mt-4 px-8 text-center text-sm">
-        {t("login.terms_text")}{" "}
+        {t("login.terms_text", "En continuant, vous acceptez nos")}{" "}
         <a
           href="/terms"
           className="hover:text-primary underline underline-offset-4"
         >
-          {t("login.terms_link")}
+          {t("login.terms_link", "Conditions d'utilisation")}
         </a>{" "}
-        {t("login.terms_and")}{" "}
+        {t("login.terms_and", "et notre")}{" "}
         <a
           href="/privacy"
           className="hover:text-primary underline underline-offset-4"
         >
-          {t("login.privacy_link")}
+          {t("login.privacy_link", "Politique de confidentialité")}
         </a>
         .
       </p>

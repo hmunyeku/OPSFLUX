@@ -23,19 +23,19 @@ import { TwoFactorVerificationModal } from "@/components/two-factor-verification
 import { useTranslation } from "@/hooks/use-translation"
 
 // On définira le schema dans le composant pour avoir accès à t()
-function getFormSchema(t: (key: string) => string) {
+function getFormSchema(t: (key: string, defaultValue?: string) => string) {
   return z.object({
     email: z
       .string()
-      .min(1, { message: t("validation.email_required") })
-      .email({ message: t("validation.email_invalid") }),
+      .min(1, { message: t("validation.email_required", "L'email est requis") })
+      .email({ message: t("validation.email_invalid", "Adresse email invalide") }),
     password: z
       .string()
       .min(1, {
-        message: t("validation.password_required"),
+        message: t("validation.password_required", "Le mot de passe est requis"),
       })
       .min(7, {
-        message: t("validation.password_min_length"),
+        message: t("validation.password_min_length", "Le mot de passe doit contenir au moins 7 caractères"),
       }),
   })
 }
@@ -114,9 +114,9 @@ export function UserAuthForm({
               name="email"
               render={({ field }) => (
                 <FormItem className="space-y-1">
-                  <FormLabel>{t("login.email")}</FormLabel>
+                  <FormLabel>{t("login.email", "Email")}</FormLabel>
                   <FormControl>
-                    <Input placeholder={t("login.email_placeholder")} {...field} />
+                    <Input placeholder={t("login.email_placeholder", "Entrez votre email")} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -128,23 +128,23 @@ export function UserAuthForm({
               render={({ field }) => (
                 <FormItem className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <FormLabel>{t("login.password")}</FormLabel>
+                    <FormLabel>{t("login.password", "Mot de passe")}</FormLabel>
                     <Link
                       href="/forgot-password"
                       className="text-muted-foreground text-sm font-medium hover:opacity-75"
                     >
-                      {t("login.forgot_password")}
+                      {t("login.forgot_password", "Mot de passe oublié ?")}
                     </Link>
                   </div>
                   <FormControl>
-                    <PasswordInput placeholder={t("login.password_placeholder")} {...field} />
+                    <PasswordInput placeholder={t("login.password_placeholder", "Entrez votre mot de passe")} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
             <Button className="mt-2" disabled={isLoading}>
-              {isLoading ? t("login.button_loading") : t("login.button")}
+              {isLoading ? t("login.button_loading", "Connexion...") : t("login.button", "Se connecter")}
             </Button>
           </div>
         </form>

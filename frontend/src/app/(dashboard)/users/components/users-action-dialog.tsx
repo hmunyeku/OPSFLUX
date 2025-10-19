@@ -58,15 +58,15 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
   const getFormSchema = () =>
     z
       .object({
-        firstName: z.string().min(1, { message: t("validation.first_name_required") }),
-        lastName: z.string().min(1, { message: t("validation.last_name_required") }),
-        phoneNumber: z.string().min(1, { message: t("validation.phone_required") }),
+        firstName: z.string().min(1, { message: t("validation.first_name_required", "Le prénom est requis") }),
+        lastName: z.string().min(1, { message: t("validation.last_name_required", "Le nom est requis") }),
+        phoneNumber: z.string().min(1, { message: t("validation.phone_required", "Le numéro de téléphone est requis") }),
         email: z
           .string()
-          .min(1, { message: t("validation.email_required") })
-          .email({ message: t("validation.email_invalid") }),
+          .min(1, { message: t("validation.email_required", "L'email est requis") })
+          .email({ message: t("validation.email_invalid", "Adresse email invalide") }),
         password: z.string().transform((pwd) => pwd.trim()),
-        role_id: z.string().min(1, { message: t("validation.role_required") }),
+        role_id: z.string().min(1, { message: t("validation.role_required", "Le rôle est requis") }),
         confirmPassword: z.string().transform((pwd) => pwd.trim()),
         isEdit: z.boolean(),
       })
@@ -75,7 +75,7 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
           if (password === "") {
             ctx.addIssue({
               code: z.ZodIssueCode.custom,
-              message: t("validation.password_required"),
+              message: t("validation.password_required", "Le mot de passe est requis"),
               path: ["password"],
             })
           }
@@ -83,7 +83,7 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
           if (password.length < 8) {
             ctx.addIssue({
               code: z.ZodIssueCode.custom,
-              message: t("validation.password_min_length"),
+              message: t("validation.password_min_length", "Le mot de passe doit contenir au moins 8 caractères"),
               path: ["password"],
             })
           }
@@ -91,7 +91,7 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
           if (!password.match(/[a-z]/)) {
             ctx.addIssue({
               code: z.ZodIssueCode.custom,
-              message: t("validation.password_lowercase"),
+              message: t("validation.password_lowercase", "Le mot de passe doit contenir au moins une minuscule"),
               path: ["password"],
             })
           }
@@ -99,7 +99,7 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
           if (!password.match(/\d/)) {
             ctx.addIssue({
               code: z.ZodIssueCode.custom,
-              message: t("validation.password_number"),
+              message: t("validation.password_number", "Le mot de passe doit contenir au moins un chiffre"),
               path: ["password"],
             })
           }
@@ -107,7 +107,7 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
           if (password !== confirmPassword) {
             ctx.addIssue({
               code: z.ZodIssueCode.custom,
-              message: t("validation.passwords_dont_match"),
+              message: t("validation.passwords_dont_match", "Les mots de passe ne correspondent pas"),
               path: ["confirmPassword"],
             })
           }
@@ -153,8 +153,8 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
       setRoles(data)
     } catch (_error) {
       toast({
-        title: t("toast.error_title"),
-        description: t("toast.error_load_roles"),
+        title: t("toast.error_title", "Erreur"),
+        description: t("toast.error_load_roles", "Impossible de charger les rôles"),
         variant: "destructive",
       })
     } finally {
@@ -192,8 +192,8 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
         })
 
         toast({
-          title: t("toast.user_updated_title"),
-          description: t("toast.user_updated_description"),
+          title: t("toast.user_updated_title", "Utilisateur mis à jour"),
+          description: t("toast.user_updated_description", "L'utilisateur a été mis à jour avec succès"),
         })
       } else {
         // Create new user
@@ -221,8 +221,8 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
         }
 
         toast({
-          title: t("toast.user_created_title"),
-          description: t("toast.user_created_description"),
+          title: t("toast.user_created_title", "Utilisateur créé"),
+          description: t("toast.user_created_description", "L'utilisateur a été créé avec succès"),
         })
       }
 
@@ -236,8 +236,8 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
     } catch (error) {
       toast({
         variant: "destructive",
-        title: t("toast.error_title"),
-        description: error instanceof Error ? error.message : t("toast.error_save_user"),
+        title: t("toast.error_title", "Erreur"),
+        description: error instanceof Error ? error.message : t("toast.error_save_user", "Impossible d'enregistrer l'utilisateur"),
       })
     } finally {
       setIsSubmitting(false)
@@ -268,10 +268,10 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
       <SheetContent className="flex flex-col overflow-hidden w-full sm:max-w-xl lg:max-w-2xl">
         <SheetHeader className="flex-shrink-0">
           <SheetTitle>
-            {isEdit ? t("create_dialog.title_edit") : t("create_dialog.title_create")}
+            {isEdit ? t("create_dialog.title_edit", "Modifier l'utilisateur") : t("create_dialog.title_create", "Créer un utilisateur")}
           </SheetTitle>
           <SheetDescription>
-            {isEdit ? t("create_dialog.description_edit") : t("create_dialog.description_create")}
+            {isEdit ? t("create_dialog.description_edit", "Modifiez les informations de l'utilisateur") : t("create_dialog.description_create", "Créez un nouvel utilisateur en remplissant les informations ci-dessous")}
           </SheetDescription>
         </SheetHeader>
 
@@ -286,7 +286,7 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-medium text-foreground">
-                    {t("sections.personal_info", "Personal Information")}
+                    {t("sections.personal_info", "Informations personnelles")}
                   </h3>
                   <Separator className="flex-1" />
                 </div>
@@ -297,10 +297,10 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
                     name="firstName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{t("fields.first_name.label")}</FormLabel>
+                        <FormLabel>{t("fields.first_name.label", "Prénom")}</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder={t("fields.first_name.placeholder")}
+                            placeholder={t("fields.first_name.placeholder", "Jean")}
                             autoComplete="given-name"
                             className="h-11"
                             {...field}
@@ -315,10 +315,10 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
                     name="lastName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{t("fields.last_name.label")}</FormLabel>
+                        <FormLabel>{t("fields.last_name.label", "Nom")}</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder={t("fields.last_name.placeholder")}
+                            placeholder={t("fields.last_name.placeholder", "Dupont")}
                             autoComplete="family-name"
                             className="h-11"
                             {...field}
@@ -335,11 +335,11 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t("fields.email.label")}</FormLabel>
+                      <FormLabel>{t("fields.email.label", "Email")}</FormLabel>
                       <FormControl>
                         <Input
                           type="email"
-                          placeholder={t("fields.email.placeholder")}
+                          placeholder={t("fields.email.placeholder", "jean.dupont@example.com")}
                           autoComplete="email"
                           inputMode="email"
                           className="h-11"
@@ -347,7 +347,7 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
                         />
                       </FormControl>
                       <FormDescription>
-                        {t("fields.email.helper", "User will receive notifications at this address")}
+                        {t("fields.email.helper", "L'utilisateur recevra des notifications à cette adresse")}
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -359,11 +359,11 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
                   name="phoneNumber"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t("fields.phone_number.label")}</FormLabel>
+                      <FormLabel>{t("fields.phone_number.label", "Numéro de téléphone")}</FormLabel>
                       <FormControl>
                         <Input
                           type="tel"
-                          placeholder={t("fields.phone_number.placeholder")}
+                          placeholder={t("fields.phone_number.placeholder", "+33 6 12 34 56 78")}
                           autoComplete="tel"
                           inputMode="tel"
                           className="h-11"
@@ -380,7 +380,7 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-medium text-foreground">
-                    {t("sections.account", "Account Details")}
+                    {t("sections.account", "Détails du compte")}
                   </h3>
                   <Separator className="flex-1" />
                 </div>
@@ -396,11 +396,11 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
                     name="role_id"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{t("fields.role.label")}</FormLabel>
+                        <FormLabel>{t("fields.role.label", "Rôle")}</FormLabel>
                         <SelectDropdown
                           defaultValue={field.value}
                           onValueChange={field.onChange}
-                          placeholder={t("fields.role.placeholder")}
+                          placeholder={t("fields.role.placeholder", "Sélectionnez un rôle")}
                           items={roles.map((role) => ({
                             label: role.name,
                             value: role.id,
@@ -417,10 +417,10 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
                   name="password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t("fields.password.label")}</FormLabel>
+                      <FormLabel>{t("fields.password.label", "Mot de passe")}</FormLabel>
                       <FormControl>
                         <PasswordInput
-                          placeholder={t("fields.password.placeholder")}
+                          placeholder={t("fields.password.placeholder", "Entrez un mot de passe")}
                           autoComplete={isEdit ? "new-password" : "new-password"}
                           className="h-11"
                           {...field}
@@ -431,7 +431,7 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
                       {passwordStrength && password && (
                         <div className="text-xs space-y-1 mt-2">
                           <p className="text-muted-foreground mb-1">
-                            {t("fields.password.requirements", "Password must contain:")}
+                            {t("fields.password.requirements", "Le mot de passe doit contenir :")}
                           </p>
                           <div className="space-y-0.5">
                             <div className={`flex items-center gap-1.5 ${passwordStrength.hasMinLength ? "text-green-600 dark:text-green-500" : "text-muted-foreground"}`}>
@@ -440,7 +440,7 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
                               ) : (
                                 <IconX className="h-3 w-3" />
                               )}
-                              <span>{t("fields.password.min_length", "At least 8 characters")}</span>
+                              <span>{t("fields.password.min_length", "Au moins 8 caractères")}</span>
                             </div>
                             <div className={`flex items-center gap-1.5 ${passwordStrength.hasLowercase ? "text-green-600 dark:text-green-500" : "text-muted-foreground"}`}>
                               {passwordStrength.hasLowercase ? (
@@ -448,7 +448,7 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
                               ) : (
                                 <IconX className="h-3 w-3" />
                               )}
-                              <span>{t("fields.password.lowercase", "One lowercase letter")}</span>
+                              <span>{t("fields.password.lowercase", "Une lettre minuscule")}</span>
                             </div>
                             <div className={`flex items-center gap-1.5 ${passwordStrength.hasNumber ? "text-green-600 dark:text-green-500" : "text-muted-foreground"}`}>
                               {passwordStrength.hasNumber ? (
@@ -456,7 +456,7 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
                               ) : (
                                 <IconX className="h-3 w-3" />
                               )}
-                              <span>{t("fields.password.number", "One number")}</span>
+                              <span>{t("fields.password.number", "Un chiffre")}</span>
                             </div>
                           </div>
                         </div>
@@ -472,11 +472,11 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
                   name="confirmPassword"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t("fields.confirm_password.label")}</FormLabel>
+                      <FormLabel>{t("fields.confirm_password.label", "Confirmer le mot de passe")}</FormLabel>
                       <FormControl>
                         <PasswordInput
                           disabled={!isPasswordTouched}
-                          placeholder={t("fields.confirm_password.placeholder")}
+                          placeholder={t("fields.confirm_password.placeholder", "Confirmez le mot de passe")}
                           autoComplete="new-password"
                           className="h-11"
                           {...field}
@@ -484,7 +484,7 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
                       </FormControl>
                       {!isPasswordTouched && (
                         <FormDescription>
-                          {t("fields.confirm_password.helper", "Enter a password first")}
+                          {t("fields.confirm_password.helper", "Entrez d'abord un mot de passe")}
                         </FormDescription>
                       )}
                       <FormMessage />
@@ -498,7 +498,7 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
                     <h3 className="text-sm font-medium text-foreground">
-                      {t("sections.address", "Address (Optional)")}
+                      {t("sections.address", "Adresse (Optionnel)")}
                     </h3>
                     <Separator className="flex-1" />
                   </div>
@@ -530,7 +530,7 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
               disabled={isSubmitting}
               className="w-full sm:w-auto"
             >
-              {t("create_dialog.cancel", "Cancel")}
+              {t("create_dialog.cancel", "Annuler")}
             </Button>
             <Button
               type="submit"
@@ -539,7 +539,7 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
               className="w-full sm:w-auto"
             >
               {isSubmitting && <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isSubmitting ? t("create_dialog.saving") : t("create_dialog.save_changes")}
+              {isSubmitting ? t("create_dialog.saving", "Enregistrement...") : t("create_dialog.save_changes", "Enregistrer")}
             </Button>
           </div>
         </SheetFooter>

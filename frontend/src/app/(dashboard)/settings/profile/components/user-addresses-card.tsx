@@ -49,11 +49,17 @@ export function UserAddressesCard() {
   const [addressData, setAddressData] = useState<AddressData | undefined>(undefined)
 
   useEffect(() => {
-    loadData()
+    // Only load data on client side to avoid SSR issues with localStorage
+    if (typeof window !== 'undefined') {
+      loadData()
+    }
   }, [user])
 
   async function loadData() {
     if (!user) return
+
+    // Double check we're on client side
+    if (typeof window === 'undefined') return
 
     try {
       setLoading(true)

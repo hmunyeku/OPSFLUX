@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  // Allow cross-origin requests from production domain in dev mode
+  allowedDevOrigins: ['https://app.opsflux.io'],
   eslint: {
     // Temporairement: ignorer les erreurs ESLint pendant le build
     // TODO: Corriger les erreurs dans cache.ts, queue.ts, storage.ts, etc.

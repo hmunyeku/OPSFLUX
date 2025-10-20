@@ -10,7 +10,7 @@ from app.api.main import api_router
 from app.core.audit_middleware import AuditLogMiddleware
 from app.core.config import settings
 from app.core.module_loader import ModuleLoader
-from app.core.api_key_auth import verify_api_key
+from app.core.api_key_auth import get_api_key_or_token
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
@@ -81,15 +81,13 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 
 # Securiser la documentation Swagger avec API Key
 @app.get("/docs", include_in_schema=False)
-async def custom_swagger_ui_html(current_user=Depends(verify_api_key)):
+async def custom_swagger_ui_html(current_user=Depends(get_api_key_or_token)):
     """
-    Swagger UI accessible uniquement avec API Key valide.
+    Swagger UI accessible avec API Key ou JWT token.
 
     Pour acceder a /docs:
-    1. Generer votre cle API via POST /api/v1/users/me/api-key
-    2. Utiliser l'extension ModHeader ou similaire pour ajouter le header:
-       X-API-Key: ofs_votre_cle_ici
-    3. Acceder a /docs
+    - Avec API Key: Ajouter header X-API-Key: ofs_votre_cle_ici
+    - Avec JWT: Ajouter header Authorization: Bearer votre_token_ici
     """
     return get_swagger_ui_html(
         openapi_url=app.openapi_url,
@@ -99,15 +97,13 @@ async def custom_swagger_ui_html(current_user=Depends(verify_api_key)):
 
 
 @app.get("/redoc", include_in_schema=False)
-async def custom_redoc_html(current_user=Depends(verify_api_key)):
+async def custom_redoc_html(current_user=Depends(get_api_key_or_token)):
     """
-    ReDoc UI accessible uniquement avec API Key valide.
+    ReDoc UI accessible avec API Key ou JWT token.
 
     Pour acceder a /redoc:
-    1. Generer votre cle API via POST /api/v1/users/me/api-key
-    2. Utiliser l'extension ModHeader ou similaire pour ajouter le header:
-       X-API-Key: ofs_votre_cle_ici
-    3. Acceder a /redoc
+    - Avec API Key: Ajouter header X-API-Key: ofs_votre_cle_ici
+    - Avec JWT: Ajouter header Authorization: Bearer votre_token_ici
     """
     return get_redoc_html(
         openapi_url=app.openapi_url,
@@ -117,8 +113,8 @@ async def custom_redoc_html(current_user=Depends(verify_api_key)):
 
 
 @app.get("/openapi.json", include_in_schema=False)
-async def get_open_api_endpoint(current_user=Depends(verify_api_key)):
+async def get_open_api_endpoint(current_user=Depends(get_api_key_or_token)):
     """
-    OpenAPI schema accessible uniquement avec API Key valide.
+    OpenAPI schema accessible avec API Key ou JWT token.
     """
     return JSONResponse(app.openapi())

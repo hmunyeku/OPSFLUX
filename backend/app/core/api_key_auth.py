@@ -112,7 +112,7 @@ async def verify_api_key(
 ApiKeyUser = Annotated[User, Depends(verify_api_key)]
 
 
-def get_api_key_or_token(
+async def get_api_key_or_token(
     x_api_key: str | None = Header(None, alias="X-API-Key"),
     authorization: str | None = Header(None, alias="Authorization"),
     session: Session = Depends(get_db_for_api_key)
@@ -136,7 +136,7 @@ def get_api_key_or_token(
     """
     # Priorite a l'API key si presente
     if x_api_key:
-        return verify_api_key(x_api_key=x_api_key, session=session)
+        return await verify_api_key(x_api_key=x_api_key, session=session)
 
     # Sinon, essayer le Bearer token
     if authorization and authorization.startswith("Bearer "):

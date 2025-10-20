@@ -231,7 +231,9 @@
       "Bash(docker volume rm code_app-db-data)",
       "Bash(docker system prune -f --volumes)",
       "Bash(docker volume ls)",
-      "Bash(npm outdated next react react-dom)"
+      "Bash(npm outdated next react react-dom)",
+      "Bash(docker service inspect dokploy --format '{{json .Spec.Labels}}')",
+      "Bash(jobs -l)"
     ],
     "deny": [],
     "ask": []
@@ -264,5 +266,26 @@
     "url": "http://72.60.188.156:3000/api",
     "apiKeyEnvVar": "API_DOKPLOY",
     "usage": "Utiliser l'API Dokploy pour toutes les opérations Docker (logs, restart, status, etc.) au lieu des commandes docker directes. L'API key est dans .env"
+  },
+  "dockerOperations": {
+    "CRITICAL_RULE": "TOUJOURS utiliser l'API Dokploy pour TOUTES les opérations Docker/Compose",
+    "WHY": "Les commandes docker compose directes sans -p flag créent des containers avec des noms incorrects et corrompent le déploiement",
+    "MANDATORY": [
+      "JAMAIS exécuter 'docker compose build' sans -p perenco-opsflux-gwxapr",
+      "JAMAIS exécuter 'docker compose up' sans -p perenco-opsflux-gwxapr",
+      "JAMAIS exécuter 'docker compose down' sans -p perenco-opsflux-gwxapr",
+      "JAMAIS exécuter 'docker compose restart' sans -p perenco-opsflux-gwxapr",
+      "TOUJOURS vérifier docker ps pour s'assurer que SEULS les containers perenco-opsflux-gwxapr-* existent"
+    ],
+    "CORRECT_PROJECT_NAME": "perenco-opsflux-gwxapr",
+    "CORRECT_COMMANDS": {
+      "build": "docker compose -p perenco-opsflux-gwxapr build SERVICE",
+      "up": "docker compose -p perenco-opsflux-gwxapr up -d SERVICE",
+      "down": "docker compose -p perenco-opsflux-gwxapr down",
+      "restart": "docker compose -p perenco-opsflux-gwxapr restart SERVICE",
+      "logs": "docker compose -p perenco-opsflux-gwxapr logs SERVICE"
+    },
+    "ALTERNATIVE_PREFERRED": "Utiliser l'API Dokploy (clé dans .env: API_DOKPLOY) pour éviter tout risque d'erreur de nom de projet",
+    "VERIFICATION": "Après chaque opération Docker, vérifier avec 'docker ps' qu'aucun container 'code-*' n'existe"
   }
 }

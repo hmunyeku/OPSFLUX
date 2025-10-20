@@ -1,4 +1,6 @@
-import { cookies } from "next/headers"
+"use client"
+
+import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/layout/app-sidebar"
@@ -7,10 +9,21 @@ interface Props {
   children: React.ReactNode
 }
 
-export default async function DashboardLayout({ children }: Props) {
-  const cookieStore = await cookies()
-  // Le cookie utilisé par SidebarProvider est "sidebar_state", pas "sidebar:state"
-  const defaultClose = cookieStore.get("sidebar_state")?.value === "false"
+export default function DashboardLayout({ children }: Props) {
+  const [defaultClose, setDefaultClose] = useState(false)
+
+  useEffect(() => {
+    // Read sidebar state from cookie on client side
+    if (typeof document !== 'undefined') {
+      const cookies = document.cookie.split(';')
+      const sidebarCookie = cookies.find(c => c.trim().startsWith('sidebar_state='))
+      if (sidebarCookie) {
+        const value = sidebarCookie.split('=')[1]
+        setDefaultClose(value === 'false')
+      }
+    }
+  }, [])
+
   return (
     <div className="border-grid flex flex-1 flex-col">
       <SidebarProvider defaultOpen={!defaultClose}>

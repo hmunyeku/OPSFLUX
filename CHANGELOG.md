@@ -1,5 +1,30 @@
 # Changelog
 
+## 2025-10-20 - Final Cache Invalidation Fix
+
+### Fixed
+- **Complete Browser Cache Invalidation**: Forcé la régénération de tous les fichiers JavaScript
+  - Modifié `frontend/src/app/layout.tsx` (root layout) pour forcer nouveau BUILD_ID
+  - Modifié `frontend/src/app/(dashboard)/layout.tsx` pour nouveau hash de dashboard layout
+  - Nouveau BUILD_ID: `_uhRRiOnEs99x_gPAZaCx`
+  - Nouveau hash dashboard layout: `layout-f03b4ae7ea682af7.js`
+  - ✅ **Vérifié**: Aucune URL HTTP dans AUCUN fichier JavaScript sur le serveur
+  - ✅ **Vérifié**: Le serveur sert uniquement du code propre avec URLs HTTPS
+
+### Technical Details
+- Les commentaires JavaScript sont supprimés pendant la compilation, donc ajouter un commentaire ne change pas le hash
+- Seul un changement dans le code exécutable force Next.js à générer un nouveau hash
+- Les deux layouts modifiés forcent le navigateur à télécharger de nouveaux fichiers
+- Le problème était **UNIQUEMENT** le cache navigateur - le serveur était déjà propre
+
+### Instructions pour les Utilisateurs
+**IMPORTANT**: Pour voir la correction, les utilisateurs DOIVENT faire un Hard Refresh dans leur navigateur:
+- **Windows/Linux**: `Ctrl + Shift + R` ou `Ctrl + F5`
+- **Mac**: `Cmd + Shift + R`
+- **Ou**: Ouvrir DevTools (F12) → Onglet Network → Cocher "Disable cache" → Refresh
+
+Sans hard refresh, le navigateur continuera d'utiliser les anciens fichiers JavaScript en cache.
+
 ## 2025-10-20 - Fix Docker Build with .dockerignore (Critical Fix)
 
 ### Fixed

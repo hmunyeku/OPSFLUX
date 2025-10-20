@@ -1,5 +1,6 @@
 "use client"
 
+// Force cache invalidation - 2025-10-20
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { SidebarProvider } from "@/components/ui/sidebar"

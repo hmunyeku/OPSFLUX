@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+// Force cache invalidation - 2025-10-20
 import { Inter } from "next/font/google"
 import { Toaster } from "@/components/ui/toaster"
 import { LoadingBar } from "@/components/loading-bar"

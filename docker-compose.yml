@@ -194,19 +194,18 @@ services:
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.tls=true
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.tls.certresolver=letsencrypt
   frontend:
-    image: node:24-alpine
+    image: ${DOCKER_IMAGE_FRONTEND?Variable not set}:${TAG-latest}
     restart: always
     networks:
       - dokploy-network
       - default
-    working_dir: /app
-    command: sh -c "npm run dev"
-    volumes:
-      - ./frontend:/app
+    build:
+      context: ./frontend
+      args:
+        - NEXT_PUBLIC_API_URL=https://api.${DOMAIN?Variable not set}
     environment:
       - NEXT_PUBLIC_API_URL=https://api.${DOMAIN?Variable not set}
-      - NODE_ENV=development
-      - WATCHPACK_POLLING=true
+      - NODE_ENV=production
     labels:
       - traefik.enable=true
       - traefik.docker.network=dokploy-network

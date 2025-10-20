@@ -333,7 +333,8 @@ class AppSettingsBase(SQLModel):
     audit_enabled: bool = Field(default=True, description="Activer/désactiver les logs d'audit")
 
     # User Invitations
-    invitation_expiry_days: int = Field(default=7, description="Nombre de jours de validité d'une invitation utilisateur")
+    # TODO: Temporarily commented out - waiting for Docker image rebuild
+    # invitation_expiry_days: int = Field(default=7, description="Nombre de jours de validité d'une invitation utilisateur")
 
 
 class AppSettingsUpdate(SQLModel):

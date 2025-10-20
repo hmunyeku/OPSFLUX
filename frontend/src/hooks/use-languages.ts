@@ -52,6 +52,13 @@ export function useLanguages() {
   // Charger la préférence de langue de l'utilisateur
   const loadUserPreference = async () => {
     try {
+      // Vérifier si un token existe avant de faire la requête
+      // pour éviter les erreurs 401 sur la page de login
+      const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null
+      if (!token) {
+        return null
+      }
+
       const response = await apiClient.get("/api/v1/languages/preferences/me")
       const data = response.data as UserLanguagePreference
       setUserPreference(data)

@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 
 from app.api.main import api_router
 from app.core.audit_middleware import AuditLogMiddleware
+from app.core.proxy_middleware import ProxyHeadersMiddleware
 from app.core.config import settings
 from app.core.module_loader import ModuleLoader
 from app.core.api_key_auth import get_api_key_or_token
@@ -72,6 +73,10 @@ if settings.all_cors_origins:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+# Add proxy headers middleware to handle X-Forwarded-* headers
+# This ensures redirects use HTTPS when behind a reverse proxy
+app.add_middleware(ProxyHeadersMiddleware)
 
 # Add audit logging middleware
 app.add_middleware(AuditLogMiddleware)

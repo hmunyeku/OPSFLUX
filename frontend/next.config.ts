@@ -23,6 +23,29 @@ const nextConfig: NextConfig = {
     ],
     domains: ["ui.shadcn.com"],
   },
+  // Headers anti-cache pour forcer le navigateur à toujours recharger
+  async headers() {
+    return [
+      {
+        // Appliquer à toutes les pages HTML
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate, max-age=0',
+          },
+          {
+            key: 'Pragma',
+            value: 'no-cache',
+          },
+          {
+            key: 'Expires',
+            value: '0',
+          },
+        ],
+      },
+    ]
+  },
 };
 
 export default nextConfig;

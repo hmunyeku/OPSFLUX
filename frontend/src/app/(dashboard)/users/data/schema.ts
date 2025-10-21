@@ -30,11 +30,11 @@ const userSchema = z.object({
   updatedAt: z.coerce.date(),
   roles: z.array(roleSchema).optional(),
   groups: z.array(groupSchema).optional(),
-  // Nouveaux champs
-  civility: z.string().optional(),
-  birthDate: z.string().optional(),
-  extension: z.string().optional(),
-  signature: z.string().optional(),
+  // Nouveaux champs (nullable = accepte null, undefined)
+  civility: z.string().nullish(),
+  birthDate: z.string().nullish(),
+  extension: z.string().nullish(),
+  signature: z.string().nullish(),
 })
 export type User = z.infer<typeof userSchema>
 

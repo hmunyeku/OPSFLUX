@@ -14,6 +14,7 @@ import {
   IconMail,
   IconFileText,
   IconSearch,
+  IconServer,
 } from "@tabler/icons-react"
 import { Header } from "@/components/layout/header"
 import SidebarNav from "./components/sidebar-nav"
@@ -48,6 +49,12 @@ const sidebarNavItems = [
     title: "Cache",
     icon: <IconDatabase />,
     href: "/settings/cache",
+  },
+  {
+    title: "Base de données",
+    icon: <IconServer />,
+    href: "https://adminer.opsflux.io",
+    external: true,
   },
   {
     title: "Fichiers",

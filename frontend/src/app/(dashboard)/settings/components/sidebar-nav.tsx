@@ -19,6 +19,7 @@ interface Props extends React.HTMLAttributes<HTMLElement> {
     href: string
     title: string
     icon: JSX.Element
+    external?: boolean
   }[]
 }
 
@@ -29,7 +30,12 @@ export default function SidebarNav({ className, items, ...props }: Props) {
 
   const handleSelect = (e: string) => {
     setVal(e)
-    router.push(e)
+    const item = items.find((item) => item.href === e)
+    if (item?.external) {
+      window.open(e, "_blank", "noopener,noreferrer")
+    } else {
+      router.push(e)
+    }
   }
 
   return (
@@ -66,22 +72,41 @@ export default function SidebarNav({ className, items, ...props }: Props) {
           )}
           {...props}
         >
-          {items.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                buttonVariants({ variant: "ghost" }),
-                pathname === item.href
-                  ? "bg-muted hover:bg-muted"
-                  : "hover:bg-transparent hover:underline",
-                "justify-start"
-              )}
-            >
-              <span className="mr-2 [&_svg]:size-[1.125rem]">{item.icon}</span>
-              {item.title}
-            </Link>
-          ))}
+          {items.map((item) => {
+            const linkClassName = cn(
+              buttonVariants({ variant: "ghost" }),
+              pathname === item.href
+                ? "bg-muted hover:bg-muted"
+                : "hover:bg-transparent hover:underline",
+              "justify-start"
+            )
+
+            if (item.external) {
+              return (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={linkClassName}
+                >
+                  <span className="mr-2 [&_svg]:size-[1.125rem]">{item.icon}</span>
+                  {item.title}
+                </a>
+              )
+            }
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={linkClassName}
+              >
+                <span className="mr-2 [&_svg]:size-[1.125rem]">{item.icon}</span>
+                {item.title}
+              </Link>
+            )
+          })}
         </nav>
       </ScrollArea>
     </>

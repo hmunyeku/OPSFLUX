@@ -24,6 +24,7 @@ import {
   IconBolt,
   IconPuzzle,
   IconMail,
+  IconLanguage,
 } from "@tabler/icons-react"
 import { AudioWaveform, GalleryVerticalEnd } from "lucide-react"
 import { Logo } from "@/components/logo"
@@ -176,6 +177,12 @@ export const sidebarData: SidebarData = {
               icon: IconListDetails,
               url: "/developers/events-&-logs",
               permission: "logs.read",
+            },
+            {
+              title: "Traductions i18n",
+              icon: IconLanguage,
+              url: "/developers/translations",
+              permission: "core.translations.read",
             },
           ],
         },

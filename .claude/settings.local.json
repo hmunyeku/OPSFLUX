@@ -233,7 +233,8 @@
       "Bash(docker volume ls)",
       "Bash(npm outdated next react react-dom)",
       "Bash(docker service inspect dokploy --format '{{json .Spec.Labels}}')",
-      "Bash(jobs -l)"
+      "Bash(jobs -l)",
+      "Bash(DOMAIN=opsflux.io docker compose:*)"
     ],
     "deny": [],
     "ask": []

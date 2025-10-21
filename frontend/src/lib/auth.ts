@@ -3,7 +3,7 @@
  * Handles localStorage-based token persistence for client-side authentication
  */
 
-const TOKEN_KEY = 'auth_token'
+const TOKEN_KEY = 'access_token'
 
 export const auth = {
   /**

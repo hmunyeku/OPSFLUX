@@ -36,6 +36,10 @@ ENV/
 # backend/*/migrations/*.py
 # !backend/*/migrations/__init__.py
 
+# Exception: Ne pas ignorer le code source frontend
+!frontend/src/lib/
+!frontend/src/lib/**
+
 # Environment variables
 .env
 .env.local

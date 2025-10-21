@@ -1,25 +1,4 @@
 services:
-  # Local PostgreSQL database (disabled - using external database)
-  # db:
-  #   image: postgres:17
-  #   restart: always
-  #   healthcheck:
-  #     test:
-  #       - CMD-SHELL
-  #       - pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}
-  #     interval: 10s
-  #     retries: 5
-  #     start_period: 30s
-  #     timeout: 10s
-  #   volumes:
-  #     - app-db-data:/var/lib/postgresql/data/pgdata
-  #   env_file:
-  #     - .env
-  #   environment:
-  #     - PGDATA=/var/lib/postgresql/data/pgdata
-  #     - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
-  #     - POSTGRES_USER=${POSTGRES_USER?Variable not set}
-  #     - POSTGRES_DB=${POSTGRES_DB?Variable not set}
   redis:
     image: redis:7-alpine
     restart: always
@@ -43,11 +22,19 @@ services:
     networks:
       - dokploy-network
       - default
-    # depends_on:
-    #   - db
     environment:
       - ADMINER_DESIGN=pepa-linha-dark
     labels:
+      - traefik.http.routers.perenco-opsflux-gwxapr-14-web.rule=Host(`adminer.opsflux.io`)
+      - traefik.http.routers.perenco-opsflux-gwxapr-14-web.entrypoints=web
+      - traefik.http.services.perenco-opsflux-gwxapr-14-web.loadbalancer.server.port=8080
+      - traefik.http.routers.perenco-opsflux-gwxapr-14-web.service=perenco-opsflux-gwxapr-14-web
+      - traefik.http.routers.perenco-opsflux-gwxapr-14-web.middlewares=redirect-to-https@file
+      - traefik.http.routers.perenco-opsflux-gwxapr-14-websecure.rule=Host(`adminer.opsflux.io`)
+      - traefik.http.routers.perenco-opsflux-gwxapr-14-websecure.entrypoints=websecure
+      - traefik.http.services.perenco-opsflux-gwxapr-14-websecure.loadbalancer.server.port=8080
+      - traefik.http.routers.perenco-opsflux-gwxapr-14-websecure.service=perenco-opsflux-gwxapr-14-websecure
+      - traefik.http.routers.perenco-opsflux-gwxapr-14-websecure.tls.certresolver=letsencrypt
       - traefik.enable=true
       - traefik.docker.network=dokploy-network
       - traefik.constraint-label=dokploy-network
@@ -182,6 +169,16 @@ services:
     build:
       context: ./backend
     labels:
+      - traefik.http.routers.perenco-opsflux-gwxapr-4-web.rule=Host(`api.opsflux.io`)
+      - traefik.http.routers.perenco-opsflux-gwxapr-4-web.entrypoints=web
+      - traefik.http.services.perenco-opsflux-gwxapr-4-web.loadbalancer.server.port=8000
+      - traefik.http.routers.perenco-opsflux-gwxapr-4-web.service=perenco-opsflux-gwxapr-4-web
+      - traefik.http.routers.perenco-opsflux-gwxapr-4-web.middlewares=redirect-to-https@file
+      - traefik.http.routers.perenco-opsflux-gwxapr-4-websecure.rule=Host(`api.opsflux.io`)
+      - traefik.http.routers.perenco-opsflux-gwxapr-4-websecure.entrypoints=websecure
+      - traefik.http.services.perenco-opsflux-gwxapr-4-websecure.loadbalancer.server.port=8000
+      - traefik.http.routers.perenco-opsflux-gwxapr-4-websecure.service=perenco-opsflux-gwxapr-4-websecure
+      - traefik.http.routers.perenco-opsflux-gwxapr-4-websecure.tls.certresolver=letsencrypt
       - traefik.enable=true
       - traefik.docker.network=dokploy-network
       - traefik.constraint-label=dokploy-network
@@ -207,6 +204,16 @@ services:
       - NEXT_PUBLIC_API_URL=https://api.${DOMAIN?Variable not set}
       - NODE_ENV=production
     labels:
+      - traefik.http.routers.perenco-opsflux-gwxapr-3-web.rule=Host(`app.opsflux.io`)
+      - traefik.http.routers.perenco-opsflux-gwxapr-3-web.entrypoints=web
+      - traefik.http.services.perenco-opsflux-gwxapr-3-web.loadbalancer.server.port=3000
+      - traefik.http.routers.perenco-opsflux-gwxapr-3-web.service=perenco-opsflux-gwxapr-3-web
+      - traefik.http.routers.perenco-opsflux-gwxapr-3-web.middlewares=redirect-to-https@file
+      - traefik.http.routers.perenco-opsflux-gwxapr-3-websecure.rule=Host(`app.opsflux.io`)
+      - traefik.http.routers.perenco-opsflux-gwxapr-3-websecure.entrypoints=websecure
+      - traefik.http.services.perenco-opsflux-gwxapr-3-websecure.loadbalancer.server.port=3000
+      - traefik.http.routers.perenco-opsflux-gwxapr-3-websecure.service=perenco-opsflux-gwxapr-3-websecure
+      - traefik.http.routers.perenco-opsflux-gwxapr-3-websecure.tls.certresolver=letsencrypt
       - traefik.enable=true
       - traefik.docker.network=dokploy-network
       - traefik.constraint-label=dokploy-network

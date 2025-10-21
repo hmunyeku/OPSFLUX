@@ -104,7 +104,7 @@ export function NotificationsProvider({
     try {
       setIsLoading(true)
       const response = await api.fetch<{ data: Notification[]; count: number }>(
-        "/api/v1/notifications?limit=50",
+        "/api/v1/notifications/?limit=50",
         {},
         token
       )

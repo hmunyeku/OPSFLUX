@@ -61,7 +61,7 @@ export async function getBackups(params?: {
     if (params?.skip !== undefined) queryParams.append('skip', params.skip.toString())
     if (params?.limit !== undefined) queryParams.append('limit', params.limit.toString())
 
-    const url = `${API_URL}/api/v1/backups?${queryParams.toString()}`
+    const url = `${API_URL}/api/v1/backups/?${queryParams.toString()}`
 
     const response = await fetch(url, {
       headers: getAuthHeaders(),

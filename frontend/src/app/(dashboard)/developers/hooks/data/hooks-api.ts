@@ -24,7 +24,7 @@ export async function getHooks(params?: {
   if (params?.event) queryParams.append("event", params.event)
   if (params?.is_active !== undefined) queryParams.append("is_active", String(params.is_active))
 
-  const url = `${API_URL}/api/v1/hooks?${queryParams.toString()}`
+  const url = `${API_URL}/api/v1/hooks/?${queryParams.toString()}`
 
   const response = await fetch(url, {
     headers: getAuthHeaders(),

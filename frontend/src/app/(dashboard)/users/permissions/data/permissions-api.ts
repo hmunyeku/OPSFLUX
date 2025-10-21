@@ -16,7 +16,7 @@ function getAuthHeaders() {
 export async function getPermissions(): Promise<Permission[]> {
   try {
     const response = await fetch(
-      `${API_URL}/api/v1/permissions?skip=0&limit=1000`,
+      `${API_URL}/api/v1/permissions/?skip=0&limit=1000`,
       {
         headers: getAuthHeaders(),
         cache: 'no-store',

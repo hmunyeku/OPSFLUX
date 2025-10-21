@@ -45,7 +45,7 @@ function mapUserFromBackend(user: any): User {
 
 export async function getUsers(withRbac: boolean = true): Promise<User[]> {
   try {
-    const url = `${API_URL}/api/v1/users?skip=0&limit=1000${withRbac ? '&with_rbac=true' : ''}`
+    const url = `${API_URL}/api/v1/users/?skip=0&limit=1000${withRbac ? '&with_rbac=true' : ''}`
     const response = await fetch(url, {
       headers: getAuthHeaders(),
       cache: 'no-store',

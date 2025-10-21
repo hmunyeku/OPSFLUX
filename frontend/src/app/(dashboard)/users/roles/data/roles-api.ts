@@ -16,7 +16,7 @@ function getAuthHeaders() {
 export async function getRoles(includePermissions = true): Promise<Role[]> {
   try {
     const response = await fetch(
-      `${API_URL}/api/v1/roles?skip=0&limit=1000&include_permissions=${includePermissions}`,
+      `${API_URL}/api/v1/roles/?skip=0&limit=1000&include_permissions=${includePermissions}`,
       {
         headers: getAuthHeaders(),
         cache: 'no-store',

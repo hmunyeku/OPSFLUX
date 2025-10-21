@@ -18,7 +18,7 @@ export async function getGroups(
   parentId?: string | null
 ): Promise<Group[]> {
   try {
-    let url = `${API_URL}/api/v1/groups?skip=0&limit=1000&include_permissions=${includePermissions}`
+    let url = `${API_URL}/api/v1/groups/?skip=0&limit=1000&include_permissions=${includePermissions}`
 
     if (parentId !== undefined) {
       url += `&parent_id=${parentId || ''}`

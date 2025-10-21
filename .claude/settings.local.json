@@ -241,7 +241,8 @@
       "Bash(COMPOSE_PROJECT_NAME=perenco-opsflux-gwxapr DOMAIN=opsflux.io docker compose:*)",
       "Bash(git check-ignore:*)",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjE2NDM4MjQsInN1YiI6IjNiYzczZmZlLTYyMmMtNDg3OS04MWQ0LWJiYTA0Zjg1ZWE3OSIsInR5cGUiOiJhY2Nlc3MifQ.HZLFK1OE7A9JR1O8SH6UCR57ViaJNjZhzR2XIorQnwU\" curl -s -X POST https://api.opsflux.io/api/v1/login/access-token -H \"Content-Type: application/x-www-form-urlencoded\" -d \"username=admin@opsflux.io\" -d \"password=adminopsflux\")",
-      "Bash(uv run python:*)"
+      "Bash(uv run python:*)",
+      "Bash(docker-compose up:*)"
     ],
     "deny": [],
     "ask": []

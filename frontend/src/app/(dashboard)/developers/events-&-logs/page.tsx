@@ -150,52 +150,52 @@ function EventsAndLogsPageContent() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total événements</CardTitle>
+                <CardTitle className="text-sm font-medium">{t("stats.total_events", "Total événements")}</CardTitle>
                 <Activity className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{stats.total.toLocaleString()}</div>
                 <p className="text-xs text-muted-foreground">
-                  {stats.last24h} dernières 24h
+                  {t("stats.last_24h", "{{count}} dernières 24h", { count: stats.last24h })}
                 </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Taux d'erreur</CardTitle>
+                <CardTitle className="text-sm font-medium">{t("stats.error_rate", "Taux d'erreur")}</CardTitle>
                 <AlertTriangle className="h-4 w-4 text-destructive" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{errorRate}%</div>
                 <p className="text-xs text-muted-foreground">
-                  {stats.error} erreurs totales
+                  {t("stats.total_errors", "{{count}} erreurs totales", { count: stats.error })}
                 </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Durée moyenne</CardTitle>
+                <CardTitle className="text-sm font-medium">{t("stats.avg_duration", "Durée moyenne")}</CardTitle>
                 <Clock className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{stats.avgDuration}ms</div>
                 <p className="text-xs text-muted-foreground">
-                  Temps de réponse moyen
+                  {t("stats.avg_response_time", "Temps de réponse moyen")}
                 </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Événements API</CardTitle>
+                <CardTitle className="text-sm font-medium">{t("stats.api_events", "Événements API")}</CardTitle>
                 <Zap className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{stats.api.toLocaleString()}</div>
                 <p className="text-xs text-muted-foreground">
-                  Requêtes API traitées
+                  {t("stats.api_requests_processed", "Requêtes API traitées")}
                 </p>
               </CardContent>
             </Card>
@@ -204,7 +204,7 @@ function EventsAndLogsPageContent() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Info</CardTitle>
+                <CardTitle className="text-sm font-medium">{t("stats.info", "Info")}</CardTitle>
                 <Info className="h-4 w-4 text-blue-500" />
               </CardHeader>
               <CardContent>
@@ -217,7 +217,7 @@ function EventsAndLogsPageContent() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Avertissements</CardTitle>
+                <CardTitle className="text-sm font-medium">{t("stats.warnings", "Avertissements")}</CardTitle>
                 <AlertTriangle className="h-4 w-4 text-amber-500" />
               </CardHeader>
               <CardContent>
@@ -230,7 +230,7 @@ function EventsAndLogsPageContent() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Erreurs</CardTitle>
+                <CardTitle className="text-sm font-medium">{t("stats.errors", "Erreurs")}</CardTitle>
                 <ShieldAlert className="h-4 w-4 text-destructive" />
               </CardHeader>
               <CardContent>
@@ -243,7 +243,7 @@ function EventsAndLogsPageContent() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Debug</CardTitle>
+                <CardTitle className="text-sm font-medium">{t("stats.debug", "Debug")}</CardTitle>
                 <Bug className="h-4 w-4 text-purple-500" />
               </CardHeader>
               <CardContent>

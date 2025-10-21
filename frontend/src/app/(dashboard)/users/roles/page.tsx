@@ -218,52 +218,52 @@ function RolesPageContent() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total des rôles</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("stats.total_roles", "Total des rôles")}</CardTitle>
             <Shield className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalRoles}</div>
             <p className="text-xs text-muted-foreground">
-              {stats.activeRoles} actifs
+              {stats.activeRoles} {t("stats.active_count", "actifs")}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Rôles système</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("stats.system_roles", "Rôles système")}</CardTitle>
             <Crown className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.systemRoles}</div>
             <p className="text-xs text-muted-foreground">
-              Protégés contre la suppression
+              {t("stats.protected_deletion", "Protégés contre la suppression")}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total permissions</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("stats.total_permissions", "Total permissions")}</CardTitle>
             <Key className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalPermissions}</div>
             <p className="text-xs text-muted-foreground">
-              Assignées à tous les rôles
+              {t("stats.assigned_all_roles", "Assignées à tous les rôles")}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Moyenne par rôle</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("stats.avg_per_role", "Moyenne par rôle")}</CardTitle>
             <ShieldCheck className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.avgPermissionsPerRole}</div>
             <p className="text-xs text-muted-foreground">
-              Permissions par rôle
+              {t("stats.permissions_per_role", "Permissions par rôle")}
             </p>
           </CardContent>
         </Card>
@@ -276,10 +276,10 @@ function RolesPageContent() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5" />
-              Liste des rôles
+              {t("list.title", "Liste des rôles")}
             </CardTitle>
             <CardDescription>
-              {filteredRoles.length} rôle{filteredRoles.length > 1 ? 's' : ''}
+              {filteredRoles.length} {filteredRoles.length > 1 ? t("list.roles_count", "rôles") : t("list.role_count", "rôle")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -287,7 +287,7 @@ function RolesPageContent() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Rechercher un rôle..."
+                placeholder={t("list.search_placeholder", "Rechercher un rôle...")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
@@ -301,7 +301,7 @@ function RolesPageContent() {
                   <div className="py-12 text-center">
                     <Shield className="mx-auto h-12 w-12 text-muted-foreground/50" />
                     <p className="mt-4 text-sm text-muted-foreground">
-                      Aucun rôle trouvé
+                      {t("list.no_role_found", "Aucun rôle trouvé")}
                     </p>
                   </div>
                 ) : (
@@ -326,7 +326,7 @@ function RolesPageContent() {
                             <p className="font-semibold leading-none">{role.name}</p>
                             {!role.is_active && (
                               <Badge variant="outline" className="text-xs">
-                                Inactif
+                                {t("badge.inactive", "Inactif")}
                               </Badge>
                             )}
                           </div>
@@ -343,13 +343,13 @@ function RolesPageContent() {
 
                           <div className="flex flex-wrap items-center gap-2">
                             <Badge variant="secondary" className="text-xs">
-                              {role.permissions?.length || 0} permission{role.permissions?.length !== 1 ? 's' : ''}
+                              {role.permissions?.length || 0} {role.permissions?.length !== 1 ? t("badge.permissions", "permissions") : t("badge.permission", "permission")}
                             </Badge>
                             <Badge
                               variant={role.is_active ? "default" : "outline"}
                               className="text-xs"
                             >
-                              {role.is_active ? "Actif" : "Inactif"}
+                              {role.is_active ? t("badge.active", "Actif") : t("badge.inactive", "Inactif")}
                             </Badge>
                           </div>
                         </div>
@@ -373,7 +373,7 @@ function RolesPageContent() {
                               }}
                             >
                               <Key className="mr-2 h-4 w-4" />
-                              Gérer les permissions
+                              {t("action.manage_permissions", "Gérer les permissions")}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={(e) => {
@@ -383,7 +383,7 @@ function RolesPageContent() {
                               }}
                             >
                               <Edit className="mr-2 h-4 w-4" />
-                              Modifier
+                              {t("action.edit", "Modifier")}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             {!role.is_system && (
@@ -396,7 +396,7 @@ function RolesPageContent() {
                                 }}
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
-                                Supprimer
+                                {t("action.delete", "Supprimer")}
                               </DropdownMenuItem>
                             )}
                           </DropdownMenuContent>
@@ -421,12 +421,12 @@ function RolesPageContent() {
                   ) : (
                     <Shield className="h-5 w-5" />
                   )}
-                  {selectedRole ? selectedRole.name : "Aucun rôle sélectionné"}
+                  {selectedRole ? selectedRole.name : t("details.no_role_selected", "Aucun rôle sélectionné")}
                 </CardTitle>
                 <CardDescription>
                   {selectedRole
-                    ? `${selectedRole.permissions?.length || 0} permission(s) assignée(s)`
-                    : "Sélectionnez un rôle pour voir les détails"
+                    ? `${selectedRole.permissions?.length || 0} ${selectedRole.permissions?.length !== 1 ? t("details.permissions_assigned", "permissions assignées") : t("details.permission_assigned", "permission assignée")}`
+                    : t("details.select_role_to_view", "Sélectionnez un rôle pour voir les détails")
                   }
                 </CardDescription>
               </div>
@@ -440,7 +440,7 @@ function RolesPageContent() {
                       disabled={selectedRole.is_system}
                     />
                     <span className="text-sm text-muted-foreground">
-                      {selectedRole.is_active ? "Actif" : "Inactif"}
+                      {selectedRole.is_active ? t("badge.active", "Actif") : t("badge.inactive", "Inactif")}
                     </span>
                   </div>
                   <Separator orientation="vertical" className="h-6" />
@@ -465,7 +465,7 @@ function RolesPageContent() {
                     onClick={() => setIsPermissionsDialogOpen(true)}
                   >
                     <Key className="mr-2 h-4 w-4" />
-                    Permissions
+                    {t("action.permissions", "Permissions")}
                   </Button>
                 </div>
               )}
@@ -476,9 +476,9 @@ function RolesPageContent() {
               <div className="flex h-[calc(100vh-500px)] items-center justify-center">
                 <div className="text-center">
                   <Shield className="mx-auto h-16 w-16 text-muted-foreground/30" />
-                  <p className="mt-4 text-sm font-medium">Aucun rôle sélectionné</p>
+                  <p className="mt-4 text-sm font-medium">{t("details.no_role_selected_title", "Aucun rôle sélectionné")}</p>
                   <p className="text-sm text-muted-foreground">
-                    Sélectionnez un rôle dans la liste
+                    {t("details.select_role_from_list", "Sélectionnez un rôle dans la liste")}
                   </p>
                 </div>
               </div>
@@ -489,39 +489,39 @@ function RolesPageContent() {
                   <div className="rounded-lg border bg-card p-4">
                     <h3 className="mb-3 flex items-center gap-2 font-semibold">
                       <AlertCircle className="h-4 w-4" />
-                      Informations du rôle
+                      {t("details.role_info", "Informations du rôle")}
                     </h3>
                     <div className="space-y-3 text-sm">
                       <div className="flex items-start justify-between">
-                        <span className="text-muted-foreground">Code :</span>
+                        <span className="text-muted-foreground">{t("details.code_label", "Code :")}</span>
                         <code className="rounded bg-muted px-2 py-1 font-mono text-xs">
                           {selectedRole.code}
                         </code>
                       </div>
                       <Separator />
                       <div className="flex items-start justify-between">
-                        <span className="text-muted-foreground">Nom :</span>
+                        <span className="text-muted-foreground">{t("details.name_label", "Nom :")}</span>
                         <span className="font-medium">{selectedRole.name}</span>
                       </div>
                       {selectedRole.description && (
                         <>
                           <Separator />
                           <div className="space-y-1">
-                            <span className="text-muted-foreground">Description :</span>
+                            <span className="text-muted-foreground">{t("details.description_label", "Description :")}</span>
                             <p className="text-sm">{selectedRole.description}</p>
                           </div>
                         </>
                       )}
                       <Separator />
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Priorité :</span>
+                        <span className="text-muted-foreground">{t("details.priority_label", "Priorité :")}</span>
                         <Badge variant="outline">{selectedRole.priority}</Badge>
                       </div>
                       <Separator />
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Type :</span>
+                        <span className="text-muted-foreground">{t("details.type_label", "Type :")}</span>
                         <Badge variant={selectedRole.is_system ? "default" : "secondary"}>
-                          {selectedRole.is_system ? "Système" : "Personnalisé"}
+                          {selectedRole.is_system ? t("details.type_system", "Système") : t("details.type_custom", "Personnalisé")}
                         </Badge>
                       </div>
                     </div>
@@ -532,7 +532,7 @@ function RolesPageContent() {
                     <div className="mb-4 flex items-center justify-between">
                       <h3 className="flex items-center gap-2 font-semibold">
                         <Key className="h-4 w-4" />
-                        Permissions assignées
+                        {t("details.assigned_permissions", "Permissions assignées")}
                       </h3>
                       {selectedRole.permissions && selectedRole.permissions.length > 0 && (
                         <Badge variant="secondary">
@@ -582,9 +582,9 @@ function RolesPageContent() {
                     ) : (
                       <div className="rounded-lg border bg-muted/20 p-12 text-center">
                         <Key className="mx-auto h-10 w-10 text-muted-foreground/50" />
-                        <p className="mt-3 text-sm font-medium">Aucune permission</p>
+                        <p className="mt-3 text-sm font-medium">{t("details.no_permissions", "Aucune permission")}</p>
                         <p className="text-sm text-muted-foreground">
-                          Ce rôle n'a aucune permission assignée
+                          {t("details.no_permissions_description", "Ce rôle n'a aucune permission assignée")}
                         </p>
                         <Button
                           variant="outline"
@@ -592,7 +592,7 @@ function RolesPageContent() {
                           className="mt-4"
                           onClick={() => setIsPermissionsDialogOpen(true)}
                         >
-                          Assigner des permissions
+                          {t("action.assign_permissions", "Assigner des permissions")}
                         </Button>
                       </div>
                     )}

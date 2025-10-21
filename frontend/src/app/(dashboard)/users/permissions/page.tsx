@@ -83,8 +83,8 @@ function PermissionsPageContent() {
     } catch (error) {
       console.error('Failed to load permissions:', error)
       toast({
-        title: "Erreur",
-        description: "Impossible de charger les permissions",
+        title: t("error.title", "Erreur"),
+        description: t("error.load_failed", "Impossible de charger les permissions"),
         variant: "destructive",
       })
     } finally {
@@ -224,52 +224,52 @@ function PermissionsPageContent() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total permissions</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("stats.total_permissions", "Total permissions")}</CardTitle>
             <Key className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.total}</div>
             <p className="text-xs text-muted-foreground">
-              Dans {stats.modules} modules
+              {t("stats.in_modules", "Dans {{count}} modules", { count: stats.modules })}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Permissions actives</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("stats.active_permissions", "Permissions actives")}</CardTitle>
             <CheckCircle2 className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.active}</div>
             <p className="text-xs text-muted-foreground">
-              {stats.inactive} inactives
+              {t("stats.inactive_count", "{{count}} inactives", { count: stats.inactive })}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Par défaut</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("stats.default_permissions", "Par défaut")}</CardTitle>
             <Shield className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.default}</div>
             <p className="text-xs text-muted-foreground">
-              Permissions système
+              {t("stats.system_permissions", "Permissions système")}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Personnalisées</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("stats.custom_permissions", "Personnalisées")}</CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.custom}</div>
             <p className="text-xs text-muted-foreground">
-              Créées manuellement
+              {t("stats.created_manually", "Créées manuellement")}
             </p>
           </CardContent>
         </Card>
@@ -280,10 +280,10 @@ function PermissionsPageContent() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Filter className="h-5 w-5" />
-            Filtres
+            {t("filters.title", "Filtres")}
           </CardTitle>
           <CardDescription>
-            Affinez la recherche de permissions
+            {t("filters.description", "Affinez la recherche de permissions")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -291,7 +291,7 @@ function PermissionsPageContent() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Rechercher une permission..."
+                placeholder={t("filters.search_placeholder", "Rechercher une permission...")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
@@ -300,10 +300,10 @@ function PermissionsPageContent() {
 
             <Select value={selectedModule} onValueChange={setSelectedModule}>
               <SelectTrigger>
-                <SelectValue placeholder="Tous les modules" />
+                <SelectValue placeholder={t("filters.all_modules", "Tous les modules")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tous les modules</SelectItem>
+                <SelectItem value="all">{t("filters.all_modules", "Tous les modules")}</SelectItem>
                 {modules.map((module) => (
                   <SelectItem key={module} value={module}>
                     {module} ({permissionsByModule[module].length})
@@ -314,12 +314,12 @@ function PermissionsPageContent() {
 
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger>
-                <SelectValue placeholder="Tous les statuts" />
+                <SelectValue placeholder={t("filters.all_statuses", "Tous les statuts")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tous les statuts</SelectItem>
-                <SelectItem value="active">Actives uniquement</SelectItem>
-                <SelectItem value="inactive">Inactives uniquement</SelectItem>
+                <SelectItem value="all">{t("filters.all_statuses", "Tous les statuts")}</SelectItem>
+                <SelectItem value="active">{t("filters.active_only", "Actives uniquement")}</SelectItem>
+                <SelectItem value="inactive">{t("filters.inactive_only", "Inactives uniquement")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -327,7 +327,10 @@ function PermissionsPageContent() {
           {(searchQuery || selectedModule !== "all" || statusFilter !== "all") && (
             <div className="mt-4 flex items-center gap-2">
               <Badge variant="secondary">
-                {filteredPermissions.length} résultat{filteredPermissions.length > 1 ? 's' : ''}
+                {t("filters.results_count", "{{count}} résultat{{plural}}", {
+                  count: filteredPermissions.length,
+                  plural: filteredPermissions.length > 1 ? 's' : ''
+                })}
               </Badge>
               <Button
                 variant="ghost"
@@ -338,7 +341,7 @@ function PermissionsPageContent() {
                   setStatusFilter("all")
                 }}
               >
-                Réinitialiser les filtres
+                {t("filters.reset", "Réinitialiser les filtres")}
               </Button>
             </div>
           )}
@@ -350,19 +353,22 @@ function PermissionsPageContent() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Layers className="h-5 w-5" />
-            Permissions par module
+            {t("list.title", "Permissions par module")}
           </CardTitle>
           <CardDescription>
-            {Object.keys(filteredByModule).length} module{Object.keys(filteredByModule).length > 1 ? 's' : ''}
+            {t("list.modules_count", "{{count}} module{{plural}}", {
+              count: Object.keys(filteredByModule).length,
+              plural: Object.keys(filteredByModule).length > 1 ? 's' : ''
+            })}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {Object.keys(filteredByModule).length === 0 ? (
             <div className="py-16 text-center">
               <Key className="mx-auto h-16 w-16 text-muted-foreground/30" />
-              <p className="mt-4 text-sm font-medium">Aucune permission trouvée</p>
+              <p className="mt-4 text-sm font-medium">{t("list.no_permissions", "Aucune permission trouvée")}</p>
               <p className="text-sm text-muted-foreground">
-                Essayez d'ajuster vos filtres
+                {t("list.adjust_filters", "Essayez d'ajuster vos filtres")}
               </p>
             </div>
           ) : (
@@ -377,12 +383,17 @@ function PermissionsPageContent() {
                           <div>
                             <h3 className="font-semibold capitalize">{moduleName}</h3>
                             <p className="text-xs text-muted-foreground">
-                              {modulePermissions.length} permission{modulePermissions.length > 1 ? 's' : ''}
+                              {t("list.permissions_count", "{{count}} permission{{plural}}", {
+                                count: modulePermissions.length,
+                                plural: modulePermissions.length > 1 ? 's' : ''
+                              })}
                             </p>
                           </div>
                         </div>
                         <Badge variant="outline">
-                          {modulePermissions.filter(p => p.is_active).length} actives
+                          {t("list.active_count", "{{count}} actives", {
+                            count: modulePermissions.filter(p => p.is_active).length
+                          })}
                         </Badge>
                       </div>
                     </div>
@@ -400,18 +411,18 @@ function PermissionsPageContent() {
                                 <p className="text-sm font-semibold">{permission.name}</p>
                                 {permission.is_default && (
                                   <Badge variant="secondary" className="text-xs">
-                                    Système
+                                    {t("badge.system", "Système")}
                                   </Badge>
                                 )}
                                 {permission.is_active ? (
                                   <Badge variant="outline" className="text-xs gap-1">
                                     <CheckCircle2 className="h-3 w-3 text-green-500" />
-                                    Active
+                                    {t("badge.active", "Active")}
                                   </Badge>
                                 ) : (
                                   <Badge variant="outline" className="text-xs gap-1">
                                     <XCircle className="h-3 w-3 text-muted-foreground" />
-                                    Inactive
+                                    {t("badge.inactive", "Inactive")}
                                   </Badge>
                                 )}
                               </div>
@@ -444,7 +455,7 @@ function PermissionsPageContent() {
                                 }}
                               >
                                 <Edit className="mr-2 h-4 w-4" />
-                                Modifier
+                                {t("action.edit", "Modifier")}
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               {!permission.is_default && (
@@ -456,7 +467,7 @@ function PermissionsPageContent() {
                                   }}
                                 >
                                   <Trash2 className="mr-2 h-4 w-4" />
-                                  Supprimer
+                                  {t("action.delete", "Supprimer")}
                                 </DropdownMenuItem>
                               )}
                             </DropdownMenuContent>

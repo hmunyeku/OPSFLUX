@@ -170,10 +170,10 @@ export default function GroupsPage() {
         </Breadcrumb>
 
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold tracking-tight">{t("page.title", "Titre")}</h2>
+          <h2 className="text-2xl font-bold tracking-tight">{t("page.title", "Groupes d'utilisateurs")}</h2>
           <Button onClick={() => setIsCreateDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
-            {t("action.create", "Create")}
+            {t("action.create_group", "Créer un groupe")}
           </Button>
         </div>
       </div>
@@ -182,25 +182,25 @@ export default function GroupsPage() {
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("stats.total_groups", "Total groups")}</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("stats.total_groups", "Total des groupes")}</CardTitle>
             <FolderTree className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalGroups}</div>
             <p className="text-xs text-muted-foreground">
-              {stats.groupsWithPermissions} {t("stats.with_permissions", "With permissions")}
+              {stats.groupsWithPermissions} {t("stats.with_permissions", "avec permissions")}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("stats.total_users", "Total users")}</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("stats.total_users", "Utilisateurs totaux")}</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalUsers}</div>
             <p className="text-xs text-muted-foreground">
-              {t("stats.in_all_groups", "In all groups")}
+              {t("stats.in_all_groups", "dans tous les groupes")}
             </p>
           </CardContent>
         </Card>
@@ -212,19 +212,19 @@ export default function GroupsPage() {
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalPermissions}</div>
             <p className="text-xs text-muted-foreground">
-              {t("stats.assigned_to_groups", "Assigned to groups")}
+              {t("stats.assigned_to_groups", "assignées aux groupes")}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("stats.active_groups", "Active groups")}</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("stats.active_groups", "Groupes actifs")}</CardTitle>
             <UserCheck className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.groupsWithPermissions}</div>
             <p className="text-xs text-muted-foreground">
-              {t("stats.with_configured_access", "With configured access")}
+              {t("stats.with_configured_access", "avec accès configuré")}
             </p>
           </CardContent>
         </Card>
@@ -236,10 +236,10 @@ export default function GroupsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FolderTree className="h-5 w-5" />
-              {t("page.tree_title", "Tree title")}
+              {t("page.tree_title", "Arborescence des groupes")}
             </CardTitle>
             <CardDescription>
-              {t("page.select_group", "Select group")}
+              {t("page.select_group", "Sélectionnez un groupe pour voir ses détails")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -247,7 +247,7 @@ export default function GroupsPage() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder={t("action.search", "Search")}
+                placeholder={t("action.search", "Rechercher...")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
@@ -259,7 +259,7 @@ export default function GroupsPage() {
               <div className="space-y-2">
                 {filteredGroups.length === 0 ? (
                   <div className="py-8 text-center text-sm text-muted-foreground">
-                    {t("message.no_group_found", "No group found")}
+                    {t("message.no_group_found", "Aucun groupe trouvé")}
                   </div>
                 ) : (
                   filteredGroups.map((group) => (
@@ -285,10 +285,10 @@ export default function GroupsPage() {
                           )}
                           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                             <Badge variant="secondary" className="text-xs whitespace-nowrap">
-                              {group.users_count || 0} user{group.users_count > 1 ? 's' : ''}
+                              {group.users_count || 0} {group.users_count > 1 ? 'utilisateurs' : 'utilisateur'}
                             </Badge>
                             <Badge variant="outline" className="text-xs whitespace-nowrap">
-                              {group.permissions?.length || 0} perm{group.permissions?.length > 1 ? 's' : ''}
+                              {group.permissions?.length || 0} permission{group.permissions?.length > 1 ? 's' : ''}
                             </Badge>
                           </div>
                         </div>
@@ -315,7 +315,7 @@ export default function GroupsPage() {
                               }}
                             >
                               <Shield className="mr-2 h-4 w-4" />
-                              Gérer les permissions
+                              {t("action.manage_permissions", "Gérer les permissions")}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => {
@@ -324,14 +324,14 @@ export default function GroupsPage() {
                               }}
                             >
                               <Edit className="mr-2 h-4 w-4" />
-                              Modifier le groupe
+                              {t("action.edit_group", "Modifier le groupe")}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               onClick={() => setIsCreateDialogOpen(true)}
                             >
                               <Plus className="mr-2 h-4 w-4" />
-                              Créer un sous-groupe
+                              {t("action.create_subgroup", "Créer un sous-groupe")}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
@@ -342,7 +342,7 @@ export default function GroupsPage() {
                               }}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
-                              Supprimer le groupe
+                              {t("action.delete_group", "Supprimer le groupe")}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -391,7 +391,7 @@ export default function GroupsPage() {
                     size="sm"
                     onClick={handleManagePermissions}
                   >
-                    Gérer les permissions
+                    {t("action.manage_permissions", "Gérer les permissions")}
                   </Button>
                 </div>
               )}
@@ -411,20 +411,20 @@ export default function GroupsPage() {
               <div className="space-y-6">
                 {/* Group Info */}
                 <div className="rounded-lg border p-4">
-                  <h3 className="mb-2 font-semibold">Informations du groupe</h3>
+                  <h3 className="mb-2 font-semibold">{t("details.group_info", "Informations du groupe")}</h3>
                   <div className="space-y-2 text-sm">
                     <div>
-                      <span className="text-muted-foreground">Nom : </span>
+                      <span className="text-muted-foreground">{t("details.name_label", "Nom : ")}</span>
                       <span className="font-medium">{selectedGroup.name}</span>
                     </div>
                     {selectedGroup.description && (
                       <div>
-                        <span className="text-muted-foreground">Description : </span>
+                        <span className="text-muted-foreground">{t("details.description_label", "Description : ")}</span>
                         <span>{selectedGroup.description}</span>
                       </div>
                     )}
                     <div>
-                      <span className="text-muted-foreground">Nombre d&apos;utilisateurs : </span>
+                      <span className="text-muted-foreground">{t("details.users_count_label", "Nombre d'utilisateurs : ")}</span>
                       <span className="font-medium">{selectedGroup.users_count || 0}</span>
                     </div>
                   </div>
@@ -433,10 +433,10 @@ export default function GroupsPage() {
                 {/* Permissions by Module */}
                 <div>
                   <div className="mb-4 flex items-center justify-between">
-                    <h3 className="font-semibold">Permissions du groupe</h3>
+                    <h3 className="font-semibold">{t("details.group_permissions", "Permissions du groupe")}</h3>
                     {selectedGroup.permissions && selectedGroup.permissions.length > 0 && (
                       <Badge variant="secondary">
-                        {selectedGroup.permissions.length} permission(s)
+                        {t("details.permissions_count", "{{count}} permission(s)", { count: selectedGroup.permissions.length })}
                       </Badge>
                     )}
                   </div>
@@ -481,7 +481,7 @@ export default function GroupsPage() {
                     <div className="rounded-lg border p-8 text-center">
                       <Shield className="mx-auto h-8 w-8 text-muted-foreground" />
                       <p className="mt-2 text-sm text-muted-foreground">
-                        Aucune permission assignée à ce groupe
+                        {t("details.no_permissions_assigned", "Aucune permission assignée à ce groupe")}
                       </p>
                       <Button
                         variant="outline"
@@ -489,7 +489,7 @@ export default function GroupsPage() {
                         className="mt-4"
                         onClick={handleManagePermissions}
                       >
-                        Ajouter des permissions
+                        {t("action.add_permissions", "Ajouter des permissions")}
                       </Button>
                     </div>
                   )}

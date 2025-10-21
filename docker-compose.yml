@@ -252,6 +252,7 @@ services:
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.entrypoints=websecure
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.tls=true
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.tls.certresolver=letsencrypt
+      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.middlewares=perenco-opsflux-gwxapr-no-cache
 volumes:
   app-db-data: null
   app-redis-data: null

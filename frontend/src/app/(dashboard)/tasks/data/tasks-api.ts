@@ -30,7 +30,7 @@ function mapTaskFromBackend(task: any): Task {
 
 export async function getTasks(): Promise<Task[]> {
   try {
-    const response = await fetch(`${API_URL}/api/v1/tasks/?skip=0&limit=1000`, {
+    const response = await fetch(`${API_URL}/api/v1/tasks?skip=0&limit=1000`, {
       headers: getAuthHeaders(),
       cache: 'no-store',
     })

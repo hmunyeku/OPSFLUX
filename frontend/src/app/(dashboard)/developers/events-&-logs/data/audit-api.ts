@@ -65,7 +65,7 @@ export async function getAuditLogs(params?: {
     if (params?.event_type) queryParams.append('event_type', params.event_type)
     if (params?.search) queryParams.append('search', params.search)
 
-    const url = `${API_URL}/api/v1/audit/?${queryParams.toString()}`
+    const url = `${API_URL}/api/v1/audit?${queryParams.toString()}`
 
     const response = await fetch(url, {
       headers: getAuthHeaders(),

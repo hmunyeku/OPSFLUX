@@ -104,7 +104,7 @@ export function NotificationsProvider({
     try {
       setIsLoading(true)
       const response = await api.fetch<{ data: Notification[]; count: number }>(
-        "/api/v1/notifications/?limit=50",
+        "/api/v1/notifications?limit=50",
         {},
         token
       )
@@ -224,7 +224,7 @@ export function NotificationsProvider({
 
       try {
         await api.fetch<Notification>(
-          `/api/v1/notifications/test/?notification_type=${type}&priority=${priority}`,
+          `/api/v1/notifications/test?notification_type=${type}&priority=${priority}`,
           {
             method: "POST",
           },

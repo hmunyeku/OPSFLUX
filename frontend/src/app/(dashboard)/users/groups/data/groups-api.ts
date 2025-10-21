@@ -18,7 +18,7 @@ export async function getGroups(
   parentId?: string | null
 ): Promise<Group[]> {
   try {
-    let url = `${API_URL}/api/v1/groups/?skip=0&limit=1000&include_permissions=${includePermissions}`
+    let url = `${API_URL}/api/v1/groups?skip=0&limit=1000&include_permissions=${includePermissions}`
 
     if (parentId !== undefined) {
       url += `&parent_id=${parentId || ''}`
@@ -45,7 +45,7 @@ export async function getGroups(
 export async function getGroup(id: string, includePermissions = true): Promise<Group | null> {
   try {
     const response = await fetch(
-      `${API_URL}/api/v1/groups/${id}/?include_permissions=${includePermissions}`,
+      `${API_URL}/api/v1/groups/${id}?include_permissions=${includePermissions}`,
       {
         headers: getAuthHeaders(),
         cache: 'no-store',

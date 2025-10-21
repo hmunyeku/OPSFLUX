@@ -235,7 +235,7 @@ export const api = {
    * Get current user profile with permissions
    */
   async getMe(token: string): Promise<User> {
-    return fetchApi('/api/v1/users/me/?with_permissions=true', {
+    return fetchApi('/api/v1/users/me?with_permissions=true', {
       headers: {
         Authorization: `Bearer ${token}`,
       },

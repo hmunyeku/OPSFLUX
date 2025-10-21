@@ -71,7 +71,7 @@ function mapWebhookFromBackend(webhook: any): Webhook {
 
 export async function getWebhooks(): Promise<Webhook[]> {
   try {
-    const response = await fetch(`${API_URL}/api/v1/webhooks/?skip=0&limit=1000`, {
+    const response = await fetch(`${API_URL}/api/v1/webhooks?skip=0&limit=1000`, {
       headers: getAuthHeaders(),
       cache: 'no-store',
     })

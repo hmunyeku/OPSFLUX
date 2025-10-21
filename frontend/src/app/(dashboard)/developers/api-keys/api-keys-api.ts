@@ -40,7 +40,7 @@ export interface UpdateApiKeyInput {
 
 export async function getApiKeys(): Promise<ApiKey[]> {
   try {
-    const response = await fetch(`${API_URL}/api/v1/api-keys/?skip=0&limit=1000`, {
+    const response = await fetch(`${API_URL}/api/v1/api-keys?skip=0&limit=1000`, {
       headers: getAuthHeaders(),
       cache: 'no-store',
     })

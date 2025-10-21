@@ -69,7 +69,7 @@ export function useTranslation(
           setTranslations(translationsCache[cacheKey])
         } else {
           console.log(`[useTranslation] Fetching translations from API for ${cacheKey}`)
-          const url = `${API_URL}/api/v1/languages/translations/export/?namespace_code=${namespaceCode}&language_code=${currentLanguage.code}`
+          const url = `${API_URL}/api/v1/languages/translations/export?namespace_code=${namespaceCode}&language_code=${currentLanguage.code}`
           const response = await fetch(url, {
             headers: getAuthHeaders(),
             cache: "no-store",
@@ -96,7 +96,7 @@ export function useTranslation(
             if (translationsCache[fallbackCacheKey]) {
               setFallbackTranslations(translationsCache[fallbackCacheKey])
             } else {
-              const fallbackUrl = `${API_URL}/api/v1/languages/translations/export/?namespace_code=${namespaceCode}&language_code=${defaultLanguage.code}`
+              const fallbackUrl = `${API_URL}/api/v1/languages/translations/export?namespace_code=${namespaceCode}&language_code=${defaultLanguage.code}`
               const fallbackResponse = await fetch(fallbackUrl, {
                 headers: getAuthHeaders(),
                 cache: "no-store",

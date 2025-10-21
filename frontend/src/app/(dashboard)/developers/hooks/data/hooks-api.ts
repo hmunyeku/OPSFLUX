@@ -24,7 +24,7 @@ export async function getHooks(params?: {
   if (params?.event) queryParams.append("event", params.event)
   if (params?.is_active !== undefined) queryParams.append("is_active", String(params.is_active))
 
-  const url = `${API_URL}/api/v1/hooks/?${queryParams.toString()}`
+  const url = `${API_URL}/api/v1/hooks?${queryParams.toString()}`
 
   const response = await fetch(url, {
     headers: getAuthHeaders(),
@@ -137,7 +137,7 @@ export async function getHookExecutions(
   if (params?.skip !== undefined) queryParams.append("skip", String(params.skip))
   if (params?.limit !== undefined) queryParams.append("limit", String(params.limit))
 
-  const url = `${API_URL}/api/v1/hooks/${hookId}/executions/?${queryParams.toString()}`
+  const url = `${API_URL}/api/v1/hooks/${hookId}/executions?${queryParams.toString()}`
 
   const response = await fetch(url, {
     headers: getAuthHeaders(),
@@ -163,7 +163,7 @@ export async function getAllExecutions(params?: {
   if (params?.skip !== undefined) queryParams.append("skip", String(params.skip))
   if (params?.limit !== undefined) queryParams.append("limit", String(params.limit))
 
-  const url = `${API_URL}/api/v1/hooks/executions/all/?${queryParams.toString()}`
+  const url = `${API_URL}/api/v1/hooks/executions/all?${queryParams.toString()}`
 
   const response = await fetch(url, {
     headers: getAuthHeaders(),

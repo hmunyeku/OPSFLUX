@@ -119,6 +119,8 @@ const formSchema = z.object({
   redis_port: z.number().optional(),
   redis_db: z.number().optional(),
   redis_password: z.string().optional(),
+  redis_default_ttl: z.number().min(60).max(604800).optional(), // 1 min to 7 days
+  redis_max_ttl: z.number().min(3600).max(2592000).optional(), // 1 hour to 30 days
 
   // Storage (S3/MinIO)
   storage_backend: z.enum(["local", "s3", "minio"]).optional(),
@@ -139,6 +141,16 @@ const formSchema = z.object({
   audit_retention_days: z.number().optional(),
   audit_log_level: z.enum(["DEBUG", "INFO", "WARNING", "ERROR"]).optional(),
   audit_enabled: z.boolean().optional(),
+
+  // AI Configuration (OpenAI / Anthropic)
+  ai_provider: z.enum(["openai", "anthropic", "none"]).optional(),
+  ai_openai_api_key: z.string().optional(),
+  ai_openai_model: z.string().optional(),
+  ai_openai_base_url: z.string().url().optional().or(z.literal("")),
+  ai_anthropic_api_key: z.string().optional(),
+  ai_anthropic_model: z.string().optional(),
+  ai_max_tokens: z.number().min(100).max(32000).optional(),
+  ai_temperature: z.number().min(0).max(1).optional(),
 
   // User Invitations
   invitation_expiry_days: z.number().min(1).max(365).optional(),
@@ -188,6 +200,8 @@ export default function GeneralForm() {
       redis_port: config.redis_port || 6379,
       redis_db: config.redis_db || 0,
       redis_password: config.redis_password || "",
+      redis_default_ttl: config.redis_default_ttl || 3600,
+      redis_max_ttl: config.redis_max_ttl || 86400,
       storage_backend: (config.storage_backend || "local") as "local" | "s3" | "minio",
       s3_endpoint: config.s3_endpoint || "",
       s3_access_key: config.s3_access_key || "",
@@ -202,6 +216,15 @@ export default function GeneralForm() {
       audit_retention_days: config.audit_retention_days || 90,
       audit_log_level: (config.audit_log_level || "INFO") as "DEBUG" | "INFO" | "WARNING" | "ERROR",
       audit_enabled: config.audit_enabled ?? true,
+      // AI Configuration
+      ai_provider: (config.ai_provider || "none") as "openai" | "anthropic" | "none",
+      ai_openai_api_key: config.ai_openai_api_key || "",
+      ai_openai_model: config.ai_openai_model || "gpt-4o",
+      ai_openai_base_url: config.ai_openai_base_url || "",
+      ai_anthropic_api_key: config.ai_anthropic_api_key || "",
+      ai_anthropic_model: config.ai_anthropic_model || "claude-3-5-sonnet-20241022",
+      ai_max_tokens: config.ai_max_tokens || 4096,
+      ai_temperature: config.ai_temperature || 0.7,
       invitation_expiry_days: config.invitation_expiry_days || 7,
     },
   })
@@ -249,6 +272,8 @@ export default function GeneralForm() {
         redis_port: config.redis_port || 6379,
         redis_db: config.redis_db || 0,
         redis_password: config.redis_password || "",
+        redis_default_ttl: config.redis_default_ttl || 3600,
+        redis_max_ttl: config.redis_max_ttl || 86400,
         storage_backend: (config.storage_backend || "local") as "local" | "s3" | "minio",
         s3_endpoint: config.s3_endpoint || "",
         s3_access_key: config.s3_access_key || "",
@@ -263,6 +288,15 @@ export default function GeneralForm() {
         audit_retention_days: config.audit_retention_days || 90,
         audit_log_level: (config.audit_log_level || "INFO") as "DEBUG" | "INFO" | "WARNING" | "ERROR",
         audit_enabled: config.audit_enabled ?? true,
+        // AI Configuration
+        ai_provider: (config.ai_provider || "none") as "openai" | "anthropic" | "none",
+        ai_openai_api_key: config.ai_openai_api_key || "",
+        ai_openai_model: config.ai_openai_model || "gpt-4o",
+        ai_openai_base_url: config.ai_openai_base_url || "",
+        ai_anthropic_api_key: config.ai_anthropic_api_key || "",
+        ai_anthropic_model: config.ai_anthropic_model || "claude-3-5-sonnet-20241022",
+        ai_max_tokens: config.ai_max_tokens || 4096,
+        ai_temperature: config.ai_temperature || 0.7,
         invitation_expiry_days: config.invitation_expiry_days || 7,
       })
     }
@@ -332,6 +366,8 @@ export default function GeneralForm() {
           redis_port: data.redis_port || null,
           redis_db: data.redis_db || null,
           redis_password: data.redis_password || null,
+          redis_default_ttl: data.redis_default_ttl || null,
+          redis_max_ttl: data.redis_max_ttl || null,
           storage_backend: data.storage_backend || null,
           s3_endpoint: data.s3_endpoint || null,
           s3_access_key: data.s3_access_key || null,
@@ -346,6 +382,15 @@ export default function GeneralForm() {
           audit_retention_days: data.audit_retention_days || null,
           audit_log_level: data.audit_log_level || null,
           audit_enabled: data.audit_enabled ?? null,
+          // AI Configuration
+          ai_provider: data.ai_provider || null,
+          ai_openai_api_key: data.ai_openai_api_key || null,
+          ai_openai_model: data.ai_openai_model || null,
+          ai_openai_base_url: data.ai_openai_base_url || null,
+          ai_anthropic_api_key: data.ai_anthropic_api_key || null,
+          ai_anthropic_model: data.ai_anthropic_model || null,
+          ai_max_tokens: data.ai_max_tokens || null,
+          ai_temperature: data.ai_temperature || null,
           invitation_expiry_days: data.invitation_expiry_days || null,
         }),
       })
@@ -1209,6 +1254,58 @@ export default function GeneralForm() {
           />
         ),
       },
+      {
+        key: "redis_default_ttl",
+        label: "Redis Default TTL",
+        description: "Durée de vie par défaut du cache en secondes (1 min - 7 jours)",
+        category: "Cache (Redis)",
+        renderField: (form) => (
+          <FormField
+            control={form.control}
+            name="redis_default_ttl"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  {wrapInput("redis_default_ttl", <Input
+                    type="number"
+                    placeholder="3600"
+                    {...field}
+                    onChange={(e) => field.onChange(parseInt(e.target.value) || 3600)}
+                    className="w-full md:w-[300px]"
+                  />)}
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ),
+      },
+      {
+        key: "redis_max_ttl",
+        label: "Redis Max TTL",
+        description: "Durée de vie maximale du cache en secondes (1 heure - 30 jours)",
+        category: "Cache (Redis)",
+        renderField: (form) => (
+          <FormField
+            control={form.control}
+            name="redis_max_ttl"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  {wrapInput("redis_max_ttl", <Input
+                    type="number"
+                    placeholder="86400"
+                    {...field}
+                    onChange={(e) => field.onChange(parseInt(e.target.value) || 86400)}
+                    className="w-full md:w-[300px]"
+                  />)}
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ),
+      },
 
       // Storage (S3/MinIO) - 6 fields
       {
@@ -1599,6 +1696,218 @@ export default function GeneralForm() {
                     onChange={(e) => field.onChange(parseInt(e.target.value) || 7)}
                     className="w-full md:w-[300px]"
                   />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ),
+      },
+
+      // AI Configuration - 8 fields
+      {
+        key: "ai_provider",
+        label: "Fournisseur AI",
+        description: "Choisir le fournisseur d'intelligence artificielle (OpenAI, Anthropic, ou aucun)",
+        category: "AI Configuration",
+        renderField: (form) => (
+          <FormField
+            control={form.control}
+            name="ai_provider"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    defaultValue={field.value}
+                  >
+                    <SelectTrigger className="w-full md:w-[300px]">
+                      <SelectValue placeholder="Sélectionner" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Aucun</SelectItem>
+                      <SelectItem value="openai">OpenAI</SelectItem>
+                      <SelectItem value="anthropic">Anthropic</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ),
+      },
+      {
+        key: "ai_openai_api_key",
+        label: "OpenAI API Key",
+        description: "Clé API pour l'authentification OpenAI",
+        category: "AI Configuration",
+        renderField: (form) => (
+          <FormField
+            control={form.control}
+            name="ai_openai_api_key"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  {wrapInput("ai_openai_api_key", <Input
+                    type="password"
+                    placeholder="sk-••••••••••••••••"
+                    {...field}
+                    className="w-full md:w-[300px]"
+                  />)}
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ),
+      },
+      {
+        key: "ai_openai_model",
+        label: "OpenAI Model",
+        description: "Modèle OpenAI à utiliser (ex: gpt-4o, gpt-4-turbo)",
+        category: "AI Configuration",
+        renderField: (form) => (
+          <FormField
+            control={form.control}
+            name="ai_openai_model"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  {wrapInput("ai_openai_model", <Input
+                    placeholder="gpt-4o"
+                    {...field}
+                    className="w-full md:w-[300px]"
+                  />)}
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ),
+      },
+      {
+        key: "ai_openai_base_url",
+        label: "OpenAI Base URL",
+        description: "URL de base pour les requêtes OpenAI (optionnel, pour proxy ou API compatible)",
+        category: "AI Configuration",
+        renderField: (form) => (
+          <FormField
+            control={form.control}
+            name="ai_openai_base_url"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  {wrapInput("ai_openai_base_url", <Input
+                    placeholder="https://api.openai.com/v1"
+                    {...field}
+                    className="w-full md:w-[300px]"
+                  />)}
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ),
+      },
+      {
+        key: "ai_anthropic_api_key",
+        label: "Anthropic API Key",
+        description: "Clé API pour l'authentification Anthropic",
+        category: "AI Configuration",
+        renderField: (form) => (
+          <FormField
+            control={form.control}
+            name="ai_anthropic_api_key"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  {wrapInput("ai_anthropic_api_key", <Input
+                    type="password"
+                    placeholder="sk-ant-••••••••••••••••"
+                    {...field}
+                    className="w-full md:w-[300px]"
+                  />)}
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ),
+      },
+      {
+        key: "ai_anthropic_model",
+        label: "Anthropic Model",
+        description: "Modèle Anthropic à utiliser (ex: claude-3-5-sonnet-20241022)",
+        category: "AI Configuration",
+        renderField: (form) => (
+          <FormField
+            control={form.control}
+            name="ai_anthropic_model"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  {wrapInput("ai_anthropic_model", <Input
+                    placeholder="claude-3-5-sonnet-20241022"
+                    {...field}
+                    className="w-full md:w-[300px]"
+                  />)}
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ),
+      },
+      {
+        key: "ai_max_tokens",
+        label: "Max Tokens",
+        description: "Nombre maximum de tokens pour les réponses AI (100-32000)",
+        category: "AI Configuration",
+        renderField: (form) => (
+          <FormField
+            control={form.control}
+            name="ai_max_tokens"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  {wrapInput("ai_max_tokens", <Input
+                    type="number"
+                    placeholder="4096"
+                    {...field}
+                    onChange={(e) => field.onChange(parseInt(e.target.value) || 4096)}
+                    className="w-full md:w-[300px]"
+                  />)}
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ),
+      },
+      {
+        key: "ai_temperature",
+        label: "Temperature",
+        description: "Température pour les réponses AI (0.0-1.0, plus élevé = plus créatif)",
+        category: "AI Configuration",
+        renderField: (form) => (
+          <FormField
+            control={form.control}
+            name="ai_temperature"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  {wrapInput("ai_temperature", <Input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="1"
+                    placeholder="0.7"
+                    {...field}
+                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0.7)}
+                    className="w-full md:w-[300px]"
+                  />)}
                 </FormControl>
                 <FormMessage />
               </FormItem>

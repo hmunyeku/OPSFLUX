@@ -271,3 +271,50 @@ def get_audit_stats(
                 "SYSTEM": 1,
             },
         }
+
+
+@router.delete("/clear")
+@require_permission("core.audit.delete")
+def clear_audit_logs(
+    session: SessionDep,
+    current_user: CurrentUser,
+    older_than_days: Optional[int] = Query(default=None, ge=1),
+) -> dict[str, Any]:
+    """
+    Vide les logs d'audit.
+
+    Paramètres:
+    - older_than_days: Optionnel, ne supprimer que les logs plus anciens que N jours
+
+    Requiert la permission: core.audit.delete
+    """
+    try:
+        statement = select(AuditLog)
+
+        # Si un filtre de date est spécifié
+        if older_than_days:
+            cutoff_date = datetime.utcnow() - timedelta(days=older_than_days)
+            statement = statement.where(col(AuditLog.timestamp) < cutoff_date)
+
+        # Récupérer les logs à supprimer pour compter
+        logs_to_delete = session.exec(statement).all()
+        count = len(logs_to_delete)
+
+        # Supprimer les logs
+        for log in logs_to_delete:
+            session.delete(log)
+
+        session.commit()
+
+        return {
+            "message": "Audit logs cleared successfully",
+            "deleted_count": count,
+        }
+
+    except Exception as e:
+        # Si la table n'existe pas encore, retourner un message d'erreur
+        return {
+            "message": "Failed to clear audit logs",
+            "error": str(e),
+            "deleted_count": 0,
+        }

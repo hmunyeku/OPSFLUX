@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "@/hooks/use-translation"
+import { useModuleContext } from "@/contexts/module-context"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -87,6 +88,7 @@ import { Progress } from "@/components/ui/progress"
 
 export default function ModulesPage() {
   const { t } = useTranslation("core.settings")
+  const { refreshModuleMenus } = useModuleContext()
   const [modules, setModules] = useState<Module[]>([])
   const [filteredModules, setFilteredModules] = useState<Module[]>([])
   const [selectedModules, setSelectedModules] = useState<Set<string>>(new Set())
@@ -185,6 +187,8 @@ export default function ModulesPage() {
         })
       }
       await fetchModules()
+      // Rafraîchir les menus du sidebar automatiquement
+      await refreshModuleMenus()
     } catch (error) {
       toast({
         variant: "destructive",

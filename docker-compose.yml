@@ -189,6 +189,10 @@ services:
       - traefik.http.services.perenco-opsflux-gwxapr-4-websecure.loadbalancer.server.port=8000
       - traefik.http.routers.perenco-opsflux-gwxapr-4-websecure.service=perenco-opsflux-gwxapr-4-websecure
       - traefik.http.routers.perenco-opsflux-gwxapr-4-websecure.tls.certresolver=letsencrypt
+      - traefik.http.middlewares.perenco-opsflux-gwxapr-backend-buffering.buffering.maxRequestBodyBytes=52428800
+      - traefik.http.middlewares.perenco-opsflux-gwxapr-backend-buffering.buffering.memRequestBodyBytes=52428800
+      - traefik.http.middlewares.perenco-opsflux-gwxapr-backend-buffering.buffering.retryExpression=IsNetworkError() && Attempts() < 2
+      - traefik.http.routers.perenco-opsflux-gwxapr-4-websecure.middlewares=perenco-opsflux-gwxapr-backend-buffering
       - traefik.http.routers.perenco-opsflux-gwxapr-4-web.rule=Host(`api.opsflux.io`)
       - traefik.http.routers.perenco-opsflux-gwxapr-4-web.entrypoints=web
       - traefik.http.services.perenco-opsflux-gwxapr-4-web.loadbalancer.server.port=8000

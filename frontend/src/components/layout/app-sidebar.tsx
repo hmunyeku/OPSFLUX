@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useEffect, useState } from "react"
+import { useMemo } from "react"
 import {
   Sidebar,
   SidebarContent,
@@ -15,29 +15,15 @@ import { useSidebarData } from "@/hooks/use-sidebar-data"
 import { usePermissions } from "@/hooks/use-permissions"
 import { filterNavItems } from "@/lib/permissions"
 import { usePreferencesContext } from "@/contexts/preferences-context"
-import { getModuleMenus, type ModuleMenuGroup } from "@/api/modules"
+import { useModuleContext } from "@/contexts/module-context"
 import * as TablerIcons from "@tabler/icons-react"
 import { type NavGroup as NavGroupType } from "./types"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { hasPermission, hasAnyPermission, hasAllPermissions, isLoading } = usePermissions()
   const { preferences } = usePreferencesContext()
+  const { moduleMenus } = useModuleContext()
   const sidebarData = useSidebarData()
-  const [moduleMenus, setModuleMenus] = useState<ModuleMenuGroup[]>([])
-
-  // Charger les menus des modules actifs
-  useEffect(() => {
-    const loadModuleMenus = async () => {
-      try {
-        const response = await getModuleMenus()
-        setModuleMenus(response.data)
-      } catch (_error) {
-        // Failed to load module menus - use empty array
-        setModuleMenus([])
-      }
-    }
-    loadModuleMenus()
-  }, [])
 
   // Convertir les menus des modules en NavGroups
   const moduleNavGroups = useMemo(() => {

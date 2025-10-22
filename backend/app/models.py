@@ -311,6 +311,8 @@ class AppSettingsBase(SQLModel):
     redis_port: int = Field(default=6379, description="Redis port")
     redis_db: int = Field(default=0, description="Redis database number")
     redis_password: str | None = Field(default=None, max_length=255, description="Redis password")
+    redis_default_ttl: int = Field(default=3600, description="Durée de vie par défaut du cache en secondes (1h)")
+    redis_max_ttl: int = Field(default=86400, description="Durée de vie maximale du cache en secondes (24h)")
 
     # Storage (S3/MinIO)
     storage_backend: str = Field(default="local", max_length=50, description="Storage backend: local, s3, minio")
@@ -331,6 +333,16 @@ class AppSettingsBase(SQLModel):
     audit_retention_days: int = Field(default=90, description="Nombre de jours de rétention des logs d'audit")
     audit_log_level: str = Field(default="INFO", max_length=50, description="Niveau de log: DEBUG, INFO, WARNING, ERROR")
     audit_enabled: bool = Field(default=True, description="Activer/désactiver les logs d'audit")
+
+    # AI Configuration (OpenAI / Anthropic)
+    ai_provider: str | None = Field(default=None, max_length=50, description="Fournisseur AI: openai, anthropic, none")
+    ai_openai_api_key: str | None = Field(default=None, max_length=255, description="Clé API OpenAI")
+    ai_openai_model: str = Field(default="gpt-4o", max_length=100, description="Modèle OpenAI à utiliser")
+    ai_openai_base_url: str | None = Field(default=None, max_length=500, description="URL de base OpenAI (optionnel)")
+    ai_anthropic_api_key: str | None = Field(default=None, max_length=255, description="Clé API Anthropic")
+    ai_anthropic_model: str = Field(default="claude-3-5-sonnet-20241022", max_length=100, description="Modèle Anthropic à utiliser")
+    ai_max_tokens: int = Field(default=4096, description="Nombre maximum de tokens pour les réponses AI")
+    ai_temperature: float = Field(default=0.7, description="Température pour les réponses AI (0.0-1.0)")
 
     # User Invitations
     # TODO: Temporarily commented out - waiting for Docker image rebuild
@@ -400,6 +412,8 @@ class AppSettingsUpdate(SQLModel):
     redis_port: int | None = Field(default=None, description="Redis port")
     redis_db: int | None = Field(default=None, description="Redis database number")
     redis_password: str | None = Field(default=None, max_length=255, description="Redis password")
+    redis_default_ttl: int | None = Field(default=None, description="Durée de vie par défaut du cache en secondes")
+    redis_max_ttl: int | None = Field(default=None, description="Durée de vie maximale du cache en secondes")
 
     # Storage (S3/MinIO)
     storage_backend: str | None = Field(default=None, max_length=50, description="Storage backend: local, s3, minio")
@@ -420,6 +434,16 @@ class AppSettingsUpdate(SQLModel):
     audit_retention_days: int | None = Field(default=None, description="Nombre de jours de rétention des logs d'audit")
     audit_log_level: str | None = Field(default=None, max_length=50, description="Niveau de log: DEBUG, INFO, WARNING, ERROR")
     audit_enabled: bool | None = Field(default=None, description="Activer/désactiver les logs d'audit")
+
+    # AI Configuration (OpenAI / Anthropic)
+    ai_provider: str | None = Field(default=None, max_length=50, description="Fournisseur AI: openai, anthropic, none")
+    ai_openai_api_key: str | None = Field(default=None, max_length=255, description="Clé API OpenAI")
+    ai_openai_model: str | None = Field(default=None, max_length=100, description="Modèle OpenAI à utiliser")
+    ai_openai_base_url: str | None = Field(default=None, max_length=500, description="URL de base OpenAI")
+    ai_anthropic_api_key: str | None = Field(default=None, max_length=255, description="Clé API Anthropic")
+    ai_anthropic_model: str | None = Field(default=None, max_length=100, description="Modèle Anthropic à utiliser")
+    ai_max_tokens: int | None = Field(default=None, description="Nombre maximum de tokens")
+    ai_temperature: float | None = Field(default=None, description="Température (0.0-1.0)")
 
     # User Invitations
     invitation_expiry_days: int | None = Field(default=None, description="Nombre de jours de validité d'une invitation utilisateur")

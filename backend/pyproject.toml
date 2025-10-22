@@ -28,6 +28,8 @@ dependencies = [
     "celery[redis]<6.0.0,>=5.3.4",
     "twilio<9.0.0,>=8.10.0",
     "aiofiles<24.0.0,>=23.2.1",
+    "openai<2.0.0,>=1.0.0",
+    "anthropic<1.0.0,>=0.34.0",
 ]
 
 [tool.uv]

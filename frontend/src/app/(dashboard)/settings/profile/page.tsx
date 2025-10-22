@@ -17,20 +17,17 @@ export default function SettingsProfilePage() {
   return (
     <ContentSection title={t("title", "Profile")} desc={t("description", "Manage your profile settings")} className="w-full lg:max-w-full">
       <Tabs defaultValue={tab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-2">
-          <TabsTrigger value="profile" className="text-xs sm:text-sm">
-            <span className="hidden sm:inline">{t("tabs.profile", "Profile")}</span>
-            <span className="sm:hidden">{t("tabs.profile_mobile", "Profile")}</span>
+        <TabsList className="w-full h-auto flex-col sm:flex-row sm:grid sm:grid-cols-4 p-1">
+          <TabsTrigger value="profile" className="w-full justify-start sm:justify-center text-sm">
+            {t("tabs.profile", "Profile")}
           </TabsTrigger>
-          <TabsTrigger value="preferences" className="text-xs sm:text-sm">
-            <span className="hidden sm:inline">{t("tabs.preferences", "Preferences")}</span>
-            <span className="sm:hidden">{t("tabs.preferences_mobile", "Pref.")}</span>
+          <TabsTrigger value="preferences" className="w-full justify-start sm:justify-center text-sm">
+            {t("tabs.preferences", "Preferences")}
           </TabsTrigger>
-          <TabsTrigger value="informations" className="text-xs sm:text-sm">
-            <span className="hidden sm:inline">{t("tabs.informations", "Informations")}</span>
-            <span className="sm:hidden">{t("tabs.informations_mobile", "Info")}</span>
+          <TabsTrigger value="informations" className="w-full justify-start sm:justify-center text-sm">
+            {t("tabs.informations", "Informations")}
           </TabsTrigger>
-          <TabsTrigger value="api" className="text-xs sm:text-sm">
+          <TabsTrigger value="api" className="w-full justify-start sm:justify-center text-sm">
             {t("tabs.api", "API")}
           </TabsTrigger>
         </TabsList>

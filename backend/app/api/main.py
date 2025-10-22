@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.routes import (
     addresses,
     address_types,
+    ai,
     api_keys,
     audit,
     auth,
@@ -76,6 +77,7 @@ api_router.include_router(queue.router)  # Queue service (Celery)
 api_router.include_router(metrics.router)  # Metrics service (Prometheus)
 api_router.include_router(search.router)  # Search service (PostgreSQL FTS)
 api_router.include_router(backups.router)  # Backup & Restore service
+api_router.include_router(ai.router, prefix="/ai", tags=["AI"])  # AI Assistant service
 
 
 if settings.ENVIRONMENT == "local":

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import {
   Sheet,
   SheetContent,
@@ -12,8 +12,10 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { MessageCircle, Send, Bot, User as UserIcon } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { MessageCircle, Send, Bot, User as UserIcon, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useAI } from "@/hooks/use-ai"
 
 interface Message {
   id: string
@@ -37,10 +39,29 @@ export function AiChatButton({ className }: AiChatButtonProps) {
     }
   ])
   const [input, setInput] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+  const [aiAvailable, setAiAvailable] = useState(true)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const ai = useAI()
+
+  // Vérifier la disponibilité de l'IA au montage
+  useEffect(() => {
+    checkAIStatus()
+  }, [])
+
+  // Auto-scroll vers le bas quand de nouveaux messages arrivent
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+  }, [messages])
+
+  async function checkAIStatus() {
+    const status = await ai.getStatus()
+    setAiAvailable(status?.available || false)
+  }
 
   const handleSend = async () => {
-    if (!input.trim() || isLoading) return
+    if (!input.trim() || ai.loading) return
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -50,20 +71,35 @@ export function AiChatButton({ className }: AiChatButtonProps) {
     }
 
     setMessages(prev => [...prev, userMessage])
+    const userInput = input
     setInput("")
-    setIsLoading(true)
 
-    // Simuler une réponse de l'IA (à remplacer par un vrai appel API)
-    setTimeout(() => {
+    // Appel à la vraie API
+    const chatMessages = messages.map(m => ({ role: m.role, content: m.content }))
+    chatMessages.push({ role: "user", content: userInput })
+
+    const response = await ai.chat(chatMessages, {
+      temperature: 0.7,
+      max_tokens: 500,
+    })
+
+    if (response) {
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "Je suis un assistant IA de démonstration. Cette fonctionnalité sera connectée à une vraie IA prochainement. Votre message était : " + input,
+        content: response,
         timestamp: new Date()
       }
       setMessages(prev => [...prev, assistantMessage])
-      setIsLoading(false)
-    }, 1000)
+    } else if (ai.error) {
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: `Désolé, une erreur s'est produite : ${ai.error}`,
+        timestamp: new Date()
+      }
+      setMessages(prev => [...prev, errorMessage])
+    }
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -91,7 +127,18 @@ export function AiChatButton({ className }: AiChatButtonProps) {
           </SheetDescription>
         </SheetHeader>
 
-        <ScrollArea className="flex-1 px-4">
+        {!aiAvailable && (
+          <div className="px-4 mb-2">
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Service IA non disponible. Veuillez configurer les clés API.
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+
+        <ScrollArea className="flex-1 px-4" ref={scrollRef}>
           <div className="space-y-4 pb-4">
             {messages.map((message) => (
               <div
@@ -133,7 +180,7 @@ export function AiChatButton({ className }: AiChatButtonProps) {
                 )}
               </div>
             ))}
-            {isLoading && (
+            {ai.loading && (
               <div className="flex gap-3 justify-start">
                 <div className="flex-shrink-0">
                   <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
@@ -159,12 +206,12 @@ export function AiChatButton({ className }: AiChatButtonProps) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={handleKeyPress}
-              disabled={isLoading}
+              disabled={ai.loading || !aiAvailable}
             />
             <Button
               size="icon"
               onClick={handleSend}
-              disabled={!input.trim() || isLoading}
+              disabled={!input.trim() || ai.loading || !aiAvailable}
             >
               <Send className="h-4 w-4" />
             </Button>

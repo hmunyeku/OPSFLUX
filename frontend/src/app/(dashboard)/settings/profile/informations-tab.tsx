@@ -32,10 +32,18 @@ interface UserRbacInfo {
   permissions: string[]
 }
 
+interface UserStats {
+  total_logins?: number
+  last_login?: string
+  created_at?: string
+  updated_at?: string
+}
+
 export function InformationsTab() {
   const { t } = useTranslation("core.profile")
   const { user } = useAuth()
   const [rbacInfo, setRbacInfo] = useState<UserRbacInfo | null>(null)
+  const [stats, setStats] = useState<UserStats>({})
   const [loading, setLoading] = useState(true)
 
   // Charger les informations RBAC
@@ -65,6 +73,12 @@ export function InformationsTab() {
           groups: data.groups || [],
           permissions: data.permissions || [],
         })
+        setStats({
+          total_logins: data.total_logins,
+          last_login: data.last_login,
+          created_at: data.created_at,
+          updated_at: data.updated_at,
+        })
       }
     } catch (error) {
       console.error("Failed to load RBAC info:", error)
@@ -74,8 +88,77 @@ export function InformationsTab() {
     }
   }
 
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "-"
+    return new Date(dateString).toLocaleDateString("fr-FR", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  }
+
   return (
     <div className="space-y-6">
+      {/* Statistiques d'activité */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <IconChartBar className="h-5 w-5 text-primary" />
+            <CardTitle>{t("stats.title", "Activité et statistiques")}</CardTitle>
+          </div>
+          <CardDescription>
+            {t("stats.description", "Vue d'ensemble de votre activité sur la plateforme")}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <IconClock className="h-4 w-4 text-muted-foreground" />
+                <p className="text-sm font-medium">{t("stats.created_at", "Membre depuis")}</p>
+              </div>
+              <p className="text-sm text-muted-foreground pl-6">
+                {formatDate(stats.created_at || user?.created_at)}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <IconLogin className="h-4 w-4 text-muted-foreground" />
+                <p className="text-sm font-medium">{t("stats.last_login", "Dernière connexion")}</p>
+              </div>
+              <p className="text-sm text-muted-foreground pl-6">
+                {formatDate(stats.last_login)}
+              </p>
+            </div>
+
+            {stats.total_logins !== undefined && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <IconChartBar className="h-4 w-4 text-muted-foreground" />
+                  <p className="text-sm font-medium">{t("stats.total_logins", "Nombre de connexions")}</p>
+                </div>
+                <p className="text-sm text-muted-foreground pl-6">
+                  {stats.total_logins}
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <IconClock className="h-4 w-4 text-muted-foreground" />
+                <p className="text-sm font-medium">{t("stats.updated_at", "Dernière modification")}</p>
+              </div>
+              <p className="text-sm text-muted-foreground pl-6">
+                {formatDate(stats.updated_at || user?.updated_at)}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Informations générales */}
       <Card>
         <CardHeader>
@@ -108,14 +191,14 @@ export function InformationsTab() {
             </>
           ) : (
             <>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="space-y-1">
-                  <p className="text-sm font-medium">{t("role_group.role_label", "Role label")}</p>
+                  <p className="text-sm font-medium">{t("role_group.role_label", "Rôles")}</p>
                   <p className="text-sm text-muted-foreground">
-                    {t("role_group.role_desc", "Role desc")}
+                    {t("role_group.role_desc", "Vos rôles dans le système")}
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-2 justify-end">
+                <div className="flex flex-wrap gap-2">
                   {rbacInfo?.roles && rbacInfo.roles.length > 0 ? (
                     rbacInfo.roles.map((role) => (
                       <Badge key={role.id} variant="default" className="text-sm px-3 py-1">
@@ -132,14 +215,14 @@ export function InformationsTab() {
 
               <Separator />
 
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="space-y-1">
-                  <p className="text-sm font-medium">{t("role_group.group_label", "Group label")}</p>
+                  <p className="text-sm font-medium">{t("role_group.group_label", "Groupes")}</p>
                   <p className="text-sm text-muted-foreground">
-                    {t("role_group.group_desc", "Group desc")}
+                    {t("role_group.group_desc", "Groupes auxquels vous appartenez")}
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-2 justify-end items-center">
+                <div className="flex flex-wrap gap-3">
                   {rbacInfo?.groups && rbacInfo.groups.length > 0 ? (
                     rbacInfo.groups.map((group) => (
                       <div key={group.id} className="flex items-center gap-2">
@@ -227,19 +310,19 @@ export function InformationsTab() {
             </>
           ) : (
             <>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <div className="space-y-1">
                   <p className="text-sm font-medium">{t("user_info.email", "Email")}</p>
                   <p className="text-sm text-muted-foreground">
                     {t("user_info.email_desc", "Votre adresse email principale")}
                   </p>
                 </div>
-                <span className="text-sm font-medium">{user?.email}</span>
+                <span className="text-sm font-medium break-all">{user?.email}</span>
               </div>
 
               <Separator />
 
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <div className="space-y-1">
                   <p className="text-sm font-medium">{t("user_info.full_name", "Nom complet")}</p>
                   <p className="text-sm text-muted-foreground">
@@ -251,7 +334,7 @@ export function InformationsTab() {
 
               <Separator />
 
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <div className="space-y-1">
                   <p className="text-sm font-medium">{t("user_info.status", "Statut")}</p>
                   <p className="text-sm text-muted-foreground">
@@ -266,7 +349,7 @@ export function InformationsTab() {
               {user?.is_superuser && (
                 <>
                   <Separator />
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div className="space-y-1">
                       <p className="text-sm font-medium">{t("user_info.superuser", "Super utilisateur")}</p>
                       <p className="text-sm text-muted-foreground">

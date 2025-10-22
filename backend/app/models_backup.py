@@ -49,6 +49,13 @@ class BackupCreate(SQLModel):
     includes_config: bool = Field(default=True)
 
 
+class BackupEstimateRequest(SQLModel):
+    """Schéma pour estimer la taille d'un backup."""
+    includes_database: bool = Field(default=True)
+    includes_storage: bool = Field(default=True)
+    includes_config: bool = Field(default=True)
+
+
 class BackupPublic(BackupBase):
     """Schéma public pour un backup."""
     id: UUID

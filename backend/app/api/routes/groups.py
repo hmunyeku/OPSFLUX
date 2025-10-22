@@ -6,7 +6,8 @@ Admin-only routes for managing groups and their permissions.
 import uuid
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlmodel import func, select
 
 from app.api.deps import (
@@ -22,9 +23,16 @@ from app.models_rbac import (
     GroupUpdate,
     Message,
     Permission,
+    UserGroupLink,
 )
+from app.models import User
 
 router = APIRouter(prefix="/groups", tags=["groups"])
+
+
+class GroupMembersUpdate(BaseModel):
+    """Schema for updating group members"""
+    user_ids: list[uuid.UUID]
 
 
 @router.get("/", response_model=GroupsPublic)
@@ -244,3 +252,76 @@ def delete_group(
     session.commit()
 
     return Message(message="Group deleted successfully")
+
+
+@router.get("/{group_id}/members")
+def read_group_members(
+    group_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Any:
+    """
+    Get all members of a specific group.
+    Requires rbac.read permission.
+    """
+    # TODO: Check rbac.read permission
+    group = session.get(Group, group_id)
+    if not group or group.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    # Get all users in this group
+    statement = (
+        select(User)
+        .join(UserGroupLink, User.id == UserGroupLink.user_id)
+        .where(UserGroupLink.group_id == group_id)
+        .where(User.deleted_at.is_(None))
+    )
+    users = session.exec(statement).all()
+
+    return {"data": users, "count": len(users)}
+
+
+@router.put(
+    "/{group_id}/members",
+    dependencies=[Depends(get_current_active_superuser)],
+    response_model=Message,
+)
+def update_group_members(
+    *,
+    session: SessionDep,
+    group_id: uuid.UUID,
+    members_update: GroupMembersUpdate,
+    current_user: CurrentUser,
+) -> Message:
+    """
+    Update group members (replaces all existing members).
+    Requires rbac.manage permission or superuser.
+    """
+    group = session.get(Group, group_id)
+    if not group or group.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    # Validate all user_ids exist
+    if members_update.user_ids:
+        users = session.exec(
+            select(User).where(User.id.in_(members_update.user_ids), User.deleted_at.is_(None))
+        ).all()
+        if len(users) != len(members_update.user_ids):
+            raise HTTPException(
+                status_code=400,
+                detail="One or more user IDs are invalid"
+            )
+
+    # Delete all existing group memberships
+    statement = select(UserGroupLink).where(UserGroupLink.group_id == group_id)
+    existing_links = session.exec(statement).all()
+    for link in existing_links:
+        session.delete(link)
+
+    # Add new memberships
+    for user_id in members_update.user_ids:
+        link = UserGroupLink(user_id=user_id, group_id=group_id)
+        session.add(link)
+
+    session.commit()
+    return Message(message=f"Group members updated successfully. {len(members_update.user_ids)} members added.")

@@ -63,6 +63,25 @@ CORE_PERMISSIONS = [
         "description": "Ability to delete/revoke API keys",
         "module": "core"
     },
+    # DATABASE
+    {
+        "code": "core.database.read",
+        "name": "Read Database Info",
+        "description": "Ability to view database statistics and information",
+        "module": "core"
+    },
+    {
+        "code": "core.database.admin",
+        "name": "Database Admin Access",
+        "description": "Ability to access Adminer with temporary token",
+        "module": "core"
+    },
+    {
+        "code": "core.database.backup",
+        "name": "Database Backup Management",
+        "description": "Ability to create, list, download and delete database backups",
+        "module": "core"
+    },
 ]
 
 

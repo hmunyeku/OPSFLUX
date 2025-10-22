@@ -28,13 +28,18 @@ from app.models_modules import (
 )
 from app.services.module_service import ModuleManager
 from app.core.hook_trigger_service import hook_trigger
+from app.core.cache_service import cache_service
 
 
 router = APIRouter(prefix="/modules", tags=["modules"])
 
 
 @router.get("/", response_model=ModulesPublic)
-def read_modules(
+@cache_service.cached(
+    namespace="modules",
+    key_builder=lambda session, current_user, skip, limit, status, category, search: f"list:{skip}:{limit}:{status}:{category}:{search}"
+)
+async def read_modules(
     session: SessionDep,
     current_user: CurrentUser,
     skip: int = 0,
@@ -45,6 +50,7 @@ def read_modules(
 ) -> Any:
     """
     Récupère la liste des modules installés.
+    Uses default TTL from settings (redis_default_ttl).
 
     Filtres:
     - status: Filtrer par statut (active, installed, disabled, etc.)
@@ -125,12 +131,14 @@ def get_modules_stats(
 
 
 @router.get("/menus", response_model=ModuleMenusResponse)
-def get_active_modules_menus(
+@cache_service.cached(namespace="modules")
+async def get_active_modules_menus(
     session: SessionDep,
     current_user: CurrentUser,
 ) -> ModuleMenusResponse:
     """
     Récupère les menus de tous les modules actifs.
+    Uses default TTL from settings (redis_default_ttl).
 
     Retourne une structure adaptée pour injection dans la sidebar:
     [
@@ -384,6 +392,9 @@ async def update_module(
     session.commit()
     session.refresh(module)
 
+    # Invalidate modules cache
+    await cache_service.clear_namespace("modules")
+
     # Trigger hook: module.updated
     try:
         await hook_trigger.trigger_event(
@@ -442,6 +453,9 @@ async def activate_module(
         activated_by=current_user
     )
 
+    # Invalidate modules cache
+    await cache_service.clear_namespace("modules")
+
     # Trigger hook: module.activated
     try:
         await hook_trigger.trigger_event(
@@ -499,6 +513,9 @@ async def deactivate_module(
         module_id=module_id,
         deactivated_by=current_user
     )
+
+    # Invalidate modules cache
+    await cache_service.clear_namespace("modules")
 
     # Trigger hook: module.deactivated
     try:

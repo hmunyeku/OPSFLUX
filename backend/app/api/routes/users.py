@@ -14,6 +14,7 @@ from app.api.deps import (
 from app.core.config import settings
 from app.core.hook_trigger_service import hook_trigger
 from app.core.security import get_password_hash, verify_password
+from app.core.cache_service import cache_service
 from app.models import (
     Item,
     Message,
@@ -111,11 +112,12 @@ async def create_user(*, session: SessionDep, user_in: UserCreate) -> Any:
 
 
 @router.patch("/me", response_model=UserPublic)
-def update_user_me(
+async def update_user_me(
     *, session: SessionDep, user_in: UserUpdateMe, current_user: CurrentUser
 ) -> Any:
     """
     Update own user.
+    Invalidates user cache.
     """
 
     # Interdire la modification de l'email
@@ -131,6 +133,10 @@ def update_user_me(
     session.add(current_user)
     session.commit()
     session.refresh(current_user)
+
+    # Invalidate user cache
+    await cache_service.delete(f"me:{current_user.id}", namespace="users")
+
     return current_user
 
 
@@ -184,9 +190,14 @@ def update_password_me(
 
 
 @router.get("/me", response_model=UserPublic)
-def read_user_me(current_user: CurrentUser) -> Any:
+@cache_service.cached(
+    namespace="users",
+    key_builder=lambda current_user: f"me:{current_user.id}"
+)
+async def read_user_me(current_user: CurrentUser) -> Any:
     """
     Get current user.
+    Uses default TTL from settings (redis_default_ttl).
     """
     return current_user
 

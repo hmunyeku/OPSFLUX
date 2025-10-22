@@ -18,6 +18,7 @@ from app.models_backup import (
     BackupPublic,
     BackupsPublic,
     BackupRestore,
+    BackupEstimateRequest,
 )
 from app.core.backup_service import backup_service
 
@@ -305,7 +306,7 @@ async def delete_backup(
 @router.post("/estimate")
 @require_permission("core.backups.read")
 async def estimate_backup_size(
-    backup_data: BackupCreate,
+    estimate_request: BackupEstimateRequest,
     session: SessionDep,
     current_user: CurrentUser,
 ) -> Any:
@@ -319,9 +320,9 @@ async def estimate_backup_size(
     try:
         # Estimer la taille du backup
         estimated_size = backup_service.estimate_backup_size(
-            includes_database=backup_data.includes_database,
-            includes_storage=backup_data.includes_storage,
-            includes_config=backup_data.includes_config,
+            includes_database=estimate_request.includes_database,
+            includes_storage=estimate_request.includes_storage,
+            includes_config=estimate_request.includes_config,
         )
 
         # Récupérer l'espace disque disponible

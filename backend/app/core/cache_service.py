@@ -85,6 +85,9 @@ class CacheService:
                         redis_url = f"redis://:{db_settings.redis_password}@{db_settings.redis_host}:{db_settings.redis_port}/{db_settings.redis_db}"
                     else:
                         redis_url = f"redis://{db_settings.redis_host}:{db_settings.redis_port}/{db_settings.redis_db}"
+
+                    # Utiliser le TTL configuré dans app_settings
+                    self._default_ttl = db_settings.redis_default_ttl
                 else:
                     # Fallback sur config.py si pas de settings en DB
                     redis_url = settings.REDIS_URL

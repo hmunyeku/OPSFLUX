@@ -6,6 +6,7 @@ from sqlmodel import select
 
 from app.api.deps import SessionDep, get_current_active_superuser
 from app.core.email_service import email_service
+from app.core.cache_service import cache_service
 from app.models import AppSettings, AppSettingsPublic, AppSettingsUpdate, Message
 
 router = APIRouter(prefix="/settings", tags=["settings"])
@@ -23,10 +24,12 @@ class EmailTestResponse(BaseModel):
 
 
 @router.get("/", response_model=AppSettingsPublic)
-def read_settings(session: SessionDep) -> Any:
+@cache_service.cached(namespace="settings")
+async def read_settings(session: SessionDep) -> Any:
     """
     Get application settings.
     This endpoint is public as it's needed for the login page and other public pages.
+    Uses default TTL from settings (redis_default_ttl).
     """
     statement = select(AppSettings).where(AppSettings.deleted_at == None).limit(1)  # noqa: E711
     settings = session.exec(statement).first()
@@ -45,12 +48,13 @@ def read_settings(session: SessionDep) -> Any:
     dependencies=[Depends(get_current_active_superuser)],
     response_model=AppSettingsPublic,
 )
-def update_settings(
+async def update_settings(
     *, session: SessionDep, settings_in: AppSettingsUpdate
 ) -> Any:
     """
     Update application settings.
     Only superusers can update settings.
+    Invalidates settings cache.
     """
     statement = select(AppSettings).where(AppSettings.deleted_at == None).limit(1)  # noqa: E711
     db_settings = session.exec(statement).first()
@@ -68,6 +72,9 @@ def update_settings(
     session.add(db_settings)
     session.commit()
     session.refresh(db_settings)
+
+    # Invalidate cache
+    await cache_service.clear_namespace("settings")
 
     return db_settings
 

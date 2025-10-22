@@ -29,6 +29,7 @@ from app.models_i18n import (
     UserLanguagePreference,
     UserLanguagePreferencePublic,
 )
+from app.core.cache_service import cache_service
 
 
 router = APIRouter(prefix="/languages", tags=["languages"])
@@ -363,7 +364,7 @@ def read_translations(
 
 
 @router.post("/translations/", response_model=TranslationPublic)
-def create_translation(
+async def create_translation(
     *,
     session: SessionDep,
     current_user: CurrentUser,
@@ -371,6 +372,7 @@ def create_translation(
 ) -> Any:
     """
     Crée une nouvelle traduction.
+    Invalidates i18n cache.
     """
     # Vérifier si la traduction existe déjà
     existing = session.exec(
@@ -397,11 +399,14 @@ def create_translation(
     session.commit()
     session.refresh(translation)
 
+    # Invalidate i18n cache
+    await cache_service.clear_namespace("i18n")
+
     return TranslationPublic.model_validate(translation)
 
 
 @router.patch("/translations/{translation_id}", response_model=TranslationPublic)
-def update_translation(
+async def update_translation(
     *,
     translation_id: uuid.UUID,
     session: SessionDep,
@@ -410,6 +415,7 @@ def update_translation(
 ) -> Any:
     """
     Met à jour une traduction.
+    Invalidates i18n cache.
     """
     translation = session.get(Translation, translation_id)
     if not translation or translation.deleted_at:
@@ -432,11 +438,14 @@ def update_translation(
     session.commit()
     session.refresh(translation)
 
+    # Invalidate i18n cache
+    await cache_service.clear_namespace("i18n")
+
     return TranslationPublic.model_validate(translation)
 
 
 @router.delete("/translations/{translation_id}", response_model=Message)
-def delete_translation(
+async def delete_translation(
     translation_id: uuid.UUID,
     session: SessionDep,
     current_user: CurrentUser,
@@ -444,6 +453,7 @@ def delete_translation(
 ) -> Message:
     """
     Supprime une traduction (soft delete).
+    Invalidates i18n cache.
 
     Requiert les privilèges superuser.
     """
@@ -458,6 +468,9 @@ def delete_translation(
 
     session.add(translation)
     session.commit()
+
+    # Invalidate i18n cache
+    await cache_service.clear_namespace("i18n")
 
     return Message(message="Translation deleted successfully")
 
@@ -530,7 +543,11 @@ def import_translations(
 
 
 @router.get("/translations/export", response_model=TranslationExportResponse)
-def export_translations(
+@cache_service.cached(
+    namespace="i18n",
+    key_builder=lambda session, namespace_id, language_id, namespace_code, language_code: f"export:{namespace_id}:{language_id}:{namespace_code}:{language_code}"
+)
+async def export_translations(
     session: SessionDep,
     namespace_id: uuid.UUID | None = None,
     language_id: uuid.UUID | None = None,
@@ -539,6 +556,7 @@ def export_translations(
 ) -> Any:
     """
     Exporte toutes les traductions d'un namespace pour une langue donnée (endpoint public).
+    Uses default TTL from settings (redis_default_ttl).
 
     Peut utiliser soit les IDs, soit les codes (namespace_code + language_code).
     Retourne un dictionnaire {key: value} de toutes les traductions.

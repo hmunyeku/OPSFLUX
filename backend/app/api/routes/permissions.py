@@ -23,12 +23,17 @@ from app.models_rbac import (
     Message,
 )
 from app.models_modules import Module, ModuleStatus
+from app.core.cache_service import cache_service
 
 router = APIRouter(prefix="/permissions", tags=["permissions"])
 
 
 @router.get("/", response_model=PermissionsPublic)
-def read_permissions(
+@cache_service.cached(
+    namespace="rbac",
+    key_builder=lambda session, current_user, skip, limit, module, is_default, is_active: f"permissions:{skip}:{limit}:{module}:{is_default}:{is_active}"
+)
+async def read_permissions(
     session: SessionDep,
     current_user: CurrentUser,
     skip: int = 0,
@@ -39,6 +44,7 @@ def read_permissions(
 ) -> Any:
     """
     Retrieve permissions.
+    Uses default TTL from settings (redis_default_ttl).
     Requires rbac.read permission.
     Only shows permissions from ACTIVE modules (core permissions are always shown).
     """

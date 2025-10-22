@@ -10,6 +10,7 @@ from app.api.routes import (
     backups,
     bookmarks,
     cache,
+    database,
     email_templates,
     groups,
     hooks,
@@ -77,6 +78,7 @@ api_router.include_router(queue.router)  # Queue service (Celery)
 api_router.include_router(metrics.router)  # Metrics service (Prometheus)
 api_router.include_router(search.router)  # Search service (PostgreSQL FTS)
 api_router.include_router(backups.router)  # Backup & Restore service
+api_router.include_router(database.router)  # Database management & monitoring
 api_router.include_router(ai.router, prefix="/ai", tags=["AI"])  # AI Assistant service
 
 

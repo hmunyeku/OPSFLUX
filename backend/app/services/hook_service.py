@@ -242,8 +242,13 @@ async def _action_send_notification(
         raise ValueError("Missing 'user_id' or 'user_ids' in notification config")
 
     # Formater le titre et le message avec le contexte
-    title = config["title"].format(**context)
-    message = config["message"].format(**context)
+    try:
+        title = config["title"].format(**context)
+        message = config["message"].format(**context)
+    except KeyError as e:
+        logger.error(f"Missing context key for notification template: {e}")
+        title = config.get("title", "Notification")
+        message = config.get("message", "")
 
     # Mapper la priorité
     priority_map = {
@@ -260,7 +265,11 @@ async def _action_send_notification(
     # Action URL optionnelle
     action_url = None
     if "action_url" in config:
-        action_url = config["action_url"].format(**context)
+        try:
+            action_url = config["action_url"].format(**context)
+        except KeyError as e:
+            logger.error(f"Missing context key for action_url template: {e}")
+            action_url = config.get("action_url", None)
 
     # Envoyer la notification à chaque utilisateur
     for user_id in user_ids:
@@ -304,7 +313,11 @@ async def _action_send_email(
 
     # Formater le sujet avec le contexte
     subject = config.get("subject", "Notification")
-    subject = subject.format(**context)
+    try:
+        subject = subject.format(**context)
+    except KeyError as e:
+        logger.error(f"Missing context key for email subject template: {e}")
+        subject = config.get("subject", "Notification")
 
     # Gérer le corps de l'email (body ou template)
     if "template" in config:
@@ -316,7 +329,11 @@ async def _action_send_email(
         body = config.get("body", "<p>Notification</p>")
 
     # Formater le corps avec le contexte
-    body = body.format(**context)
+    try:
+        body = body.format(**context)
+    except KeyError as e:
+        logger.error(f"Missing context key for email body template: {e}")
+        body = config.get("body", "<p>Notification</p>")
 
     # Si le corps ne contient pas de HTML, l'envelopper dans un template simple
     if not body.strip().startswith("<"):

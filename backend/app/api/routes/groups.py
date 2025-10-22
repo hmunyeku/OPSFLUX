@@ -15,6 +15,7 @@ from app.api.deps import (
     SessionDep,
     get_current_active_superuser,
 )
+from app.core.rbac import require_permission
 from app.models_rbac import (
     Group,
     GroupCreate,
@@ -36,6 +37,7 @@ class GroupMembersUpdate(BaseModel):
 
 
 @router.get("/", response_model=GroupsPublic)
+@require_permission("rbac.read")
 def read_groups(
     session: SessionDep,
     current_user: CurrentUser,
@@ -49,7 +51,6 @@ def read_groups(
     Retrieve groups.
     Requires rbac.read permission.
     """
-    # TODO: Check rbac.read permission
     count_statement = select(func.count()).select_from(Group)
     statement = select(Group)
 
@@ -78,6 +79,7 @@ def read_groups(
 
 
 @router.get("/{group_id}", response_model=GroupPublic)
+@require_permission("rbac.read")
 def read_group(
     group_id: uuid.UUID,
     session: SessionDep,
@@ -88,7 +90,6 @@ def read_group(
     Get a specific group by id with its permissions.
     Requires rbac.read permission.
     """
-    # TODO: Check rbac.read permission
     group = session.get(Group, group_id)
     if not group or group.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Group not found")
@@ -255,6 +256,7 @@ def delete_group(
 
 
 @router.get("/{group_id}/members")
+@require_permission("rbac.read")
 def read_group_members(
     group_id: uuid.UUID,
     session: SessionDep,
@@ -264,7 +266,6 @@ def read_group_members(
     Get all members of a specific group.
     Requires rbac.read permission.
     """
-    # TODO: Check rbac.read permission
     group = session.get(Group, group_id)
     if not group or group.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Group not found")

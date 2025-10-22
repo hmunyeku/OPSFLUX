@@ -1,9 +1,12 @@
 import asyncio
+import logging
 import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import col, delete, func, select
+
+logger = logging.getLogger(__name__)
 
 from app import crud
 from app.api.deps import (
@@ -105,8 +108,7 @@ async def create_user(*, session: SessionDep, user_in: UserCreate) -> Any:
         )
     except Exception as e:
         # Ne pas bloquer la création si le hook échoue
-        import logging
-        logging.getLogger(__name__).warning(f"Failed to trigger user.created hook: {e}")
+        logger.warning(f"Failed to trigger user.created hook: {e}")
 
     return user
 
@@ -294,8 +296,7 @@ async def update_user(
             db=session,
         )
     except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning(f"Failed to trigger user.updated hook: {e}")
+        logger.warning(f"Failed to trigger user.updated hook: {e}")
 
     return db_user
 
@@ -335,8 +336,7 @@ async def delete_user(
             db=session,
         )
     except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning(f"Failed to trigger user.deleted hook: {e}")
+        logger.warning(f"Failed to trigger user.deleted hook: {e}")
 
     return Message(message="User deleted successfully")
 

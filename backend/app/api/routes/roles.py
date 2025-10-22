@@ -14,6 +14,7 @@ from app.api.deps import (
     SessionDep,
     get_current_active_superuser,
 )
+from app.core.rbac import require_permission
 from app.models_rbac import (
     Permission,
     Role,
@@ -28,6 +29,7 @@ router = APIRouter(prefix="/roles", tags=["roles"])
 
 
 @router.get("/", response_model=RolesPublic)
+@require_permission("rbac.read")
 def read_roles(
     session: SessionDep,
     current_user: CurrentUser,
@@ -40,7 +42,6 @@ def read_roles(
     Retrieve roles.
     Requires rbac.read permission.
     """
-    # TODO: Check rbac.read permission
     count_statement = select(func.count()).select_from(Role)
     statement = select(Role)
 
@@ -66,6 +67,7 @@ def read_roles(
 
 
 @router.get("/{role_id}", response_model=RolePublic)
+@require_permission("rbac.read")
 def read_role(
     role_id: uuid.UUID,
     session: SessionDep,
@@ -76,7 +78,6 @@ def read_role(
     Get a specific role by id with its permissions.
     Requires rbac.read permission.
     """
-    # TODO: Check rbac.read permission
     role = session.get(Role, role_id)
     if not role or role.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Role not found")

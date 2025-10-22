@@ -14,6 +14,7 @@ from app.api.deps import (
     SessionDep,
     get_current_active_superuser,
 )
+from app.core.rbac import require_permission
 from app.models_rbac import (
     Permission,
     PermissionCreate,
@@ -33,6 +34,7 @@ router = APIRouter(prefix="/permissions", tags=["permissions"])
     namespace="rbac",
     key_builder=lambda session, current_user, skip, limit, module, is_default, is_active, only_active_modules: f"permissions:{skip}:{limit}:{module}:{is_default}:{is_active}:{only_active_modules}"
 )
+@require_permission("rbac.read")
 async def read_permissions(
     session: SessionDep,
     current_user: CurrentUser,
@@ -50,7 +52,6 @@ async def read_permissions(
     By default, shows permissions from ACTIVE modules only (core permissions are always shown).
     Set only_active_modules=false to see permissions from all modules.
     """
-    # TODO: Check rbac.read permission
     count_statement = select(func.count()).select_from(Permission)
     statement = select(Permission)
 
@@ -94,6 +95,7 @@ async def read_permissions(
 
 
 @router.get("/{permission_id}", response_model=PermissionPublic)
+@require_permission("rbac.read")
 def read_permission(
     permission_id: uuid.UUID,
     session: SessionDep,
@@ -103,7 +105,6 @@ def read_permission(
     Get a specific permission by id.
     Requires rbac.read permission.
     """
-    # TODO: Check rbac.read permission
     permission = session.get(Permission, permission_id)
     if not permission or permission.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Permission not found")

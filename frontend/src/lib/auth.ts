@@ -3,6 +3,8 @@
  * Handles localStorage-based token persistence for client-side authentication
  */
 
+import { adminerWindowManager } from './adminer-windows'
+
 const TOKEN_KEY = 'access_token'
 
 export const auth = {
@@ -30,12 +32,16 @@ export const auth = {
 
   /**
    * Remove the authentication token from localStorage
+   * Also closes all Adminer windows for security
    */
   removeToken(): void {
     if (typeof window === 'undefined') {
       return
     }
     localStorage.removeItem(TOKEN_KEY)
+
+    // Close all Adminer windows for security
+    adminerWindowManager.closeAllWindows()
   },
 }
 

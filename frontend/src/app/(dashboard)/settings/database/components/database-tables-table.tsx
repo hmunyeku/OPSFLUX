@@ -4,7 +4,6 @@ import { useState } from "react"
 import {
   ColumnDef,
   ColumnFiltersState,
-  RowData,
   SortingState,
   VisibilityState,
   flexRender,
@@ -24,36 +23,25 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { User } from "../data/schema"
+import { DatabaseTable } from "./database-tables-columns"
 import { DataTablePagination } from "./data-table-pagination"
 import { DataTableToolbar } from "./data-table-toolbar"
-import { useTranslation } from "@/hooks/use-translation"
-
-declare module "@tanstack/react-table" {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  interface ColumnMeta<TData extends RowData, TValue> {
-    className: string
-  }
-}
 
 interface Props {
-  columns: ColumnDef<User>[]
-  data: User[]
-  onUserCreated?: () => void
+  columns: ColumnDef<DatabaseTable>[]
+  data: DatabaseTable[]
 }
 
-export function UsersTable({ columns, data, onUserCreated }: Props) {
-  const { t } = useTranslation("core.users")
+export function DatabaseTablesTable({ columns, data }: Props) {
   const [rowSelection, setRowSelection] = useState({})
-  // Hide columns on mobile by default
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
-    phoneNumber: false,
-    createdAt: false,
-    lastLoginAt: false,
-    role: false,
-  })
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
-  const [sorting, setSorting] = useState<SortingState>([])
+  const [sorting, setSorting] = useState<SortingState>([
+    {
+      id: "row_count",
+      desc: true, // Sort by row count descending by default
+    }
+  ])
 
   const table = useReactTable({
     data,
@@ -79,20 +67,15 @@ export function UsersTable({ columns, data, onUserCreated }: Props) {
 
   return (
     <div className="space-y-4">
-      <DataTableToolbar table={table} onUserCreated={onUserCreated} />
-      <div className="rounded-md border overflow-hidden">
-        <div className="overflow-x-auto">
-          <Table>
+      <DataTableToolbar table={table} />
+      <div className="rounded-md border">
+        <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
                   return (
-                    <TableHead
-                      key={header.id}
-                      colSpan={header.colSpan}
-                      className={header.column.columnDef.meta?.className ?? ""}
-                    >
+                    <TableHead key={header.id} colSpan={header.colSpan}>
                       {header.isPlaceholder
                         ? null
                         : flexRender(
@@ -113,10 +96,7 @@ export function UsersTable({ columns, data, onUserCreated }: Props) {
                   data-state={row.getIsSelected() && "selected"}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
-                      className={cell.column.columnDef.meta?.className ?? ""}
-                    >
+                    <TableCell key={cell.id}>
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()
@@ -131,13 +111,12 @@ export function UsersTable({ columns, data, onUserCreated }: Props) {
                   colSpan={columns.length}
                   className="h-24 text-center"
                 >
-                  {t("table.no_results", "Aucun résultat")}
+                  Aucune table trouvée.
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
-        </div>
       </div>
       <DataTablePagination table={table} />
     </div>

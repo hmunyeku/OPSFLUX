@@ -28,31 +28,31 @@ export function UsersStats({ users }: UsersStatsProps) {
 
   const stats: UserStatProps[] = [
     {
-      title: t("stats.total"),
-      desc: t("stats.total_desc"),
+      title: t("stats.total", "Total"),
+      desc: t("stats.total_desc", "Nombre total d'utilisateurs"),
       stat: totalUsers.toString(),
-      statDesc: t("stats.total_count", { count: users.length }),
+      statDesc: t("stats.total_users", `${users.length} utilisateurs`),
       icon: IconUsersGroup,
     },
     {
-      title: t("stats.new_this_month"),
-      desc: t("stats.new_this_month_desc"),
+      title: t("stats.new_this_month", "Nouveaux"),
+      desc: t("stats.new_this_month_desc", "Créés ce mois-ci"),
       stat: `+${newUsers}`,
-      statDesc: t("stats.percentage_of_total", { percentage: ((newUsers/totalUsers)*100).toFixed(0) }),
+      statDesc: t("stats.new_users_count", `${newUsers} ce mois`),
       icon: IconUsersPlus,
     },
     {
-      title: t("stats.invited"),
-      desc: t("stats.invited_desc"),
+      title: t("stats.invited", "Invités"),
+      desc: t("stats.invited_desc", "En attente d'activation"),
       stat: invitedUsers.toString(),
-      statDesc: t("stats.percentage_of_total", { percentage: ((invitedUsers/totalUsers)*100).toFixed(0) }),
+      statDesc: t("stats.invited_count", `${invitedUsers} invités`),
       icon: IconUserScan,
     },
     {
-      title: t("stats.active"),
-      desc: t("stats.active_desc"),
+      title: t("stats.active", "Actifs"),
+      desc: t("stats.active_desc", "Utilisateurs actifs"),
       stat: activeUsers.toString(),
-      statDesc: t("stats.percentage_of_total", { percentage: ((activeUsers/totalUsers)*100).toFixed(0) }),
+      statDesc: t("stats.active_count", `${activeUsers} actifs`),
       icon: IconUserCheck,
     },
   ]

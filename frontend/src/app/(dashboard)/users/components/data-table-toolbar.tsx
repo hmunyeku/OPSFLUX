@@ -67,49 +67,49 @@ export function DataTableToolbar<TData>({ table, onUserCreated }: Props<TData>) 
   }, [])
 
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex flex-1 flex-col-reverse items-start gap-y-2 sm:flex-row sm:items-center sm:space-x-2">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:space-x-2">
         <Input
-          placeholder={t("filter.search", "Search")}
+          placeholder={t("filter.search", "Rechercher")}
           value={(table.getColumn("email")?.getFilterValue() as string) ?? ""}
           onChange={(event) =>
             table.getColumn("email")?.setFilterValue(event.target.value)
           }
-          className="h-8 w-[150px] lg:w-[250px]"
+          className="h-8 w-full sm:w-[200px] lg:w-[250px]"
         />
-        <div className="flex gap-x-2">
+        <div className="flex flex-wrap gap-2">
           {table.getColumn("status") && (
             <DataTableFacetedFilter
               column={table.getColumn("status")}
-              title={t("field.status", "Status")}
+              title={t("field.status", "Statut")}
               options={[
-                { label: t("status.active"), value: "active" },
-                { label: t("status.inactive"), value: "inactive" },
-                { label: t("status.invited"), value: "invited" },
-                { label: t("status.suspended"), value: "suspended" },
+                { label: t("status.active", "Actif"), value: "active" },
+                { label: t("status.inactive", "Inactif"), value: "inactive" },
+                { label: t("status.invited", "Invité"), value: "invited" },
+                { label: t("status.suspended", "Suspendu"), value: "suspended" },
               ]}
             />
           )}
           {table.getColumn("role") && roles.length > 0 && (
             <DataTableFacetedFilter
               column={table.getColumn("role")}
-              title={t("field.role", "Role")}
+              title={t("field.role", "Rôle")}
               options={roles}
             />
           )}
+          {isFiltered && (
+            <Button
+              variant="ghost"
+              onClick={() => table.resetColumnFilters()}
+              className="h-8 px-2 lg:px-3"
+            >
+              {t("filter.reset", "Réinitialiser")}
+              <Cross2Icon className="ml-2 h-4 w-4" />
+            </Button>
+          )}
         </div>
-        {isFiltered && (
-          <Button
-            variant="ghost"
-            onClick={() => table.resetColumnFilters()}
-            className="h-8 px-2 lg:px-3"
-          >
-            {t("filter.reset", "Reset")}
-            <Cross2Icon className="ml-2 h-4 w-4" />
-          </Button>
-        )}
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 self-end sm:self-auto">
         <UserPrimaryActions onUserCreated={onUserCreated} />
         <DataTableViewOptions table={table} />
       </div>

@@ -34,7 +34,7 @@ export default function UsersPage() {
             </BreadcrumbList>
           </Breadcrumb>
 
-          <h2 className="text-2xl font-bold tracking-tight">{t("page.description", "Description")}</h2>
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight">{t("page.title", "Utilisateurs")}</h2>
         </div>
 
         <UsersSection />

@@ -68,9 +68,11 @@ import {
   downloadBackup,
   restoreBackup,
   deleteBackup,
+  estimateBackupSize,
   type Backup,
   type BackupCreate,
   type BackupRestore,
+  type BackupEstimateResponse,
 } from "./data/backups-api"
 import { PermissionGuard } from "@/components/permission-guard"
 import { usePermissions } from "@/hooks/use-permissions"
@@ -153,17 +155,43 @@ function BackupsPageContent() {
     restore_config: true,
   })
 
+  const [estimating, setEstimating] = useState(false)
+  const [estimation, setEstimation] = useState<BackupEstimateResponse | null>(null)
+
+  // Fetch size estimation when dialog opens or checkboxes change
+  useEffect(() => {
+    if (createDialogOpen) {
+      const fetchEstimation = async () => {
+        setEstimating(true)
+        try {
+          const estimate = await estimateBackupSize({
+            includes_database: newBackup.includes_database,
+            includes_storage: newBackup.includes_storage,
+            includes_config: newBackup.includes_config,
+          })
+          setEstimation(estimate)
+        } catch (error) {
+          console.error("Failed to estimate backup size:", error)
+          setEstimation(null)
+        } finally {
+          setEstimating(false)
+        }
+      }
+      fetchEstimation()
+    }
+  }, [createDialogOpen, newBackup.includes_database, newBackup.includes_storage, newBackup.includes_config])
+
   const fetchBackups = useCallback(async () => {
     setLoading(true)
     try {
       const data = await getBackups({ limit: 100 })
       setBackups(data.data)
     } catch (error) {
-      showLoadError(t("page.title", "les sauvegardes"), fetchBackups)
+      showLoadError("les sauvegardes", fetchBackups)
     } finally {
       setLoading(false)
     }
-  }, [t])
+  }, [])
 
   useEffect(() => {
     fetchBackups()
@@ -668,66 +696,74 @@ function BackupsPageContent() {
             <div className="space-y-2">
               <Label>Éléments à inclure</Label>
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="includes_database"
-                      checked={newBackup.includes_database}
-                      onCheckedChange={(checked) =>
-                        setNewBackup({ ...newBackup, includes_database: !!checked })
-                      }
-                    />
-                    <Label htmlFor="includes_database" className="font-normal">
-                      Base de données (PostgreSQL)
-                    </Label>
-                  </div>
-                  <Badge variant="outline" className="text-xs">
-                    <IconDatabase className="h-3 w-3 mr-1" />
-                    Taille estimée
-                  </Badge>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="includes_database"
+                    checked={newBackup.includes_database}
+                    onCheckedChange={(checked) =>
+                      setNewBackup({ ...newBackup, includes_database: !!checked })
+                    }
+                  />
+                  <Label htmlFor="includes_database" className="font-normal">
+                    Base de données (PostgreSQL)
+                  </Label>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="includes_storage"
-                      checked={newBackup.includes_storage}
-                      onCheckedChange={(checked) =>
-                        setNewBackup({ ...newBackup, includes_storage: !!checked })
-                      }
-                    />
-                    <Label htmlFor="includes_storage" className="font-normal">
-                      Fichiers uploadés (storage)
-                    </Label>
-                  </div>
-                  <Badge variant="outline" className="text-xs">
-                    Taille estimée
-                  </Badge>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="includes_storage"
+                    checked={newBackup.includes_storage}
+                    onCheckedChange={(checked) =>
+                      setNewBackup({ ...newBackup, includes_storage: !!checked })
+                    }
+                  />
+                  <Label htmlFor="includes_storage" className="font-normal">
+                    Fichiers uploadés (storage)
+                  </Label>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="includes_config"
-                      checked={newBackup.includes_config}
-                      onCheckedChange={(checked) =>
-                        setNewBackup({ ...newBackup, includes_config: !!checked })
-                      }
-                    />
-                    <Label htmlFor="includes_config" className="font-normal">
-                      Configuration de l'application
-                    </Label>
-                  </div>
-                  <Badge variant="outline" className="text-xs">
-                    Taille estimée
-                  </Badge>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="includes_config"
+                    checked={newBackup.includes_config}
+                    onCheckedChange={(checked) =>
+                      setNewBackup({ ...newBackup, includes_config: !!checked })
+                    }
+                  />
+                  <Label htmlFor="includes_config" className="font-normal">
+                    Configuration de l'application
+                  </Label>
                 </div>
               </div>
             </div>
+            {estimation && !estimating && (
+              <div className="mt-4 p-4 bg-muted rounded-lg space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Taille estimée:</span>
+                  <span className="font-medium">{estimation.estimated_size_formatted}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Espace disponible:</span>
+                  <span className="font-medium">{estimation.disk_space.available_formatted}</span>
+                </div>
+                {!estimation.has_enough_space && (
+                  <div className="flex items-center gap-2 text-sm text-destructive mt-2">
+                    <IconX className="h-4 w-4" />
+                    <span>Espace disque insuffisant pour créer cette sauvegarde</span>
+                  </div>
+                )}
+                {estimation.has_enough_space && (
+                  <div className="flex items-center gap-2 text-sm text-green-600 mt-2">
+                    <IconCheck className="h-4 w-4" />
+                    <span>Espace disque suffisant</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
               Annuler
             </Button>
-            <Button onClick={handleCreateBackup} disabled={creating}>
+            <Button onClick={handleCreateBackup} disabled={creating || !estimation?.has_enough_space}>
               {creating ? (
                 <>
                   <IconLoader className="h-4 w-4 mr-2 animate-spin" />

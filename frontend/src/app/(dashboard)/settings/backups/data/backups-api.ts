@@ -39,6 +39,29 @@ export interface BackupRestore {
   restore_config?: boolean
 }
 
+export interface BackupEstimate {
+  includes_database?: boolean
+  includes_storage?: boolean
+  includes_config?: boolean
+}
+
+export interface BackupEstimateResponse {
+  estimated_size: number
+  estimated_size_formatted: string
+  disk_space: {
+    total: number
+    used: number
+    available: number
+    total_formatted: string
+    used_formatted: string
+    available_formatted: string
+    percent_used: number
+  }
+  has_enough_space: boolean
+  required_space: number
+  required_space_formatted: string
+}
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.opsflux.io'
 
 function getAuthHeaders() {
@@ -194,6 +217,28 @@ export async function deleteBackup(id: string): Promise<void> {
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Error deleting backup:', error)
+    throw error
+  }
+}
+
+export async function estimateBackupSize(options: BackupEstimate): Promise<BackupEstimateResponse> {
+  try {
+    const response = await fetch(`${API_URL}/api/v1/backups/estimate`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(options),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.detail || `Failed to estimate backup size: ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    return data
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Error estimating backup size:', error)
     throw error
   }
 }

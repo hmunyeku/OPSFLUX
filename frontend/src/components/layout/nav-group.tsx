@@ -48,7 +48,7 @@ export function NavGroup({ title, items }: NavGroup) {
                   tooltip={item.title}
                 >
                   <Link href={item.url} onClick={() => setOpenMobile(false)}>
-                    {item.icon && <item.icon />}
+                    {item.icon && <item.icon className={isCollapsed ? "h-5 w-5" : ""} />}
                     <span>{item.title}</span>
                     {item.badge && <NavBadge>{item.badge}</NavBadge>}
                   </Link>
@@ -68,7 +68,7 @@ export function NavGroup({ title, items }: NavGroup) {
                       tooltip={item.title}
                       className="w-full"
                     >
-                      {item.icon && <item.icon />}
+                      {item.icon && <item.icon className="h-5 w-5" />}
                       <span>{item.title}</span>
                       {item.badge && <NavBadge>{item.badge}</NavBadge>}
                     </SidebarMenuButton>

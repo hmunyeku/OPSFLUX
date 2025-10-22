@@ -53,8 +53,7 @@ const sidebarNavItems = [
   {
     title: "Base de données",
     icon: <IconServer />,
-    href: "https://adminer.opsflux.io",
-    external: true,
+    href: "/settings/database",
   },
   {
     title: "Fichiers",

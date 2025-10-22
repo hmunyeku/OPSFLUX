@@ -84,8 +84,8 @@ export function UsersInviteDialog({ open, onOpenChange, onUserCreated }: Props) 
       setRoles(data)
     } catch (_error) {
       toast({
-        title: t("toast.error_title"),
-        description: t("toast.error_load_roles"),
+        title: t("toast.error_title", "Erreur"),
+        description: t("toast.error_load_roles", "Impossible de charger les rôles"),
         variant: "destructive",
       })
     } finally {
@@ -122,15 +122,15 @@ export function UsersInviteDialog({ open, onOpenChange, onUserCreated }: Props) 
 
       form.reset()
       toast({
-        title: t("toast.invitation_sent_title"),
-        description: t("toast.invitation_sent_description", { email: values.email }),
+        title: t("toast.invitation_sent_title", "Invitation envoyée"),
+        description: t("toast.invitation_sent_description", `Invitation envoyée à ${values.email}`),
       })
       onOpenChange(false)
       onUserCreated?.()
     } catch (error) {
       toast({
-        title: t("toast.error_title"),
-        description: error instanceof Error ? error.message : t("toast.error_send_invitation"),
+        title: t("toast.error_title", "Erreur"),
+        description: error instanceof Error ? error.message : t("toast.error_send_invitation", "Échec de l'envoi"),
         variant: "destructive",
       })
     } finally {
@@ -150,10 +150,10 @@ export function UsersInviteDialog({ open, onOpenChange, onUserCreated }: Props) 
         <SheetHeader className="flex-shrink-0">
           <SheetTitle className="flex items-center gap-2">
             <IconMailPlus className="h-5 w-5" />
-            {t("invite_dialog.title", "Title")}
+            {t("invite_dialog.title", "Inviter un utilisateur")}
           </SheetTitle>
           <SheetDescription>
-            {t("invite_dialog.description", "Description")}
+            {t("invite_dialog.description", "Envoyez une invitation par email avec un lien pour créer un compte.")}
           </SheetDescription>
         </SheetHeader>
 
@@ -168,7 +168,7 @@ export function UsersInviteDialog({ open, onOpenChange, onUserCreated }: Props) 
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-medium text-foreground">
-                    {t("sections.personal_info", "Personal Information")}
+                    {t("sections.personal_info", "Informations")}
                   </h3>
                   <Separator className="flex-1" />
                 </div>
@@ -229,7 +229,7 @@ export function UsersInviteDialog({ open, onOpenChange, onUserCreated }: Props) 
                         />
                       </FormControl>
                       <FormDescription>
-                        {t("fields.email.invite_helper", "An email will be sent to this address with a link to create their account")}
+                        {t("fields.email.invite_helper", "Un email sera envoyé à cette adresse")}
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -241,7 +241,7 @@ export function UsersInviteDialog({ open, onOpenChange, onUserCreated }: Props) 
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-medium text-foreground">
-                    {t("sections.account", "Account Details")}
+                    {t("sections.account", "Compte")}
                   </h3>
                   <Separator className="flex-1" />
                 </div>
@@ -268,7 +268,7 @@ export function UsersInviteDialog({ open, onOpenChange, onUserCreated }: Props) 
                           }))}
                         />
                         <FormDescription>
-                          {t("fields.role.helper", "Select the role that defines user permissions")}
+                          {t("fields.role.helper", "Définit les permissions de l'utilisateur")}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -289,7 +289,7 @@ export function UsersInviteDialog({ open, onOpenChange, onUserCreated }: Props) 
                 disabled={isSubmitting}
                 className="w-full sm:w-auto"
               >
-                {t("invite_dialog.cancel", "Cancel")}
+                {t("invite_dialog.cancel", "Annuler")}
               </Button>
             </SheetClose>
             <Button
@@ -301,12 +301,12 @@ export function UsersInviteDialog({ open, onOpenChange, onUserCreated }: Props) 
               {isSubmitting ? (
                 <>
                   <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {t("invite_dialog.sending", "Sending")}
+                  {t("invite_dialog.sending", "Envoi...")}
                 </>
               ) : (
                 <>
                   <IconSend className="mr-2 h-4 w-4" />
-                  {t("invite_dialog.send_invitation", "Send invitation")}
+                  {t("invite_dialog.send_invitation", "Envoyer")}
                 </>
               )}
             </Button>

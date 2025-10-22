@@ -15,14 +15,14 @@ export default function SettingsProfilePage() {
   const tab = searchParams.get("tab", "Tab") || "profile"
 
   return (
-    <ContentSection title={t("title", "Profile")} desc={t("description", "Manage your profile settings")} className="w-full lg:max-w-full">
+    <ContentSection title={t("title", "Profil")} desc={t("description", "Gérez les paramètres de votre profil")} className="w-full lg:max-w-full">
       <Tabs defaultValue={tab} className="w-full">
         <TabsList className="w-full h-auto flex-col sm:flex-row sm:grid sm:grid-cols-4 p-1">
           <TabsTrigger value="profile" className="w-full justify-start sm:justify-center text-sm">
-            {t("tabs.profile", "Profile")}
+            {t("tabs.profile", "Profil")}
           </TabsTrigger>
           <TabsTrigger value="preferences" className="w-full justify-start sm:justify-center text-sm">
-            {t("tabs.preferences", "Preferences")}
+            {t("tabs.preferences", "Préférences")}
           </TabsTrigger>
           <TabsTrigger value="informations" className="w-full justify-start sm:justify-center text-sm">
             {t("tabs.informations", "Informations")}

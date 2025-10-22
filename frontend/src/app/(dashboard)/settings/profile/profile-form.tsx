@@ -26,7 +26,7 @@ import { auth } from "@/lib/auth"
 import { useToast } from "@/hooks/use-toast"
 import { useAppConfig } from "@/contexts/app-config-context"
 import { useTranslation } from "@/hooks/use-translation"
-import { Lock, CheckCircle2, XCircle, AlertCircle, Plus, X, ExternalLink } from "lucide-react"
+import { Lock, CheckCircle2, XCircle, AlertCircle, Plus, X, ExternalLink, User, Mail, Phone, Building, Calendar, FileSignature, Shield, Clock, Activity } from "lucide-react"
 import { PhoneInput } from "@/components/ui/phone-input"
 import { SignatureInput } from "@/components/ui/signature-input"
 import { UserAddressesCard } from "./components/user-addresses-card"
@@ -391,47 +391,92 @@ export function AccountForm() {
 
   return (
     <div className="space-y-6">
+      {/* Profile Header with Stats */}
+      <Card className="border-primary/20">
+        <CardContent className="pt-6">
+          <div className="flex flex-col md:flex-row gap-6">
+            {/* Avatar Section */}
+            <div className="flex flex-col items-center gap-4">
+              <div className="relative">
+                <ProfileAvatar
+                  currentAvatarUrl={user?.avatar_url}
+                  fullName={user?.full_name}
+                  email={user?.email}
+                  onAvatarChange={(url) => form.setValue('avatar_url', url)}
+                  size="2xl"
+                  editable={true}
+                />
+              </div>
+              <div className="text-center">
+                <h3 className="font-semibold text-lg">{user?.full_name || user?.email}</h3>
+                {user?.initials && (
+                  <p className="text-sm text-muted-foreground">{user.initials}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Stats Grid */}
+            <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Member Since */}
+              <div className="flex flex-col gap-2 p-4 rounded-lg border bg-accent/20">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Calendar className="h-4 w-4" />
+                  <span className="text-xs font-medium uppercase tracking-wide">{t("stats.member_since", "Membre depuis")}</span>
+                </div>
+                <p className="text-2xl font-bold">
+                  {user?.created_at ? new Date(user.created_at).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : '-'}
+                </p>
+              </div>
+
+              {/* Last Login */}
+              <div className="flex flex-col gap-2 p-4 rounded-lg border bg-accent/20">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Clock className="h-4 w-4" />
+                  <span className="text-xs font-medium uppercase tracking-wide">{t("stats.last_login", "Dernière connexion")}</span>
+                </div>
+                <p className="text-2xl font-bold">
+                  {user?.last_login ? new Date(user.last_login).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '-'}
+                </p>
+              </div>
+
+              {/* Account Status */}
+              <div className="flex flex-col gap-2 p-4 rounded-lg border bg-accent/20">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Activity className="h-4 w-4" />
+                  <span className="text-xs font-medium uppercase tracking-wide">{t("stats.status", "Statut")}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${user?.is_active ? 'bg-green-500' : 'bg-gray-400'}`} />
+                  <p className="text-lg font-semibold">
+                    {user?.is_active ? t("stats.active", "Actif") : t("stats.inactive", "Inactif")}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Informations du profil */}
       <Card>
         <CardHeader>
-          <CardTitle>{t("title", "Title")}</CardTitle>
+          <div className="flex items-center gap-2">
+            <User className="h-5 w-5 text-primary" />
+            <CardTitle>{t("title", "Informations du profil")}</CardTitle>
+          </div>
           <CardDescription>
-            {t("description", "Description")}
+            {t("description", "Gérez vos informations personnelles")}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              {/* Grid Layout: Avatar à gauche, informations à droite */}
-              <div className="grid gap-6 grid-cols-1 md:grid-cols-[250px_1fr]">
-                {/* Colonne gauche : Photo de profil */}
-                <div className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="avatar_url"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t("fields.avatar.label", "Label")}</FormLabel>
-                        <FormControl>
-                          <ProfileAvatar
-                            currentAvatarUrl={field.value}
-                            fullName={user?.full_name}
-                            email={user?.email}
-                            onAvatarChange={field.onChange}
-                            size="xl"
-                            editable={true}
-                          />
-                        </FormControl>
-                        <FormDescription className="text-xs">
-                          {t("fields.avatar.helper", "Helper")}
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                {/* Colonne droite : Informations personnelles */}
+              {/* Informations personnelles */}
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-4 flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  {t("section.personal", "Informations personnelles")}
+                </h3>
                 <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
                   {/* Prénom */}
                   <FormField
@@ -545,7 +590,16 @@ export function AccountForm() {
                       </FormItem>
                     )}
                   />
+                </div>
+              </div>
 
+              {/* Section Contact */}
+              <div className="pt-6 border-t">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-4 flex items-center gap-2">
+                  <Mail className="h-4 w-4" />
+                  {t("section.contact", "Coordonnées")}
+                </h3>
+                <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
                   {/* Email principal */}
                   <FormField
                     control={form.control}
@@ -582,16 +636,67 @@ export function AccountForm() {
                     )}
                   />
 
+                  {/* Téléphones */}
+                  <div className="col-span-1 md:col-span-2 space-y-2">
+                    <Label>{t("fields.phone_numbers.label", "Téléphones")}</Label>
+                    <div className="flex gap-2">
+                      <PhoneInput
+                        value={newPhone}
+                        onChange={(value) => setNewPhone(value || "")}
+                        placeholder={t("fields.phone_numbers.placeholder", "+33 6 12 34 56 78")}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={addPhoneNumber}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {phoneNumbers.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {phoneNumbers.map((phone, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center gap-1 bg-secondary text-secondary-foreground px-3 py-1 rounded-md text-sm"
+                          >
+                            <span>{phone}</span>
+                            <button
+                              type="button"
+                              onClick={() => removePhoneNumber(index)}
+                              className="hover:bg-secondary-foreground/20 rounded-full p-0.5"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {t("fields.phone_numbers.helper", "Ajoutez vos numéros de téléphone")}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section Professionnel */}
+              <div className="pt-6 border-t">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-4 flex items-center gap-2">
+                  <Building className="h-4 w-4" />
+                  {t("section.professional", "Informations professionnelles")}
+                </h3>
+                <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
                   {/* Identifiant Intranet */}
                   <FormField
                     control={form.control}
                     name="intranet_identifier"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{t("fields.intranet_id.label", "Label")}</FormLabel>
+                        <FormLabel>{t("fields.intranet_id.label", "Identifiant Intranet")}</FormLabel>
                         <div className="flex gap-2">
                           <FormControl>
-                            <Input placeholder={t("fields.intranet_id.placeholder", "Placeholder")} className="h-11" {...field} value={field.value || ""} />
+                            <Input placeholder={t("fields.intranet_id.placeholder", "ID12345")} className="h-11" {...field} value={field.value || ""} />
                           </FormControl>
                           {config.intranet_url && field.value && (
                             <Button
@@ -602,19 +707,22 @@ export function AccountForm() {
                                 const url = config.intranet_url?.replace('{user_id}', field.value || '')
                                 window.open(url, '_blank')
                               }}
-                              title={t("fields.intranet_id.access", "Access")}
+                              title={t("fields.intranet_id.access", "Accéder à l'intranet")}
                             >
                               <ExternalLink className="h-4 w-4" />
                             </Button>
                           )}
                         </div>
                         <FormDescription className="text-xs">
-                          {t("fields.intranet_id.helper", "Helper")}
+                          {t("fields.intranet_id.helper", "Votre identifiant dans l'intranet")}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+
+                  {/* Placeholder to maintain grid */}
+                  <div></div>
 
                   {/* Signature Texte */}
                   <div className="col-span-1">
@@ -662,48 +770,6 @@ export function AccountForm() {
                         </FormItem>
                       )}
                     />
-                  </div>
-
-                  {/* Téléphones */}
-                  <div className="col-span-1 md:col-span-2 space-y-2">
-                    <Label>{t("fields.phone_numbers.label", "Label")}</Label>
-                    <div className="flex gap-2">
-                      <PhoneInput
-                        value={newPhone}
-                        onChange={(value) => setNewPhone(value || "")}
-                        placeholder={t("fields.phone_numbers.placeholder", "Placeholder")}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={addPhoneNumber}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    {phoneNumbers.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {phoneNumbers.map((phone, index) => (
-                          <div
-                            key={index}
-                            className="flex items-center gap-1 bg-secondary text-secondary-foreground px-3 py-1 rounded-md text-sm"
-                          >
-                            <span>{phone}</span>
-                            <button
-                              type="button"
-                              onClick={() => removePhoneNumber(index)}
-                              className="hover:bg-secondary-foreground/20 rounded-full p-0.5"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <p className="text-xs text-muted-foreground">
-                      {t("fields.phone_numbers.helper", "Helper")}
-                    </p>
                   </div>
                 </div>
               </div>

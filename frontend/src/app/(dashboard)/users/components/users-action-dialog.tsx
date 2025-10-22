@@ -170,8 +170,8 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
       setAddressTypes(data)
     } catch (_error) {
       toast({
-        title: t("toast.error_title"),
-        description: "Erreur lors du chargement des types d'adresse",
+        title: t("toast.error_title", "Erreur"),
+        description: t("toast.error_load_address_types", "Impossible de charger les types d'adresse"),
         variant: "destructive",
       })
     } finally {
@@ -272,7 +272,7 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
             {isEdit ? t("create_dialog.title_edit", "Modifier l'utilisateur") : t("create_dialog.title_create", "Créer un utilisateur")}
           </SheetTitle>
           <SheetDescription>
-            {isEdit ? t("create_dialog.description_edit", "Modifiez les informations de l'utilisateur") : t("create_dialog.description_create", "Créez un nouvel utilisateur en remplissant les informations ci-dessous")}
+            {isEdit ? t("create_dialog.description_edit", "Modifiez les informations") : t("create_dialog.description_create", "Remplissez les informations ci-dessous")}
           </SheetDescription>
         </SheetHeader>
 
@@ -287,7 +287,7 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-medium text-foreground">
-                    {t("sections.personal_info", "Informations personnelles")}
+                    {t("sections.personal_info", "Informations")}
                   </h3>
                   <Separator className="flex-1" />
                 </div>
@@ -348,7 +348,7 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
                         />
                       </FormControl>
                       <FormDescription>
-                        {t("fields.email.helper", "L'utilisateur recevra des notifications à cette adresse")}
+                        {t("fields.email.helper", "Adresse pour les notifications")}
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -381,7 +381,7 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-medium text-foreground">
-                    {t("sections.account", "Détails du compte")}
+                    {t("sections.account", "Compte")}
                   </h3>
                   <Separator className="flex-1" />
                 </div>
@@ -432,7 +432,7 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
                       {passwordStrength && password && (
                         <div className="text-xs space-y-1 mt-2">
                           <p className="text-muted-foreground mb-1">
-                            {t("fields.password.requirements", "Le mot de passe doit contenir :")}
+                            {t("fields.password.requirements", "Requis :")}
                           </p>
                           <div className="space-y-0.5">
                             <div className={`flex items-center gap-1.5 ${passwordStrength.hasMinLength ? "text-green-600 dark:text-green-500" : "text-muted-foreground"}`}>
@@ -441,7 +441,7 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
                               ) : (
                                 <IconX className="h-3 w-3" />
                               )}
-                              <span>{t("fields.password.min_length", "Au moins 8 caractères")}</span>
+                              <span>{t("fields.password.min_length", "8 caractères min.")}</span>
                             </div>
                             <div className={`flex items-center gap-1.5 ${passwordStrength.hasLowercase ? "text-green-600 dark:text-green-500" : "text-muted-foreground"}`}>
                               {passwordStrength.hasLowercase ? (
@@ -449,7 +449,7 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
                               ) : (
                                 <IconX className="h-3 w-3" />
                               )}
-                              <span>{t("fields.password.lowercase", "Une lettre minuscule")}</span>
+                              <span>{t("fields.password.lowercase", "1 minuscule")}</span>
                             </div>
                             <div className={`flex items-center gap-1.5 ${passwordStrength.hasNumber ? "text-green-600 dark:text-green-500" : "text-muted-foreground"}`}>
                               {passwordStrength.hasNumber ? (
@@ -457,7 +457,7 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
                               ) : (
                                 <IconX className="h-3 w-3" />
                               )}
-                              <span>{t("fields.password.number", "Un chiffre")}</span>
+                              <span>{t("fields.password.number", "1 chiffre")}</span>
                             </div>
                           </div>
                         </div>

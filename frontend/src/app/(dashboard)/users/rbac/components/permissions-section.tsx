@@ -22,7 +22,11 @@ export function PermissionsSection() {
   const loadPermissions = async () => {
     try {
       setIsLoading(true)
-      const data = await getPermissions()
+      // Load ALL permissions including inactive ones and from all modules for admin management
+      const data = await getPermissions({
+        includeInactive: true,
+        onlyActiveModules: false
+      })
       setPermissions(data)
     } catch (error) {
       // eslint-disable-next-line no-console

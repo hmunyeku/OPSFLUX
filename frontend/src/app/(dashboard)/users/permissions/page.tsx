@@ -78,7 +78,11 @@ function PermissionsPageContent() {
   const loadPermissions = async () => {
     try {
       setIsLoading(true)
-      const data = await getPermissions()
+      // Load ALL permissions including inactive ones and from all modules for management
+      const data = await getPermissions({
+        includeInactive: true,
+        onlyActiveModules: false
+      })
       setPermissions(data)
     } catch (error) {
       console.error('Failed to load permissions:', error)

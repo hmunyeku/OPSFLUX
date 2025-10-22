@@ -31,7 +31,7 @@ router = APIRouter(prefix="/permissions", tags=["permissions"])
 @router.get("/", response_model=PermissionsPublic)
 @cache_service.cached(
     namespace="rbac",
-    key_builder=lambda session, current_user, skip, limit, module, is_default, is_active: f"permissions:{skip}:{limit}:{module}:{is_default}:{is_active}"
+    key_builder=lambda session, current_user, skip, limit, module, is_default, is_active, only_active_modules: f"permissions:{skip}:{limit}:{module}:{is_default}:{is_active}:{only_active_modules}"
 )
 async def read_permissions(
     session: SessionDep,
@@ -40,13 +40,15 @@ async def read_permissions(
     limit: int = 100,
     module: Optional[str] = Query(None, description="Filter by module"),
     is_default: Optional[bool] = Query(None, description="Filter by default permissions"),
-    is_active: Optional[bool] = Query(True, description="Filter by active status"),
+    is_active: Optional[bool] = Query(None, description="Filter by active status (None = all, True = active only, False = inactive only)"),
+    only_active_modules: bool = Query(True, description="Only show permissions from active modules (core is always shown)"),
 ) -> Any:
     """
     Retrieve permissions.
     Uses default TTL from settings (redis_default_ttl).
     Requires rbac.read permission.
-    Only shows permissions from ACTIVE modules (core permissions are always shown).
+    By default, shows permissions from ACTIVE modules only (core permissions are always shown).
+    Set only_active_modules=false to see permissions from all modules.
     """
     # TODO: Check rbac.read permission
     count_statement = select(func.count()).select_from(Permission)
@@ -69,19 +71,20 @@ async def read_permissions(
     count_statement = count_statement.where(Permission.deleted_at.is_(None))
     statement = statement.where(Permission.deleted_at.is_(None))
 
-    # Filter by module status: only show permissions from ACTIVE modules
+    # Filter by module status: only show permissions from ACTIVE modules if requested
     # Core permissions are always shown (module == "core")
-    count_statement = count_statement.outerjoin(
-        Module, Permission.module == Module.code
-    ).where(
-        (Permission.module == "core") | (Module.status == ModuleStatus.ACTIVE)
-    )
+    if only_active_modules:
+        count_statement = count_statement.outerjoin(
+            Module, Permission.module == Module.code
+        ).where(
+            (Permission.module == "core") | (Module.status == ModuleStatus.ACTIVE)
+        )
 
-    statement = statement.outerjoin(
-        Module, Permission.module == Module.code
-    ).where(
-        (Permission.module == "core") | (Module.status == ModuleStatus.ACTIVE)
-    )
+        statement = statement.outerjoin(
+            Module, Permission.module == Module.code
+        ).where(
+            (Permission.module == "core") | (Module.status == ModuleStatus.ACTIVE)
+        )
 
     count = session.exec(count_statement).one()
     statement = statement.offset(skip).limit(limit).order_by(Permission.module, Permission.name)

@@ -52,7 +52,11 @@ export function ManagePermissionsDialog({
   const loadPermissions = async () => {
     try {
       setIsLoading(true)
-      const perms = await getPermissions()
+      // Load ALL permissions including inactive ones and from all modules (not just active modules)
+      const perms = await getPermissions({
+        includeInactive: true,
+        onlyActiveModules: false
+      })
       setAllPermissions(perms)
     } catch {
       toast({

@@ -13,10 +13,30 @@ function getAuthHeaders() {
   }
 }
 
-export async function getPermissions(): Promise<Permission[]> {
+export interface GetPermissionsOptions {
+  includeInactive?: boolean
+  onlyActiveModules?: boolean
+}
+
+export async function getPermissions(options: GetPermissionsOptions = {}): Promise<Permission[]> {
   try {
+    const { includeInactive = false, onlyActiveModules = false } = options
+
+    // Build query parameters
+    const params = new URLSearchParams({
+      skip: '0',
+      limit: '5000',
+      only_active_modules: onlyActiveModules.toString()
+    })
+
+    // If includeInactive is false, we only want active permissions
+    if (!includeInactive) {
+      params.append('is_active', 'true')
+    }
+    // If true, we don't add the is_active param to get all permissions
+
     const response = await fetch(
-      `${API_URL}/api/v1/permissions/?skip=0&limit=1000`,
+      `${API_URL}/api/v1/permissions/?${params.toString()}`,
       {
         headers: getAuthHeaders(),
         cache: 'no-store',

@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/layout/app-sidebar"
 import { ModuleProvider } from "@/contexts/module-context"
+import { ErrorBoundary } from "@/components/error-boundary"
 
 interface Props {
   children: React.ReactNode
@@ -40,7 +41,9 @@ export default function DashboardLayout({ children }: Props) {
               "has-[data-layout=fixed]:group-data-[scroll-locked=1]/body:h-svh"
             )}
           >
-            {children}
+            <ErrorBoundary>
+              {children}
+            </ErrorBoundary>
           </div>
         </SidebarProvider>
       </ModuleProvider>

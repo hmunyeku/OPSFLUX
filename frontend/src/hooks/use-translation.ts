@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useLanguageContext } from "@/contexts/language-context"
+import { logger } from "@/lib/logger"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.opsflux.io"
 
@@ -56,7 +57,7 @@ export function useTranslation(
         return
       }
 
-      console.log(`[useTranslation] Loading translations for namespace="${namespaceCode}", language="${currentLanguage.code}"`)
+      logger.log(`[useTranslation] Loading translations for namespace="${namespaceCode}", language="${currentLanguage.code}"`)
 
       try {
         setIsLoading(true)
@@ -65,10 +66,10 @@ export function useTranslation(
         const cacheKey = `${namespaceCode}-${currentLanguage.code}`
 
         if (translationsCache[cacheKey]) {
-          console.log(`[useTranslation] Using cached translations for ${cacheKey}`)
+          logger.log(`[useTranslation] Using cached translations for ${cacheKey}`)
           setTranslations(translationsCache[cacheKey])
         } else {
-          console.log(`[useTranslation] Fetching translations from API for ${cacheKey}`)
+          logger.log(`[useTranslation] Fetching translations from API for ${cacheKey}`)
           const url = `${API_URL}/api/v1/languages/translations/export?namespace_code=${namespaceCode}&language_code=${currentLanguage.code}`
           const response = await fetch(url, {
             headers: getAuthHeaders(),

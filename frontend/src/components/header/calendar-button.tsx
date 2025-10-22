@@ -25,7 +25,11 @@ const mockEvents: Event[] = [
   { id: "2", title: "Date limite projet X", time: "17:00", type: "deadline" },
 ]
 
-export function CalendarButton() {
+interface CalendarButtonProps {
+  className?: string
+}
+
+export function CalendarButton({ className }: CalendarButtonProps) {
   const [date, setDate] = useState<Date | undefined>(new Date())
   const [open, setOpen] = useState(false)
 
@@ -45,7 +49,7 @@ export function CalendarButton() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" title="Calendrier">
+        <Button variant="ghost" size="icon" title="Calendrier" className={className}>
           <CalendarIcon className="h-5 w-5" />
         </Button>
       </PopoverTrigger>

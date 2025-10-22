@@ -14,22 +14,37 @@ interface Props {
 export function Search({ className = "", placeholder = "Search" }: Props) {
   const { setOpen } = useSearch()
   return (
-    <Button
-      variant="outline"
-      className={cn(
-        "bg-muted/25 text-muted-foreground hover:bg-muted/50 relative h-8 w-full justify-start rounded-md text-sm font-normal shadow-none sm:pr-12 md:w-40 lg:w-56 xl:w-64",
-        className
-      )}
-      onClick={() => setOpen(true)}
-    >
-      <IconSearch
-        aria-hidden="true"
-        className="absolute top-1/2 left-1.5 -translate-y-1/2"
-      />
-      <span className="ml-3">{placeholder}</span>
-      <kbd className="bg-muted pointer-events-none absolute top-[0.3rem] right-[0.3rem] hidden h-5 items-center gap-1 rounded border px-1.5 font-mono text-[10px] font-medium opacity-100 select-none sm:flex">
-        <span className="text-xs">⌘</span>K
-      </kbd>
-    </Button>
+    <>
+      {/* Mobile: icon button only */}
+      <Button
+        variant="outline"
+        size="icon"
+        className={cn("md:hidden h-9 w-9 shrink-0", className)}
+        onClick={() => setOpen(true)}
+        aria-label="Search"
+      >
+        <IconSearch className="h-4 w-4" />
+      </Button>
+
+      {/* Desktop: full search bar */}
+      <Button
+        variant="outline"
+        className={cn(
+          "bg-muted/25 text-muted-foreground hover:bg-muted/50 relative h-8 w-full justify-start rounded-md text-sm font-normal shadow-none sm:pr-12 md:w-40 lg:w-56 xl:w-64",
+          "hidden md:flex",
+          className
+        )}
+        onClick={() => setOpen(true)}
+      >
+        <IconSearch
+          aria-hidden="true"
+          className="absolute top-1/2 left-1.5 -translate-y-1/2"
+        />
+        <span className="ml-3">{placeholder}</span>
+        <kbd className="bg-muted pointer-events-none absolute top-[0.3rem] right-[0.3rem] hidden h-5 items-center gap-1 rounded border px-1.5 font-mono text-[10px] font-medium opacity-100 select-none sm:flex">
+          <span className="text-xs">⌘</span>K
+        </kbd>
+      </Button>
+    </>
   )
 }

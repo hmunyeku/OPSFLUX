@@ -22,7 +22,11 @@ interface Message {
   timestamp: Date
 }
 
-export function AiChatButton() {
+interface AiChatButtonProps {
+  className?: string
+}
+
+export function AiChatButton({ className }: AiChatButtonProps) {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -72,7 +76,7 @@ export function AiChatButton() {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" title="Assistant IA">
+        <Button variant="ghost" size="icon" title="Assistant IA" className={className}>
           <MessageCircle className="h-5 w-5" />
         </Button>
       </SheetTrigger>

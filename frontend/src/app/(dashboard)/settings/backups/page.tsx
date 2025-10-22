@@ -362,18 +362,18 @@ function BackupsPageContent() {
         </TabsList>
 
         <TabsContent value="backups" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <Button onClick={fetchBackups} variant="outline" size="sm">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 p-4 rounded-lg border bg-muted/30 shadow-sm">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button onClick={fetchBackups} variant="outline" size="sm" className="shadow-sm hover:shadow transition-shadow">
                 <IconRefresh className="h-4 w-4 mr-2" />
                 Actualiser
               </Button>
-              <div className="flex items-center gap-1 border rounded-md">
+              <div className="flex items-center gap-0 border rounded-md shadow-sm bg-background">
                 <Button
                   variant={viewMode === "grid" ? "secondary" : "ghost"}
                   size="sm"
                   onClick={() => setViewMode("grid")}
-                  className="rounded-r-none"
+                  className="rounded-r-none transition-all"
                 >
                   <IconLayoutGrid className="h-4 w-4" />
                 </Button>
@@ -381,14 +381,14 @@ function BackupsPageContent() {
                   variant={viewMode === "table" ? "secondary" : "ghost"}
                   size="sm"
                   onClick={() => setViewMode("table")}
-                  className="rounded-l-none"
+                  className="rounded-l-none transition-all"
                 >
                   <IconList className="h-4 w-4" />
                 </Button>
               </div>
             </div>
             {hasPermission("core.backups.create") && (
-              <Button onClick={() => setCreateDialogOpen(true)}>
+              <Button onClick={() => setCreateDialogOpen(true)} className="shadow-sm hover:shadow-md transition-shadow w-full sm:w-auto">
                 <IconPlus className="h-4 w-4 mr-2" />
                 Créer un backup
               </Button>
@@ -415,30 +415,32 @@ function BackupsPageContent() {
             {viewMode === "grid" ? (
             <div className="w-full space-y-3">
               {backups.map((backup) => (
-                <Card key={backup.id} className="w-full hover:shadow-md transition-all border-l-4 border-l-transparent hover:border-l-primary">
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between gap-6">
+                <Card key={backup.id} className="w-full hover:shadow-lg transition-all duration-300 border-l-4 border-l-transparent hover:border-l-primary shadow-sm group">
+                  <CardContent className="p-6 relative overflow-hidden">
+                    {/* Subtle gradient background on hover */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    <div className="flex items-start justify-between gap-6 relative z-10">
                       <div className="flex-1 min-w-0 space-y-4">
                         <div>
-                          <div className="flex items-center gap-3 mb-2">
-                            <h3 className="font-semibold text-lg">{backup.name}</h3>
+                          <div className="flex items-center gap-3 mb-2 flex-wrap">
+                            <h3 className="font-semibold text-lg transition-colors group-hover:text-primary">{backup.name}</h3>
                             {getStatusBadge(backup.status)}
                           </div>
                           {backup.description && (
-                            <p className="text-sm text-muted-foreground">{backup.description}</p>
+                            <p className="text-sm text-muted-foreground leading-relaxed">{backup.description}</p>
                           )}
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-6 text-sm">
+                        <div className="flex flex-wrap items-center gap-4 text-sm bg-muted/30 p-3 rounded-lg">
                           <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground font-medium">Type:</span>
-                            <Badge variant="secondary" className="capitalize font-normal">
+                            <span className="text-muted-foreground font-medium text-xs uppercase tracking-wide">Type:</span>
+                            <Badge variant="secondary" className="capitalize font-normal shadow-sm">
                               {backup.backup_type}
                             </Badge>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground font-medium">Taille:</span>
-                            <span className="font-mono text-sm">{formatBytes(backup.file_size)}</span>
+                            <span className="text-muted-foreground font-medium text-xs uppercase tracking-wide">Taille:</span>
+                            <span className="font-mono text-sm font-semibold">{formatBytes(backup.file_size)}</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <IconClock className="h-4 w-4 text-muted-foreground" />
@@ -449,22 +451,22 @@ function BackupsPageContent() {
                               })}
                             </span>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground font-medium">Contenu:</span>
-                            <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-muted-foreground font-medium text-xs uppercase tracking-wide">Contenu:</span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               {backup.includes_database && (
-                                <Badge variant="outline" className="text-xs px-2 py-0.5">
+                                <Badge variant="outline" className="text-xs px-2 py-0.5 shadow-sm">
                                   <IconDatabase className="h-3 w-3 mr-1" />
                                   Database
                                 </Badge>
                               )}
                               {backup.includes_storage && (
-                                <Badge variant="outline" className="text-xs px-2 py-0.5">
+                                <Badge variant="outline" className="text-xs px-2 py-0.5 shadow-sm">
                                   Files
                                 </Badge>
                               )}
                               {backup.includes_config && (
-                                <Badge variant="outline" className="text-xs px-2 py-0.5">
+                                <Badge variant="outline" className="text-xs px-2 py-0.5 shadow-sm">
                                   Config
                                 </Badge>
                               )}
@@ -473,14 +475,17 @@ function BackupsPageContent() {
                         </div>
 
                         {backup.error_message && (
-                          <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 p-3 rounded-lg">
-                            <p className="font-medium mb-1">Erreur:</p>
-                            <p>{backup.error_message}</p>
+                          <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 p-3 rounded-lg shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+                            <p className="font-semibold mb-1 flex items-center gap-2">
+                              <IconX className="h-4 w-4" />
+                              Erreur:
+                            </p>
+                            <p className="text-xs leading-relaxed">{backup.error_message}</p>
                           </div>
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2 flex-shrink-0">
+                      <div className="flex flex-col sm:flex-row items-center gap-2 flex-shrink-0">
                         {backup.status === "completed" && (
                           <>
                             {hasPermission("core.backups.download") && (
@@ -488,10 +493,10 @@ function BackupsPageContent() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleDownload(backup)}
-                                className="gap-2"
+                                className="gap-2 shadow-sm hover:shadow transition-all w-full sm:w-auto"
                               >
                                 <IconDownload className="h-4 w-4" />
-                                Télécharger
+                                <span className="hidden lg:inline">Télécharger</span>
                               </Button>
                             )}
                             {hasPermission("core.backups.restore") && (
@@ -508,10 +513,10 @@ function BackupsPageContent() {
                                   })
                                   setRestoreDialogOpen(true)
                                 }}
-                                className="gap-2"
+                                className="gap-2 shadow-sm hover:shadow transition-all w-full sm:w-auto"
                               >
                                 <IconRestore className="h-4 w-4" />
-                                Restaurer
+                                <span className="hidden lg:inline">Restaurer</span>
                               </Button>
                             )}
                           </>
@@ -524,9 +529,10 @@ function BackupsPageContent() {
                               setSelectedBackup(backup)
                               setDeleteDialogOpen(true)
                             }}
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10 transition-all hover:scale-105 w-full sm:w-auto"
                           >
                             <IconTrash className="h-4 w-4" />
+                            <span className="sm:hidden ml-2">Supprimer</span>
                           </Button>
                         )}
                       </div>
@@ -536,22 +542,22 @@ function BackupsPageContent() {
               ))}
             </div>
           ) : (
-            <Card className="w-full">
+            <Card className="w-full shadow-sm overflow-hidden">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[25%]">Nom</TableHead>
-                    <TableHead className="w-[10%]">Type</TableHead>
-                    <TableHead className="w-[12%]">Statut</TableHead>
-                    <TableHead className="w-[18%]">Contenu</TableHead>
-                    <TableHead className="w-[10%]">Taille</TableHead>
-                    <TableHead className="w-[15%]">Créé</TableHead>
-                    <TableHead className="w-[10%] text-right">Actions</TableHead>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="w-[25%] font-semibold">Nom</TableHead>
+                    <TableHead className="w-[10%] font-semibold">Type</TableHead>
+                    <TableHead className="w-[12%] font-semibold">Statut</TableHead>
+                    <TableHead className="w-[18%] font-semibold">Contenu</TableHead>
+                    <TableHead className="w-[10%] font-semibold">Taille</TableHead>
+                    <TableHead className="w-[15%] font-semibold">Créé</TableHead>
+                    <TableHead className="w-[10%] text-right font-semibold">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {backups.map((backup) => (
-                    <TableRow key={backup.id} className="hover:bg-muted/50">
+                    <TableRow key={backup.id} className="hover:bg-muted/50 transition-colors duration-200">
                       <TableCell>
                         <div>
                           <p className="font-medium">{backup.name}</p>
@@ -590,6 +596,7 @@ function BackupsPageContent() {
                                   size="sm"
                                   onClick={() => handleDownload(backup)}
                                   title="Télécharger"
+                                  className="hover:bg-primary/10 transition-all hover:scale-105"
                                 >
                                   <IconDownload className="h-4 w-4" />
                                 </Button>
@@ -609,6 +616,7 @@ function BackupsPageContent() {
                                     setRestoreDialogOpen(true)
                                   }}
                                   title="Restaurer"
+                                  className="hover:bg-primary/10 transition-all hover:scale-105"
                                 >
                                   <IconRestore className="h-4 w-4" />
                                 </Button>
@@ -624,7 +632,7 @@ function BackupsPageContent() {
                                 setDeleteDialogOpen(true)
                               }}
                               title="Supprimer"
-                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10 transition-all hover:scale-105"
                             >
                               <IconTrash className="h-4 w-4" />
                             </Button>
@@ -641,24 +649,30 @@ function BackupsPageContent() {
         </TabsContent>
 
         <TabsContent value="scheduled" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <p className="text-sm text-muted-foreground">
-              Programmez des sauvegardes automatiques régulières
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 p-4 rounded-lg border bg-muted/30 shadow-sm">
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Programmez des sauvegardes automatiques régulières pour protéger vos données
             </p>
             {hasPermission("core.backups.create") && (
-              <Button onClick={() => setScheduleDialogOpen(true)}>
+              <Button onClick={() => setScheduleDialogOpen(true)} className="shadow-sm hover:shadow-md transition-shadow w-full sm:w-auto">
                 <IconCalendar className="h-4 w-4 mr-2" />
                 Programmer une sauvegarde
               </Button>
             )}
           </div>
 
-          <Card>
-            <CardContent className="py-8">
-              <div className="text-center text-muted-foreground">
-                <IconCalendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>Aucune sauvegarde programmée</p>
-                <p className="text-sm">Créez une planification pour automatiser vos sauvegardes</p>
+          <Card className="shadow-sm border-2 border-dashed">
+            <CardContent className="py-16">
+              <div className="text-center text-muted-foreground space-y-3">
+                <div className="inline-flex p-4 rounded-full bg-muted/50">
+                  <IconCalendar className="h-12 w-12 opacity-50" />
+                </div>
+                <div className="space-y-1">
+                  <p className="font-semibold text-lg">Aucune sauvegarde programmée</p>
+                  <p className="text-sm max-w-md mx-auto leading-relaxed">
+                    Créez une planification pour automatiser vos sauvegardes et protéger vos données en continu
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -667,10 +681,10 @@ function BackupsPageContent() {
 
       {/* Create Backup Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Créer un nouveau backup</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-xl">Créer un nouveau backup</DialogTitle>
+            <DialogDescription className="text-base">
               Sauvegardez votre base de données, vos fichiers et votre configuration
             </DialogDescription>
           </DialogHeader>
@@ -735,35 +749,37 @@ function BackupsPageContent() {
               </div>
             </div>
             {estimation && !estimating && (
-              <div className="mt-4 p-4 bg-muted rounded-lg space-y-2">
+              <div className="mt-4 p-4 bg-muted rounded-lg space-y-3 border shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Taille estimée:</span>
-                  <span className="font-medium">{estimation.estimated_size_formatted}</span>
+                  <span className="text-muted-foreground font-medium">Taille estimée:</span>
+                  <span className="font-semibold">{estimation.estimated_size_formatted}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Espace disponible:</span>
-                  <span className="font-medium">{estimation.disk_space.available_formatted}</span>
+                  <span className="text-muted-foreground font-medium">Espace disponible:</span>
+                  <span className="font-semibold">{estimation.disk_space.available_formatted}</span>
                 </div>
-                {!estimation.has_enough_space && (
-                  <div className="flex items-center gap-2 text-sm text-destructive mt-2">
-                    <IconX className="h-4 w-4" />
-                    <span>Espace disque insuffisant pour créer cette sauvegarde</span>
-                  </div>
-                )}
-                {estimation.has_enough_space && (
-                  <div className="flex items-center gap-2 text-sm text-green-600 mt-2">
-                    <IconCheck className="h-4 w-4" />
-                    <span>Espace disque suffisant</span>
-                  </div>
-                )}
+                <div className="pt-2 border-t">
+                  {!estimation.has_enough_space && (
+                    <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 p-2 rounded">
+                      <IconX className="h-4 w-4 flex-shrink-0" />
+                      <span className="font-medium">Espace disque insuffisant pour créer cette sauvegarde</span>
+                    </div>
+                  )}
+                  {estimation.has_enough_space && (
+                    <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 dark:bg-green-950/20 p-2 rounded">
+                      <IconCheck className="h-4 w-4 flex-shrink-0" />
+                      <span className="font-medium">Espace disque suffisant</span>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setCreateDialogOpen(false)} className="shadow-sm">
               Annuler
             </Button>
-            <Button onClick={handleCreateBackup} disabled={creating || !estimation?.has_enough_space}>
+            <Button onClick={handleCreateBackup} disabled={creating || !estimation?.has_enough_space} className="shadow-sm">
               {creating ? (
                 <>
                   <IconLoader className="h-4 w-4 mr-2 animate-spin" />
@@ -782,10 +798,10 @@ function BackupsPageContent() {
 
       {/* Schedule Backup Dialog */}
       <Dialog open={scheduleDialogOpen} onOpenChange={setScheduleDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Programmer une sauvegarde automatique</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-xl">Programmer une sauvegarde automatique</DialogTitle>
+            <DialogDescription className="text-base">
               Configurez une sauvegarde récurrente selon vos besoins
             </DialogDescription>
           </DialogHeader>
@@ -942,11 +958,11 @@ function BackupsPageContent() {
               </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setScheduleDialogOpen(false)}>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setScheduleDialogOpen(false)} className="shadow-sm">
               Annuler
             </Button>
-            <Button onClick={handleScheduleBackup}>
+            <Button onClick={handleScheduleBackup} className="shadow-sm">
               <IconCalendar className="h-4 w-4 mr-2" />
               Programmer
             </Button>

@@ -1,3 +1,6 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import {
   IconApps,
   IconChecklist,
@@ -92,6 +95,25 @@ interface Props {
 }
 
 export default function SettingsLayout({ children }: Props) {
+  const [isCollapsed, setIsCollapsed] = useState(false)
+
+  // Load collapsed state from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("settings-sidebar-collapsed")
+    if (saved !== null) {
+      setIsCollapsed(saved === "true")
+    }
+  }, [])
+
+  // Save collapsed state to localStorage
+  const toggleSidebar = () => {
+    setIsCollapsed((prev) => {
+      const newValue = !prev
+      localStorage.setItem("settings-sidebar-collapsed", String(newValue))
+      return newValue
+    })
+  }
+
   return (
     <>
       <Header />
@@ -108,9 +130,17 @@ export default function SettingsLayout({ children }: Props) {
             Gérez vos préférences de compte et vos intégrations.
           </p>
         </div>
-        <div className="flex flex-1 flex-col space-y-8 overflow-auto md:space-y-2 md:overflow-hidden lg:flex-row lg:space-y-0 lg:space-x-12">
-          <aside className="lg:sticky lg:w-1/5">
-            <SidebarNav items={sidebarNavItems} />
+        <div className="flex flex-1 flex-col space-y-8 overflow-auto md:space-y-2 md:overflow-hidden lg:flex-row lg:space-y-0 lg:space-x-4">
+          <aside
+            className={`lg:sticky transition-all duration-300 ease-in-out ${
+              isCollapsed ? "lg:w-16" : "lg:w-64"
+            }`}
+          >
+            <SidebarNav
+              items={sidebarNavItems}
+              isCollapsed={isCollapsed}
+              onToggle={toggleSidebar}
+            />
           </aside>
           <div className="flex flex-1 w-full overflow-y-auto p-1 pr-4">
             {children}

@@ -444,6 +444,17 @@ export default function GeneralForm() {
     })
   }, [handleFieldChange, handleFieldBlur])
 
+  // Helper to wrap Select with change handlers for auto-save
+  const wrapSelect = useCallback((fieldName: keyof z.infer<typeof formSchema>, onValueChange: (value: string) => void) => {
+    return (value: string) => {
+      onValueChange(value)
+      // Trigger save immediately after select change
+      setTimeout(() => {
+        handleFieldBlur(fieldName)
+      }, 50)
+    }
+  }, [handleFieldBlur])
+
   const configItems: ConfigItem[] = useMemo(
     () => [
       // Application Configuration
@@ -520,7 +531,7 @@ export default function GeneralForm() {
               <FormItem>
                 <FormControl>
                   <Select
-                    onValueChange={field.onChange}
+                    onValueChange={wrapSelect("default_theme", field.onChange)}
                     value={field.value}
                     defaultValue={field.value}
                   >
@@ -555,7 +566,7 @@ export default function GeneralForm() {
               <FormItem>
                 <FormControl>
                   <Select
-                    onValueChange={field.onChange}
+                    onValueChange={wrapSelect("default_language", field.onChange)}
                     value={field.value}
                     defaultValue={field.value}
                   >
@@ -587,7 +598,7 @@ export default function GeneralForm() {
               <FormItem>
                 <FormControl>
                   <Select
-                    onValueChange={field.onChange}
+                    onValueChange={wrapSelect("font", field.onChange)}
                     value={field.value}
                     defaultValue={field.value}
                   >
@@ -849,7 +860,7 @@ export default function GeneralForm() {
               <FormItem>
                 <FormControl>
                   <Select
-                    onValueChange={field.onChange}
+                    onValueChange={wrapSelect("sms_provider", field.onChange)}
                     value={field.value}
                     defaultValue={field.value}
                   >
@@ -1081,7 +1092,7 @@ export default function GeneralForm() {
               <FormItem>
                 <FormControl>
                   <Select
-                    onValueChange={(value) => field.onChange(value === "true")}
+                    onValueChange={wrapSelect("email_use_tls", (value) => field.onChange(value === "true"))}
                     value={field.value ? "true" : "false"}
                   >
                     <SelectTrigger className="w-full md:w-[300px]">
@@ -1112,7 +1123,7 @@ export default function GeneralForm() {
               <FormItem>
                 <FormControl>
                   <Select
-                    onValueChange={(value) => field.onChange(value === "true")}
+                    onValueChange={wrapSelect("email_use_ssl", (value) => field.onChange(value === "true"))}
                     value={field.value ? "true" : "false"}
                   >
                     <SelectTrigger className="w-full md:w-[300px]">
@@ -1321,7 +1332,7 @@ export default function GeneralForm() {
               <FormItem>
                 <FormControl>
                   <Select
-                    onValueChange={field.onChange}
+                    onValueChange={wrapSelect("storage_backend", field.onChange)}
                     value={field.value}
                     defaultValue={field.value}
                   >
@@ -1461,7 +1472,7 @@ export default function GeneralForm() {
               <FormItem>
                 <FormControl>
                   <Select
-                    onValueChange={field.onChange}
+                    onValueChange={wrapSelect("search_backend", field.onChange)}
                     value={field.value}
                     defaultValue={field.value}
                   >
@@ -1494,7 +1505,7 @@ export default function GeneralForm() {
               <FormItem>
                 <FormControl>
                   <Select
-                    onValueChange={field.onChange}
+                    onValueChange={wrapSelect("search_language", field.onChange)}
                     value={field.value}
                     defaultValue={field.value}
                   >
@@ -1621,7 +1632,7 @@ export default function GeneralForm() {
               <FormItem>
                 <FormControl>
                   <Select
-                    onValueChange={field.onChange}
+                    onValueChange={wrapSelect("audit_log_level", field.onChange)}
                     value={field.value}
                     defaultValue={field.value}
                   >
@@ -1655,7 +1666,7 @@ export default function GeneralForm() {
               <FormItem>
                 <FormControl>
                   <Select
-                    onValueChange={(value) => field.onChange(value === "true")}
+                    onValueChange={wrapSelect("audit_enabled", (value) => field.onChange(value === "true"))}
                     value={field.value ? "true" : "false"}
                   >
                     <SelectTrigger className="w-full md:w-[300px]">
@@ -1718,7 +1729,7 @@ export default function GeneralForm() {
               <FormItem>
                 <FormControl>
                   <Select
-                    onValueChange={field.onChange}
+                    onValueChange={wrapSelect("ai_provider", field.onChange)}
                     value={field.value}
                     defaultValue={field.value}
                   >
@@ -1916,7 +1927,7 @@ export default function GeneralForm() {
         ),
       },
     ],
-    [wrapInput]
+    [wrapInput, wrapSelect]
   )
 
   const columns = useMemo<ColumnDef<ConfigItem>[]>(
@@ -1943,7 +1954,7 @@ export default function GeneralForm() {
               <Button
                 variant={isFiltered ? "default" : "secondary"}
                 size="sm"
-                className="h-6 text-xs px-2 cursor-pointer transition-colors gap-1.5"
+                className="h-6 text-xs px-2 cursor-pointer transition-all duration-200 gap-1.5 hover:scale-105"
                 onClick={() => setCategoryFilter(isFiltered ? "all" : row.original.category)}
                 title={isFiltered ? "Cliquer pour retirer le filtre" : `Filtrer par ${row.original.category}`}
               >
@@ -1979,7 +1990,7 @@ export default function GeneralForm() {
             <div className="min-w-[200px] flex items-center gap-2">
               <span className="font-medium">{row.original.label}</span>
               {isRecentlyModified && (
-                <Badge variant="outline" className="text-green-600 border-green-600 dark:text-green-400 dark:border-green-400 text-xs">
+                <Badge variant="outline" className="text-green-600 border-green-600 dark:text-green-400 dark:border-green-400 text-xs animate-in fade-in slide-in-from-left-2 duration-300">
                   Modifié
                 </Badge>
               )}
@@ -2059,20 +2070,20 @@ export default function GeneralForm() {
     <Form {...form}>
       <div className="space-y-6">
         {/* Search and Filter Bar */}
-        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center p-4 rounded-lg border bg-muted/30 shadow-sm">
           <div className="relative flex-1 w-full">
             <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Rechercher un paramètre..."
               value={globalFilter}
               onChange={(e) => setGlobalFilter(e.target.value)}
-              className="pl-10 w-full"
+              className="pl-10 w-full bg-background transition-shadow focus-visible:shadow-md"
             />
           </div>
           <div className="flex items-center gap-2 w-full md:w-auto">
             <IconFilter className="h-4 w-4 text-muted-foreground" />
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-full md:w-[250px]">
+              <SelectTrigger className="w-full md:w-[250px] bg-background transition-shadow focus:shadow-md">
                 <SelectValue placeholder="Toutes les catégories" />
               </SelectTrigger>
               <SelectContent>
@@ -2088,13 +2099,13 @@ export default function GeneralForm() {
         </div>
 
         {/* Unified DataTable - Desktop */}
-        <div className="hidden md:block rounded-lg border">
+        <div className="hidden md:block rounded-lg border shadow-sm overflow-hidden">
           <Table>
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id}>
+                <TableRow key={headerGroup.id} className="bg-muted/50">
                   {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id}>
+                    <TableHead key={header.id} className="font-semibold">
                       {header.isPlaceholder
                         ? null
                         : flexRender(
@@ -2113,11 +2124,10 @@ export default function GeneralForm() {
                   return (
                     <TableRow
                       key={row.id}
-                      className={
-                        isRecentlyModified
-                          ? "bg-green-50 dark:bg-green-950/10"
-                          : ""
-                      }
+                      className={cn(
+                        "transition-all duration-300 hover:bg-muted/30",
+                        isRecentlyModified && "bg-green-50 dark:bg-green-950/10 animate-pulse"
+                      )}
                     >
                       {row.getVisibleCells().map((cell) => (
                         <TableCell key={cell.id}>
@@ -2134,7 +2144,7 @@ export default function GeneralForm() {
                 <TableRow>
                   <TableCell
                     colSpan={columns.length}
-                    className="h-24 text-center"
+                    className="h-24 text-center text-muted-foreground"
                   >
                     Aucun paramètre ne correspond à votre recherche.
                   </TableCell>
@@ -2152,11 +2162,10 @@ export default function GeneralForm() {
               return (
                 <div
                   key={item.key}
-                  className={`rounded-lg border p-4 space-y-3 ${
-                    isRecentlyModified
-                      ? "bg-green-50 dark:bg-green-950/10 border-green-200 dark:border-green-900"
-                      : ""
-                  }`}
+                  className={cn(
+                    "rounded-lg border p-4 space-y-3 shadow-sm transition-all duration-300 hover:shadow-md",
+                    isRecentlyModified && "bg-green-50 dark:bg-green-950/10 border-green-200 dark:border-green-900 animate-pulse"
+                  )}
                 >
                   <div className="space-y-2">
                     {(() => {

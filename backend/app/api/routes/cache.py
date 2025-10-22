@@ -3,7 +3,8 @@ Routes API pour le Cache Service.
 """
 
 from typing import Any, Optional
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
 from app.api.deps import CurrentUser, SessionDep
 from app.core.cache_service import cache_service
@@ -13,6 +14,11 @@ from app.models import User
 
 
 router = APIRouter(prefix="/cache", tags=["cache"])
+
+
+class ClearCacheRequest(BaseModel):
+    """Request body for clearing cache."""
+    namespace: Optional[str] = None
 
 
 @router.get("/stats")
@@ -35,16 +41,17 @@ async def get_cache_stats(
 async def clear_cache(
     current_user: CurrentUser,
     session: SessionDep,
-    namespace: Optional[str] = Body(None, description="Namespace à vider (None = tout)"),
+    request: ClearCacheRequest = ClearCacheRequest(),
 ) -> Any:
     """
     Vide le cache.
 
     Args:
-        namespace: Namespace spécifique à vider, ou None pour tout vider
+        request: Request body contenant le namespace optionnel à vider
 
     Requiert la permission: core.cache.clear
     """
+    namespace = request.namespace
     if namespace:
         count = await cache_service.clear_namespace(namespace)
 

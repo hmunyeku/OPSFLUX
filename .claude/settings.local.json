@@ -30,7 +30,13 @@
       "Bash(echo -e \"\\n\\n=== Testing Audit logs endpoint ===\" curl -s -w \"\\nHTTP Status: %{http_code}\\n\" -X GET \"https://api.opsflux.io/api/v1/audit/?skip=0&limit=2\" -H \"Authorization: Bearer $TOKEN\")",
       "Bash(echo -e \"\\n\\n=== Testing Translations export endpoint ===\" curl -s -w \"\\nHTTP Status: %{http_code}\\n\" -X GET \"https://api.opsflux.io/api/v1/languages/translations/export?namespace_code=core.settings&language_code=fr\" -H \"Authorization: Bearer $TOKEN\")",
       "Bash(__NEW_LINE__ echo \"=== Testing AI status endpoint ===\")",
-      "Bash(timeout 30 docker logs:*)"
+      "Bash(timeout 30 docker logs:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjE4MTQ4MTMsInN1YiI6IjNiYzczZmZlLTYyMmMtNDg3OS04MWQ0LWJiYTA0Zjg1ZWE3OSIsInR5cGUiOiJhY2Nlc3MifQ.LwNeY20StzATCqK_gZE00R-sKBdHGHKCGRcvkb9i39I\")",
+      "Bash(__NEW_LINE__ echo \"Test 1: Sans body\")",
+      "Bash(__NEW_LINE__ echo -e \"\\n\\nTest 2: Avec namespace null\")",
+      "Bash(__NEW_LINE__ echo -e \"\\n\\nTest 3: Avec body vide {}\")",
+      "Bash(echo \"Test 1: Avec namespace null (comme frontend)\" curl -s -X POST \"https://api.opsflux.io/api/v1/cache/clear\" -H \"Authorization: Bearer $TOKEN\" -H \"Content-Type: application/json\" -d '{\"\"\"\"namespace\"\"\"\": null}')",
+      "Bash(echo -e \"\\n\\nTest 2: Avec body vide (devrait aussi fonctionner)\" curl -s -X POST \"https://api.opsflux.io/api/v1/cache/clear\" -H \"Authorization: Bearer $TOKEN\" -H \"Content-Type: application/json\" -d '{}')"
     ],
     "deny": [],
     "ask": []

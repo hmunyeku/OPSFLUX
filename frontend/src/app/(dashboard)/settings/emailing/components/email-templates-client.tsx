@@ -70,9 +70,9 @@ export default function EmailTemplatesClient() {
   }, [refreshKey])
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full w-full">
       {/* Header */}
-      <div className="flex flex-col gap-4 px-4 sm:px-6 py-4 sm:py-6">
+      <div className="flex flex-col gap-4 sm:gap-6 px-3 sm:px-4 md:px-6 py-4 sm:py-6">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div className="space-y-1">
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
@@ -82,14 +82,14 @@ export default function EmailTemplatesClient() {
               Créez et gérez vos templates d&apos;email réutilisables
             </p>
           </div>
-          <Button onClick={handleCreate} size="default" className="w-full sm:w-auto">
+          <Button onClick={handleCreate} size="default" className="w-full sm:w-auto flex-shrink-0">
             <IconPlus className="mr-2 h-4 w-4" />
             Nouveau Template
           </Button>
         </div>
 
         {/* Statistics Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-3">
           <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/20 border-blue-200 dark:border-blue-800">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
@@ -148,8 +148,8 @@ export default function EmailTemplatesClient() {
         </div>
 
         {/* Search and Filters */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="relative flex-1 min-w-0">
             <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Rechercher par nom, slug ou description..."
@@ -169,11 +169,12 @@ export default function EmailTemplatesClient() {
             )}
           </div>
 
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap md:flex-shrink-0">
             <Button
               variant={categoryFilter === "all" ? "default" : "outline"}
               size="sm"
               onClick={() => setCategoryFilter("all")}
+              className="flex-1 xs:flex-none"
             >
               Tous
             </Button>
@@ -181,6 +182,7 @@ export default function EmailTemplatesClient() {
               variant={categoryFilter === "transactional" ? "default" : "outline"}
               size="sm"
               onClick={() => setCategoryFilter("transactional")}
+              className="flex-1 xs:flex-none"
             >
               Transactionnel
             </Button>
@@ -188,6 +190,7 @@ export default function EmailTemplatesClient() {
               variant={categoryFilter === "notification" ? "default" : "outline"}
               size="sm"
               onClick={() => setCategoryFilter("notification")}
+              className="flex-1 xs:flex-none"
             >
               Notification
             </Button>
@@ -195,6 +198,7 @@ export default function EmailTemplatesClient() {
               variant={categoryFilter === "custom" ? "default" : "outline"}
               size="sm"
               onClick={() => setCategoryFilter("custom")}
+              className="flex-1 xs:flex-none"
             >
               Personnalisé
             </Button>
@@ -203,7 +207,7 @@ export default function EmailTemplatesClient() {
       </div>
 
       {/* Table */}
-      <div className="flex-1 px-4 sm:px-6 pb-4 sm:pb-6 overflow-hidden">
+      <div className="flex-1 px-3 sm:px-4 md:px-6 pb-4 sm:pb-6 overflow-hidden w-full">
         <EmailTemplatesTable
           key={refreshKey}
           onEdit={handleEdit}

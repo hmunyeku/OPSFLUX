@@ -116,11 +116,11 @@ function CachePageContent() {
     >
       <div className="space-y-6">
         {/* Status & Actions */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <IconDatabase className="h-5 w-5 text-muted-foreground" />
-            <div>
-              <div className="flex items-center gap-2">
+            <IconDatabase className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-medium">{t("status.label", "Label")}</span>
                 {isHealthy ? (
                   <Badge variant="default" className="bg-green-600">
@@ -140,29 +140,33 @@ function CachePageContent() {
             </div>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button
               variant="outline"
               size="sm"
               onClick={fetchData}
+              className="flex-1 sm:flex-none"
             >
               <IconRefresh className="mr-2 h-4 w-4" />
-              {t("actions.refresh", "Refresh")}
+              <span className="hidden sm:inline">{t("actions.refresh", "Refresh")}</span>
+              <span className="sm:hidden">Actualiser</span>
             </Button>
             <Button
               variant="destructive"
               size="sm"
               onClick={() => setClearDialogOpen(true)}
               disabled={!hasPermission("core.cache.clear")}
+              className="flex-1 sm:flex-none"
             >
               <IconTrash className="mr-2 h-4 w-4" />
-              {t("actions.clear_cache", "Clear cache")}
+              <span className="hidden sm:inline">{t("actions.clear_cache", "Clear cache")}</span>
+              <span className="sm:hidden">Vider</span>
             </Button>
           </div>
         </div>
 
         {/* Stats Grid */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           {/* Hits */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -229,17 +233,17 @@ function CachePageContent() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-3">
-              <div>
-                <div className="text-sm font-medium text-muted-foreground">{t("operations.sets", "Sets")}</div>
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+              <div className="bg-muted/30 rounded-lg p-3">
+                <div className="text-sm font-medium text-muted-foreground mb-1">{t("operations.sets", "Sets")}</div>
                 <div className="text-2xl font-bold">{stats?.sets.toLocaleString() || 0}</div>
               </div>
-              <div>
-                <div className="text-sm font-medium text-muted-foreground">{t("operations.deletes", "Deletes")}</div>
+              <div className="bg-muted/30 rounded-lg p-3">
+                <div className="text-sm font-medium text-muted-foreground mb-1">{t("operations.deletes", "Deletes")}</div>
                 <div className="text-2xl font-bold">{stats?.deletes.toLocaleString() || 0}</div>
               </div>
-              <div>
-                <div className="text-sm font-medium text-muted-foreground">{t("operations.redis_hits", "Redis hits")}</div>
+              <div className="bg-muted/30 rounded-lg p-3">
+                <div className="text-sm font-medium text-muted-foreground mb-1">{t("operations.redis_hits", "Redis hits")}</div>
                 <div className="text-2xl font-bold">{stats?.redis_hits?.toLocaleString() || 'N/A'}</div>
               </div>
             </div>

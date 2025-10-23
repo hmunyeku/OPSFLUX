@@ -391,10 +391,10 @@ export default function EmailTemplatesTable({ onEdit, searchQuery = "", category
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 w-full">
       {/* Vue Desktop - Table */}
-      <div className="hidden md:block">
-        <div className="rounded-md border overflow-x-auto">
+      <div className="hidden md:block w-full">
+        <div className="rounded-md border overflow-x-auto w-full">
           <Table>
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
@@ -507,36 +507,39 @@ export default function EmailTemplatesTable({ onEdit, searchQuery = "", category
       </div>
 
       {/* Pagination */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-4 md:px-0 pt-2">
-        <div className="flex items-center justify-between sm:justify-start space-x-2 text-xs sm:text-sm">
-          <p className="text-muted-foreground">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-2 w-full">
+        <div className="flex items-center justify-between sm:justify-start gap-3 text-xs sm:text-sm">
+          <p className="text-muted-foreground whitespace-nowrap">
             {pagination.pageIndex * pagination.pageSize + 1}-
             {Math.min((pagination.pageIndex + 1) * pagination.pageSize, filteredTemplates.length)} sur {filteredTemplates.length}
           </p>
-          <Select
-            value={`${pagination.pageSize}`}
-            onValueChange={(value) => {
-              setPagination((prev) => ({ ...prev, pageSize: Number(value), pageIndex: 0 }))
-            }}
-          >
-            <SelectTrigger className="h-8 w-[70px]">
-              <SelectValue placeholder={pagination.pageSize} />
-            </SelectTrigger>
-            <SelectContent side="top">
-              {[10, 25, 50, 100].map((pageSize) => (
-                <SelectItem key={pageSize} value={`${pageSize}`}>
-                  {pageSize}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground text-xs hidden xs:inline">Lignes:</span>
+            <Select
+              value={`${pagination.pageSize}`}
+              onValueChange={(value) => {
+                setPagination((prev) => ({ ...prev, pageSize: Number(value), pageIndex: 0 }))
+              }}
+            >
+              <SelectTrigger className="h-8 w-[70px]">
+                <SelectValue placeholder={pagination.pageSize} />
+              </SelectTrigger>
+              <SelectContent side="top">
+                {[10, 25, 50, 100].map((pageSize) => (
+                  <SelectItem key={pageSize} value={`${pageSize}`}>
+                    {pageSize}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        <div className="flex items-center justify-center space-x-2">
+        <div className="flex items-center justify-center gap-1 sm:gap-2">
           <Button
             variant="outline"
             size="icon"
-            className="h-8 w-8"
+            className="h-8 w-8 hidden sm:flex"
             onClick={() => table.setPageIndex(0)}
             disabled={!table.getCanPreviousPage()}
           >
@@ -551,7 +554,7 @@ export default function EmailTemplatesTable({ onEdit, searchQuery = "", category
           >
             <IconChevronLeft className="h-4 w-4" />
           </Button>
-          <div className="text-xs sm:text-sm font-medium px-2">
+          <div className="text-xs sm:text-sm font-medium px-2 min-w-[80px] sm:min-w-[100px] text-center">
             Page {pagination.pageIndex + 1}/{table.getPageCount()}
           </div>
           <Button
@@ -566,7 +569,7 @@ export default function EmailTemplatesTable({ onEdit, searchQuery = "", category
           <Button
             variant="outline"
             size="icon"
-            className="h-8 w-8"
+            className="h-8 w-8 hidden sm:flex"
             onClick={() => table.setPageIndex(table.getPageCount() - 1)}
             disabled={!table.getCanNextPage()}
           >

@@ -186,58 +186,58 @@ function QueuePageContent() {
         </div>
 
         {/* Statistics Cards */}
-        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           <Card className="bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/30 dark:to-green-900/20 border-green-200 dark:border-green-800">
-            <CardContent className="p-4 sm:p-6">
+            <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-green-500/10 dark:bg-green-500/20 flex items-center justify-center">
-                  <IconPlayerPlay className="h-6 w-6 text-green-600 dark:text-green-400" />
+                <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-green-500/10 dark:bg-green-500/20 flex items-center justify-center">
+                  <IconPlayerPlay className="h-5 w-5 sm:h-6 sm:w-6 text-green-600 dark:text-green-400" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-muted-foreground font-medium">En cours</p>
-                  <p className="text-2xl sm:text-3xl font-bold text-green-700 dark:text-green-300">{totalActive}</p>
+                  <p className="text-xl sm:text-2xl md:text-3xl font-bold text-green-700 dark:text-green-300">{totalActive}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/20 border-blue-200 dark:border-blue-800">
-            <CardContent className="p-4 sm:p-6">
+            <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-blue-500/10 dark:bg-blue-500/20 flex items-center justify-center">
-                  <IconClock className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-blue-500/10 dark:bg-blue-500/20 flex items-center justify-center">
+                  <IconClock className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-muted-foreground font-medium">Planifiées</p>
-                  <p className="text-2xl sm:text-3xl font-bold text-blue-700 dark:text-blue-300">{totalScheduled}</p>
+                  <p className="text-xl sm:text-2xl md:text-3xl font-bold text-blue-700 dark:text-blue-300">{totalScheduled}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/30 dark:to-amber-900/20 border-amber-200 dark:border-amber-800">
-            <CardContent className="p-4 sm:p-6">
+            <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-amber-500/10 dark:bg-amber-500/20 flex items-center justify-center">
-                  <IconCircleDashed className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+                <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-amber-500/10 dark:bg-amber-500/20 flex items-center justify-center">
+                  <IconCircleDashed className="h-5 w-5 sm:h-6 sm:w-6 text-amber-600 dark:text-amber-400" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-muted-foreground font-medium">Réservées</p>
-                  <p className="text-2xl sm:text-3xl font-bold text-amber-700 dark:text-amber-300">{totalReserved}</p>
+                  <p className="text-xl sm:text-2xl md:text-3xl font-bold text-amber-700 dark:text-amber-300">{totalReserved}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-950/30 dark:to-purple-900/20 border-purple-200 dark:border-purple-800">
-            <CardContent className="p-4 sm:p-6">
+            <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-purple-500/10 dark:bg-purple-500/20 flex items-center justify-center">
-                  <IconServer className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-purple-500/10 dark:bg-purple-500/20 flex items-center justify-center">
+                  <IconServer className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600 dark:text-purple-400" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-muted-foreground font-medium">Workers</p>
-                  <p className="text-2xl sm:text-3xl font-bold text-purple-700 dark:text-purple-300">{totalWorkers}</p>
+                  <p className="text-xl sm:text-2xl md:text-3xl font-bold text-purple-700 dark:text-purple-300">{totalWorkers}</p>
                 </div>
               </div>
             </CardContent>
@@ -246,17 +246,17 @@ function QueuePageContent() {
 
         <Tabs defaultValue="workers" className="space-y-4">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="workers">
-              <IconServer className="h-4 w-4 mr-2" />
-              Workers
+            <TabsTrigger value="workers" className="text-xs sm:text-sm">
+              <IconServer className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Workers</span>
             </TabsTrigger>
-            <TabsTrigger value="queues">
-              <IconActivity className="h-4 w-4 mr-2" />
-              Queues
+            <TabsTrigger value="queues" className="text-xs sm:text-sm">
+              <IconActivity className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Queues</span>
             </TabsTrigger>
-            <TabsTrigger value="schedule">
-              <IconClock className="h-4 w-4 mr-2" />
-              Planification
+            <TabsTrigger value="schedule" className="text-xs sm:text-sm">
+              <IconClock className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Planification</span>
             </TabsTrigger>
           </TabsList>
 
@@ -288,10 +288,10 @@ function QueuePageContent() {
                     {Object.entries(stats?.workers || {}).map(([name, worker]) => (
                       <Card key={name} className="border-l-4 border-l-green-500">
                         <CardContent className="p-4">
-                          <div className="flex items-start justify-between mb-4">
-                            <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <h4 className="font-semibold">{name}</h4>
+                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-4">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                <h4 className="font-semibold truncate">{name}</h4>
                                 <Badge variant="default" className="bg-green-600">
                                   <IconCheck className="mr-1 h-3 w-3" />
                                   Actif
@@ -301,13 +301,13 @@ function QueuePageContent() {
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          <div className="grid grid-cols-1 xs:grid-cols-3 gap-3">
                             <div className="bg-muted/30 rounded-lg p-3">
                               <div className="flex items-center gap-2 mb-1">
                                 <IconPlayerPlay className="h-4 w-4 text-green-600" />
                                 <span className="text-xs text-muted-foreground">En cours</span>
                               </div>
-                              <div className="text-2xl font-bold">{worker.active}</div>
+                              <div className="text-xl sm:text-2xl font-bold">{worker.active}</div>
                             </div>
 
                             <div className="bg-muted/30 rounded-lg p-3">
@@ -315,7 +315,7 @@ function QueuePageContent() {
                                 <IconClock className="h-4 w-4 text-blue-600" />
                                 <span className="text-xs text-muted-foreground">Planifiées</span>
                               </div>
-                              <div className="text-2xl font-bold">{worker.scheduled}</div>
+                              <div className="text-xl sm:text-2xl font-bold">{worker.scheduled}</div>
                             </div>
 
                             <div className="bg-muted/30 rounded-lg p-3">
@@ -323,7 +323,7 @@ function QueuePageContent() {
                                 <IconCircleDashed className="h-4 w-4 text-amber-600" />
                                 <span className="text-xs text-muted-foreground">Réservées</span>
                               </div>
-                              <div className="text-2xl font-bold">{worker.reserved}</div>
+                              <div className="text-xl sm:text-2xl font-bold">{worker.reserved}</div>
                             </div>
                           </div>
                         </CardContent>
@@ -355,8 +355,8 @@ function QueuePageContent() {
                       className="hover:shadow-md transition-all duration-300"
                     >
                       <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3 flex-1">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
                             <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                               <IconActivity className="h-5 w-5 text-primary" />
                             </div>
@@ -368,7 +368,7 @@ function QueuePageContent() {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 self-end sm:self-center">
                             <Badge variant={queue.length > 0 ? "default" : "outline"}>
                               {queue.length}
                             </Badge>
@@ -414,31 +414,31 @@ function QueuePageContent() {
                       className="border-l-4 border-l-blue-500"
                     >
                       <CardContent className="p-4">
-                        <div className="flex items-start justify-between gap-4">
+                        <div className="flex flex-col gap-3">
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-2">
-                              <h4 className="font-semibold truncate">{schedule.task}</h4>
+                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                              <h4 className="font-semibold text-sm break-all">{schedule.task}</h4>
                               <Badge variant={schedule.enabled ? "default" : "secondary"}>
                                 {schedule.enabled ? "Actif" : "Inactif"}
                               </Badge>
                             </div>
 
                             <div className="space-y-2 text-sm">
-                              <div className="flex items-center gap-2 text-muted-foreground">
-                                <IconClock className="h-4 w-4" />
-                                <span>Fréquence: {schedule.schedule}</span>
+                              <div className="flex items-start gap-2 text-muted-foreground">
+                                <IconClock className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                                <span className="break-words">Fréquence: {schedule.schedule}</span>
                               </div>
 
                               {schedule.last_run ? (
-                                <div className="flex items-center gap-2 text-muted-foreground">
-                                  <IconCheckCircle className="h-4 w-4 text-green-600" />
-                                  <span>
+                                <div className="flex items-start gap-2 text-muted-foreground">
+                                  <IconCheckCircle className="h-4 w-4 flex-shrink-0 mt-0.5 text-green-600" />
+                                  <span className="break-words">
                                     Dernière exécution: {formatDistanceToNow(new Date(schedule.last_run), { addSuffix: true, locale: fr })}
                                   </span>
                                 </div>
                               ) : (
-                                <div className="flex items-center gap-2 text-muted-foreground">
-                                  <IconCircleDashed className="h-4 w-4" />
+                                <div className="flex items-start gap-2 text-muted-foreground">
+                                  <IconCircleDashed className="h-4 w-4 flex-shrink-0 mt-0.5" />
                                   <span>Jamais exécuté</span>
                                 </div>
                               )}

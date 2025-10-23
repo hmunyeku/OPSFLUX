@@ -218,7 +218,7 @@ export default function DatabasePage() {
       <Separator />
 
       {/* Database Overview */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Base de données</CardTitle>
@@ -305,7 +305,7 @@ export default function DatabasePage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button onClick={handleOpenAdminer} disabled={isGeneratingToken}>
+          <Button onClick={handleOpenAdminer} disabled={isGeneratingToken} className="w-full sm:w-auto">
             <Key className="mr-2 h-4 w-4" />
             {isGeneratingToken ? "Génération du token..." : "Ouvrir Adminer"}
             <ExternalLink className="ml-2 h-4 w-4" />
@@ -316,26 +316,29 @@ export default function DatabasePage() {
       {/* Backups Section */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <CardTitle>Sauvegardes</CardTitle>
               <CardDescription>
                 Gérez les sauvegardes de votre base de données
               </CardDescription>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={fetchBackups}
                 disabled={loadingBackups}
+                className="flex-1 sm:flex-none"
               >
                 <RefreshCw className={`h-4 w-4 ${loadingBackups ? "animate-spin" : ""}`} />
+                <span className="ml-2 sm:hidden">Actualiser</span>
               </Button>
               <Button
                 size="sm"
                 onClick={handleCreateBackup}
                 disabled={creatingBackup}
+                className="flex-1 sm:flex-none"
               >
                 <Plus className="mr-2 h-4 w-4" />
                 {creatingBackup ? "Création..." : "Nouvelle sauvegarde"}
@@ -362,14 +365,14 @@ export default function DatabasePage() {
               {backups.map((backup) => (
                 <div
                   key={backup.filename}
-                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                  className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors"
                 >
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <Database className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">{backup.filename}</span>
+                      <Database className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <span className="text-sm font-medium truncate">{backup.filename}</span>
                     </div>
-                    <div className="flex items-center gap-4 mt-1">
+                    <div className="flex items-center gap-3 mt-1 flex-wrap">
                       <span className="text-xs text-muted-foreground">
                         {new Date(backup.created_at).toLocaleString()}
                       </span>
@@ -378,20 +381,24 @@ export default function DatabasePage() {
                       </Badge>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 self-end sm:self-center">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleDownloadBackup(backup.filename)}
+                      className="flex-1 sm:flex-none"
                     >
                       <Download className="h-4 w-4" />
+                      <span className="ml-2 sm:hidden">Télécharger</span>
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setDeleteBackupFilename(backup.filename)}
+                      className="flex-1 sm:flex-none"
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
+                      <span className="ml-2 sm:hidden">Supprimer</span>
                     </Button>
                   </div>
                 </div>
@@ -438,9 +445,9 @@ export default function DatabasePage() {
           ) : (
             <div className="space-y-2">
               {activityData?.activities.map((activity) => (
-                <div key={activity.pid} className="p-3 border rounded-lg space-y-1">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                <div key={activity.pid} className="p-3 border rounded-lg space-y-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <Badge variant={activity.state === "active" ? "default" : "secondary"}>
                         {activity.state}
                       </Badge>
@@ -450,13 +457,13 @@ export default function DatabasePage() {
                       )}
                     </div>
                     {activity.timestamp && (
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
                         {new Date(activity.timestamp).toLocaleString()}
                       </span>
                     )}
                   </div>
                   {activity.query && (
-                    <p className="text-xs text-muted-foreground font-mono bg-muted p-2 rounded">
+                    <p className="text-xs text-muted-foreground font-mono bg-muted p-2 rounded break-all">
                       {activity.query}
                     </p>
                   )}

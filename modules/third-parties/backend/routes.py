@@ -257,10 +257,73 @@ def get_company_stats(
     Get company statistics.
     Requires companies.read permission.
     """
+    from datetime import datetime, timedelta
+
     # Total companies
     total = session.exec(
         select(func.count()).select_from(Company).where(Company.deleted_at.is_(None))
     ).one()
+
+    # Total contacts
+    total_contacts = session.exec(
+        select(func.count()).select_from(Contact).where(Contact.deleted_at.is_(None))
+    ).one()
+
+    # Pending invitations
+    pending_invitations = session.exec(
+        select(func.count()).select_from(ContactInvitation).where(
+            ContactInvitation.status == InvitationStatus.PENDING,
+            ContactInvitation.deleted_at.is_(None)
+        )
+    ).one()
+
+    # Companies created last 30 days for growth calculation
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    sixty_days_ago = datetime.utcnow() - timedelta(days=60)
+
+    companies_last_30 = session.exec(
+        select(func.count()).select_from(Company).where(
+            Company.created_at >= thirty_days_ago,
+            Company.deleted_at.is_(None)
+        )
+    ).one()
+
+    companies_prev_30 = session.exec(
+        select(func.count()).select_from(Company).where(
+            Company.created_at >= sixty_days_ago,
+            Company.created_at < thirty_days_ago,
+            Company.deleted_at.is_(None)
+        )
+    ).one()
+
+    # Contacts created last 30 days for growth calculation
+    contacts_last_30 = session.exec(
+        select(func.count()).select_from(Contact).where(
+            Contact.created_at >= thirty_days_ago,
+            Contact.deleted_at.is_(None)
+        )
+    ).one()
+
+    contacts_prev_30 = session.exec(
+        select(func.count()).select_from(Contact).where(
+            Contact.created_at >= sixty_days_ago,
+            Contact.created_at < thirty_days_ago,
+            Contact.deleted_at.is_(None)
+        )
+    ).one()
+
+    # Calculate growth percentages
+    companies_growth = 0
+    if companies_prev_30 > 0:
+        companies_growth = round(((companies_last_30 - companies_prev_30) / companies_prev_30) * 100, 1)
+    elif companies_last_30 > 0:
+        companies_growth = 100
+
+    contacts_growth = 0
+    if contacts_prev_30 > 0:
+        contacts_growth = round(((contacts_last_30 - contacts_prev_30) / contacts_prev_30) * 100, 1)
+    elif contacts_last_30 > 0:
+        contacts_growth = 100
 
     # By status
     active = session.exec(
@@ -300,7 +363,12 @@ def get_company_stats(
     ).one()
 
     return {
-        "total": total,
+        "total_companies": total,
+        "total_contacts": total_contacts,
+        "pending_invitations": pending_invitations,
+        "companies_growth": companies_growth,
+        "contacts_growth": contacts_growth,
+        "total": total,  # Backward compatibility
         "by_status": {
             "active": active,
             "prospect": prospect,

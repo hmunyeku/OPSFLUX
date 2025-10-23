@@ -355,6 +355,199 @@
     }
   ],
 
+  "widgets": [
+    {
+      "widget_type": "third_parties_stats_overview",
+      "name": "Aperçu Statistiques Tiers",
+      "description": "Statistiques globales des entreprises et contacts",
+      "module_name": "third_parties",
+      "category": "stats",
+      "icon": "BarChart3",
+      "required_permission": "companies.read",
+      "is_active": true,
+      "default_config": {
+        "showCompanies": true,
+        "showContacts": true,
+        "showInvitations": true,
+        "refreshInterval": 300000
+      },
+      "default_size": {
+        "w": 6,
+        "h": 2,
+        "minW": 4,
+        "minH": 2,
+        "maxW": 12,
+        "maxH": 3
+      }
+    },
+    {
+      "widget_type": "third_parties_companies_by_type",
+      "name": "Entreprises par Type",
+      "description": "Répartition des entreprises par type (client, fournisseur, partenaire...)",
+      "module_name": "third_parties",
+      "category": "charts",
+      "icon": "PieChart",
+      "required_permission": "companies.read",
+      "is_active": true,
+      "default_config": {
+        "chartType": "pie",
+        "showLegend": true,
+        "showValues": true
+      },
+      "default_size": {
+        "w": 4,
+        "h": 3,
+        "minW": 3,
+        "minH": 2,
+        "maxW": 6,
+        "maxH": 4
+      }
+    },
+    {
+      "widget_type": "third_parties_companies_by_status",
+      "name": "Entreprises par Statut",
+      "description": "Répartition des entreprises par statut (actif, inactif, prospect...)",
+      "module_name": "third_parties",
+      "category": "charts",
+      "icon": "Activity",
+      "required_permission": "companies.read",
+      "is_active": true,
+      "default_config": {
+        "chartType": "donut",
+        "showLegend": true,
+        "showPercentage": true
+      },
+      "default_size": {
+        "w": 4,
+        "h": 3,
+        "minW": 3,
+        "minH": 2,
+        "maxW": 6,
+        "maxH": 4
+      }
+    },
+    {
+      "widget_type": "third_parties_recent_companies",
+      "name": "Entreprises Récentes",
+      "description": "Liste des entreprises ajoutées récemment",
+      "module_name": "third_parties",
+      "category": "lists",
+      "icon": "Building",
+      "required_permission": "companies.read",
+      "is_active": true,
+      "default_config": {
+        "limit": 5,
+        "showType": true,
+        "showStatus": true,
+        "showDate": true
+      },
+      "default_size": {
+        "w": 4,
+        "h": 3,
+        "minW": 3,
+        "minH": 2,
+        "maxW": 6,
+        "maxH": 5
+      }
+    },
+    {
+      "widget_type": "third_parties_recent_contacts",
+      "name": "Contacts Récents",
+      "description": "Liste des contacts ajoutés récemment",
+      "module_name": "third_parties",
+      "category": "lists",
+      "icon": "Users",
+      "required_permission": "contacts.read",
+      "is_active": true,
+      "default_config": {
+        "limit": 5,
+        "showCompany": true,
+        "showRole": true,
+        "showDate": true
+      },
+      "default_size": {
+        "w": 4,
+        "h": 3,
+        "minW": 3,
+        "minH": 2,
+        "maxW": 6,
+        "maxH": 5
+      }
+    },
+    {
+      "widget_type": "third_parties_pending_invitations",
+      "name": "Invitations en Attente",
+      "description": "Liste des invitations de contacts en attente",
+      "module_name": "third_parties",
+      "category": "notifications",
+      "icon": "Mail",
+      "required_permission": "contacts.manage_invitations",
+      "is_active": true,
+      "default_config": {
+        "limit": 10,
+        "showExpiryDate": true,
+        "highlightExpiring": true,
+        "expiringThresholdDays": 2
+      },
+      "default_size": {
+        "w": 6,
+        "h": 3,
+        "minW": 4,
+        "minH": 2,
+        "maxW": 12,
+        "maxH": 5
+      }
+    },
+    {
+      "widget_type": "third_parties_contacts_evolution",
+      "name": "Évolution des Contacts",
+      "description": "Graphique d'évolution du nombre de contacts dans le temps",
+      "module_name": "third_parties",
+      "category": "charts",
+      "icon": "TrendingUp",
+      "required_permission": "contacts.read",
+      "is_active": true,
+      "default_config": {
+        "period": "month",
+        "chartType": "line",
+        "showDataPoints": true,
+        "groupBy": "week"
+      },
+      "default_size": {
+        "w": 8,
+        "h": 3,
+        "minW": 6,
+        "minH": 2,
+        "maxW": 12,
+        "maxH": 4
+      }
+    },
+    {
+      "widget_type": "third_parties_top_companies",
+      "name": "Top Entreprises",
+      "description": "Entreprises avec le plus de contacts",
+      "module_name": "third_parties",
+      "category": "analytics",
+      "icon": "Award",
+      "required_permission": "companies.read",
+      "is_active": true,
+      "default_config": {
+        "limit": 5,
+        "showContactCount": true,
+        "showType": true,
+        "orderBy": "contact_count"
+      },
+      "default_size": {
+        "w": 4,
+        "h": 3,
+        "minW": 3,
+        "minH": 2,
+        "maxW": 6,
+        "maxH": 4
+      }
+    }
+  ],
+
   "dependencies": {
     "core_services": [
       "notification",

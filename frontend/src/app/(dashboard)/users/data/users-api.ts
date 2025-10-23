@@ -40,6 +40,11 @@ function mapUserFromBackend(user: any): User {
     birthDate: user.birth_date,
     extension: user.extension,
     signature: user.signature,
+    avatar_url: user.avatar_url,
+    full_name: user.full_name,
+    is_active: user.is_active,
+    is_superuser: user.is_superuser,
+    last_login_at: user.last_login_at,
   }
 }
 

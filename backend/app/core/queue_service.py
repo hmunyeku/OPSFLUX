@@ -128,6 +128,11 @@ celery_app.conf.update(
 
     # Beat (scheduled tasks)
     beat_schedule={
+        # Exécution des sauvegardes planifiées - toutes les minutes
+        "execute-scheduled-backups": {
+            "task": "app.tasks.execute_scheduled_backups",
+            "schedule": crontab(minute="*"),  # Toutes les minutes
+        },
         # Exemple: Nettoyage tous les jours à 2h
         "cleanup-old-files": {
             "task": "app.tasks.cleanup_old_files",

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -28,6 +28,7 @@ import { User } from "../data/schema"
 import { DataTablePagination } from "./data-table-pagination"
 import { DataTableToolbar } from "./data-table-toolbar"
 import { useTranslation } from "@/hooks/use-translation"
+import { usePreferences } from "@/hooks/use-preferences"
 
 declare module "@tanstack/react-table" {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -44,6 +45,7 @@ interface Props {
 
 export function UsersTable({ columns, data, onUserCreated }: Props) {
   const { t } = useTranslation("core.users")
+  const { preferences, isLoaded } = usePreferences()
   const [rowSelection, setRowSelection] = useState({})
   // Hide columns on mobile by default
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
@@ -75,7 +77,19 @@ export function UsersTable({ columns, data, onUserCreated }: Props) {
     getSortedRowModel: getSortedRowModel(),
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
+    initialState: {
+      pagination: {
+        pageSize: preferences.itemsPerPage || 10,
+      },
+    },
   })
+
+  // Update page size when preferences change
+  useEffect(() => {
+    if (isLoaded && preferences.itemsPerPage) {
+      table.setPageSize(preferences.itemsPerPage)
+    }
+  }, [isLoaded, preferences.itemsPerPage, table])
 
   return (
     <div className="space-y-4">

@@ -419,9 +419,9 @@ export function PreferencesTab() {
     // Apparence
     {
       key: "colorTheme",
-      label: t("items.color_theme.label"),
-      description: t("items.color_theme.desc"),
-      category: t("categories.appearance"),
+      label: t("items.color_theme.label", "Thème de couleur"),
+      description: t("items.color_theme.desc", "Choisissez le jeu de couleurs de l'interface"),
+      category: t("categories.appearance", "Apparence"),
       renderValue: (value, onChange) => (
         <Select value={value as string} onValueChange={onChange}>
           <SelectTrigger className="w-[220px]">
@@ -439,9 +439,9 @@ export function PreferencesTab() {
     },
     {
       key: "darkMode",
-      label: t("items.dark_mode.label"),
-      description: t("items.dark_mode.desc"),
-      category: t("categories.appearance"),
+      label: t("items.dark_mode.label", "Mode sombre"),
+      description: t("items.dark_mode.desc", "Choisissez entre le mode clair et sombre"),
+      category: t("categories.appearance", "Apparence"),
       renderValue: (value, onChange) => (
         <Select value={value as string} onValueChange={onChange}>
           <SelectTrigger className="w-[220px]">
@@ -457,9 +457,9 @@ export function PreferencesTab() {
     },
     {
       key: "sidebarCollapsed",
-      label: t("items.sidebar_collapsed.label"),
-      description: t("items.sidebar_collapsed.desc"),
-      category: t("categories.appearance"),
+      label: t("items.sidebar_collapsed.label", "Barre latérale réduite"),
+      description: t("items.sidebar_collapsed.desc", "Afficher la barre latérale en mode réduit"),
+      category: t("categories.appearance", "Apparence"),
       renderValue: (value, onChange) => (
         <div className="flex items-center gap-3">
           <Switch
@@ -474,9 +474,9 @@ export function PreferencesTab() {
     },
     {
       key: "sidebarVariant",
-      label: t("items.sidebar_variant.label"),
-      description: t("items.sidebar_variant.desc"),
-      category: t("categories.appearance"),
+      label: t("items.sidebar_variant.label", "Style de la barre latérale"),
+      description: t("items.sidebar_variant.desc", "Choisissez le style d'affichage de la barre latérale"),
+      category: t("categories.appearance", "Apparence"),
       renderValue: (value, onChange) => (
         <Select value={value as string} onValueChange={onChange}>
           <SelectTrigger className="w-[220px]">
@@ -491,9 +491,9 @@ export function PreferencesTab() {
     },
     {
       key: "fontSize",
-      label: t("items.font_size.label"),
-      description: t("items.font_size.desc"),
-      category: t("categories.appearance"),
+      label: t("items.font_size.label", "Taille de police"),
+      description: t("items.font_size.desc", "Ajustez la taille du texte"),
+      category: t("categories.appearance", "Apparence"),
       renderValue: (value, onChange) => (
         <Select value={value as string} onValueChange={onChange}>
           <SelectTrigger className="w-[220px]">
@@ -510,9 +510,9 @@ export function PreferencesTab() {
     // Langue & Région
     {
       key: "language",
-      label: t("items.language.label"),
-      description: t("items.language.desc"),
-      category: t("categories.region"),
+      label: t("items.language.label", "Langue"),
+      description: t("items.language.desc", "Choisissez la langue de l'interface"),
+      category: t("categories.region", "Langue & Région"),
       renderValue: (value, onChange) => (
         <Select value={value as string} onValueChange={onChange}>
           <SelectTrigger className="w-[220px]">
@@ -527,9 +527,9 @@ export function PreferencesTab() {
     },
     {
       key: "timezone",
-      label: t("items.timezone.label"),
-      description: t("items.timezone.desc"),
-      category: t("categories.region"),
+      label: t("items.timezone.label", "Fuseau horaire"),
+      description: t("items.timezone.desc", "Définissez votre fuseau horaire"),
+      category: t("categories.region", "Langue & Région"),
       renderValue: (value, onChange) => (
         <Select value={value as string} onValueChange={onChange}>
           <SelectTrigger className="w-[220px]">
@@ -546,9 +546,9 @@ export function PreferencesTab() {
     },
     {
       key: "dateFormat",
-      label: t("items.date_format.label"),
-      description: t("items.date_format.desc"),
-      category: t("categories.region"),
+      label: t("items.date_format.label", "Format de date"),
+      description: t("items.date_format.desc", "Choisissez le format d'affichage des dates"),
+      category: t("categories.region", "Langue & Région"),
       renderValue: (value, onChange) => (
         <Select value={value as string} onValueChange={onChange}>
           <SelectTrigger className="w-[220px]">
@@ -564,9 +564,9 @@ export function PreferencesTab() {
     },
     {
       key: "timeFormat",
-      label: t("items.time_format.label"),
-      description: t("items.time_format.desc"),
-      category: t("categories.region"),
+      label: t("items.time_format.label", "Format d'heure"),
+      description: t("items.time_format.desc", "Choisissez le format d'affichage de l'heure"),
+      category: t("categories.region", "Langue & Région"),
       renderValue: (value, onChange) => (
         <Select value={value as string} onValueChange={onChange}>
           <SelectTrigger className="w-[220px]">
@@ -582,9 +582,9 @@ export function PreferencesTab() {
     // Notifications
     {
       key: "emailNotifications",
-      label: t("items.email_notifications.label"),
-      description: t("items.email_notifications.desc"),
-      category: t("categories.notifications"),
+      label: t("items.email_notifications.label", "Notifications par email"),
+      description: t("items.email_notifications.desc", "Recevoir des notifications par email"),
+      category: t("categories.notifications", "Notifications"),
       renderValue: (value, onChange) => (
         <div className="flex items-center gap-3">
           <Switch
@@ -599,9 +599,9 @@ export function PreferencesTab() {
     },
     {
       key: "pushNotifications",
-      label: t("items.push_notifications.label"),
-      description: t("items.push_notifications.desc"),
-      category: t("categories.notifications"),
+      label: t("items.push_notifications.label", "Notifications push"),
+      description: t("items.push_notifications.desc", "Recevoir des notifications push"),
+      category: t("categories.notifications", "Notifications"),
       renderValue: (value, onChange) => (
         <div className="flex items-center gap-3">
           <Switch
@@ -616,9 +616,9 @@ export function PreferencesTab() {
     },
     {
       key: "notificationSound",
-      label: t("items.notification_sound.label"),
-      description: t("items.notification_sound.desc"),
-      category: t("categories.notifications"),
+      label: t("items.notification_sound.label", "Sons de notification"),
+      description: t("items.notification_sound.desc", "Activer les sons de notification"),
+      category: t("categories.notifications", "Notifications"),
       renderValue: (value, onChange) => (
         <div className="flex items-center gap-3">
           <Switch
@@ -634,9 +634,9 @@ export function PreferencesTab() {
     // Affichage
     {
       key: "itemsPerPage",
-      label: t("items.items_per_page.label"),
-      description: t("items.items_per_page.desc"),
-      category: t("categories.display"),
+      label: t("items.items_per_page.label", "Éléments par page"),
+      description: t("items.items_per_page.desc", "Nombre d'éléments affichés par page"),
+      category: t("categories.display", "Affichage"),
       renderValue: (value, onChange) => (
         <Select value={value.toString()} onValueChange={(v) => onChange(parseInt(v, 10))}>
           <SelectTrigger className="w-[220px]">
@@ -778,7 +778,7 @@ export function PreferencesTab() {
       },
       {
         accessorKey: "value",
-        header: t("table.value"),
+        header: t("table.value", "Valeur"),
         cell: ({ row }) => {
           const currentValue = preferences[row.original.key]
           return (

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -26,6 +26,7 @@ import {
 import { DataTablePagination } from "./data-table-pagination"
 import { DataTableToolbar } from "./data-table-toolbar"
 import { Group } from "../data/schema"
+import { usePreferences } from "@/hooks/use-preferences"
 
 interface Props {
   columns: ColumnDef<Group>[]
@@ -33,6 +34,7 @@ interface Props {
 }
 
 export function GroupsTable({ columns, data }: Props) {
+  const { preferences, isLoaded } = usePreferences()
   const [rowSelection, setRowSelection] = useState({})
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -58,7 +60,18 @@ export function GroupsTable({ columns, data }: Props) {
     getSortedRowModel: getSortedRowModel(),
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
+    initialState: {
+      pagination: {
+        pageSize: preferences.itemsPerPage || 10,
+      },
+    },
   })
+
+  useEffect(() => {
+    if (isLoaded && preferences.itemsPerPage) {
+      table.setPageSize(preferences.itemsPerPage)
+    }
+  }, [isLoaded, preferences.itemsPerPage, table])
 
   return (
     <div className="space-y-4">

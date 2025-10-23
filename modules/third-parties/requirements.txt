@@ -1,0 +1,2 @@
+# Dépendances du module Third Parties Management
+# Toutes les dépendances de base sont déjà dans le CORE

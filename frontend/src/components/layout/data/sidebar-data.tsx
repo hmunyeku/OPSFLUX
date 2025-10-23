@@ -25,6 +25,8 @@ import {
   IconPuzzle,
   IconMail,
   IconLanguage,
+  IconChartBar,
+  IconPlus,
 } from "@tabler/icons-react"
 import { AudioWaveform, GalleryVerticalEnd } from "lucide-react"
 import { Logo } from "@/components/logo"
@@ -60,21 +62,20 @@ export const sidebarData: SidebarData = {
       title: "Général",
       items: [
         {
-          title: "Tableau de bord",
-          icon: IconLayoutDashboard,
-          permission: "dashboard.read",
+          title: "Dashboards",
+          icon: IconChartBar,
+          permission: "dashboards.read",
           items: [
             {
-              title: "Tableau de bord 1",
-              url: "/",
+              title: "Mes dashboards",
+              url: "/dashboards",
+              icon: IconLayoutDashboard,
             },
             {
-              title: "Tableau de bord 2",
-              url: "/dashboard-2",
-            },
-            {
-              title: "Tableau de bord 3",
-              url: "/dashboard-3",
+              title: "Nouveau dashboard",
+              url: "/dashboards/new",
+              icon: IconPlus,
+              permission: "dashboards.create",
             },
           ],
         },

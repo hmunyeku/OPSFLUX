@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { IconChevronLeft, IconChevronRight, IconChevronsLeft, IconChevronsRight } from "@tabler/icons-react"
+import { usePreferences } from "@/hooks/use-preferences"
 
 interface Props {
   searchVal: string
@@ -41,13 +42,14 @@ interface Props {
 }
 
 export default function LogsTable({ searchVal, levelFilter = [], eventTypeFilter = [], refreshTrigger = 0 }: Props) {
+  const { preferences } = usePreferences()
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [total, setTotal] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [sorting, setSorting] = useState<SortingState>([])
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
-    pageSize: 10,
+    pageSize: preferences.itemsPerPage || 10,
   })
 
   // Define columns
@@ -249,7 +251,7 @@ export default function LogsTable({ searchVal, levelFilter = [], eventTypeFilter
               <SelectValue placeholder={pagination.pageSize} />
             </SelectTrigger>
             <SelectContent side="top">
-              {[10, 20, 30, 50, 100].map((pageSize) => (
+              {[10, 25, 50, 100].map((pageSize) => (
                 <SelectItem key={pageSize} value={`${pageSize}`}>
                   {pageSize}
                 </SelectItem>

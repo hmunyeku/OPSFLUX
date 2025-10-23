@@ -10,6 +10,7 @@ from app.api.routes import (
     backups,
     bookmarks,
     cache,
+    dashboards,
     database,
     email_templates,
     groups,
@@ -38,6 +39,7 @@ from app.api.routes import (
     utils,
     webhooks,
     websocket,
+    widgets,
 )
 from app.core.config import settings
 
@@ -70,6 +72,8 @@ api_router.include_router(modules.router)  # Module management system
 api_router.include_router(languages.router)  # Multilingual (i18n) system
 api_router.include_router(email_templates.router)  # Email templates management
 api_router.include_router(user_preferences.router)  # User preferences (UI + modules)
+api_router.include_router(dashboards.router)  # Dashboards & Widgets system
+api_router.include_router(widgets.router)  # Widget catalog
 
 # CORE Services API
 api_router.include_router(storage.router)  # File storage service

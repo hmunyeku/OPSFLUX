@@ -119,8 +119,8 @@ export default function ModulesPage() {
       }
       toast({
         variant: "destructive",
-        title: t("modules.error.load_failed"),
-        description: t("modules.error.load_failed_description"),
+        title: t("modules.error.load_failed", "Erreur de chargement"),
+        description: t("modules.error.load_failed_description", "Impossible de charger les modules"),
       })
     } finally {
       setLoading(false)
@@ -176,14 +176,14 @@ export default function ModulesPage() {
       if (isActive) {
         await deactivateModule(module.id)
         toast({
-          title: "Module désactivé",
-          description: `Le module ${module.name} a été désactivé avec succès.`,
+          title: t("modules.toast.deactivated.title", "Module désactivé"),
+          description: t("modules.toast.deactivated.description", `Le module ${module.name} a été désactivé avec succès.`),
         })
       } else {
         await activateModule(module.id)
         toast({
-          title: "Module activé",
-          description: `Le module ${module.name} a été activé avec succès.`,
+          title: t("modules.toast.activated.title", "Module activé"),
+          description: t("modules.toast.activated.description", `Le module ${module.name} a été activé avec succès.`),
         })
       }
       await fetchModules()
@@ -192,8 +192,8 @@ export default function ModulesPage() {
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Erreur",
-        description: error instanceof Error ? error.message : "Impossible de modifier le statut du module.",
+        title: t("modules.toast.toggle_error.title", "Erreur"),
+        description: error instanceof Error ? error.message : t("modules.toast.toggle_error.description", "Impossible de modifier le statut du module."),
       })
     }
   }
@@ -231,13 +231,13 @@ export default function ModulesPage() {
     if (errors > 0) {
       toast({
         variant: "destructive",
-        title: "Erreur partielle",
-        description: `${errors} module(s) n'ont pas pu être activé(s)`,
+        title: t("modules.toast.batch_error.title", "Erreur partielle"),
+        description: t("modules.toast.batch_error.description", `${errors} module(s) n'ont pas pu être activé(s)`),
       })
     } else {
       toast({
-        title: "Modules activés",
-        description: `${modulesToActivate.length} module(s) activé(s) avec succès.`,
+        title: t("modules.toast.batch_activated.title", "Modules activés"),
+        description: t("modules.toast.batch_activated.description", `${modulesToActivate.length} module(s) activé(s) avec succès.`),
       })
     }
 
@@ -267,8 +267,8 @@ export default function ModulesPage() {
       } else {
         toast({
           variant: "destructive",
-          title: "Fichier invalide",
-          description: "Veuillez sélectionner un fichier ZIP.",
+          title: t("modules.toast.invalid_file.title", "Fichier invalide"),
+          description: t("modules.toast.invalid_file.description", "Veuillez sélectionner un fichier ZIP."),
         })
       }
     }
@@ -282,8 +282,8 @@ export default function ModulesPage() {
       } else {
         toast({
           variant: "destructive",
-          title: "Fichier invalide",
-          description: "Veuillez sélectionner un fichier ZIP.",
+          title: t("modules.toast.invalid_file.title", "Fichier invalide"),
+          description: t("modules.toast.invalid_file.description", "Veuillez sélectionner un fichier ZIP."),
         })
       }
     }
@@ -306,8 +306,8 @@ export default function ModulesPage() {
       setUploadProgress(100)
 
       toast({
-        title: "Module installé",
-        description: "Le module a été installé avec succès.",
+        title: t("modules.toast.installed.title", "Module installé"),
+        description: t("modules.toast.installed.description", "Le module a été installé avec succès."),
       })
 
       setSelectedFile(null)
@@ -316,8 +316,8 @@ export default function ModulesPage() {
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Erreur d'installation",
-        description: error instanceof Error ? error.message : "Impossible d'installer le module.",
+        title: t("modules.toast.install_error.title", "Erreur d'installation"),
+        description: error instanceof Error ? error.message : t("modules.toast.install_error.description", "Impossible d'installer le module."),
       })
     } finally {
       setUploading(false)
@@ -331,8 +331,8 @@ export default function ModulesPage() {
     try {
       await uninstallModule(moduleToDelete.id)
       toast({
-        title: "Module désinstallé",
-        description: `Le module ${moduleToDelete.name} a été désinstallé avec succès.`,
+        title: t("modules.toast.uninstalled.title", "Module désinstallé"),
+        description: t("modules.toast.uninstalled.description", `Le module ${moduleToDelete.name} a été désinstallé avec succès.`),
       })
       setDeleteDialogOpen(false)
       setModuleToDelete(null)
@@ -340,8 +340,8 @@ export default function ModulesPage() {
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Erreur",
-        description: error instanceof Error ? error.message : "Impossible de désinstaller le module.",
+        title: t("modules.toast.uninstall_error.title", "Erreur"),
+        description: error instanceof Error ? error.message : t("modules.toast.uninstall_error.description", "Impossible de désinstaller le module."),
       })
     }
   }

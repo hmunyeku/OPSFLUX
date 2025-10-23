@@ -1,10 +1,12 @@
 import sentry_sdk
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request
 from fastapi.routing import APIRoute
 from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 from starlette.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+import logging
 
 from app.api.main import api_router
 from app.core.audit_middleware import AuditLogMiddleware
@@ -12,6 +14,8 @@ from app.core.proxy_middleware import ProxyHeadersMiddleware
 from app.core.config import settings
 from app.core.module_loader import ModuleLoader
 from app.core.api_key_auth import get_api_key_or_token
+
+logger = logging.getLogger(__name__)
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
@@ -63,6 +67,29 @@ app = FastAPI(
     generate_unique_id_function=custom_generate_unique_id,
     lifespan=lifespan,
 )
+
+
+# Temporary validation error handler for debugging
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """
+    Log validation errors for debugging purposes.
+    This helps identify which fields are failing validation.
+    """
+    logger.error(f"❌ VALIDATION ERROR on {request.method} {request.url.path}")
+    logger.error(f"Validation errors: {exc.errors()}")
+    try:
+        body = await request.body()
+        logger.error(f"Request body: {body.decode('utf-8')}")
+    except Exception as e:
+        logger.error(f"Could not read request body: {e}")
+
+    # Return the standard FastAPI validation error response
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors()},
+    )
+
 
 # Set all CORS enabled origins
 if settings.all_cors_origins:

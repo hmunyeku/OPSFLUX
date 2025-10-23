@@ -45,6 +45,7 @@ import {
 import { DeleteActions } from "./delete-actions"
 import { themes } from "@/config/themes"
 import { cn } from "@/lib/utils"
+import { toast } from "@/hooks/use-toast"
 
 const formSchema = z.object({
   // Application Settings
@@ -397,12 +398,38 @@ export default function GeneralForm() {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to save settings')
+        const errorData = await response.json().catch(() => ({ detail: 'Erreur inconnue' }))
+        const errorMessage = typeof errorData.detail === 'string'
+          ? errorData.detail
+          : 'Échec de la sauvegarde des paramètres'
+
+        toast({
+          variant: "destructive",
+          title: "Erreur de sauvegarde",
+          description: errorMessage,
+        })
+        throw new Error(errorMessage)
       }
 
       await refetch()
-    } catch {
-      // Silently fail - user can retry by making another change
+
+      // Success toast
+      toast({
+        title: "Paramètres sauvegardés",
+        description: "Vos modifications ont été enregistrées avec succès.",
+      })
+    } catch (error) {
+      // Log error for debugging
+      console.error('Failed to save settings:', error)
+
+      // Show error toast if not already shown
+      if (!(error instanceof Error && error.message.includes('Erreur de sauvegarde'))) {
+        toast({
+          variant: "destructive",
+          title: "Erreur",
+          description: error instanceof Error ? error.message : "Impossible de sauvegarder les paramètres. Vérifiez votre connexion et réessayez.",
+        })
+      }
     }
   }, [refetch])
 

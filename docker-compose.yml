@@ -25,37 +25,17 @@ services:
     environment:
       - ADMINER_DESIGN=pepa-linha-dark
     labels:
-      - traefik.http.routers.perenco-opsflux-gwxapr-14-web.rule=Host(`adminer.opsflux.io`)
-      - traefik.http.routers.perenco-opsflux-gwxapr-14-web.entrypoints=web
-      - traefik.http.services.perenco-opsflux-gwxapr-14-web.loadbalancer.server.port=8080
-      - traefik.http.routers.perenco-opsflux-gwxapr-14-web.service=perenco-opsflux-gwxapr-14-web
-      - traefik.http.routers.perenco-opsflux-gwxapr-14-web.middlewares=redirect-to-https@file
-      - traefik.http.routers.perenco-opsflux-gwxapr-14-websecure.rule=Host(`adminer.opsflux.io`)
-      - traefik.http.routers.perenco-opsflux-gwxapr-14-websecure.entrypoints=websecure
-      - traefik.http.services.perenco-opsflux-gwxapr-14-websecure.loadbalancer.server.port=8080
-      - traefik.http.routers.perenco-opsflux-gwxapr-14-websecure.service=perenco-opsflux-gwxapr-14-websecure
-      - traefik.http.routers.perenco-opsflux-gwxapr-14-websecure.tls.certresolver=letsencrypt
-      - traefik.http.routers.perenco-opsflux-gwxapr-14-web.rule=Host(`adminer.opsflux.io`)
-      - traefik.http.routers.perenco-opsflux-gwxapr-14-web.entrypoints=web
-      - traefik.http.services.perenco-opsflux-gwxapr-14-web.loadbalancer.server.port=8080
-      - traefik.http.routers.perenco-opsflux-gwxapr-14-web.service=perenco-opsflux-gwxapr-14-web
-      - traefik.http.routers.perenco-opsflux-gwxapr-14-web.middlewares=redirect-to-https@file
-      - traefik.http.routers.perenco-opsflux-gwxapr-14-websecure.rule=Host(`adminer.opsflux.io`)
-      - traefik.http.routers.perenco-opsflux-gwxapr-14-websecure.entrypoints=websecure
-      - traefik.http.services.perenco-opsflux-gwxapr-14-websecure.loadbalancer.server.port=8080
-      - traefik.http.routers.perenco-opsflux-gwxapr-14-websecure.service=perenco-opsflux-gwxapr-14-websecure
-      - traefik.http.routers.perenco-opsflux-gwxapr-14-websecure.tls.certresolver=letsencrypt
       - traefik.enable=true
       - traefik.docker.network=dokploy-network
       - traefik.constraint-label=dokploy-network
+      - traefik.http.services.${STACK_NAME?Variable not set}-adminer.loadbalancer.server.port=8080
       - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-http.rule=Host(`adminer.${DOMAIN?Variable not set}`)
       - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-http.entrypoints=web
-      - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-http.middlewares=https-redirect
+      - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-http.middlewares=${STACK_NAME?Variable not set}-https-redirect
       - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-https.rule=Host(`adminer.${DOMAIN?Variable not set}`)
       - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-https.entrypoints=websecure
       - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-https.tls=true
       - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-https.tls.certresolver=letsencrypt
-      - traefik.http.services.${STACK_NAME?Variable not set}-adminer.loadbalancer.server.port=8080
   prestart:
     image: ${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}
     build:
@@ -216,41 +196,23 @@ services:
     build:
       context: ./backend
     labels:
-      - traefik.http.routers.perenco-opsflux-gwxapr-4-web.rule=Host(`api.opsflux.io`)
-      - traefik.http.routers.perenco-opsflux-gwxapr-4-web.entrypoints=web
-      - traefik.http.services.perenco-opsflux-gwxapr-4-web.loadbalancer.server.port=8000
-      - traefik.http.routers.perenco-opsflux-gwxapr-4-web.service=perenco-opsflux-gwxapr-4-web
-      - traefik.http.routers.perenco-opsflux-gwxapr-4-web.middlewares=redirect-to-https@file
-      - traefik.http.routers.perenco-opsflux-gwxapr-4-websecure.rule=Host(`api.opsflux.io`)
-      - traefik.http.routers.perenco-opsflux-gwxapr-4-websecure.entrypoints=websecure
-      - traefik.http.services.perenco-opsflux-gwxapr-4-websecure.loadbalancer.server.port=8000
-      - traefik.http.routers.perenco-opsflux-gwxapr-4-websecure.service=perenco-opsflux-gwxapr-4-websecure
-      - traefik.http.routers.perenco-opsflux-gwxapr-4-websecure.tls.certresolver=letsencrypt
-      - traefik.http.middlewares.perenco-opsflux-gwxapr-backend-buffering.buffering.maxRequestBodyBytes=52428800
-      - traefik.http.middlewares.perenco-opsflux-gwxapr-backend-buffering.buffering.memRequestBodyBytes=52428800
-      - traefik.http.middlewares.perenco-opsflux-gwxapr-backend-buffering.buffering.retryExpression=IsNetworkError() && Attempts() < 2
-      - traefik.http.routers.perenco-opsflux-gwxapr-4-websecure.middlewares=perenco-opsflux-gwxapr-backend-buffering
-      - traefik.http.routers.perenco-opsflux-gwxapr-4-web.rule=Host(`api.opsflux.io`)
-      - traefik.http.routers.perenco-opsflux-gwxapr-4-web.entrypoints=web
-      - traefik.http.services.perenco-opsflux-gwxapr-4-web.loadbalancer.server.port=8000
-      - traefik.http.routers.perenco-opsflux-gwxapr-4-web.service=perenco-opsflux-gwxapr-4-web
-      - traefik.http.routers.perenco-opsflux-gwxapr-4-web.middlewares=redirect-to-https@file
-      - traefik.http.routers.perenco-opsflux-gwxapr-4-websecure.rule=Host(`api.opsflux.io`)
-      - traefik.http.routers.perenco-opsflux-gwxapr-4-websecure.entrypoints=websecure
-      - traefik.http.services.perenco-opsflux-gwxapr-4-websecure.loadbalancer.server.port=8000
-      - traefik.http.routers.perenco-opsflux-gwxapr-4-websecure.service=perenco-opsflux-gwxapr-4-websecure
-      - traefik.http.routers.perenco-opsflux-gwxapr-4-websecure.tls.certresolver=letsencrypt
       - traefik.enable=true
       - traefik.docker.network=dokploy-network
       - traefik.constraint-label=dokploy-network
       - traefik.http.services.${STACK_NAME?Variable not set}-backend.loadbalancer.server.port=8000
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.rule=Host(`api.${DOMAIN?Variable not set}`)
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.entrypoints=web
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.middlewares=https-redirect
+      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.middlewares=${STACK_NAME?Variable not set}-https-redirect
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.rule=Host(`api.${DOMAIN?Variable not set}`)
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.entrypoints=websecure
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.tls=true
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.tls.certresolver=letsencrypt
+      - traefik.http.middlewares.${STACK_NAME?Variable not set}-https-redirect.redirectscheme.scheme=https
+      - traefik.http.middlewares.${STACK_NAME?Variable not set}-https-redirect.redirectscheme.permanent=true
+      - traefik.http.middlewares.${STACK_NAME?Variable not set}-backend-buffering.buffering.maxRequestBodyBytes=52428800
+      - traefik.http.middlewares.${STACK_NAME?Variable not set}-backend-buffering.buffering.memRequestBodyBytes=52428800
+      - traefik.http.middlewares.${STACK_NAME?Variable not set}-backend-buffering.buffering.retryExpression=IsNetworkError() && Attempts() < 2
+      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.middlewares=${STACK_NAME?Variable not set}-backend-buffering
   frontend:
     image: ${DOCKER_IMAGE_FRONTEND?Variable not set}:${TAG-latest}
     restart: always
@@ -265,35 +227,21 @@ services:
       - NEXT_PUBLIC_API_URL=https://api.${DOMAIN?Variable not set}
       - NODE_ENV=production
     labels:
-      - traefik.http.routers.perenco-opsflux-gwxapr-3-web.rule=Host(`app.opsflux.io`)
-      - traefik.http.routers.perenco-opsflux-gwxapr-3-web.entrypoints=web
-      - traefik.http.services.perenco-opsflux-gwxapr-3-web.loadbalancer.server.port=3000
-      - traefik.http.routers.perenco-opsflux-gwxapr-3-web.service=perenco-opsflux-gwxapr-3-web
-      - traefik.http.routers.perenco-opsflux-gwxapr-3-web.middlewares=redirect-to-https@file
-      - traefik.http.routers.perenco-opsflux-gwxapr-3-websecure.rule=Host(`app.opsflux.io`)
-      - traefik.http.routers.perenco-opsflux-gwxapr-3-websecure.entrypoints=websecure
-      - traefik.http.services.perenco-opsflux-gwxapr-3-websecure.loadbalancer.server.port=3000
-      - traefik.http.routers.perenco-opsflux-gwxapr-3-websecure.service=perenco-opsflux-gwxapr-3-websecure
-      - traefik.http.routers.perenco-opsflux-gwxapr-3-websecure.tls.certresolver=letsencrypt
-      - traefik.http.middlewares.perenco-opsflux-gwxapr-no-cache.headers.customresponseheaders.Cache-Control=no-cache, no-store, must-revalidate
-      - traefik.http.middlewares.perenco-opsflux-gwxapr-no-cache.headers.customresponseheaders.Pragma=no-cache
-      - traefik.http.middlewares.perenco-opsflux-gwxapr-no-cache.headers.customresponseheaders.Expires=0
-      - traefik.http.routers.perenco-opsflux-gwxapr-3-websecure.middlewares=perenco-opsflux-gwxapr-no-cache
-      - traefik.http.services.perenco-opsflux-gwxapr-3-websecure.loadbalancer.server.port=3000
-      - traefik.http.routers.perenco-opsflux-gwxapr-3-websecure.service=perenco-opsflux-gwxapr-3-websecure
-      - traefik.http.routers.perenco-opsflux-gwxapr-3-websecure.tls.certresolver=letsencrypt
       - traefik.enable=true
       - traefik.docker.network=dokploy-network
       - traefik.constraint-label=dokploy-network
       - traefik.http.services.${STACK_NAME?Variable not set}-frontend.loadbalancer.server.port=3000
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.rule=Host(`app.${DOMAIN?Variable not set}`)
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.entrypoints=web
-      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.middlewares=https-redirect
+      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.middlewares=${STACK_NAME?Variable not set}-https-redirect
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.rule=Host(`app.${DOMAIN?Variable not set}`)
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.entrypoints=websecure
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.tls=true
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.tls.certresolver=letsencrypt
-      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.middlewares=perenco-opsflux-gwxapr-no-cache
+      - traefik.http.middlewares.${STACK_NAME?Variable not set}-no-cache.headers.customresponseheaders.Cache-Control=no-cache, no-store, must-revalidate
+      - traefik.http.middlewares.${STACK_NAME?Variable not set}-no-cache.headers.customresponseheaders.Pragma=no-cache
+      - traefik.http.middlewares.${STACK_NAME?Variable not set}-no-cache.headers.customresponseheaders.Expires=0
+      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.middlewares=${STACK_NAME?Variable not set}-no-cache
 volumes:
   app-db-data: null
   app-redis-data: null

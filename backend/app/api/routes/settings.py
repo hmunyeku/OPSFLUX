@@ -56,27 +56,51 @@ async def update_settings(
     Only superusers can update settings.
     Invalidates settings cache.
     """
-    statement = select(AppSettings).where(AppSettings.deleted_at == None).limit(1)  # noqa: E711
-    db_settings = session.exec(statement).first()
+    import logging
+    import traceback
 
-    if not db_settings:
+    logger = logging.getLogger(__name__)
+
+    try:
+        statement = select(AppSettings).where(AppSettings.deleted_at == None).limit(1)  # noqa: E711
+        db_settings = session.exec(statement).first()
+
+        if not db_settings:
+            raise HTTPException(
+                status_code=404,
+                detail="Application settings not found. Please contact administrator.",
+            )
+
+        # Update settings with provided values
+        settings_data = settings_in.model_dump(exclude_unset=True)
+        logger.info(f"Updating settings with data keys: {list(settings_data.keys())}")
+
+        db_settings.sqlmodel_update(settings_data)
+
+        session.add(db_settings)
+        session.commit()
+        session.refresh(db_settings)
+
+        # Invalidate cache
+        try:
+            await cache_service.clear_namespace("settings")
+        except Exception as e:
+            # Log the error but don't fail the request
+            logger.error(f"Failed to clear cache: {e}")
+
+        return db_settings
+
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except Exception as e:
+        # Log any unexpected errors with full traceback
+        logger.error(f"❌ ERROR in update_settings: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(
-            status_code=404,
-            detail="Application settings not found. Please contact administrator.",
+            status_code=500,
+            detail=f"Failed to update settings: {str(e)}"
         )
-
-    # Update settings with provided values
-    settings_data = settings_in.model_dump(exclude_unset=True)
-    db_settings.sqlmodel_update(settings_data)
-
-    session.add(db_settings)
-    session.commit()
-    session.refresh(db_settings)
-
-    # Invalidate cache
-    await cache_service.clear_namespace("settings")
-
-    return db_settings
 
 
 @router.post(

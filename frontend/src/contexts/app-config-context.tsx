@@ -66,6 +66,23 @@ export interface AppConfig {
   audit_retention_days?: number
   audit_log_level?: string
   audit_enabled?: boolean
+
+  // Cache (Redis) - TTL Settings
+  redis_default_ttl?: number
+  redis_max_ttl?: number
+
+  // AI Configuration
+  ai_provider?: string
+  ai_openai_api_key?: string
+  ai_openai_model?: string
+  ai_openai_base_url?: string
+  ai_anthropic_api_key?: string
+  ai_anthropic_model?: string
+  ai_max_tokens?: number
+  ai_temperature?: number
+
+  // Invitation Settings
+  invitation_expiry_days?: number
 }
 
 interface AppConfigContextType {
@@ -151,6 +168,20 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
           audit_retention_days: data.audit_retention_days,
           audit_log_level: data.audit_log_level,
           audit_enabled: data.audit_enabled,
+          // Cache TTL
+          redis_default_ttl: data.redis_default_ttl,
+          redis_max_ttl: data.redis_max_ttl,
+          // AI Configuration
+          ai_provider: data.ai_provider,
+          ai_openai_api_key: data.ai_openai_api_key,
+          ai_openai_model: data.ai_openai_model,
+          ai_openai_base_url: data.ai_openai_base_url,
+          ai_anthropic_api_key: data.ai_anthropic_api_key,
+          ai_anthropic_model: data.ai_anthropic_model,
+          ai_max_tokens: data.ai_max_tokens,
+          ai_temperature: data.ai_temperature,
+          // Invitation Settings
+          invitation_expiry_days: data.invitation_expiry_days,
         })
       }
     } catch (_error) {

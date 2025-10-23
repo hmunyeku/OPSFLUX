@@ -102,6 +102,13 @@ class UserPublic(UserBase):
     intranet_identifier: str | None = None
 
 
+class UserPublicWithRBAC(UserPublic):
+    """User model with RBAC information (roles, groups, permissions)"""
+    roles: list[dict] | None = None
+    groups: list[dict] | None = None
+    permissions: list[str] | None = None
+
+
 class UsersPublic(SQLModel):
     data: list[UserPublic]
     count: int
@@ -345,8 +352,7 @@ class AppSettingsBase(SQLModel):
     ai_temperature: float = Field(default=0.7, description="Température pour les réponses AI (0.0-1.0)")
 
     # User Invitations
-    # TODO: Temporarily commented out - waiting for Docker image rebuild
-    # invitation_expiry_days: int = Field(default=7, description="Nombre de jours de validité d'une invitation utilisateur")
+    invitation_expiry_days: int = Field(default=7, description="Nombre de jours de validité d'une invitation utilisateur")
 
 
 class AppSettingsUpdate(SQLModel):
@@ -546,6 +552,9 @@ class AppSettingsPublic(SQLModel):
     ai_anthropic_model: str
     ai_max_tokens: int
     ai_temperature: float
+
+    # User Invitations
+    invitation_expiry_days: int | None
 
 
 # API Keys Models

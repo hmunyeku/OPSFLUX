@@ -192,17 +192,71 @@ def update_password_me(
     return Message(message="Mot de passe mis à jour avec succès")
 
 
-@router.get("/me", response_model=UserPublic)
-@cache_service.cached(
-    namespace="users",
-    key_builder=lambda current_user: f"me:{current_user.id}"
-)
-async def read_user_me(current_user: CurrentUser) -> Any:
+@router.get("/me")
+async def read_user_me(
+    current_user: CurrentUser,
+    session: SessionDep,
+    with_rbac: bool = False
+) -> Any:
     """
     Get current user.
-    Uses default TTL from settings (redis_default_ttl).
+    Optionally include RBAC information (roles, groups, permissions) with with_rbac=true
     """
-    return current_user
+    if not with_rbac:
+        return current_user
+
+    # Load RBAC information
+    from app.models_rbac import UserRole, UserGroup, Role, Group, RolePermission, GroupPermission
+    from sqlmodel import select
+
+    # Get user roles
+    user_roles_statement = (
+        select(Role)
+        .join(UserRole, UserRole.role_id == Role.id)
+        .where(UserRole.user_id == current_user.id)
+        .where(Role.deleted_at == None)
+    )
+    user_roles = session.exec(user_roles_statement).all()
+
+    # Get user groups
+    user_groups_statement = (
+        select(Group)
+        .join(UserGroup, UserGroup.group_id == Group.id)
+        .where(UserGroup.user_id == current_user.id)
+        .where(Group.deleted_at == None)
+    )
+    user_groups = session.exec(user_groups_statement).all()
+
+    # Collect all permissions from roles and groups
+    permissions_set = set()
+
+    # Permissions from roles
+    for role in user_roles:
+        role_perms_statement = (
+            select(RolePermission.permission_code)
+            .where(RolePermission.role_id == role.id)
+        )
+        role_perms = session.exec(role_perms_statement).all()
+        permissions_set.update(role_perms)
+
+    # Permissions from groups
+    for group in user_groups:
+        group_perms_statement = (
+            select(GroupPermission.permission_code)
+            .where(GroupPermission.group_id == group.id)
+        )
+        group_perms = session.exec(group_perms_statement).all()
+        permissions_set.update(group_perms)
+
+    # Convert user to dict and add RBAC info
+    user_dict = {
+        **current_user.model_dump(),
+        "roles": [{"id": str(role.id), "name": role.name, "description": role.description} for role in user_roles],
+        "groups": [{"id": str(group.id), "name": group.name, "description": group.description} for group in user_groups],
+        "permissions": sorted(list(permissions_set))
+    }
+
+    return user_dict
 
 
 @router.delete("/me", response_model=Message)

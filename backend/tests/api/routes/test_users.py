@@ -410,6 +410,8 @@ def test_delete_user_me(client: TestClient, db: Session) -> None:
     assert deleted_user["message"] == "User deleted successfully"
 
     # Soft delete: vérifier que l'utilisateur est marqué comme supprimé, pas physiquement supprimé
+    # Rafraîchir la session pour voir les changements faits par l'endpoint
+    db.expire_all()
     result = db.exec(select(User).where(User.id == user_id)).first()
     assert result is not None
     assert result.deleted_at is not None  # Marqué comme supprimé
@@ -445,6 +447,8 @@ def test_delete_user_super_user(
     assert deleted_user["message"] == "User deleted successfully"
 
     # Soft delete: vérifier que l'utilisateur est marqué comme supprimé, pas physiquement supprimé
+    # Rafraîchir la session pour voir les changements faits par l'endpoint
+    db.expire_all()
     result = db.exec(select(User).where(User.id == user_id)).first()
     assert result is not None
     assert result.deleted_at is not None  # Marqué comme supprimé

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { Info, Search, Filter, ArrowUpDown } from "lucide-react"
+import { Info, Search, Filter, ArrowUpDown, Edit2, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { useTranslation } from "@/hooks/use-translation"
 import {
@@ -15,8 +15,18 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast"
-import { getHooks, type Hook, updateHook } from "./data/hooks-api"
+import { getHooks, type Hook, updateHook, deleteHook } from "./data/hooks-api"
 import {
   Table,
   TableBody,
@@ -47,6 +57,8 @@ import {
 } from "@tanstack/react-table"
 import { PermissionGuard } from "@/components/permission-guard"
 import { usePermissions } from "@/hooks/use-permissions"
+import { AddHook } from "./components/add-hook"
+import { MutateHook } from "./components/mutate-hook"
 
 export default function HooksPage() {
   return (
@@ -66,6 +78,8 @@ function HooksPageContent() {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [editingHook, setEditingHook] = useState<Hook | null>(null)
+  const [deletingHook, setDeletingHook] = useState<Hook | null>(null)
   const { toast } = useToast()
 
   const loadHooks = async () => {
@@ -92,14 +106,34 @@ function HooksPageContent() {
     try {
       await updateHook(hook.id, { is_active: !hook.is_active })
       toast({
-        title: "Succès",
-        description: `Hook ${hook.is_active ? "désactivé" : "activé"}`,
+        title: t("hooks.success", "Succès"),
+        description: `Hook ${hook.is_active ? t("hooks.deactivated", "désactivé") : t("hooks.activated", "activé")}`,
       })
       loadHooks()
     } catch (error) {
       toast({
-        title: "Erreur",
-        description: error instanceof Error ? error.message : "Impossible de modifier le hook",
+        title: t("hooks.error", "Erreur"),
+        description: error instanceof Error ? error.message : t("hooks.update_error", "Impossible de modifier le hook"),
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleDeleteHook = async () => {
+    if (!deletingHook) return
+
+    try {
+      await deleteHook(deletingHook.id)
+      toast({
+        title: t("hooks.deleted", "Hook supprimé"),
+        description: t("hooks.deleted_desc", "Le hook a été supprimé avec succès"),
+      })
+      setDeletingHook(null)
+      loadHooks()
+    } catch (error) {
+      toast({
+        title: t("hooks.error", "Erreur"),
+        description: error instanceof Error ? error.message : "Impossible de supprimer le hook",
         variant: "destructive",
       })
     }
@@ -124,7 +158,7 @@ function HooksPageContent() {
               className="-ml-3 h-8"
               onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
             >
-              Nom
+              {t("hooks.column_name", "Nom")}
               <ArrowUpDown className="ml-2 h-4 w-4" />
             </Button>
           )
@@ -144,7 +178,7 @@ function HooksPageContent() {
               className="-ml-3 h-8"
               onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
             >
-              Événement
+              {t("hooks.column_event", "Événement")}
               <ArrowUpDown className="ml-2 h-4 w-4" />
             </Button>
           )
@@ -160,10 +194,10 @@ function HooksPageContent() {
       },
       {
         accessorKey: "description",
-        header: "Description",
+        header: t("hooks.column_description", "Description"),
         cell: ({ row }) => (
           <div className="max-w-md text-sm text-muted-foreground">
-            {row.getValue("description") || "Aucune description"}
+            {row.getValue("description") || t("hooks.no_description", "Aucune description")}
           </div>
         ),
       },
@@ -177,7 +211,7 @@ function HooksPageContent() {
               className="-ml-3 h-8"
               onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
             >
-              Priorité
+              {t("hooks.column_priority", "Priorité")}
               <ArrowUpDown className="ml-2 h-4 w-4" />
             </Button>
           )
@@ -194,7 +228,7 @@ function HooksPageContent() {
       },
       {
         accessorKey: "actions",
-        header: "Actions",
+        header: t("hooks.column_action_types", "Types d'actions"),
         cell: ({ row }) => {
           const actions = row.getValue("actions") as Hook["actions"]
           return (
@@ -210,7 +244,7 @@ function HooksPageContent() {
       },
       {
         accessorKey: "is_active",
-        header: "Statut",
+        header: t("hooks.column_status", "Statut"),
         cell: ({ row }) => {
           const hook = row.original
           return (
@@ -227,8 +261,35 @@ function HooksPageContent() {
           return value === "active" ? isActive : !isActive
         },
       },
+      {
+        id: "row_actions",
+        header: t("hooks.column_actions", "Actions"),
+        cell: ({ row }) => {
+          const hook = row.original
+          return (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setEditingHook(hook)}
+                disabled={!hasPermission("core.hooks.update")}
+              >
+                <Edit2 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setDeletingHook(hook)}
+                disabled={!hasPermission("core.hooks.delete")}
+              >
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </div>
+          )
+        },
+      },
     ],
-    [handleToggleActive, hasPermission]
+    [handleToggleActive, hasPermission, setEditingHook, setDeletingHook]
   )
 
   // Apply filters
@@ -292,15 +353,8 @@ function HooksPageContent() {
             {t("hooks.description", "Description")}
           </p>
         </div>
+        <AddHook onHookAdded={loadHooks} disabled={!hasPermission("core.hooks.create")} />
       </div>
-
-      <Alert>
-        <Info className="h-4 w-4" />
-        <AlertTitle>{t("hooks.system_title", "System title")}</AlertTitle>
-        <AlertDescription>
-          {t("hooks.system_description", "System description")}
-        </AlertDescription>
-      </Alert>
 
       <div className="h-full flex-1">
         {loading ? (
@@ -329,10 +383,10 @@ function HooksPageContent() {
                   <Filter className="h-4 w-4 text-muted-foreground" />
                   <Select value={eventFilter} onValueChange={setEventFilter}>
                     <SelectTrigger className="w-full md:w-[180px]">
-                      <SelectValue placeholder="Événement" />
+                      <SelectValue placeholder={t("hooks.filter_event", "Événement")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Tous les événements</SelectItem>
+                      <SelectItem value="all">{t("hooks.filter_all_events", "Tous les événements")}</SelectItem>
                       {uniqueEvents.map((event) => (
                         <SelectItem key={event} value={event}>
                           {event}
@@ -342,12 +396,12 @@ function HooksPageContent() {
                   </Select>
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
                     <SelectTrigger className="w-full md:w-[150px]">
-                      <SelectValue placeholder="Statut" />
+                      <SelectValue placeholder={t("hooks.filter_status", "Statut")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Tous</SelectItem>
-                      <SelectItem value="active">Actif</SelectItem>
-                      <SelectItem value="inactive">Inactif</SelectItem>
+                      <SelectItem value="all">{t("hooks.filter_all", "Tous")}</SelectItem>
+                      <SelectItem value="active">{t("hooks.filter_active", "Actif")}</SelectItem>
+                      <SelectItem value="inactive">{t("hooks.filter_inactive", "Inactif")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -392,7 +446,7 @@ function HooksPageContent() {
                           colSpan={columns.length}
                           className="h-24 text-center"
                         >
-                          Aucun hook ne correspond à votre recherche.
+                          {t("hooks.no_match", "Aucun hook ne correspond à votre recherche.")}
                         </TableCell>
                       </TableRow>
                     )}
@@ -404,14 +458,45 @@ function HooksPageContent() {
         ) : (
           <Card>
             <CardHeader>
-              <CardTitle>Aucun hook système</CardTitle>
+              <CardTitle>{t("hooks.no_hooks", "Aucun hook")}</CardTitle>
               <CardDescription>
-                Les hooks seront créés automatiquement par le système lors de l&apos;installation de modules.
+                {t("hooks.no_hooks_desc", "Aucun hook n'a encore été créé. Créez votre premier hook pour automatiser des actions.")}
               </CardDescription>
             </CardHeader>
           </Card>
         )}
       </div>
+
+      {/* Edit Hook Dialog */}
+      {editingHook && (
+        <MutateHook
+          open={!!editingHook}
+          setOpen={(open) => !open && setEditingHook(null)}
+          currentHook={editingHook}
+          onHookMutated={() => {
+            setEditingHook(null)
+            loadHooks()
+          }}
+        />
+      )}
+
+      {/* Delete Hook Dialog */}
+      <AlertDialog open={!!deletingHook} onOpenChange={(open) => !open && setDeletingHook(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("hooks.delete_title", "Supprimer le hook")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("hooks.delete_confirm", `Êtes-vous sûr de vouloir supprimer le hook "${deletingHook?.name}" ? Cette action est irréversible.`)}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("hooks.cancel", "Annuler")}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteHook} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {t("hooks.delete", "Supprimer")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

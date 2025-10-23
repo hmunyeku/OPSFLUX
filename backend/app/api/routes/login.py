@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app import crud
-from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
+from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser, get_current_user
 from app.core import security
 from app.core.config import settings
 from app.core.security import get_password_hash, create_2fa_temp_token, ALGORITHM
@@ -26,6 +26,7 @@ from app.models import (
     User,
 )
 from app.core.email_service import email_service
+from app.core.hook_trigger_service import hook_trigger
 from app.utils import (
     generate_password_reset_token,
     verify_password_reset_token,
@@ -195,9 +196,16 @@ def test_token(current_user: CurrentUser) -> Any:
 
 
 @router.post("/password-recovery/{email}")
-def recover_password(email: str, session: SessionDep) -> Message:
+async def recover_password(
+    email: str,
+    session: SessionDep,
+    current_user: User | None = Depends(get_current_user)
+) -> Message:
     """
     Password Recovery
+    Can be called by:
+    - Unauthenticated users (public password recovery)
+    - Authenticated admins (admin-initiated password reset)
     """
     user = crud.get_user_by_email(session=session, email=email)
 
@@ -222,11 +230,36 @@ def recover_password(email: str, session: SessionDep) -> Message:
             detail="Failed to send password recovery email. Please check email configuration.",
         )
 
+    # Trigger hook: user.password_reset_requested
+    try:
+        context = {
+            "user_id": str(user.id),
+            "email": user.email,
+            "full_name": user.full_name,
+            "requested_by": "user" if not current_user else "admin",
+        }
+
+        if current_user:
+            context["admin_id"] = str(current_user.id)
+            context["admin_email"] = current_user.email
+            context["admin_name"] = current_user.full_name or current_user.email
+
+        await hook_trigger.trigger_event(
+            event="user.password_reset_requested",
+            context=context,
+            db=session,
+        )
+    except Exception as e:
+        # Log mais ne pas bloquer l'envoi de l'email
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Failed to trigger user.password_reset_requested hook: {e}")
+
     return Message(message="Password recovery email sent")
 
 
 @router.post("/reset-password/")
-def reset_password(session: SessionDep, body: NewPassword) -> Message:
+async def reset_password(session: SessionDep, body: NewPassword) -> Message:
     """
     Reset password
     """
@@ -245,6 +278,23 @@ def reset_password(session: SessionDep, body: NewPassword) -> Message:
     user.hashed_password = hashed_password
     session.add(user)
     session.commit()
+
+    # Trigger hook: user.password_reset_completed
+    try:
+        await hook_trigger.trigger_event(
+            event="user.password_reset_completed",
+            context={
+                "user_id": str(user.id),
+                "email": user.email,
+                "full_name": user.full_name,
+            },
+            db=session,
+        )
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Failed to trigger user.password_reset_completed hook: {e}")
+
     return Message(message="Password updated successfully")
 
 

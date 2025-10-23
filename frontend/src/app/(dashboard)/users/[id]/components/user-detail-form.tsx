@@ -71,6 +71,7 @@ export function UserDetailForm({ user }: Props) {
   const { t } = useTranslation("core.users")
   const [isEdit, setIsEdit] = useState(false)
   const [open, setOpen] = useDialogState<"reset" | "deactivate">(null)
+  const [isSendingReset, setIsSendingReset] = useState(false)
 
   const form = useForm<AccountDetailForm>({
     resolver: zodResolver(accountDetailSchema),
@@ -125,6 +126,38 @@ export function UserDetailForm({ user }: Props) {
         : user.full_name.substring(0, 2).toUpperCase()
     }
     return user.email.substring(0, 2).toUpperCase()
+  }
+
+  const handlePasswordReset = async () => {
+    try {
+      setIsSendingReset(true)
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/password-recovery/${user.email}`,
+        {
+          method: 'POST',
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error('Failed to send password reset email')
+      }
+
+      toast({
+        title: "Email envoyé",
+        description: `Un email de réinitialisation a été envoyé à ${user.email}`,
+      })
+      setOpen(null)
+    } catch (error) {
+      console.error('Password reset error:', error)
+      toast({
+        title: "Erreur",
+        description: "Impossible d'envoyer l'email de réinitialisation. Vérifiez la configuration email.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSendingReset(false)
+    }
   }
 
   return (
@@ -432,17 +465,18 @@ export function UserDetailForm({ user }: Props) {
 
             <div className="flex items-center justify-between space-x-4">
               <div className="flex flex-col space-y-1 text-sm leading-none font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                <span>Send Password Reset Email</span>
+                <span>Réinitialiser le mot de passe</span>
                 <span className="text-muted-foreground text-xs leading-snug font-normal">
-                  Sends a reset link to the user&apos;s registered email.
+                  Envoie un lien de réinitialisation à l&apos;email de l&apos;utilisateur.
                 </span>
               </div>
               <Button
                 variant="outline"
-                className="border-destructive/75 text-destructive hover:bg-destructive/10 hover:text-destructive/90 dark:border-red-500 dark:text-red-400 dark:hover:text-red-600"
+                className="border-orange-500/75 text-orange-600 hover:bg-orange-50 hover:text-orange-700 dark:border-orange-500 dark:text-orange-400 dark:hover:text-orange-300"
                 onClick={() => setOpen("reset")}
+                disabled={isSendingReset}
               >
-                Send Email
+                {isSendingReset ? "Envoi..." : "Envoyer"}
               </Button>
             </div>
 
@@ -470,30 +504,21 @@ export function UserDetailForm({ user }: Props) {
       <ConfirmDialog
         key="user-reset-password"
         open={open === "reset"}
-        onOpenChange={() => setOpen("reset")}
-        handleConfirm={() => {
-          setOpen(null)
-          toast({
-            title: "The following task has been deleted:",
-            description: (
-              <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4">
-                <code className="text-white">
-                  {JSON.stringify(user, null, 2)}
-                </code>
-              </pre>
-            ),
-          })
-          router.push("/users")
-        }}
+        onOpenChange={() => setOpen(null)}
+        handleConfirm={handlePasswordReset}
         className="max-w-md"
-        title={`Send Reset Password Email?`}
+        title="Réinitialiser le mot de passe ?"
         desc={
           <>
-            You are about to send a reset password email to{" "}
+            Vous êtes sur le point d&apos;envoyer un email de réinitialisation de mot de passe à{" "}
             <strong>{user.email}</strong>.
+            <br />
+            <br />
+            L&apos;utilisateur recevra un lien valide pendant 48 heures pour créer un nouveau mot de passe.
           </>
         }
-        confirmText="Send"
+        confirmText={isSendingReset ? "Envoi en cours..." : "Envoyer l'email"}
+        cancelText="Annuler"
       />
 
       <UsersDeactivateDialog

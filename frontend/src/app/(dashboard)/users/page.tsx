@@ -20,6 +20,12 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
+import {
   Search,
   Users as UsersIcon,
   UserPlus,
@@ -48,21 +54,23 @@ export default function UsersPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isUserSheetOpen, setIsUserSheetOpen] = useState(false)
 
   const loadUsers = async () => {
     try {
       setIsLoading(true)
       const data = await getUsers()
       setUsers(data)
-      // Auto-select first user if none selected
-      if (!selectedUser && data.length > 0) {
-        setSelectedUser(data[0])
-      }
     } catch (error) {
       console.error('Failed to load users:', error)
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleUserSelect = (user: User) => {
+    setSelectedUser(user)
+    setIsUserSheetOpen(true)
   }
 
   const refreshUsers = async () => {
@@ -126,85 +134,108 @@ export default function UsersPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-[300px]" />
-        <div className="grid gap-4 md:grid-cols-[350px_1fr]">
-          <Skeleton className="h-[600px]" />
-          <Skeleton className="h-[600px]" />
+      <div className="space-y-4 p-4">
+        <Skeleton className="h-6 w-[200px]" />
+        <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+          <Skeleton className="h-20" />
+          <Skeleton className="h-20" />
+          <Skeleton className="h-20" />
+          <Skeleton className="h-20" />
         </div>
+        <Skeleton className="h-[500px] w-full" />
       </div>
     )
   }
 
   return (
     <PermissionGuard permission="users.read">
-      {/* Compact Header with Inline Stats */}
-      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10">
-        <div className="flex flex-col gap-2 px-4 py-3">
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link href="/">{t("breadcrumb.home", "Accueil")}</Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage>{t("breadcrumb.users", "Utilisateurs")}</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
+      <div className="flex flex-col h-full">
+        {/* Header */}
+        <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="flex flex-col gap-3 p-4 sm:px-6">
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <Link href="/">{t("breadcrumb.home", "Accueil")}</Link>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>{t("breadcrumb.users", "Utilisateurs")}</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <h1 className="text-xl font-bold">{t("page.title", "Utilisateurs")}</h1>
-
-              {/* Inline stats */}
-              <div className="hidden lg:flex items-center gap-3 text-sm text-muted-foreground border-l pl-4 ml-2">
-                <div className="flex items-center gap-1.5">
-                  <UsersIcon className="h-3.5 w-3.5" />
-                  <span className="font-medium">{stats.totalUsers}</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-green-600">
-                  <UserCheck className="h-3.5 w-3.5" />
-                  <span className="font-medium">{stats.activeUsers}</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-orange-600">
-                  <UserX className="h-3.5 w-3.5" />
-                  <span className="font-medium">{stats.inactiveUsers}</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-primary">
-                  <Shield className="h-3.5 w-3.5" />
-                  <span className="font-medium">{stats.superusers}</span>
-                </div>
-              </div>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <h1 className="text-2xl font-bold">{t("page.title", "Utilisateurs")}</h1>
+              <Button onClick={() => setIsInviteDialogOpen(true)} size="sm" className="w-full sm:w-auto">
+                <UserPlus className="mr-2 h-4 w-4" />
+                {t("action.invite", "Inviter")}
+              </Button>
             </div>
 
-            <Button onClick={() => setIsInviteDialogOpen(true)} size="sm">
-              <UserPlus className="mr-2 h-4 w-4" />
-              {t("action.invite", "Inviter")}
-            </Button>
+            {/* Stats - Always visible, responsive grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+              <Card className="bg-muted/50">
+                <CardContent className="p-3 sm:p-4">
+                  <div className="flex items-center gap-2">
+                    <UsersIcon className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Total</p>
+                      <p className="text-lg sm:text-xl font-bold">{stats.totalUsers}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="bg-green-50/50 dark:bg-green-950/20">
+                <CardContent className="p-3 sm:p-4">
+                  <div className="flex items-center gap-2">
+                    <UserCheck className="h-4 w-4 text-green-600" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Actifs</p>
+                      <p className="text-lg sm:text-xl font-bold text-green-600">{stats.activeUsers}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="bg-orange-50/50 dark:bg-orange-950/20">
+                <CardContent className="p-3 sm:p-4">
+                  <div className="flex items-center gap-2">
+                    <UserX className="h-4 w-4 text-orange-600" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Inactifs</p>
+                      <p className="text-lg sm:text-xl font-bold text-orange-600">{stats.inactiveUsers}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="bg-primary/5">
+                <CardContent className="p-3 sm:p-4">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-primary" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Admins</p>
+                      <p className="text-lg sm:text-xl font-bold text-primary">{stats.superusers}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Main Content - Fullwidth Layout */}
-      <div className="flex h-[calc(100vh-140px)] overflow-hidden">
-        {/* Left Sidebar - Users List */}
-        <div className="w-full lg:w-80 border-r flex flex-col bg-muted/20 overflow-hidden">
-          {/* Sidebar Header */}
-          <div className="p-3 border-b bg-background/50">
-            <h2 className="font-semibold text-xs mb-2 uppercase tracking-wide text-muted-foreground">
-              {t("page.list_title", "Utilisateurs")}
-            </h2>
+        {/* Main Content */}
+        <div className="flex-1 overflow-auto">
+          <div className="p-4 sm:p-6 space-y-4">
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder={t("action.search", "Rechercher...")}
+                placeholder={t("action.search", "Rechercher par nom ou email...")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-10 h-9"
+                className="pl-9 pr-10"
               />
               {searchQuery && (
                 <Button
@@ -217,214 +248,80 @@ export default function UsersPage() {
                 </Button>
               )}
             </div>
-          </div>
 
-          {/* Users List */}
-          <ScrollArea className="flex-1 px-3 py-2">
-            <div className="space-y-1 max-w-full">
-              {filteredUsers.length === 0 ? (
-                <div className="py-8 text-center text-sm text-muted-foreground">
-                  {t("message.no_user_found", "Aucun utilisateur trouvé")}
+            {/* Users Grid/List */}
+            {filteredUsers.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                  <UsersIcon className="h-8 w-8 text-muted-foreground" />
                 </div>
-              ) : (
-                filteredUsers.map((user) => (
-                  <div
+                <h3 className="text-lg font-semibold mb-2">
+                  {t("message.no_user_found", "Aucun utilisateur trouvé")}
+                </h3>
+                <p className="text-sm text-muted-foreground mb-6">
+                  {users.length === 0
+                    ? t("message.no_users_yet", "Commencez par inviter votre premier utilisateur")
+                    : t("message.try_different_search", "Essayez une autre recherche")}
+                </p>
+                {users.length === 0 && (
+                  <Button onClick={() => setIsInviteDialogOpen(true)}>
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    {t("action.invite_first", "Inviter le premier utilisateur")}
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {filteredUsers.map((user) => (
+                  <Card
                     key={user.id}
-                    onClick={() => setSelectedUser(user)}
-                    className={cn(
-                      "group/item rounded-md border p-2 cursor-pointer transition-all max-w-full overflow-hidden",
-                      "hover:shadow-sm hover:border-primary/50",
-                      selectedUser?.id === user.id ? "border-primary bg-accent/50 shadow-sm" : "hover:bg-accent/30"
-                    )}
+                    className="cursor-pointer transition-all hover:shadow-md hover:border-primary/50"
+                    onClick={() => handleUserSelect(user)}
                   >
-                    <div className="flex items-start gap-2 min-w-0">
-                      <Avatar className="h-9 w-9 flex-shrink-0">
-                        <AvatarImage src={user.avatar_url || undefined} alt={user.full_name || user.email} />
-                        <AvatarFallback className="text-xs">
-                          {getInitials(user)}
-                        </AvatarFallback>
-                      </Avatar>
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <Avatar className="h-12 w-12 flex-shrink-0">
+                          <AvatarImage src={user.avatar_url || undefined} alt={user.full_name || user.email} />
+                          <AvatarFallback className="text-sm">
+                            {getInitials(user)}
+                          </AvatarFallback>
+                        </Avatar>
 
-                      <div className="flex-1 min-w-0 overflow-hidden">
-                        <div className="flex items-center justify-between gap-2 min-w-0">
-                          <h4 className="font-semibold text-sm truncate flex-1 min-w-0">
-                            {user.full_name || user.email}
-                          </h4>
-                          <div className="flex items-center gap-1 flex-shrink-0">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <h4 className="font-semibold text-sm truncate">
+                              {user.full_name || user.email}
+                            </h4>
                             {user.is_superuser && (
-                              <Badge variant="default" className="text-[9px] py-0 px-1 h-4">
+                              <Badge variant="default" className="text-[10px] py-0 px-1.5 h-5 flex-shrink-0">
                                 Admin
                               </Badge>
                             )}
-                            {!user.is_active && (
-                              <Badge variant="secondary" className="text-[9px] py-0 px-1 h-4">
-                                Inactif
-                              </Badge>
-                            )}
                           </div>
-                        </div>
 
-                        <p className="text-xs text-muted-foreground truncate mt-0.5 overflow-hidden">
-                          <Mail className="inline h-3 w-3 mr-1" />
-                          {user.email}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </ScrollArea>
-        </div>
-
-        {/* Right Panel - User Details */}
-        <div className="flex-1 flex flex-col bg-background overflow-hidden">
-          {/* Header */}
-          <div className="border-b bg-background/50 px-4 py-3">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                {selectedUser && (
-                  <>
-                    <Avatar className="h-12 w-12 flex-shrink-0">
-                      <AvatarImage src={selectedUser.avatar_url || undefined} alt={selectedUser.full_name || selectedUser.email} />
-                      <AvatarFallback>
-                        {getInitials(selectedUser)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <h2 className="text-lg font-bold truncate">
-                        {selectedUser.full_name || selectedUser.email}
-                      </h2>
-                      <p className="text-sm text-muted-foreground truncate">
-                        {selectedUser.email}
-                      </p>
-                    </div>
-                  </>
-                )}
-              </div>
-              {selectedUser && (
-                <div className="flex gap-2 flex-shrink-0">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsEditDialogOpen(true)}
-                  >
-                    <Edit className="h-4 w-4 mr-2" />
-                    {t("action.edit", "Modifier")}
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Content */}
-          <ScrollArea className="flex-1">
-            <div className="px-4 py-4">
-              {!selectedUser ? (
-                <div className="flex h-[400px] items-center justify-center">
-                  <div className="text-center max-w-md px-4">
-                    <div className="mx-auto w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                      <UsersIcon className="h-10 w-10 text-primary/60" />
-                    </div>
-                    <h3 className="text-lg font-semibold mb-2">
-                      {t("message.no_user_selected_title", "Sélectionnez un utilisateur")}
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-6">
-                      {t("message.select_user_from_list", "Choisissez un utilisateur dans la liste pour voir ses détails")}
-                    </p>
-                    {users.length === 0 && (
-                      <Button onClick={() => setIsInviteDialogOpen(true)}>
-                        <UserPlus className="h-4 w-4 mr-2" />
-                        {t("action.invite_first", "Inviter le premier utilisateur")}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {/* Status Cards */}
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <Card>
-                      <CardContent className="pt-6">
-                        <div className="flex items-center gap-3">
-                          <div className={cn(
-                            "p-2 rounded-lg",
-                            selectedUser.is_active ? "bg-green-100 text-green-600" : "bg-orange-100 text-orange-600"
-                          )}>
-                            {selectedUser.is_active ? <UserCheck className="h-5 w-5" /> : <UserX className="h-5 w-5" />}
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">{t("details.status", "Statut")}</p>
-                            <p className="text-lg font-semibold">
-                              {selectedUser.is_active ? t("details.active", "Actif") : t("details.inactive", "Inactif")}
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <Card>
-                      <CardContent className="pt-6">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                            <Shield className="h-5 w-5" />
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">{t("details.role", "Rôle")}</p>
-                            <p className="text-lg font-semibold">
-                              {selectedUser.is_superuser ? "Administrateur" : "Utilisateur"}
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* User Info */}
-                  <div className="border-b pb-4">
-                    <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      {t("details.user_info", "Informations")}
-                    </h3>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div>
-                        <span className="text-xs text-muted-foreground">{t("details.email_label", "Email")}</span>
-                        <p className="text-sm font-medium mt-1 flex items-center gap-2">
-                          <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span>{selectedUser.email}</span>
-                        </p>
-                      </div>
-
-                      {selectedUser.phone_number && (
-                        <div>
-                          <span className="text-xs text-muted-foreground">{t("details.phone_label", "Téléphone")}</span>
-                          <p className="text-sm font-medium mt-1 flex items-center gap-2">
-                            <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span>{selectedUser.phone_number}</span>
+                          <p className="text-xs text-muted-foreground truncate mb-2">
+                            {user.email}
                           </p>
+
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant={user.is_active ? "default" : "secondary"}
+                              className={cn(
+                                "text-[10px] py-0 px-1.5 h-5",
+                                user.is_active ? "bg-green-100 text-green-700 hover:bg-green-100" : ""
+                              )}
+                            >
+                              {user.is_active ? "Actif" : "Inactif"}
+                            </Badge>
+                          </div>
                         </div>
-                      )}
-
-                      <div>
-                        <span className="text-xs text-muted-foreground">{t("details.created_at", "Créé le")}</span>
-                        <p className="text-sm font-medium mt-1 flex items-center gap-2">
-                          <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span>{formatDate(selectedUser.created_at)}</span>
-                        </p>
                       </div>
-
-                      <div>
-                        <span className="text-xs text-muted-foreground">{t("details.last_login", "Dernière connexion")}</span>
-                        <p className="text-sm font-medium mt-1 flex items-center gap-2">
-                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span>{formatDate(selectedUser.last_login_at)}</span>
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </ScrollArea>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -441,6 +338,136 @@ export default function UsersPage() {
         onOpenChange={setIsEditDialogOpen}
         onUserCreated={refreshUsers}
       />
+
+      {/* User Details Sheet (Mobile/All) */}
+      <Sheet open={isUserSheetOpen} onOpenChange={setIsUserSheetOpen}>
+        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+          {selectedUser && (
+            <>
+              <SheetHeader>
+                <div className="flex items-center gap-3 pb-4">
+                  <Avatar className="h-16 w-16 flex-shrink-0">
+                    <AvatarImage src={selectedUser.avatar_url || undefined} alt={selectedUser.full_name || selectedUser.email} />
+                    <AvatarFallback className="text-lg">
+                      {getInitials(selectedUser)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <SheetTitle className="text-xl truncate">
+                      {selectedUser.full_name || selectedUser.email}
+                    </SheetTitle>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {selectedUser.email}
+                    </p>
+                  </div>
+                </div>
+              </SheetHeader>
+
+              <div className="space-y-6 pt-4">
+                {/* Action Button */}
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => {
+                    setIsUserSheetOpen(false)
+                    setIsEditDialogOpen(true)
+                  }}
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  {t("action.edit", "Modifier")}
+                </Button>
+
+                {/* Status Cards */}
+                <div className="grid gap-3 grid-cols-2">
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="text-center">
+                        <div className={cn(
+                          "mx-auto w-10 h-10 rounded-full flex items-center justify-center mb-2",
+                          selectedUser.is_active ? "bg-green-100 text-green-600" : "bg-orange-100 text-orange-600"
+                        )}>
+                          {selectedUser.is_active ? <UserCheck className="h-5 w-5" /> : <UserX className="h-5 w-5" />}
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-1">{t("details.status", "Statut")}</p>
+                        <p className="text-sm font-semibold">
+                          {selectedUser.is_active ? t("details.active", "Actif") : t("details.inactive", "Inactif")}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="text-center">
+                        <div className="mx-auto w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-2">
+                          <Shield className="h-5 w-5" />
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-1">{t("details.role", "Rôle")}</p>
+                        <p className="text-sm font-semibold">
+                          {selectedUser.is_superuser ? "Admin" : "Utilisateur"}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* User Info */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                    {t("details.user_info", "Informations")}
+                  </h3>
+
+                  <Card>
+                    <CardContent className="p-4 space-y-4">
+                      <div className="space-y-1">
+                        <span className="text-xs text-muted-foreground flex items-center gap-2">
+                          <Mail className="h-3.5 w-3.5" />
+                          {t("details.email_label", "Email")}
+                        </span>
+                        <p className="text-sm font-medium break-all">
+                          {selectedUser.email}
+                        </p>
+                      </div>
+
+                      {selectedUser.phone_number && (
+                        <div className="space-y-1 pt-3 border-t">
+                          <span className="text-xs text-muted-foreground flex items-center gap-2">
+                            <Phone className="h-3.5 w-3.5" />
+                            {t("details.phone_label", "Téléphone")}
+                          </span>
+                          <p className="text-sm font-medium">
+                            {selectedUser.phone_number}
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="space-y-1 pt-3 border-t">
+                        <span className="text-xs text-muted-foreground flex items-center gap-2">
+                          <Calendar className="h-3.5 w-3.5" />
+                          {t("details.created_at", "Créé le")}
+                        </span>
+                        <p className="text-sm font-medium">
+                          {formatDate(selectedUser.created_at)}
+                        </p>
+                      </div>
+
+                      <div className="space-y-1 pt-3 border-t">
+                        <span className="text-xs text-muted-foreground flex items-center gap-2">
+                          <Clock className="h-3.5 w-3.5" />
+                          {t("details.last_login", "Dernière connexion")}
+                        </span>
+                        <p className="text-sm font-medium">
+                          {formatDate(selectedUser.last_login_at)}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </PermissionGuard>
   )
 }

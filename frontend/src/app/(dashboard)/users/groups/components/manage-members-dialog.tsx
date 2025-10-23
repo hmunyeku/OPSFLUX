@@ -73,12 +73,12 @@ export function ManageMembersDialog({
       }
 
       // Load all users
-      const usersResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/users/`, {
+      const usersResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/users/?skip=0&limit=1000`, {
         headers,
       })
       if (!usersResponse.ok) throw new Error("Failed to load users")
       const usersData = await usersResponse.json()
-      setAllUsers(usersData.items || [])
+      setAllUsers(usersData.data || [])
 
       // Load current group members
       const membersResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/groups/${groupId}/members`, {

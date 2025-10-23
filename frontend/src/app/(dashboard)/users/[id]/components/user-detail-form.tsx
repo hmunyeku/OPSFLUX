@@ -3,13 +3,14 @@
 import { useState } from "react"
 import { z } from "zod"
 import { useForm } from "react-hook-form"
-import { IconTerminal } from "@tabler/icons-react"
+import { IconTerminal, IconUpload, IconUser } from "@tabler/icons-react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useRouter } from "next/navigation"
 import useDialogState from "@/hooks/use-dialog-state"
 import { toast } from "@/hooks/use-toast"
 import { useTranslation } from "@/hooks/use-translation"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -31,11 +32,20 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
+import { Textarea } from "@/components/ui/textarea"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { UsersDeactivateDialog } from "../../components/users-deactivate-dialog"
 import { User } from "../../data/schema"
+import { updateUser } from "../../data/users-api"
 
 interface Props {
   user: User
@@ -50,6 +60,11 @@ const accountDetailSchema = z.object({
     .min(1, { message: "Email is required." })
     .email({ message: "Email is invalid." }),
   role: z.string().min(1, { message: "Role is required." }),
+  avatar_url: z.string().optional().nullable(),
+  civility: z.string().optional().nullable(),
+  birthDate: z.string().optional().nullable(),
+  extension: z.string().optional().nullable(),
+  signature: z.string().optional().nullable(),
 })
 type AccountDetailForm = z.infer<typeof accountDetailSchema>
 
@@ -67,19 +82,55 @@ export function UserDetailForm({ user }: Props) {
       email: user.email ?? "",
       role: user.role ?? "",
       phoneNumber: user.phoneNumber ?? "",
+      avatar_url: user.avatar_url ?? "",
+      civility: user.civility ?? "",
+      birthDate: user.birthDate ?? "",
+      extension: user.extension ?? "",
+      signature: user.signature ?? "",
     },
   })
 
-  const onSubmit = (values: AccountDetailForm) => {
-    toast({
-      title: "You submitted the following values:",
-      description: (
-        <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4">
-          <code className="text-white">{JSON.stringify(values, null, 2)}</code>
-        </pre>
-      ),
-    })
-    setIsEdit(false)
+  const onSubmit = async (values: AccountDetailForm) => {
+    try {
+      await updateUser(user.id, {
+        first_name: values.firstName,
+        last_name: values.lastName,
+        email: values.email,
+        phone_numbers: values.phoneNumber ? [values.phoneNumber] : [],
+        is_superuser: values.role === 'superadmin',
+        full_name: `${values.firstName} ${values.lastName}`.trim(),
+        // Nouveaux champs
+        avatar_url: values.avatar_url || undefined,
+        civility: values.civility || undefined,
+        birth_date: values.birthDate || undefined,
+        extension: values.extension || undefined,
+        signature: values.signature || undefined,
+      })
+
+      toast({
+        title: "Succès",
+        description: "Les informations de l'utilisateur ont été mises à jour.",
+      })
+      setIsEdit(false)
+      window.location.reload() // Force reload to see changes
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de mettre à jour l'utilisateur.",
+        variant: "destructive",
+      })
+      console.error('Failed to update user:', error)
+    }
+  }
+
+  const getInitials = (user: User) => {
+    if (user.full_name) {
+      const parts = user.full_name.split(" ")
+      return parts.length > 1
+        ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
+        : user.full_name.substring(0, 2).toUpperCase()
+    }
+    return user.email.substring(0, 2).toUpperCase()
   }
 
   return (
@@ -99,77 +150,225 @@ export function UserDetailForm({ user }: Props) {
             <form
               id="user-edit-form"
               onSubmit={form.handleSubmit(onSubmit)}
-              className="grid grid-cols-2 gap-x-4 gap-y-6"
+              className="space-y-6"
             >
+              {/* Avatar Section */}
+              <div className="flex flex-col items-center gap-4 p-4 border rounded-lg bg-muted/20">
+                <Avatar className="h-24 w-24">
+                  <AvatarImage src={form.watch('avatar_url') || user.avatar_url || undefined} alt={user.full_name || user.email} />
+                  <AvatarFallback className="text-2xl">
+                    {getInitials(user)}
+                  </AvatarFallback>
+                </Avatar>
+                <FormField
+                  control={form.control}
+                  name="avatar_url"
+                  render={({ field }) => (
+                    <FormItem className="w-full">
+                      <FormLabel>Photo de profil (URL)</FormLabel>
+                      <FormControl>
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="https://example.com/avatar.jpg"
+                            {...field}
+                            value={field.value || ''}
+                            readOnly={!isEdit}
+                          />
+                          {isEdit && (
+                            <Button type="button" variant="outline" size="icon">
+                              <IconUpload className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </FormControl>
+                      <FormDescription className="text-xs">
+                        URL de votre photo de profil
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <Separator />
+
+              {/* Personal Information */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="civility"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel>Civilité</FormLabel>
+                      <Select
+                        disabled={!isEdit}
+                        onValueChange={field.onChange}
+                        value={field.value || undefined}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Sélectionner..." />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="M.">M.</SelectItem>
+                          <SelectItem value="Mme">Mme</SelectItem>
+                          <SelectItem value="Dr.">Dr.</SelectItem>
+                          <SelectItem value="Pr.">Pr.</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="birthDate"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel>Date de naissance</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="date"
+                          {...field}
+                          value={field.value || ''}
+                          readOnly={!isEdit}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="firstName"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel>Prénom</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Prénom"
+                          {...field}
+                          readOnly={!isEdit}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="lastName"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel>Nom</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Nom"
+                          {...field}
+                          readOnly={!isEdit}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <Separator />
+
+              {/* Contact Information */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          placeholder="email@example.com"
+                          {...field}
+                          readOnly={!isEdit}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="phoneNumber"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel>Téléphone</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="+33 6 12 34 56 78"
+                          {...field}
+                          readOnly={!isEdit}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="extension"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1 sm:col-span-2">
+                      <FormLabel>Extension téléphonique</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Ex: 1234"
+                          {...field}
+                          value={field.value || ''}
+                          readOnly={!isEdit}
+                        />
+                      </FormControl>
+                      <FormDescription className="text-xs">
+                        Extension interne pour les appels
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <Separator />
+
+              {/* Signature */}
               <FormField
                 control={form.control}
-                name="firstName"
+                name="signature"
                 render={({ field }) => (
                   <FormItem className="space-y-1">
-                    <FormLabel>First Name</FormLabel>
+                    <FormLabel>Signature</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="First name"
+                      <Textarea
+                        placeholder="Signature de l'utilisateur..."
+                        className="min-h-[100px]"
                         {...field}
+                        value={field.value || ''}
                         readOnly={!isEdit}
                       />
                     </FormControl>
+                    <FormDescription className="text-xs">
+                      Signature utilisée dans les emails et documents
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="lastName"
-                render={({ field }) => (
-                  <FormItem className="space-y-1">
-                    <FormLabel>Last Name</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Last name"
-                        {...field}
-                        readOnly={!isEdit}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem className="col-span-2 space-y-1">
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="email"
-                        placeholder="Email"
-                        {...field}
-                        readOnly={!isEdit}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="phoneNumber"
-                render={({ field }) => (
-                  <FormItem className="col-span-2 space-y-1">
-                    <FormLabel>Phone Number</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Phone number"
-                        {...field}
-                        readOnly={!isEdit}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+
+              <Separator />
 
               <FormField
                 control={form.control}

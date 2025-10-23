@@ -124,6 +124,11 @@ export interface UpdateUserInput {
   is_active?: boolean
   is_superuser?: boolean
   phone_numbers?: string[]
+  avatar_url?: string
+  civility?: string
+  birth_date?: string
+  extension?: string
+  signature?: string
 }
 
 export async function updateUser(id: string, input: UpdateUserInput): Promise<User> {

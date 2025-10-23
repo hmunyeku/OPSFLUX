@@ -242,3 +242,171 @@ export async function estimateBackupSize(options: BackupEstimate): Promise<Backu
     throw error
   }
 }
+
+// ========================================
+// SCHEDULED BACKUPS
+// ========================================
+
+export interface ScheduledBackup {
+  id: string
+  name: string
+  description?: string
+  backup_type: string
+  includes_database: boolean
+  includes_storage: boolean
+  includes_config: boolean
+  schedule_frequency: "daily" | "weekly" | "monthly"
+  schedule_time: string
+  schedule_day?: number
+  is_active: boolean
+  last_run_at?: string
+  next_run_at?: string
+  created_at: string
+  updated_at?: string
+  created_by_id?: string
+  total_runs: number
+  successful_runs: number
+  failed_runs: number
+}
+
+export interface ScheduledBackupsResponse {
+  data: ScheduledBackup[]
+  count: number
+}
+
+export interface ScheduledBackupCreate {
+  name: string
+  description?: string
+  backup_type?: string
+  includes_database?: boolean
+  includes_storage?: boolean
+  includes_config?: boolean
+  schedule_frequency: "daily" | "weekly" | "monthly"
+  schedule_time: string
+  schedule_day?: number
+  is_active?: boolean
+}
+
+export interface ScheduledBackupUpdate {
+  name?: string
+  description?: string
+  backup_type?: string
+  includes_database?: boolean
+  includes_storage?: boolean
+  includes_config?: boolean
+  schedule_frequency?: "daily" | "weekly" | "monthly"
+  schedule_time?: string
+  schedule_day?: number
+  is_active?: boolean
+}
+
+export async function getScheduledBackups(params?: {
+  skip?: number
+  limit?: number
+}): Promise<ScheduledBackupsResponse> {
+  try {
+    const queryParams = new URLSearchParams()
+    if (params?.skip !== undefined) queryParams.append('skip', params.skip.toString())
+    if (params?.limit !== undefined) queryParams.append('limit', params.limit.toString())
+
+    const url = `${API_URL}/api/v1/backups/scheduled?${queryParams.toString()}`
+
+    const response = await fetch(url, {
+      headers: getAuthHeaders(),
+      cache: 'no-store',
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch scheduled backups: ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    return data
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Error fetching scheduled backups:', error)
+    return { data: [], count: 0 }
+  }
+}
+
+export async function getScheduledBackup(id: string): Promise<ScheduledBackup | null> {
+  try {
+    const response = await fetch(`${API_URL}/api/v1/backups/scheduled/${id}`, {
+      headers: getAuthHeaders(),
+      cache: 'no-store',
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch scheduled backup: ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    return data
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Error fetching scheduled backup:', error)
+    return null
+  }
+}
+
+export async function createScheduledBackup(schedule: ScheduledBackupCreate): Promise<ScheduledBackup | null> {
+  try {
+    const response = await fetch(`${API_URL}/api/v1/backups/scheduled`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(schedule),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.detail || `Failed to create scheduled backup: ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    return data
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Error creating scheduled backup:', error)
+    throw error
+  }
+}
+
+export async function updateScheduledBackup(id: string, schedule: ScheduledBackupUpdate): Promise<ScheduledBackup | null> {
+  try {
+    const response = await fetch(`${API_URL}/api/v1/backups/scheduled/${id}`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(schedule),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.detail || `Failed to update scheduled backup: ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    return data
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Error updating scheduled backup:', error)
+    throw error
+  }
+}
+
+export async function deleteScheduledBackup(id: string): Promise<void> {
+  try {
+    const response = await fetch(`${API_URL}/api/v1/backups/scheduled/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.detail || `Failed to delete scheduled backup: ${response.statusText}`)
+    }
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Error deleting scheduled backup:', error)
+    throw error
+  }
+}

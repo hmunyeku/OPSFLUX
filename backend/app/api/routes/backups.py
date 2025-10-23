@@ -19,6 +19,11 @@ from app.models_backup import (
     BackupsPublic,
     BackupRestore,
     BackupEstimateRequest,
+    ScheduledBackup,
+    ScheduledBackupCreate,
+    ScheduledBackupUpdate,
+    ScheduledBackupPublic,
+    ScheduledBackupsPublic,
 )
 from app.core.backup_service import backup_service
 
@@ -383,6 +388,198 @@ async def get_disk_space(
             status_code=500,
             detail=f"Failed to get disk space: {str(e)}"
         )
+
+
+# ========================================
+# SCHEDULED BACKUPS ROUTES
+# ========================================
+
+@router.get("/scheduled", response_model=ScheduledBackupsPublic)
+@require_permission("core.backups.read")
+async def get_scheduled_backups(
+    session: SessionDep,
+    current_user: CurrentUser,
+    skip: int = 0,
+    limit: int = 100,
+) -> Any:
+    """
+    Récupère la liste des sauvegardes planifiées.
+
+    Requiert la permission: core.backups.read
+    """
+    # Compte total
+    count_statement = select(func.count()).select_from(ScheduledBackup)
+    count = session.exec(count_statement).one()
+
+    # Récupère les planifications avec pagination
+    statement = select(ScheduledBackup).offset(skip).limit(limit).order_by(ScheduledBackup.created_at.desc())
+    scheduled_backups = session.exec(statement).all()
+
+    return ScheduledBackupsPublic(data=scheduled_backups, count=count)
+
+
+@router.get("/scheduled/{scheduled_id}", response_model=ScheduledBackupPublic)
+@require_permission("core.backups.read")
+async def get_scheduled_backup(
+    scheduled_id: UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Any:
+    """
+    Récupère une sauvegarde planifiée par son ID.
+
+    Requiert la permission: core.backups.read
+    """
+    scheduled_backup = session.get(ScheduledBackup, scheduled_id)
+    if not scheduled_backup:
+        raise HTTPException(status_code=404, detail="Scheduled backup not found")
+
+    return scheduled_backup
+
+
+def _calculate_next_run(
+    schedule_frequency: str,
+    schedule_time: str,
+    schedule_day: int | None = None
+) -> datetime:
+    """Calcule la prochaine exécution."""
+    from datetime import timedelta
+
+    now = datetime.utcnow()
+    hour, minute = map(int, schedule_time.split(":"))
+
+    if schedule_frequency == "daily":
+        next_run = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        if next_run <= now:
+            next_run += timedelta(days=1)
+
+    elif schedule_frequency == "weekly":
+        # schedule_day: 0=Dimanche, 1=Lundi, ..., 6=Samedi
+        target_day = schedule_day or 1
+        days_ahead = target_day - now.weekday()
+        if days_ahead <= 0:  # Target day already passed this week
+            days_ahead += 7
+        next_run = now + timedelta(days=days_ahead)
+        next_run = next_run.replace(hour=hour, minute=minute, second=0, microsecond=0)
+
+    elif schedule_frequency == "monthly":
+        # schedule_day: 1-31
+        target_day = schedule_day or 1
+        next_run = now.replace(day=target_day, hour=hour, minute=minute, second=0, microsecond=0)
+        if next_run <= now:
+            # Passer au mois prochain
+            if now.month == 12:
+                next_run = next_run.replace(year=now.year + 1, month=1)
+            else:
+                next_run = next_run.replace(month=now.month + 1)
+
+    else:
+        next_run = now
+
+    return next_run
+
+
+@router.post("/scheduled", response_model=ScheduledBackupPublic)
+@require_permission("core.backups.create")
+async def create_scheduled_backup(
+    scheduled_data: ScheduledBackupCreate,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Any:
+    """
+    Crée une nouvelle sauvegarde planifiée.
+
+    Requiert la permission: core.backups.create
+    """
+    # Calculer la prochaine exécution
+    next_run = _calculate_next_run(
+        scheduled_data.schedule_frequency,
+        scheduled_data.schedule_time,
+        scheduled_data.schedule_day
+    )
+
+    # Créer l'entrée
+    scheduled_backup = ScheduledBackup(
+        name=scheduled_data.name,
+        description=scheduled_data.description,
+        backup_type=scheduled_data.backup_type,
+        includes_database=scheduled_data.includes_database,
+        includes_storage=scheduled_data.includes_storage,
+        includes_config=scheduled_data.includes_config,
+        schedule_frequency=scheduled_data.schedule_frequency,
+        schedule_time=scheduled_data.schedule_time,
+        schedule_day=scheduled_data.schedule_day,
+        is_active=scheduled_data.is_active,
+        next_run_at=next_run,
+        created_by_id=current_user.id,
+    )
+
+    session.add(scheduled_backup)
+    session.commit()
+    session.refresh(scheduled_backup)
+
+    return scheduled_backup
+
+
+@router.patch("/scheduled/{scheduled_id}", response_model=ScheduledBackupPublic)
+@require_permission("core.backups.update")
+async def update_scheduled_backup(
+    scheduled_id: UUID,
+    scheduled_data: ScheduledBackupUpdate,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Any:
+    """
+    Met à jour une sauvegarde planifiée.
+
+    Requiert la permission: core.backups.update
+    """
+    scheduled_backup = session.get(ScheduledBackup, scheduled_id)
+    if not scheduled_backup:
+        raise HTTPException(status_code=404, detail="Scheduled backup not found")
+
+    # Mettre à jour les champs
+    update_data = scheduled_data.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(scheduled_backup, key, value)
+
+    # Recalculer next_run si le planning a changé
+    if any(k in update_data for k in ['schedule_frequency', 'schedule_time', 'schedule_day']):
+        scheduled_backup.next_run_at = _calculate_next_run(
+            scheduled_backup.schedule_frequency,
+            scheduled_backup.schedule_time,
+            scheduled_backup.schedule_day
+        )
+
+    scheduled_backup.updated_at = datetime.utcnow()
+
+    session.add(scheduled_backup)
+    session.commit()
+    session.refresh(scheduled_backup)
+
+    return scheduled_backup
+
+
+@router.delete("/scheduled/{scheduled_id}")
+@require_permission("core.backups.delete")
+async def delete_scheduled_backup(
+    scheduled_id: UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Any:
+    """
+    Supprime une sauvegarde planifiée.
+
+    Requiert la permission: core.backups.delete
+    """
+    scheduled_backup = session.get(ScheduledBackup, scheduled_id)
+    if not scheduled_backup:
+        raise HTTPException(status_code=404, detail="Scheduled backup not found")
+
+    session.delete(scheduled_backup)
+    session.commit()
+
+    return {"success": True, "message": "Scheduled backup deleted"}
 
 
 def _format_bytes(bytes_value: int) -> str:

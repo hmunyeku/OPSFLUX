@@ -82,3 +82,85 @@ class BackupRestore(SQLModel):
     restore_database: bool = Field(default=True)
     restore_storage: bool = Field(default=True)
     restore_config: bool = Field(default=True)
+
+
+# Scheduled Backups Models
+
+class ScheduledBackupBase(SQLModel):
+    """Modèle de base pour les sauvegardes planifiées."""
+    name: str = Field(max_length=255, description="Nom de la planification")
+    description: Optional[str] = Field(default=None, max_length=1000, description="Description")
+    backup_type: str = Field(default="full", max_length=50, description="Type: full, incremental")
+    includes_database: bool = Field(default=True, description="Inclut la DB")
+    includes_storage: bool = Field(default=True, description="Inclut le storage")
+    includes_config: bool = Field(default=True, description="Inclut la config")
+
+    # Schedule configuration
+    schedule_frequency: str = Field(max_length=50, description="Fréquence: daily, weekly, monthly")
+    schedule_time: str = Field(max_length=10, description="Heure d'exécution (HH:MM)")
+    schedule_day: Optional[int] = Field(default=None, description="Jour (0-6 pour semaine, 1-31 pour mois)")
+
+    # Status
+    is_active: bool = Field(default=True, description="Planification active")
+    last_run_at: Optional[datetime] = Field(default=None, description="Dernière exécution")
+    next_run_at: Optional[datetime] = Field(default=None, description="Prochaine exécution")
+
+
+class ScheduledBackup(ScheduledBackupBase, table=True):
+    """Modèle de sauvegarde planifiée en base de données."""
+    __tablename__ = "scheduled_backups"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = Field(default=None)
+    created_by_id: Optional[UUID] = Field(default=None, foreign_key="user.id")
+
+    # Statistics
+    total_runs: int = Field(default=0, description="Nombre total d'exécutions")
+    successful_runs: int = Field(default=0, description="Nombre d'exécutions réussies")
+    failed_runs: int = Field(default=0, description="Nombre d'échecs")
+
+
+class ScheduledBackupCreate(SQLModel):
+    """Schéma pour créer une sauvegarde planifiée."""
+    name: str = Field(max_length=255)
+    description: Optional[str] = Field(default=None, max_length=1000)
+    backup_type: str = Field(default="full", max_length=50)
+    includes_database: bool = Field(default=True)
+    includes_storage: bool = Field(default=True)
+    includes_config: bool = Field(default=True)
+    schedule_frequency: str = Field(max_length=50)
+    schedule_time: str = Field(max_length=10)
+    schedule_day: Optional[int] = Field(default=None)
+    is_active: bool = Field(default=True)
+
+
+class ScheduledBackupUpdate(SQLModel):
+    """Schéma pour mettre à jour une sauvegarde planifiée."""
+    name: Optional[str] = Field(default=None, max_length=255)
+    description: Optional[str] = Field(default=None, max_length=1000)
+    backup_type: Optional[str] = Field(default=None, max_length=50)
+    includes_database: Optional[bool] = Field(default=None)
+    includes_storage: Optional[bool] = Field(default=None)
+    includes_config: Optional[bool] = Field(default=None)
+    schedule_frequency: Optional[str] = Field(default=None, max_length=50)
+    schedule_time: Optional[str] = Field(default=None, max_length=10)
+    schedule_day: Optional[int] = Field(default=None)
+    is_active: Optional[bool] = Field(default=None)
+
+
+class ScheduledBackupPublic(ScheduledBackupBase):
+    """Schéma public pour une sauvegarde planifiée."""
+    id: UUID
+    created_at: datetime
+    updated_at: Optional[datetime]
+    created_by_id: Optional[UUID]
+    total_runs: int
+    successful_runs: int
+    failed_runs: int
+
+
+class ScheduledBackupsPublic(SQLModel):
+    """Liste publique de sauvegardes planifiées."""
+    data: list[ScheduledBackupPublic]
+    count: int

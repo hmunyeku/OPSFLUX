@@ -70,10 +70,16 @@ import {
   restoreBackup,
   deleteBackup,
   estimateBackupSize,
+  getScheduledBackups,
+  createScheduledBackup,
+  deleteScheduledBackup,
+  updateScheduledBackup,
   type Backup,
   type BackupCreate,
   type BackupRestore,
   type BackupEstimateResponse,
+  type ScheduledBackup,
+  type ScheduledBackupCreate,
 } from "./data/backups-api"
 import { PermissionGuard } from "@/components/permission-guard"
 import { usePermissions } from "@/hooks/use-permissions"
@@ -118,15 +124,20 @@ function BackupsPageContent() {
   const { hasPermission } = usePermissions()
   const { t } = useTranslation("core.backups")
   const [backups, setBackups] = useState<Backup[]>([])
+  const [scheduledBackups, setScheduledBackups] = useState<ScheduledBackup[]>([])
   const [loading, setLoading] = useState(true)
+  const [scheduledLoading, setScheduledLoading] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>("grid")
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false)
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleteScheduledDialogOpen, setDeleteScheduledDialogOpen] = useState(false)
   const [selectedBackup, setSelectedBackup] = useState<Backup | null>(null)
+  const [selectedScheduled, setSelectedScheduled] = useState<ScheduledBackup | null>(null)
   const [creating, setCreating] = useState(false)
   const [restoring, setRestoring] = useState(false)
+  const [scheduling, setScheduling] = useState(false)
 
   const [newBackup, setNewBackup] = useState<BackupCreate>({
     name: "",
@@ -194,11 +205,27 @@ function BackupsPageContent() {
     }
   }, [])
 
+  const fetchScheduledBackups = useCallback(async () => {
+    setScheduledLoading(true)
+    try {
+      const data = await getScheduledBackups({ limit: 100 })
+      setScheduledBackups(data.data)
+    } catch (error) {
+      showLoadError("les sauvegardes programmées", fetchScheduledBackups)
+    } finally {
+      setScheduledLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     fetchBackups()
-    const interval = setInterval(fetchBackups, 10000)
+    fetchScheduledBackups()
+    const interval = setInterval(() => {
+      fetchBackups()
+      fetchScheduledBackups()
+    }, 10000)
     return () => clearInterval(interval)
-  }, [fetchBackups])
+  }, [fetchBackups, fetchScheduledBackups])
 
   const handleCreateBackup = async () => {
     if (!newBackup.name.trim()) {
@@ -243,8 +270,22 @@ function BackupsPageContent() {
       return
     }
 
+    setScheduling(true)
     try {
-      // TODO: Implement API call to create scheduled backup
+      const scheduleData: ScheduledBackupCreate = {
+        name: scheduledBackup.name,
+        description: scheduledBackup.description,
+        backup_type: scheduledBackup.backup_type,
+        includes_database: scheduledBackup.includes_database,
+        includes_storage: scheduledBackup.includes_storage,
+        includes_config: scheduledBackup.includes_config,
+        schedule_frequency: scheduledBackup.schedule_frequency,
+        schedule_time: scheduledBackup.schedule_time,
+        schedule_day: scheduledBackup.schedule_day,
+        is_active: scheduledBackup.is_active,
+      }
+
+      await createScheduledBackup(scheduleData)
       showCreateSuccess(t("entity.schedule", "La planification"))
       setScheduleDialogOpen(false)
       setScheduledBackup({
@@ -258,11 +299,14 @@ function BackupsPageContent() {
         schedule_time: "02:00",
         is_active: true,
       })
+      fetchScheduledBackups()
     } catch (error) {
       showErrorToast(
         t("schedule.error.title", "Échec de la planification"),
         error
       )
+    } finally {
+      setScheduling(false)
     }
   }
 
@@ -320,6 +364,37 @@ function BackupsPageContent() {
         error,
         handleDeleteBackup
       )
+    }
+  }
+
+  const handleDeleteScheduled = async () => {
+    if (!selectedScheduled) return
+
+    try {
+      await deleteScheduledBackup(selectedScheduled.id)
+      showDeleteSuccess(t("entity.scheduled", "La planification"))
+      setDeleteScheduledDialogOpen(false)
+      setSelectedScheduled(null)
+      fetchScheduledBackups()
+    } catch (error) {
+      showErrorToast(
+        t("delete.error.title", "Échec de la suppression"),
+        error,
+        handleDeleteScheduled
+      )
+    }
+  }
+
+  const handleToggleScheduled = async (scheduled: ScheduledBackup) => {
+    try {
+      await updateScheduledBackup(scheduled.id, { is_active: !scheduled.is_active })
+      showSuccessToast(
+        scheduled.is_active ? "Planification désactivée" : "Planification activée",
+        ""
+      )
+      fetchScheduledBackups()
+    } catch (error) {
+      showErrorToast("Erreur", error)
     }
   }
 
@@ -662,21 +737,126 @@ function BackupsPageContent() {
             )}
           </div>
 
-          <Card className="shadow-sm border-2 border-dashed">
-            <CardContent className="py-16">
-              <div className="text-center text-muted-foreground space-y-3">
-                <div className="inline-flex p-4 rounded-full bg-muted/50">
-                  <IconCalendar className="h-12 w-12 opacity-50" />
-                </div>
-                <div className="space-y-1">
-                  <p className="font-semibold text-lg">Aucune sauvegarde programmée</p>
-                  <p className="text-sm max-w-md mx-auto leading-relaxed">
-                    Créez une planification pour automatiser vos sauvegardes et protéger vos données en continu
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <DataLoadingState
+            loading={scheduledLoading}
+            empty={scheduledBackups.length === 0}
+            emptyIcon={IconCalendar}
+            emptyTitle="Aucune sauvegarde programmée"
+            emptyDescription="Créez une planification pour automatiser vos sauvegardes et protéger vos données en continu"
+            emptyAction={
+              hasPermission("core.backups.create") && (
+                <Button onClick={() => setScheduleDialogOpen(true)}>
+                  <IconCalendar className="h-4 w-4 mr-2" />
+                  Programmer une sauvegarde
+                </Button>
+              )
+            }
+            skeletonCount={2}
+            skeletonClassName="h-32 w-full"
+          >
+            <div className="space-y-3">
+              {scheduledBackups.map((scheduled) => (
+                <Card key={scheduled.id} className="hover:shadow-lg transition-all duration-300 border-l-4 shadow-sm group" style={{ borderLeftColor: scheduled.is_active ? 'var(--primary)' : 'var(--muted)' }}>
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between gap-6">
+                      <div className="flex-1 min-w-0 space-y-4">
+                        <div>
+                          <div className="flex items-center gap-3 mb-2 flex-wrap">
+                            <h3 className="font-semibold text-lg">{scheduled.name}</h3>
+                            <Badge variant={scheduled.is_active ? "default" : "secondary"} className="flex items-center gap-1">
+                              {scheduled.is_active ? "Actif" : "Inactif"}
+                            </Badge>
+                          </div>
+                          {scheduled.description && (
+                            <p className="text-sm text-muted-foreground leading-relaxed">{scheduled.description}</p>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-4 text-sm bg-muted/30 p-3 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground font-medium text-xs uppercase tracking-wide">Fréquence:</span>
+                            <Badge variant="secondary" className="capitalize font-normal shadow-sm">
+                              {scheduled.schedule_frequency === "daily" && "Quotidienne"}
+                              {scheduled.schedule_frequency === "weekly" && "Hebdomadaire"}
+                              {scheduled.schedule_frequency === "monthly" && "Mensuelle"}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <IconClock className="h-4 w-4 text-muted-foreground" />
+                            <span>{scheduled.schedule_time}</span>
+                          </div>
+                          {scheduled.next_run_at && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-muted-foreground font-medium text-xs uppercase tracking-wide">Prochaine:</span>
+                              <span className="text-muted-foreground">
+                                {formatDistanceToNow(new Date(scheduled.next_run_at), { addSuffix: true, locale: fr })}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-muted-foreground font-medium text-xs uppercase tracking-wide">Contenu:</span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {scheduled.includes_database && (
+                                <Badge variant="outline" className="text-xs px-2 py-0.5 shadow-sm">
+                                  <IconDatabase className="h-3 w-3 mr-1" />
+                                  DB
+                                </Badge>
+                              )}
+                              {scheduled.includes_storage && (
+                                <Badge variant="outline" className="text-xs px-2 py-0.5 shadow-sm">
+                                  Files
+                                </Badge>
+                              )}
+                              {scheduled.includes_config && (
+                                <Badge variant="outline" className="text-xs px-2 py-0.5 shadow-sm">
+                                  Config
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {scheduled.total_runs > 0 && (
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground pt-2 border-t">
+                            <span>Total: {scheduled.total_runs}</span>
+                            <span className="text-green-600 dark:text-green-400">Réussies: {scheduled.successful_runs}</span>
+                            {scheduled.failed_runs > 0 && (
+                              <span className="text-destructive">Échecs: {scheduled.failed_runs}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex flex-col items-center gap-2 flex-shrink-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleToggleScheduled(scheduled)}
+                          className="gap-2 shadow-sm hover:shadow transition-all w-full"
+                        >
+                          {scheduled.is_active ? "Désactiver" : "Activer"}
+                        </Button>
+                        {hasPermission("core.backups.delete") && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedScheduled(scheduled)
+                              setDeleteScheduledDialogOpen(true)
+                            }}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10 transition-all w-full"
+                          >
+                            <IconTrash className="h-4 w-4 mr-2" />
+                            Supprimer
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </DataLoadingState>
         </TabsContent>
       </Tabs>
 
@@ -960,12 +1140,21 @@ function BackupsPageContent() {
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setScheduleDialogOpen(false)} className="shadow-sm">
+            <Button variant="outline" onClick={() => setScheduleDialogOpen(false)} className="shadow-sm" disabled={scheduling}>
               Annuler
             </Button>
-            <Button onClick={handleScheduleBackup} className="shadow-sm">
-              <IconCalendar className="h-4 w-4 mr-2" />
-              Programmer
+            <Button onClick={handleScheduleBackup} disabled={scheduling} className="shadow-sm">
+              {scheduling ? (
+                <>
+                  <IconLoader className="h-4 w-4 mr-2 animate-spin" />
+                  Programmation...
+                </>
+              ) : (
+                <>
+                  <IconCalendar className="h-4 w-4 mr-2" />
+                  Programmer
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1057,6 +1246,26 @@ function BackupsPageContent() {
           <AlertDialogFooter>
             <AlertDialogCancel>Annuler</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteBackup}>
+              <IconTrash className="h-4 w-4 mr-2" />
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Scheduled Backup Dialog */}
+      <AlertDialog open={deleteScheduledDialogOpen} onOpenChange={setDeleteScheduledDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer la planification</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer la planification &quot;{selectedScheduled?.name}&quot; ?
+              Cette action est irréversible. Les sauvegardes déjà créées ne seront pas supprimées.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteScheduled}>
               <IconTrash className="h-4 w-4 mr-2" />
               Supprimer
             </AlertDialogAction>

@@ -12,8 +12,8 @@ interface UseAuthReturn {
   isAuthenticated: boolean
   isLoggingOut: boolean
   twoFactorRequired: Token2FARequired | null
-  login: (email: string, password: string) => Promise<void>
-  verify2FA: (code: string, method: string) => Promise<void>
+  login: (email: string, password: string, redirectUrl?: string) => Promise<void>
+  verify2FA: (code: string, method: string, redirectUrl?: string) => Promise<void>
   cancel2FA: () => void
   logout: () => void
   refreshUser: () => Promise<void>
@@ -42,7 +42,7 @@ export function useAuth(): UseAuthReturn {
     loadUser()
   }, [])
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, redirectUrl?: string) => {
     try {
       const response = await api.login({ username: email, password })
 
@@ -60,13 +60,13 @@ export function useAuth(): UseAuthReturn {
       setUser(userData)
 
       // Force immediate redirect using window.location
-      window.location.href = '/'
+      window.location.href = redirectUrl || '/'
     } catch (error) {
       throw error
     }
   }
 
-  const verify2FA = async (code: string, method: string) => {
+  const verify2FA = async (code: string, method: string, redirectUrl?: string) => {
     if (!twoFactorRequired) {
       throw new Error('No 2FA verification in progress')
     }
@@ -88,7 +88,7 @@ export function useAuth(): UseAuthReturn {
       setTwoFactorRequired(null)
 
       // Force immediate redirect using window.location
-      window.location.href = '/'
+      window.location.href = redirectUrl || '/'
     } catch (error) {
       throw error
     }

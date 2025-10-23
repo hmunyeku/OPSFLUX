@@ -40,10 +40,15 @@ function getFormSchema(t: (key: string, defaultValue?: string) => string) {
   })
 }
 
+interface UserAuthFormProps extends HTMLAttributes<HTMLDivElement> {
+  redirectUrl?: string
+}
+
 export function UserAuthForm({
   className,
+  redirectUrl,
   ...props
-}: HTMLAttributes<HTMLDivElement>) {
+}: UserAuthFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const { login, verify2FA, cancel2FA, twoFactorRequired } = useAuth()
   const { toast } = useToast()
@@ -62,7 +67,7 @@ export function UserAuthForm({
   async function onSubmit(data: z.infer<typeof formSchema>) {
     setIsLoading(true)
     try {
-      await login(data.email, data.password)
+      await login(data.email, data.password, redirectUrl)
 
       // Si le 2FA n'est pas requis, le hook redirigera automatiquement
       if (!twoFactorRequired) {
@@ -84,7 +89,7 @@ export function UserAuthForm({
 
   async function handle2FAVerify(code: string, method: string) {
     try {
-      await verify2FA(code, method)
+      await verify2FA(code, method, redirectUrl)
       toast({
         title: t("message.success"),
         description: t("message.login_success"),

@@ -1,11 +1,14 @@
 "use client"
 
+import { useSearchParams } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { UserAuthForm } from "./components/user-auth-form"
 import { useTranslation } from "@/hooks/use-translation"
 
 export default function LoginPage() {
   const { t } = useTranslation("core.auth")
+  const searchParams = useSearchParams()
+  const redirectUrl = searchParams.get("redirect") || undefined
 
   return (
     <Card className="p-6">
@@ -14,7 +17,7 @@ export default function LoginPage() {
           {t("login.subtitle", "Connectez-vous à votre compte")}
         </p>
       </div>
-      <UserAuthForm />
+      <UserAuthForm redirectUrl={redirectUrl} />
       <p className="text-muted-foreground mt-4 px-8 text-center text-sm">
         {t("login.terms_text", "En continuant, vous acceptez nos")}{" "}
         <a

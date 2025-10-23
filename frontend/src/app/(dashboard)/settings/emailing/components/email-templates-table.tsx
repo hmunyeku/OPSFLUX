@@ -12,7 +12,7 @@ import {
 } from "@tanstack/react-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Card } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import {
   Table,
   TableBody,
@@ -75,9 +75,11 @@ interface EmailTemplate {
 
 interface EmailTemplatesTableProps {
   onEdit: (templateId: string) => void
+  searchQuery?: string
+  categoryFilter?: string
 }
 
-export default function EmailTemplatesTable({ onEdit }: EmailTemplatesTableProps) {
+export default function EmailTemplatesTable({ onEdit, searchQuery = "", categoryFilter = "all" }: EmailTemplatesTableProps) {
   const [templates, setTemplates] = useState<EmailTemplate[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -132,6 +134,30 @@ export default function EmailTemplatesTable({ onEdit }: EmailTemplatesTableProps
     fetchTemplates()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pagination.pageIndex, pagination.pageSize])
+
+  // Filter templates based on search and category
+  const filteredTemplates = useMemo(() => {
+    let filtered = templates
+
+    // Apply search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter(
+        (t) =>
+          t.name.toLowerCase().includes(query) ||
+          t.slug.toLowerCase().includes(query) ||
+          t.description?.toLowerCase().includes(query) ||
+          t.subject.toLowerCase().includes(query)
+      )
+    }
+
+    // Apply category filter
+    if (categoryFilter && categoryFilter !== "all") {
+      filtered = filtered.filter((t) => t.category === categoryFilter)
+    }
+
+    return filtered
+  }, [templates, searchQuery, categoryFilter])
 
   const handleDelete = (templateId: string, isSystem: boolean) => {
     if (isSystem) {
@@ -314,18 +340,18 @@ export default function EmailTemplatesTable({ onEdit }: EmailTemplatesTableProps
   )
 
   const table = useReactTable({
-    data: templates,
+    data: filteredTemplates,
     columns,
     state: {
       sorting,
       pagination,
     },
-    pageCount: Math.ceil(total / pagination.pageSize),
+    pageCount: Math.ceil(filteredTemplates.length / pagination.pageSize),
     onSortingChange: setSorting,
     onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    manualPagination: true,
+    manualPagination: false, // Changed to false since we're filtering client-side
   })
 
   if (loading) {
@@ -339,10 +365,26 @@ export default function EmailTemplatesTable({ onEdit }: EmailTemplatesTableProps
   if (templates.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-        <IconMail className="h-12 w-12 text-muted-foreground/50 mb-4" />
-        <p className="text-lg font-medium">Aucun template</p>
-        <p className="text-sm text-muted-foreground mt-1">
+        <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+          <IconMail className="h-8 w-8 text-muted-foreground" />
+        </div>
+        <h3 className="text-lg font-semibold mb-2">Aucun template</h3>
+        <p className="text-sm text-muted-foreground">
           Créez votre premier template d&apos;email pour commencer
+        </p>
+      </div>
+    )
+  }
+
+  if (filteredTemplates.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+        <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+          <IconMail className="h-8 w-8 text-muted-foreground" />
+        </div>
+        <h3 className="text-lg font-semibold mb-2">Aucun résultat</h3>
+        <p className="text-sm text-muted-foreground">
+          Essayez de modifier vos filtres ou votre recherche
         </p>
       </div>
     )
@@ -383,73 +425,85 @@ export default function EmailTemplatesTable({ onEdit }: EmailTemplatesTableProps
       </div>
 
       {/* Vue Mobile - Cards */}
-      <div className="md:hidden space-y-3 px-4">
-        {templates.map((template) => (
-          <Card key={template.id} className="p-4">
-            <div className="flex items-start justify-between gap-3 mb-3">
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-sm truncate">{template.name}</h3>
-                <p className="text-xs text-muted-foreground font-mono mt-0.5">{template.slug}</p>
-              </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
-                    <IconDotsVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => onEdit(template.id)}>
-                    <IconEdit className="mr-2 h-4 w-4" />
-                    Modifier
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleSendTest(template.id)}>
-                    <IconMail className="mr-2 h-4 w-4" />
-                    Test
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="text-destructive"
-                    onClick={() => handleDelete(template.id, template.is_system)}
-                    disabled={template.is_system}
-                  >
-                    <IconTrash className="mr-2 h-4 w-4" />
-                    Supprimer
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+      <div className="md:hidden space-y-3">
+        {table.getRowModel().rows.map((row) => {
+          const template = row.original
+          return (
+            <Card
+              key={template.id}
+              className="cursor-pointer transition-all hover:shadow-md hover:border-primary/50"
+              onClick={() => onEdit(template.id)}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3 mb-3">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <IconMail className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-sm truncate mb-0.5">{template.name}</h3>
+                    <p className="text-xs text-muted-foreground font-mono truncate">{template.slug}</p>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                        <IconDotsVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(template.id) }}>
+                        <IconEdit className="mr-2 h-4 w-4" />
+                        Modifier
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleSendTest(template.id) }}>
+                        <IconMail className="mr-2 h-4 w-4" />
+                        Test
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        onClick={(e) => { e.stopPropagation(); handleDelete(template.id, template.is_system) }}
+                        disabled={template.is_system}
+                      >
+                        <IconTrash className="mr-2 h-4 w-4" />
+                        Supprimer
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
 
-            <div className="space-y-2">
-              <div className="flex items-start gap-2">
-                <span className="text-xs text-muted-foreground whitespace-nowrap">Sujet:</span>
-                <p className="text-xs line-clamp-2">{template.subject}</p>
-              </div>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Sujet</p>
+                    <p className="text-xs line-clamp-2 font-medium">{template.subject}</p>
+                  </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                {getCategoryBadge(template.category)}
-                <Badge variant={template.is_active ? "default" : "outline"} className="text-xs">
-                  {template.is_active ? "Actif" : "Inactif"}
-                </Badge>
-                {template.is_system && (
-                  <Badge variant="destructive" className="text-xs">Système</Badge>
-                )}
-              </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {getCategoryBadge(template.category)}
+                    <Badge variant={template.is_active ? "default" : "outline"} className="text-[10px] py-0.5 px-2">
+                      {template.is_active ? "Actif" : "Inactif"}
+                    </Badge>
+                    {template.is_system && (
+                      <Badge variant="destructive" className="text-[10px] py-0.5 px-2">Système</Badge>
+                    )}
+                  </div>
 
-              <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
-                <span className="flex items-center gap-1">
-                  <IconMail className="h-3 w-3" />
-                  {template.sent_count} envoyés
-                </span>
-                <span className="flex items-center gap-1">
-                  <IconClock className="h-3 w-3" />
-                  {formatDistanceToNow(new Date(template.updated_at), { addSuffix: true, locale: fr })}
-                </span>
-              </div>
-            </div>
-          </Card>
-        ))}
+                  <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
+                    <span className="flex items-center gap-1">
+                      <IconMail className="h-3 w-3" />
+                      {template.sent_count} envoyés
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <IconClock className="h-3 w-3" />
+                      {formatDistanceToNow(new Date(template.updated_at), { addSuffix: true, locale: fr })}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
 
       {/* Pagination */}
@@ -457,7 +511,7 @@ export default function EmailTemplatesTable({ onEdit }: EmailTemplatesTableProps
         <div className="flex items-center justify-between sm:justify-start space-x-2 text-xs sm:text-sm">
           <p className="text-muted-foreground">
             {pagination.pageIndex * pagination.pageSize + 1}-
-            {Math.min((pagination.pageIndex + 1) * pagination.pageSize, total)} sur {total}
+            {Math.min((pagination.pageIndex + 1) * pagination.pageSize, filteredTemplates.length)} sur {filteredTemplates.length}
           </p>
           <Select
             value={`${pagination.pageSize}`}

@@ -5,7 +5,14 @@ from app.core.config import settings
 from app.models import User, UserCreate
 from app.models_rbac import Role
 
-engine = create_engine(str(settings.SQLALCHEMY_DATABASE_URI))
+# Configuration du pool de connexions pour supporter Celery et le backend
+engine = create_engine(
+    str(settings.SQLALCHEMY_DATABASE_URI),
+    pool_size=20,  # Augmenté de 5 à 20 pour supporter les workers Celery
+    max_overflow=40,  # Augmenté de 10 à 40 pour les pics de charge
+    pool_pre_ping=True,  # Vérifie la connexion avant utilisation
+    pool_recycle=3600,  # Recycle les connexions après 1h
+)
 
 
 # make sure all SQLModel models are imported (app.models) before initializing DB

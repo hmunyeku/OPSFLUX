@@ -1,0 +1,367 @@
+{
+  "name": "Third Parties Management",
+  "code": "third_parties",
+  "slug": "third-parties",
+  "version": "1.0.0",
+  "description": "Gestion complète des tiers : entreprises, contacts, invitations externes",
+  "long_description": "Module professionnel pour gérer vos entreprises tierces (clients, fournisseurs, partenaires) et leurs contacts. Inclut un système d'invitation sécurisé avec vérification 2FA permettant aux contacts externes de compléter leur profil et optionnellement devenir administrateurs.",
+
+  "author": "OpsFlux Team",
+  "author_email": "modules@opsflux.io",
+  "license": "Proprietary",
+  "homepage_url": "https://opsflux.io/modules/third-parties",
+  "documentation_url": "https://docs.opsflux.io/modules/third-parties",
+
+  "icon": "Building2",
+  "color": "#6366F1",
+  "category": "business",
+
+  "is_system": false,
+  "is_required": false,
+  "requires_license": false,
+
+  "permissions": [
+    {
+      "code": "companies.read",
+      "name": "Consulter les entreprises",
+      "description": "Visualiser la liste et les détails des entreprises tierces",
+      "category": "companies"
+    },
+    {
+      "code": "companies.create",
+      "name": "Créer des entreprises",
+      "description": "Ajouter de nouvelles entreprises tierces",
+      "category": "companies"
+    },
+    {
+      "code": "companies.update",
+      "name": "Modifier des entreprises",
+      "description": "Modifier les informations des entreprises existantes",
+      "category": "companies"
+    },
+    {
+      "code": "companies.delete",
+      "name": "Supprimer des entreprises",
+      "description": "Supprimer (soft delete) des entreprises",
+      "category": "companies"
+    },
+    {
+      "code": "contacts.read",
+      "name": "Consulter les contacts",
+      "description": "Visualiser la liste et les détails des contacts",
+      "category": "contacts"
+    },
+    {
+      "code": "contacts.create",
+      "name": "Créer des contacts",
+      "description": "Ajouter de nouveaux contacts aux entreprises",
+      "category": "contacts"
+    },
+    {
+      "code": "contacts.update",
+      "name": "Modifier des contacts",
+      "description": "Modifier les informations des contacts existants",
+      "category": "contacts"
+    },
+    {
+      "code": "contacts.delete",
+      "name": "Supprimer des contacts",
+      "description": "Supprimer (soft delete) des contacts",
+      "category": "contacts"
+    },
+    {
+      "code": "contacts.invite",
+      "name": "Inviter des contacts",
+      "description": "Créer et envoyer des invitations sécurisées aux contacts",
+      "category": "contacts"
+    },
+    {
+      "code": "contacts.manage_invitations",
+      "name": "Gérer les invitations",
+      "description": "Consulter, révoquer et gérer les invitations de contacts",
+      "category": "contacts"
+    },
+    {
+      "code": "contacts.grant_admin",
+      "name": "Accorder droits administrateur",
+      "description": "Permettre à un contact de devenir administrateur",
+      "category": "contacts"
+    }
+  ],
+
+  "menu_items": [
+    {
+      "label": "Tiers",
+      "route": "/third-parties",
+      "icon": "Building2",
+      "order": 200,
+      "permission": "companies.read"
+    },
+    {
+      "label": "Entreprises",
+      "route": "/third-parties/companies",
+      "icon": "Building",
+      "order": 201,
+      "permission": "companies.read"
+    },
+    {
+      "label": "Contacts",
+      "route": "/third-parties/contacts",
+      "icon": "Users",
+      "order": 202,
+      "permission": "contacts.read"
+    },
+    {
+      "label": "Invitations",
+      "route": "/third-parties/invitations",
+      "icon": "Mail",
+      "order": 203,
+      "permission": "contacts.manage_invitations"
+    }
+  ],
+
+  "hooks": [
+    {
+      "name": "Notifier nouvelle entreprise",
+      "event": "company.created",
+      "description": "Notifie les responsables commerciaux lors de l'ajout d'une nouvelle entreprise",
+      "is_active": false,
+      "priority": 100,
+      "actions": [
+        {
+          "type": "send_notification",
+          "config": {
+            "recipients": ["role:commercial_manager"],
+            "title": "Nouvelle entreprise créée",
+            "message": "L'entreprise {{company.name}} a été ajoutée au système",
+            "priority": "normal"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifier contact invité",
+      "event": "contact.invitation.created",
+      "description": "Envoie un email au contact invité avec le lien sécurisé",
+      "is_active": true,
+      "priority": 1,
+      "actions": [
+        {
+          "type": "send_email",
+          "config": {
+            "template": "contact_invitation",
+            "to": "{{contact.email}}",
+            "subject": "Invitation à compléter votre profil",
+            "priority": "high"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Audit log entreprises",
+      "event": "company.updated",
+      "description": "Log toutes les modifications d'entreprises pour audit",
+      "is_active": true,
+      "priority": 10,
+      "actions": [
+        {
+          "type": "audit_log",
+          "config": {
+            "action": "company.modified",
+            "category": "third_parties",
+            "severity": "info"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Audit log contacts",
+      "event": "contact.updated",
+      "description": "Log toutes les modifications de contacts pour audit",
+      "is_active": true,
+      "priority": 10,
+      "actions": [
+        {
+          "type": "audit_log",
+          "config": {
+            "action": "contact.modified",
+            "category": "third_parties",
+            "severity": "info"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Alerte contact devient admin",
+      "event": "contact.admin_granted",
+      "description": "Alerte les super-utilisateurs quand un contact obtient les droits admin",
+      "is_active": true,
+      "priority": 100,
+      "actions": [
+        {
+          "type": "send_notification",
+          "config": {
+            "recipients": ["role:superuser"],
+            "title": "Nouveau compte administrateur",
+            "message": "Le contact {{contact.full_name}} ({{contact.email}}) a obtenu les droits administrateur",
+            "priority": "high"
+          }
+        }
+      ]
+    }
+  ],
+
+  "translations": {
+    "fr": {
+      "third_parties.menu.companies": "Entreprises",
+      "third_parties.menu.contacts": "Contacts",
+      "third_parties.menu.invitations": "Invitations",
+      "third_parties.company.name": "Nom de l'entreprise",
+      "third_parties.company.legal_name": "Raison sociale",
+      "third_parties.company.registration_number": "SIRET/SIREN",
+      "third_parties.company.vat_number": "Numéro de TVA",
+      "third_parties.company.type": "Type",
+      "third_parties.company.status": "Statut",
+      "third_parties.company.email": "Email",
+      "third_parties.company.phone": "Téléphone",
+      "third_parties.company.website": "Site web",
+      "third_parties.company.address": "Adresse",
+      "third_parties.company.country": "Pays",
+      "third_parties.company.industry": "Secteur d'activité",
+      "third_parties.contact.first_name": "Prénom",
+      "third_parties.contact.last_name": "Nom",
+      "third_parties.contact.email": "Email",
+      "third_parties.contact.phone": "Téléphone",
+      "third_parties.contact.job_title": "Poste",
+      "third_parties.contact.department": "Département",
+      "third_parties.contact.role": "Rôle",
+      "third_parties.contact.status": "Statut",
+      "third_parties.invitation.send": "Envoyer une invitation",
+      "third_parties.invitation.token": "Token d'invitation",
+      "third_parties.invitation.expires_at": "Expire le",
+      "third_parties.invitation.status": "Statut",
+      "third_parties.invitation.can_be_admin": "Peut devenir administrateur",
+      "third_parties.type.client": "Client",
+      "third_parties.type.supplier": "Fournisseur",
+      "third_parties.type.partner": "Partenaire",
+      "third_parties.type.contractor": "Sous-traitant",
+      "third_parties.status.active": "Actif",
+      "third_parties.status.inactive": "Inactif",
+      "third_parties.status.prospect": "Prospect",
+      "third_parties.status.invited": "Invité"
+    },
+    "en": {
+      "third_parties.menu.companies": "Companies",
+      "third_parties.menu.contacts": "Contacts",
+      "third_parties.menu.invitations": "Invitations",
+      "third_parties.company.name": "Company Name",
+      "third_parties.company.legal_name": "Legal Name",
+      "third_parties.company.registration_number": "Registration Number",
+      "third_parties.company.vat_number": "VAT Number",
+      "third_parties.company.type": "Type",
+      "third_parties.company.status": "Status",
+      "third_parties.company.email": "Email",
+      "third_parties.company.phone": "Phone",
+      "third_parties.company.website": "Website",
+      "third_parties.company.address": "Address",
+      "third_parties.company.country": "Country",
+      "third_parties.company.industry": "Industry",
+      "third_parties.contact.first_name": "First Name",
+      "third_parties.contact.last_name": "Last Name",
+      "third_parties.contact.email": "Email",
+      "third_parties.contact.phone": "Phone",
+      "third_parties.contact.job_title": "Job Title",
+      "third_parties.contact.department": "Department",
+      "third_parties.contact.role": "Role",
+      "third_parties.contact.status": "Status",
+      "third_parties.invitation.send": "Send Invitation",
+      "third_parties.invitation.token": "Invitation Token",
+      "third_parties.invitation.expires_at": "Expires at",
+      "third_parties.invitation.status": "Status",
+      "third_parties.invitation.can_be_admin": "Can become administrator",
+      "third_parties.type.client": "Client",
+      "third_parties.type.supplier": "Supplier",
+      "third_parties.type.partner": "Partner",
+      "third_parties.type.contractor": "Contractor",
+      "third_parties.status.active": "Active",
+      "third_parties.status.inactive": "Inactive",
+      "third_parties.status.prospect": "Prospect",
+      "third_parties.status.invited": "Invited"
+    }
+  },
+
+  "user_preferences": [
+    {
+      "key": "third_parties.notification.email.company_created",
+      "label": "Email pour nouvelles entreprises",
+      "description": "Recevoir un email à chaque nouvelle entreprise ajoutée",
+      "type": "boolean",
+      "default": false,
+      "category": "third_parties_notifications"
+    },
+    {
+      "key": "third_parties.notification.email.contact_invited",
+      "label": "Email pour nouvelles invitations",
+      "description": "Recevoir un email à chaque invitation envoyée",
+      "type": "boolean",
+      "default": true,
+      "category": "third_parties_notifications"
+    },
+    {
+      "key": "third_parties.display.default_company_type",
+      "label": "Type d'entreprise par défaut",
+      "description": "Type affiché par défaut lors de la création d'une entreprise",
+      "type": "select",
+      "options": ["client", "supplier", "partner", "contractor", "other"],
+      "default": "client",
+      "category": "third_parties_display"
+    }
+  ],
+
+  "settings": [
+    {
+      "key": "third_parties.invitation.default_expiry_days",
+      "label": "Durée de validité par défaut des invitations",
+      "description": "Nombre de jours avant expiration des invitations",
+      "type": "number",
+      "default": 7,
+      "min": 1,
+      "max": 30,
+      "category": "third_parties_invitation"
+    },
+    {
+      "key": "third_parties.invitation.require_2fa",
+      "label": "Exiger 2FA pour les invitations",
+      "description": "Obliger la vérification 2FA lors de l'acceptation d'une invitation",
+      "type": "boolean",
+      "default": true,
+      "category": "third_parties_invitation"
+    },
+    {
+      "key": "third_parties.contact.allow_admin_conversion",
+      "label": "Autoriser conversion contact vers admin",
+      "description": "Permettre aux contacts de devenir administrateurs",
+      "type": "boolean",
+      "default": true,
+      "category": "third_parties_contact"
+    },
+    {
+      "key": "third_parties.company.auto_create_primary_contact",
+      "label": "Créer contact principal automatiquement",
+      "description": "Créer automatiquement un contact principal lors de la création d'une entreprise",
+      "type": "boolean",
+      "default": false,
+      "category": "third_parties_company"
+    }
+  ],
+
+  "dependencies": {
+    "core_services": [
+      "notification",
+      "email",
+      "authentication",
+      "audit"
+    ],
+    "modules": []
+  }
+}

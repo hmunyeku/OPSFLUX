@@ -33,6 +33,24 @@ export async function getDashboards(token: string): Promise<UserDashboardsRespon
   return response.json()
 }
 
+export async function getDashboardsByMenu(
+  token: string,
+  menuKey: string
+): Promise<Dashboard[]> {
+  const response = await fetch(`${API_BASE_URL}/dashboards/menu/${encodeURIComponent(menuKey)}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch dashboards for menu")
+  }
+
+  const result = await response.json()
+  return result.data || []
+}
+
 export async function getDashboard(
   token: string,
   dashboardId: string

@@ -71,6 +71,8 @@ export interface Dashboard {
   is_active: boolean
   is_public: boolean
   order: number
+  menu_key?: string
+  is_default_in_menu: boolean
   layout_config: {
     column: number
     cellHeight: number
@@ -93,6 +95,8 @@ export interface DashboardCreate {
   is_active?: boolean
   is_public?: boolean
   order?: number
+  menu_key?: string
+  is_default_in_menu?: boolean
   layout_config?: {
     column?: number
     cellHeight?: number
@@ -115,6 +119,8 @@ export interface DashboardUpdate {
   is_active?: boolean
   is_public?: boolean
   order?: number
+  menu_key?: string
+  is_default_in_menu?: boolean
   layout_config?: {
     column?: number
     cellHeight?: number

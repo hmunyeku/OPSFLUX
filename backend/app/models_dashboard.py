@@ -131,6 +131,8 @@ class DashboardBase(SQLModel):
     is_active: bool = Field(default=True, description="Dashboard actif")
     is_public: bool = Field(default=False, description="Dashboard partageable avec autres utilisateurs")
     order: int = Field(default=0, description="Ordre d'affichage")
+    menu_key: Optional[str] = Field(default=None, max_length=100, description="Clé du menu où afficher le dashboard")
+    is_default_in_menu: bool = Field(default=False, description="Dashboard par défaut dans son menu")
 
 
 class DashboardCreate(DashboardBase):
@@ -154,12 +156,15 @@ class DashboardUpdate(SQLModel):
     is_public: Optional[bool] = None
     order: Optional[int] = None
     layout_config: Optional[Dict[str, Any]] = None
+    menu_key: Optional[str] = Field(default=None, max_length=100)
+    is_default_in_menu: Optional[bool] = None
 
 
 class Dashboard(AbstractBaseModel, DashboardBase, table=True):
     """
     Modèle pour les dashboards du système.
     Un dashboard est une collection de widgets organisés dans une grille personnalisable.
+    Peut être affiché dans un menu avec d'autres dashboards en tabs.
     """
     __tablename__ = "dashboard"
     __table_args__ = (
@@ -167,6 +172,7 @@ class Dashboard(AbstractBaseModel, DashboardBase, table=True):
         Index("ix_dashboard_is_mandatory", "is_mandatory"),
         Index("ix_dashboard_scope", "scope"),
         Index("ix_dashboard_scope_id", "scope_id"),
+        Index("ix_dashboard_menu_key", "menu_key"),
     )
 
     # Configuration du layout de la grille (JSON)

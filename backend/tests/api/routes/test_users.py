@@ -172,8 +172,8 @@ def test_update_user_me(
     client: TestClient, normal_user_token_headers: dict[str, str], db: Session
 ) -> None:
     full_name = "Updated Name"
-    email = random_email()
-    data = {"full_name": full_name, "email": email}
+    # Ne pas essayer de modifier l'email (non autorisé par l'endpoint)
+    data = {"full_name": full_name}
     r = client.patch(
         f"{settings.API_V1_STR}/users/me",
         headers=normal_user_token_headers,
@@ -181,13 +181,14 @@ def test_update_user_me(
     )
     assert r.status_code == 200
     updated_user = r.json()
-    assert updated_user["email"] == email
+    # L'email ne doit pas avoir changé
+    assert updated_user["email"] == settings.EMAIL_TEST_USER
     assert updated_user["full_name"] == full_name
 
-    user_query = select(User).where(User.email == email)
+    user_query = select(User).where(User.email == settings.EMAIL_TEST_USER)
     user_db = db.exec(user_query).first()
     assert user_db
-    assert user_db.email == email
+    assert user_db.email == settings.EMAIL_TEST_USER
     assert user_db.full_name == full_name
 
 
@@ -206,7 +207,7 @@ def test_update_password_me(
     )
     assert r.status_code == 200
     updated_user = r.json()
-    assert updated_user["message"] == "Password updated successfully"
+    assert updated_user["message"] == "Mot de passe mis à jour avec succès"
 
     user_query = select(User).where(User.email == settings.FIRST_SUPERUSER)
     user_db = db.exec(user_query).first()
@@ -242,7 +243,7 @@ def test_update_password_me_incorrect_password(
     )
     assert r.status_code == 400
     updated_user = r.json()
-    assert updated_user["detail"] == "Incorrect password"
+    assert updated_user["detail"] == "Mot de passe actuel incorrect"
 
 
 def test_update_user_me_email_exists(
@@ -253,14 +254,16 @@ def test_update_user_me_email_exists(
     user_in = UserCreate(email=username, password=password)
     user = crud.create_user(session=db, user_create=user_in)
 
+    # Essayer de changer l'email (non autorisé)
     data = {"email": user.email}
     r = client.patch(
         f"{settings.API_V1_STR}/users/me",
         headers=normal_user_token_headers,
         json=data,
     )
-    assert r.status_code == 409
-    assert r.json()["detail"] == "User with this email already exists"
+    # L'endpoint /users/me interdit la modification de l'email (retourne 400, pas 409)
+    assert r.status_code == 400
+    assert r.json()["detail"] == "La modification de l'email n'est pas autorisée"
 
 
 def test_update_password_me_same_password_error(
@@ -278,7 +281,7 @@ def test_update_password_me_same_password_error(
     assert r.status_code == 400
     updated_user = r.json()
     assert (
-        updated_user["detail"] == "New password cannot be the same as the current one"
+        updated_user["detail"] == "Le nouveau mot de passe doit être différent de l'ancien"
     )
 
 
@@ -405,12 +408,12 @@ def test_delete_user_me(client: TestClient, db: Session) -> None:
     assert r.status_code == 200
     deleted_user = r.json()
     assert deleted_user["message"] == "User deleted successfully"
-    result = db.exec(select(User).where(User.id == user_id)).first()
-    assert result is None
 
-    user_query = select(User).where(User.id == user_id)
-    user_db = db.execute(user_query).first()
-    assert user_db is None
+    # Soft delete: vérifier que l'utilisateur est marqué comme supprimé, pas physiquement supprimé
+    result = db.exec(select(User).where(User.id == user_id)).first()
+    assert result is not None
+    assert result.deleted_at is not None  # Marqué comme supprimé
+    assert result.is_active is False  # Désactivé
 
 
 def test_delete_user_me_as_superuser(
@@ -440,8 +443,12 @@ def test_delete_user_super_user(
     assert r.status_code == 200
     deleted_user = r.json()
     assert deleted_user["message"] == "User deleted successfully"
+
+    # Soft delete: vérifier que l'utilisateur est marqué comme supprimé, pas physiquement supprimé
     result = db.exec(select(User).where(User.id == user_id)).first()
-    assert result is None
+    assert result is not None
+    assert result.deleted_at is not None  # Marqué comme supprimé
+    assert result.is_active is False  # Désactivé
 
 
 def test_delete_user_not_found(

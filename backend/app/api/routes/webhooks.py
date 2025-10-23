@@ -1,3 +1,4 @@
+import secrets
 import uuid
 from typing import Any
 
@@ -62,6 +63,7 @@ def read_webhooks(
                 auth_type=webhook.auth_type,
                 status=webhook.status,
                 events=webhook.events,
+                secret=webhook.secret,
                 user_id=webhook.user_id,
                 created_at=webhook.created_at.isoformat() if webhook.created_at else None,
                 updated_at=webhook.updated_at.isoformat() if webhook.updated_at else None,
@@ -80,7 +82,11 @@ def create_webhook(
 ) -> Any:
     """
     Create new webhook for current user.
+    Automatically generates a secure HMAC secret for webhook signature verification.
     """
+    # Generate a secure random secret for HMAC signing
+    webhook_secret = secrets.token_hex(32)  # 64 character hex string
+
     # Create the webhook record
     db_webhook = Webhook(
         url=webhook_in.url,
@@ -89,6 +95,7 @@ def create_webhook(
         auth_type=webhook_in.auth_type,
         status="enabled",
         events=webhook_in.events or [],
+        secret=webhook_secret,
         user_id=current_user.id,
     )
 
@@ -104,6 +111,7 @@ def create_webhook(
         auth_type=db_webhook.auth_type,
         status=db_webhook.status,
         events=db_webhook.events,
+        secret=db_webhook.secret,
         user_id=db_webhook.user_id,
         created_at=db_webhook.created_at.isoformat() if db_webhook.created_at else None,
         updated_at=db_webhook.updated_at.isoformat() if db_webhook.updated_at else None,
@@ -137,6 +145,7 @@ def read_webhook(
         auth_type=webhook.auth_type,
         status=webhook.status,
         events=webhook.events,
+        secret=webhook.secret,
         user_id=webhook.user_id,
         created_at=webhook.created_at.isoformat() if webhook.created_at else None,
         updated_at=webhook.updated_at.isoformat() if webhook.updated_at else None,

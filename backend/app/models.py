@@ -457,9 +457,95 @@ class AppSettings(AbstractBaseModel, AppSettingsBase, table=True):
     __tablename__ = "app_settings"
 
 
-class AppSettingsPublic(AppSettingsBase):
-    """Public model for application settings"""
+class AppSettingsPublic(SQLModel):
+    """
+    Public model for application settings.
+    SECURITY: Explicitly excludes sensitive fields (passwords, API keys, secrets).
+    Only non-sensitive configuration is exposed via API.
+    """
     id: uuid.UUID
+
+    # Application générale
+    app_name: str
+    app_logo: str | None
+    default_theme: str
+    default_language: str
+    font: str
+    company_name: str | None
+    company_logo: str | None
+    company_tax_id: str | None
+    company_address: str | None
+
+    # Paramètres UI
+    auto_save_delay_seconds: int
+
+    # Paramètres de sécurité 2FA
+    twofa_max_attempts: int
+    twofa_sms_timeout_minutes: int
+    twofa_sms_rate_limit: int
+
+    # Configuration SMS Provider (EXCLUDED: account_sid, auth_token)
+    sms_provider: str
+    sms_provider_phone_number: str | None
+
+    # Configuration Email (EXCLUDED: email_password)
+    email_host: str | None
+    email_port: int | None
+    email_username: str | None
+    email_from: str | None
+    email_from_name: str | None
+    email_use_tls: bool
+    email_use_ssl: bool
+
+    # Configuration Intranet
+    intranet_url: str | None
+
+    # === Backup Configuration === (EXCLUDED: access_key, secret_key, ftp_password)
+    backup_storage_type: str
+    backup_local_path: str | None
+    backup_s3_bucket: str | None
+    backup_s3_endpoint: str | None
+    backup_s3_region: str | None
+    backup_ftp_host: str | None
+    backup_ftp_port: int | None
+    backup_ftp_username: str | None
+    backup_ftp_path: str | None
+    backup_retention_days: int
+    backup_auto_cleanup: bool
+
+    # === CORE Services Configuration ===
+
+    # Cache (Redis) (EXCLUDED: redis_password)
+    redis_host: str
+    redis_port: int
+    redis_db: int
+    redis_default_ttl: int
+    redis_max_ttl: int
+
+    # Storage (S3/MinIO) (EXCLUDED: s3_access_key, s3_secret_key)
+    storage_backend: str
+    s3_endpoint: str | None
+    s3_bucket: str | None
+    s3_region: str
+
+    # Search (EXCLUDED: typesense_api_key)
+    search_backend: str
+    search_language: str
+    elasticsearch_url: str | None
+    typesense_host: str | None
+
+    # Audit Logs
+    audit_retention_days: int
+    audit_log_level: str
+    audit_enabled: bool
+
+    # AI Configuration (EXCLUDED: ai_openai_api_key, ai_anthropic_api_key)
+    ai_provider: str | None
+    ai_openai_model: str
+    ai_openai_base_url: str | None
+    ai_anthropic_model: str
+    ai_max_tokens: int
+    ai_temperature: float
 
 
 # API Keys Models
@@ -522,6 +608,7 @@ class WebhookBase(SQLModel):
     auth_type: str = Field(default="none", max_length=50)  # none, application, platform
     status: str = Field(default="enabled", max_length=50)  # enabled, disabled
     events: Optional[list[str]] = Field(default=None, sa_column=Column(JSON, nullable=True))
+    secret: str = Field(max_length=128, description="HMAC secret for webhook signature verification")
     user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, ondelete="CASCADE")
 
 

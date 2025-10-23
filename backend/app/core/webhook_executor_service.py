@@ -5,9 +5,13 @@ Ce service est responsable de:
 1. Exécuter les actions de type "call_webhook" définies dans les Hooks
 2. Effectuer des requêtes HTTP POST vers les URLs configurées
 3. Implémenter une logique de retry en cas d'échec
-4. Logger toutes les exécutions dans webhook_log (si table existe)
+4. Signer les webhooks avec HMAC SHA256 pour vérification de signature
+5. Logger toutes les exécutions dans webhook_log (si table existe)
 """
 
+import hashlib
+import hmac
+import json
 import logging
 import time
 from typing import Any
@@ -30,6 +34,29 @@ class WebhookExecutorService:
         self.max_retries = 3  # Nombre maximum de tentatives
         self.retry_delay = 2  # Délai entre les tentatives en secondes
 
+    def compute_signature(self, payload: dict[str, Any], secret: str) -> str:
+        """
+        Calcule la signature HMAC SHA256 du payload avec le secret fourni.
+
+        Args:
+            payload: Le payload JSON à signer
+            secret: Le secret HMAC
+
+        Returns:
+            str: La signature HMAC en hexadecimal
+        """
+        # Convertir le payload en JSON canonique (tri des clés pour cohérence)
+        payload_bytes = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+        # Calculer le HMAC SHA256
+        signature = hmac.new(
+            secret.encode("utf-8"),
+            payload_bytes,
+            hashlib.sha256
+        ).hexdigest()
+
+        return signature
+
     async def execute_webhook(
         self,
         *,
@@ -39,9 +66,10 @@ class WebhookExecutorService:
         method: str = "POST",
         timeout: int | None = None,
         max_retries: int | None = None,
+        secret: str | None = None,
     ) -> tuple[bool, int, str]:
         """
-        Exécute un webhook (requête HTTP).
+        Exécute un webhook (requête HTTP) avec signature HMAC optionnelle.
 
         Args:
             url: URL du webhook à appeler
@@ -50,6 +78,7 @@ class WebhookExecutorService:
             method: Méthode HTTP (POST, PUT, PATCH)
             timeout: Timeout en secondes (défaut: 30)
             max_retries: Nombre de tentatives max (défaut: 3)
+            secret: Secret HMAC pour signer le webhook (optionnel)
 
         Returns:
             tuple[bool, int, str]: (success, status_code, response_text)
@@ -62,6 +91,13 @@ class WebhookExecutorService:
             "Content-Type": "application/json",
             "User-Agent": f"{settings.PROJECT_NAME}/1.0",
         }
+
+        # Ajouter la signature HMAC si un secret est fourni
+        if secret:
+            signature = self.compute_signature(payload, secret)
+            default_headers["X-Webhook-Signature"] = f"sha256={signature}"
+            logger.info("HMAC signature added to webhook request")
+
         if headers:
             default_headers.update(headers)
 

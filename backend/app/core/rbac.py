@@ -189,11 +189,8 @@ def require_any_permission(*permission_codes: str):
         HTTPException 500: Si la session database n'est pas disponible
     """
     def decorator(func: Callable):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            current_user = kwargs.get('current_user')
-            session = kwargs.get('session')
-
+        # Fonction helper pour vérifier les permissions
+        def check_any_permission_sync(current_user, session):
             if not current_user:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -208,7 +205,7 @@ def require_any_permission(*permission_codes: str):
 
             # Superadmin a toutes les permissions
             if current_user.is_superuser:
-                return func(*args, **kwargs)
+                return
 
             # Vérifier si l'utilisateur a au moins une des permissions
             for permission_code in permission_codes:
@@ -225,7 +222,7 @@ def require_any_permission(*permission_codes: str):
 
                 if permission is not None:
                     # Dès qu'une permission est trouvée, on autorise l'accès
-                    return func(*args, **kwargs)
+                    return
 
             # Aucune permission trouvée
             raise HTTPException(
@@ -233,7 +230,24 @@ def require_any_permission(*permission_codes: str):
                 detail=f"Permission denied: one of {', '.join(permission_codes)} required"
             )
 
-        return wrapper
+        # Détecter si la fonction est async ou sync
+        if inspect.iscoroutinefunction(func):
+            @wraps(func)
+            async def async_wrapper(*args, **kwargs):
+                current_user = kwargs.get('current_user')
+                session = kwargs.get('session')
+                check_any_permission_sync(current_user, session)
+                return await func(*args, **kwargs)
+            return async_wrapper
+        else:
+            @wraps(func)
+            def sync_wrapper(*args, **kwargs):
+                current_user = kwargs.get('current_user')
+                session = kwargs.get('session')
+                check_any_permission_sync(current_user, session)
+                return func(*args, **kwargs)
+            return sync_wrapper
+
     return decorator
 
 
@@ -270,11 +284,8 @@ def require_all_permissions(*permission_codes: str):
         HTTPException 500: Si la session database n'est pas disponible
     """
     def decorator(func: Callable):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            current_user = kwargs.get('current_user')
-            session = kwargs.get('session')
-
+        # Fonction helper pour vérifier les permissions
+        def check_all_permissions_sync(current_user, session):
             if not current_user:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -308,8 +319,22 @@ def require_all_permissions(*permission_codes: str):
                             detail=f"Permission denied: {permission_code} required (all permissions must be present)"
                         )
 
-            # Toutes les permissions sont présentes
-            return func(*args, **kwargs)
+        # Détecter si la fonction est async ou sync
+        if inspect.iscoroutinefunction(func):
+            @wraps(func)
+            async def async_wrapper(*args, **kwargs):
+                current_user = kwargs.get('current_user')
+                session = kwargs.get('session')
+                check_all_permissions_sync(current_user, session)
+                return await func(*args, **kwargs)
+            return async_wrapper
+        else:
+            @wraps(func)
+            def sync_wrapper(*args, **kwargs):
+                current_user = kwargs.get('current_user')
+                session = kwargs.get('session')
+                check_all_permissions_sync(current_user, session)
+                return func(*args, **kwargs)
+            return sync_wrapper
 
-        return wrapper
     return decorator

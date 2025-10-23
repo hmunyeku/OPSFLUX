@@ -37,6 +37,7 @@ from app.models_rbac import (
     Group,
     UserRoleLink,
     UserGroupLink,
+    UserPermissionLink,
 )
 from app.utils import generate_new_account_email, send_email
 
@@ -207,14 +208,22 @@ async def read_user_me(current_user: CurrentUser) -> Any:
 @router.delete("/me", response_model=Message)
 def delete_user_me(session: SessionDep, current_user: CurrentUser) -> Any:
     """
-    Delete own user.
+    Delete own user (soft delete).
+    Utilise soft delete pour éviter les problèmes de contraintes FK.
     """
     if current_user.is_superuser:
         raise HTTPException(
             status_code=403, detail="Super users are not allowed to delete themselves"
         )
-    session.delete(current_user)
+
+    # Soft delete: marquer comme supprimé au lieu de supprimer physiquement
+    from datetime import datetime, timezone
+    current_user.deleted_at = datetime.now(timezone.utc)
+    current_user.is_active = False
+    session.add(current_user)
     session.commit()
+    session.refresh(current_user)
+
     return Message(message="User deleted successfully")
 
 
@@ -306,7 +315,8 @@ async def delete_user(
     session: SessionDep, current_user: CurrentUser, user_id: uuid.UUID
 ) -> Message:
     """
-    Delete a user.
+    Delete a user (soft delete).
+    Utilise soft delete pour éviter les problèmes de contraintes FK.
     """
     user = session.get(User, user_id)
     if not user:
@@ -323,10 +333,13 @@ async def delete_user(
         "deleted_by": str(current_user.id),
     }
 
-    statement = delete(Item).where(col(Item.owner_id) == user_id)
-    session.exec(statement)  # type: ignore
-    session.delete(user)
+    # Soft delete: marquer comme supprimé au lieu de supprimer physiquement
+    from datetime import datetime, timezone
+    user.deleted_at = datetime.now(timezone.utc)
+    user.is_active = False
+    session.add(user)
     session.commit()
+    session.refresh(user)
 
     # Trigger hook: user.deleted
     try:

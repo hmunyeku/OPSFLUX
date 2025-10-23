@@ -3,9 +3,11 @@ Modèles pour le système de backup/restore.
 """
 from datetime import datetime
 from typing import Optional
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from sqlmodel import Field, SQLModel
+
+from app.core.models import AbstractBaseModel
 
 
 class BackupBase(SQLModel):
@@ -19,14 +21,15 @@ class BackupBase(SQLModel):
     error_message: Optional[str] = Field(default=None, max_length=2000, description="Message d'erreur si échec")
 
 
-class Backup(BackupBase, table=True):
-    """Modèle de backup en base de données."""
+class Backup(AbstractBaseModel, BackupBase, table=True):
+    """
+    Modèle de backup en base de données.
+    Hérite de AbstractBaseModel pour audit trail et soft delete.
+    """
     __tablename__ = "backups"
 
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    # Champs spécifiques au backup (id, created_at, created_by_id hérités de AbstractBaseModel)
     completed_at: Optional[datetime] = Field(default=None, description="Date de complétion du backup")
-    created_by_id: Optional[UUID] = Field(default=None, foreign_key="user.id")
 
     # Métadonnées additionnelles
     includes_database: bool = Field(default=False, description="Inclut la base de données")
@@ -106,14 +109,14 @@ class ScheduledBackupBase(SQLModel):
     next_run_at: Optional[datetime] = Field(default=None, description="Prochaine exécution")
 
 
-class ScheduledBackup(ScheduledBackupBase, table=True):
-    """Modèle de sauvegarde planifiée en base de données."""
+class ScheduledBackup(AbstractBaseModel, ScheduledBackupBase, table=True):
+    """
+    Modèle de sauvegarde planifiée en base de données.
+    Hérite de AbstractBaseModel pour audit trail et soft delete.
+    """
     __tablename__ = "scheduled_backups"
 
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: Optional[datetime] = Field(default=None)
-    created_by_id: Optional[UUID] = Field(default=None, foreign_key="user.id")
+    # Champs spécifiques (id, created_at, updated_at, created_by_id hérités de AbstractBaseModel)
 
     # Statistics
     total_runs: int = Field(default=0, description="Nombre total d'exécutions")

@@ -13,6 +13,11 @@ import {
   IconTrash,
   IconCopy,
   IconArrowLeft,
+  IconLayoutGrid,
+  IconPlus,
+  IconLock,
+  IconWorld,
+  IconSparkles,
 } from "@tabler/icons-react"
 import DashboardGrid from "@/components/dashboard/dashboard-grid"
 import EditToolbar from "@/components/dashboard/edit-toolbar"
@@ -46,8 +51,19 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { getWidgetMeta } from "@/widgets/registry"
+import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
+import { motion, AnimatePresence } from "framer-motion"
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
 
-export default function DashboardViewPage() {
+export default function DashboardViewPageNew() {
   const params = useParams()
   const router = useRouter()
   const { toast } = useToast()
@@ -142,7 +158,6 @@ export default function DashboardViewPage() {
   // Cancel edit
   const handleCancel = () => {
     if (pendingChanges) {
-      // Reload dashboard to discard changes
       const token = auth.getToken()
       if (token) {
         getDashboard(token, dashboardId).then((data) => {
@@ -295,8 +310,9 @@ export default function DashboardViewPage() {
     return (
       <>
         <Header />
-        <div className="flex items-center justify-center h-[50vh]">
-          <p className="text-muted-foreground">Chargement du dashboard...</p>
+        <div className="container py-8 space-y-6">
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-96 w-full" />
         </div>
       </>
     )
@@ -319,81 +335,144 @@ export default function DashboardViewPage() {
 
   const canEdit = !dashboard.is_mandatory
   const hasWidgets = (dashboard.widgets || []).length > 0
+  const widgetCount = dashboard.widgets?.length || 0
 
   return (
     <>
       <Header />
-      <div className="space-y-4 p-4">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => router.push("/dashboards")}
-            >
-              <IconArrowLeft className="h-4 w-4" />
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">{dashboard.name}</h1>
-              {dashboard.description && (
-                <p className="text-sm text-muted-foreground">{dashboard.description}</p>
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
+        <div className="container py-6 space-y-6">
+          {/* Breadcrumb */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink href="/dashboards">Dashboards</BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>{dashboard.name}</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+          </motion.div>
+
+          {/* Header */}
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-purple-500/5 to-blue-500/5 p-6 border backdrop-blur-sm"
+          >
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(120,119,198,0.1),rgba(255,255,255,0))]" />
+
+            <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-4 flex-1 min-w-0">
+                <div className="p-3 rounded-xl bg-primary/10 backdrop-blur-sm">
+                  <IconSparkles className="h-8 w-8 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-2">
+                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{dashboard.name}</h1>
+                    {dashboard.is_mandatory && (
+                      <Badge variant="secondary">
+                        <IconLock className="h-3 w-3 mr-1" />
+                        Obligatoire
+                      </Badge>
+                    )}
+                    {dashboard.is_public && (
+                      <Badge variant="outline">
+                        <IconWorld className="h-3 w-3 mr-1" />
+                        Public
+                      </Badge>
+                    )}
+                  </div>
+                  {dashboard.description && (
+                    <p className="text-muted-foreground">{dashboard.description}</p>
+                  )}
+                  <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
+                    <span className="flex items-center gap-1.5">
+                      <IconLayoutGrid className="h-4 w-4" />
+                      <span className="font-medium">{widgetCount}</span> widget{widgetCount > 1 ? "s" : ""}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {!isEditMode && (
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Button variant="outline" size="icon" onClick={handleClone}>
+                    <IconCopy className="h-4 w-4" />
+                  </Button>
+                  {canEdit && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setShowDeleteDialog(true)}
+                      >
+                        <IconTrash className="h-4 w-4" />
+                      </Button>
+                      <Button onClick={() => setIsEditMode(true)} className="gap-2">
+                        <IconEdit className="h-4 w-4" />
+                        <span className="hidden sm:inline">Éditer</span>
+                      </Button>
+                    </>
+                  )}
+                </div>
               )}
             </div>
-          </div>
+          </motion.div>
 
-          {!isEditMode && (
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" onClick={handleClone}>
-                <IconCopy className="h-4 w-4" />
-              </Button>
-              {canEdit && (
-                <>
-                  <Button variant="outline" size="icon">
-                    <IconSettings className="h-4 w-4" />
+          {/* Dashboard Content */}
+          <AnimatePresence mode="wait">
+            {hasWidgets ? (
+              <motion.div
+                key="dashboard-grid"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+              >
+                <DashboardGrid
+                  dashboard={dashboard}
+                  widgets={dashboard.widgets || []}
+                  isEditMode={isEditMode}
+                  onLayoutChange={handleLayoutChange}
+                  onConfigureWidget={handleConfigureWidget}
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="empty-state"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.3 }}
+                className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed py-16 bg-gradient-to-br from-muted/30 to-muted/10"
+              >
+                <div className="p-4 rounded-full bg-muted mb-4">
+                  <IconLayoutGrid className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <p className="text-lg font-medium mb-2">Ce dashboard est vide</p>
+                <p className="text-muted-foreground mb-6">Commencez par ajouter des widgets</p>
+                {canEdit && (
+                  <Button onClick={() => {
+                    setIsEditMode(true)
+                    setSidebarOpen(true)
+                  }} size="lg" className="gap-2">
+                    <IconPlus className="h-5 w-5" />
+                    Ajouter des widgets
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setShowDeleteDialog(true)}
-                  >
-                    <IconTrash className="h-4 w-4" />
-                  </Button>
-                  <Button onClick={() => setIsEditMode(true)}>
-                    <IconEdit className="h-4 w-4 mr-2" />
-                    Éditer
-                  </Button>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Dashboard Grid */}
-        {hasWidgets ? (
-          <DashboardGrid
-            dashboard={dashboard}
-            widgets={dashboard.widgets || []}
-            isEditMode={isEditMode}
-            onLayoutChange={handleLayoutChange}
-            onConfigureWidget={handleConfigureWidget}
-          />
-        ) : (
-          <div className="flex flex-col items-center justify-center h-[50vh] border-2 border-dashed rounded-lg">
-            <p className="text-muted-foreground mb-4">
-              Ce dashboard ne contient aucun widget
-            </p>
-            {canEdit && (
-              <Button onClick={() => {
-                setIsEditMode(true)
-                setSidebarOpen(true)
-              }}>
-                <IconEdit className="h-4 w-4 mr-2" />
-                Ajouter des widgets
-              </Button>
+                )}
+              </motion.div>
             )}
-          </div>
-        )}
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* Delete Dialog */}

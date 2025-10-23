@@ -3,35 +3,43 @@
 import { useState, useEffect } from "react"
 import { Header } from "@/components/layout/header"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import {
   IconPlus,
-  IconLayoutDashboard,
+  IconSearch,
+  IconFilter,
+  IconChartBar,
   IconStar,
   IconLock,
   IconUsers,
-  IconClock,
-  IconChartBar,
-  IconPencil,
-  IconTrash,
-  IconCopy,
-  IconWorld,
+  IconSparkles,
 } from "@tabler/icons-react"
 import { getDashboards } from "@/lib/api/dashboards"
 import { auth } from "@/lib/auth"
 import type { UserDashboardsResponse, Dashboard } from "@/types/dashboard"
 import Link from "next/link"
-import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PermissionGuard } from "@/components/permission-guard"
 import { useTranslation } from "@/hooks/use-translation"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Separator } from "@/components/ui/separator"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { DashboardCard } from "@/components/dashboard/dashboard-card"
+import { motion, AnimatePresence } from "framer-motion"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
-export default function DashboardsPage() {
+export default function DashboardsPageNew() {
   const { t } = useTranslation()
   const [dashboards, setDashboards] = useState<UserDashboardsResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [activeTab, setActiveTab] = useState<"all" | "my" | "mandatory" | "shared">("all")
+  const [sortBy, setSortBy] = useState<"recent" | "name" | "widgets">("recent")
 
   useEffect(() => {
     const token = auth.getToken()
@@ -52,170 +60,274 @@ export default function DashboardsPage() {
     fetchDashboards()
   }, [])
 
-  const DashboardCard = ({ dashboard }: { dashboard: Dashboard }) => (
-    <Link href={`/dashboards/${dashboard.id}`}>
-      <Card className="group hover:shadow-lg hover:border-primary/50 transition-all duration-200 cursor-pointer h-full">
-        <CardHeader className="pb-3">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <CardTitle className="text-lg flex items-center gap-2 group-hover:text-primary transition-colors">
-                <IconChartBar className="h-5 w-5 flex-shrink-0" />
-                <span className="truncate">{dashboard.name}</span>
-              </CardTitle>
-              {dashboard.description && (
-                <CardDescription className="mt-1.5 line-clamp-2">
-                  {dashboard.description}
-                </CardDescription>
-              )}
-            </div>
-            <div className="flex flex-col gap-1 flex-shrink-0">
-              {dashboard.is_mandatory && (
-                <Badge variant="secondary" className="text-xs">
-                  <IconLock className="h-3 w-3 mr-1" />
-                  {t("dashboards.mandatory", "Obligatoire")}
-                </Badge>
-              )}
-              {dashboard.is_public && (
-                <Badge variant="outline" className="text-xs">
-                  <IconWorld className="h-3 w-3 mr-1" />
-                  {t("dashboards.public", "Public")}
-                </Badge>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <div className="flex items-center gap-4">
-              <span className="flex items-center gap-1">
-                <IconLayoutDashboard className="h-4 w-4" />
-                {(dashboard.widgets || []).length} {t("dashboards.widgets", "widgets")}
-              </span>
-              {dashboard.created_at && (
-                <span className="flex items-center gap-1">
-                  <IconClock className="h-4 w-4" />
-                  {new Date(dashboard.created_at).toLocaleDateString("fr-FR")}
-                </span>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </Link>
-  )
+  // Filter and sort dashboards
+  const getFilteredDashboards = () => {
+    if (!dashboards) return []
 
-  const DashboardSection = ({
-    title,
-    description,
-    dashboards: items,
-    icon: Icon,
-    emptyMessage
-  }: {
+    let filtered: Dashboard[] = []
+
+    switch (activeTab) {
+      case "my":
+        filtered = dashboards.my_dashboards || []
+        break
+      case "mandatory":
+        filtered = dashboards.mandatory_dashboards || []
+        break
+      case "shared":
+        filtered = dashboards.shared_dashboards || []
+        break
+      case "all":
+      default:
+        filtered = [
+          ...(dashboards.my_dashboards || []),
+          ...(dashboards.mandatory_dashboards || []),
+          ...(dashboards.shared_dashboards || [])
+        ]
+        break
+    }
+
+    // Search filter
+    if (searchQuery) {
+      filtered = filtered.filter(d =>
+        d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        d.description?.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    }
+
+    // Sort
+    switch (sortBy) {
+      case "name":
+        filtered.sort((a, b) => a.name.localeCompare(b.name))
+        break
+      case "widgets":
+        filtered.sort((a, b) => (b.widgets?.length || 0) - (a.widgets?.length || 0))
+        break
+      case "recent":
+      default:
+        filtered.sort((a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        )
+        break
+    }
+
+    return filtered
+  }
+
+  const filteredDashboards = getFilteredDashboards()
+  const totalCount = dashboards?.total_count || 0
+
+  const stats = [
+    {
+      label: "Total",
+      value: totalCount,
+      icon: IconChartBar,
+      color: "text-blue-500",
+      bgColor: "bg-blue-500/10"
+    },
+    {
+      label: "Mes dashboards",
+      value: dashboards?.my_dashboards?.length || 0,
+      icon: IconStar,
+      color: "text-yellow-500",
+      bgColor: "bg-yellow-500/10"
+    },
+    {
+      label: "Obligatoires",
+      value: dashboards?.mandatory_dashboards?.length || 0,
+      icon: IconLock,
+      color: "text-purple-500",
+      bgColor: "bg-purple-500/10"
+    },
+    {
+      label: "Partagés",
+      value: dashboards?.shared_dashboards?.length || 0,
+      icon: IconUsers,
+      color: "text-green-500",
+      bgColor: "bg-green-500/10"
+    },
+  ]
+
+  const EmptyState = ({ icon: Icon, title, description }: {
+    icon: any
     title: string
     description: string
-    dashboards: Dashboard[]
-    icon: React.ElementType
-    emptyMessage: string
-  }) => {
-    if (items.length === 0 && !isLoading) return null
-
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <Icon className="h-5 w-5 text-muted-foreground" />
-          <div>
-            <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
-            <p className="text-sm text-muted-foreground">{description}</p>
-          </div>
-        </div>
-
-        {isLoading ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[...Array(3)].map((_, i) => (
-              <Card key={i}>
-                <CardHeader>
-                  <Skeleton className="h-6 w-3/4" />
-                  <Skeleton className="h-4 w-full mt-2" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-4 w-1/2" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : items.length > 0 ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {items.map((dashboard) => (
-              <DashboardCard key={dashboard.id} dashboard={dashboard} />
-            ))}
-          </div>
-        ) : (
-          <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center justify-center py-10 text-center">
-              <div className="rounded-full bg-muted p-3 mb-4">
-                <Icon className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <p className="text-sm text-muted-foreground">{emptyMessage}</p>
-            </CardContent>
-          </Card>
-        )}
+  }) => (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="flex flex-col items-center justify-center py-16 text-center"
+    >
+      <div className="rounded-full bg-muted p-6 mb-6">
+        <Icon className="h-12 w-12 text-muted-foreground" />
       </div>
-    )
-  }
+      <h3 className="text-lg font-semibold mb-2">{title}</h3>
+      <p className="text-sm text-muted-foreground max-w-md mb-6">{description}</p>
+      <PermissionGuard permission="dashboards.create">
+        <Button asChild>
+          <Link href="/dashboards/new">
+            <IconPlus className="h-4 w-4 mr-2" />
+            Créer mon premier dashboard
+          </Link>
+        </Button>
+      </PermissionGuard>
+    </motion.div>
+  )
 
   return (
     <PermissionGuard permission="dashboards.read">
       <Header />
       <ScrollArea className="h-[calc(100vh-4rem)]">
         <div className="container py-8 space-y-8">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">
-                {t("dashboards.title", "Dashboards")}
-              </h1>
-              <p className="text-muted-foreground mt-2">
-                {t("dashboards.description", "Créez et gérez vos dashboards personnalisés avec des widgets")}
-              </p>
+          {/* Hero Section */}
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-purple-500/5 to-blue-500/5 p-8 border"
+          >
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(120,119,198,0.1),rgba(255,255,255,0))]" />
+            <div className="relative">
+              <div className="flex items-start justify-between flex-wrap gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-3 rounded-xl bg-primary/10">
+                      <IconSparkles className="h-8 w-8 text-primary" />
+                    </div>
+                    <div>
+                      <h1 className="text-3xl font-bold tracking-tight">
+                        {t("dashboards.title", "Dashboards")}
+                      </h1>
+                      <p className="text-muted-foreground mt-1">
+                        {t("dashboards.description", "Créez et gérez vos dashboards personnalisés")}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <PermissionGuard permission="dashboards.create">
+                  <Button asChild size="lg" className="shadow-lg">
+                    <Link href="/dashboards/new">
+                      <IconPlus className="h-5 w-5 mr-2" />
+                      {t("dashboards.new", "Nouveau dashboard")}
+                    </Link>
+                  </Button>
+                </PermissionGuard>
+              </div>
+
+              {/* Stats */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+                {stats.map((stat, index) => (
+                  <motion.div
+                    key={stat.label}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.1 }}
+                    className="bg-background/50 backdrop-blur-sm rounded-xl p-4 border"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${stat.bgColor}`}>
+                        <stat.icon className={`h-5 w-5 ${stat.color}`} />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold">{stat.value}</p>
+                        <p className="text-xs text-muted-foreground">{stat.label}</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
             </div>
-            <PermissionGuard permission="dashboards.create">
-              <Button asChild size="lg">
-                <Link href="/dashboards/new">
-                  <IconPlus className="h-5 w-5 mr-2" />
-                  {t("dashboards.new", "Nouveau dashboard")}
-                </Link>
-              </Button>
-            </PermissionGuard>
-          </div>
+          </motion.div>
 
-          <Separator />
+          {/* Filters & Search */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3, delay: 0.2 }}
+            className="flex flex-col sm:flex-row gap-4"
+          >
+            <div className="relative flex-1">
+              <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Rechercher un dashboard..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <IconFilter className="h-4 w-4 mr-2" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="recent">Plus récents</SelectItem>
+                <SelectItem value="name">Par nom</SelectItem>
+                <SelectItem value="widgets">Par widgets</SelectItem>
+              </SelectContent>
+            </Select>
+          </motion.div>
 
-          {/* My Dashboards */}
-          <DashboardSection
-            title={t("dashboards.my_dashboards", "Mes dashboards")}
-            description={t("dashboards.my_dashboards_desc", "Dashboards que vous avez créés")}
-            dashboards={dashboards?.my_dashboards || []}
-            icon={IconChartBar}
-            emptyMessage={t("dashboards.no_my_dashboards", "Vous n'avez pas encore créé de dashboard")}
-          />
+          {/* Tabs & Dashboards */}
+          <Tabs value={activeTab} onValueChange={(value: any) => setActiveTab(value)}>
+            <TabsList className="w-full justify-start">
+              <TabsTrigger value="all">
+                Tous ({totalCount})
+              </TabsTrigger>
+              <TabsTrigger value="my">
+                Mes dashboards ({dashboards?.my_dashboards?.length || 0})
+              </TabsTrigger>
+              <TabsTrigger value="mandatory">
+                Obligatoires ({dashboards?.mandatory_dashboards?.length || 0})
+              </TabsTrigger>
+              <TabsTrigger value="shared">
+                Partagés ({dashboards?.shared_dashboards?.length || 0})
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Mandatory Dashboards */}
-          <DashboardSection
-            title={t("dashboards.mandatory_dashboards", "Dashboards obligatoires")}
-            description={t("dashboards.mandatory_dashboards_desc", "Dashboards configurés par les administrateurs")}
-            dashboards={dashboards?.mandatory_dashboards || []}
-            icon={IconLock}
-            emptyMessage={t("dashboards.no_mandatory_dashboards", "Aucun dashboard obligatoire")}
-          />
-
-          {/* Shared Dashboards */}
-          <DashboardSection
-            title={t("dashboards.shared_dashboards", "Dashboards partagés")}
-            description={t("dashboards.shared_dashboards_desc", "Dashboards publics créés par d'autres utilisateurs")}
-            dashboards={dashboards?.shared_dashboards || []}
-            icon={IconUsers}
-            emptyMessage={t("dashboards.no_shared_dashboards", "Aucun dashboard partagé")}
-          />
+            <div className="mt-6">
+              {isLoading ? (
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {[...Array(6)].map((_, i) => (
+                    <Skeleton key={i} className="h-48 rounded-xl" />
+                  ))}
+                </div>
+              ) : filteredDashboards.length > 0 ? (
+                <AnimatePresence mode="popLayout">
+                  <motion.div
+                    layout
+                    className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
+                  >
+                    {filteredDashboards.map((dashboard, index) => (
+                      <motion.div
+                        key={dashboard.id}
+                        layout
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        transition={{ duration: 0.2, delay: index * 0.05 }}
+                      >
+                        <DashboardCard
+                          dashboard={dashboard}
+                          variant={dashboard.is_default_in_menu ? "featured" : "default"}
+                        />
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                </AnimatePresence>
+              ) : (
+                <EmptyState
+                  icon={IconChartBar}
+                  title={searchQuery ? "Aucun résultat" : "Aucun dashboard"}
+                  description={
+                    searchQuery
+                      ? "Essayez avec d'autres termes de recherche"
+                      : "Commencez par créer votre premier dashboard personnalisé"
+                  }
+                />
+              )}
+            </div>
+          </Tabs>
         </div>
       </ScrollArea>
     </PermissionGuard>

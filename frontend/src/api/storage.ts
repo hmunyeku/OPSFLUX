@@ -51,12 +51,9 @@ export async function uploadFile(
 
   const response = await apiClient.post<UploadResponse>(
     `/storage/upload?${params.toString()}`,
-    formData,
-    {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    }
+    formData
+    // Ne pas définir Content-Type manuellement pour multipart/form-data
+    // Le navigateur le génère automatiquement avec le boundary correct
   )
 
   return response.data

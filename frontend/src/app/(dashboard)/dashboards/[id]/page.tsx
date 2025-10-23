@@ -65,12 +65,13 @@ export default function DashboardViewPage() {
 
   // Fetch dashboard
   useEffect(() => {
-    if (!auth.getToken() || !dashboardId) return
+    const token = auth.getToken()
+    if (!token || !dashboardId) return
 
     const fetchDashboard = async () => {
       setIsLoading(true)
       try {
-        const data = await getDashboard(session.accessToken, dashboardId)
+        const data = await getDashboard(token, dashboardId)
         setDashboard(data)
       } catch (error) {
         console.error("Failed to fetch dashboard:", error)
@@ -103,7 +104,8 @@ export default function DashboardViewPage() {
 
   // Save layout
   const handleSave = async () => {
-    if (!auth.getToken() || !dashboard) return
+    const token = auth.getToken()
+    if (!token || !dashboard) return
 
     setIsSaving(true)
     try {
@@ -117,7 +119,7 @@ export default function DashboardViewPage() {
         })),
       }
 
-      await updateDashboardLayout(session.accessToken, dashboardId, layoutUpdate)
+      await updateDashboardLayout(token, dashboardId, layoutUpdate)
 
       toast({
         title: "Sauvegardé",
@@ -141,8 +143,9 @@ export default function DashboardViewPage() {
   const handleCancel = () => {
     if (pendingChanges) {
       // Reload dashboard to discard changes
-      if (auth.getToken()) {
-        getDashboard(session.accessToken, dashboardId).then((data) => {
+      const token = auth.getToken()
+      if (token) {
+        getDashboard(token, dashboardId).then((data) => {
           setDashboard(data)
           setPendingChanges(false)
           setIsEditMode(false)
@@ -155,12 +158,13 @@ export default function DashboardViewPage() {
 
   // Clone dashboard
   const handleClone = async () => {
-    if (!auth.getToken() || !dashboard) return
+    const token = auth.getToken()
+    if (!token || !dashboard) return
 
     try {
       const clonedName = `${dashboard.name} (Copie)`
       const cloned = await cloneDashboard(
-        session.accessToken,
+        token,
         dashboardId,
         clonedName
       )
@@ -183,10 +187,11 @@ export default function DashboardViewPage() {
 
   // Delete dashboard
   const handleDelete = async () => {
-    if (!auth.getToken()) return
+    const token = auth.getToken()
+    if (!token) return
 
     try {
-      await deleteDashboard(session.accessToken, dashboardId)
+      await deleteDashboard(token, dashboardId)
 
       toast({
         title: "Dashboard supprimé",
@@ -206,7 +211,8 @@ export default function DashboardViewPage() {
 
   // Add widget to dashboard
   const handleAddWidget = async (widgetType: string) => {
-    if (!auth.getToken() || !dashboard) return
+    const token = auth.getToken()
+    if (!token || !dashboard) return
 
     const meta = getWidgetMeta(widgetType)
     if (!meta) {
@@ -225,7 +231,7 @@ export default function DashboardViewPage() {
         ? Math.max(...existingWidgets.map(w => w.y + w.h))
         : 0
 
-      await addWidgetToDashboard(session.accessToken, dashboardId, {
+      await addWidgetToDashboard(token, dashboardId, {
         widget_id: widgetType,
         x: 0,
         y: maxY,
@@ -235,7 +241,7 @@ export default function DashboardViewPage() {
       })
 
       // Reload dashboard
-      const updated = await getDashboard(session.accessToken, dashboardId)
+      const updated = await getDashboard(token, dashboardId)
       setDashboard(updated)
 
       toast({
@@ -261,13 +267,14 @@ export default function DashboardViewPage() {
   }
 
   const handleSaveWidgetConfig = async (widgetId: number, config: Record<string, any>) => {
-    if (!auth.getToken()) return
+    const token = auth.getToken()
+    if (!token) return
 
     try {
-      await updateWidgetConfig(session.accessToken, dashboardId, widgetId, config)
+      await updateWidgetConfig(token, dashboardId, widgetId, config)
 
       // Reload dashboard
-      const updated = await getDashboard(session.accessToken, dashboardId)
+      const updated = await getDashboard(token, dashboardId)
       setDashboard(updated)
 
       toast({

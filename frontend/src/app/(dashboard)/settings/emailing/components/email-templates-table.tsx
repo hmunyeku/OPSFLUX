@@ -394,8 +394,8 @@ export default function EmailTemplatesTable({ onEdit, searchQuery = "", category
     <div className="space-y-4 w-full">
       {/* Vue Desktop - Table */}
       <div className="hidden md:block w-full">
-        <div className="rounded-md border overflow-x-auto w-full">
-          <Table>
+        <div className="rounded-md border w-full overflow-auto">
+          <Table className="min-w-full">
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>

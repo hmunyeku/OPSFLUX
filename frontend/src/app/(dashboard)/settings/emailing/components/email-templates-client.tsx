@@ -207,7 +207,7 @@ export default function EmailTemplatesClient() {
       </div>
 
       {/* Table */}
-      <div className="flex-1 px-3 sm:px-4 md:px-6 pb-4 sm:pb-6 overflow-hidden w-full">
+      <div className="flex-1 px-3 sm:px-4 md:px-6 pb-4 sm:pb-6 w-full">
         <EmailTemplatesTable
           key={refreshKey}
           onEdit={handleEdit}

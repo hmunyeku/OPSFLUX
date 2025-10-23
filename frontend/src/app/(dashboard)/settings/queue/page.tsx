@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { Separator } from "@/components/ui/separator"
 import {
   IconRefresh,
   IconPlayerPlay,
@@ -24,9 +24,7 @@ import {
   IconCircleX,
   IconCircleDashed,
 } from "@tabler/icons-react"
-import ContentSection from "../components/content-section"
 import { useToast } from "@/hooks/use-toast"
-import { useTranslation } from "@/hooks/use-translation"
 import { getQueueStats, type QueueStats, cancelTask, purgeQueue } from "@/api/queue"
 import { PermissionGuard } from "@/components/permission-guard"
 import {
@@ -90,7 +88,6 @@ function QueuePageContent() {
   const [purgeDialogOpen, setPurgeDialogOpen] = useState(false)
   const [selectedQueue, setSelectedQueue] = useState<string | null>(null)
   const { toast } = useToast()
-  const { t } = useTranslation("core.queue")
 
   const fetchStats = useCallback(async () => {
     setLoading(true)
@@ -138,15 +135,16 @@ function QueuePageContent() {
 
   if (loading && !stats) {
     return (
-      <ContentSection
-        title="Monitoring des Tâches"
-        desc="Surveillez et gérez les tâches de fond Celery en temps réel"
-        className="w-full lg:max-w-full"
-      >
+      <div className="flex flex-1 flex-col space-y-4">
+        <div>
+          <h3 className="text-lg font-medium">Monitoring des Tâches</h3>
+          <p className="text-sm text-muted-foreground">Surveillez et gérez les tâches de fond Celery en temps réel</p>
+        </div>
+        <Separator />
         <div className="flex items-center justify-center py-12">
           <IconRefresh className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
-      </ContentSection>
+      </div>
     )
   }
 
@@ -157,11 +155,12 @@ function QueuePageContent() {
   const totalTasks = totalActive + totalScheduled + totalReserved
 
   return (
-    <ContentSection
-      title="Monitoring des Tâches Celery"
-      desc="Surveillez et gérez les tâches de fond, workers et queues en temps réel"
-      className="w-full lg:max-w-full"
-    >
+    <div className="flex flex-1 flex-col space-y-4">
+      <div>
+        <h3 className="text-lg font-medium">Monitoring des Tâches Celery</h3>
+        <p className="text-sm text-muted-foreground">Surveillez et gérez les tâches de fond, workers et queues en temps réel</p>
+      </div>
+      <Separator />
       <div className="space-y-6">
         {/* Header Actions */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -430,12 +429,17 @@ function QueuePageContent() {
                                 <span>Fréquence: {schedule.schedule}</span>
                               </div>
 
-                              {schedule.last_run && (
+                              {schedule.last_run ? (
                                 <div className="flex items-center gap-2 text-muted-foreground">
-                                  <IconCheckCircle className="h-4 w-4" />
+                                  <IconCheckCircle className="h-4 w-4 text-green-600" />
                                   <span>
-                                    Dernière exécution: {formatDistanceToNow(schedule.last_run, { addSuffix: true, locale: fr })}
+                                    Dernière exécution: {formatDistanceToNow(new Date(schedule.last_run), { addSuffix: true, locale: fr })}
                                   </span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                  <IconCircleDashed className="h-4 w-4" />
+                                  <span>Jamais exécuté</span>
                                 </div>
                               )}
                             </div>
@@ -488,6 +492,6 @@ function QueuePageContent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </ContentSection>
+    </div>
   )
 }

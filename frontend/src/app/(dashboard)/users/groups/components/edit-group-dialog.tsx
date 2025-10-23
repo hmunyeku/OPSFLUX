@@ -33,6 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { toast } from "@/hooks/use-toast"
+import { useTranslation } from "@/hooks/use-translation"
 import { updateGroup } from "../data/groups-api"
 import { Group } from "../data/schema"
 
@@ -59,6 +60,7 @@ export function EditGroupDialog({
   groups,
   onSuccess,
 }: EditGroupDialogProps) {
+  const { t } = useTranslation("core.groups")
   const [isLoading, setIsLoading] = useState(false)
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -90,17 +92,17 @@ export function EditGroupDialog({
       await updateGroup(group.id, values)
 
       toast({
-        title: "Groupe modifié",
-        description: `Le groupe "${values.name}" a été modifié avec succès.`,
+        title: t("toast.group_updated", "Groupe modifié"),
+        description: t("toast.group_updated_desc", `Le groupe "${values.name}" a été modifié avec succès.`),
       })
 
       onOpenChange(false)
       onSuccess()
     } catch (error) {
       toast({
-        title: "Erreur",
+        title: t("toast.error", "Erreur"),
         description:
-          error instanceof Error ? error.message : "Une erreur est survenue.",
+          error instanceof Error ? error.message : t("toast.update_error", "Une erreur est survenue."),
         variant: "destructive",
       })
     } finally {

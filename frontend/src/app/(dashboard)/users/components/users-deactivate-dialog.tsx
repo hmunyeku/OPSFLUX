@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { IconAlertTriangle } from "@tabler/icons-react"
 import { toast } from "@/hooks/use-toast"
+import { useTranslation } from "@/hooks/use-translation"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -23,6 +24,7 @@ export function UsersDeactivateDialog({
   currentRow,
   onUserUpdated,
 }: Props) {
+  const { t } = useTranslation("core.users")
   const [value, setValue] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -35,14 +37,14 @@ export function UsersDeactivateDialog({
 
       onOpenChange(false)
       toast({
-        title: "Utilisateur désactivé",
+        title: t("toast.user_deactivated", "Utilisateur désactivé"),
         description: `Le compte ${currentRow.email} a été désactivé avec succès.`,
       })
       onUserUpdated?.()
       setValue("")
     } catch (error) {
       toast({
-        title: "Erreur",
+        title: t("toast.error", "Erreur"),
         description: error instanceof Error ? error.message : "Impossible de désactiver l'utilisateur",
         variant: "destructive",
       })

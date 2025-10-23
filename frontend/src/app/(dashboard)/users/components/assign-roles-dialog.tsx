@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "@/hooks/use-toast"
+import { useTranslation } from "@/hooks/use-translation"
 import { assignRolesToUser } from "../data/users-api"
 import { getRoles } from "../roles/data/roles-api"
 import { Role } from "../roles/data/schema"
@@ -34,6 +35,7 @@ export function AssignRolesDialog({
   currentRoles,
   onSuccess,
 }: AssignRolesDialogProps) {
+  const { t } = useTranslation("core.users")
   const [isLoading, setIsLoading] = useState(false)
   const [allRoles, setAllRoles] = useState<Role[]>([])
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([])
@@ -51,7 +53,7 @@ export function AssignRolesDialog({
       setAllRoles(roles)
     } catch (_error) {
       toast({
-        title: "Erreur",
+        title: t("toast.error", "Erreur"),
         description: "Impossible de charger les rôles.",
         variant: "destructive",
       })
@@ -80,7 +82,7 @@ export function AssignRolesDialog({
       onSuccess()
     } catch (error) {
       toast({
-        title: "Erreur",
+        title: t("toast.error", "Erreur"),
         description:
           error instanceof Error
             ? error.message

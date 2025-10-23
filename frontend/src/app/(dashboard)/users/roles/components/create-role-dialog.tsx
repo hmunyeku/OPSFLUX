@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { toast } from "@/hooks/use-toast"
+import { useTranslation } from "@/hooks/use-translation"
 import { createRole } from "../data/roles-api"
 
 const roleSchema = z.object({
@@ -49,6 +50,7 @@ export function CreateRoleDialog({
   onOpenChange,
   onSuccess,
 }: CreateRoleDialogProps) {
+  const { t } = useTranslation("core.roles")
   const [isLoading, setIsLoading] = useState(false)
 
   const form = useForm<RoleFormValues>({
@@ -74,8 +76,8 @@ export function CreateRoleDialog({
       })
 
       toast({
-        title: "Rôle créé",
-        description: `Le rôle "${values.name}" a été créé avec succès.`,
+        title: t("toast.role_created", "Rôle créé"),
+        description: t("toast.role_created_desc", `Le rôle "${values.name}" a été créé avec succès.`),
       })
 
       form.reset()
@@ -83,11 +85,11 @@ export function CreateRoleDialog({
       onSuccess()
     } catch (error) {
       toast({
-        title: "Erreur",
+        title: t("toast.error", "Erreur"),
         description:
           error instanceof Error
             ? error.message
-            : "Une erreur est survenue lors de la création du rôle.",
+            : t("toast.create_error", "Une erreur est survenue lors de la création du rôle."),
         variant: "destructive",
       })
     } finally {

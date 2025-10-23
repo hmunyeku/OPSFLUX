@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useRouter } from "next/navigation"
 import useDialogState from "@/hooks/use-dialog-state"
 import { toast } from "@/hooks/use-toast"
+import { useTranslation } from "@/hooks/use-translation"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -54,6 +55,7 @@ type AccountDetailForm = z.infer<typeof accountDetailSchema>
 
 export function UserDetailForm({ user }: Props) {
   const router = useRouter()
+  const { t } = useTranslation("core.users")
   const [isEdit, setIsEdit] = useState(false)
   const [open, setOpen] = useDialogState<"reset" | "deactivate">(null)
 

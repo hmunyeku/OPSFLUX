@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/hooks/use-toast"
+import { useTranslation } from "@/hooks/use-translation"
 import { Permission } from "../../permissions/data/schema"
 import { getPermissions } from "../../permissions/data/permissions-api"
 import { updateGroup } from "../data/groups-api"
@@ -36,6 +37,7 @@ export function ManagePermissionsDialog({
   currentPermissions,
   onSuccess,
 }: ManagePermissionsDialogProps) {
+  const { t } = useTranslation("core.groups")
   const [allPermissions, setAllPermissions] = useState<Permission[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState("")
@@ -60,8 +62,8 @@ export function ManagePermissionsDialog({
       setAllPermissions(perms)
     } catch {
       toast({
-        title: "Erreur",
-        description: "Impossible de charger les permissions",
+        title: t("toast.error", "Erreur"),
+        description: t("toast.load_permissions_error", "Impossible de charger les permissions"),
         variant: "destructive",
       })
     } finally {
@@ -104,7 +106,7 @@ export function ManagePermissionsDialog({
       })
 
       toast({
-        title: "Permissions mises à jour",
+        title: t("toast.permissions_updated", "Permissions mises à jour"),
         description: `${selectedIds.size} permissions assignées au groupe "${groupName}".`,
       })
 
@@ -112,7 +114,7 @@ export function ManagePermissionsDialog({
       onSuccess()
     } catch (error) {
       toast({
-        title: "Erreur",
+        title: t("toast.error", "Erreur"),
         description:
           error instanceof Error
             ? error.message

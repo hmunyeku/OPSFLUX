@@ -61,21 +61,28 @@ export function ManageMembersDialog({
     try {
       setIsLoading(true)
 
+      // Get auth token
+      const token = localStorage.getItem("access_token")
+      if (!token) {
+        throw new Error("No authentication token")
+      }
+
+      const headers = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      }
+
       // Load all users
-      const usersResponse = await fetch("/api/v1/users/", {
-        headers: {
-          "Content-Type": "application/json",
-        },
+      const usersResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/users/`, {
+        headers,
       })
       if (!usersResponse.ok) throw new Error("Failed to load users")
       const usersData = await usersResponse.json()
       setAllUsers(usersData.items || [])
 
       // Load current group members
-      const membersResponse = await fetch(`/api/v1/groups/${groupId}/members`, {
-        headers: {
-          "Content-Type": "application/json",
-        },
+      const membersResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/groups/${groupId}/members`, {
+        headers,
       })
       if (!membersResponse.ok) throw new Error("Failed to load members")
       const membersData = await membersResponse.json()
@@ -114,11 +121,18 @@ export function ManageMembersDialog({
     try {
       setIsSaving(true)
 
+      // Get auth token
+      const token = localStorage.getItem("access_token")
+      if (!token) {
+        throw new Error("No authentication token")
+      }
+
       // Update group members
-      const response = await fetch(`/api/v1/groups/${groupId}/members`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/groups/${groupId}/members`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           user_ids: Array.from(selectedIds),

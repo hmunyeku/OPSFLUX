@@ -12,6 +12,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { toast } from "@/hooks/use-toast"
+import { useTranslation } from "@/hooks/use-translation"
 import { deleteGroup } from "../data/groups-api"
 import { Group } from "../data/schema"
 
@@ -28,6 +29,7 @@ export function DeleteGroupDialog({
   group,
   onSuccess,
 }: DeleteGroupDialogProps) {
+  const { t } = useTranslation("core.groups")
   const [isLoading, setIsLoading] = useState(false)
 
   async function handleDelete() {
@@ -36,19 +38,19 @@ export function DeleteGroupDialog({
       await deleteGroup(group.id)
 
       toast({
-        title: "Groupe supprimé",
-        description: `Le groupe "${group.name}" a été supprimé avec succès.`,
+        title: t("toast.group_deleted", "Groupe supprimé"),
+        description: t("toast.group_deleted_desc", `Le groupe "${group.name}" a été supprimé avec succès.`),
       })
 
       onOpenChange(false)
       onSuccess()
     } catch (error) {
       toast({
-        title: "Erreur",
+        title: t("toast.error", "Erreur"),
         description:
           error instanceof Error
             ? error.message
-            : "Une erreur est survenue lors de la suppression du groupe.",
+            : t("toast.delete_error", "Une erreur est survenue lors de la suppression du groupe."),
         variant: "destructive",
       })
     } finally {
@@ -60,29 +62,28 @@ export function DeleteGroupDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Êtes-vous sûr ?</AlertDialogTitle>
+          <AlertDialogTitle>{t("dialog.delete_title", "Êtes-vous sûr ?")}</AlertDialogTitle>
           <AlertDialogDescription className="space-y-2">
             <p>
-              Cette action est irréversible. Le groupe{" "}
-              <span className="font-semibold">{group.name}</span> sera
-              définitivement supprimé.
+              {t("dialog.delete_warning", "Cette action est irréversible. Le groupe")}{" "}
+              <span className="font-semibold">{group.name}</span>{" "}
+              {t("dialog.delete_warning_2", "sera définitivement supprimé.")}
             </p>
             {group.permissions && group.permissions.length > 0 && (
               <p className="text-muted-foreground">
-                Ce groupe possède actuellement {group.permissions.length}{" "}
-                permission(s) qui seront également retirées.
+                {t("dialog.delete_permissions_warning", `Ce groupe possède actuellement ${group.permissions.length} permission(s) qui seront également retirées.`)}
               </p>
             )}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLoading}>Annuler</AlertDialogCancel>
+          <AlertDialogCancel disabled={isLoading}>{t("action.cancel", "Annuler")}</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleDelete}
             disabled={isLoading}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
-            {isLoading ? "Suppression..." : "Supprimer"}
+            {isLoading ? t("action.deleting", "Suppression...") : t("action.delete", "Supprimer")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

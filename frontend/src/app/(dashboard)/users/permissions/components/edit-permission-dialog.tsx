@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { toast } from "@/hooks/use-toast"
+import { useTranslation } from "@/hooks/use-translation"
 import { updatePermission } from "../data/permissions-api"
 import { Permission } from "../data/schema"
 
@@ -51,6 +52,7 @@ export function EditPermissionDialog({
   permission,
   onSuccess,
 }: EditPermissionDialogProps) {
+  const { t } = useTranslation("core.permissions")
   const [isLoading, setIsLoading] = useState(false)
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -84,7 +86,7 @@ export function EditPermissionDialog({
       await updatePermission(permission.id, values)
 
       toast({
-        title: "Permission modifiée",
+        title: t("toast.permission_updated", "Permission modifiée"),
         description: `La permission "${values.name}" a été modifiée avec succès.`,
       })
 
@@ -92,7 +94,7 @@ export function EditPermissionDialog({
       onSuccess()
     } catch (error) {
       toast({
-        title: "Erreur",
+        title: t("toast.error", "Erreur"),
         description:
           error instanceof Error ? error.message : "Une erreur est survenue.",
         variant: "destructive",

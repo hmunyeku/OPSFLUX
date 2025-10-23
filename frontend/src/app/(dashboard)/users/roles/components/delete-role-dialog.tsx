@@ -12,6 +12,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { toast } from "@/hooks/use-toast"
+import { useTranslation } from "@/hooks/use-translation"
 import { deleteRole } from "../data/roles-api"
 import { Role } from "../data/schema"
 
@@ -36,7 +37,7 @@ export function DeleteRoleDialog({
       await deleteRole(role.id)
 
       toast({
-        title: "Rôle supprimé",
+        title: t("toast.role_deleted", "Rôle supprimé"),
         description: `Le rôle "${role.name}" a été supprimé avec succès.`,
       })
 
@@ -44,7 +45,7 @@ export function DeleteRoleDialog({
       onSuccess()
     } catch (error) {
       toast({
-        title: "Erreur",
+        title: t("toast.error", "Erreur"),
         description:
           error instanceof Error
             ? error.message

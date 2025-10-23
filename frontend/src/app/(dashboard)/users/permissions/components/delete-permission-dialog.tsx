@@ -12,6 +12,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { toast } from "@/hooks/use-toast"
+import { useTranslation } from "@/hooks/use-translation"
 import { deletePermission } from "../data/permissions-api"
 import { Permission } from "../data/schema"
 
@@ -28,6 +29,7 @@ export function DeletePermissionDialog({
   permission,
   onSuccess,
 }: DeletePermissionDialogProps) {
+  const { t } = useTranslation("core.permissions")
   const [isLoading, setIsLoading] = useState(false)
 
   async function handleDelete() {
@@ -36,7 +38,7 @@ export function DeletePermissionDialog({
       await deletePermission(permission.id)
 
       toast({
-        title: "Permission supprimée",
+        title: t("toast.permission_deleted", "Permission supprimée"),
         description: `La permission "${permission.name}" a été supprimée avec succès.`,
       })
 
@@ -44,7 +46,7 @@ export function DeletePermissionDialog({
       onSuccess()
     } catch (error) {
       toast({
-        title: "Erreur",
+        title: t("toast.error", "Erreur"),
         description:
           error instanceof Error
             ? error.message

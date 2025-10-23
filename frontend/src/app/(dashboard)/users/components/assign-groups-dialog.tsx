@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "@/hooks/use-toast"
+import { useTranslation } from "@/hooks/use-translation"
 import { assignGroupsToUser } from "../data/users-api"
 import { getGroups } from "../groups/data/groups-api"
 import { Group } from "../groups/data/schema"
@@ -34,6 +35,7 @@ export function AssignGroupsDialog({
   currentGroups,
   onSuccess,
 }: AssignGroupsDialogProps) {
+  const { t } = useTranslation("core.users")
   const [isLoading, setIsLoading] = useState(false)
   const [allGroups, setAllGroups] = useState<Group[]>([])
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([])
@@ -51,7 +53,7 @@ export function AssignGroupsDialog({
       setAllGroups(groups)
     } catch (_error) {
       toast({
-        title: "Erreur",
+        title: t("toast.error", "Erreur"),
         description: "Impossible de charger les groupes.",
         variant: "destructive",
       })
@@ -80,7 +82,7 @@ export function AssignGroupsDialog({
       onSuccess()
     } catch (error) {
       toast({
-        title: "Erreur",
+        title: t("toast.error", "Erreur"),
         description:
           error instanceof Error
             ? error.message

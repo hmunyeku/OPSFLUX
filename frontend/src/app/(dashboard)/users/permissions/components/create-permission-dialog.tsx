@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { toast } from "@/hooks/use-toast"
+import { useTranslation } from "@/hooks/use-translation"
 import { createPermission } from "../data/permissions-api"
 
 const formSchema = z.object({
@@ -54,6 +55,7 @@ export function CreatePermissionDialog({
   onOpenChange,
   onSuccess,
 }: CreatePermissionDialogProps) {
+  const { t } = useTranslation("core.permissions")
   const [isLoading, setIsLoading] = useState(false)
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -74,7 +76,7 @@ export function CreatePermissionDialog({
       await createPermission(values)
 
       toast({
-        title: "Permission créée",
+        title: t("toast.permission_created", "Permission créée"),
         description: `La permission "${values.name}" a été créée avec succès.`,
       })
 
@@ -83,7 +85,7 @@ export function CreatePermissionDialog({
       form.reset()
     } catch (error) {
       toast({
-        title: "Erreur",
+        title: t("toast.error", "Erreur"),
         description:
           error instanceof Error
             ? error.message

@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { toast } from "@/hooks/use-toast"
+import { useTranslation } from "@/hooks/use-translation"
 import { updateRole } from "../data/roles-api"
 import { Role } from "../data/schema"
 
@@ -54,6 +55,7 @@ export function EditRoleDialog({
   role,
   onSuccess,
 }: EditRoleDialogProps) {
+  const { t } = useTranslation("core.roles")
   const [isLoading, setIsLoading] = useState(false)
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -86,7 +88,7 @@ export function EditRoleDialog({
       await updateRole(role.id, values)
 
       toast({
-        title: "Rôle modifié",
+        title: t("toast.role_updated", "Rôle modifié"),
         description: `Le rôle "${values.name}" a été modifié avec succès.`,
       })
 
@@ -95,7 +97,7 @@ export function EditRoleDialog({
       form.reset()
     } catch (error) {
       toast({
-        title: "Erreur",
+        title: t("toast.error", "Erreur"),
         description:
           error instanceof Error
             ? error.message

@@ -33,6 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { toast } from "@/hooks/use-toast"
+import { useTranslation } from "@/hooks/use-translation"
 import { createGroup } from "../data/groups-api"
 import { Group } from "../data/schema"
 
@@ -61,6 +62,7 @@ export function CreateGroupDialog({
   onSuccess,
   groups,
 }: CreateGroupDialogProps) {
+  const { t } = useTranslation("core.groups")
   const [isLoading, setIsLoading] = useState(false)
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -80,8 +82,8 @@ export function CreateGroupDialog({
       await createGroup(values)
 
       toast({
-        title: "Groupe créé",
-        description: `Le groupe "${values.name}" a été créé avec succès.`,
+        title: t("toast.group_created", "Groupe créé"),
+        description: t("toast.group_created_desc", `Le groupe "${values.name}" a été créé avec succès.`),
       })
 
       onOpenChange(false)
@@ -89,11 +91,11 @@ export function CreateGroupDialog({
       form.reset()
     } catch (error) {
       toast({
-        title: "Erreur",
+        title: t("toast.error", "Erreur"),
         description:
           error instanceof Error
             ? error.message
-            : "Une erreur est survenue lors de la création du groupe.",
+            : t("toast.create_error", "Une erreur est survenue lors de la création du groupe."),
         variant: "destructive",
       })
     } finally {

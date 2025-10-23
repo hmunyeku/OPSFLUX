@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { z } from "zod"
 import { useForm } from "react-hook-form"
-import { IconTerminal, IconUpload, IconUser } from "@tabler/icons-react"
+import { IconTerminal } from "@tabler/icons-react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useRouter } from "next/navigation"
 import useDialogState from "@/hooks/use-dialog-state"
@@ -60,11 +60,9 @@ const accountDetailSchema = z.object({
     .min(1, { message: "Email is required." })
     .email({ message: "Email is invalid." }),
   role: z.string().min(1, { message: "Role is required." }),
-  avatar_url: z.string().optional().nullable(),
   civility: z.string().optional().nullable(),
   birthDate: z.string().optional().nullable(),
   extension: z.string().optional().nullable(),
-  signature: z.string().optional().nullable(),
 })
 type AccountDetailForm = z.infer<typeof accountDetailSchema>
 
@@ -82,11 +80,9 @@ export function UserDetailForm({ user }: Props) {
       email: user.email ?? "",
       role: user.role ?? "",
       phoneNumber: user.phoneNumber ?? "",
-      avatar_url: user.avatar_url ?? "",
       civility: user.civility ?? "",
       birthDate: user.birthDate ?? "",
       extension: user.extension ?? "",
-      signature: user.signature ?? "",
     },
   })
 
@@ -99,12 +95,10 @@ export function UserDetailForm({ user }: Props) {
         phone_numbers: values.phoneNumber ? [values.phoneNumber] : [],
         is_superuser: values.role === 'superadmin',
         full_name: `${values.firstName} ${values.lastName}`.trim(),
-        // Nouveaux champs
-        avatar_url: values.avatar_url || undefined,
+        // Champs administratifs
         civility: values.civility || undefined,
         birth_date: values.birthDate || undefined,
         extension: values.extension || undefined,
-        signature: values.signature || undefined,
       })
 
       toast({
@@ -152,42 +146,18 @@ export function UserDetailForm({ user }: Props) {
               onSubmit={form.handleSubmit(onSubmit)}
               className="space-y-6"
             >
-              {/* Avatar Section */}
-              <div className="flex flex-col items-center gap-4 p-4 border rounded-lg bg-muted/20">
+              {/* Avatar Display (read-only) */}
+              <div className="flex flex-col items-center gap-3 p-4 border rounded-lg bg-muted/20">
                 <Avatar className="h-24 w-24">
-                  <AvatarImage src={form.watch('avatar_url') || user.avatar_url || undefined} alt={user.full_name || user.email} />
+                  <AvatarImage src={user.avatar_url || undefined} alt={user.full_name || user.email} />
                   <AvatarFallback className="text-2xl">
                     {getInitials(user)}
                   </AvatarFallback>
                 </Avatar>
-                <FormField
-                  control={form.control}
-                  name="avatar_url"
-                  render={({ field }) => (
-                    <FormItem className="w-full">
-                      <FormLabel>Photo de profil (URL)</FormLabel>
-                      <FormControl>
-                        <div className="flex gap-2">
-                          <Input
-                            placeholder="https://example.com/avatar.jpg"
-                            {...field}
-                            value={field.value || ''}
-                            readOnly={!isEdit}
-                          />
-                          {isEdit && (
-                            <Button type="button" variant="outline" size="icon">
-                              <IconUpload className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </FormControl>
-                      <FormDescription className="text-xs">
-                        URL de votre photo de profil
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="text-center">
+                  <p className="text-sm font-medium">{user.full_name || `${user.firstName} ${user.lastName}`}</p>
+                  <p className="text-xs text-muted-foreground">La photo de profil se modifie dans les paramètres personnels</p>
+                </div>
               </div>
 
               <Separator />
@@ -341,32 +311,6 @@ export function UserDetailForm({ user }: Props) {
                   )}
                 />
               </div>
-
-              <Separator />
-
-              {/* Signature */}
-              <FormField
-                control={form.control}
-                name="signature"
-                render={({ field }) => (
-                  <FormItem className="space-y-1">
-                    <FormLabel>Signature</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Signature de l'utilisateur..."
-                        className="min-h-[100px]"
-                        {...field}
-                        value={field.value || ''}
-                        readOnly={!isEdit}
-                      />
-                    </FormControl>
-                    <FormDescription className="text-xs">
-                      Signature utilisée dans les emails et documents
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
               <Separator />
 

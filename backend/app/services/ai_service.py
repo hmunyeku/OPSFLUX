@@ -4,9 +4,10 @@ Supporte OpenAI et Anthropic Claude
 """
 
 import os
-from typing import AsyncGenerator, Literal
+from typing import AsyncGenerator, Literal, Optional
 from openai import AsyncOpenAI
 import anthropic
+from sqlmodel import Session, select
 
 AIProvider = Literal["openai", "anthropic"]
 
@@ -18,19 +19,64 @@ class AIService:
         self.openai_client = None
         self.anthropic_client = None
         self.default_provider: AIProvider = "openai"
+        self._last_openai_key: Optional[str] = None
+        self._last_anthropic_key: Optional[str] = None
 
-        # Initialiser les clients selon les clés disponibles
+        # Initialiser avec les clés d'environnement comme fallback
+        self._initialize_from_env()
+
+    def _initialize_from_env(self):
+        """Initialise les clients depuis les variables d'environnement (fallback)"""
         openai_key = os.getenv("OPENAI_API_KEY")
         anthropic_key = os.getenv("ANTHROPIC_API_KEY")
 
         if openai_key:
+            self._last_openai_key = openai_key
             self.openai_client = AsyncOpenAI(api_key=openai_key)
             self.default_provider = "openai"
 
         if anthropic_key:
+            self._last_anthropic_key = anthropic_key
             self.anthropic_client = anthropic.AsyncAnthropic(api_key=anthropic_key)
             if not openai_key:
                 self.default_provider = "anthropic"
+
+    def _initialize_from_settings(self, db: Session):
+        """Initialise les clients depuis les settings de la base de données"""
+        from app.models import AppSettings
+
+        statement = select(AppSettings).where(AppSettings.deleted_at == None).limit(1)
+        settings = db.exec(statement).first()
+
+        if not settings:
+            return
+
+        # Prioriser les clés de la base de données sur celles de l'environnement
+        openai_key = settings.ai_openai_api_key or os.getenv("OPENAI_API_KEY")
+        anthropic_key = settings.ai_anthropic_api_key or os.getenv("ANTHROPIC_API_KEY")
+
+        # Réinitialiser OpenAI si la clé a changé
+        if openai_key and openai_key != self._last_openai_key:
+            self._last_openai_key = openai_key
+            self.openai_client = AsyncOpenAI(api_key=openai_key)
+            self.default_provider = "openai"
+        elif not openai_key:
+            self.openai_client = None
+            self._last_openai_key = None
+
+        # Réinitialiser Anthropic si la clé a changé
+        if anthropic_key and anthropic_key != self._last_anthropic_key:
+            self._last_anthropic_key = anthropic_key
+            self.anthropic_client = anthropic.AsyncAnthropic(api_key=anthropic_key)
+            if not openai_key:
+                self.default_provider = "anthropic"
+        elif not anthropic_key:
+            self.anthropic_client = None
+            self._last_anthropic_key = None
+
+    def ensure_initialized(self, db: Session):
+        """S'assure que le service est initialisé avec les dernières clés de la DB"""
+        self._initialize_from_settings(db)
 
     def is_available(self) -> bool:
         """Vérifie si au moins un provider IA est disponible"""

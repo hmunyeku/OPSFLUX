@@ -8,7 +8,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlmodel import Session
 
-from app.api.deps import CurrentUser, get_db
+from app.api.deps import CurrentUser, SessionDep, get_db
 from app.services.ai_service import ai_service, AIProvider
 
 router = APIRouter()
@@ -60,8 +60,12 @@ class TranslateRequest(BaseModel):
 @router.get("/status")
 async def ai_status(
     current_user: CurrentUser,
+    session: SessionDep,
 ) -> dict[str, Any]:
     """Vérifie si le service IA est disponible"""
+    # Recharger les clés depuis la DB en priorité
+    ai_service.ensure_initialized(session)
+
     return {
         "available": ai_service.is_available(),
         "default_provider": ai_service.default_provider if ai_service.is_available() else None,
@@ -76,12 +80,16 @@ async def ai_status(
 async def chat_completion(
     request: ChatRequest,
     current_user: CurrentUser,
+    session: SessionDep,
 ) -> ChatResponse:
     """
     Génère une réponse de chat avec l'IA
 
     Requiert l'authentification. Supporte OpenAI et Anthropic.
     """
+    # Recharger les clés depuis la DB en priorité
+    ai_service.ensure_initialized(session)
+
     if not ai_service.is_available():
         raise HTTPException(status_code=503, detail="AI service not configured")
 
@@ -117,10 +125,14 @@ async def chat_completion(
 async def generate_text(
     request: GenerateTextRequest,
     current_user: CurrentUser,
+    session: SessionDep,
 ) -> dict[str, str]:
     """
     Génère du texte basé sur un prompt simple
     """
+    # Recharger les clés depuis la DB en priorité
+    ai_service.ensure_initialized(session)
+
     if not ai_service.is_available():
         raise HTTPException(status_code=503, detail="AI service not configured")
 
@@ -143,10 +155,14 @@ async def generate_text(
 async def suggest_completion(
     request: SuggestCompletionRequest,
     current_user: CurrentUser,
+    session: SessionDep,
 ) -> dict[str, list[str]]:
     """
     Suggère des complétions pour un champ de texte
     """
+    # Recharger les clés depuis la DB en priorité
+    ai_service.ensure_initialized(session)
+
     if not ai_service.is_available():
         raise HTTPException(status_code=503, detail="AI service not configured")
 
@@ -167,10 +183,14 @@ async def suggest_completion(
 async def analyze_sentiment(
     text: str,
     current_user: CurrentUser,
+    session: SessionDep,
 ) -> dict[str, Any]:
     """
     Analyse le sentiment d'un texte
     """
+    # Recharger les clés depuis la DB en priorité
+    ai_service.ensure_initialized(session)
+
     if not ai_service.is_available():
         raise HTTPException(status_code=503, detail="AI service not configured")
 
@@ -186,10 +206,14 @@ async def analyze_sentiment(
 async def summarize_text(
     request: SummarizeRequest,
     current_user: CurrentUser,
+    session: SessionDep,
 ) -> dict[str, str]:
     """
     Résume un texte long
     """
+    # Recharger les clés depuis la DB en priorité
+    ai_service.ensure_initialized(session)
+
     if not ai_service.is_available():
         raise HTTPException(status_code=503, detail="AI service not configured")
 
@@ -209,10 +233,14 @@ async def summarize_text(
 async def translate_text(
     request: TranslateRequest,
     current_user: CurrentUser,
+    session: SessionDep,
 ) -> dict[str, str]:
     """
     Traduit un texte dans la langue cible
     """
+    # Recharger les clés depuis la DB en priorité
+    ai_service.ensure_initialized(session)
+
     if not ai_service.is_available():
         raise HTTPException(status_code=503, detail="AI service not configured")
 

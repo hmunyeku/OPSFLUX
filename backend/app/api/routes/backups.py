@@ -349,7 +349,7 @@ async def create_backup_task(
         if success and file_path and stats:
             backup.status = "completed"
             backup.file_path = file_path
-            backup.file_size = backup_service.get_backup_file_size(backup_id)
+            backup.file_size = backup_service.get_backup_file_size(file_path)
             backup.database_size = stats.get("database_size", 0)
             backup.storage_size = stats.get("storage_size", 0)
             backup.config_size = stats.get("config_size", 0)
@@ -535,7 +535,7 @@ async def delete_backup(
 
     # Supprimer le fichier de backup
     if backup.file_path:
-        success = backup_service.delete_backup(backup_id)
+        success = backup_service.delete_backup(backup.file_path)
         if not success:
             raise HTTPException(
                 status_code=500,

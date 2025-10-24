@@ -377,24 +377,39 @@ class BackupService:
             logger.error(f"Config restore failed: {e}")
             return False, str(e)
 
-    def delete_backup(self, backup_id: UUID) -> bool:
-        """Supprime un fichier de backup."""
+    def delete_backup(self, file_path: str) -> bool:
+        """
+        Supprime un fichier de backup.
+
+        Args:
+            file_path: Chemin complet du fichier de backup (depuis backup.file_path)
+        """
         try:
-            archive_path = self.backup_dir / f"{backup_id}.tar.gz"
+            archive_path = Path(file_path)
             if archive_path.exists():
                 archive_path.unlink()
-                logger.info(f"Backup {backup_id} deleted")
+                logger.info(f"Backup file deleted: {archive_path.name}")
                 return True
-            return False
+            else:
+                logger.warning(f"Backup file not found: {file_path}")
+                return False
 
         except Exception as e:
             logger.error(f"Failed to delete backup: {e}")
             return False
 
-    def get_backup_file_size(self, backup_id: UUID) -> Optional[int]:
-        """Récupère la taille d'un fichier de backup."""
+    def get_backup_file_size(self, file_path: Optional[str]) -> Optional[int]:
+        """
+        Récupère la taille d'un fichier de backup.
+
+        Args:
+            file_path: Chemin complet du fichier de backup (depuis backup.file_path)
+        """
         try:
-            archive_path = self.backup_dir / f"{backup_id}.tar.gz"
+            if not file_path:
+                return None
+
+            archive_path = Path(file_path)
             if archive_path.exists():
                 return archive_path.stat().st_size
             return None

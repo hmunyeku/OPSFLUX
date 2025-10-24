@@ -91,7 +91,7 @@ class User(AbstractBaseModel, UserBase, table=True):
     webhooks: list["Webhook"] = Relationship(back_populates="user", cascade_delete=True)
     tasks: list["Task"] = Relationship(back_populates="assigned_user")
     user_api_keys: list["UserApiKey"] = Relationship(back_populates="user", cascade_delete=True)
-    user_dashboards: list["UserDashboard"] = Relationship(cascade_delete=True)
+    user_dashboards: list["UserDashboard"] = Relationship(back_populates="user", cascade_delete=True)
 
     # RBAC relationships are managed via RBAC routes, not directly here
     # to avoid circular import issues. The relationships are defined in models_rbac.
@@ -773,3 +773,7 @@ class TasksPublic(SQLModel):
 # Import UserApiKey to ensure it's loaded before SQLAlchemy mapper initialization
 # This prevents "UserApiKey failed to locate" error
 from app import models_api_keys  # noqa: F401, E402
+
+# Import UserDashboard to ensure it's loaded before SQLAlchemy mapper initialization
+# This prevents "UserDashboard failed to locate" error
+from app import models_dashboard  # noqa: F401, E402

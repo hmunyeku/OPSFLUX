@@ -339,6 +339,7 @@ class UserDashboard(AbstractBaseModel, UserDashboardBase, table=True):
     last_viewed_at: Optional[datetime] = Field(default=None, description="Dernière consultation du dashboard")
 
     # Relations
+    user: "User" = Relationship(back_populates="user_dashboards")
     dashboard: Dashboard = Relationship(back_populates="user_dashboards")
 
 

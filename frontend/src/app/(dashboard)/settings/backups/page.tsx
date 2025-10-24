@@ -491,7 +491,7 @@ function BackupsPageContent() {
             {viewMode === "grid" ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-2">
               {backups.map((backup) => (
-                <Card key={backup.id} className="hover:shadow-md transition-shadow border-t-2 border-t-transparent hover:border-t-primary">
+                <Card key={backup.id} className="hover:shadow-md transition-shadow">
                   <CardContent className="p-2 space-y-1">
                     {/* Row 1: Name + Status */}
                     <div className="flex items-center justify-between gap-1">
@@ -514,34 +514,25 @@ function BackupsPageContent() {
                       </div>
                     </div>
 
-                    {/* Row 3: Date */}
-                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                      <IconClock className="h-2.5 w-2.5" />
-                      <span className="truncate">
-                        {formatDistanceToNow(new Date(backup.created_at), {
-                          addSuffix: true,
-                          locale: fr,
-                        })}
-                      </span>
-                    </div>
-
-                    {/* Error message */}
-                    {backup.error_message && (
-                      <div className="text-[10px] text-destructive bg-destructive/10 border border-destructive/20 p-1 rounded">
-                        <p className="line-clamp-1" title={backup.error_message}>⚠️ {backup.error_message}</p>
+                    {/* Row 3: Date + Actions */}
+                    <div className="flex items-center justify-between gap-1 text-[10px]">
+                      <div className="flex items-center gap-1 text-muted-foreground flex-1 min-w-0">
+                        <IconClock className="h-2.5 w-2.5 flex-shrink-0" />
+                        <span className="truncate">
+                          {formatDistanceToNow(new Date(backup.created_at), {
+                            addSuffix: true,
+                            locale: fr,
+                          })}
+                        </span>
                       </div>
-                    )}
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-0.5 pt-1 border-t">
                       {backup.status === "completed" && (
-                        <>
+                        <div className="flex items-center gap-0.5 flex-shrink-0">
                           {hasPermission("core.backups.download") && (
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleDownload(backup)}
-                              className="h-6 w-6 p-0 flex-1"
+                              className="h-5 w-5 p-0"
                               title="Télécharger"
                             >
                               <IconDownload className="h-3 w-3" />
@@ -561,29 +552,22 @@ function BackupsPageContent() {
                                 })
                                 setRestoreDialogOpen(true)
                               }}
-                              className="h-6 w-6 p-0 flex-1"
+                              className="h-5 w-5 p-0"
                               title="Restaurer"
                             >
                               <IconRestore className="h-3 w-3" />
                             </Button>
                           )}
-                        </>
-                      )}
-                      {hasPermission("core.backups.delete") && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedBackup(backup)
-                            setDeleteDialogOpen(true)
-                          }}
-                          className="h-6 w-6 p-0 flex-1 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          title="Supprimer"
-                        >
-                          <IconTrash className="h-3 w-3" />
-                        </Button>
+                        </div>
                       )}
                     </div>
+
+                    {/* Error message */}
+                    {backup.error_message && (
+                      <div className="text-[10px] text-destructive bg-destructive/10 border border-destructive/20 p-1 rounded">
+                        <p className="line-clamp-1" title={backup.error_message}>⚠️ {backup.error_message}</p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}
@@ -727,7 +711,7 @@ function BackupsPageContent() {
           >
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-2">
               {scheduledBackups.map((scheduled) => (
-                <Card key={scheduled.id} className="hover:shadow-md transition-shadow border-t-2" style={{ borderTopColor: scheduled.is_active ? 'var(--primary)' : 'var(--muted)' }}>
+                <Card key={scheduled.id} className="hover:shadow-md transition-shadow">
                   <CardContent className="p-2 space-y-1">
                     {/* Row 1: Name + Status */}
                     <div className="flex items-center justify-between gap-1">
@@ -764,47 +748,31 @@ function BackupsPageContent() {
                       </div>
                     </div>
 
-                    {/* Row 4: Next run + Stats */}
-                    <div className="flex items-center justify-between gap-1 text-[10px] text-muted-foreground">
-                      {scheduled.next_run_at && (
-                        <span className="truncate">
-                          ⏰ {formatDistanceToNow(new Date(scheduled.next_run_at), { addSuffix: true, locale: fr })}
-                        </span>
-                      )}
-                      {scheduled.total_runs > 0 && (
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          <span className="text-green-600 dark:text-green-400">✓{scheduled.successful_runs}</span>
-                          {scheduled.failed_runs > 0 && (
-                            <span className="text-destructive">✗{scheduled.failed_runs}</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-0.5 pt-1 border-t">
+                    {/* Row 4: Next run + Stats + Actions */}
+                    <div className="flex items-center justify-between gap-1 text-[10px]">
+                      <div className="flex items-center gap-1 text-muted-foreground flex-1 min-w-0">
+                        {scheduled.next_run_at && (
+                          <span className="truncate">
+                            ⏰ {formatDistanceToNow(new Date(scheduled.next_run_at), { addSuffix: true, locale: fr })}
+                          </span>
+                        )}
+                        {scheduled.total_runs > 0 && (
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <span className="text-green-600 dark:text-green-400">✓{scheduled.successful_runs}</span>
+                            {scheduled.failed_runs > 0 && (
+                              <span className="text-destructive">✗{scheduled.failed_runs}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
                         onClick={() => handleToggleScheduled(scheduled)}
-                        className="h-6 text-[10px] flex-1"
+                        className="h-5 text-[10px] px-2 flex-shrink-0"
                       >
                         {scheduled.is_active ? "Désactiver" : "Activer"}
                       </Button>
-                      {hasPermission("core.backups.delete") && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedScheduled(scheduled)
-                            setDeleteScheduledDialogOpen(true)
-                          }}
-                          className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          title="Supprimer"
-                        >
-                          <IconTrash className="h-3 w-3" />
-                        </Button>
-                      )}
                     </div>
                   </CardContent>
                 </Card>

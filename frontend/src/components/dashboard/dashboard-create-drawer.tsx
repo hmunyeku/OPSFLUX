@@ -20,18 +20,10 @@ import { getWidgetMeta } from "@/widgets/registry"
 import type { DashboardCreate } from "@/types/dashboard"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer"
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetFooter, SheetClose } from "@/components/ui/sheet"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 interface DashboardCreateDrawerProps {
   open: boolean
@@ -205,16 +197,16 @@ export function DashboardCreateDrawer({
 
   return (
     <>
-      <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className="max-h-[85vh]">
-          <DrawerHeader className="border-b">
-            <DrawerTitle>Nouveau Dashboard</DrawerTitle>
-            <DrawerDescription>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent className="w-full sm:max-w-2xl overflow-hidden flex flex-col p-0">
+          <SheetHeader className="border-b px-6 py-4">
+            <SheetTitle>Nouveau Dashboard</SheetTitle>
+            <SheetDescription>
               Créez un dashboard personnalisé ou importez-en un depuis un fichier JSON
-            </DrawerDescription>
-          </DrawerHeader>
+            </SheetDescription>
+          </SheetHeader>
 
-          <div className="overflow-y-auto flex-1">
+          <ScrollArea className="flex-1">
             <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="p-6">
               <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
                 <TabsTrigger value="create" className="gap-2">
@@ -393,16 +385,16 @@ export function DashboardCreateDrawer({
                 </Card>
               </TabsContent>
             </Tabs>
-          </div>
+          </ScrollArea>
 
-          <DrawerFooter className="border-t">
+          <SheetFooter className="border-t px-6 py-4 flex-shrink-0">
             {activeTab === "create" && (
               <div className="flex justify-end gap-2 w-full">
-                <DrawerClose asChild>
+                <SheetClose asChild>
                   <Button variant="outline" disabled={isSaving}>
                     Annuler
                   </Button>
-                </DrawerClose>
+                </SheetClose>
                 <Button onClick={handleCreate} disabled={isSaving || !name.trim()}>
                   <IconDeviceFloppy className="h-4 w-4 mr-2" />
                   {isSaving ? "Création..." : "Créer le dashboard"}
@@ -410,28 +402,28 @@ export function DashboardCreateDrawer({
               </div>
             )}
             {activeTab === "import" && (
-              <DrawerClose asChild>
+              <SheetClose asChild>
                 <Button variant="outline" className="w-full" disabled={isSaving}>
                   Fermer
                 </Button>
-              </DrawerClose>
+              </SheetClose>
             )}
-          </DrawerFooter>
-        </DrawerContent>
-      </Drawer>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
-      {/* Widget Sidebar */}
+      {/* Widget Selection Sidebar - Secondary Sheet */}
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-        <SheetContent className="w-[400px] sm:w-[540px]">
+        <SheetContent className="w-full sm:max-w-xl">
           <SheetHeader>
             <SheetTitle>Sélectionner un widget</SheetTitle>
             <SheetDescription>
               Choisissez un widget à ajouter à votre dashboard
             </SheetDescription>
           </SheetHeader>
-          <div className="mt-6">
+          <ScrollArea className="h-[calc(100vh-8rem)] mt-6">
             <WidgetSidebar onAddWidget={handleAddWidget} />
-          </div>
+          </ScrollArea>
         </SheetContent>
       </Sheet>
     </>

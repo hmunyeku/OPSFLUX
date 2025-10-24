@@ -34,8 +34,8 @@ export default function DashboardGrid({
     const grid = GridStack.init(
       {
         column: dashboard.layout_config?.column || 12,
-        cellHeight: dashboard.layout_config?.cellHeight || 70,
-        margin: dashboard.layout_config?.margin || 10,
+        cellHeight: dashboard.layout_config?.cellHeight || 100,
+        margin: dashboard.layout_config?.margin || 12,
         float: true,
         resizable: {
           handles: "e, se, s, sw, w",
@@ -44,6 +44,10 @@ export default function DashboardGrid({
         acceptWidgets: true,
         disableOneColumnMode: false,
         staticGrid: !isEditMode,
+        animate: true,
+        // Auto height - let grid expand to fit all widgets
+        minRow: 0,
+        // Remove height constraint to allow vertical expansion
       },
       gridRef.current
     )
@@ -52,36 +56,35 @@ export default function DashboardGrid({
     setMounted(true)
 
     // Listen to layout changes
+    const handleChange = () => {
+      if (!onLayoutChange) return
+
+      const items = grid.save(false) as any[]
+      const updatedWidgets = items.map((item) => {
+        const original = widgets.find((w) => w.id === item.id)
+        return {
+          ...original!,
+          x: item.x,
+          y: item.y,
+          w: item.w,
+          h: item.h,
+        }
+      })
+      onLayoutChange(updatedWidgets)
+    }
+
     if (isEditMode && onLayoutChange) {
-      const handleChange = () => {
-        const items = grid.save(false) as any[]
-        const updatedWidgets = items.map((item) => {
-          const original = widgets.find((w) => w.id === item.id)
-          return {
-            ...original!,
-            x: item.x,
-            y: item.y,
-            w: item.w,
-            h: item.h,
-          }
-        })
-        onLayoutChange(updatedWidgets)
-      }
-
       grid.on("change", handleChange)
-
-      return () => {
-        grid.off("change", handleChange)
-      }
     }
 
     return () => {
       if (grid) {
+        grid.off("change", handleChange)
         grid.destroy(false)
         gridInstanceRef.current = null
       }
     }
-  }, [])
+  }, [isEditMode, onLayoutChange])
 
   // Update static mode when isEditMode changes
   useEffect(() => {
@@ -103,37 +106,10 @@ export default function DashboardGrid({
     // Clear existing widgets
     grid.removeAll(false)
 
-    // Add widgets
-    widgets.forEach((widget) => {
-      const el = document.createElement("div")
-      el.classList.add("grid-stack-item")
-      el.setAttribute("gs-id", widget.id)
-      el.setAttribute("gs-x", String(widget.x))
-      el.setAttribute("gs-y", String(widget.y))
-      el.setAttribute("gs-w", String(widget.w))
-      el.setAttribute("gs-h", String(widget.h))
-
-      if (widget.widget?.default_size) {
-        if (widget.widget.default_size.minW) {
-          el.setAttribute("gs-min-w", String(widget.widget.default_size.minW))
-        }
-        if (widget.widget.default_size.minH) {
-          el.setAttribute("gs-min-h", String(widget.widget.default_size.minH))
-        }
-        if (widget.widget.default_size.maxW) {
-          el.setAttribute("gs-max-w", String(widget.widget.default_size.maxW))
-        }
-        if (widget.widget.default_size.maxH) {
-          el.setAttribute("gs-max-h", String(widget.widget.default_size.maxH))
-        }
-      }
-
-      const content = document.createElement("div")
-      content.classList.add("grid-stack-item-content")
-      el.appendChild(content)
-
-      grid.addWidget(el)
-    })
+    // GridStack already has the widgets in the DOM from the JSX render below
+    // So we just need to make them grid items without calling makeWidget
+    // The widgets are already rendered by React in the JSX
+    // GridStack will pick them up automatically from the DOM
   }, [widgets, mounted])
 
   return (
@@ -165,6 +141,8 @@ export default function DashboardGrid({
       <style jsx global>{`
         .grid-stack {
           background: transparent;
+          min-height: 400px;
+          height: auto !important;
         }
 
         .grid-stack-item {
@@ -173,26 +151,71 @@ export default function DashboardGrid({
 
         .grid-stack-item-content {
           overflow: hidden;
-          border-radius: 0.5rem;
+          border-radius: 0.75rem;
+          inset: 0;
+          position: absolute;
+          box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+          transition: box-shadow 0.2s ease;
+        }
+
+        .grid-stack-item:hover .grid-stack-item-content {
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
 
         .grid-stack-item.grid-stack-placeholder {
           background: hsl(var(--muted)) !important;
-          border: 2px dashed hsl(var(--border)) !important;
-          border-radius: 0.5rem;
+          border: 2px dashed hsl(var(--primary) / 0.5) !important;
+          border-radius: 0.75rem;
+          opacity: 0.6;
         }
 
         .grid-stack-item > .ui-resizable-handle {
           opacity: 0;
-          transition: opacity 0.2s;
+          transition: opacity 0.2s ease;
+          z-index: 10;
         }
 
         .grid-stack-item:hover > .ui-resizable-handle {
-          opacity: 1;
+          opacity: 0.7;
+        }
+
+        .grid-stack-item > .ui-resizable-se,
+        .grid-stack-item > .ui-resizable-sw {
+          bottom: 0;
+          width: 20px;
+          height: 20px;
+        }
+
+        .grid-stack-item > .ui-resizable-se::after,
+        .grid-stack-item > .ui-resizable-sw::after {
+          content: "";
+          position: absolute;
+          bottom: 4px;
+          width: 12px;
+          height: 12px;
+          border-bottom: 2px solid hsl(var(--primary));
+          border-right: 2px solid hsl(var(--primary));
+          transform: rotate(-45deg);
+          right: 4px;
+        }
+
+        .grid-stack-item > .ui-resizable-sw::after {
+          border-right: none;
+          border-left: 2px solid hsl(var(--primary));
+          transform: rotate(45deg);
+          left: 4px;
+          right: auto;
         }
 
         .grid-stack-item-drag {
           cursor: move;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+          .grid-stack-item-content {
+            border-radius: 0.5rem;
+          }
         }
       `}</style>
     </div>

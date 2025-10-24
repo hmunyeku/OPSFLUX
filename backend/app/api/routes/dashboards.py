@@ -104,6 +104,99 @@ def read_dashboards(
     )
 
 
+# ========================================
+# ROUTES STATIQUES (doivent être AVANT les routes avec paramètres dynamiques)
+# ========================================
+
+@router.get("/home", response_model=DashboardsPublic)
+def read_home_dashboards(
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Any:
+    """
+    Retrieve dashboards marked as home (is_home=True) that are accessible by the current user.
+    Used for displaying in the "Tableau de bord" menu.
+    """
+    # Query dashboards marked as home
+    stmt = (
+        select(Dashboard)
+        .where(
+            Dashboard.deleted_at.is_(None),
+            Dashboard.is_home == True,
+            Dashboard.is_active == True,
+            or_(
+                Dashboard.created_by_id == current_user.id,  # Created by user
+                Dashboard.is_public == True,  # Public
+                Dashboard.is_mandatory == True  # Mandatory
+            )
+        )
+        .order_by(Dashboard.order, Dashboard.name)
+    )
+
+    dashboards = session.exec(stmt).all()
+
+    return DashboardsPublic(
+        data=dashboards,
+        count=len(dashboards)
+    )
+
+
+@router.get("/menu/{menu_key}", response_model=DashboardsPublic)
+def read_dashboards_by_menu(
+    menu_key: str,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Any:
+    """
+    Retrieve all dashboards for a specific menu.
+    Returns dashboards ordered by order field, with default dashboard first.
+    """
+    # Get user's group and role IDs for permissions
+    user_group_ids = [str(g.id) for g in current_user.groups] if hasattr(current_user, 'groups') else []
+    user_role_ids = [str(r.id) for r in current_user.roles] if hasattr(current_user, 'roles') else []
+
+    # Query dashboards for this menu
+    # Include: own dashboards, mandatory dashboards, public dashboards
+    stmt = (
+        select(Dashboard)
+        .where(
+            Dashboard.deleted_at.is_(None),
+            Dashboard.menu_key == menu_key,
+            Dashboard.is_active == True,
+            or_(
+                # User's own dashboards
+                Dashboard.created_by_id == current_user.id,
+                # Mandatory dashboards (global, group, role, user)
+                (
+                    (Dashboard.is_mandatory == True) &
+                    or_(
+                        Dashboard.scope == "global",
+                        (Dashboard.scope == "group") & (Dashboard.scope_id.in_(user_group_ids) if user_group_ids else False),
+                        (Dashboard.scope == "role") & (Dashboard.scope_id.in_(user_role_ids) if user_role_ids else False),
+                        (Dashboard.scope == "user") & (Dashboard.scope_id == current_user.id),
+                    )
+                ),
+                # Public dashboards
+                Dashboard.is_public == True
+            )
+        )
+        .order_by(
+            Dashboard.is_default_in_menu.desc(),  # Default first
+            Dashboard.order,
+            Dashboard.created_at.desc()
+        )
+    )
+
+    dashboards = session.exec(stmt).all()
+    count = len(dashboards)
+
+    return DashboardsPublic(data=dashboards, count=count)
+
+
+# ========================================
+# ROUTES DYNAMIQUES (doivent être APRÈS les routes statiques)
+# ========================================
+
 @router.post("/", response_model=DashboardPublic)
 def create_dashboard(
     *,
@@ -214,7 +307,10 @@ def read_dashboard(
         scope_id=dashboard.scope_id,
         is_active=dashboard.is_active,
         is_public=dashboard.is_public,
+        is_home=dashboard.is_home,
         order=dashboard.order,
+        menu_key=dashboard.menu_key,
+        is_default_in_menu=dashboard.is_default_in_menu,
         layout_config=dashboard.layout_config,
         created_at=dashboard.created_at,
         updated_at=dashboard.updated_at,
@@ -516,55 +612,3 @@ def update_widget_config(
     session.commit()
     session.refresh(dashboard_widget)
     return dashboard_widget
-
-
-@router.get("/menu/{menu_key}", response_model=DashboardsPublic)
-def read_dashboards_by_menu(
-    menu_key: str,
-    session: SessionDep,
-    current_user: CurrentUser,
-) -> Any:
-    """
-    Retrieve all dashboards for a specific menu.
-    Returns dashboards ordered by order field, with default dashboard first.
-    """
-    # Get user's group and role IDs for permissions
-    user_group_ids = [str(g.id) for g in current_user.groups] if hasattr(current_user, 'groups') else []
-    user_role_ids = [str(r.id) for r in current_user.roles] if hasattr(current_user, 'roles') else []
-
-    # Query dashboards for this menu
-    # Include: own dashboards, mandatory dashboards, public dashboards
-    stmt = (
-        select(Dashboard)
-        .where(
-            Dashboard.deleted_at.is_(None),
-            Dashboard.menu_key == menu_key,
-            Dashboard.is_active == True,
-            or_(
-                # User's own dashboards
-                Dashboard.created_by_id == current_user.id,
-                # Mandatory dashboards (global, group, role, user)
-                (
-                    (Dashboard.is_mandatory == True) &
-                    or_(
-                        Dashboard.scope == "global",
-                        (Dashboard.scope == "group") & (Dashboard.scope_id.in_(user_group_ids) if user_group_ids else False),
-                        (Dashboard.scope == "role") & (Dashboard.scope_id.in_(user_role_ids) if user_role_ids else False),
-                        (Dashboard.scope == "user") & (Dashboard.scope_id == current_user.id),
-                    )
-                ),
-                # Public dashboards
-                Dashboard.is_public == True
-            )
-        )
-        .order_by(
-            Dashboard.is_default_in_menu.desc(),  # Default first
-            Dashboard.order,
-            Dashboard.created_at.desc()
-        )
-    )
-
-    dashboards = session.exec(stmt).all()
-    count = len(dashboards)
-
-    return DashboardsPublic(data=dashboards, count=count)

@@ -31,6 +31,7 @@ import {
   addWidgetToDashboard,
   updateWidgetConfig,
   downloadDashboardJSON,
+  getWidgets,
 } from "@/lib/api/dashboards"
 import type { Dashboard, DashboardWidgetWithWidget } from "@/types/dashboard"
 import { useToast } from "@/hooks/use-toast"
@@ -244,6 +245,19 @@ export default function DashboardViewPageNew() {
     }
 
     try {
+      // Fetch all widgets to find the widget ID by type
+      const widgetsResponse = await getWidgets(token, { is_active: true })
+      const widget = widgetsResponse.data.find(w => w.widget_type === widgetType)
+
+      if (!widget) {
+        toast({
+          title: "Erreur",
+          description: `Widget de type "${widgetType}" non trouvé dans la base de données`,
+          variant: "destructive",
+        })
+        return
+      }
+
       // Find next available position
       const existingWidgets = dashboard.widgets || []
       const maxY = existingWidgets.length > 0
@@ -251,7 +265,7 @@ export default function DashboardViewPageNew() {
         : 0
 
       await addWidgetToDashboard(token, dashboardId, {
-        widget_id: widgetType,
+        widget_id: widget.id,
         x: 0,
         y: maxY,
         w: meta.defaultSize.w,

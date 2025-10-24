@@ -553,11 +553,11 @@ def remove_widget_from_dashboard(
     if dashboard.created_by_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not enough permissions")
 
-    # Find dashboard_widget association
+    # Find dashboard_widget association by dashboard_widget id
     dashboard_widget = session.exec(
         select(DashboardWidget).where(
             DashboardWidget.dashboard_id == dashboard_id,
-            DashboardWidget.widget_id == widget_id,
+            DashboardWidget.id == widget_id,
             DashboardWidget.deleted_at.is_(None)
         )
     ).first()
@@ -577,7 +577,7 @@ def update_widget_config(
     session: SessionDep,
     current_user: CurrentUser,
     dashboard_id: uuid.UUID,
-    widget_id: int,
+    widget_id: uuid.UUID,
     config_update: dict
 ) -> Any:
     """

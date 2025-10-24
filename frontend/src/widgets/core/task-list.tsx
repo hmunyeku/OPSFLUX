@@ -101,18 +101,15 @@ export default function TaskList({ config }: TaskListProps) {
 
   return (
     <div className="h-full flex flex-col p-3">
-      {/* Compact Header with Progress */}
+      {/* Progress bar et bouton refresh */}
       <div className="mb-2">
         <div className="flex items-center justify-between mb-1.5">
-          <h3 className="text-xs font-medium text-muted-foreground">{title}</h3>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground tabular-nums">{completedCount}/{tasks.length}</span>
-            {apiEndpoint && !isLoading && (
-              <Button variant="ghost" size="sm" onClick={fetchTasks} className="h-6 w-6 p-0">
-                <IconRefresh className="h-3 w-3" />
-              </Button>
-            )}
-          </div>
+          <span className="text-xs text-muted-foreground tabular-nums">{completedCount}/{tasks.length}</span>
+          {apiEndpoint && !isLoading && (
+            <Button variant="ghost" size="sm" onClick={fetchTasks} className="h-6 w-6 p-0">
+              <IconRefresh className="h-3 w-3" />
+            </Button>
+          )}
         </div>
         <div className="h-1 bg-muted rounded-full overflow-hidden">
           <div

@@ -170,12 +170,9 @@ export default function ProgressCard({ config }: ProgressCardProps) {
 
   return (
     <div className="h-full flex flex-col p-3">
-      {/* Compact Header */}
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-xs font-medium text-muted-foreground truncate">
-          {title}
-        </h3>
-        {apiEndpoint && !isLoading && (
+      {/* Bouton refresh si API configurée */}
+      {apiEndpoint && !isLoading && (
+        <div className="flex justify-end mb-2">
           <Button
             variant="ghost"
             size="sm"
@@ -184,8 +181,8 @@ export default function ProgressCard({ config }: ProgressCardProps) {
           >
             <IconRefresh className="h-3 w-3" />
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Compact Value & Percentage */}
       {isLoading ? (

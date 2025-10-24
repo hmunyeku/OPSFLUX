@@ -111,27 +111,14 @@ export default function ChartLine({ config }: ChartLineProps) {
 
   return (
     <div className="h-full flex flex-col p-3">
-      {/* Compact Header */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <div className={`p-1.5 rounded-md bg-muted/50 shrink-0 ${strokeClass}`}>
-            <IconTrendingUp className="h-3.5 w-3.5" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h3 className="text-xs font-medium text-muted-foreground truncate">
-              {title}
-            </h3>
-            {description && (
-              <p className="text-[10px] text-muted-foreground truncate">{description}</p>
-            )}
-          </div>
-        </div>
-        {apiEndpoint && !isLoading && (
-          <Button variant="ghost" size="sm" onClick={fetchData} className="h-6 w-6 p-0 shrink-0">
+      {/* Bouton refresh si API configurée */}
+      {apiEndpoint && !isLoading && (
+        <div className="flex justify-end mb-2">
+          <Button variant="ghost" size="sm" onClick={fetchData} className="h-6 w-6 p-0">
             <IconRefresh className="h-3 w-3" />
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Compact Chart */}
       {isLoading ? (

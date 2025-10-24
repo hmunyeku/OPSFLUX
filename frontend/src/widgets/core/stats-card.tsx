@@ -160,27 +160,19 @@ export default function StatsCard({ config }: StatsCardProps) {
 
   return (
     <div className="h-full flex flex-col p-3">
-      {/* Compact Header */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <div className={cn("p-1.5 rounded-md bg-muted/50 shrink-0", getColorClass())}>
-            <IconComponent className="h-3.5 w-3.5" />
-          </div>
-          <h3 className="text-xs font-medium text-muted-foreground truncate">
-            {title}
-          </h3>
-        </div>
-        {apiEndpoint && !isLoading && (
+      {/* Bouton refresh uniquement si API configurée */}
+      {apiEndpoint && !isLoading && (
+        <div className="flex justify-end mb-2">
           <Button
             variant="ghost"
             size="sm"
             onClick={fetchValue}
-            className="h-6 w-6 p-0 shrink-0"
+            className="h-6 w-6 p-0"
           >
             <IconRefresh className="h-3 w-3" />
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Compact Value Display */}
       <div className="flex-1 flex flex-col justify-center min-h-0">

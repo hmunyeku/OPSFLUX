@@ -94,22 +94,14 @@ export default function UserStats({ config }: UserStatsProps) {
 
   return (
     <div className="h-full flex flex-col p-3">
-      {/* Compact Header */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <div className="p-1.5 rounded-md bg-muted/50 text-blue-600 dark:text-blue-400 shrink-0">
-            <IconUsers className="h-3.5 w-3.5" />
-          </div>
-          <h3 className="text-xs font-medium text-muted-foreground truncate">
-            {title}
-          </h3>
-        </div>
-        {apiEndpoint && !isLoading && (
+      {/* Bouton refresh si API configurée */}
+      {apiEndpoint && !isLoading && (
+        <div className="flex justify-end mb-2">
           <Button variant="ghost" size="sm" onClick={fetchStats} className="h-6 w-6 p-0">
             <IconRefresh className="h-3 w-3" />
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="space-y-2">

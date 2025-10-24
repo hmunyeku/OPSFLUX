@@ -53,7 +53,11 @@
       "Bash(timeout 5 docker compose logs:*)",
       "WebFetch(domain:ui.shadcn.com)",
       "WebSearch",
-      "Bash(timeout 5 docker logs:*)"
+      "Bash(timeout 5 docker logs:*)",
+      "Bash(for file in /etc/dokploy/compose/perenco-opsflux-gwxapr/code/frontend/src/widgets/core/*.tsx)",
+      "WebFetch(domain:app.opsflux.io)",
+      "Bash(timeout 600 docker compose build:*)",
+      "Bash(timeout 300 docker compose:*)"
     ],
     "deny": [],
     "ask": []

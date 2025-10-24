@@ -222,32 +222,26 @@ function StoragePageContent() {
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid gap-4 md:grid-cols-3">
+        {/* Stats - Ultra compact */}
+        <div className="grid gap-2 grid-cols-3">
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">{t("stats.total_files", "Total files")}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{files.length}</div>
+            <CardContent className="p-3">
+              <p className="text-[10px] text-muted-foreground font-medium mb-1">{t("stats.total_files", "Fichiers")}</p>
+              <div className="text-xl font-bold">{files.length}</div>
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">{t("stats.total_size", "Total size")}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+            <CardContent className="p-3">
+              <p className="text-[10px] text-muted-foreground font-medium mb-1">{t("stats.total_size", "Taille")}</p>
+              <div className="text-xl font-bold">
                 {formatFileSize(files.reduce((acc, f) => acc + f.size, 0))}
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">{t("stats.categories", "Categories")}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+            <CardContent className="p-3">
+              <p className="text-[10px] text-muted-foreground font-medium mb-1">{t("stats.categories", "Types")}</p>
+              <div className="text-xl font-bold">
                 {new Set(files.map((f) => f.category)).size}
               </div>
             </CardContent>
@@ -256,14 +250,14 @@ function StoragePageContent() {
 
         {/* Files List */}
         <Card>
-          <CardHeader>
-            <CardTitle>{t("files.title", "Title")}</CardTitle>
-            <CardDescription>
-              {t("files.count", { count: filteredFiles.length })}
-              {searchQuery && ` ${t("files.search_results", { query: searchQuery })}`}
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">{t("files.title", "Fichiers")}</CardTitle>
+            <CardDescription className="text-xs">
+              {filteredFiles.length} fichier{filteredFiles.length !== 1 ? 's' : ''}
+              {searchQuery && ` (recherche: "${searchQuery}")`}
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
             {loading ? (
               <div className="flex items-center justify-center py-8">
                 <IconRefresh className="h-6 w-6 animate-spin" />
@@ -271,51 +265,51 @@ function StoragePageContent() {
             ) : filteredFiles.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <IconFile className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>{t("files.empty", "Empty")}</p>
+                <p className="text-sm">{t("files.empty", "Aucun fichier")}</p>
               </div>
             ) : (
               <div className="space-y-2">
                 {filteredFiles.map((file) => (
                   <div
                     key={file.path}
-                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 p-3 border rounded-lg hover:bg-muted/50"
+                    className="flex items-center gap-2 p-2.5 border rounded-lg hover:bg-muted/50 transition-colors"
                   >
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center">
                       {getCategoryIcon(file.category)}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{file.filename}</p>
-                        <div className="flex flex-wrap gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                          <span>{formatFileSize(file.size)}</span>
-                          <span className="hidden sm:inline">•</span>
-                          <Badge variant="outline" className="text-xs">
-                            {file.category}
-                          </Badge>
-                          <span className="hidden sm:inline">•</span>
-                          <span className="truncate max-w-[100px]">{file.module}</span>
-                        </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{file.filename}</p>
+                      <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                        <span>{formatFileSize(file.size)}</span>
+                        <span className="hidden sm:inline">•</span>
+                        <Badge variant="outline" className="h-4 px-1.5 text-[10px]">
+                          {file.category}
+                        </Badge>
+                        <span className="hidden sm:inline">•</span>
+                        <span className="truncate max-w-[100px]">{file.module}</span>
                       </div>
                     </div>
-                    <div className="flex gap-1 justify-end sm:justify-start">
+                    <div className="flex gap-1">
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-8 w-8 p-0"
+                        className="h-7 w-7 p-0"
                         onClick={() => window.open(getFileUrl(file.path), "_blank")}
                       >
-                        <IconDownload className="h-4 w-4" />
+                        <IconDownload className="h-3.5 w-3.5" />
                         <span className="sr-only">Télécharger</span>
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-8 w-8 p-0"
+                        className="h-7 w-7 p-0"
                         onClick={() => {
                           setFileToDelete(file)
                           setDeleteDialogOpen(true)
                         }}
                         disabled={!hasPermission("core.storage.delete")}
                       >
-                        <IconTrash className="h-4 w-4 text-destructive" />
+                        <IconTrash className="h-3.5 w-3.5 text-destructive" />
                         <span className="sr-only">Supprimer</span>
                       </Button>
                     </div>

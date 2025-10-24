@@ -185,59 +185,59 @@ function QueuePageContent() {
           </Button>
         </div>
 
-        {/* Statistics Cards */}
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/30 dark:to-green-900/20 border-green-200 dark:border-green-800">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-green-500/10 dark:bg-green-500/20 flex items-center justify-center">
-                  <IconPlayerPlay className="h-5 w-5 sm:h-6 sm:w-6 text-green-600 dark:text-green-400" />
+        {/* Statistics Cards - Ultra compact */}
+        <div className="grid gap-2 grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center">
+                  <IconPlayerPlay className="h-4 w-4 text-green-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-muted-foreground font-medium">En cours</p>
-                  <p className="text-xl sm:text-2xl md:text-3xl font-bold text-green-700 dark:text-green-300">{totalActive}</p>
+                  <p className="text-[10px] text-muted-foreground font-medium">En cours</p>
+                  <p className="text-xl font-bold text-green-700 dark:text-green-400">{totalActive}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/20 border-blue-200 dark:border-blue-800">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-blue-500/10 dark:bg-blue-500/20 flex items-center justify-center">
-                  <IconClock className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600 dark:text-blue-400" />
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                  <IconClock className="h-4 w-4 text-blue-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-muted-foreground font-medium">Planifiées</p>
-                  <p className="text-xl sm:text-2xl md:text-3xl font-bold text-blue-700 dark:text-blue-300">{totalScheduled}</p>
+                  <p className="text-[10px] text-muted-foreground font-medium">Planifiées</p>
+                  <p className="text-xl font-bold text-blue-700 dark:text-blue-400">{totalScheduled}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/30 dark:to-amber-900/20 border-amber-200 dark:border-amber-800">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-amber-500/10 dark:bg-amber-500/20 flex items-center justify-center">
-                  <IconCircleDashed className="h-5 w-5 sm:h-6 sm:w-6 text-amber-600 dark:text-amber-400" />
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                  <IconCircleDashed className="h-4 w-4 text-amber-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-muted-foreground font-medium">Réservées</p>
-                  <p className="text-xl sm:text-2xl md:text-3xl font-bold text-amber-700 dark:text-amber-300">{totalReserved}</p>
+                  <p className="text-[10px] text-muted-foreground font-medium">Réservées</p>
+                  <p className="text-xl font-bold text-amber-700 dark:text-amber-400">{totalReserved}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-950/30 dark:to-purple-900/20 border-purple-200 dark:border-purple-800">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-purple-500/10 dark:bg-purple-500/20 flex items-center justify-center">
-                  <IconServer className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600 dark:text-purple-400" />
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                  <IconServer className="h-4 w-4 text-purple-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-muted-foreground font-medium">Workers</p>
-                  <p className="text-xl sm:text-2xl md:text-3xl font-bold text-purple-700 dark:text-purple-300">{totalWorkers}</p>
+                  <p className="text-[10px] text-muted-foreground font-medium">Workers</p>
+                  <p className="text-xl font-bold text-purple-700 dark:text-purple-400">{totalWorkers}</p>
                 </div>
               </div>
             </CardContent>
@@ -286,44 +286,39 @@ function QueuePageContent() {
                 ) : (
                   <div className="space-y-2">
                     {Object.entries(stats?.workers || {}).map(([name, worker]) => (
-                      <Card key={name} className="border-l-4 border-l-green-500">
-                        <CardContent className="p-2.5">
-                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1.5 mb-2">
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
-                                <h4 className="font-semibold text-sm truncate">{name}</h4>
-                                <Badge variant="default" className="bg-green-600 h-5 px-1.5 text-[10px]">
-                                  <IconCheck className="mr-1 h-2.5 w-2.5" />
-                                  Actif
-                                </Badge>
-                              </div>
-                              <p className="text-[10px] text-muted-foreground">Worker Celery</p>
-                            </div>
+                      <Card key={name}>
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="w-2 h-2 rounded-full bg-green-500" />
+                            <h4 className="font-semibold text-sm truncate flex-1">{name}</h4>
+                            <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+                              Actif
+                            </Badge>
                           </div>
 
                           <div className="grid grid-cols-3 gap-2">
-                            <div className="bg-muted/30 rounded-lg p-2">
-                              <div className="flex items-center gap-1.5 mb-0.5">
+                            <div className="bg-muted/30 rounded p-1.5">
+                              <div className="flex items-center gap-1 mb-0.5">
                                 <IconPlayerPlay className="h-3 w-3 text-green-600" />
                                 <span className="text-[10px] text-muted-foreground">En cours</span>
                               </div>
-                              <div className="text-lg font-bold">{worker.active}</div>
+                              <div className="text-base font-bold">{worker.active}</div>
                             </div>
 
-                            <div className="bg-muted/30 rounded-lg p-2">
-                              <div className="flex items-center gap-1.5 mb-0.5">
+                            <div className="bg-muted/30 rounded p-1.5">
+                              <div className="flex items-center gap-1 mb-0.5">
                                 <IconClock className="h-3 w-3 text-blue-600" />
-                                <span className="text-[10px] text-muted-foreground">Planifiées</span>
+                                <span className="text-[10px] text-muted-foreground">Planif.</span>
                               </div>
-                              <div className="text-lg font-bold">{worker.scheduled}</div>
+                              <div className="text-base font-bold">{worker.scheduled}</div>
                             </div>
 
-                            <div className="bg-muted/30 rounded-lg p-2">
-                              <div className="flex items-center gap-1.5 mb-0.5">
+                            <div className="bg-muted/30 rounded p-1.5">
+                              <div className="flex items-center gap-1 mb-0.5">
                                 <IconCircleDashed className="h-3 w-3 text-amber-600" />
-                                <span className="text-[10px] text-muted-foreground">Réservées</span>
+                                <span className="text-[10px] text-muted-foreground">Réserv.</span>
                               </div>
-                              <div className="text-lg font-bold">{worker.reserved}</div>
+                              <div className="text-base font-bold">{worker.reserved}</div>
                             </div>
                           </div>
                         </CardContent>
@@ -338,53 +333,46 @@ function QueuePageContent() {
           {/* Queues Tab */}
           <TabsContent value="queues" className="space-y-4">
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <IconActivity className="h-5 w-5" />
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <IconActivity className="h-4 w-4" />
                   Files d'Attente
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-xs">
                   Gestion des différentes queues de tâches
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
+              <CardContent className="pt-0">
+                <div className="space-y-2">
                   {Object.entries(stats?.queues || {}).map(([name, queue]) => (
-                    <Card
-                      key={name}
-                      className="hover:shadow-md transition-all duration-300"
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                              <IconActivity className="h-5 w-5 text-primary" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-semibold truncate">{name}</h4>
-                              <p className="text-xs text-muted-foreground">
-                                {queue.length} tâche{queue.length !== 1 ? 's' : ''} en attente
-                              </p>
-                            </div>
+                    <Card key={name}>
+                      <CardContent className="p-3">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                            <IconActivity className="h-4 w-4 text-primary" />
                           </div>
-
-                          <div className="flex items-center gap-2 self-end sm:self-center">
-                            <Badge variant={queue.length > 0 ? "default" : "outline"}>
-                              {queue.length}
-                            </Badge>
-                            {queue.length > 0 && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedQueue(name)
-                                  setPurgeDialogOpen(true)
-                                }}
-                              >
-                                <IconTrash className="h-4 w-4 text-destructive" />
-                              </Button>
-                            )}
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-sm truncate">{name}</h4>
+                            <p className="text-[10px] text-muted-foreground">
+                              {queue.length} tâche{queue.length !== 1 ? 's' : ''}
+                            </p>
                           </div>
+                          <Badge variant={queue.length > 0 ? "default" : "outline"} className="h-6 px-2 text-xs">
+                            {queue.length}
+                          </Badge>
+                          {queue.length > 0 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0"
+                              onClick={() => {
+                                setSelectedQueue(name)
+                                setPurgeDialogOpen(true)
+                              }}
+                            >
+                              <IconTrash className="h-3.5 w-3.5 text-destructive" />
+                            </Button>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
@@ -397,53 +385,49 @@ function QueuePageContent() {
           {/* Schedule Tab */}
           <TabsContent value="schedule" className="space-y-4">
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <IconClock className="h-5 w-5" />
-                  Tâches Planifiées (Celery Beat)
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <IconClock className="h-4 w-4" />
+                  Tâches Planifiées (Beat)
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-xs">
                   Tâches exécutées automatiquement selon un calendrier
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
+              <CardContent className="pt-0">
+                <div className="space-y-2">
                   {BEAT_SCHEDULE.map((schedule) => (
-                    <Card
-                      key={schedule.name}
-                      className="border-l-4 border-l-blue-500"
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex flex-col gap-3">
+                    <Card key={schedule.name}>
+                      <CardContent className="p-3">
+                        <div className="flex items-start gap-2 mb-2">
+                          <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5" />
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-2 flex-wrap">
-                              <h4 className="font-semibold text-sm break-all">{schedule.task}</h4>
-                              <Badge variant={schedule.enabled ? "default" : "secondary"}>
-                                {schedule.enabled ? "Actif" : "Inactif"}
-                              </Badge>
-                            </div>
-
-                            <div className="space-y-2 text-sm">
-                              <div className="flex items-start gap-2 text-muted-foreground">
-                                <IconClock className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                                <span className="break-words">Fréquence: {schedule.schedule}</span>
-                              </div>
-
-                              {schedule.last_run ? (
-                                <div className="flex items-start gap-2 text-muted-foreground">
-                                  <IconCircleCheck className="h-4 w-4 flex-shrink-0 mt-0.5 text-green-600" />
-                                  <span className="break-words">
-                                    Dernière exécution: {formatDistanceToNow(new Date(schedule.last_run), { addSuffix: true, locale: fr })}
-                                  </span>
-                                </div>
-                              ) : (
-                                <div className="flex items-start gap-2 text-muted-foreground">
-                                  <IconCircleDashed className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                                  <span>Jamais exécuté</span>
-                                </div>
-                              )}
-                            </div>
+                            <h4 className="font-semibold text-sm break-all">{schedule.task}</h4>
                           </div>
+                          <Badge variant={schedule.enabled ? "secondary" : "outline"} className="h-5 px-1.5 text-[10px]">
+                            {schedule.enabled ? "Actif" : "Inactif"}
+                          </Badge>
+                        </div>
+
+                        <div className="space-y-1 text-xs pl-4">
+                          <div className="flex items-center gap-1.5 text-muted-foreground">
+                            <IconClock className="h-3 w-3 flex-shrink-0" />
+                            <span className="break-words">{schedule.schedule}</span>
+                          </div>
+
+                          {schedule.last_run ? (
+                            <div className="flex items-center gap-1.5 text-muted-foreground">
+                              <IconCircleCheck className="h-3 w-3 flex-shrink-0 text-green-600" />
+                              <span className="break-words text-[11px]">
+                                {formatDistanceToNow(new Date(schedule.last_run), { addSuffix: true, locale: fr })}
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 text-muted-foreground">
+                              <IconCircleDashed className="h-3 w-3 flex-shrink-0" />
+                              <span className="text-[11px]">Jamais exécuté</span>
+                            </div>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
@@ -456,17 +440,17 @@ function QueuePageContent() {
 
         {/* Info Card */}
         <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
-              <IconAlertCircle className="h-5 w-5" />
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-blue-700 dark:text-blue-300 text-sm">
+              <IconAlertCircle className="h-4 w-4" />
               À propos
             </CardTitle>
           </CardHeader>
-          <CardContent className="text-sm space-y-2">
-            <p>• <strong>Workers:</strong> Processus qui exécutent les tâches asynchrones en arrière-plan</p>
-            <p>• <strong>Queues:</strong> Files d'attente pour organiser et prioriser les tâches</p>
-            <p>• <strong>Beat:</strong> Scheduler qui lance automatiquement les tâches récurrentes</p>
-            <p>• <strong>Actualisation:</strong> Les données sont rafraîchies automatiquement toutes les 5 secondes</p>
+          <CardContent className="text-xs space-y-1">
+            <p><strong>Workers:</strong> Processus qui exécutent les tâches async</p>
+            <p><strong>Queues:</strong> Files d'attente pour organiser et prioriser les tâches</p>
+            <p><strong>Beat:</strong> Scheduler qui lance les tâches récurrentes</p>
+            <p><strong>Actualisation:</strong> Données rafraîchies toutes les 5s</p>
           </CardContent>
         </Card>
       </div>

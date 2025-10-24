@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import func, select, or_
 
 from app.api.deps import CurrentUser, SessionDep
+from app.core.metrics_decorator import track_business_event
 from app.models_dashboard import (
     Dashboard,
     DashboardCreate,
@@ -229,6 +230,7 @@ def read_dashboards_by_menu(
 # ========================================
 
 @router.post("/", response_model=DashboardPublic)
+@track_business_event("dashboard.created", module="dashboards")
 def create_dashboard(
     *,
     session: SessionDep,

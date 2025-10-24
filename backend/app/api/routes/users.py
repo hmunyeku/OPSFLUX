@@ -18,6 +18,7 @@ from app.core.config import settings
 from app.core.hook_trigger_service import hook_trigger
 from app.core.security import get_password_hash, verify_password
 from app.core.cache_service import cache_service
+from app.core.metrics_decorator import track_business_event
 from app.models import (
     Item,
     Message,
@@ -72,6 +73,7 @@ def read_users(
 @router.post(
     "/", dependencies=[Depends(get_current_active_superuser)], response_model=UserPublic
 )
+@track_business_event("user.created", module="users")
 async def create_user(*, session: SessionDep, user_in: UserCreate) -> Any:
     """
     Create new user.

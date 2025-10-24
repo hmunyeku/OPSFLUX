@@ -29,13 +29,15 @@ async def lifespan(app: FastAPI):
     """
     Lifespan event handler - Appelé au démarrage et à l'arrêt de l'application.
 
-    Charge dynamiquement les modules activés au démarrage.
+    Charge dynamiquement les modules activés au démarrage et démarre le hot reload.
     """
     # Startup: Charger les modules activés
     print("\n🚀 Application startup...")
 
+    session = None
     try:
         from app.api.deps import get_db
+        from app.core.module_hot_reload import hot_reload_service
 
         # Obtenir une session DB pour charger les modules
         db_gen = get_db()
@@ -44,7 +46,10 @@ async def lifespan(app: FastAPI):
         # Charger les modules activés (HOT RELOAD: passer l'instance app)
         loaded = ModuleLoader.load_active_modules(session, app=app)
 
-        session.close()
+        # Démarrer le service de hot reload
+        hot_reload_service.set_app(app)
+        hot_reload_service.set_db_session(session)
+        hot_reload_service.start_watching()
 
     except Exception as e:
         print(f"⚠️  Erreur lors du chargement des modules: {e}")
@@ -54,6 +59,15 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     print("\n👋 Application shutdown...")
+
+    try:
+        from app.core.module_hot_reload import hot_reload_service
+        hot_reload_service.stop_watching()
+    except Exception as e:
+        print(f"⚠️  Erreur lors de l'arrêt du hot reload: {e}")
+
+    if session:
+        session.close()
 
 
 if settings.SENTRY_DSN and settings.ENVIRONMENT != "local":

@@ -162,6 +162,26 @@ export async function createContact(token: string, data: ContactCreate) {
 }
 
 // Invitations
+export async function getInvitations(token: string, params?: any) {
+  const queryParams = new URLSearchParams()
+  if (params?.skip) queryParams.append("skip", params.skip.toString())
+  if (params?.limit) queryParams.append("limit", params.limit.toString())
+  if (params?.status) queryParams.append("status", params.status)
+
+  const response = await fetch(
+    `${API_URL}/api/v1/third-parties/invitations?${queryParams.toString()}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    }
+  )
+
+  if (!response.ok) throw new Error("Failed to fetch invitations")
+  return response.json()
+}
+
 export async function createInvitation(token: string, data: ContactInvitationCreate) {
   const response = await fetch(`${API_URL}/api/v1/third-parties/invitations`, {
     method: "POST",

@@ -12,6 +12,7 @@ import { PreferencesProvider } from "@/contexts/preferences-context"
 import { NotificationsProvider } from "@/contexts/notifications-context"
 import { AppConfigProvider } from "@/contexts/app-config-context"
 import { LanguageProvider } from "@/contexts/language-context"
+import { initializeModuleWidgets, startModuleWatcher } from "@/lib/module-loader"
 
 interface Props {
   children: React.ReactNode
@@ -19,6 +20,23 @@ interface Props {
 
 export function Providers({ children }: Props) {
   const [open, setOpen] = useState(false)
+
+  // Initialize module widgets on mount and start hot reload watcher
+  useEffect(() => {
+    // Initialiser les widgets des modules
+    initializeModuleWidgets()
+
+    // Démarrer la surveillance des nouveaux modules (hot reload)
+    // Vérifie toutes les 30 secondes si de nouveaux modules sont disponibles
+    const watcherInterval = startModuleWatcher(30000)
+
+    // Cleanup: arrêter le watcher quand le composant est démonté
+    return () => {
+      if (watcherInterval) {
+        clearInterval(watcherInterval)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {

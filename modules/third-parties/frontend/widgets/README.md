@@ -49,50 +49,123 @@ Liste des entreprises ajoutées récemment.
 
 ---
 
-### Widgets à implémenter
+---
 
-Les widgets suivants sont définis dans le manifest mais leurs composants React doivent encore être créés :
+### 3. Companies by Type (`third_parties_companies_by_type`)
+**Fichier:** `companies-by-type.tsx`
 
-#### 3. Companies by Type (`third_parties_companies_by_type`)
-Graphique en camembert de la répartition des entreprises par type.
+Graphique en camembert montrant la répartition des entreprises par type.
 
-#### 4. Companies by Status (`third_parties_companies_by_status`)
-Graphique donut de la répartition des entreprises par statut.
-
-#### 5. Recent Contacts (`third_parties_recent_contacts`)
-Liste des contacts ajoutés récemment.
-
-#### 6. Pending Invitations (`third_parties_pending_invitations`)
-Liste des invitations en attente avec alertes pour celles qui expirent bientôt.
-
-#### 7. Contacts Evolution (`third_parties_contacts_evolution`)
-Graphique linéaire montrant l'évolution du nombre de contacts dans le temps.
-
-#### 8. Top Companies (`third_parties_top_companies`)
-Classement des entreprises avec le plus de contacts.
-
-## Utilisation
-
-### Enregistrement dans le widget registry
-
-Les widgets doivent être enregistrés dans `frontend/src/widgets/registry.ts` :
-
-```typescript
-import {
-  ThirdPartiesStatsOverview,
-  ThirdPartiesRecentCompanies,
-} from "@/modules/third-parties/frontend/widgets"
-
-const widgetRegistry = {
-  // ... autres widgets
-  third_parties_stats_overview: ThirdPartiesStatsOverview,
-  third_parties_recent_companies: ThirdPartiesRecentCompanies,
+**Configuration:**
+```json
+{
+  "chartType": "pie",
+  "showLegend": true,
+  "showValues": true
 }
 ```
 
+---
+
+### 4. Companies by Status (`third_parties_companies_by_status`)
+**Fichier:** `companies-by-status.tsx`
+
+Graphique donut montrant la répartition des entreprises par statut.
+
+**Configuration:**
+```json
+{
+  "chartType": "donut",
+  "showLegend": true,
+  "showPercentage": true
+}
+```
+
+---
+
+### 5. Recent Contacts (`third_parties_recent_contacts`)
+**Fichier:** `recent-contacts.tsx`
+
+Liste des contacts ajoutés récemment.
+
+**Configuration:**
+```json
+{
+  "limit": 5,
+  "showCompany": true,
+  "showRole": true,
+  "showDate": true
+}
+```
+
+---
+
+### 6. Pending Invitations (`third_parties_pending_invitations`)
+**Fichier:** `pending-invitations.tsx`
+
+Liste des invitations en attente avec alertes pour celles qui expirent bientôt.
+
+**Configuration:**
+```json
+{
+  "limit": 10,
+  "showExpiryDate": true,
+  "highlightExpiring": true,
+  "expiringThresholdDays": 2
+}
+```
+
+---
+
+### 7. Contacts Evolution (`third_parties_contacts_evolution`)
+**Fichier:** `contacts-evolution.tsx`
+
+Graphique linéaire montrant l'évolution du nombre de contacts dans le temps.
+
+**Configuration:**
+```json
+{
+  "period": "month",
+  "chartType": "line",
+  "showDataPoints": true,
+  "groupBy": "week"
+}
+```
+
+---
+
+### 8. Top Companies (`third_parties_top_companies`)
+**Fichier:** `top-companies.tsx`
+
+Classement des entreprises avec le plus de contacts.
+
+**Configuration:**
+```json
+{
+  "limit": 5,
+  "showContactCount": true,
+  "showType": true,
+  "orderBy": "contact_count"
+}
+```
+
+## Utilisation
+
+### Enregistrement Automatique
+
+**Tous les widgets sont automatiquement enregistrés au démarrage de l'application** via le système de Module Loader.
+
+**Comment ça fonctionne:**
+1. Le fichier `registry.ts` dans ce dossier définit tous les widgets du module
+2. Le fichier `/frontend/src/lib/module-loader.ts` charge automatiquement ce registry
+3. La fonction `initializeModuleWidgets()` est appelée au démarrage dans `providers.tsx`
+4. Les widgets sont enregistrés dans le registry global via `registerWidgets()`
+
+**Aucune configuration manuelle n'est requise** - il suffit d'ajouter un nouveau widget dans `registry.ts` et il sera automatiquement disponible.
+
 ### Ajout à un dashboard
 
-Les widgets sont automatiquement disponibles dans l'éditeur de dashboard après leur enregistrement dans le système via le manifest.json.
+Les widgets sont automatiquement disponibles dans l'éditeur de dashboard après leur enregistrement.
 
 ## Structure d'un widget
 

@@ -519,6 +519,7 @@ async def create_backup(
 async def download_backup(
     filename: str,
     current_user: CurrentUser,
+    session: SessionDep,
 ) -> FileResponse:
     """
     Télécharge un fichier de sauvegarde.
@@ -560,6 +561,7 @@ async def download_backup(
 async def delete_backup(
     filename: str,
     current_user: CurrentUser,
+    session: SessionDep,
 ) -> Any:
     """
     Supprime un fichier de sauvegarde.

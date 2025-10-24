@@ -39,7 +39,11 @@
       "Bash(python scripts/create_company_tables.py:*)",
       "Bash(/etc/dokploy/compose/perenco-opsflux-gwxapr/code/backend/app/api/routes/companies.py )",
       "Bash(/etc/dokploy/compose/perenco-opsflux-gwxapr/code/backend/scripts/create_company_tables.py )",
-      "Bash(/etc/dokploy/compose/perenco-opsflux-gwxapr/code/backend/scripts/register_third_parties_module.py)"
+      "Bash(/etc/dokploy/compose/perenco-opsflux-gwxapr/code/backend/scripts/register_third_parties_module.py)",
+      "Bash(chmod:*)",
+      "Bash(timeout 30 docker logs:*)",
+      "Bash(for file in app/api/routes/*.py)",
+      "Bash(do echo \"=== $file ===\" awk '/@require_permission/,/^def / {print NR\"\"\"\": \"\"\"\"$0}' \"$file\")"
     ],
     "deny": [],
     "ask": []

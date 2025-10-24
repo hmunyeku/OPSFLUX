@@ -17,7 +17,7 @@ export interface DatabaseInfo {
 }
 
 export interface DatabaseTable {
-  schema: string
+  table_schema: string
   name: string
   size: string
   row_count: number

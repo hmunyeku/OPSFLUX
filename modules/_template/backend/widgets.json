@@ -1,0 +1,24 @@
+[
+  {
+    "widget_type": "[MODULE_CODE]_example_widget",
+    "name": "Exemple de Widget",
+    "description": "Description de votre widget",
+    "module_name": "[MODULE_CODE]",
+    "category": "stats",
+    "icon": "chart-bar",
+    "required_permission": "[MODULE_CODE]:read",
+    "is_active": true,
+    "default_config": {
+      "title": "Mon Widget",
+      "refreshInterval": 60000
+    },
+    "default_size": {
+      "w": 4,
+      "h": 3,
+      "minW": 3,
+      "minH": 2,
+      "maxW": 6,
+      "maxH": 4
+    }
+  }
+]

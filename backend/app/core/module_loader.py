@@ -358,6 +358,112 @@ class ModuleLoader:
         return True
 
     @classmethod
+    def sync_module_widgets(cls, module_code: str, session) -> Dict[str, Any]:
+        """
+        Synchronise les widgets d'un module avec la base de données.
+
+        Lit le fichier widgets.json du module et crée/met à jour les widgets
+        dans la table widget de la base de données.
+
+        Args:
+            module_code: Code du module (ex: 'third-parties')
+            session: Session SQLModel pour accéder à la DB
+
+        Returns:
+            Dict avec les statistiques de synchronisation
+        """
+        from app.models_dashboard import Widget
+        from sqlmodel import select
+
+        result = {
+            'synced': False,
+            'created': 0,
+            'updated': 0,
+            'total': 0,
+            'errors': []
+        }
+
+        module_path = cls.MODULES_DIR / module_code
+        widgets_file = module_path / "backend" / "widgets.json"
+
+        if not widgets_file.exists():
+            # Pas de widgets pour ce module, c'est ok
+            return result
+
+        try:
+            with open(widgets_file, 'r', encoding='utf-8') as f:
+                widgets_data = json.load(f)
+
+            if not isinstance(widgets_data, list):
+                result['errors'].append("widgets.json doit contenir un tableau")
+                return result
+
+            for widget_data in widgets_data:
+                try:
+                    widget_type = widget_data.get('widget_type')
+                    if not widget_type:
+                        result['errors'].append("widget_type manquant")
+                        continue
+
+                    # Vérifier si le widget existe déjà
+                    existing = session.exec(
+                        select(Widget).where(
+                            Widget.widget_type == widget_type,
+                            Widget.deleted_at.is_(None)
+                        )
+                    ).first()
+
+                    if existing:
+                        # Mettre à jour
+                        existing.name = widget_data.get('name', existing.name)
+                        existing.description = widget_data.get('description')
+                        existing.module_name = module_code
+                        existing.category = widget_data.get('category')
+                        existing.icon = widget_data.get('icon')
+                        existing.required_permission = widget_data.get('required_permission')
+                        existing.is_active = widget_data.get('is_active', True)
+                        existing.default_config = widget_data.get('default_config', {})
+                        existing.default_size = widget_data.get('default_size', {
+                            "w": 3, "h": 2, "minW": 2, "minH": 1, "maxW": 12, "maxH": 6
+                        })
+                        session.add(existing)
+                        result['updated'] += 1
+                    else:
+                        # Créer
+                        new_widget = Widget(
+                            widget_type=widget_type,
+                            name=widget_data.get('name', widget_type),
+                            description=widget_data.get('description'),
+                            module_name=module_code,
+                            category=widget_data.get('category'),
+                            icon=widget_data.get('icon'),
+                            required_permission=widget_data.get('required_permission'),
+                            is_active=widget_data.get('is_active', True),
+                            default_config=widget_data.get('default_config', {}),
+                            default_size=widget_data.get('default_size', {
+                                "w": 3, "h": 2, "minW": 2, "minH": 1, "maxW": 12, "maxH": 6
+                            })
+                        )
+                        session.add(new_widget)
+                        result['created'] += 1
+
+                except Exception as e:
+                    result['errors'].append(f"Erreur widget {widget_type}: {str(e)}")
+
+            session.commit()
+            result['synced'] = True
+            result['total'] = result['created'] + result['updated']
+
+            if result['total'] > 0:
+                print(f"    ✓ Widgets synchronisés: {result['created']} créé(s), {result['updated']} mis à jour")
+
+        except Exception as e:
+            result['errors'].append(f"Erreur lecture widgets.json: {str(e)}")
+            session.rollback()
+
+        return result
+
+    @classmethod
     def load_active_modules(cls, session, app=None) -> Dict[str, Any]:
         """
         Charge tous les modules activés (HOT RELOAD compatible).
@@ -365,7 +471,8 @@ class ModuleLoader:
         Architecture pour le hot reload:
         1. Valide les modèles SANS les charger (les tables sont créées via migrations)
         2. Charge les routers dynamiquement dans FastAPI
-        3. Peut être appelé plusieurs fois sans redémarrer
+        3. Synchronise les widgets avec la base de données
+        4. Peut être appelé plusieurs fois sans redémarrer
 
         Args:
             session: Session SQLModel pour accéder à la DB
@@ -379,6 +486,7 @@ class ModuleLoader:
         loaded = {
             'routers': [],
             'modules': [],
+            'widgets': [],
             'errors': []
         }
 
@@ -422,6 +530,16 @@ class ModuleLoader:
                         'tags': router.tags
                     })
 
+                # 3. Synchroniser les widgets du module
+                widgets_result = cls.sync_module_widgets(module_code, session)
+                if widgets_result['synced']:
+                    loaded['widgets'].append({
+                        'code': module_code,
+                        'created': widgets_result['created'],
+                        'updated': widgets_result['updated'],
+                        'total': widgets_result['total']
+                    })
+
                 loaded['modules'].append({
                     'code': module_code,
                     'name': module.name,
@@ -443,6 +561,12 @@ class ModuleLoader:
         print("="*60)
         print(f"✅ Chargement terminé: {len(loaded['modules'])} modules chargés")
         print(f"   - {len(loaded['routers'])} routers")
+
+        # Compter le total de widgets synchronisés
+        total_widgets = sum(w['total'] for w in loaded['widgets'])
+        if total_widgets > 0:
+            print(f"   - {total_widgets} widgets synchronisés")
+
         if loaded['errors']:
             print(f"   - {len(loaded['errors'])} erreurs")
         print("="*60 + "\n")

@@ -1,0 +1,191 @@
+[
+  {
+    "widget_type": "third_parties_stats_overview",
+    "name": "Aperçu Statistiques Tiers",
+    "description": "Statistiques globales des entreprises et contacts",
+    "module_name": "third-parties",
+    "category": "stats",
+    "icon": "chart-bar",
+    "required_permission": "third_parties:read",
+    "is_active": true,
+    "default_config": {
+      "showCompanies": true,
+      "showContacts": true,
+      "showInvitations": true,
+      "refreshInterval": 300000
+    },
+    "default_size": {
+      "w": 6,
+      "h": 2,
+      "minW": 4,
+      "minH": 2,
+      "maxW": 12,
+      "maxH": 3
+    }
+  },
+  {
+    "widget_type": "third_parties_companies_by_type",
+    "name": "Entreprises par Type",
+    "description": "Répartition des entreprises par type (client, fournisseur, partenaire...)",
+    "module_name": "third-parties",
+    "category": "charts",
+    "icon": "pie-chart",
+    "required_permission": "third_parties:read",
+    "is_active": true,
+    "default_config": {
+      "chartType": "pie",
+      "showLegend": true,
+      "showValues": true
+    },
+    "default_size": {
+      "w": 4,
+      "h": 3,
+      "minW": 3,
+      "minH": 2,
+      "maxW": 6,
+      "maxH": 4
+    }
+  },
+  {
+    "widget_type": "third_parties_companies_by_status",
+    "name": "Entreprises par Statut",
+    "description": "Répartition des entreprises par statut (actif, inactif, prospect...)",
+    "module_name": "third-parties",
+    "category": "charts",
+    "icon": "activity",
+    "required_permission": "third_parties:read",
+    "is_active": true,
+    "default_config": {
+      "chartType": "donut",
+      "showLegend": true,
+      "showPercentage": true
+    },
+    "default_size": {
+      "w": 4,
+      "h": 3,
+      "minW": 3,
+      "minH": 2,
+      "maxW": 6,
+      "maxH": 4
+    }
+  },
+  {
+    "widget_type": "third_parties_recent_companies",
+    "name": "Entreprises Récentes",
+    "description": "Liste des entreprises ajoutées récemment",
+    "module_name": "third-parties",
+    "category": "lists",
+    "icon": "building",
+    "required_permission": "third_parties:read",
+    "is_active": true,
+    "default_config": {
+      "limit": 5,
+      "showType": true,
+      "showStatus": true,
+      "showDate": true
+    },
+    "default_size": {
+      "w": 4,
+      "h": 3,
+      "minW": 3,
+      "minH": 3,
+      "maxW": 6,
+      "maxH": 5
+    }
+  },
+  {
+    "widget_type": "third_parties_recent_contacts",
+    "name": "Contacts Récents",
+    "description": "Liste des contacts ajoutés récemment",
+    "module_name": "third-parties",
+    "category": "lists",
+    "icon": "users",
+    "required_permission": "third_parties:read",
+    "is_active": true,
+    "default_config": {
+      "limit": 5,
+      "showCompany": true,
+      "showEmail": true,
+      "showPhone": false
+    },
+    "default_size": {
+      "w": 4,
+      "h": 3,
+      "minW": 3,
+      "minH": 3,
+      "maxW": 6,
+      "maxH": 5
+    }
+  },
+  {
+    "widget_type": "third_parties_pending_invitations",
+    "name": "Invitations en Attente",
+    "description": "Liste des invitations en attente de validation",
+    "module_name": "third-parties",
+    "category": "notifications",
+    "icon": "mail",
+    "required_permission": "third_parties:read",
+    "is_active": true,
+    "default_config": {
+      "limit": 5,
+      "showCompany": true,
+      "showDate": true,
+      "autoRefresh": true
+    },
+    "default_size": {
+      "w": 4,
+      "h": 3,
+      "minW": 3,
+      "minH": 2,
+      "maxW": 6,
+      "maxH": 5
+    }
+  },
+  {
+    "widget_type": "third_parties_contacts_evolution",
+    "name": "Évolution des Contacts",
+    "description": "Graphique d'évolution du nombre de contacts dans le temps",
+    "module_name": "third-parties",
+    "category": "charts",
+    "icon": "trending-up",
+    "required_permission": "third_parties:read",
+    "is_active": true,
+    "default_config": {
+      "period": "30d",
+      "chartType": "area",
+      "showTrend": true
+    },
+    "default_size": {
+      "w": 6,
+      "h": 3,
+      "minW": 4,
+      "minH": 2,
+      "maxW": 12,
+      "maxH": 4
+    }
+  },
+  {
+    "widget_type": "third_parties_top_companies",
+    "name": "Top Entreprises",
+    "description": "Classement des entreprises par nombre de contacts",
+    "module_name": "third-parties",
+    "category": "analytics",
+    "icon": "trophy",
+    "required_permission": "third_parties:read",
+    "is_active": true,
+    "default_config": {
+      "limit": 10,
+      "sortBy": "contacts_count",
+      "showCount": true,
+      "showTrend": true
+    },
+    "default_size": {
+      "w": 4,
+      "h": 4,
+      "minW": 3,
+      "minH": 3,
+      "maxW": 6,
+      "maxH": 6
+    }
+  }
+]

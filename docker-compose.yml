@@ -17,13 +17,17 @@ services:
     networks:
       - default
   adminer:
-    image: adminer:5.4.1
+    build:
+      context: ./adminer
+      dockerfile: Dockerfile
+    image: ${DOCKER_IMAGE_ADMINER:-opsflux-adminer}:${TAG-latest}
     restart: always
     networks:
       - dokploy-network
       - default
     environment:
       - ADMINER_DESIGN=pepa-linha-dark
+      - BACKEND_URL=http://backend:8000
     labels:
       - traefik.enable=true
       - traefik.docker.network=dokploy-network

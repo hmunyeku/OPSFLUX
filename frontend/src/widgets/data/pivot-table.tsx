@@ -7,6 +7,13 @@ import { auth } from "@/lib/auth"
 import { IconRefresh, IconDownload } from "@tabler/icons-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import dynamic from "next/dynamic"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api/v1`
@@ -45,10 +52,35 @@ export default function PivotTableWidget({ config }: PivotTableWidgetProps) {
   const [pivotState, setPivotState] = useState(initialState)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [tables, setTables] = useState<string[]>([])
+  const [selectedTable, setSelectedTable] = useState<string>("")
   const { toast } = useToast()
 
-  const fetchData = async () => {
-    if (!dataSource && !query) {
+  const fetchTables = async () => {
+    try {
+      const token = auth.getToken()
+      if (!token) return
+
+      const response = await fetch(`${API_BASE_URL}/database/tables`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setTables(data.tables || [])
+      }
+    } catch (err) {
+      console.error("Error fetching tables:", err)
+    }
+  }
+
+  const fetchData = async (tableName?: string) => {
+    const targetTable = tableName || selectedTable
+
+    if (!dataSource && !query && !targetTable) {
       // Données d'exemple si aucune source configurée
       setData([
         { Region: "Est", Product: "Laptop", Sales: 1200, Quantity: 4 },
@@ -77,6 +109,10 @@ export default function PivotTableWidget({ config }: PivotTableWidgetProps) {
         // Utiliser l'API SQL
         url = `${API_BASE_URL}/database/query`
         body = JSON.stringify({ query })
+      } else if (targetTable) {
+        // Requête pour récupérer toutes les données d'une table
+        url = `${API_BASE_URL}/database/query`
+        body = JSON.stringify({ query: `SELECT * FROM ${targetTable} LIMIT 1000` })
       }
 
       const response = await fetch(url, {
@@ -122,6 +158,12 @@ export default function PivotTableWidget({ config }: PivotTableWidgetProps) {
   // Ref pour éviter les boucles infinies
   const isFirstRender = useRef(true)
 
+  // Charger les tables au montage
+  useEffect(() => {
+    fetchTables()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Auto-refresh si configuré
   useEffect(() => {
     // Chargement initial
@@ -132,11 +174,17 @@ export default function PivotTableWidget({ config }: PivotTableWidgetProps) {
 
     // Auto-refresh si configuré
     if (refreshInterval > 0) {
-      const interval = setInterval(fetchData, refreshInterval * 1000)
+      const interval = setInterval(() => fetchData(), refreshInterval * 1000)
       return () => clearInterval(interval)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshInterval])
+
+  // Charger les données quand une table est sélectionnée
+  const handleTableSelect = (table: string) => {
+    setSelectedTable(table)
+    fetchData(table)
+  }
 
   const downloadData = () => {
     if (data.length === 0) return
@@ -191,6 +239,27 @@ export default function PivotTableWidget({ config }: PivotTableWidgetProps) {
       </div>
 
       <div className="flex-1 overflow-auto p-4">
+        {/* Sélecteur de table */}
+        {!query && !dataSource && tables.length > 0 && (
+          <div className="mb-4">
+            <label className="text-xs font-medium text-muted-foreground mb-2 block">
+              Sélectionner une table
+            </label>
+            <Select value={selectedTable} onValueChange={handleTableSelect}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Choisir une table..." />
+              </SelectTrigger>
+              <SelectContent>
+                {tables.map((table) => (
+                  <SelectItem key={table} value={table}>
+                    {table}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         {isLoading ? (
           <div className="space-y-2">
             <Skeleton className="h-12 w-full" />

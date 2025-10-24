@@ -32,8 +32,8 @@ interface SQLQueryWidgetProps {
 
 export default function SQLQueryWidget({ config }: SQLQueryWidgetProps) {
   const {
-    title = "Requête SQL",
-    description = "Exécuter une requête SQL personnalisée",
+    title = "",
+    description = "",
     query: initialQuery = "",
     refreshInterval = 0,
     showRowCount = true,

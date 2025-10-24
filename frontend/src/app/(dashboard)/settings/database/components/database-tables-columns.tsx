@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { DataTableColumnHeader } from "./data-table-column-header"
 
 export interface DatabaseTable {
-  schema: string
+  table_schema: string
   name: string
   size: string
   row_count: number
@@ -24,13 +24,13 @@ export const columns: ColumnDef<DatabaseTable>[] = [
     enableHiding: false,
   },
   {
-    accessorKey: "schema",
+    accessorKey: "table_schema",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Schéma" />
     ),
     cell: ({ row }) => (
       <Badge variant="outline" className="font-mono text-xs">
-        {row.getValue("schema")}
+        {row.getValue("table_schema")}
       </Badge>
     ),
     enableSorting: true,

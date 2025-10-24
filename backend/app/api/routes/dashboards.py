@@ -29,8 +29,39 @@ from app.models_dashboard import (
     UserDashboardsResponse,
     Widget,
 )
+from app.models_rbac import Permission, RolePermissionLink, UserRoleLink
 
 router = APIRouter(prefix="/dashboards", tags=["dashboards"])
+
+
+def user_has_permission(user: CurrentUser, permission_code: str, session: SessionDep) -> bool:
+    """
+    Vérifie si un utilisateur a une permission donnée.
+
+    Args:
+        user: L'utilisateur à vérifier
+        permission_code: Code de la permission (ex: "database:execute_query")
+        session: Session database
+
+    Returns:
+        True si l'utilisateur a la permission, False sinon
+    """
+    # Superadmin a toutes les permissions
+    if user.is_superuser:
+        return True
+
+    # Requête pour vérifier la permission via les rôles de l'utilisateur
+    query = (
+        select(Permission)
+        .join(RolePermissionLink, Permission.id == RolePermissionLink.permission_id)
+        .join(UserRoleLink, RolePermissionLink.role_id == UserRoleLink.role_id)
+        .where(UserRoleLink.user_id == user.id)
+        .where(Permission.code == permission_code)
+        .where(Permission.is_active == True)
+    )
+
+    permission = session.exec(query).first()
+    return permission is not None
 
 
 @router.get("/", response_model=UserDashboardsResponse)
@@ -231,6 +262,14 @@ def create_dashboard(
                 if not widget:
                     raise HTTPException(status_code=404, detail=f"Widget ID {widget_identifier} not found")
                 widget_id = widget_identifier
+
+            # Check if widget requires a specific permission
+            if widget.required_permission:
+                if not user_has_permission(current_user, widget.required_permission, session):
+                    raise HTTPException(
+                        status_code=403,
+                        detail=f"Permission '{widget.required_permission}' required to use widget '{widget.name}'"
+                    )
 
             dashboard_widget = DashboardWidget(
                 dashboard_id=dashboard.id,
@@ -514,6 +553,14 @@ def add_widget_to_dashboard(
     widget = session.get(Widget, widget_in.widget_id)
     if not widget or widget.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Widget not found")
+
+    # Check if widget requires a specific permission
+    if widget.required_permission:
+        if not user_has_permission(current_user, widget.required_permission, session):
+            raise HTTPException(
+                status_code=403,
+                detail=f"Permission '{widget.required_permission}' required to use this widget"
+            )
 
     # Check if widget already in dashboard
     existing = session.exec(

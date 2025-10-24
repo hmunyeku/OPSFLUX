@@ -4,15 +4,20 @@ Allows authorized users to execute read-only SQL queries and view database infor
 """
 
 import re
+import os
+import subprocess
 from typing import Any, Optional
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlmodel import text
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from app.api.deps import CurrentUser, SessionDep
 from app.core.rbac import require_permission
 from app.core.config import settings
+from app.core.security import create_access_token
 
 router = APIRouter(prefix="/database", tags=["database"])
 
@@ -29,9 +34,18 @@ class QueryResponse(BaseModel):
     columns: list[str]
 
 
+class DatabaseTableInfo(BaseModel):
+    """Database table information model"""
+    table_schema: str
+    name: str
+    size: str
+    row_count: int
+
+
 class TablesResponse(BaseModel):
     """Database tables list response model"""
-    tables: list[str]
+    tables: list[DatabaseTableInfo]
+    count: int
 
 
 class DatabaseInfo(BaseModel):
@@ -64,6 +78,36 @@ class RecentActivityResponse(BaseModel):
     count: int
 
 
+class AdminerTokenResponse(BaseModel):
+    """Adminer token response model"""
+    token: str
+    expires_at: str
+    adminer_url: str
+
+
+class AdminerCredentialsResponse(BaseModel):
+    """Adminer database credentials response model"""
+    server: str
+    username: str
+    password: str
+    database: str
+
+
+class BackupInfo(BaseModel):
+    """Database backup information model"""
+    filename: str
+    size: str
+    created_at: str
+    database_name: str
+
+
+class BackupCreateRequest(BaseModel):
+    """Database backup creation request model"""
+    include_schema: bool = True
+    include_data: bool = True
+    description: Optional[str] = None
+
+
 @router.get("/tables", response_model=TablesResponse)
 @require_permission("database:execute_query")
 def list_tables(
@@ -71,26 +115,41 @@ def list_tables(
     current_user: CurrentUser,
 ) -> Any:
     """
-    List all tables in the database.
+    List all tables in the database with details.
 
     Security:
     - Requires 'database:execute_query' permission
-    - Returns only table names from public schema
+    - Returns table information from public schema
     """
     try:
-        # Query to get all tables from the public schema (PostgreSQL)
+        # Query to get table details from public schema (PostgreSQL)
         query = text("""
-            SELECT table_name
-            FROM information_schema.tables
-            WHERE table_schema = 'public'
-            AND table_type = 'BASE TABLE'
-            ORDER BY table_name
+            SELECT
+                schemaname as schema,
+                tablename as name,
+                pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size,
+                COALESCE((
+                    SELECT reltuples::bigint
+                    FROM pg_class
+                    WHERE oid = (schemaname||'.'||tablename)::regclass
+                ), 0) as row_count
+            FROM pg_tables
+            WHERE schemaname = 'public'
+            ORDER BY tablename
         """)
 
         result = session.execute(query)
-        tables = [row[0] for row in result]
+        tables = []
 
-        return TablesResponse(tables=tables)
+        for row in result:
+            tables.append(DatabaseTableInfo(
+                table_schema=row[0],
+                name=row[1],
+                size=row[2] or "0 bytes",
+                row_count=int(row[3]) if row[3] is not None else 0
+            ))
+
+        return TablesResponse(tables=tables, count=len(tables))
     except Exception as e:
         print(f"Error listing tables for user {current_user.email}: {str(e)}")
         raise HTTPException(
@@ -344,13 +403,306 @@ def list_backups(
 
     Security:
     - Requires 'database:execute_query' permission
-
-    Note: This is a placeholder endpoint. Backup functionality should be
-    implemented based on your backup strategy (pg_dump, continuous archiving, etc.)
+    - Lists all backup files from the backups directory
     """
-    # TODO: Implement actual backup listing
-    # For now, return empty list
-    return {
-        "backups": [],
-        "count": 0
-    }
+    try:
+        # Create backups directory if it doesn't exist
+        backups_dir = Path("/var/backups/postgres")
+        backups_dir.mkdir(parents=True, exist_ok=True)
+
+        backups = []
+
+        # List all .sql files in the backups directory
+        for backup_file in backups_dir.glob("*.sql"):
+            stat = backup_file.stat()
+            backups.append(BackupInfo(
+                filename=backup_file.name,
+                size=f"{stat.st_size / (1024 * 1024):.2f} MB",
+                created_at=datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
+                database_name=settings.POSTGRES_DB
+            ))
+
+        # Sort by creation date (newest first)
+        backups.sort(key=lambda x: x.created_at, reverse=True)
+
+        return {
+            "backups": backups,
+            "count": len(backups)
+        }
+    except Exception as e:
+        print(f"Error listing backups for user {current_user.email}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erreur lors de la récupération des sauvegardes: {str(e)}"
+        )
+
+
+@router.post("/backups", response_model=BackupInfo)
+@require_permission("database:execute_query")
+def create_backup(
+    request: BackupCreateRequest,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Any:
+    """
+    Create a new database backup using pg_dump.
+
+    Security:
+    - Requires 'database:execute_query' permission
+    - Creates backup file in secure directory
+    - Uses pg_dump for safe backup creation
+    """
+    try:
+        # Create backups directory if it doesn't exist
+        backups_dir = Path("/var/backups/postgres")
+        backups_dir.mkdir(parents=True, exist_ok=True)
+
+        # Generate backup filename with timestamp
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        description_suffix = f"_{request.description.replace(' ', '_')}" if request.description else ""
+        filename = f"backup_{settings.POSTGRES_DB}_{timestamp}{description_suffix}.sql"
+        backup_path = backups_dir / filename
+
+        # Build pg_dump command
+        pg_dump_cmd = [
+            "pg_dump",
+            "-h", settings.POSTGRES_SERVER,
+            "-p", str(settings.POSTGRES_PORT),
+            "-U", settings.POSTGRES_USER,
+            "-d", settings.POSTGRES_DB,
+            "-F", "p",  # Plain text format
+            "-f", str(backup_path)
+        ]
+
+        # Add options based on request
+        if request.include_schema and not request.include_data:
+            pg_dump_cmd.append("--schema-only")
+        elif request.include_data and not request.include_schema:
+            pg_dump_cmd.append("--data-only")
+        # If both are True (default), include everything (no flag needed)
+
+        # Set environment variable for password
+        env = os.environ.copy()
+        env["PGPASSWORD"] = settings.POSTGRES_PASSWORD
+
+        # Execute pg_dump
+        result = subprocess.run(
+            pg_dump_cmd,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=300  # 5 minutes timeout
+        )
+
+        if result.returncode != 0:
+            raise Exception(f"pg_dump failed: {result.stderr}")
+
+        # Get file stats
+        stat = backup_path.stat()
+
+        return BackupInfo(
+            filename=filename,
+            size=f"{stat.st_size / (1024 * 1024):.2f} MB",
+            created_at=datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
+            database_name=settings.POSTGRES_DB
+        )
+
+    except subprocess.TimeoutExpired:
+        print(f"Backup creation timed out for user {current_user.email}")
+        raise HTTPException(
+            status_code=500,
+            detail="La création de la sauvegarde a dépassé le délai d'attente"
+        )
+    except Exception as e:
+        print(f"Error creating backup for user {current_user.email}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erreur lors de la création de la sauvegarde: {str(e)}"
+        )
+
+
+@router.post("/adminer-token", response_model=AdminerTokenResponse)
+@require_permission("database:execute_query")
+def create_adminer_token(
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Any:
+    """
+    Create a temporary token for accessing Adminer.
+
+    Security:
+    - Requires 'database:execute_query' permission
+    - Token expires after 1 hour
+    - Token includes user ID for authentication
+    """
+    try:
+        # Create a short-lived token (1 hour) for Adminer access
+        expires_delta = timedelta(hours=1)
+        token = create_access_token(
+            subject=str(current_user.id),
+            expires_delta=expires_delta
+        )
+
+        # Calculate expiration time
+        expires_at = datetime.now(timezone.utc) + expires_delta
+
+        # Include only the token in URL for auto-login (credentials will be fetched via API)
+        adminer_url_with_token = f"{settings.ADMINER_URL}/?token={token}"
+
+        return AdminerTokenResponse(
+            token=token,
+            expires_at=expires_at.isoformat(),
+            adminer_url=adminer_url_with_token
+        )
+    except Exception as e:
+        print(f"Error creating Adminer token for user {current_user.email}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erreur lors de la création du token Adminer: {str(e)}"
+        )
+
+
+@router.get("/adminer-credentials", response_model=AdminerCredentialsResponse)
+@require_permission("database:execute_query")
+def get_adminer_credentials(
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Any:
+    """
+    Get database credentials for Adminer auto-login.
+
+    Security:
+    - Requires 'database:execute_query' permission
+    - Only returns credentials if user is authenticated
+    - Used by Adminer plugin for auto-login
+    """
+    try:
+        return AdminerCredentialsResponse(
+            server=settings.POSTGRES_SERVER,
+            username=settings.POSTGRES_USER,
+            password=settings.POSTGRES_PASSWORD,
+            database=settings.POSTGRES_DB
+        )
+    except Exception as e:
+        print(f"Error getting Adminer credentials for user {current_user.email}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erreur lors de la récupération des credentials: {str(e)}"
+        )
+
+
+@router.get("/backups/{filename}")
+@require_permission("database:execute_query")
+def download_backup(
+    filename: str,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> FileResponse:
+    """
+    Download a database backup file.
+
+    Security:
+    - Requires 'database:execute_query' permission
+    - Validates filename to prevent path traversal attacks
+    - Only allows downloading .sql files from backup directory
+    """
+    try:
+        # Validate filename (prevent path traversal)
+        if ".." in filename or "/" in filename or "\\" in filename:
+            raise HTTPException(
+                status_code=400,
+                detail="Nom de fichier invalide"
+            )
+
+        # Only allow .sql files
+        if not filename.endswith(".sql"):
+            raise HTTPException(
+                status_code=400,
+                detail="Seuls les fichiers .sql peuvent être téléchargés"
+            )
+
+        # Get backup file path
+        backups_dir = Path("/var/backups/postgres")
+        backup_path = backups_dir / filename
+
+        # Check if file exists
+        if not backup_path.exists() or not backup_path.is_file():
+            raise HTTPException(
+                status_code=404,
+                detail="Fichier de sauvegarde introuvable"
+            )
+
+        # Return file for download
+        return FileResponse(
+            path=str(backup_path),
+            filename=filename,
+            media_type="application/sql"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error downloading backup for user {current_user.email}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erreur lors du téléchargement de la sauvegarde: {str(e)}"
+        )
+
+
+@router.delete("/backups/{filename}")
+@require_permission("database:execute_query")
+def delete_backup(
+    filename: str,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Any:
+    """
+    Delete a database backup file.
+
+    Security:
+    - Requires 'database:execute_query' permission
+    - Validates filename to prevent path traversal attacks
+    - Only allows deleting .sql files from backup directory
+    """
+    try:
+        # Validate filename (prevent path traversal)
+        if ".." in filename or "/" in filename or "\\" in filename:
+            raise HTTPException(
+                status_code=400,
+                detail="Nom de fichier invalide"
+            )
+
+        # Only allow .sql files
+        if not filename.endswith(".sql"):
+            raise HTTPException(
+                status_code=400,
+                detail="Seuls les fichiers .sql peuvent être supprimés"
+            )
+
+        # Get backup file path
+        backups_dir = Path("/var/backups/postgres")
+        backup_path = backups_dir / filename
+
+        # Check if file exists
+        if not backup_path.exists() or not backup_path.is_file():
+            raise HTTPException(
+                status_code=404,
+                detail="Fichier de sauvegarde introuvable"
+            )
+
+        # Delete the file
+        backup_path.unlink()
+
+        return {
+            "message": "Sauvegarde supprimée avec succès",
+            "filename": filename
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error deleting backup for user {current_user.email}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erreur lors de la suppression de la sauvegarde: {str(e)}"
+        )

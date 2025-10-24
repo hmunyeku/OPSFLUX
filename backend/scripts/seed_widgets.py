@@ -152,6 +152,57 @@ def create_core_widgets():
                 "maxW": 12,
                 "maxH": 6
             }
+        },
+        {
+            "widget_type": "sql-query",
+            "name": "Requête SQL",
+            "description": "Exécute et affiche les résultats d'une requête SQL personnalisée",
+            "module_name": "core",
+            "category": "data",
+            "icon": "database",
+            "required_permission": "database:execute_query",
+            "is_active": True,
+            "default_config": {
+                "title": "",
+                "description": "",
+                "query": "",
+                "refreshInterval": 0,
+                "showRowCount": True
+            },
+            "default_size": {
+                "w": 6,
+                "h": 4,
+                "minW": 4,
+                "minH": 3,
+                "maxW": 12,
+                "maxH": 8
+            }
+        },
+        {
+            "widget_type": "pivot-table",
+            "name": "Tableau Croisé Dynamique",
+            "description": "Analyse interactive de données avec tableau croisé dynamique",
+            "module_name": "core",
+            "category": "data",
+            "icon": "table",
+            "required_permission": "database:execute_query",
+            "is_active": True,
+            "default_config": {
+                "title": "Tableau Croisé Dynamique",
+                "description": "Analyse de données interactive",
+                "dataSource": "",
+                "query": "",
+                "refreshInterval": 0,
+                "initialState": {}
+            },
+            "default_size": {
+                "w": 8,
+                "h": 6,
+                "minW": 6,
+                "minH": 4,
+                "maxW": 12,
+                "maxH": 10
+            }
         }
     ]
 

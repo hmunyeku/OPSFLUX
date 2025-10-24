@@ -440,9 +440,9 @@ def list_backups(
 @router.post("/backups", response_model=BackupInfo)
 @require_permission("database:execute_query")
 def create_backup(
-    request: BackupCreateRequest,
     session: SessionDep,
     current_user: CurrentUser,
+    request: BackupCreateRequest = BackupCreateRequest(),
 ) -> Any:
     """
     Create a new database backup using pg_dump.

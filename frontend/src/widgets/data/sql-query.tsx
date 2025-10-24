@@ -2,10 +2,9 @@
 
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { auth } from "@/lib/auth"
-import { IconPlayerPlay, IconRefresh, IconDownload, IconTable } from "@tabler/icons-react"
+import { IconRefresh, IconDownload, IconTable } from "@tabler/icons-react"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api/v1`
@@ -187,28 +186,7 @@ export default function SQLQueryWidget({ config }: SQLQueryWidgetProps) {
       </div>
 
       <div className="flex-1 flex flex-col gap-3 overflow-hidden p-4">
-        {/* Éditeur SQL - Visible uniquement si pas de requête configurée */}
-        {!initialQuery && (
-          <div className="flex-none">
-            <div className="flex items-center gap-2">
-              <Textarea
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="SELECT * FROM users LIMIT 10"
-                className="font-mono text-xs min-h-[80px]"
-              />
-              <Button
-                onClick={() => executeQuery(query)}
-                disabled={isLoading || !query.trim()}
-                size="sm"
-                className="shrink-0"
-              >
-                <IconPlayerPlay className="h-4 w-4 mr-1" />
-                Exécuter
-              </Button>
-            </div>
-          </div>
-        )}
+        {/* Note: L'éditeur SQL n'est jamais affiché car la requête est dans la config */}
 
         {/* Résultats */}
         <div className="flex-1 min-h-0">

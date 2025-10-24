@@ -30,6 +30,7 @@ class BackupService:
     def create_backup(
         self,
         backup_id: UUID,
+        backup_name: str = "backup",
         includes_database: bool = True,
         includes_storage: bool = True,
         includes_config: bool = True,
@@ -37,6 +38,14 @@ class BackupService:
     ) -> tuple[bool, Optional[str], Optional[dict]]:
         """
         Crée un backup complet du système.
+
+        Args:
+            backup_id: UUID unique du backup
+            backup_name: Nom descriptif du backup (utilisé dans le nom de fichier)
+            includes_database: Inclure la base de données
+            includes_storage: Inclure les fichiers
+            includes_config: Inclure la configuration
+            db_session: Session database optionnelle
 
         Returns:
             tuple: (success, file_path, stats)
@@ -72,8 +81,8 @@ class BackupService:
                     return False, None, None
                 stats["config_size"] = config_size
 
-            # 4. Créer une archive compressée
-            archive_path = self._create_archive(backup_path, backup_id)
+            # 4. Créer une archive compressée avec un nom descriptif
+            archive_path = self._create_archive(backup_path, backup_id, backup_name)
 
             # 5. Nettoyer le dossier temporaire
             shutil.rmtree(backup_path)
@@ -182,9 +191,10 @@ class BackupService:
                 }
 
                 # Ajouter un marqueur pour indiquer que des champs sensibles ont été exclus
+                from datetime import datetime
                 config_data_safe['_backup_metadata'] = {
                     'excluded_sensitive_fields': list(sensitive_fields),
-                    'backup_date': str(Path.ctime(backup_path)),
+                    'backup_date': datetime.now().isoformat(),
                     'total_fields': len(config_data),
                     'safe_fields': len(config_data_safe) - 1,  # -1 pour _backup_metadata
                 }
@@ -202,9 +212,19 @@ class BackupService:
             logger.error(f"Config backup failed: {e}")
             return False, 0
 
-    def _create_archive(self, backup_path: Path, backup_id: UUID) -> Path:
-        """Crée une archive tar.gz du backup."""
-        archive_path = self.backup_dir / f"{backup_id}.tar.gz"
+    def _create_archive(self, backup_path: Path, backup_id: UUID, backup_name: str) -> Path:
+        """Crée une archive tar.gz du backup avec un nom descriptif."""
+        from datetime import datetime
+
+        # Format: backup_NomDuBackup_2025-10-24_21-45-30_uuid.tar.gz
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        # Nettoyer le nom du backup (enlever espaces et caractères spéciaux)
+        safe_name = "".join(c if c.isalnum() or c in ('-', '_') else '_' for c in backup_name)
+        safe_name = safe_name[:50]  # Limiter à 50 caractères
+
+        # Nom de fichier descriptif
+        filename = f"backup_{safe_name}_{timestamp}_{str(backup_id)[:8]}.tar.gz"
+        archive_path = self.backup_dir / filename
 
         shutil.make_archive(
             str(archive_path).replace(".tar.gz", ""),

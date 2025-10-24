@@ -339,6 +339,7 @@ async def create_backup_task(
         # Créer le backup
         success, file_path, stats = backup_service.create_backup(
             backup_id=backup_id,
+            backup_name=backup.name,  # Utiliser le nom du backup pour le fichier
             includes_database=backup_data.includes_database,
             includes_storage=backup_data.includes_storage,
             includes_config=backup_data.includes_config,

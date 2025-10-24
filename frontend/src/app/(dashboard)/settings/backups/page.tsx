@@ -489,29 +489,34 @@ function BackupsPageContent() {
             skeletonClassName="h-32 w-full"
           >
             {viewMode === "grid" ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-2">
               {backups.map((backup) => (
-                <Card key={backup.id} className="hover:shadow-md transition-all duration-200 border-t-2 border-t-transparent hover:border-t-primary group">
-                  <CardContent className="p-3 space-y-2.5">
-                    {/* Header: Name + Status */}
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-semibold text-sm line-clamp-1 flex-1 transition-colors group-hover:text-primary" title={backup.name}>
+                <Card key={backup.id} className="hover:shadow-md transition-shadow border-t-2 border-t-transparent hover:border-t-primary">
+                  <CardContent className="p-2 space-y-1">
+                    {/* Row 1: Name + Status */}
+                    <div className="flex items-center justify-between gap-1">
+                      <h3 className="font-semibold text-xs line-clamp-1 flex-1" title={backup.name}>
                         {backup.name}
                       </h3>
                       {getStatusBadge(backup.status)}
                     </div>
 
-                    {/* Type + Size */}
-                    <div className="flex items-center gap-2 text-xs">
-                      <Badge variant="secondary" className="capitalize text-xs h-5 px-2">
+                    {/* Row 2: Type + Size + Content */}
+                    <div className="flex items-center gap-1 text-[10px]">
+                      <Badge variant="secondary" className="capitalize text-[10px] h-4 px-1.5">
                         {backup.backup_type}
                       </Badge>
-                      <span className="font-mono font-medium text-muted-foreground">{formatBytes(backup.file_size)}</span>
+                      <span className="font-mono text-muted-foreground">{formatBytes(backup.file_size)}</span>
+                      <div className="flex items-center gap-0.5 ml-auto">
+                        {backup.includes_database && <span title="Base de données">🗄️</span>}
+                        {backup.includes_storage && <span title="Stockage">📁</span>}
+                        {backup.includes_config && <span title="Configuration">⚙️</span>}
+                      </div>
                     </div>
 
-                    {/* Date */}
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <IconClock className="h-3.5 w-3.5 flex-shrink-0" />
+                    {/* Row 3: Date */}
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <IconClock className="h-2.5 w-2.5" />
                       <span className="truncate">
                         {formatDistanceToNow(new Date(backup.created_at), {
                           addSuffix: true,
@@ -520,38 +525,15 @@ function BackupsPageContent() {
                       </span>
                     </div>
 
-                    {/* Content badges */}
-                    <div className="flex items-center gap-1.5">
-                      {backup.includes_database && (
-                        <Badge variant="outline" className="text-xs h-5 px-1.5" title="Base de données">
-                          <IconDatabase className="h-3 w-3" />
-                        </Badge>
-                      )}
-                      {backup.includes_storage && (
-                        <Badge variant="outline" className="text-xs h-5 px-1.5" title="Stockage">
-                          📁
-                        </Badge>
-                      )}
-                      {backup.includes_config && (
-                        <Badge variant="outline" className="text-xs h-5 px-1.5" title="Configuration">
-                          ⚙️
-                        </Badge>
-                      )}
-                    </div>
-
                     {/* Error message */}
                     {backup.error_message && (
-                      <div className="text-xs text-destructive bg-destructive/10 border border-destructive/20 p-2 rounded">
-                        <p className="font-medium flex items-center gap-1 mb-0.5">
-                          <IconX className="h-3 w-3" />
-                          Erreur:
-                        </p>
-                        <p className="opacity-90 line-clamp-2" title={backup.error_message}>{backup.error_message}</p>
+                      <div className="text-[10px] text-destructive bg-destructive/10 border border-destructive/20 p-1 rounded">
+                        <p className="line-clamp-1" title={backup.error_message}>⚠️ {backup.error_message}</p>
                       </div>
                     )}
 
-                    {/* Action buttons */}
-                    <div className="flex items-center gap-1 pt-1 border-t">
+                    {/* Actions */}
+                    <div className="flex items-center gap-0.5 pt-1 border-t">
                       {backup.status === "completed" && (
                         <>
                           {hasPermission("core.backups.download") && (
@@ -559,10 +541,10 @@ function BackupsPageContent() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleDownload(backup)}
-                              className="h-7 w-7 p-0 flex-1"
+                              className="h-6 w-6 p-0 flex-1"
                               title="Télécharger"
                             >
-                              <IconDownload className="h-3.5 w-3.5" />
+                              <IconDownload className="h-3 w-3" />
                             </Button>
                           )}
                           {hasPermission("core.backups.restore") && (
@@ -579,10 +561,10 @@ function BackupsPageContent() {
                                 })
                                 setRestoreDialogOpen(true)
                               }}
-                              className="h-7 w-7 p-0 flex-1"
+                              className="h-6 w-6 p-0 flex-1"
                               title="Restaurer"
                             >
-                              <IconRestore className="h-3.5 w-3.5" />
+                              <IconRestore className="h-3 w-3" />
                             </Button>
                           )}
                         </>
@@ -595,10 +577,10 @@ function BackupsPageContent() {
                             setSelectedBackup(backup)
                             setDeleteDialogOpen(true)
                           }}
-                          className="h-7 w-7 p-0 flex-1 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          className="h-6 w-6 p-0 flex-1 text-destructive hover:text-destructive hover:bg-destructive/10"
                           title="Supprimer"
                         >
-                          <IconTrash className="h-3.5 w-3.5" />
+                          <IconTrash className="h-3 w-3" />
                         </Button>
                       )}
                     </div>
@@ -743,84 +725,69 @@ function BackupsPageContent() {
             skeletonCount={2}
             skeletonClassName="h-32 w-full"
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-2">
               {scheduledBackups.map((scheduled) => (
-                <Card key={scheduled.id} className="hover:shadow-md transition-all duration-200 border-t-2" style={{ borderTopColor: scheduled.is_active ? 'var(--primary)' : 'var(--muted)' }}>
-                  <CardContent className="p-3 space-y-2.5">
-                    {/* Header: Name + Status */}
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-semibold text-sm line-clamp-1 flex-1" title={scheduled.name}>
+                <Card key={scheduled.id} className="hover:shadow-md transition-shadow border-t-2" style={{ borderTopColor: scheduled.is_active ? 'var(--primary)' : 'var(--muted)' }}>
+                  <CardContent className="p-2 space-y-1">
+                    {/* Row 1: Name + Status */}
+                    <div className="flex items-center justify-between gap-1">
+                      <h3 className="font-semibold text-xs line-clamp-1 flex-1" title={scheduled.name}>
                         {scheduled.name}
                       </h3>
-                      <Badge variant={scheduled.is_active ? "default" : "secondary"} className="text-xs h-5 px-2">
+                      <Badge variant={scheduled.is_active ? "default" : "secondary"} className="text-[10px] h-4 px-1.5">
                         {scheduled.is_active ? "Actif" : "Inactif"}
                       </Badge>
                     </div>
 
-                    {/* Description */}
+                    {/* Row 2: Description */}
                     {scheduled.description && (
-                      <p className="text-xs text-muted-foreground line-clamp-2" title={scheduled.description}>
+                      <p className="text-[10px] text-muted-foreground line-clamp-1" title={scheduled.description}>
                         {scheduled.description}
                       </p>
                     )}
 
-                    {/* Frequency + Time */}
-                    <div className="flex items-center gap-2 text-xs flex-wrap">
-                      <Badge variant="secondary" className="capitalize text-xs h-5 px-2">
+                    {/* Row 3: Frequency + Time + Content */}
+                    <div className="flex items-center gap-1 text-[10px]">
+                      <Badge variant="secondary" className="capitalize text-[10px] h-4 px-1.5">
                         {scheduled.schedule_frequency === "daily" && "Quotidienne"}
                         {scheduled.schedule_frequency === "weekly" && "Hebdomadaire"}
                         {scheduled.schedule_frequency === "monthly" && "Mensuelle"}
                       </Badge>
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <IconClock className="h-3.5 w-3.5" />
+                      <div className="flex items-center gap-0.5 text-muted-foreground">
+                        <IconClock className="h-2.5 w-2.5" />
                         <span>{scheduled.schedule_time}</span>
                       </div>
+                      <div className="flex items-center gap-0.5 ml-auto">
+                        {scheduled.includes_database && <span title="Base de données">🗄️</span>}
+                        {scheduled.includes_storage && <span title="Stockage">📁</span>}
+                        {scheduled.includes_config && <span title="Configuration">⚙️</span>}
+                      </div>
                     </div>
 
-                    {/* Next run */}
-                    {scheduled.next_run_at && (
-                      <div className="text-xs text-muted-foreground">
-                        Prochaine: {formatDistanceToNow(new Date(scheduled.next_run_at), { addSuffix: true, locale: fr })}
-                      </div>
-                    )}
-
-                    {/* Content badges */}
-                    <div className="flex items-center gap-1.5">
-                      {scheduled.includes_database && (
-                        <Badge variant="outline" className="text-xs h-5 px-1.5" title="Base de données">
-                          <IconDatabase className="h-3 w-3" />
-                        </Badge>
+                    {/* Row 4: Next run + Stats */}
+                    <div className="flex items-center justify-between gap-1 text-[10px] text-muted-foreground">
+                      {scheduled.next_run_at && (
+                        <span className="truncate">
+                          ⏰ {formatDistanceToNow(new Date(scheduled.next_run_at), { addSuffix: true, locale: fr })}
+                        </span>
                       )}
-                      {scheduled.includes_storage && (
-                        <Badge variant="outline" className="text-xs h-5 px-1.5" title="Stockage">
-                          📁
-                        </Badge>
-                      )}
-                      {scheduled.includes_config && (
-                        <Badge variant="outline" className="text-xs h-5 px-1.5" title="Configuration">
-                          ⚙️
-                        </Badge>
+                      {scheduled.total_runs > 0 && (
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <span className="text-green-600 dark:text-green-400">✓{scheduled.successful_runs}</span>
+                          {scheduled.failed_runs > 0 && (
+                            <span className="text-destructive">✗{scheduled.failed_runs}</span>
+                          )}
+                        </div>
                       )}
                     </div>
 
-                    {/* Stats */}
-                    {scheduled.total_runs > 0 && (
-                      <div className="flex items-center gap-2 text-xs pt-1 border-t">
-                        <span className="text-muted-foreground">Total: {scheduled.total_runs}</span>
-                        <span className="text-green-600 dark:text-green-400">✓ {scheduled.successful_runs}</span>
-                        {scheduled.failed_runs > 0 && (
-                          <span className="text-destructive">✗ {scheduled.failed_runs}</span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Action buttons */}
-                    <div className="flex items-center gap-1 pt-1 border-t">
+                    {/* Actions */}
+                    <div className="flex items-center gap-0.5 pt-1 border-t">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleToggleScheduled(scheduled)}
-                        className="h-7 text-xs flex-1"
+                        className="h-6 text-[10px] flex-1"
                       >
                         {scheduled.is_active ? "Désactiver" : "Activer"}
                       </Button>
@@ -832,10 +799,10 @@ function BackupsPageContent() {
                             setSelectedScheduled(scheduled)
                             setDeleteScheduledDialogOpen(true)
                           }}
-                          className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                           title="Supprimer"
                         >
-                          <IconTrash className="h-3.5 w-3.5" />
+                          <IconTrash className="h-3 w-3" />
                         </Button>
                       )}
                     </div>

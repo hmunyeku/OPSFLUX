@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { auth } from "@/lib/auth"
+import { useAuth } from "@/hooks/use-auth"
 import { Header } from "@/components/layout/header"
 import { Button } from "@/components/ui/button"
 import {
@@ -48,11 +49,30 @@ import {
 import { getWidgetMeta } from "@/widgets/registry"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { updateDashboard } from "@/lib/api/dashboards"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 export default function DashboardViewPageNew() {
   const params = useParams()
   const router = useRouter()
   const { toast } = useToast()
+  const { user } = useAuth()
   const dashboardId = params.id as string
 
   const [dashboard, setDashboard] = useState<Dashboard | null>(null)
@@ -63,6 +83,10 @@ export default function DashboardViewPageNew() {
   const [pendingChanges, setPendingChanges] = useState(false)
   const [configDialogOpen, setConfigDialogOpen] = useState(false)
   const [widgetToConfig, setWidgetToConfig] = useState<DashboardWidgetWithWidget | null>(null)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editName, setEditName] = useState("")
+  const [editDescription, setEditDescription] = useState("")
+  const [isSavingEdit, setIsSavingEdit] = useState(false)
 
   // Fetch dashboard
   useEffect(() => {
@@ -297,6 +321,43 @@ export default function DashboardViewPageNew() {
     setConfigDialogOpen(true)
   }
 
+  // Handle edit dashboard info
+  const handleOpenEditDialog = () => {
+    setEditName(dashboard?.name || "")
+    setEditDescription(dashboard?.description || "")
+    setEditDialogOpen(true)
+  }
+
+  const handleSaveDashboardInfo = async () => {
+    const token = auth.getToken()
+    if (!token || !dashboard) return
+
+    setIsSavingEdit(true)
+    try {
+      const updated = await updateDashboard(token, dashboardId, {
+        name: editName,
+        description: editDescription,
+      })
+
+      setDashboard(updated)
+      setEditDialogOpen(false)
+
+      toast({
+        title: "Dashboard mis à jour",
+        description: "Les informations du dashboard ont été mises à jour",
+      })
+    } catch (error) {
+      console.error("Failed to update dashboard:", error)
+      toast({
+        title: "Erreur",
+        description: "Impossible de mettre à jour le dashboard",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSavingEdit(false)
+    }
+  }
+
   const handleSaveWidgetConfig = async (widgetId: number, config: Record<string, any>) => {
     const token = auth.getToken()
     if (!token) return
@@ -349,7 +410,10 @@ export default function DashboardViewPageNew() {
     )
   }
 
-  const canEdit = !dashboard.is_mandatory
+  // L'utilisateur peut éditer si:
+  // 1. Ce n'est pas un dashboard obligatoire (is_mandatory)
+  // 2. ET l'utilisateur est le créateur du dashboard
+  const canEdit = !dashboard.is_mandatory && user && dashboard.created_by_id === user.id
   const hasWidgets = (dashboard.widgets || []).length > 0
   const widgetCount = dashboard.widgets?.length || 0
 
@@ -357,45 +421,54 @@ export default function DashboardViewPageNew() {
     <>
       <Header />
       <div className="flex flex-col h-[calc(100vh-4rem)] bg-background">
-        {/* Dashboard Header Bar - Professional Style */}
+        {/* Dashboard Header Bar - Compact Style */}
         <div className="flex-none border-b bg-card/80 backdrop-blur-sm supports-[backdrop-filter]:bg-card/60">
-          <div className="container mx-auto px-4 lg:px-6 py-4">
+          <div className="container mx-auto px-4 lg:px-6 py-2.5">
             <div className="flex items-center justify-between gap-4">
               {/* Left: Breadcrumb + Title */}
-              <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="flex items-center gap-2 min-w-0 flex-1 group">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => router.push("/dashboards")}
-                  className="shrink-0 h-9 w-9 p-0"
+                  className="shrink-0 h-8 w-8 p-0"
                 >
                   <IconArrowLeft className="h-4 w-4" />
                 </Button>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h1 className="text-xl font-bold tracking-tight truncate">{dashboard.name}</h1>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-lg font-bold tracking-tight truncate">{dashboard.name}</h1>
+                    {canEdit && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleOpenEditDialog}
+                        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 hover:bg-muted transition-opacity"
+                        title="Modifier le titre et la description"
+                      >
+                        <IconEdit className="h-3 w-3" />
+                      </Button>
+                    )}
                     {dashboard.is_mandatory && (
-                      <Badge variant="secondary" className="shrink-0 gap-1">
+                      <Badge variant="secondary" className="shrink-0 gap-1 h-5 px-1.5">
                         <IconLock className="h-3 w-3" />
                         <span className="text-xs">Système</span>
                       </Badge>
                     )}
                     {dashboard.is_public && (
-                      <Badge variant="outline" className="shrink-0 gap-1">
+                      <Badge variant="outline" className="shrink-0 gap-1 h-5 px-1.5">
                         <IconWorld className="h-3 w-3" />
                         <span className="text-xs">Public</span>
                       </Badge>
                     )}
-                  </div>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1.5 font-medium">
-                      <IconLayoutGrid className="h-3.5 w-3.5" />
-                      {widgetCount} widget{widgetCount > 1 ? "s" : ""}
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground ml-1">
+                      <IconLayoutGrid className="h-3 w-3" />
+                      {widgetCount}
                     </span>
                     {dashboard.description && (
                       <>
-                        <span className="text-muted-foreground/50">•</span>
-                        <span className="truncate max-w-md">{dashboard.description}</span>
+                        <span className="text-muted-foreground/50 text-xs">•</span>
+                        <span className="truncate max-w-md text-xs text-muted-foreground">{dashboard.description}</span>
                       </>
                     )}
                   </div>
@@ -404,29 +477,43 @@ export default function DashboardViewPageNew() {
 
               {/* Right: Actions */}
               {!isEditMode && (
-                <div className="flex items-center gap-2 shrink-0">
-                  <Button variant="ghost" size="sm" onClick={handleExport} className="gap-1.5">
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button variant="ghost" size="sm" onClick={handleExport} className="gap-1.5 h-8 px-3 text-xs">
                     <IconDownload className="h-4 w-4" />
                     <span className="hidden lg:inline">Exporter</span>
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={handleClone} className="gap-1.5">
+                  <Button variant="ghost" size="sm" onClick={handleClone} className="gap-1.5 h-8 px-3 text-xs">
                     <IconCopy className="h-4 w-4" />
                     <span className="hidden lg:inline">Dupliquer</span>
                   </Button>
                   {canEdit && (
                     <>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-3 text-xs">
+                            <IconSettings className="h-4 w-4" />
+                            <span className="hidden lg:inline">Modifier</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={handleOpenEditDialog}>
+                            <IconEdit className="h-4 w-4 mr-2" />
+                            Titre et description
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setIsEditMode(true)}>
+                            <IconLayoutGrid className="h-4 w-4 mr-2" />
+                            Layout des widgets
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => setShowDeleteDialog(true)}
-                        className="gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        className="gap-1.5 h-8 px-3 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
                       >
                         <IconTrash className="h-4 w-4" />
                         <span className="hidden lg:inline">Supprimer</span>
-                      </Button>
-                      <Button onClick={() => setIsEditMode(true)} size="sm" className="gap-1.5">
-                        <IconEdit className="h-4 w-4" />
-                        <span className="hidden sm:inline">Éditer le dashboard</span>
                       </Button>
                     </>
                   )}
@@ -473,6 +560,64 @@ export default function DashboardViewPageNew() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit Dashboard Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Modifier le dashboard</DialogTitle>
+            <DialogDescription>
+              Modifiez le titre et la description de votre dashboard.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Titre</Label>
+              <Input
+                id="edit-name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Entrez un titre..."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea
+                id="edit-description"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                placeholder="Entrez une description..."
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditDialogOpen(false)}
+              disabled={isSavingEdit}
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={handleSaveDashboardInfo}
+              disabled={isSavingEdit || !editName.trim()}
+            >
+              {isSavingEdit ? (
+                <>
+                  <IconDeviceFloppy className="h-4 w-4 mr-2 animate-spin" />
+                  Enregistrement...
+                </>
+              ) : (
+                <>
+                  <IconDeviceFloppy className="h-4 w-4 mr-2" />
+                  Enregistrer
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Widget Configuration Dialog */}
       <WidgetConfigDialog

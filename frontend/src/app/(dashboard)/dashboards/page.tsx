@@ -38,6 +38,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
+import { IconChevronDown } from "@tabler/icons-react"
 
 export default function DashboardsPageNew() {
   const { t } = useTranslation()
@@ -47,6 +53,7 @@ export default function DashboardsPageNew() {
   const [activeTab, setActiveTab] = useState<"all" | "my" | "mandatory" | "shared">("all")
   const [sortBy, setSortBy] = useState<"recent" | "name" | "widgets">("recent")
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false)
+  const [statsOpen, setStatsOpen] = useState(true)
 
   useEffect(() => {
     const token = auth.getToken()
@@ -187,7 +194,7 @@ export default function DashboardsPageNew() {
       <Header />
       <div className="flex flex-col h-[calc(100vh-4rem)]">
         {/* Compact Header */}
-        <div className="flex-none border-b bg-card/30 backdrop-blur-sm">
+        <Collapsible open={statsOpen} onOpenChange={setStatsOpen} className="flex-none border-b bg-card/30 backdrop-blur-sm">
           <div className="px-4 lg:px-6 py-4">
             <div className="flex items-center justify-between gap-4 mb-4">
               <div className="flex items-center gap-3">
@@ -202,6 +209,11 @@ export default function DashboardsPageNew() {
                     {t("dashboards.description", "Créez et gérez vos dashboards personnalisés")}
                   </p>
                 </div>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    <IconChevronDown className={`h-4 w-4 transition-transform ${statsOpen ? "" : "-rotate-90"}`} />
+                  </Button>
+                </CollapsibleTrigger>
               </div>
               <PermissionGuard permission="dashboards.create">
                 <DropdownMenu>
@@ -226,26 +238,28 @@ export default function DashboardsPageNew() {
             </div>
 
             {/* Compact Stats */}
-            <div className="grid grid-cols-4 gap-3">
-              {stats.map((stat) => (
-                <div
-                  key={stat.label}
-                  className="bg-background/60 rounded-lg p-3 border"
-                >
-                  <div className="flex items-center gap-2">
-                    <div className={`p-1.5 rounded ${stat.bgColor}`}>
-                      <stat.icon className={`h-4 w-4 ${stat.color}`} />
-                    </div>
-                    <div>
-                      <p className="text-lg font-semibold">{stat.value}</p>
-                      <p className="text-xs text-muted-foreground">{stat.label}</p>
+            <CollapsibleContent>
+              <div className="grid grid-cols-4 gap-3">
+                {stats.map((stat) => (
+                  <div
+                    key={stat.label}
+                    className="bg-background/60 rounded-lg p-3 border"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className={`p-1.5 rounded ${stat.bgColor}`}>
+                        <stat.icon className={`h-4 w-4 ${stat.color}`} />
+                      </div>
+                      <div>
+                        <p className="text-lg font-semibold">{stat.value}</p>
+                        <p className="text-xs text-muted-foreground">{stat.label}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </CollapsibleContent>
           </div>
-        </div>
+        </Collapsible>
 
         {/* Search & Filters Bar */}
         <div className="flex-none border-b bg-background/50 backdrop-blur-sm">

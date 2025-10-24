@@ -61,7 +61,15 @@ import {
   IconLayoutGrid,
   IconList,
   IconCalendar,
+  IconDots,
 } from "@tabler/icons-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import ContentSection from "../components/content-section"
 import {
   getBackups,
@@ -514,7 +522,7 @@ function BackupsPageContent() {
                       </div>
                     </div>
 
-                    {/* Row 3: Date + Actions */}
+                    {/* Row 3: Date + Menu */}
                     <div className="flex items-center justify-between gap-1 text-[10px]">
                       <div className="flex items-center gap-1 text-muted-foreground flex-1 min-w-0">
                         <IconClock className="h-2.5 w-2.5 flex-shrink-0" />
@@ -525,41 +533,67 @@ function BackupsPageContent() {
                           })}
                         </span>
                       </div>
-                      {backup.status === "completed" && (
-                        <div className="flex items-center gap-0.5 flex-shrink-0">
-                          {hasPermission("core.backups.download") && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDownload(backup)}
-                              className="h-5 w-5 p-0"
-                              title="Télécharger"
-                            >
-                              <IconDownload className="h-3 w-3" />
-                            </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-5 w-5 p-0">
+                            <IconDots className="h-3.5 w-3.5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {backup.status === "completed" && (
+                            <>
+                              {hasPermission("core.backups.download") && (
+                                <DropdownMenuItem onClick={() => handleDownload(backup)}>
+                                  <IconDownload className="h-4 w-4 mr-2" />
+                                  Télécharger
+                                </DropdownMenuItem>
+                              )}
+                              {hasPermission("core.backups.restore") && (
+                                <DropdownMenuItem onClick={() => {
+                                  setSelectedBackup(backup)
+                                  setRestoreOptions({
+                                    backup_id: backup.id,
+                                    restore_database: backup.includes_database,
+                                    restore_storage: backup.includes_storage,
+                                    restore_config: backup.includes_config,
+                                  })
+                                  setRestoreDialogOpen(true)
+                                }}>
+                                  <IconRestore className="h-4 w-4 mr-2" />
+                                  Restaurer
+                                </DropdownMenuItem>
+                              )}
+                              {hasPermission("core.backups.delete") && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setSelectedBackup(backup)
+                                      setDeleteDialogOpen(true)
+                                    }}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <IconTrash className="h-4 w-4 mr-2" />
+                                    Supprimer
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </>
                           )}
-                          {hasPermission("core.backups.restore") && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
+                          {backup.status !== "completed" && hasPermission("core.backups.delete") && (
+                            <DropdownMenuItem
                               onClick={() => {
                                 setSelectedBackup(backup)
-                                setRestoreOptions({
-                                  backup_id: backup.id,
-                                  restore_database: backup.includes_database,
-                                  restore_storage: backup.includes_storage,
-                                  restore_config: backup.includes_config,
-                                })
-                                setRestoreDialogOpen(true)
+                                setDeleteDialogOpen(true)
                               }}
-                              className="h-5 w-5 p-0"
-                              title="Restaurer"
+                              className="text-destructive focus:text-destructive"
                             >
-                              <IconRestore className="h-3 w-3" />
-                            </Button>
+                              <IconTrash className="h-4 w-4 mr-2" />
+                              Supprimer
+                            </DropdownMenuItem>
                           )}
-                        </div>
-                      )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
 
                     {/* Error message */}
@@ -748,7 +782,7 @@ function BackupsPageContent() {
                       </div>
                     </div>
 
-                    {/* Row 4: Next run + Stats + Actions */}
+                    {/* Row 4: Next run + Stats + Menu */}
                     <div className="flex items-center justify-between gap-1 text-[10px]">
                       <div className="flex items-center gap-1 text-muted-foreground flex-1 min-w-0">
                         {scheduled.next_run_at && (
@@ -765,14 +799,43 @@ function BackupsPageContent() {
                           </div>
                         )}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleToggleScheduled(scheduled)}
-                        className="h-5 text-[10px] px-2 flex-shrink-0"
-                      >
-                        {scheduled.is_active ? "Désactiver" : "Activer"}
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-5 w-5 p-0">
+                            <IconDots className="h-3.5 w-3.5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleToggleScheduled(scheduled)}>
+                            {scheduled.is_active ? (
+                              <>
+                                <IconX className="h-4 w-4 mr-2" />
+                                Désactiver
+                              </>
+                            ) : (
+                              <>
+                                <IconCheck className="h-4 w-4 mr-2" />
+                                Activer
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                          {hasPermission("core.backups.delete") && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setSelectedScheduled(scheduled)
+                                  setDeleteScheduledDialogOpen(true)
+                                }}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <IconTrash className="h-4 w-4 mr-2" />
+                                Supprimer
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </CardContent>
                 </Card>

@@ -248,6 +248,43 @@ export default function WidgetConfigDialog({
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="apiEndpoint">Endpoint API (optionnel)</Label>
+              <Input
+                id="apiEndpoint"
+                value={config.apiEndpoint || ""}
+                onChange={(e) => handleConfigChange("apiEndpoint", e.target.value)}
+                placeholder="/analytics/trend"
+              />
+              <p className="text-xs text-muted-foreground">
+                URL pour récupérer les données du graphique
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="apiDataPath">Chemin des données (optionnel)</Label>
+              <Input
+                id="apiDataPath"
+                value={config.apiDataPath || ""}
+                onChange={(e) => handleConfigChange("apiDataPath", e.target.value)}
+                placeholder="data.points"
+              />
+              <p className="text-xs text-muted-foreground">
+                Chemin vers le tableau de données (ex: data.points)
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="refreshInterval">Intervalle de rafraîchissement (secondes)</Label>
+              <Input
+                id="refreshInterval"
+                type="number"
+                min={0}
+                value={config.refreshInterval || 0}
+                onChange={(e) => handleConfigChange("refreshInterval", parseInt(e.target.value) || 0)}
+              />
+              <p className="text-xs text-muted-foreground">
+                0 = pas de rafraîchissement automatique
+              </p>
+            </div>
           </>
         )
 
@@ -256,13 +293,16 @@ export default function WidgetConfigDialog({
           <>
             {commonFields}
             <div className="space-y-2">
-              <Label htmlFor="value">Valeur</Label>
+              <Label htmlFor="value">Valeur (si statique)</Label>
               <Input
                 id="value"
                 type="number"
                 value={config.value || 0}
                 onChange={(e) => handleConfigChange("value", parseFloat(e.target.value) || 0)}
               />
+              <p className="text-xs text-muted-foreground">
+                Laissez à 0 si vous utilisez une API
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="max">Maximum</Label>
@@ -279,6 +319,7 @@ export default function WidgetConfigDialog({
                 id="label"
                 value={config.label || ""}
                 onChange={(e) => handleConfigChange("label", e.target.value)}
+                placeholder="Progression"
               />
             </div>
             <div className="flex items-center justify-between">
@@ -300,12 +341,63 @@ export default function WidgetConfigDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="default">Défaut</SelectItem>
+                  <SelectItem value="success">Succès (Vert)</SelectItem>
+                  <SelectItem value="warning">Avertissement (Orange)</SelectItem>
+                  <SelectItem value="danger">Danger (Rouge)</SelectItem>
                   <SelectItem value="blue">Bleu</SelectItem>
-                  <SelectItem value="green">Vert</SelectItem>
-                  <SelectItem value="orange">Orange</SelectItem>
-                  <SelectItem value="red">Rouge</SelectItem>
+                  <SelectItem value="purple">Violet</SelectItem>
+                  <SelectItem value="pink">Rose</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="apiEndpoint">Endpoint API (optionnel)</Label>
+              <Input
+                id="apiEndpoint"
+                value={config.apiEndpoint || ""}
+                onChange={(e) => handleConfigChange("apiEndpoint", e.target.value)}
+                placeholder="/progress/status"
+              />
+              <p className="text-xs text-muted-foreground">
+                URL pour récupérer la valeur de progression
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="apiValuePath">Chemin de la valeur (optionnel)</Label>
+              <Input
+                id="apiValuePath"
+                value={config.apiValuePath || ""}
+                onChange={(e) => handleConfigChange("apiValuePath", e.target.value)}
+                placeholder="data.current"
+              />
+              <p className="text-xs text-muted-foreground">
+                Chemin vers la valeur actuelle dans la réponse
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="apiMaxPath">Chemin du maximum (optionnel)</Label>
+              <Input
+                id="apiMaxPath"
+                value={config.apiMaxPath || ""}
+                onChange={(e) => handleConfigChange("apiMaxPath", e.target.value)}
+                placeholder="data.total"
+              />
+              <p className="text-xs text-muted-foreground">
+                Chemin vers la valeur maximale dans la réponse
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="refreshInterval">Intervalle de rafraîchissement (secondes)</Label>
+              <Input
+                id="refreshInterval"
+                type="number"
+                min={0}
+                value={config.refreshInterval || 0}
+                onChange={(e) => handleConfigChange("refreshInterval", parseInt(e.target.value) || 0)}
+              />
+              <p className="text-xs text-muted-foreground">
+                0 = pas de rafraîchissement automatique
+              </p>
             </div>
           </>
         )
@@ -324,6 +416,31 @@ export default function WidgetConfigDialog({
                 value={config.maxItems || 5}
                 onChange={(e) => handleConfigChange("maxItems", parseInt(e.target.value) || 5)}
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="apiEndpoint">Endpoint API (optionnel)</Label>
+              <Input
+                id="apiEndpoint"
+                value={config.apiEndpoint || ""}
+                onChange={(e) => handleConfigChange("apiEndpoint", e.target.value)}
+                placeholder="/activities/recent"
+              />
+              <p className="text-xs text-muted-foreground">
+                URL pour récupérer les activités récentes
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="refreshInterval">Intervalle de rafraîchissement (secondes)</Label>
+              <Input
+                id="refreshInterval"
+                type="number"
+                min={0}
+                value={config.refreshInterval || 0}
+                onChange={(e) => handleConfigChange("refreshInterval", parseInt(e.target.value) || 0)}
+              />
+              <p className="text-xs text-muted-foreground">
+                0 = pas de rafraîchissement automatique
+              </p>
             </div>
           </>
         )
@@ -350,6 +467,102 @@ export default function WidgetConfigDialog({
                 checked={config.showPriority ?? true}
                 onCheckedChange={(checked) => handleConfigChange("showPriority", checked)}
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="apiEndpoint">Endpoint API (optionnel)</Label>
+              <Input
+                id="apiEndpoint"
+                value={config.apiEndpoint || ""}
+                onChange={(e) => handleConfigChange("apiEndpoint", e.target.value)}
+                placeholder="/tasks/list"
+              />
+              <p className="text-xs text-muted-foreground">
+                URL pour récupérer la liste des tâches
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="refreshInterval">Intervalle de rafraîchissement (secondes)</Label>
+              <Input
+                id="refreshInterval"
+                type="number"
+                min={0}
+                value={config.refreshInterval || 0}
+                onChange={(e) => handleConfigChange("refreshInterval", parseInt(e.target.value) || 0)}
+              />
+              <p className="text-xs text-muted-foreground">
+                0 = pas de rafraîchissement automatique
+              </p>
+            </div>
+          </>
+        )
+
+      case "user_stats":
+        return (
+          <>
+            {commonFields}
+            <div className="space-y-2">
+              <Label htmlFor="totalUsers">Total utilisateurs (si statique)</Label>
+              <Input
+                id="totalUsers"
+                type="number"
+                value={config.totalUsers || 0}
+                onChange={(e) => handleConfigChange("totalUsers", parseInt(e.target.value) || 0)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Laissez à 0 si vous utilisez une API
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="activeUsers">Utilisateurs actifs (si statique)</Label>
+              <Input
+                id="activeUsers"
+                type="number"
+                value={config.activeUsers || 0}
+                onChange={(e) => handleConfigChange("activeUsers", parseInt(e.target.value) || 0)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="newUsers">Nouveaux utilisateurs (si statique)</Label>
+              <Input
+                id="newUsers"
+                type="number"
+                value={config.newUsers || 0}
+                onChange={(e) => handleConfigChange("newUsers", parseInt(e.target.value) || 0)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="trend">Tendance (%)</Label>
+              <Input
+                id="trend"
+                type="number"
+                value={config.trend || 0}
+                onChange={(e) => handleConfigChange("trend", parseFloat(e.target.value) || 0)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="apiEndpoint">Endpoint API (optionnel)</Label>
+              <Input
+                id="apiEndpoint"
+                value={config.apiEndpoint || ""}
+                onChange={(e) => handleConfigChange("apiEndpoint", e.target.value)}
+                placeholder="/users/stats"
+              />
+              <p className="text-xs text-muted-foreground">
+                URL pour récupérer les statistiques utilisateurs
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="refreshInterval">Intervalle de rafraîchissement (secondes)</Label>
+              <Input
+                id="refreshInterval"
+                type="number"
+                min={0}
+                value={config.refreshInterval || 0}
+                onChange={(e) => handleConfigChange("refreshInterval", parseInt(e.target.value) || 0)}
+              />
+              <p className="text-xs text-muted-foreground">
+                0 = pas de rafraîchissement automatique
+              </p>
             </div>
           </>
         )

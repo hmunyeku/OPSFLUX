@@ -1,10 +1,17 @@
 "use client"
 
+import { useState, useEffect, useRef } from "react"
 import { Checkbox } from "@/components/ui/checkbox"
-import { IconCircleCheck, IconCircle } from "@tabler/icons-react"
+import { IconCircleCheck, IconRefresh } from "@tabler/icons-react"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { auth } from "@/lib/auth"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Button } from "@/components/ui/button"
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
+  ? `${process.env.NEXT_PUBLIC_API_URL}/api/v1`
+  : "/api/v1"
 
 interface TaskItem {
   id: string
@@ -19,89 +26,135 @@ interface TaskListProps {
     tasks?: TaskItem[]
     maxItems?: number
     showPriority?: boolean
+    apiEndpoint?: string
+    refreshInterval?: number
   }
 }
 
 export default function TaskList({ config }: TaskListProps) {
   const {
     title = "Tâches",
-    tasks = [],
+    tasks: configTasks = [],
     maxItems = 8,
     showPriority = true,
+    apiEndpoint,
+    refreshInterval = 0,
   } = config
+
+  const [tasks, setTasks] = useState<TaskItem[]>(configTasks)
+  const [isLoading, setIsLoading] = useState(false)
+  const isFirstRender = useRef(true)
+
+  const fetchTasks = async () => {
+    if (!apiEndpoint) {
+      setTasks(configTasks)
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const token = auth.getToken()
+      if (!token) throw new Error("Non authentifié")
+
+      const url = apiEndpoint.startsWith("http") ? apiEndpoint : `${API_BASE_URL}${apiEndpoint}`
+      const response = await fetch(url, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) throw new Error(`Erreur ${response.status}`)
+
+      const data = await response.json()
+      setTasks(data.data || data || configTasks)
+    } catch (err: any) {
+      console.error("Task List Error:", err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      fetchTasks()
+    }
+    if (refreshInterval > 0) {
+      const interval = setInterval(fetchTasks, refreshInterval * 1000)
+      return () => clearInterval(interval)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshInterval])
 
   const displayTasks = tasks.slice(0, maxItems)
   const completedCount = tasks.filter((t) => t.completed).length
 
-  const getPriorityClasses = (priority?: string) => {
+  const getPriorityColor = (priority?: string) => {
     switch (priority) {
-      case "high":
-        return "bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400 border-red-200 dark:border-red-900"
-      case "medium":
-        return "bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 border-amber-200 dark:border-amber-900"
-      case "low":
-        return "bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 border-blue-200 dark:border-blue-900"
-      default:
-        return "bg-muted text-muted-foreground border-border"
-    }
-  }
-
-  const getPriorityLabel = (priority?: string) => {
-    switch (priority) {
-      case "high":
-        return "!"
-      case "medium":
-        return "•"
-      case "low":
-        return "·"
-      default:
-        return ""
+      case "high": return "text-red-500"
+      case "medium": return "text-amber-500"
+      case "low": return "text-blue-500"
+      default: return "text-muted-foreground"
     }
   }
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Progress Header */}
-      <div className="px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 border-b bg-gradient-to-r from-muted/5 to-transparent">
-        <div className="flex items-center justify-between gap-3 mb-2">
-          <span className="text-2xl sm:text-3xl font-bold tabular-nums">{completedCount}</span>
-          <span className="text-sm text-muted-foreground">sur {tasks.length}</span>
+    <div className="h-full flex flex-col p-3">
+      {/* Compact Header with Progress */}
+      <div className="mb-2">
+        <div className="flex items-center justify-between mb-1.5">
+          <h3 className="text-xs font-medium text-muted-foreground">{title}</h3>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground tabular-nums">{completedCount}/{tasks.length}</span>
+            {apiEndpoint && !isLoading && (
+              <Button variant="ghost" size="sm" onClick={fetchTasks} className="h-6 w-6 p-0">
+                <IconRefresh className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
         </div>
-        <div className="h-1.5 sm:h-2 bg-muted rounded-full overflow-hidden">
+        <div className="h-1 bg-muted rounded-full overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-emerald-500 to-emerald-600 transition-all duration-500 rounded-full"
+            className="h-full bg-emerald-600 transition-all duration-500"
             style={{ width: `${tasks.length ? (completedCount / tasks.length) * 100 : 0}%` }}
           />
         </div>
       </div>
 
-      {/* Task List */}
-      <div className="flex-1 overflow-hidden">
-        {displayTasks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center px-4 sm:px-6 gap-2">
-            <IconCircleCheck className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground/30" />
-            <p className="text-sm text-muted-foreground">Aucune tâche</p>
+      {/* Compact Task List */}
+      <div className="flex-1 min-h-0">
+        {isLoading ? (
+          <div className="space-y-2 p-1">
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
+          </div>
+        ) : displayTasks.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center gap-2">
+            <IconCircleCheck className="h-8 w-8 text-muted-foreground/30" />
+            <p className="text-xs text-muted-foreground">Aucune tâche</p>
           </div>
         ) : (
           <ScrollArea className="h-full">
-            <div className="px-3 sm:px-5 py-2 sm:py-3 space-y-1.5 sm:space-y-2">
+            <div className="space-y-1">
               {displayTasks.map((task) => (
                 <div
                   key={task.id}
                   className={cn(
-                    "group flex items-start gap-2.5 sm:gap-3 p-2 sm:p-2.5 rounded-lg transition-colors",
+                    "flex items-start gap-2 p-1.5 rounded transition-colors",
                     task.completed ? "bg-muted/30" : "hover:bg-muted/50"
                   )}
                 >
-                  {task.completed ? (
-                    <IconCircleCheck className="h-4 w-4 sm:h-5 sm:w-5 mt-0.5 text-emerald-500 flex-shrink-0" />
-                  ) : (
-                    <IconCircle className="h-4 w-4 sm:h-5 sm:w-5 mt-0.5 text-muted-foreground flex-shrink-0" />
-                  )}
+                  <Checkbox
+                    checked={task.completed}
+                    className="mt-0.5 h-3.5 w-3.5"
+                    disabled
+                  />
                   <div className="flex-1 min-w-0 flex items-start justify-between gap-2">
                     <span
                       className={cn(
-                        "text-xs sm:text-sm leading-relaxed",
+                        "text-[11px] leading-relaxed",
                         task.completed
                           ? "line-through text-muted-foreground"
                           : "text-foreground"
@@ -112,12 +165,10 @@ export default function TaskList({ config }: TaskListProps) {
                     {showPriority && task.priority && (
                       <span
                         className={cn(
-                          "flex-shrink-0 text-[10px] sm:text-xs font-bold px-1.5 py-0.5 rounded border",
-                          getPriorityClasses(task.priority)
+                          "shrink-0 h-1.5 w-1.5 rounded-full mt-1.5",
+                          getPriorityColor(task.priority)
                         )}
-                      >
-                        {getPriorityLabel(task.priority)}
-                      </span>
+                      />
                     )}
                   </div>
                 </div>

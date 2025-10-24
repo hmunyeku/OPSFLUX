@@ -1,8 +1,16 @@
 "use client"
 
+import { useState, useEffect, useRef } from "react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { IconActivity, IconClock } from "@tabler/icons-react"
+import { IconActivity, IconRefresh } from "@tabler/icons-react"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { auth } from "@/lib/auth"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Button } from "@/components/ui/button"
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
+  ? `${process.env.NEXT_PUBLIC_API_URL}/api/v1`
+  : "/api/v1"
 
 interface ActivityItem {
   id: string
@@ -17,62 +25,123 @@ interface RecentActivityProps {
     title?: string
     activities?: ActivityItem[]
     maxItems?: number
+    apiEndpoint?: string
+    refreshInterval?: number
   }
 }
 
 export default function RecentActivity({ config }: RecentActivityProps) {
   const {
     title = "Activité Récente",
-    activities = [],
+    activities: configActivities = [],
     maxItems = 5,
+    apiEndpoint,
+    refreshInterval = 0,
   } = config
+
+  const [activities, setActivities] = useState<ActivityItem[]>(configActivities)
+  const [isLoading, setIsLoading] = useState(false)
+  const isFirstRender = useRef(true)
+
+  const fetchActivities = async () => {
+    if (!apiEndpoint) {
+      setActivities(configActivities)
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const token = auth.getToken()
+      if (!token) throw new Error("Non authentifié")
+
+      const url = apiEndpoint.startsWith("http") ? apiEndpoint : `${API_BASE_URL}${apiEndpoint}`
+      const response = await fetch(url, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) throw new Error(`Erreur ${response.status}`)
+
+      const data = await response.json()
+      setActivities(data.data || data || configActivities)
+    } catch (err: any) {
+      console.error("Recent Activity Error:", err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      fetchActivities()
+    }
+    if (refreshInterval > 0) {
+      const interval = setInterval(fetchActivities, refreshInterval * 1000)
+      return () => clearInterval(interval)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshInterval])
 
   const displayActivities = activities.slice(0, maxItems)
 
   return (
-    <div className="h-full flex flex-col">
-      {displayActivities.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-full text-center px-4 sm:px-6 gap-2">
-          <IconActivity className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground/30" />
-          <p className="text-sm text-muted-foreground">Aucune activité récente</p>
+    <div className="h-full flex flex-col p-3">
+      {/* Compact Header */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <div className="p-1.5 rounded-md bg-muted/50 text-blue-600 dark:text-blue-400 shrink-0">
+            <IconActivity className="h-3.5 w-3.5" />
+          </div>
+          <h3 className="text-xs font-medium text-muted-foreground truncate">
+            {title}
+          </h3>
         </div>
-      ) : (
-        <ScrollArea className="h-full">
-          <div className="px-3 sm:px-5 py-3 sm:py-4">
-            <div className="relative space-y-4 sm:space-y-5">
-              {/* Timeline line */}
-              <div className="absolute left-[19px] sm:left-[21px] top-0 bottom-0 w-px bg-gradient-to-b from-border via-border/50 to-transparent" />
+        {apiEndpoint && !isLoading && (
+          <Button variant="ghost" size="sm" onClick={fetchActivities} className="h-6 w-6 p-0">
+            <IconRefresh className="h-3 w-3" />
+          </Button>
+        )}
+      </div>
 
-              {displayActivities.map((activity, index) => (
-                <div key={activity.id} className="relative flex items-start gap-3 sm:gap-4">
-                  {/* Avatar with ring */}
-                  <div className="relative z-10 flex-shrink-0">
-                    <Avatar className="h-9 w-9 sm:h-10 sm:w-10 ring-2 ring-background">
-                      <AvatarFallback className="text-xs sm:text-sm font-semibold bg-gradient-to-br from-primary/20 to-primary/10 text-primary">
-                        {activity.initials || activity.user.substring(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0 pt-1">
-                    <div className="flex items-start justify-between gap-2 mb-1">
-                      <p className="text-xs sm:text-sm leading-relaxed">
-                        <span className="font-semibold text-foreground">{activity.user}</span>{" "}
-                        <span className="text-muted-foreground">{activity.action}</span>
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-muted-foreground">
-                      <IconClock className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                      <span>{activity.timestamp}</span>
-                    </div>
+      {/* Compact Activity List */}
+      <div className="flex-1 min-h-0">
+        {isLoading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ) : displayActivities.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center gap-2">
+            <IconActivity className="h-8 w-8 text-muted-foreground/30" />
+            <p className="text-xs text-muted-foreground">Aucune activité</p>
+          </div>
+        ) : (
+          <ScrollArea className="h-full">
+            <div className="space-y-2">
+              {displayActivities.map((activity) => (
+                <div key={activity.id} className="flex items-start gap-2">
+                  <Avatar className="h-6 w-6 shrink-0">
+                    <AvatarFallback className="text-[10px] font-semibold bg-muted text-foreground">
+                      {activity.initials || activity.user.substring(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] leading-relaxed text-foreground">
+                      <span className="font-medium">{activity.user}</span>{" "}
+                      <span className="text-muted-foreground">{activity.action}</span>
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">{activity.timestamp}</p>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
-        </ScrollArea>
-      )}
+          </ScrollArea>
+        )}
+      </div>
     </div>
   )
 }

@@ -158,14 +158,47 @@ class BackupService:
             if settings_obj:
                 config_file = backup_path / "config.json"
                 config_data = {
+                    # Application générale
                     "app_name": settings_obj.app_name,
-                    "environment": settings_obj.environment,
-                    "redis_host": settings_obj.redis_host,
-                    "redis_port": settings_obj.redis_port,
-                    "redis_db": settings_obj.redis_db,
-                    "storage_backend": settings_obj.storage_backend,
-                    "invitation_expiry_days": settings_obj.invitation_expiry_days,
-                    # Ajouter d'autres settings selon les besoins
+                    "app_logo": settings_obj.app_logo,
+                    "default_theme": settings_obj.default_theme,
+                    "default_language": settings_obj.default_language,
+                    "font": settings_obj.font,
+                    "company_name": settings_obj.company_name,
+                    "company_logo": settings_obj.company_logo,
+                    "company_tax_id": settings_obj.company_tax_id,
+                    "company_address": settings_obj.company_address,
+                    # Paramètres UI
+                    "auto_save_delay_seconds": settings_obj.auto_save_delay_seconds,
+                    # Paramètres 2FA
+                    "twofa_max_attempts": settings_obj.twofa_max_attempts,
+                    "twofa_sms_timeout_minutes": settings_obj.twofa_sms_timeout_minutes,
+                    "twofa_sms_rate_limit": settings_obj.twofa_sms_rate_limit,
+                    # Stockage
+                    "default_storage_backend": settings_obj.default_storage_backend,
+                    "local_storage_path": settings_obj.local_storage_path,
+                    "max_upload_size_mb": settings_obj.max_upload_size_mb,
+                    "allowed_file_extensions": settings_obj.allowed_file_extensions,
+                    # S3
+                    "s3_bucket_name": settings_obj.s3_bucket_name,
+                    "s3_region": settings_obj.s3_region,
+                    "s3_endpoint_url": settings_obj.s3_endpoint_url,
+                    # Email
+                    "smtp_host": settings_obj.smtp_host,
+                    "smtp_port": settings_obj.smtp_port,
+                    "smtp_username": settings_obj.smtp_username,
+                    "smtp_use_tls": settings_obj.smtp_use_tls,
+                    "smtp_from_email": settings_obj.smtp_from_email,
+                    "smtp_from_name": settings_obj.smtp_from_name,
+                    # SMS
+                    "sms_provider": settings_obj.sms_provider,
+                    "twilio_account_sid": settings_obj.twilio_account_sid,
+                    "twilio_from_number": settings_obj.twilio_from_number,
+                    # Webhooks
+                    "webhooks_enabled": settings_obj.webhooks_enabled,
+                    "webhook_retry_max_attempts": settings_obj.webhook_retry_max_attempts,
+                    "webhook_retry_delay_seconds": settings_obj.webhook_retry_delay_seconds,
+                    "webhook_timeout_seconds": settings_obj.webhook_timeout_seconds,
                 }
 
                 with open(config_file, "w") as f:

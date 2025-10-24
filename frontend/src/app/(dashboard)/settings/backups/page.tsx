@@ -406,7 +406,7 @@ function BackupsPageContent() {
     }
   }
 
-  const getStatusBadge = (status: Backup["status"]) => {
+  const getStatusBadge = (status: Backup["status"], compact = false) => {
     const variants = {
       pending: { variant: "secondary" as const, icon: IconClock, label: "En attente" },
       in_progress: { variant: "default" as const, icon: IconLoader, label: "En cours" },
@@ -416,6 +416,15 @@ function BackupsPageContent() {
 
     const config = variants[status]
     const Icon = config.icon
+
+    if (compact) {
+      // Version compacte: icône uniquement
+      return (
+        <Badge variant={config.variant} className="h-4 w-4 p-0 flex items-center justify-center" title={config.label}>
+          <Icon className={`h-2.5 w-2.5 ${status === "in_progress" ? "animate-spin" : ""}`} />
+        </Badge>
+      )
+    }
 
     return (
       <Badge variant={config.variant} className="flex items-center gap-1 w-fit">
@@ -506,7 +515,7 @@ function BackupsPageContent() {
                       <h3 className="font-semibold text-xs line-clamp-1 flex-1" title={backup.name}>
                         {backup.name}
                       </h3>
-                      {getStatusBadge(backup.status)}
+                      {getStatusBadge(backup.status, true)}
                     </div>
 
                     {/* Row 2: Type + Size + Content */}

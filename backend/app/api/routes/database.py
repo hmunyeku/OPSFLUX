@@ -3,6 +3,7 @@ API endpoints for database query execution.
 Allows authorized users to execute read-only SQL queries.
 """
 
+import re
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -46,21 +47,37 @@ def execute_query(
     # Validation basique: seules les requêtes SELECT sont autorisées
     query_upper = query.upper()
 
+    # Enlever les espaces au début pour vérifier le premier mot
+    query_stripped = query_upper.lstrip()
+
     # Vérifier que c'est bien une requête SELECT
-    if not query_upper.startswith("SELECT"):
+    if not query_stripped.startswith("SELECT"):
         raise HTTPException(
             status_code=400,
             detail="Seules les requêtes SELECT sont autorisées"
         )
 
-    # Vérifier qu'il n'y a pas de commandes dangereuses
+    # Vérifier qu'il n'y a pas de commandes dangereuses en tant que mots-clés SQL
+    # On utilise une regex plus intelligente pour détecter les mots-clés SQL
+    # et non pas juste leur présence dans la chaîne
     dangerous_keywords = [
         "DROP", "DELETE", "INSERT", "UPDATE", "ALTER", "CREATE",
         "TRUNCATE", "REPLACE", "GRANT", "REVOKE", "EXEC", "EXECUTE"
     ]
 
     for keyword in dangerous_keywords:
-        if keyword in query_upper:
+        # Chercher le mot-clé en tant que mot complet (word boundary)
+        # Mais seulement en dehors des chaînes de caractères
+        # Pattern: le mot-clé doit être précédé d'un espace, début de ligne, ou ;
+        # et suivi d'un espace, fin de ligne, ou ;
+        pattern = r"(?:^|[;\s])" + keyword + r"(?:[;\s]|$)"
+
+        # On doit d'abord retirer les chaînes de caractères pour éviter les faux positifs
+        # Remplacer temporairement les chaînes entre quotes par des espaces
+        query_without_strings = re.sub(r"'[^']*'", " ", query_upper)
+        query_without_strings = re.sub(r'"[^"]*"', " ", query_without_strings)
+
+        if re.search(pattern, query_without_strings):
             raise HTTPException(
                 status_code=400,
                 detail=f"Commande non autorisée: {keyword}"

@@ -329,9 +329,44 @@ export default function GeneralForm() {
     return () => clearInterval(interval)
   }, [recentlyModified])
 
+  // Upload logo file and return URL
+  const uploadLogo = useCallback(async (file: File): Promise<string> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('module', 'core')
+    formData.append('public', 'true')
+
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/storage/upload`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+      },
+      body: formData,
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to upload logo')
+    }
+
+    const result = await response.json()
+    return result.url
+  }, [])
+
   // Save function (immediate save like preferences)
   const saveSettings = useCallback(async (data: z.infer<typeof formSchema>) => {
     try {
+      // Upload logos if they are File objects
+      let appLogoUrl: string | undefined
+      let companyLogoUrl: string | undefined
+
+      if (data.app_logo instanceof File) {
+        appLogoUrl = await uploadLogo(data.app_logo)
+      }
+
+      if (data.company_logo instanceof File) {
+        companyLogoUrl = await uploadLogo(data.company_logo)
+      }
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/settings/`, {
         method: 'PUT',
         headers: {
@@ -340,10 +375,12 @@ export default function GeneralForm() {
         },
         body: JSON.stringify({
           app_name: data.app_name,
+          app_logo: appLogoUrl || config.app_logo || "",
           default_theme: data.default_theme,
           default_language: data.default_language,
           font: data.font,
           company_name: data.company_name,
+          company_logo: companyLogoUrl || config.company_logo || "",
           company_tax_id: data.company_tax_id,
           company_address: data.company_address,
           auto_save_delay_seconds: data.auto_save_delay_seconds,
@@ -351,49 +388,49 @@ export default function GeneralForm() {
           twofa_sms_timeout_minutes: data.twofa_sms_timeout_minutes,
           twofa_sms_rate_limit: data.twofa_sms_rate_limit,
           sms_provider: data.sms_provider,
-          sms_provider_account_sid: data.sms_provider_account_sid || null,
-          sms_provider_auth_token: data.sms_provider_auth_token || null,
-          sms_provider_phone_number: data.sms_provider_phone_number || null,
-          email_host: data.email_host || null,
-          email_port: data.email_port || null,
-          email_username: data.email_username || null,
-          email_password: data.email_password || null,
-          email_from: data.email_from || null,
-          email_from_name: data.email_from_name || null,
+          sms_provider_account_sid: data.sms_provider_account_sid || "",
+          sms_provider_auth_token: data.sms_provider_auth_token || "",
+          sms_provider_phone_number: data.sms_provider_phone_number || "",
+          email_host: data.email_host || "",
+          email_port: data.email_port,
+          email_username: data.email_username || "",
+          email_password: data.email_password || "",
+          email_from: data.email_from || "",
+          email_from_name: data.email_from_name || "",
           email_use_tls: data.email_use_tls,
           email_use_ssl: data.email_use_ssl,
-          intranet_url: data.intranet_url || null,
+          intranet_url: data.intranet_url || "",
           // CORE Services
-          redis_host: data.redis_host || null,
-          redis_port: data.redis_port || null,
-          redis_db: data.redis_db || null,
-          redis_password: data.redis_password || null,
-          redis_default_ttl: data.redis_default_ttl || null,
-          redis_max_ttl: data.redis_max_ttl || null,
-          storage_backend: data.storage_backend || null,
-          s3_endpoint: data.s3_endpoint || null,
-          s3_access_key: data.s3_access_key || null,
-          s3_secret_key: data.s3_secret_key || null,
-          s3_bucket: data.s3_bucket || null,
-          s3_region: data.s3_region || null,
-          search_backend: data.search_backend || null,
-          search_language: data.search_language || null,
-          elasticsearch_url: data.elasticsearch_url || null,
-          typesense_api_key: data.typesense_api_key || null,
-          typesense_host: data.typesense_host || null,
-          audit_retention_days: data.audit_retention_days || null,
-          audit_log_level: data.audit_log_level || null,
-          audit_enabled: data.audit_enabled ?? null,
+          redis_host: data.redis_host,
+          redis_port: data.redis_port,
+          redis_db: data.redis_db,
+          redis_password: data.redis_password || "",
+          redis_default_ttl: data.redis_default_ttl,
+          redis_max_ttl: data.redis_max_ttl,
+          storage_backend: data.storage_backend,
+          s3_endpoint: data.s3_endpoint || "",
+          s3_access_key: data.s3_access_key || "",
+          s3_secret_key: data.s3_secret_key || "",
+          s3_bucket: data.s3_bucket || "",
+          s3_region: data.s3_region,
+          search_backend: data.search_backend,
+          search_language: data.search_language,
+          elasticsearch_url: data.elasticsearch_url || "",
+          typesense_api_key: data.typesense_api_key || "",
+          typesense_host: data.typesense_host || "",
+          audit_retention_days: data.audit_retention_days,
+          audit_log_level: data.audit_log_level,
+          audit_enabled: data.audit_enabled,
           // AI Configuration
-          ai_provider: data.ai_provider || null,
-          ai_openai_api_key: data.ai_openai_api_key || null,
-          ai_openai_model: data.ai_openai_model || null,
-          ai_openai_base_url: data.ai_openai_base_url || null,
-          ai_anthropic_api_key: data.ai_anthropic_api_key || null,
-          ai_anthropic_model: data.ai_anthropic_model || null,
-          ai_max_tokens: data.ai_max_tokens || null,
-          ai_temperature: data.ai_temperature || null,
-          invitation_expiry_days: data.invitation_expiry_days || null,
+          ai_provider: data.ai_provider,
+          ai_openai_api_key: data.ai_openai_api_key || "",
+          ai_openai_model: data.ai_openai_model || "",
+          ai_openai_base_url: data.ai_openai_base_url || "",
+          ai_anthropic_api_key: data.ai_anthropic_api_key || "",
+          ai_anthropic_model: data.ai_anthropic_model || "",
+          ai_max_tokens: data.ai_max_tokens,
+          ai_temperature: data.ai_temperature,
+          invitation_expiry_days: data.invitation_expiry_days,
         }),
       })
 
@@ -518,13 +555,13 @@ export default function GeneralForm() {
             render={({ field: { value, onChange, ...fieldProps } }) => (
               <FormItem>
                 <div className="flex items-center gap-2">
-                  {value && value instanceof File && (
+                  {(value instanceof File || config.app_logo) && (
                     <Image
                       alt="app-logo"
                       width={35}
                       height={35}
                       className="h-[35px] w-[35px] rounded-md object-cover"
-                      src={URL.createObjectURL(value)}
+                      src={value instanceof File ? URL.createObjectURL(value) : config.app_logo || ''}
                     />
                   )}
                   <FormControl>
@@ -679,13 +716,13 @@ export default function GeneralForm() {
             render={({ field: { value, onChange, ...fieldProps } }) => (
               <FormItem>
                 <div className="flex items-center gap-2">
-                  {value && value instanceof File && (
+                  {(value instanceof File || config.company_logo) && (
                     <Image
                       alt="company-logo"
                       width={35}
                       height={35}
                       className="h-[35px] w-[35px] rounded-md object-cover"
-                      src={URL.createObjectURL(value)}
+                      src={value instanceof File ? URL.createObjectURL(value) : config.company_logo || ''}
                     />
                   )}
                   <FormControl>

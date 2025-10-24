@@ -72,7 +72,23 @@ async def update_settings(
             )
 
         # Update settings with provided values
+        # Exclude unset values, but keep None for optional fields (nullable columns)
         settings_data = settings_in.model_dump(exclude_unset=True)
+
+        # Only remove None for fields that have NOT NULL constraints with defaults
+        # These fields should use their defaults if not provided, not NULL
+        not_null_fields_with_defaults = {
+            'redis_db', 'redis_port', 'redis_host', 'redis_default_ttl', 'redis_max_ttl',
+            'email_port', 'email_use_tls', 'email_use_ssl', 'auto_save_delay_seconds',
+            'twofa_max_attempts', 'twofa_sms_timeout_minutes', 'twofa_sms_rate_limit',
+        }
+
+        # Filter out None values only for NOT NULL fields
+        settings_data = {
+            k: v for k, v in settings_data.items()
+            if not (v is None and k in not_null_fields_with_defaults)
+        }
+
         logger.info(f"Updating settings with data keys: {list(settings_data.keys())}")
 
         db_settings.sqlmodel_update(settings_data)

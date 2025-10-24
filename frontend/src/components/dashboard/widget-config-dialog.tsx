@@ -112,12 +112,69 @@ export default function WidgetConfigDialog({
           <>
             {commonFields}
             <div className="space-y-2">
-              <Label htmlFor="value">Valeur</Label>
+              <Label htmlFor="icon">Icône</Label>
+              <Select
+                value={config.icon || "chart"}
+                onValueChange={(value) => handleConfigChange("icon", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionner une icône" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="chart">Graphique</SelectItem>
+                  <SelectItem value="users">Utilisateurs</SelectItem>
+                  <SelectItem value="file">Fichier</SelectItem>
+                  <SelectItem value="dashboard">Dashboard</SelectItem>
+                  <SelectItem value="clock">Horloge</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="color">Couleur</Label>
+              <Select
+                value={config.color || "blue"}
+                onValueChange={(value) => handleConfigChange("color", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionner une couleur" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="blue">Bleu</SelectItem>
+                  <SelectItem value="green">Vert</SelectItem>
+                  <SelectItem value="orange">Orange</SelectItem>
+                  <SelectItem value="red">Rouge</SelectItem>
+                  <SelectItem value="purple">Violet</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="value">Valeur (si statique)</Label>
               <Input
                 id="value"
                 type="number"
                 value={config.value || 0}
                 onChange={(e) => handleConfigChange("value", parseFloat(e.target.value) || 0)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Laissez à 0 si vous utilisez une API
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="prefix">Préfixe</Label>
+              <Input
+                id="prefix"
+                value={config.prefix || ""}
+                onChange={(e) => handleConfigChange("prefix", e.target.value)}
+                placeholder="Ex: $, €"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="suffix">Suffixe</Label>
+              <Input
+                id="suffix"
+                value={config.suffix || ""}
+                onChange={(e) => handleConfigChange("suffix", e.target.value)}
+                placeholder="Ex: %, km, users"
               />
             </div>
             <div className="space-y-2">
@@ -128,6 +185,43 @@ export default function WidgetConfigDialog({
                 value={config.trend || 0}
                 onChange={(e) => handleConfigChange("trend", parseFloat(e.target.value) || 0)}
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="apiEndpoint">Endpoint API (optionnel)</Label>
+              <Input
+                id="apiEndpoint"
+                value={config.apiEndpoint || ""}
+                onChange={(e) => handleConfigChange("apiEndpoint", e.target.value)}
+                placeholder="/users/count"
+              />
+              <p className="text-xs text-muted-foreground">
+                URL relative ou absolue pour récupérer la valeur
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="apiValuePath">Chemin de la valeur (optionnel)</Label>
+              <Input
+                id="apiValuePath"
+                value={config.apiValuePath || ""}
+                onChange={(e) => handleConfigChange("apiValuePath", e.target.value)}
+                placeholder="data.count"
+              />
+              <p className="text-xs text-muted-foreground">
+                Chemin vers la valeur dans la réponse JSON (ex: data.count)
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="refreshInterval">Intervalle de rafraîchissement (secondes)</Label>
+              <Input
+                id="refreshInterval"
+                type="number"
+                min={0}
+                value={config.refreshInterval || 0}
+                onChange={(e) => handleConfigChange("refreshInterval", parseInt(e.target.value) || 0)}
+              />
+              <p className="text-xs text-muted-foreground">
+                0 = pas de rafraîchissement automatique
+              </p>
             </div>
           </>
         )

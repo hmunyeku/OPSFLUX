@@ -159,121 +159,134 @@ export function InformationsTab() {
         </CardContent>
       </Card>
 
-      {/* Informations générales */}
+      {/* Informations professionnelles */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
             <IconShieldCheck className="h-5 w-5 text-primary" />
-            <CardTitle>{t("role_group.title", "Title")}</CardTitle>
+            <CardTitle>{t("role_group.title", "Informations professionnelles")}</CardTitle>
           </div>
           <CardDescription>
-            {t("role_group.description", "Description")}
+            {t("role_group.description", "Rôles, groupes et permissions associés à votre compte")}
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           {loading ? (
             <>
-              <div className="flex items-center justify-between">
-                <div className="space-y-2 flex-1">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-3 w-48" />
+              <div className="space-y-3">
+                <Skeleton className="h-4 w-32" />
+                <div className="flex gap-2">
+                  <Skeleton className="h-8 w-24" />
+                  <Skeleton className="h-8 w-28" />
                 </div>
-                <Skeleton className="h-7 w-24" />
               </div>
               <Separator />
-              <div className="flex items-center justify-between">
-                <div className="space-y-2 flex-1">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-3 w-48" />
+              <div className="space-y-3">
+                <Skeleton className="h-4 w-24" />
+                <div className="flex gap-2">
+                  <Skeleton className="h-6 w-32" />
                 </div>
-                <Skeleton className="h-5 w-32" />
+              </div>
+              <Separator />
+              <div className="space-y-3">
+                <Skeleton className="h-4 w-28" />
+                <div className="flex flex-wrap gap-2">
+                  {[1, 2, 3, 4].map((i) => (
+                    <Skeleton key={i} className="h-6 w-24" />
+                  ))}
+                </div>
               </div>
             </>
           ) : (
             <>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">{t("role_group.role_label", "Rôles")}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {t("role_group.role_desc", "Vos rôles dans le système")}
-                  </p>
+              {/* Rôles */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <IconShieldCheck className="h-4 w-4 text-muted-foreground" />
+                  <h4 className="text-sm font-semibold">{t("role_group.role_label", "Rôles")}</h4>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 pl-6">
                   {rbacInfo?.roles && rbacInfo.roles.length > 0 ? (
                     rbacInfo.roles.map((role) => (
-                      <Badge key={role.id} variant="default" className="text-sm px-3 py-1">
+                      <Badge
+                        key={role.id}
+                        variant="default"
+                        className="text-xs px-2.5 py-0.5"
+                        title={role.description}
+                      >
                         {role.name}
                       </Badge>
                     ))
                   ) : (
-                    <Badge variant="secondary" className="text-sm px-3 py-1">
-                      {t("role_group.no_role", "Aucun rôle")}
-                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {t("role_group.no_role", "Aucun rôle attribué")}
+                    </span>
                   )}
                 </div>
               </div>
 
               <Separator />
 
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">{t("role_group.group_label", "Groupes")}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {t("role_group.group_desc", "Groupes auxquels vous appartenez")}
-                  </p>
+              {/* Groupes */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <IconUsers className="h-4 w-4 text-muted-foreground" />
+                  <h4 className="text-sm font-semibold">{t("role_group.group_label", "Groupes")}</h4>
                 </div>
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-wrap gap-2 pl-6">
                   {rbacInfo?.groups && rbacInfo.groups.length > 0 ? (
                     rbacInfo.groups.map((group) => (
-                      <div key={group.id} className="flex items-center gap-2">
-                        <IconUsers className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">{group.name}</span>
-                      </div>
+                      <Badge
+                        key={group.id}
+                        variant="secondary"
+                        className="text-xs px-2.5 py-0.5"
+                        title={group.description}
+                      >
+                        {group.name}
+                      </Badge>
                     ))
                   ) : (
-                    <span className="text-sm text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       {t("role_group.no_group", "Aucun groupe")}
                     </span>
                   )}
                 </div>
               </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
 
-      {/* Permissions */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <IconKey className="h-5 w-5 text-primary" />
-            <CardTitle>{t("permissions.title", "Title")}</CardTitle>
-          </div>
-          <CardDescription>
-            {t("permissions.description", "Description")}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex flex-wrap gap-2">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <Skeleton key={i} className="h-6 w-24" />
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {rbacInfo?.permissions && rbacInfo.permissions.length > 0 ? (
-                rbacInfo.permissions.map((permission) => (
-                  <Badge key={permission} variant="outline" className="text-xs">
-                    {permission}
-                  </Badge>
-                ))
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  {t("permissions.none", "Aucune permission spécifique")}
-                </p>
-              )}
-            </div>
+              <Separator />
+
+              {/* Permissions */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <IconKey className="h-4 w-4 text-muted-foreground" />
+                  <h4 className="text-sm font-semibold">{t("permissions.title", "Permissions")}</h4>
+                  {rbacInfo?.permissions && rbacInfo.permissions.length > 0 && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                      {rbacInfo.permissions.length}
+                    </Badge>
+                  )}
+                </div>
+                <div className="pl-6">
+                  {rbacInfo?.permissions && rbacInfo.permissions.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                      {rbacInfo.permissions.map((permission) => (
+                        <div
+                          key={permission}
+                          className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/30 rounded px-2 py-1"
+                        >
+                          <div className="h-1 w-1 rounded-full bg-primary" />
+                          <span className="font-mono text-[11px]">{permission}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      {t("permissions.none", "Aucune permission spécifique")}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

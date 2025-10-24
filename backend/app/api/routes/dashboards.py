@@ -215,12 +215,22 @@ def create_dashboard(
     # Add widgets if provided
     if dashboard_in.widgets:
         for widget_data in dashboard_in.widgets:
-            widget_id = widget_data.get("widget_id")
+            widget_identifier = widget_data.get("widget_id")
 
-            # Verify widget exists
-            widget = session.get(Widget, widget_id)
-            if not widget:
-                raise HTTPException(status_code=404, detail=f"Widget {widget_id} not found")
+            # Check if widget_identifier is a widget_type (string like "stats_card") or an ID (int)
+            if isinstance(widget_identifier, str):
+                # It's a widget_type, find the widget by type
+                widget_stmt = select(Widget).where(Widget.widget_type == widget_identifier, Widget.is_active == True)
+                widget = session.exec(widget_stmt).first()
+                if not widget:
+                    raise HTTPException(status_code=404, detail=f"Widget type '{widget_identifier}' not found")
+                widget_id = widget.id
+            else:
+                # It's an ID, verify widget exists
+                widget = session.get(Widget, widget_identifier)
+                if not widget:
+                    raise HTTPException(status_code=404, detail=f"Widget ID {widget_identifier} not found")
+                widget_id = widget_identifier
 
             dashboard_widget = DashboardWidget(
                 dashboard_id=dashboard.id,

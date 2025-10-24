@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from "react"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -24,6 +24,7 @@ import { Switch } from "@/components/ui/switch"
 import { IconDeviceFloppy, IconX } from "@tabler/icons-react"
 import type { DashboardWidgetWithWidget } from "@/types/dashboard"
 import { getWidgetMeta } from "@/widgets/registry"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 interface WidgetConfigDialogProps {
   dashboardWidget: DashboardWidgetWithWidget | null
@@ -649,20 +650,22 @@ export default function WidgetConfigDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Configuration du widget</DialogTitle>
-          <DialogDescription>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="w-full sm:max-w-2xl overflow-hidden flex flex-col p-0">
+        <SheetHeader className="px-6 pt-6 pb-4 border-b">
+          <SheetTitle>Configuration du widget</SheetTitle>
+          <SheetDescription>
             {meta?.name} - {meta?.description}
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
-        <div className="space-y-4 py-4">
-          {renderConfigFields()}
-        </div>
+        <ScrollArea className="flex-1 px-6">
+          <div className="space-y-4 py-4">
+            {renderConfigFields()}
+          </div>
+        </ScrollArea>
 
-        <DialogFooter>
+        <SheetFooter className="px-6 py-4 border-t mt-auto">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
@@ -675,8 +678,8 @@ export default function WidgetConfigDialog({
             <IconDeviceFloppy className="h-4 w-4 mr-2" />
             {isSaving ? "Sauvegarde..." : "Sauvegarder"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   )
 }

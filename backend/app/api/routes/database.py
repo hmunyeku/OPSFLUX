@@ -546,8 +546,8 @@ def create_adminer_token(
         # Calculate expiration time
         expires_at = datetime.now(timezone.utc) + expires_delta
 
-        # Include only the token in URL for auto-login (credentials will be fetched via API)
-        adminer_url_with_token = f"{settings.ADMINER_URL}/?token={token}"
+        # Use auto-login.php page which will handle the POST submission
+        adminer_url_with_token = f"{settings.ADMINER_URL}/auto-login.php?token={token}"
 
         return AdminerTokenResponse(
             token=token,

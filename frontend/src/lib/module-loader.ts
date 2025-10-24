@@ -17,6 +17,9 @@
 import { registerWidgets } from "@/widgets/registry"
 import type { Module, LoadedModule } from "@/lib/types/module"
 
+// API base URL from environment
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.opsflux.io'
+
 // Map des modules chargés (indexés par code)
 const loadedModules = new Map<string, LoadedModule>()
 
@@ -98,7 +101,19 @@ async function loadModule(moduleCode: string): Promise<LoadedModule | null> {
  */
 async function getActiveModules(): Promise<string[]> {
   try {
-    const response = await fetch("/api/v1/modules?status=active&limit=100")
+    const token = localStorage.getItem('access_token')
+    if (!token) {
+      console.warn("No access token found for fetching modules")
+      return []
+    }
+
+    const response = await fetch(`${API_URL}/api/v1/modules?status=active&limit=100`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store',
+    })
 
     if (!response.ok) {
       throw new Error(`Failed to fetch modules: ${response.statusText}`)

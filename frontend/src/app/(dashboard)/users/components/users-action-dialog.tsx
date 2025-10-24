@@ -147,6 +147,33 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
     }
   }, [open])
 
+  // Reset form with current user data when opening the drawer
+  useEffect(() => {
+    if (open && isEdit && currentRow) {
+      form.reset({
+        firstName: currentRow.firstName || "",
+        lastName: currentRow.lastName || "",
+        email: currentRow.email || "",
+        phoneNumber: currentRow.phoneNumber || "",
+        role_id: currentRow.role_id || "",
+        password: "",
+        confirmPassword: "",
+        isEdit: true,
+      })
+    } else if (open && !isEdit) {
+      form.reset({
+        firstName: "",
+        lastName: "",
+        email: "",
+        role_id: "",
+        phoneNumber: "",
+        password: "",
+        confirmPassword: "",
+        isEdit: false,
+      })
+    }
+  }, [open, currentRow, isEdit, form])
+
   const loadRoles = async () => {
     try {
       setIsLoadingRoles(true)

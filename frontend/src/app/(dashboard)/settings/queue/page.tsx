@@ -20,7 +20,7 @@ import {
   IconTrash,
   IconAlertCircle,
   IconLoader,
-  IconCheckCircle,
+  IconCircleCheck,
   IconCircleX,
   IconCircleDashed,
 } from "@tabler/icons-react"
@@ -263,16 +263,16 @@ function QueuePageContent() {
           {/* Workers Tab */}
           <TabsContent value="workers" className="space-y-4">
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <IconServer className="h-5 w-5" />
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <IconServer className="h-4 w-4" />
                   Workers Celery
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-xs">
                   Workers actifs et leurs tâches en cours
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-0">
                 {totalWorkers === 0 ? (
                   <div className="text-center py-12">
                     <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
@@ -284,46 +284,46 @@ function QueuePageContent() {
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-2">
                     {Object.entries(stats?.workers || {}).map(([name, worker]) => (
                       <Card key={name} className="border-l-4 border-l-green-500">
-                        <CardContent className="p-4">
-                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-4">
+                        <CardContent className="p-2.5">
+                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1.5 mb-2">
                             <div className="min-w-0">
-                              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                <h4 className="font-semibold truncate">{name}</h4>
-                                <Badge variant="default" className="bg-green-600">
-                                  <IconCheck className="mr-1 h-3 w-3" />
+                              <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                                <h4 className="font-semibold text-sm truncate">{name}</h4>
+                                <Badge variant="default" className="bg-green-600 h-5 px-1.5 text-[10px]">
+                                  <IconCheck className="mr-1 h-2.5 w-2.5" />
                                   Actif
                                 </Badge>
                               </div>
-                              <p className="text-xs text-muted-foreground">Worker Celery</p>
+                              <p className="text-[10px] text-muted-foreground">Worker Celery</p>
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-1 xs:grid-cols-3 gap-3">
-                            <div className="bg-muted/30 rounded-lg p-3">
-                              <div className="flex items-center gap-2 mb-1">
-                                <IconPlayerPlay className="h-4 w-4 text-green-600" />
-                                <span className="text-xs text-muted-foreground">En cours</span>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div className="bg-muted/30 rounded-lg p-2">
+                              <div className="flex items-center gap-1.5 mb-0.5">
+                                <IconPlayerPlay className="h-3 w-3 text-green-600" />
+                                <span className="text-[10px] text-muted-foreground">En cours</span>
                               </div>
-                              <div className="text-xl sm:text-2xl font-bold">{worker.active}</div>
+                              <div className="text-lg font-bold">{worker.active}</div>
                             </div>
 
-                            <div className="bg-muted/30 rounded-lg p-3">
-                              <div className="flex items-center gap-2 mb-1">
-                                <IconClock className="h-4 w-4 text-blue-600" />
-                                <span className="text-xs text-muted-foreground">Planifiées</span>
+                            <div className="bg-muted/30 rounded-lg p-2">
+                              <div className="flex items-center gap-1.5 mb-0.5">
+                                <IconClock className="h-3 w-3 text-blue-600" />
+                                <span className="text-[10px] text-muted-foreground">Planifiées</span>
                               </div>
-                              <div className="text-xl sm:text-2xl font-bold">{worker.scheduled}</div>
+                              <div className="text-lg font-bold">{worker.scheduled}</div>
                             </div>
 
-                            <div className="bg-muted/30 rounded-lg p-3">
-                              <div className="flex items-center gap-2 mb-1">
-                                <IconCircleDashed className="h-4 w-4 text-amber-600" />
-                                <span className="text-xs text-muted-foreground">Réservées</span>
+                            <div className="bg-muted/30 rounded-lg p-2">
+                              <div className="flex items-center gap-1.5 mb-0.5">
+                                <IconCircleDashed className="h-3 w-3 text-amber-600" />
+                                <span className="text-[10px] text-muted-foreground">Réservées</span>
                               </div>
-                              <div className="text-xl sm:text-2xl font-bold">{worker.reserved}</div>
+                              <div className="text-lg font-bold">{worker.reserved}</div>
                             </div>
                           </div>
                         </CardContent>
@@ -431,7 +431,7 @@ function QueuePageContent() {
 
                               {schedule.last_run ? (
                                 <div className="flex items-start gap-2 text-muted-foreground">
-                                  <IconCheckCircle className="h-4 w-4 flex-shrink-0 mt-0.5 text-green-600" />
+                                  <IconCircleCheck className="h-4 w-4 flex-shrink-0 mt-0.5 text-green-600" />
                                   <span className="break-words">
                                     Dernière exécution: {formatDistanceToNow(new Date(schedule.last_run), { addSuffix: true, locale: fr })}
                                   </span>

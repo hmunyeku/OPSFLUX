@@ -19,12 +19,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
-import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -47,13 +41,13 @@ import {
   IconInfoCircle,
   IconShieldCheck,
   IconCheckbox,
-  IconBoxMultiple,
   IconKey,
   IconMenu2,
   IconWebhook,
   IconLanguage,
   IconLink,
   IconChevronRight,
+  IconFilter,
 } from "@tabler/icons-react"
 import ContentSection from "../components/content-section"
 import { useToast } from "@/hooks/use-toast"
@@ -105,6 +99,7 @@ export default function ModulesPage() {
   const [activeTab, setActiveTab] = useState("overview")
   const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState("name")
+  const [filterStatus, setFilterStatus] = useState<string>("all")
   const { toast} = useToast()
 
   const fetchModules = useCallback(async () => {
@@ -135,6 +130,16 @@ export default function ModulesPage() {
   useEffect(() => {
     let result = [...modules]
 
+    // Apply status filter
+    if (filterStatus !== "all") {
+      result = result.filter((module) => {
+        const status = module.status.toLowerCase()
+        if (filterStatus === "active") return status === "active"
+        if (filterStatus === "inactive") return status === "inactive" || status === "installed" || status === "disabled"
+        return true
+      })
+    }
+
     // Apply search filter
     if (searchQuery) {
       result = result.filter(
@@ -162,7 +167,7 @@ export default function ModulesPage() {
     })
 
     setFilteredModules(result)
-  }, [modules, searchQuery, sortBy])
+  }, [modules, searchQuery, sortBy, filterStatus])
 
   const isModuleActive = (status: string): boolean => {
     const normalized = status.toLowerCase()
@@ -380,29 +385,31 @@ export default function ModulesPage() {
 
     if (isActive) {
       return (
-        <Badge variant="default" className="bg-green-600 hover:bg-green-700">
-          <IconCheck className="mr-1 h-3 w-3" />
-          Actif
+        <Badge variant="default" className="bg-green-600 hover:bg-green-700 h-3.5 px-0.5 text-[8px] leading-none">
+          <IconCheck className="h-2 w-2" />
         </Badge>
       )
     } else if (normalizedStatus === "inactive" || normalizedStatus === "installed" || normalizedStatus === "disabled") {
       return (
-        <Badge variant="secondary">
-          <IconX className="mr-1 h-3 w-3" />
-          Inactif
+        <Badge variant="secondary" className="h-3.5 px-0.5 text-[8px] leading-none">
+          <IconX className="h-2 w-2" />
         </Badge>
       )
     } else if (normalizedStatus === "error") {
       return (
-        <Badge variant="destructive">
-          <IconAlertTriangle className="mr-1 h-3 w-3" />
-          Erreur
+        <Badge variant="destructive" className="h-3.5 px-0.5 text-[8px] leading-none">
+          <IconAlertTriangle className="h-2 w-2" />
         </Badge>
       )
     } else {
-      return <Badge variant="outline">{status}</Badge>
+      return <Badge variant="outline" className="h-3.5 px-0.5 text-[8px] leading-none">{status}</Badge>
     }
   }
+
+  // Stats calculation
+  const activeCount = modules.filter(m => isModuleActive(m.status)).length
+  const inactiveCount = modules.filter(m => !isModuleActive(m.status) && m.status.toLowerCase() !== "error").length
+  const errorCount = modules.filter(m => m.status.toLowerCase() === "error").length
 
   if (loading) {
     return (
@@ -425,75 +432,119 @@ export default function ModulesPage() {
       className="w-full lg:max-w-full"
     >
       <>
-      <div className="space-y-4">
-        {/* Search and Filter Bar */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative flex-1 max-w-sm">
-            <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      <div className="space-y-3">
+        {/* Compact Stats Bar */}
+        <div className="grid grid-cols-3 gap-2 md:grid-cols-4 lg:gap-3">
+          <div className="rounded-lg border bg-card p-2.5 lg:p-3">
+            <div className="flex items-center gap-2">
+              <div className="rounded bg-primary/10 p-1.5">
+                <IconPuzzle className="h-3.5 w-3.5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-lg font-bold leading-none">{modules.length}</div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">Total</div>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-lg border bg-card p-2.5 lg:p-3">
+            <div className="flex items-center gap-2">
+              <div className="rounded bg-green-500/10 p-1.5">
+                <IconCheck className="h-3.5 w-3.5 text-green-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-lg font-bold leading-none text-green-600">{activeCount}</div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">Actifs</div>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-lg border bg-card p-2.5 lg:p-3">
+            <div className="flex items-center gap-2">
+              <div className="rounded bg-gray-500/10 p-1.5">
+                <IconX className="h-3.5 w-3.5 text-muted-foreground" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-lg font-bold leading-none">{inactiveCount}</div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">Inactifs</div>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-lg border bg-card p-2.5 lg:p-3 hidden md:block">
+            <div className="flex items-center gap-2">
+              <div className="rounded bg-destructive/10 p-1.5">
+                <IconAlertTriangle className="h-3.5 w-3.5 text-destructive" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-lg font-bold leading-none text-destructive">{errorCount}</div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">Erreurs</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Compact Toolbar */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative flex-1">
+            <IconSearch className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Rechercher un module..."
+              placeholder="Rechercher..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
+              className="pl-8 h-8 text-sm"
             />
           </div>
           <div className="flex items-center gap-2">
-            {selectedModules.size > 0 && (
-              <>
-                <Button variant="outline" size="sm" onClick={activateSelected}>
-                  <IconCheckbox className="mr-2 h-4 w-4" />
-                  Activer ({selectedModules.size})
-                </Button>
-                <Button variant="outline" size="sm" onClick={deselectAll}>
-                  Désélectionner
-                </Button>
-                <Separator orientation="vertical" className="h-6" />
-              </>
-            )}
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="w-[100px] h-8 text-xs">
+                <IconFilter className="h-3 w-3 mr-1" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous</SelectItem>
+                <SelectItem value="active">Actifs</SelectItem>
+                <SelectItem value="inactive">Inactifs</SelectItem>
+              </SelectContent>
+            </Select>
             <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-[160px] h-9">
-                <SelectValue placeholder="Trier par..." />
+              <SelectTrigger className="w-[90px] h-8 text-xs">
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="name">Nom</SelectItem>
                 <SelectItem value="status">Statut</SelectItem>
                 <SelectItem value="category">Catégorie</SelectItem>
-                <SelectItem value="date">Date d&apos;installation</SelectItem>
+                <SelectItem value="date">Date</SelectItem>
               </SelectContent>
             </Select>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon" className="h-9 w-9" onClick={fetchModules}>
-                    <IconRefresh className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Actualiser la liste</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <Button size="sm" className="h-9" onClick={() => setUploadDialogOpen(true)}>
-              <IconUpload className="mr-2 h-4 w-4" />
-              Installer
+            <Button variant="outline" size="icon" className="h-8 w-8" onClick={fetchModules}>
+              <IconRefresh className="h-3.5 w-3.5" />
+            </Button>
+            <Button size="sm" className="h-8" onClick={() => setUploadDialogOpen(true)}>
+              <IconUpload className="mr-1.5 h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Installer</span>
             </Button>
           </div>
         </div>
 
-        {/* Selection Actions */}
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <div>
-            {filteredModules.length} module{filteredModules.length > 1 ? "s" : ""}
-            {searchQuery && ` trouvé${filteredModules.length > 1 ? "s" : ""}`}
+        {/* Bulk Actions - Only shown when items are selected */}
+        {selectedModules.size > 0 && (
+          <div className="flex items-center justify-between rounded-lg border bg-muted/50 p-2">
+            <span className="text-xs text-muted-foreground px-2">
+              {selectedModules.size} sélectionné{selectedModules.size > 1 ? "s" : ""}
+            </span>
+            <div className="flex gap-1">
+              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={activateSelected}>
+                <IconCheckbox className="mr-1 h-3 w-3" />
+                Activer
+              </Button>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={deselectAll}>
+                Annuler
+              </Button>
+            </div>
           </div>
-          {filteredModules.length > 0 && (
-            <Button variant="ghost" size="sm" onClick={selectAll}>
-              <IconBoxMultiple className="mr-2 h-4 w-4" />
-              Tout sélectionner
-            </Button>
-          )}
-        </div>
+        )}
 
-        {/* Modules Grid - Compact */}
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {/* Ultra Compact Modules Grid */}
+        <div className="grid gap-1.5 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
           {filteredModules.length === 0 ? (
             <Card className="col-span-full">
               <CardContent className="flex flex-col items-center justify-center py-12">
@@ -505,7 +556,7 @@ export default function ModulesPage() {
                   {searchQuery ? "Essayez une autre recherche" : "Commencez par installer votre premier module"}
                 </p>
                 {!searchQuery && (
-                  <Button onClick={() => setUploadDialogOpen(true)}>
+                  <Button size="sm" onClick={() => setUploadDialogOpen(true)}>
                     <IconUpload className="mr-2 h-4 w-4" />
                     Installer un module
                   </Button>
@@ -514,133 +565,108 @@ export default function ModulesPage() {
             </Card>
           ) : (
             filteredModules.map((module) => (
-              <TooltipProvider key={module.id}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Card
-                      className="flex flex-col cursor-pointer hover:shadow-md transition-shadow"
-                      onClick={() => openModuleDetails(module)}
-                    >
-                      <CardHeader className="pb-2 pt-3 px-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-start gap-2 flex-1 min-w-0">
-                            <Checkbox
-                              checked={selectedModules.has(module.id)}
-                              onCheckedChange={() => toggleSelection(module.id)}
-                              onClick={(e) => e.stopPropagation()}
-                              className="mt-0.5"
-                            />
-                            {module.icon_url ? (
-                              <img
-                                src={module.icon_url}
-                                alt={module.name}
-                                className="h-7 w-7 rounded object-cover flex-shrink-0"
-                              />
-                            ) : (
-                              <div
-                                className="flex h-7 w-7 items-center justify-center rounded flex-shrink-0"
-                                style={{
-                                  backgroundColor: module.color ? `${module.color}20` : undefined,
-                                }}
-                              >
-                                <IconPuzzle
-                                  className="h-4 w-4"
-                                  style={{ color: module.color || "currentColor" }}
-                                />
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <CardTitle className="text-sm truncate">{module.name}</CardTitle>
-                              <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                                <Badge variant="outline" className="text-[10px] font-mono px-1 py-0">
-                                  v{module.version}
-                                </Badge>
-                                {getStatusBadge(module.status)}
-                              </div>
-                            </div>
-                          </div>
-                          <Switch
-                            checked={isModuleActive(module.status)}
-                            onCheckedChange={() => toggleModule(module)}
-                            disabled={module.status.toLowerCase() === "error" || module.is_system}
-                            onClick={(e) => e.stopPropagation()}
-                            className="flex-shrink-0"
-                          />
-                        </div>
-                      </CardHeader>
-                      <CardContent className="flex-1 pb-2 px-3">
-                        <CardDescription className="text-xs line-clamp-2">
-                          {module.description}
-                        </CardDescription>
-                        {module.category && (
-                          <Badge variant="outline" className="mt-1.5 text-[10px]">
-                            {module.category}
-                          </Badge>
-                        )}
-                      </CardContent>
-                      <CardFooter className="flex gap-1 border-t pt-2 pb-2 px-3">
+              <Card
+                key={module.id}
+                className="group cursor-pointer hover:border-primary/50 transition-all duration-200 overflow-hidden"
+                onClick={() => openModuleDetails(module)}
+              >
+                <div className="p-1.5">
+                  {/* Header - Ultra compact */}
+                  <div className="flex items-start gap-1.5 mb-1.5">
+                    <Checkbox
+                      checked={selectedModules.has(module.id)}
+                      onCheckedChange={() => toggleSelection(module.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="mt-0.5 shrink-0 h-3 w-3"
+                    />
+                    {module.icon_url ? (
+                      <img
+                        src={module.icon_url}
+                        alt={module.name}
+                        className="h-6 w-6 rounded object-cover shrink-0"
+                      />
+                    ) : (
+                      <div
+                        className="flex h-6 w-6 items-center justify-center rounded shrink-0"
+                        style={{
+                          backgroundColor: module.color ? `${module.color}20` : undefined,
+                        }}
+                      >
+                        <IconPuzzle
+                          className="h-3 w-3"
+                          style={{ color: module.color || "currentColor" }}
+                        />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-xs leading-tight truncate mb-0.5">
+                        {module.name}
+                      </div>
+                      <div className="flex items-center gap-0.5 flex-wrap">
+                        <Badge variant="outline" className="text-[8px] font-mono px-0.5 py-0 h-3.5 leading-none">
+                          v{module.version}
+                        </Badge>
+                        {getStatusBadge(module.status)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Description - More compact */}
+                  <p className="text-[10px] text-muted-foreground line-clamp-1 mb-1.5 px-0.5">
+                    {module.description}
+                  </p>
+
+                  {/* Footer - Ultra compact */}
+                  <div className="flex items-center justify-between gap-1 pt-1.5 border-t">
+                    {module.category && (
+                      <Badge variant="outline" className="text-[8px] h-4 px-1">
+                        {module.category}
+                      </Badge>
+                    )}
+                    <div className="flex items-center gap-0.5 ml-auto">
+                      <Switch
+                        checked={isModuleActive(module.status)}
+                        onCheckedChange={() => toggleModule(module)}
+                        disabled={module.status.toLowerCase() === "error" || module.is_system}
+                        onClick={(e) => e.stopPropagation()}
+                        className="shrink-0 scale-[0.65]"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5"
+                        disabled={!isModuleActive(module.status)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          openModuleConfig(module)
+                        }}
+                      >
+                        <IconSettings className="h-2.5 w-2.5" />
+                      </Button>
+                      {!module.is_system && !module.is_required && (
                         <Button
                           variant="ghost"
-                          size="sm"
-                          className="flex-1 h-7 text-xs px-1.5"
-                          disabled={!isModuleActive(module.status)}
+                          size="icon"
+                          className="h-5 w-5"
                           onClick={(e) => {
                             e.stopPropagation()
-                            openModuleConfig(module)
+                            setModuleToDelete(module)
+                            setDeleteDialogOpen(true)
                           }}
                         >
-                          <IconSettings className="mr-1 h-3 w-3" />
-                          Config
+                          <IconTrash className="h-2.5 w-2.5 text-destructive" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="flex-1 h-7 text-xs px-1.5"
-                          disabled
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <IconDownload className="mr-1 h-3 w-3" />
-                          MAJ
-                        </Button>
-                        {!module.is_system && !module.is_required && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-1.5"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setModuleToDelete(module)
-                              setDeleteDialogOpen(true)
-                            }}
-                          >
-                            <IconTrash className="h-3 w-3 text-destructive" />
-                          </Button>
-                        )}
-                      </CardFooter>
-                    </Card>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs">
-                    <div className="space-y-1">
-                      <p className="font-semibold">{module.name}</p>
-                      <p className="text-xs text-muted-foreground">{module.description}</p>
-                      {module.author && (
-                        <p className="text-xs">Auteur: {module.author}</p>
-                      )}
-                      {module.installed_at && (
-                        <p className="text-xs">
-                          Installé le: {new Date(module.installed_at).toLocaleDateString()}
-                        </p>
                       )}
                     </div>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+                  </div>
+                </div>
+              </Card>
             ))
           )}
         </div>
       </div>
 
-      {/* Module Details Drawer */}
+      {/* Module Details Drawer - Unchanged but with compact tabs */}
       <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
         <SheetContent className="sm:max-w-[600px] overflow-y-auto">
           <SheetHeader>
@@ -717,19 +743,10 @@ export default function ModulesPage() {
           <Separator className="my-4" />
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="overview" className="text-sm">
-                <span className="hidden sm:inline">Aperçu</span>
-                <span className="sm:hidden">Aperçu</span>
-              </TabsTrigger>
-              <TabsTrigger value="details" className="text-sm">
-                <span className="hidden sm:inline">Détails</span>
-                <span className="sm:hidden">Détails</span>
-              </TabsTrigger>
-              <TabsTrigger value="config" className="text-sm">
-                <span className="hidden sm:inline">Configuration</span>
-                <span className="sm:hidden">Config</span>
-              </TabsTrigger>
+            <TabsList className="grid w-full grid-cols-3 h-8">
+              <TabsTrigger value="overview" className="text-xs">Aperçu</TabsTrigger>
+              <TabsTrigger value="details" className="text-xs">Détails</TabsTrigger>
+              <TabsTrigger value="config" className="text-xs">Config</TabsTrigger>
             </TabsList>
 
             {/* Tab: Aperçu */}
@@ -778,19 +795,19 @@ export default function ModulesPage() {
                 <h3 className="mb-3 text-sm font-semibold">Propriétés</h3>
                 <div className="flex flex-wrap gap-2">
                   {selectedModuleDetails?.is_system && (
-                    <Badge variant="outline">
+                    <Badge variant="outline" className="text-xs">
                       <IconShieldCheck className="mr-1 h-3 w-3" />
                       Module système
                     </Badge>
                   )}
                   {selectedModuleDetails?.is_required && (
-                    <Badge variant="outline">
+                    <Badge variant="outline" className="text-xs">
                       <IconAlertTriangle className="mr-1 h-3 w-3" />
                       Module requis
                     </Badge>
                   )}
                   {selectedModuleDetails?.requires_license && (
-                    <Badge variant="outline">Licence requise</Badge>
+                    <Badge variant="outline" className="text-xs">Licence requise</Badge>
                   )}
                 </div>
               </div>

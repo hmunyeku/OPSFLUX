@@ -207,198 +207,202 @@ export default function DatabasePage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <div>
-        <h3 className="text-lg font-medium">Base de données</h3>
-        <p className="text-sm text-muted-foreground">
+        <h3 className="text-base font-medium">Base de données</h3>
+        <p className="text-xs text-muted-foreground">
           Informations et gestion de la base de données PostgreSQL
         </p>
       </div>
 
       <Separator />
 
-      {/* Database Overview */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Database Overview - Compact */}
+      <div className="grid gap-2 grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Base de données</CardTitle>
-            <Database className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 p-3">
+            <CardTitle className="text-xs font-medium">Base de données</CardTitle>
+            <Database className="h-3.5 w-3.5 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 pt-0">
             {loading ? (
-              <Skeleton className="h-6 w-32" />
+              <Skeleton className="h-5 w-24" />
             ) : (
-              <div className="text-2xl font-bold">{dbInfo?.database_name}</div>
+              <div className="text-lg font-bold truncate">{dbInfo?.database_name}</div>
             )}
             {loading ? (
-              <Skeleton className="h-4 w-24 mt-1" />
+              <Skeleton className="h-3 w-20 mt-0.5" />
             ) : (
-              <p className="text-xs text-muted-foreground">{dbInfo?.postgres_version}</p>
+              <p className="text-[10px] text-muted-foreground truncate">{dbInfo?.postgres_version}</p>
             )}
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Serveur</CardTitle>
-            <Server className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 p-3">
+            <CardTitle className="text-xs font-medium">Serveur</CardTitle>
+            <Server className="h-3.5 w-3.5 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 pt-0">
             {loading ? (
-              <Skeleton className="h-6 w-32" />
+              <Skeleton className="h-5 w-24" />
             ) : (
-              <div className="text-2xl font-bold">{dbInfo?.server_host}</div>
+              <div className="text-lg font-bold truncate">{dbInfo?.server_host}</div>
             )}
             {loading ? (
-              <Skeleton className="h-4 w-16 mt-1" />
+              <Skeleton className="h-3 w-16 mt-0.5" />
             ) : (
-              <p className="text-xs text-muted-foreground">Port {dbInfo?.server_port}</p>
+              <p className="text-[10px] text-muted-foreground">Port {dbInfo?.server_port}</p>
             )}
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Taille</CardTitle>
-            <HardDrive className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 p-3">
+            <CardTitle className="text-xs font-medium">Taille</CardTitle>
+            <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 pt-0">
             {loading ? (
-              <Skeleton className="h-6 w-20" />
+              <Skeleton className="h-5 w-16" />
             ) : (
-              <div className="text-2xl font-bold">{dbInfo?.database_size}</div>
+              <div className="text-lg font-bold">{dbInfo?.database_size}</div>
             )}
             {loading ? (
-              <Skeleton className="h-4 w-24 mt-1" />
+              <Skeleton className="h-3 w-20 mt-0.5" />
             ) : (
-              <p className="text-xs text-muted-foreground">{dbInfo?.total_tables} tables</p>
+              <p className="text-[10px] text-muted-foreground">{dbInfo?.total_tables} tables</p>
             )}
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Connexions</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 p-3">
+            <CardTitle className="text-xs font-medium">Connexions</CardTitle>
+            <Activity className="h-3.5 w-3.5 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 pt-0">
             {loading ? (
-              <Skeleton className="h-6 w-12" />
+              <Skeleton className="h-5 w-10" />
             ) : (
-              <div className="text-2xl font-bold">{dbInfo?.total_connections}</div>
+              <div className="text-lg font-bold">{dbInfo?.total_connections}</div>
             )}
             {loading ? (
-              <Skeleton className="h-4 w-20 mt-1" />
+              <Skeleton className="h-3 w-16 mt-0.5" />
             ) : (
-              <p className="text-xs text-muted-foreground">{dbInfo?.active_connections} actives</p>
+              <p className="text-[10px] text-muted-foreground">{dbInfo?.active_connections} actives</p>
             )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Adminer Access */}
+      {/* Adminer Access - Compact */}
       <Card>
-        <CardHeader>
-          <CardTitle>Accès Adminer</CardTitle>
-          <CardDescription>
-            Ouvrez Adminer avec une connexion automatique sécurisée (token temporaire de 30 minutes)
+        <CardHeader className="p-3 pb-2">
+          <CardTitle className="text-sm">Accès Adminer</CardTitle>
+          <CardDescription className="text-xs">
+            Connexion automatique sécurisée (token 30min)
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Button onClick={handleOpenAdminer} disabled={isGeneratingToken} className="w-full sm:w-auto">
-            <Key className="mr-2 h-4 w-4" />
-            {isGeneratingToken ? "Génération du token..." : "Ouvrir Adminer"}
-            <ExternalLink className="ml-2 h-4 w-4" />
+        <CardContent className="p-3 pt-0">
+          <Button onClick={handleOpenAdminer} disabled={isGeneratingToken} size="sm" className="w-full sm:w-auto h-8">
+            <Key className="mr-1.5 h-3.5 w-3.5" />
+            <span className="text-xs">{isGeneratingToken ? "Génération..." : "Ouvrir Adminer"}</span>
+            <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
           </Button>
         </CardContent>
       </Card>
 
-      {/* Backups Section */}
+      {/* Backups Section - Compact */}
       <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <CardHeader className="p-3 pb-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <CardTitle>Sauvegardes</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-sm">Sauvegardes</CardTitle>
+              <CardDescription className="text-xs">
                 Gérez les sauvegardes de votre base de données
               </CardDescription>
             </div>
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-1.5 flex-wrap">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={fetchBackups}
                 disabled={loadingBackups}
-                className="flex-1 sm:flex-none"
+                className="h-7 text-xs flex-1 sm:flex-none"
               >
-                <RefreshCw className={`h-4 w-4 ${loadingBackups ? "animate-spin" : ""}`} />
-                <span className="ml-2 sm:hidden">Actualiser</span>
+                <RefreshCw className={`h-3 w-3 ${loadingBackups ? "animate-spin" : ""}`} />
+                <span className="ml-1.5 sm:hidden">Actualiser</span>
               </Button>
               <Button
                 size="sm"
                 onClick={handleCreateBackup}
                 disabled={creatingBackup}
-                className="flex-1 sm:flex-none"
+                className="h-7 text-xs flex-1 sm:flex-none"
               >
-                <Plus className="mr-2 h-4 w-4" />
-                {creatingBackup ? "Création..." : "Nouvelle sauvegarde"}
+                <Plus className="mr-1.5 h-3 w-3" />
+                {creatingBackup ? "Création..." : "Nouvelle"}
               </Button>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-3 pt-0">
           {loadingBackups ? (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-16 w-full" />
+                <Skeleton key={i} className="h-12 w-full" />
               ))}
             </div>
           ) : backups.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-sm text-muted-foreground">Aucune sauvegarde disponible</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Créez votre première sauvegarde en cliquant sur le bouton ci-dessus
+            <div className="text-center py-6">
+              <p className="text-xs text-muted-foreground">Aucune sauvegarde disponible</p>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Créez votre première sauvegarde
               </p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {backups.map((backup) => (
                 <div
                   key={backup.filename}
-                  className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                  className="flex flex-col sm:flex-row sm:items-center gap-2 p-2 border rounded hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <Database className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <span className="text-sm font-medium truncate">{backup.filename}</span>
+                    <div className="flex items-center gap-1.5">
+                      <Database className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                      <span className="text-xs font-medium truncate">{backup.filename}</span>
                     </div>
-                    <div className="flex items-center gap-3 mt-1 flex-wrap">
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(backup.created_at).toLocaleString()}
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      <span className="text-[10px] text-muted-foreground">
+                        {new Date(backup.created_at).toLocaleString('fr-FR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
                       </span>
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge variant="secondary" className="text-[9px] h-4 px-1">
                         {backup.size}
                       </Badge>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 self-end sm:self-center">
+                  <div className="flex items-center gap-1 self-end sm:self-center">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleDownloadBackup(backup.filename)}
-                      className="flex-1 sm:flex-none"
+                      className="h-6 w-6 p-0 flex-1 sm:flex-none sm:w-6"
                     >
-                      <Download className="h-4 w-4" />
-                      <span className="ml-2 sm:hidden">Télécharger</span>
+                      <Download className="h-3 w-3" />
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setDeleteBackupFilename(backup.filename)}
-                      className="flex-1 sm:flex-none"
+                      className="h-6 w-6 p-0 flex-1 sm:flex-none sm:w-6"
                     >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                      <span className="ml-2 sm:hidden">Supprimer</span>
+                      <Trash2 className="h-3 w-3 text-destructive" />
                     </Button>
                   </div>
                 </div>
@@ -408,17 +412,17 @@ export default function DatabasePage() {
         </CardContent>
       </Card>
 
-      {/* Tables List */}
+      {/* Tables List - Compact */}
       <Card>
-        <CardHeader>
-          <CardTitle>Tables de la base de données</CardTitle>
-          <CardDescription>Liste complète des tables avec filtres et tri</CardDescription>
+        <CardHeader className="p-3 pb-2">
+          <CardTitle className="text-sm">Tables de la base de données</CardTitle>
+          <CardDescription className="text-xs">Liste complète avec filtres et tri</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-3 pt-0">
           {loading ? (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {[1, 2, 3, 4, 5].map((i) => (
-                <Skeleton key={i} className="h-12 w-full" />
+                <Skeleton key={i} className="h-10 w-full" />
               ))}
             </div>
           ) : (
@@ -427,44 +431,49 @@ export default function DatabasePage() {
         </CardContent>
       </Card>
 
-      {/* Recent Activity */}
+      {/* Recent Activity - Compact */}
       <Card>
-        <CardHeader>
-          <CardTitle>Activité récente</CardTitle>
-          <CardDescription>Dernières opérations sur la base de données</CardDescription>
+        <CardHeader className="p-3 pb-2">
+          <CardTitle className="text-sm">Activité récente</CardTitle>
+          <CardDescription className="text-xs">Dernières opérations</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-3 pt-0">
           {loading ? (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-16 w-full" />
+                <Skeleton key={i} className="h-12 w-full" />
               ))}
             </div>
           ) : activityData?.activities.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aucune activité récente</p>
+            <p className="text-xs text-muted-foreground">Aucune activité récente</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {activityData?.activities.map((activity) => (
-                <div key={activity.pid} className="p-3 border rounded-lg space-y-2">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge variant={activity.state === "active" ? "default" : "secondary"}>
+                <div key={activity.pid} className="p-2 border rounded space-y-1.5">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Badge variant={activity.state === "active" ? "default" : "secondary"} className="text-[9px] h-4 px-1">
                         {activity.state}
                       </Badge>
-                      <span className="text-sm font-medium">{activity.user}</span>
+                      <span className="text-xs font-medium">{activity.user}</span>
                       {activity.client_address && (
-                        <span className="text-xs text-muted-foreground">({activity.client_address})</span>
+                        <span className="text-[10px] text-muted-foreground">({activity.client_address})</span>
                       )}
                     </div>
                     {activity.timestamp && (
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">
-                        {new Date(activity.timestamp).toLocaleString()}
+                      <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                        {new Date(activity.timestamp).toLocaleString('fr-FR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
                       </span>
                     )}
                   </div>
                   {activity.query && (
-                    <p className="text-xs text-muted-foreground font-mono bg-muted p-2 rounded break-all">
-                      {activity.query}
+                    <p className="text-[10px] text-muted-foreground font-mono bg-muted p-1.5 rounded break-all">
+                      {activity.query.length > 200 ? activity.query.substring(0, 200) + '...' : activity.query}
                     </p>
                   )}
                 </div>

@@ -235,7 +235,7 @@ export function AccountForm() {
         return
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/users/me?with_rbac=true`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/users/me?with_permissions=true`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },

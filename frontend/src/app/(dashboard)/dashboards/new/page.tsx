@@ -31,6 +31,7 @@ export default function NewDashboardPage() {
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [isPublic, setIsPublic] = useState(false)
+  const [isHome, setIsHome] = useState(false)
   const [selectedWidgets, setSelectedWidgets] = useState<string[]>([])
   const [isSaving, setIsSaving] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -90,6 +91,7 @@ export default function NewDashboardPage() {
         name: name.trim(),
         description: description.trim() || undefined,
         is_public: isPublic,
+        is_home: isHome,
         layout_config: {
           column: 12,
           cellHeight: 70,
@@ -182,6 +184,20 @@ export default function NewDashboardPage() {
                 id="public"
                 checked={isPublic}
                 onCheckedChange={setIsPublic}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="home">Afficher dans l'accueil</Label>
+                <p className="text-xs text-muted-foreground">
+                  Ce dashboard sera affiché dans le menu Tableau de bord
+                </p>
+              </div>
+              <Switch
+                id="home"
+                checked={isHome}
+                onCheckedChange={setIsHome}
               />
             </div>
           </CardContent>

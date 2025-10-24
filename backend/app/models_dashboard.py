@@ -130,6 +130,7 @@ class DashboardBase(SQLModel):
     scope_id: Optional[uuid.UUID] = Field(default=None, description="ID du groupe/rôle/utilisateur si scope applicable")
     is_active: bool = Field(default=True, description="Dashboard actif")
     is_public: bool = Field(default=False, description="Dashboard partageable avec autres utilisateurs")
+    is_home: bool = Field(default=False, description="Dashboard affiché dans l'accueil (menu Tableau de bord)")
     order: int = Field(default=0, description="Ordre d'affichage")
     menu_key: Optional[str] = Field(default=None, max_length=100, description="Clé du menu où afficher le dashboard")
     is_default_in_menu: bool = Field(default=False, description="Dashboard par défaut dans son menu")
@@ -154,6 +155,7 @@ class DashboardUpdate(SQLModel):
     is_default: Optional[bool] = None
     is_active: Optional[bool] = None
     is_public: Optional[bool] = None
+    is_home: Optional[bool] = None
     order: Optional[int] = None
     layout_config: Optional[Dict[str, Any]] = None
     menu_key: Optional[str] = Field(default=None, max_length=100)
@@ -170,6 +172,7 @@ class Dashboard(AbstractBaseModel, DashboardBase, table=True):
     __table_args__ = (
         Index("ix_dashboard_created_by_id", "created_by_id"),
         Index("ix_dashboard_is_mandatory", "is_mandatory"),
+        Index("ix_dashboard_is_home", "is_home"),
         Index("ix_dashboard_scope", "scope"),
         Index("ix_dashboard_scope_id", "scope_id"),
         Index("ix_dashboard_menu_key", "menu_key"),

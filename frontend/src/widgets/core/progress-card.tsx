@@ -1,8 +1,7 @@
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { IconProgress } from "@tabler/icons-react"
+import { cn } from "@/lib/utils"
 
 interface ProgressCardProps {
   config: {
@@ -12,7 +11,7 @@ interface ProgressCardProps {
     label?: string
     description?: string
     showPercentage?: boolean
-    color?: "default" | "success" | "warning" | "danger"
+    color?: "default" | "success" | "warning" | "danger" | "blue" | "purple" | "pink"
   }
 }
 
@@ -29,51 +28,106 @@ export default function ProgressCard({ config }: ProgressCardProps) {
 
   const percentage = Math.round((value / max) * 100)
 
-  const getColorClass = () => {
+  const getColorClasses = () => {
     switch (color) {
       case "success":
-        return "bg-green-500"
+        return {
+          bg: "bg-emerald-500 dark:bg-emerald-600",
+          text: "text-emerald-600 dark:text-emerald-400",
+          badge: "bg-emerald-50 dark:bg-emerald-950/20"
+        }
       case "warning":
-        return "bg-yellow-500"
+        return {
+          bg: "bg-amber-500 dark:bg-amber-600",
+          text: "text-amber-600 dark:text-amber-400",
+          badge: "bg-amber-50 dark:bg-amber-950/20"
+        }
       case "danger":
-        return "bg-red-500"
+        return {
+          bg: "bg-red-500 dark:bg-red-600",
+          text: "text-red-600 dark:text-red-400",
+          badge: "bg-red-50 dark:bg-red-950/20"
+        }
+      case "purple":
+        return {
+          bg: "bg-purple-500 dark:bg-purple-600",
+          text: "text-purple-600 dark:text-purple-400",
+          badge: "bg-purple-50 dark:bg-purple-950/20"
+        }
+      case "pink":
+        return {
+          bg: "bg-pink-500 dark:bg-pink-600",
+          text: "text-pink-600 dark:text-pink-400",
+          badge: "bg-pink-50 dark:bg-pink-950/20"
+        }
       default:
-        return "bg-primary"
+        return {
+          bg: "bg-primary",
+          text: "text-primary",
+          badge: "bg-primary/10"
+        }
     }
   }
 
+  const colors = getColorClasses()
+
   return (
-    <Card className="h-full">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <IconProgress className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex items-baseline justify-between">
-          <div className="text-2xl font-bold">{value}</div>
-          {showPercentage && (
-            <div className="text-sm text-muted-foreground">{percentage}%</div>
+    <div className="h-full flex flex-col justify-between p-4 sm:p-6">
+      {/* Value & Percentage */}
+      <div className="flex items-end justify-between gap-4 mb-4 sm:mb-6">
+        <div className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight tabular-nums">
+          {value}
+          <span className="text-base sm:text-lg text-muted-foreground ml-1 font-normal">/ {max}</span>
+        </div>
+        {showPercentage && (
+          <div className={cn(
+            "px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-sm sm:text-base font-bold tabular-nums",
+            colors.text,
+            colors.badge
+          )}>
+            {percentage}%
+          </div>
+        )}
+      </div>
+
+      {/* Progress Bar - Modern Style */}
+      <div className="space-y-2 sm:space-y-3">
+        <div className="relative h-2.5 sm:h-3 bg-muted rounded-full overflow-hidden">
+          <div
+            className={cn(
+              "h-full transition-all duration-500 ease-out rounded-full",
+              colors.bg
+            )}
+            style={{ width: `${percentage}%` }}
+          >
+            {/* Shimmer effect */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+          </div>
+        </div>
+
+        {/* Label & Description */}
+        <div className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground">
+          {label && <span className="font-medium">{label}</span>}
+          {description && (
+            <span className="text-right line-clamp-1">{description}</span>
           )}
         </div>
+      </div>
 
-        <Progress value={percentage} className="h-2">
-          <div
-            className={`h-full transition-all ${getColorClass()}`}
-            style={{ width: `${percentage}%` }}
-          />
-        </Progress>
-
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          {label && <span>{label}</span>}
-          <span>
-            {value} / {max}
-          </span>
-        </div>
-
-        {description && (
-          <p className="text-xs text-muted-foreground mt-2">{description}</p>
-        )}
-      </CardContent>
-    </Card>
+      {/* Shimmer animation */}
+      <style jsx>{`
+        @keyframes shimmer {
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(100%);
+          }
+        }
+        .animate-shimmer {
+          animation: shimmer 2s infinite;
+        }
+      `}</style>
+    </div>
   )
 }

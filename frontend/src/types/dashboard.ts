@@ -11,6 +11,7 @@ export type WidgetCategory =
   | "lists"
   | "stats"
   | "notifications"
+  | "data"
   | "custom"
 
 export interface Widget {
@@ -70,6 +71,7 @@ export interface Dashboard {
   scope_id?: string
   is_active: boolean
   is_public: boolean
+  is_home: boolean
   order: number
   menu_key?: string
   is_default_in_menu: boolean
@@ -94,6 +96,7 @@ export interface DashboardCreate {
   scope_id?: string
   is_active?: boolean
   is_public?: boolean
+  is_home?: boolean
   order?: number
   menu_key?: string
   is_default_in_menu?: boolean
@@ -118,6 +121,7 @@ export interface DashboardUpdate {
   is_default?: boolean
   is_active?: boolean
   is_public?: boolean
+  is_home?: boolean
   order?: number
   menu_key?: string
   is_default_in_menu?: boolean

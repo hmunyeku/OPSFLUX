@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from sqlmodel import text
 
 from app.api.deps import CurrentUser, SessionDep
-from app.core.security import require_permission
+from app.core.rbac import require_permission
 
 router = APIRouter(prefix="/database", tags=["database"])
 

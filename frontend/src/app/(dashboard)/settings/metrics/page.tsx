@@ -372,7 +372,7 @@ function MetricsPageContent() {
 
         {/* Overview Stats - Ultra compact */}
         <div className="grid gap-2 grid-cols-2 md:grid-cols-4">
-          <Card className="border-l-4 border-l-gray-400">
+          <Card>
             <CardHeader className="p-3 pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-medium">Total</CardTitle>
@@ -385,7 +385,7 @@ function MetricsPageContent() {
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-blue-500">
+          <Card>
             <CardHeader className="p-3 pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-medium">Compteurs</CardTitle>
@@ -398,7 +398,7 @@ function MetricsPageContent() {
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-green-500">
+          <Card>
             <CardHeader className="p-3 pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-medium">Jauges</CardTitle>
@@ -411,7 +411,7 @@ function MetricsPageContent() {
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-purple-500">
+          <Card>
             <CardHeader className="p-3 pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-medium">Histogrammes</CardTitle>

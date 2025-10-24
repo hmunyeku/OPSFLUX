@@ -489,95 +489,94 @@ function BackupsPageContent() {
             skeletonClassName="h-32 w-full"
           >
             {viewMode === "grid" ? (
-            <div className="w-full space-y-3">
+            <div className="w-full space-y-2.5">
               {backups.map((backup) => (
-                <Card key={backup.id} className="w-full hover:shadow-lg transition-all duration-300 border-l-4 border-l-transparent hover:border-l-primary shadow-sm group">
-                  <CardContent className="p-6 relative overflow-hidden">
-                    {/* Subtle gradient background on hover */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                    <div className="flex items-start justify-between gap-6 relative z-10">
-                      <div className="flex-1 min-w-0 space-y-4">
-                        <div>
-                          <div className="flex items-center gap-3 mb-2 flex-wrap">
-                            <h3 className="font-semibold text-lg transition-colors group-hover:text-primary">{backup.name}</h3>
-                            {getStatusBadge(backup.status)}
-                          </div>
-                          {backup.description && (
-                            <p className="text-sm text-muted-foreground leading-relaxed">{backup.description}</p>
-                          )}
+                <Card key={backup.id} className="w-full hover:shadow-md transition-all duration-200 border-l-4 border-l-transparent hover:border-l-primary group">
+                  <CardContent className="p-4 relative overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-r from-primary/3 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+
+                    <div className="flex items-center justify-between gap-4 relative z-10">
+                      {/* Left: Name + Status + Metadata */}
+                      <div className="flex-1 min-w-0 space-y-2">
+                        {/* Header row: Name + Status */}
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                          <h3 className="font-semibold text-base transition-colors group-hover:text-primary truncate">
+                            {backup.name}
+                          </h3>
+                          {getStatusBadge(backup.status)}
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-4 text-sm bg-muted/30 p-3 rounded-lg">
-                          <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground font-medium text-xs uppercase tracking-wide">Type:</span>
-                            <Badge variant="secondary" className="capitalize font-normal shadow-sm">
-                              {backup.backup_type}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground font-medium text-xs uppercase tracking-wide">Taille:</span>
-                            <span className="font-mono text-sm font-semibold">{formatBytes(backup.file_size)}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <IconClock className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-muted-foreground">
+                        {/* Metadata row: Type, Size, Date, Content */}
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                          {/* Type */}
+                          <Badge variant="secondary" className="capitalize text-xs h-5 px-2">
+                            {backup.backup_type}
+                          </Badge>
+
+                          {/* Size */}
+                          <span className="font-mono font-medium">{formatBytes(backup.file_size)}</span>
+
+                          {/* Date */}
+                          <div className="flex items-center gap-1">
+                            <IconClock className="h-3.5 w-3.5" />
+                            <span>
                               {formatDistanceToNow(new Date(backup.created_at), {
                                 addSuffix: true,
                                 locale: fr,
                               })}
                             </span>
                           </div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-muted-foreground font-medium text-xs uppercase tracking-wide">Contenu:</span>
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              {backup.includes_database && (
-                                <Badge variant="outline" className="text-xs px-2 py-0.5 shadow-sm">
-                                  <IconDatabase className="h-3 w-3 mr-1" />
-                                  Database
-                                </Badge>
-                              )}
-                              {backup.includes_storage && (
-                                <Badge variant="outline" className="text-xs px-2 py-0.5 shadow-sm">
-                                  Files
-                                </Badge>
-                              )}
-                              {backup.includes_config && (
-                                <Badge variant="outline" className="text-xs px-2 py-0.5 shadow-sm">
-                                  Config
-                                </Badge>
-                              )}
-                            </div>
+
+                          {/* Content badges */}
+                          <div className="flex items-center gap-1 ml-auto">
+                            {backup.includes_database && (
+                              <Badge variant="outline" className="text-xs h-5 px-1.5">
+                                <IconDatabase className="h-3 w-3" />
+                              </Badge>
+                            )}
+                            {backup.includes_storage && (
+                              <Badge variant="outline" className="text-xs h-5 px-1.5">
+                                📁
+                              </Badge>
+                            )}
+                            {backup.includes_config && (
+                              <Badge variant="outline" className="text-xs h-5 px-1.5">
+                                ⚙️
+                              </Badge>
+                            )}
                           </div>
                         </div>
 
+                        {/* Error message */}
                         {backup.error_message && (
-                          <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 p-3 rounded-lg shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
-                            <p className="font-semibold mb-1 flex items-center gap-2">
-                              <IconX className="h-4 w-4" />
+                          <div className="text-xs text-destructive bg-destructive/10 border border-destructive/20 p-2 rounded">
+                            <p className="font-medium flex items-center gap-1.5 mb-0.5">
+                              <IconX className="h-3 w-3" />
                               Erreur:
                             </p>
-                            <p className="text-xs leading-relaxed">{backup.error_message}</p>
+                            <p className="opacity-90">{backup.error_message}</p>
                           </div>
                         )}
                       </div>
 
-                      <div className="flex flex-col sm:flex-row items-center gap-2 flex-shrink-0">
+                      {/* Right: Action buttons */}
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
                         {backup.status === "completed" && (
                           <>
                             {hasPermission("core.backups.download") && (
                               <Button
-                                variant="outline"
+                                variant="ghost"
                                 size="sm"
                                 onClick={() => handleDownload(backup)}
-                                className="gap-2 shadow-sm hover:shadow transition-all w-full sm:w-auto"
+                                className="h-8 w-8 p-0"
+                                title="Télécharger"
                               >
                                 <IconDownload className="h-4 w-4" />
-                                <span className="hidden lg:inline">Télécharger</span>
                               </Button>
                             )}
                             {hasPermission("core.backups.restore") && (
                               <Button
-                                variant="outline"
+                                variant="ghost"
                                 size="sm"
                                 onClick={() => {
                                   setSelectedBackup(backup)
@@ -589,10 +588,10 @@ function BackupsPageContent() {
                                   })
                                   setRestoreDialogOpen(true)
                                 }}
-                                className="gap-2 shadow-sm hover:shadow transition-all w-full sm:w-auto"
+                                className="h-8 w-8 p-0"
+                                title="Restaurer"
                               >
                                 <IconRestore className="h-4 w-4" />
-                                <span className="hidden lg:inline">Restaurer</span>
                               </Button>
                             )}
                           </>
@@ -605,10 +604,10 @@ function BackupsPageContent() {
                               setSelectedBackup(backup)
                               setDeleteDialogOpen(true)
                             }}
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10 transition-all hover:scale-105 w-full sm:w-auto"
+                            className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            title="Supprimer"
                           >
                             <IconTrash className="h-4 w-4" />
-                            <span className="sm:hidden ml-2">Supprimer</span>
                           </Button>
                         )}
                       </div>

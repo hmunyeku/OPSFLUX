@@ -39,10 +39,19 @@ async def lifespan(app: FastAPI):
     try:
         from app.api.deps import get_db
         from app.core.module_hot_reload import hot_reload_service
+        from app.services.module_service import ModuleManager
 
         # Obtenir une session DB pour charger les modules
         db_gen = get_db()
         session = next(db_gen)
+
+        # Découvrir et enregistrer automatiquement les nouveaux modules
+        try:
+            discovered = ModuleManager.discover_modules(session)
+            if discovered:
+                print(f"🔍 Modules découverts: {len(discovered)}")
+        except Exception as e:
+            print(f"⚠️  Erreur lors de la découverte des modules: {e}")
 
         # Charger les modules activés (HOT RELOAD: passer l'instance app)
         loaded = ModuleLoader.load_active_modules(session, app=app)

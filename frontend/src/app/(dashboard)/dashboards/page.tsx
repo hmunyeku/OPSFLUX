@@ -13,6 +13,7 @@ import {
   IconLock,
   IconUsers,
   IconSparkles,
+  IconUpload,
 } from "@tabler/icons-react"
 import { getDashboards } from "@/lib/api/dashboards"
 import { auth } from "@/lib/auth"
@@ -21,10 +22,8 @@ import Link from "next/link"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PermissionGuard } from "@/components/permission-guard"
 import { useTranslation } from "@/hooks/use-translation"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DashboardCard } from "@/components/dashboard/dashboard-card"
-import { motion, AnimatePresence } from "framer-motion"
 import {
   Select,
   SelectContent,
@@ -32,6 +31,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { DashboardCreateDrawer } from "@/components/dashboard/dashboard-create-drawer"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 export default function DashboardsPageNew() {
   const { t } = useTranslation()
@@ -40,6 +46,7 @@ export default function DashboardsPageNew() {
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState<"all" | "my" | "mandatory" | "shared">("all")
   const [sortBy, setSortBy] = useState<"recent" | "name" | "widgets">("recent")
+  const [createDrawerOpen, setCreateDrawerOpen] = useState(false)
 
   useEffect(() => {
     const token = auth.getToken()
@@ -59,6 +66,14 @@ export default function DashboardsPageNew() {
 
     fetchDashboards()
   }, [])
+
+  const handleDashboardCreated = () => {
+    // Refresh dashboards list
+    const token = auth.getToken()
+    if (token) {
+      getDashboards(token).then(setDashboards).catch(console.error)
+    }
+  }
 
   // Filter and sort dashboards
   const getFilteredDashboards = () => {
@@ -152,184 +167,179 @@ export default function DashboardsPageNew() {
     title: string
     description: string
   }) => (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="flex flex-col items-center justify-center py-16 text-center"
-    >
-      <div className="rounded-full bg-muted p-6 mb-6">
-        <Icon className="h-12 w-12 text-muted-foreground" />
+    <div className="flex flex-col items-center justify-center text-center">
+      <div className="rounded-full bg-muted/50 p-6 mb-4">
+        <Icon className="h-10 w-10 text-muted-foreground" />
       </div>
       <h3 className="text-lg font-semibold mb-2">{title}</h3>
       <p className="text-sm text-muted-foreground max-w-md mb-6">{description}</p>
       <PermissionGuard permission="dashboards.create">
-        <Button asChild>
-          <Link href="/dashboards/new">
-            <IconPlus className="h-4 w-4 mr-2" />
-            Créer mon premier dashboard
-          </Link>
+        <Button onClick={() => setCreateDrawerOpen(true)}>
+          <IconPlus className="h-4 w-4 mr-2" />
+          Créer mon premier dashboard
         </Button>
       </PermissionGuard>
-    </motion.div>
+    </div>
   )
 
   return (
     <PermissionGuard permission="dashboards.read">
       <Header />
-      <ScrollArea className="h-[calc(100vh-4rem)]">
-        <div className="container py-8 space-y-8">
-          {/* Hero Section */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-purple-500/5 to-blue-500/5 p-8 border"
-          >
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(120,119,198,0.1),rgba(255,255,255,0))]" />
-            <div className="relative">
-              <div className="flex items-start justify-between flex-wrap gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="p-3 rounded-xl bg-primary/10">
-                      <IconSparkles className="h-8 w-8 text-primary" />
+      <div className="flex flex-col h-[calc(100vh-4rem)]">
+        {/* Compact Header */}
+        <div className="flex-none border-b bg-card/30 backdrop-blur-sm">
+          <div className="px-4 lg:px-6 py-4">
+            <div className="flex items-center justify-between gap-4 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <IconChartBar className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-semibold">
+                    {t("dashboards.title", "Dashboards")}
+                  </h1>
+                  <p className="text-sm text-muted-foreground">
+                    {t("dashboards.description", "Créez et gérez vos dashboards personnalisés")}
+                  </p>
+                </div>
+              </div>
+              <PermissionGuard permission="dashboards.create">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button>
+                      <IconPlus className="h-4 w-4 mr-2" />
+                      {t("dashboards.new", "Nouveau")}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setCreateDrawerOpen(true)}>
+                      <IconPlus className="h-4 w-4 mr-2" />
+                      Créer un dashboard
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setCreateDrawerOpen(true)}>
+                      <IconUpload className="h-4 w-4 mr-2" />
+                      Importer depuis JSON
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </PermissionGuard>
+            </div>
+
+            {/* Compact Stats */}
+            <div className="grid grid-cols-4 gap-3">
+              {stats.map((stat) => (
+                <div
+                  key={stat.label}
+                  className="bg-background/60 rounded-lg p-3 border"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className={`p-1.5 rounded ${stat.bgColor}`}>
+                      <stat.icon className={`h-4 w-4 ${stat.color}`} />
                     </div>
                     <div>
-                      <h1 className="text-3xl font-bold tracking-tight">
-                        {t("dashboards.title", "Dashboards")}
-                      </h1>
-                      <p className="text-muted-foreground mt-1">
-                        {t("dashboards.description", "Créez et gérez vos dashboards personnalisés")}
-                      </p>
+                      <p className="text-lg font-semibold">{stat.value}</p>
+                      <p className="text-xs text-muted-foreground">{stat.label}</p>
                     </div>
                   </div>
                 </div>
-                <PermissionGuard permission="dashboards.create">
-                  <Button asChild size="lg" className="shadow-lg">
-                    <Link href="/dashboards/new">
-                      <IconPlus className="h-5 w-5 mr-2" />
-                      {t("dashboards.new", "Nouveau dashboard")}
-                    </Link>
-                  </Button>
-                </PermissionGuard>
-              </div>
-
-              {/* Stats */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-                {stats.map((stat, index) => (
-                  <motion.div
-                    key={stat.label}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: index * 0.1 }}
-                    className="bg-background/50 backdrop-blur-sm rounded-xl p-4 border"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${stat.bgColor}`}>
-                        <stat.icon className={`h-5 w-5 ${stat.color}`} />
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold">{stat.value}</p>
-                        <p className="text-xs text-muted-foreground">{stat.label}</p>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
+              ))}
             </div>
-          </motion.div>
+          </div>
+        </div>
 
-          {/* Filters & Search */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.3, delay: 0.2 }}
-            className="flex flex-col sm:flex-row gap-4"
-          >
-            <div className="relative flex-1">
-              <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Rechercher un dashboard..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <IconFilter className="h-4 w-4 mr-2" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="recent">Plus récents</SelectItem>
-                <SelectItem value="name">Par nom</SelectItem>
-                <SelectItem value="widgets">Par widgets</SelectItem>
-              </SelectContent>
-            </Select>
-          </motion.div>
-
-          {/* Tabs & Dashboards */}
-          <Tabs value={activeTab} onValueChange={(value: any) => setActiveTab(value)}>
-            <TabsList className="w-full justify-start">
-              <TabsTrigger value="all">
-                Tous ({totalCount})
-              </TabsTrigger>
-              <TabsTrigger value="my">
-                Mes dashboards ({dashboards?.my_dashboards?.length || 0})
-              </TabsTrigger>
-              <TabsTrigger value="mandatory">
-                Obligatoires ({dashboards?.mandatory_dashboards?.length || 0})
-              </TabsTrigger>
-              <TabsTrigger value="shared">
-                Partagés ({dashboards?.shared_dashboards?.length || 0})
-              </TabsTrigger>
-            </TabsList>
-
-            <div className="mt-6">
-              {isLoading ? (
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  {[...Array(6)].map((_, i) => (
-                    <Skeleton key={i} className="h-48 rounded-xl" />
-                  ))}
-                </div>
-              ) : filteredDashboards.length > 0 ? (
-                <AnimatePresence mode="popLayout">
-                  <motion.div
-                    layout
-                    className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
-                  >
-                    {filteredDashboards.map((dashboard, index) => (
-                      <motion.div
-                        key={dashboard.id}
-                        layout
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
-                        transition={{ duration: 0.2, delay: index * 0.05 }}
-                      >
-                        <DashboardCard
-                          dashboard={dashboard}
-                          variant={dashboard.is_default_in_menu ? "featured" : "default"}
-                        />
-                      </motion.div>
-                    ))}
-                  </motion.div>
-                </AnimatePresence>
-              ) : (
-                <EmptyState
-                  icon={IconChartBar}
-                  title={searchQuery ? "Aucun résultat" : "Aucun dashboard"}
-                  description={
-                    searchQuery
-                      ? "Essayez avec d'autres termes de recherche"
-                      : "Commencez par créer votre premier dashboard personnalisé"
-                  }
+        {/* Search & Filters Bar */}
+        <div className="flex-none border-b bg-background/50 backdrop-blur-sm">
+          <div className="px-4 lg:px-6 py-3">
+            <div className="flex items-center gap-3">
+              <div className="relative flex-1 max-w-md">
+                <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Rechercher un dashboard..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 h-9"
                 />
-              )}
+              </div>
+              <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+                <SelectTrigger className="w-[160px] h-9">
+                  <IconFilter className="h-4 w-4 mr-2" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="recent">Plus récents</SelectItem>
+                  <SelectItem value="name">Par nom</SelectItem>
+                  <SelectItem value="widgets">Par widgets</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+
+        {/* Content Area with Tabs */}
+        <div className="flex-1 overflow-auto">
+          <Tabs value={activeTab} onValueChange={(value: any) => setActiveTab(value)} className="h-full flex flex-col">
+            <div className="flex-none border-b bg-background/50">
+              <div className="px-4 lg:px-6">
+                <TabsList className="h-10 bg-transparent">
+                  <TabsTrigger value="all" className="text-sm">
+                    Tous <span className="ml-1.5 text-xs text-muted-foreground">({totalCount})</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="my" className="text-sm">
+                    Mes dashboards <span className="ml-1.5 text-xs text-muted-foreground">({dashboards?.my_dashboards?.length || 0})</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="mandatory" className="text-sm">
+                    Obligatoires <span className="ml-1.5 text-xs text-muted-foreground">({dashboards?.mandatory_dashboards?.length || 0})</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="shared" className="text-sm">
+                    Partagés <span className="ml-1.5 text-xs text-muted-foreground">({dashboards?.shared_dashboards?.length || 0})</span>
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-auto">
+              <div className="px-4 lg:px-6 py-6">
+                {isLoading ? (
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {[...Array(8)].map((_, i) => (
+                      <Skeleton key={i} className="h-40 rounded-lg" />
+                    ))}
+                  </div>
+                ) : filteredDashboards.length > 0 ? (
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {filteredDashboards.map((dashboard) => (
+                      <DashboardCard
+                        key={dashboard.id}
+                        dashboard={dashboard}
+                        variant={dashboard.is_default_in_menu ? "featured" : "default"}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-[400px]">
+                    <EmptyState
+                      icon={IconChartBar}
+                      title={searchQuery ? "Aucun résultat" : "Aucun dashboard"}
+                      description={
+                        searchQuery
+                          ? "Essayez avec d'autres termes de recherche"
+                          : "Commencez par créer votre premier dashboard personnalisé"
+                      }
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </Tabs>
         </div>
-      </ScrollArea>
+      </div>
+
+      {/* Create Dashboard Drawer */}
+      <DashboardCreateDrawer
+        open={createDrawerOpen}
+        onOpenChange={setCreateDrawerOpen}
+        onSuccess={handleDashboardCreated}
+      />
     </PermissionGuard>
   )
 }

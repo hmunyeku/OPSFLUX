@@ -51,6 +51,21 @@ export async function getDashboardsByMenu(
   return result.data || []
 }
 
+export async function getHomeDashboards(token: string): Promise<Dashboard[]> {
+  const response = await fetch(`${API_BASE_URL}/dashboards/home`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch home dashboards")
+  }
+
+  const result = await response.json()
+  return result.data || []
+}
+
 export async function getDashboard(
   token: string,
   dashboardId: string
@@ -301,4 +316,117 @@ export async function getWidgetModules(token: string): Promise<string[]> {
   }
 
   return response.json()
+}
+
+// ==================== DASHBOARD IMPORT/EXPORT ====================
+
+export interface DashboardExportData {
+  name: string
+  description?: string
+  is_public: boolean
+  is_home: boolean
+  layout_config?: Record<string, any>
+  widgets: Array<{
+    widget_id: string
+    x: number
+    y: number
+    w: number
+    h: number
+    config: Record<string, any>
+  }>
+  metadata: {
+    exported_at: string
+    version: string
+  }
+}
+
+/**
+ * Export a dashboard to JSON format
+ */
+export function exportDashboardToJSON(dashboard: Dashboard): DashboardExportData {
+  return {
+    name: dashboard.name,
+    description: dashboard.description,
+    is_public: dashboard.is_public || false,
+    is_home: dashboard.is_home || false,
+    layout_config: dashboard.layout_config,
+    widgets: (dashboard.widgets || []).map((w) => ({
+      widget_id: w.widget_id,
+      x: w.x,
+      y: w.y,
+      w: w.w,
+      h: w.h,
+      config: w.config || {},
+    })),
+    metadata: {
+      exported_at: new Date().toISOString(),
+      version: "1.0",
+    },
+  }
+}
+
+/**
+ * Download dashboard as JSON file
+ */
+export function downloadDashboardJSON(dashboard: Dashboard): void {
+  const data = exportDashboardToJSON(dashboard)
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = `dashboard-${dashboard.name.replace(/\s+/g, "-").toLowerCase()}-${Date.now()}.json`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
+/**
+ * Import dashboard from JSON file
+ */
+export async function importDashboardFromJSON(
+  token: string,
+  jsonData: DashboardExportData
+): Promise<Dashboard> {
+  const dashboardData: DashboardCreate = {
+    name: `${jsonData.name} (Importé)`,
+    description: jsonData.description,
+    is_public: jsonData.is_public,
+    is_home: jsonData.is_home,
+    layout_config: jsonData.layout_config,
+    widgets: jsonData.widgets,
+  }
+
+  return createDashboard(token, dashboardData)
+}
+
+/**
+ * Validate dashboard JSON structure
+ */
+export function validateDashboardJSON(data: any): { valid: boolean; error?: string } {
+  if (!data || typeof data !== "object") {
+    return { valid: false, error: "Le fichier JSON est invalide" }
+  }
+
+  if (!data.name || typeof data.name !== "string") {
+    return { valid: false, error: "Le nom du dashboard est requis" }
+  }
+
+  if (!Array.isArray(data.widgets)) {
+    return { valid: false, error: "La structure des widgets est invalide" }
+  }
+
+  for (const widget of data.widgets) {
+    if (!widget.widget_id || typeof widget.widget_id !== "string") {
+      return { valid: false, error: "Un widget a un ID invalide" }
+    }
+    if (typeof widget.x !== "number" || typeof widget.y !== "number") {
+      return { valid: false, error: "Les positions des widgets sont invalides" }
+    }
+    if (typeof widget.w !== "number" || typeof widget.h !== "number") {
+      return { valid: false, error: "Les dimensions des widgets sont invalides" }
+    }
+  }
+
+  return { valid: true }
 }

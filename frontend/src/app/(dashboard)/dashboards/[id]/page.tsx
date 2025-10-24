@@ -18,10 +18,10 @@ import {
   IconLock,
   IconWorld,
   IconSparkles,
+  IconDownload,
+  IconUpload,
 } from "@tabler/icons-react"
-import DashboardGrid from "@/components/dashboard/dashboard-grid"
-import EditToolbar from "@/components/dashboard/edit-toolbar"
-import WidgetSidebar from "@/components/dashboard/widget-sidebar"
+import { DashboardBuilderV2 } from "@/components/dashboard/dashboard-builder-v2"
 import WidgetConfigDialog from "@/components/dashboard/widget-config-dialog"
 import {
   getDashboard,
@@ -30,6 +30,7 @@ import {
   cloneDashboard,
   addWidgetToDashboard,
   updateWidgetConfig,
+  downloadDashboardJSON,
 } from "@/lib/api/dashboards"
 import type { Dashboard, DashboardWidgetWithWidget } from "@/types/dashboard"
 import { useToast } from "@/hooks/use-toast"
@@ -43,25 +44,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
 import { getWidgetMeta } from "@/widgets/registry"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { motion, AnimatePresence } from "framer-motion"
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
 
 export default function DashboardViewPageNew() {
   const params = useParams()
@@ -75,7 +60,6 @@ export default function DashboardViewPageNew() {
   const [isSaving, setIsSaving] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [pendingChanges, setPendingChanges] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [configDialogOpen, setConfigDialogOpen] = useState(false)
   const [widgetToConfig, setWidgetToConfig] = useState<DashboardWidgetWithWidget | null>(null)
 
@@ -200,6 +184,26 @@ export default function DashboardViewPageNew() {
     }
   }
 
+  // Export dashboard to JSON
+  const handleExport = () => {
+    if (!dashboard) return
+
+    try {
+      downloadDashboardJSON(dashboard)
+      toast({
+        title: "Dashboard exporté",
+        description: "Le dashboard a été exporté en JSON",
+      })
+    } catch (error) {
+      console.error("Failed to export dashboard:", error)
+      toast({
+        title: "Erreur",
+        description: "Impossible d'exporter le dashboard",
+        variant: "destructive",
+      })
+    }
+  }
+
   // Delete dashboard
   const handleDelete = async () => {
     const token = auth.getToken()
@@ -263,8 +267,6 @@ export default function DashboardViewPageNew() {
         title: "Widget ajouté",
         description: `Le widget "${meta.name}" a été ajouté au dashboard`,
       })
-
-      setSidebarOpen(false)
     } catch (error) {
       console.error("Failed to add widget:", error)
       toast({
@@ -340,138 +342,102 @@ export default function DashboardViewPageNew() {
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
-        <div className="container py-6 space-y-6">
-          {/* Breadcrumb */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbLink href="/dashboards">Dashboards</BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbPage>{dashboard.name}</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-          </motion.div>
-
-          {/* Header */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-purple-500/5 to-blue-500/5 p-6 border backdrop-blur-sm"
-          >
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(120,119,198,0.1),rgba(255,255,255,0))]" />
-
-            <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-start gap-4 flex-1 min-w-0">
-                <div className="p-3 rounded-xl bg-primary/10 backdrop-blur-sm">
-                  <IconSparkles className="h-8 w-8 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap mb-2">
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{dashboard.name}</h1>
+      <div className="flex flex-col h-[calc(100vh-4rem)] bg-background">
+        {/* Dashboard Header Bar - Professional Style */}
+        <div className="flex-none border-b bg-card/80 backdrop-blur-sm supports-[backdrop-filter]:bg-card/60">
+          <div className="container mx-auto px-4 lg:px-6 py-4">
+            <div className="flex items-center justify-between gap-4">
+              {/* Left: Breadcrumb + Title */}
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => router.push("/dashboards")}
+                  className="shrink-0 h-9 w-9 p-0"
+                >
+                  <IconArrowLeft className="h-4 w-4" />
+                </Button>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h1 className="text-xl font-bold tracking-tight truncate">{dashboard.name}</h1>
                     {dashboard.is_mandatory && (
-                      <Badge variant="secondary">
-                        <IconLock className="h-3 w-3 mr-1" />
-                        Obligatoire
+                      <Badge variant="secondary" className="shrink-0 gap-1">
+                        <IconLock className="h-3 w-3" />
+                        <span className="text-xs">Système</span>
                       </Badge>
                     )}
                     {dashboard.is_public && (
-                      <Badge variant="outline">
-                        <IconWorld className="h-3 w-3 mr-1" />
-                        Public
+                      <Badge variant="outline" className="shrink-0 gap-1">
+                        <IconWorld className="h-3 w-3" />
+                        <span className="text-xs">Public</span>
                       </Badge>
                     )}
                   </div>
-                  {dashboard.description && (
-                    <p className="text-muted-foreground">{dashboard.description}</p>
-                  )}
-                  <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1.5">
-                      <IconLayoutGrid className="h-4 w-4" />
-                      <span className="font-medium">{widgetCount}</span> widget{widgetCount > 1 ? "s" : ""}
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1.5 font-medium">
+                      <IconLayoutGrid className="h-3.5 w-3.5" />
+                      {widgetCount} widget{widgetCount > 1 ? "s" : ""}
                     </span>
+                    {dashboard.description && (
+                      <>
+                        <span className="text-muted-foreground/50">•</span>
+                        <span className="truncate max-w-md">{dashboard.description}</span>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
 
+              {/* Right: Actions */}
               {!isEditMode && (
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <Button variant="outline" size="icon" onClick={handleClone}>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button variant="ghost" size="sm" onClick={handleExport} className="gap-1.5">
+                    <IconDownload className="h-4 w-4" />
+                    <span className="hidden lg:inline">Exporter</span>
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={handleClone} className="gap-1.5">
                     <IconCopy className="h-4 w-4" />
+                    <span className="hidden lg:inline">Dupliquer</span>
                   </Button>
                   {canEdit && (
                     <>
                       <Button
-                        variant="outline"
-                        size="icon"
+                        variant="ghost"
+                        size="sm"
                         onClick={() => setShowDeleteDialog(true)}
+                        className="gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10"
                       >
                         <IconTrash className="h-4 w-4" />
+                        <span className="hidden lg:inline">Supprimer</span>
                       </Button>
-                      <Button onClick={() => setIsEditMode(true)} className="gap-2">
+                      <Button onClick={() => setIsEditMode(true)} size="sm" className="gap-1.5">
                         <IconEdit className="h-4 w-4" />
-                        <span className="hidden sm:inline">Éditer</span>
+                        <span className="hidden sm:inline">Éditer le dashboard</span>
                       </Button>
                     </>
                   )}
                 </div>
               )}
             </div>
-          </motion.div>
+          </div>
+        </div>
 
-          {/* Dashboard Content */}
-          <AnimatePresence mode="wait">
-            {hasWidgets ? (
-              <motion.div
-                key="dashboard-grid"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
-              >
-                <DashboardGrid
-                  dashboard={dashboard}
-                  widgets={dashboard.widgets || []}
-                  isEditMode={isEditMode}
-                  onLayoutChange={handleLayoutChange}
-                  onConfigureWidget={handleConfigureWidget}
-                />
-              </motion.div>
-            ) : (
-              <motion.div
-                key="empty-state"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.3 }}
-                className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed py-16 bg-gradient-to-br from-muted/30 to-muted/10"
-              >
-                <div className="p-4 rounded-full bg-muted mb-4">
-                  <IconLayoutGrid className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <p className="text-lg font-medium mb-2">Ce dashboard est vide</p>
-                <p className="text-muted-foreground mb-6">Commencez par ajouter des widgets</p>
-                {canEdit && (
-                  <Button onClick={() => {
-                    setIsEditMode(true)
-                    setSidebarOpen(true)
-                  }} size="lg" className="gap-2">
-                    <IconPlus className="h-5 w-5" />
-                    Ajouter des widgets
-                  </Button>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
+        {/* Dashboard Content - Full Height & Width */}
+        <div className="flex-1 overflow-hidden">
+          <DashboardBuilderV2
+            dashboard={dashboard}
+            widgets={dashboard.widgets || []}
+            isEditMode={isEditMode}
+            onLayoutChange={handleLayoutChange}
+            onAddWidget={handleAddWidget}
+            onRemoveWidget={(widgetId) => {
+              // TODO: Implement remove widget API call
+              console.log("Remove widget:", widgetId)
+            }}
+            onConfigureWidget={handleConfigureWidget}
+            onSave={handleSave}
+            onCancel={handleCancel}
+          />
         </div>
       </div>
 
@@ -493,32 +459,6 @@ export default function DashboardViewPageNew() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Widget Sidebar */}
-      <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-        <SheetContent className="w-[400px] sm:w-[540px]">
-          <SheetHeader>
-            <SheetTitle>Ajouter un widget</SheetTitle>
-            <SheetDescription>
-              Sélectionnez un widget à ajouter à votre dashboard
-            </SheetDescription>
-          </SheetHeader>
-          <div className="mt-6">
-            <WidgetSidebar onAddWidget={handleAddWidget} />
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {/* Edit Toolbar */}
-      {isEditMode && (
-        <EditToolbar
-          hasUnsavedChanges={pendingChanges}
-          isSaving={isSaving}
-          onSave={handleSave}
-          onCancel={handleCancel}
-          onAddWidget={() => setSidebarOpen(true)}
-        />
-      )}
 
       {/* Widget Configuration Dialog */}
       <WidgetConfigDialog

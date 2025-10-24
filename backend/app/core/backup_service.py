@@ -380,6 +380,7 @@ class BackupService:
     def delete_backup(self, file_path: str) -> bool:
         """
         Supprime un fichier de backup.
+        Opération idempotente: retourne True si le fichier n'existe pas (déjà supprimé).
 
         Args:
             file_path: Chemin complet du fichier de backup (depuis backup.file_path)
@@ -391,8 +392,9 @@ class BackupService:
                 logger.info(f"Backup file deleted: {archive_path.name}")
                 return True
             else:
-                logger.warning(f"Backup file not found: {file_path}")
-                return False
+                # Fichier déjà supprimé ou n'existe pas → OK (opération idempotente)
+                logger.info(f"Backup file already deleted or not found: {file_path}")
+                return True
 
         except Exception as e:
             logger.error(f"Failed to delete backup: {e}")

@@ -159,64 +159,58 @@ export default function StatsCard({ config }: StatsCardProps) {
   }
 
   return (
-    <div className="h-full flex flex-col p-4 sm:p-6">
-      {/* Header with Title and Icon */}
-      <div className="flex items-start justify-between mb-3 sm:mb-4">
-        <div className="flex-1 min-w-0">
-          <h3 className="text-sm sm:text-base font-semibold text-foreground truncate">
+    <div className="h-full flex flex-col p-3">
+      {/* Compact Header */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <div className={cn("p-1.5 rounded-md bg-muted/50 shrink-0", getColorClass())}>
+            <IconComponent className="h-3.5 w-3.5" />
+          </div>
+          <h3 className="text-xs font-medium text-muted-foreground truncate">
             {title}
           </h3>
         </div>
-        <div className="flex items-center gap-2 ml-2">
-          {apiEndpoint && !isLoading && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={fetchValue}
-              className="h-7 w-7 p-0"
-            >
-              <IconRefresh className="h-3.5 w-3.5" />
-            </Button>
-          )}
-          <div className={cn("p-2 rounded-lg bg-muted/50", getColorClass())}>
-            <IconComponent className="h-4 w-4 sm:h-5 sm:w-5" />
-          </div>
-        </div>
-      </div>
-
-      {/* Value - Large and prominent */}
-      <div className="flex-1 flex items-center">
-        {isLoading ? (
-          <Skeleton className="h-12 w-32" />
-        ) : error ? (
-          <div className="text-sm text-destructive">Erreur</div>
-        ) : (
-          <div className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight tabular-nums">
-            {prefix}{value}{suffix}
-          </div>
+        {apiEndpoint && !isLoading && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={fetchValue}
+            className="h-6 w-6 p-0 shrink-0"
+          >
+            <IconRefresh className="h-3 w-3" />
+          </Button>
         )}
       </div>
 
-      {/* Description */}
-      {description && (
-        <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed line-clamp-2 mt-2">
-          {description}
-        </p>
-      )}
-
-      {/* Trend Badge */}
-      {trend !== 0 && (
-        <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-border/40">
-          <div className={cn(
-            "inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-xs sm:text-sm font-medium transition-colors",
-            getTrendColor()
-          )}>
-            {getTrendIcon()}
-            <span className="font-semibold">{getTrendText()}</span>
-            <span className="text-[10px] sm:text-xs opacity-70 ml-0.5">vs période préc.</span>
+      {/* Compact Value Display */}
+      <div className="flex-1 flex flex-col justify-center min-h-0">
+        {isLoading ? (
+          <Skeleton className="h-8 w-24" />
+        ) : error ? (
+          <div className="text-xs text-destructive">Erreur</div>
+        ) : (
+          <div className="flex items-baseline gap-1">
+            <div className="text-2xl font-bold tracking-tight tabular-nums">
+              {prefix}{value}{suffix}
+            </div>
+            {trend !== 0 && (
+              <div className={cn(
+                "inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium",
+                getTrendColor()
+              )}>
+                {getTrendIcon()}
+                <span>{getTrendText()}</span>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        )}
+
+        {description && (
+          <p className="text-[11px] text-muted-foreground line-clamp-1 mt-1">
+            {description}
+          </p>
+        )}
+      </div>
     </div>
   )
 }

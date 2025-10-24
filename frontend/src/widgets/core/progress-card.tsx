@@ -169,10 +169,10 @@ export default function ProgressCard({ config }: ProgressCardProps) {
   const colors = getColorClasses()
 
   return (
-    <div className="h-full flex flex-col p-4 sm:p-6">
-      {/* Header with Title */}
-      <div className="flex items-start justify-between mb-3 sm:mb-4">
-        <h3 className="text-sm sm:text-base font-semibold text-foreground truncate">
+    <div className="h-full flex flex-col p-3">
+      {/* Compact Header */}
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-xs font-medium text-muted-foreground truncate">
           {title}
         </h3>
         {apiEndpoint && !isLoading && (
@@ -180,27 +180,27 @@ export default function ProgressCard({ config }: ProgressCardProps) {
             variant="ghost"
             size="sm"
             onClick={fetchData}
-            className="h-7 w-7 p-0"
+            className="h-6 w-6 p-0"
           >
-            <IconRefresh className="h-3.5 w-3.5" />
+            <IconRefresh className="h-3 w-3" />
           </Button>
         )}
       </div>
 
-      {/* Value & Percentage */}
+      {/* Compact Value & Percentage */}
       {isLoading ? (
-        <Skeleton className="h-12 w-full mb-4" />
+        <Skeleton className="h-7 w-full mb-2" />
       ) : error ? (
-        <div className="text-sm text-destructive mb-4">Erreur de chargement</div>
+        <div className="text-xs text-destructive mb-2">Erreur</div>
       ) : (
-        <div className="flex items-end justify-between gap-4 mb-4 sm:mb-6">
-          <div className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight tabular-nums">
+        <div className="flex items-baseline justify-between gap-2 mb-2">
+          <div className="text-xl font-bold tracking-tight tabular-nums">
             {value}
-            <span className="text-base sm:text-lg text-muted-foreground ml-1 font-normal">/ {max}</span>
+            <span className="text-sm text-muted-foreground ml-1 font-normal">/ {max}</span>
           </div>
           {showPercentage && (
             <div className={cn(
-              "px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-sm sm:text-base font-bold tabular-nums",
+              "px-1.5 py-0.5 rounded text-xs font-bold tabular-nums",
               colors.text,
               colors.badge
             )}>
@@ -210,9 +210,9 @@ export default function ProgressCard({ config }: ProgressCardProps) {
         </div>
       )}
 
-      {/* Progress Bar - Modern Style */}
-      <div className="space-y-2 sm:space-y-3">
-        <div className="relative h-2.5 sm:h-3 bg-muted rounded-full overflow-hidden">
+      {/* Compact Progress Bar */}
+      <div className="space-y-1.5">
+        <div className="relative h-2 bg-muted rounded-full overflow-hidden">
           <div
             className={cn(
               "h-full transition-all duration-500 ease-out rounded-full",
@@ -220,21 +220,21 @@ export default function ProgressCard({ config }: ProgressCardProps) {
             )}
             style={{ width: `${percentage}%` }}
           >
-            {/* Shimmer effect */}
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
           </div>
         </div>
 
-        {/* Label & Description */}
-        <div className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground">
-          {label && <span className="font-medium">{label}</span>}
-          {description && (
-            <span className="text-right line-clamp-1">{description}</span>
-          )}
-        </div>
+        {/* Compact Label & Description */}
+        {(label || description) && (
+          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+            {label && <span className="font-medium truncate">{label}</span>}
+            {description && (
+              <span className="text-right truncate">{description}</span>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Shimmer animation */}
       <style jsx>{`
         @keyframes shimmer {
           0% {

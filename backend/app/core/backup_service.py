@@ -157,52 +157,40 @@ class BackupService:
 
             if settings_obj:
                 config_file = backup_path / "config.json"
-                config_data = {
-                    # Application générale
-                    "app_name": settings_obj.app_name,
-                    "app_logo": settings_obj.app_logo,
-                    "default_theme": settings_obj.default_theme,
-                    "default_language": settings_obj.default_language,
-                    "font": settings_obj.font,
-                    "company_name": settings_obj.company_name,
-                    "company_logo": settings_obj.company_logo,
-                    "company_tax_id": settings_obj.company_tax_id,
-                    "company_address": settings_obj.company_address,
-                    # Paramètres UI
-                    "auto_save_delay_seconds": settings_obj.auto_save_delay_seconds,
-                    # Paramètres 2FA
-                    "twofa_max_attempts": settings_obj.twofa_max_attempts,
-                    "twofa_sms_timeout_minutes": settings_obj.twofa_sms_timeout_minutes,
-                    "twofa_sms_rate_limit": settings_obj.twofa_sms_rate_limit,
-                    # Stockage
-                    "default_storage_backend": settings_obj.default_storage_backend,
-                    "local_storage_path": settings_obj.local_storage_path,
-                    "max_upload_size_mb": settings_obj.max_upload_size_mb,
-                    "allowed_file_extensions": settings_obj.allowed_file_extensions,
-                    # S3
-                    "s3_bucket_name": settings_obj.s3_bucket_name,
-                    "s3_region": settings_obj.s3_region,
-                    "s3_endpoint_url": settings_obj.s3_endpoint_url,
-                    # Email
-                    "smtp_host": settings_obj.smtp_host,
-                    "smtp_port": settings_obj.smtp_port,
-                    "smtp_username": settings_obj.smtp_username,
-                    "smtp_use_tls": settings_obj.smtp_use_tls,
-                    "smtp_from_email": settings_obj.smtp_from_email,
-                    "smtp_from_name": settings_obj.smtp_from_name,
-                    # SMS
-                    "sms_provider": settings_obj.sms_provider,
-                    "twilio_account_sid": settings_obj.twilio_account_sid,
-                    "twilio_from_number": settings_obj.twilio_from_number,
-                    # Webhooks
-                    "webhooks_enabled": settings_obj.webhooks_enabled,
-                    "webhook_retry_max_attempts": settings_obj.webhook_retry_max_attempts,
-                    "webhook_retry_delay_seconds": settings_obj.webhook_retry_delay_seconds,
-                    "webhook_timeout_seconds": settings_obj.webhook_timeout_seconds,
+
+                # Utiliser model_dump() pour récupérer dynamiquement TOUS les attributs
+                # Cela garantit que tous les champs présents et futurs seront backupés
+                config_data = settings_obj.model_dump(
+                    mode='json',  # Convertir en types JSON-safe (UUID -> str, datetime -> str, etc.)
+                    exclude_none=False,  # Inclure les valeurs None
+                    exclude_unset=False,  # Inclure les valeurs par défaut
+                )
+
+                # Filtrer les champs sensibles qui ne doivent PAS être dans le backup
+                # (ils seront rechiffrés à la restauration avec les clés actuelles)
+                sensitive_fields = {
+                    'smtp_password',  # Mot de passe SMTP (chiffré en DB)
+                    'twilio_auth_token',  # Token Twilio (chiffré en DB)
+                    's3_access_key_id',  # Clé S3 (chiffrée en DB)
+                    's3_secret_access_key',  # Secret S3 (chiffré en DB)
+                }
+
+                # Créer un backup "safe" sans les secrets chiffrés
+                config_data_safe = {
+                    k: v for k, v in config_data.items()
+                    if k not in sensitive_fields
+                }
+
+                # Ajouter un marqueur pour indiquer que des champs sensibles ont été exclus
+                config_data_safe['_backup_metadata'] = {
+                    'excluded_sensitive_fields': list(sensitive_fields),
+                    'backup_date': str(Path.ctime(backup_path)),
+                    'total_fields': len(config_data),
+                    'safe_fields': len(config_data_safe) - 1,  # -1 pour _backup_metadata
                 }
 
                 with open(config_file, "w") as f:
-                    json.dump(config_data, f, indent=2)
+                    json.dump(config_data_safe, f, indent=2, ensure_ascii=False)
 
                 file_size = config_file.stat().st_size
                 logger.info(f"Config backup created: {file_size} bytes")

@@ -260,6 +260,82 @@ export default function WidgetConfigDialog({
           </>
         )
 
+      case "sql_query":
+        return (
+          <>
+            {commonFields}
+            <div className="space-y-2">
+              <Label htmlFor="query">Requête SQL</Label>
+              <Textarea
+                id="query"
+                value={config.query || ""}
+                onChange={(e) => handleConfigChange("query", e.target.value)}
+                placeholder="SELECT * FROM users LIMIT 10"
+                rows={6}
+                className="font-mono text-xs"
+              />
+              <p className="text-xs text-muted-foreground">
+                Seules les requêtes SELECT sont autorisées
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="refreshInterval">Intervalle de rafraîchissement (secondes)</Label>
+              <Input
+                id="refreshInterval"
+                type="number"
+                min={0}
+                value={config.refreshInterval || 0}
+                onChange={(e) => handleConfigChange("refreshInterval", parseInt(e.target.value) || 0)}
+              />
+              <p className="text-xs text-muted-foreground">
+                0 = pas de rafraîchissement automatique
+              </p>
+            </div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="showRowCount">Afficher le nombre de lignes</Label>
+              <Switch
+                id="showRowCount"
+                checked={config.showRowCount ?? true}
+                onCheckedChange={(checked) => handleConfigChange("showRowCount", checked)}
+              />
+            </div>
+          </>
+        )
+
+      case "pivot_table":
+        return (
+          <>
+            {commonFields}
+            <div className="space-y-2">
+              <Label htmlFor="query">Requête SQL</Label>
+              <Textarea
+                id="query"
+                value={config.query || ""}
+                onChange={(e) => handleConfigChange("query", e.target.value)}
+                placeholder="SELECT * FROM sales"
+                rows={6}
+                className="font-mono text-xs"
+              />
+              <p className="text-xs text-muted-foreground">
+                Les données seront utilisées pour générer le tableau croisé
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="refreshInterval">Intervalle de rafraîchissement (secondes)</Label>
+              <Input
+                id="refreshInterval"
+                type="number"
+                min={0}
+                value={config.refreshInterval || 0}
+                onChange={(e) => handleConfigChange("refreshInterval", parseInt(e.target.value) || 0)}
+              />
+              <p className="text-xs text-muted-foreground">
+                0 = pas de rafraîchissement automatique
+              </p>
+            </div>
+          </>
+        )
+
       default:
         return commonFields
     }

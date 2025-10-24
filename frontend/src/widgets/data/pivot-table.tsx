@@ -8,6 +8,10 @@ import { IconRefresh, IconDownload } from "@tabler/icons-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import dynamic from "next/dynamic"
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
+  ? `${process.env.NEXT_PUBLIC_API_URL}/api/v1`
+  : "/api/v1"
+
 // Dynamic import pour éviter les problèmes SSR avec react-pivottable
 const PivotTableUI = dynamic(
   () => import("react-pivottable/PivotTableUI"),
@@ -71,7 +75,7 @@ export default function PivotTableWidget({ config }: PivotTableWidgetProps) {
 
       if (query) {
         // Utiliser l'API SQL
-        url = "/api/v1/database/query"
+        url = `${API_BASE_URL}/database/query`
         body = JSON.stringify({ query })
       }
 

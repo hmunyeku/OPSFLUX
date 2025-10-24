@@ -6,6 +6,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { auth } from "@/lib/auth"
 import { IconPlayerPlay, IconRefresh, IconDownload, IconTable } from "@tabler/icons-react"
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
+  ? `${process.env.NEXT_PUBLIC_API_URL}/api/v1`
+  : "/api/v1"
 import {
   Table,
   TableBody,
@@ -62,7 +66,7 @@ export default function SQLQueryWidget({ config }: SQLQueryWidgetProps) {
       if (!token) throw new Error("Non authentifié")
 
       // Appel API pour exécuter la requête SQL
-      const response = await fetch("/api/v1/database/query", {
+      const response = await fetch(`${API_BASE_URL}/database/query`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

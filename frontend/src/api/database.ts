@@ -113,12 +113,30 @@ export async function createBackup(request?: BackupCreateRequest) {
  * Télécharge une sauvegarde
  */
 export async function downloadBackup(filename: string) {
-  const response = await apiClient.get(`/database/backups/${filename}`, {
-    responseType: 'blob',
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.opsflux.io'
+  const token = localStorage.getItem('access_token')
+
+  if (!token) {
+    throw new Error('No access token found')
+  }
+
+  const response = await fetch(`${API_URL}/api/v1/database/backups/${filename}`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
   })
 
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: response.statusText }))
+    throw new Error(error.detail || `Erreur lors du téléchargement: ${response.status}`)
+  }
+
+  // Get the blob from response
+  const blob = await response.blob()
+
   // Create download link
-  const url = window.URL.createObjectURL(new Blob([response.data]))
+  const url = window.URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
   link.setAttribute('download', filename)

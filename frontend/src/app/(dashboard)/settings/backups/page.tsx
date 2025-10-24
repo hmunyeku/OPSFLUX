@@ -489,128 +489,118 @@ function BackupsPageContent() {
             skeletonClassName="h-32 w-full"
           >
             {viewMode === "grid" ? (
-            <div className="w-full space-y-2.5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {backups.map((backup) => (
-                <Card key={backup.id} className="w-full hover:shadow-md transition-all duration-200 border-l-4 border-l-transparent hover:border-l-primary group">
-                  <CardContent className="p-4 relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-r from-primary/3 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                <Card key={backup.id} className="hover:shadow-md transition-all duration-200 border-t-2 border-t-transparent hover:border-t-primary group">
+                  <CardContent className="p-3 space-y-2.5">
+                    {/* Header: Name + Status */}
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-semibold text-sm line-clamp-1 flex-1 transition-colors group-hover:text-primary" title={backup.name}>
+                        {backup.name}
+                      </h3>
+                      {getStatusBadge(backup.status)}
+                    </div>
 
-                    <div className="flex items-center justify-between gap-4 relative z-10">
-                      {/* Left: Name + Status + Metadata */}
-                      <div className="flex-1 min-w-0 space-y-2">
-                        {/* Header row: Name + Status */}
-                        <div className="flex items-center gap-2.5 flex-wrap">
-                          <h3 className="font-semibold text-base transition-colors group-hover:text-primary truncate">
-                            {backup.name}
-                          </h3>
-                          {getStatusBadge(backup.status)}
-                        </div>
+                    {/* Type + Size */}
+                    <div className="flex items-center gap-2 text-xs">
+                      <Badge variant="secondary" className="capitalize text-xs h-5 px-2">
+                        {backup.backup_type}
+                      </Badge>
+                      <span className="font-mono font-medium text-muted-foreground">{formatBytes(backup.file_size)}</span>
+                    </div>
 
-                        {/* Metadata row: Type, Size, Date, Content */}
-                        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                          {/* Type */}
-                          <Badge variant="secondary" className="capitalize text-xs h-5 px-2">
-                            {backup.backup_type}
-                          </Badge>
+                    {/* Date */}
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <IconClock className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span className="truncate">
+                        {formatDistanceToNow(new Date(backup.created_at), {
+                          addSuffix: true,
+                          locale: fr,
+                        })}
+                      </span>
+                    </div>
 
-                          {/* Size */}
-                          <span className="font-mono font-medium">{formatBytes(backup.file_size)}</span>
+                    {/* Content badges */}
+                    <div className="flex items-center gap-1.5">
+                      {backup.includes_database && (
+                        <Badge variant="outline" className="text-xs h-5 px-1.5" title="Base de données">
+                          <IconDatabase className="h-3 w-3" />
+                        </Badge>
+                      )}
+                      {backup.includes_storage && (
+                        <Badge variant="outline" className="text-xs h-5 px-1.5" title="Stockage">
+                          📁
+                        </Badge>
+                      )}
+                      {backup.includes_config && (
+                        <Badge variant="outline" className="text-xs h-5 px-1.5" title="Configuration">
+                          ⚙️
+                        </Badge>
+                      )}
+                    </div>
 
-                          {/* Date */}
-                          <div className="flex items-center gap-1">
-                            <IconClock className="h-3.5 w-3.5" />
-                            <span>
-                              {formatDistanceToNow(new Date(backup.created_at), {
-                                addSuffix: true,
-                                locale: fr,
-                              })}
-                            </span>
-                          </div>
-
-                          {/* Content badges */}
-                          <div className="flex items-center gap-1 ml-auto">
-                            {backup.includes_database && (
-                              <Badge variant="outline" className="text-xs h-5 px-1.5">
-                                <IconDatabase className="h-3 w-3" />
-                              </Badge>
-                            )}
-                            {backup.includes_storage && (
-                              <Badge variant="outline" className="text-xs h-5 px-1.5">
-                                📁
-                              </Badge>
-                            )}
-                            {backup.includes_config && (
-                              <Badge variant="outline" className="text-xs h-5 px-1.5">
-                                ⚙️
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Error message */}
-                        {backup.error_message && (
-                          <div className="text-xs text-destructive bg-destructive/10 border border-destructive/20 p-2 rounded">
-                            <p className="font-medium flex items-center gap-1.5 mb-0.5">
-                              <IconX className="h-3 w-3" />
-                              Erreur:
-                            </p>
-                            <p className="opacity-90">{backup.error_message}</p>
-                          </div>
-                        )}
+                    {/* Error message */}
+                    {backup.error_message && (
+                      <div className="text-xs text-destructive bg-destructive/10 border border-destructive/20 p-2 rounded">
+                        <p className="font-medium flex items-center gap-1 mb-0.5">
+                          <IconX className="h-3 w-3" />
+                          Erreur:
+                        </p>
+                        <p className="opacity-90 line-clamp-2" title={backup.error_message}>{backup.error_message}</p>
                       </div>
+                    )}
 
-                      {/* Right: Action buttons */}
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        {backup.status === "completed" && (
-                          <>
-                            {hasPermission("core.backups.download") && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDownload(backup)}
-                                className="h-8 w-8 p-0"
-                                title="Télécharger"
-                              >
-                                <IconDownload className="h-4 w-4" />
-                              </Button>
-                            )}
-                            {hasPermission("core.backups.restore") && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedBackup(backup)
-                                  setRestoreOptions({
-                                    backup_id: backup.id,
-                                    restore_database: backup.includes_database,
-                                    restore_storage: backup.includes_storage,
-                                    restore_config: backup.includes_config,
-                                  })
-                                  setRestoreDialogOpen(true)
-                                }}
-                                className="h-8 w-8 p-0"
-                                title="Restaurer"
-                              >
-                                <IconRestore className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </>
-                        )}
-                        {hasPermission("core.backups.delete") && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedBackup(backup)
-                              setDeleteDialogOpen(true)
-                            }}
-                            className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                            title="Supprimer"
-                          >
-                            <IconTrash className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
+                    {/* Action buttons */}
+                    <div className="flex items-center gap-1 pt-1 border-t">
+                      {backup.status === "completed" && (
+                        <>
+                          {hasPermission("core.backups.download") && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDownload(backup)}
+                              className="h-7 w-7 p-0 flex-1"
+                              title="Télécharger"
+                            >
+                              <IconDownload className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          {hasPermission("core.backups.restore") && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedBackup(backup)
+                                setRestoreOptions({
+                                  backup_id: backup.id,
+                                  restore_database: backup.includes_database,
+                                  restore_storage: backup.includes_storage,
+                                  restore_config: backup.includes_config,
+                                })
+                                setRestoreDialogOpen(true)
+                              }}
+                              className="h-7 w-7 p-0 flex-1"
+                              title="Restaurer"
+                            >
+                              <IconRestore className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </>
+                      )}
+                      {hasPermission("core.backups.delete") && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedBackup(backup)
+                            setDeleteDialogOpen(true)
+                          }}
+                          className="h-7 w-7 p-0 flex-1 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          title="Supprimer"
+                        >
+                          <IconTrash className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -753,103 +743,101 @@ function BackupsPageContent() {
             skeletonCount={2}
             skeletonClassName="h-32 w-full"
           >
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {scheduledBackups.map((scheduled) => (
-                <Card key={scheduled.id} className="hover:shadow-lg transition-all duration-300 border-l-4 shadow-sm group" style={{ borderLeftColor: scheduled.is_active ? 'var(--primary)' : 'var(--muted)' }}>
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between gap-6">
-                      <div className="flex-1 min-w-0 space-y-4">
-                        <div>
-                          <div className="flex items-center gap-3 mb-2 flex-wrap">
-                            <h3 className="font-semibold text-lg">{scheduled.name}</h3>
-                            <Badge variant={scheduled.is_active ? "default" : "secondary"} className="flex items-center gap-1">
-                              {scheduled.is_active ? "Actif" : "Inactif"}
-                            </Badge>
-                          </div>
-                          {scheduled.description && (
-                            <p className="text-sm text-muted-foreground leading-relaxed">{scheduled.description}</p>
-                          )}
-                        </div>
+                <Card key={scheduled.id} className="hover:shadow-md transition-all duration-200 border-t-2" style={{ borderTopColor: scheduled.is_active ? 'var(--primary)' : 'var(--muted)' }}>
+                  <CardContent className="p-3 space-y-2.5">
+                    {/* Header: Name + Status */}
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-semibold text-sm line-clamp-1 flex-1" title={scheduled.name}>
+                        {scheduled.name}
+                      </h3>
+                      <Badge variant={scheduled.is_active ? "default" : "secondary"} className="text-xs h-5 px-2">
+                        {scheduled.is_active ? "Actif" : "Inactif"}
+                      </Badge>
+                    </div>
 
-                        <div className="flex flex-wrap items-center gap-4 text-sm bg-muted/30 p-3 rounded-lg">
-                          <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground font-medium text-xs uppercase tracking-wide">Fréquence:</span>
-                            <Badge variant="secondary" className="capitalize font-normal shadow-sm">
-                              {scheduled.schedule_frequency === "daily" && "Quotidienne"}
-                              {scheduled.schedule_frequency === "weekly" && "Hebdomadaire"}
-                              {scheduled.schedule_frequency === "monthly" && "Mensuelle"}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <IconClock className="h-4 w-4 text-muted-foreground" />
-                            <span>{scheduled.schedule_time}</span>
-                          </div>
-                          {scheduled.next_run_at && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-muted-foreground font-medium text-xs uppercase tracking-wide">Prochaine:</span>
-                              <span className="text-muted-foreground">
-                                {formatDistanceToNow(new Date(scheduled.next_run_at), { addSuffix: true, locale: fr })}
-                              </span>
-                            </div>
-                          )}
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-muted-foreground font-medium text-xs uppercase tracking-wide">Contenu:</span>
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              {scheduled.includes_database && (
-                                <Badge variant="outline" className="text-xs px-2 py-0.5 shadow-sm">
-                                  <IconDatabase className="h-3 w-3 mr-1" />
-                                  DB
-                                </Badge>
-                              )}
-                              {scheduled.includes_storage && (
-                                <Badge variant="outline" className="text-xs px-2 py-0.5 shadow-sm">
-                                  Files
-                                </Badge>
-                              )}
-                              {scheduled.includes_config && (
-                                <Badge variant="outline" className="text-xs px-2 py-0.5 shadow-sm">
-                                  Config
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        </div>
+                    {/* Description */}
+                    {scheduled.description && (
+                      <p className="text-xs text-muted-foreground line-clamp-2" title={scheduled.description}>
+                        {scheduled.description}
+                      </p>
+                    )}
 
-                        {scheduled.total_runs > 0 && (
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground pt-2 border-t">
-                            <span>Total: {scheduled.total_runs}</span>
-                            <span className="text-green-600 dark:text-green-400">Réussies: {scheduled.successful_runs}</span>
-                            {scheduled.failed_runs > 0 && (
-                              <span className="text-destructive">Échecs: {scheduled.failed_runs}</span>
-                            )}
-                          </div>
+                    {/* Frequency + Time */}
+                    <div className="flex items-center gap-2 text-xs flex-wrap">
+                      <Badge variant="secondary" className="capitalize text-xs h-5 px-2">
+                        {scheduled.schedule_frequency === "daily" && "Quotidienne"}
+                        {scheduled.schedule_frequency === "weekly" && "Hebdomadaire"}
+                        {scheduled.schedule_frequency === "monthly" && "Mensuelle"}
+                      </Badge>
+                      <div className="flex items-center gap-1 text-muted-foreground">
+                        <IconClock className="h-3.5 w-3.5" />
+                        <span>{scheduled.schedule_time}</span>
+                      </div>
+                    </div>
+
+                    {/* Next run */}
+                    {scheduled.next_run_at && (
+                      <div className="text-xs text-muted-foreground">
+                        Prochaine: {formatDistanceToNow(new Date(scheduled.next_run_at), { addSuffix: true, locale: fr })}
+                      </div>
+                    )}
+
+                    {/* Content badges */}
+                    <div className="flex items-center gap-1.5">
+                      {scheduled.includes_database && (
+                        <Badge variant="outline" className="text-xs h-5 px-1.5" title="Base de données">
+                          <IconDatabase className="h-3 w-3" />
+                        </Badge>
+                      )}
+                      {scheduled.includes_storage && (
+                        <Badge variant="outline" className="text-xs h-5 px-1.5" title="Stockage">
+                          📁
+                        </Badge>
+                      )}
+                      {scheduled.includes_config && (
+                        <Badge variant="outline" className="text-xs h-5 px-1.5" title="Configuration">
+                          ⚙️
+                        </Badge>
+                      )}
+                    </div>
+
+                    {/* Stats */}
+                    {scheduled.total_runs > 0 && (
+                      <div className="flex items-center gap-2 text-xs pt-1 border-t">
+                        <span className="text-muted-foreground">Total: {scheduled.total_runs}</span>
+                        <span className="text-green-600 dark:text-green-400">✓ {scheduled.successful_runs}</span>
+                        {scheduled.failed_runs > 0 && (
+                          <span className="text-destructive">✗ {scheduled.failed_runs}</span>
                         )}
                       </div>
+                    )}
 
-                      <div className="flex flex-col items-center gap-2 flex-shrink-0">
+                    {/* Action buttons */}
+                    <div className="flex items-center gap-1 pt-1 border-t">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleToggleScheduled(scheduled)}
+                        className="h-7 text-xs flex-1"
+                      >
+                        {scheduled.is_active ? "Désactiver" : "Activer"}
+                      </Button>
+                      {hasPermission("core.backups.delete") && (
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
-                          onClick={() => handleToggleScheduled(scheduled)}
-                          className="gap-2 shadow-sm hover:shadow transition-all w-full"
+                          onClick={() => {
+                            setSelectedScheduled(scheduled)
+                            setDeleteScheduledDialogOpen(true)
+                          }}
+                          className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          title="Supprimer"
                         >
-                          {scheduled.is_active ? "Désactiver" : "Activer"}
+                          <IconTrash className="h-3.5 w-3.5" />
                         </Button>
-                        {hasPermission("core.backups.delete") && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedScheduled(scheduled)
-                              setDeleteScheduledDialogOpen(true)
-                            }}
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10 transition-all w-full"
-                          >
-                            <IconTrash className="h-4 w-4 mr-2" />
-                            Supprimer
-                          </Button>
-                        )}
-                      </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useEffect, useState } from "react"
 import {
   Sidebar,
   SidebarContent,
@@ -18,12 +18,35 @@ import { usePreferencesContext } from "@/contexts/preferences-context"
 import { useModuleContext } from "@/contexts/module-context"
 import * as TablerIcons from "@tabler/icons-react"
 import { type NavGroup as NavGroupType } from "./types"
+import { auth } from "@/lib/auth"
+import { getDashboards } from "@/lib/api/dashboards"
+import type { Dashboard } from "@/types/dashboard"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { hasPermission, hasAnyPermission, hasAllPermissions, isLoading } = usePermissions()
   const { preferences } = usePreferencesContext()
   const { moduleMenus } = useModuleContext()
   const sidebarData = useSidebarData()
+  const [dashboards, setDashboards] = useState<Dashboard[]>([])
+
+  // Charger les dashboards depuis l'API
+  useEffect(() => {
+    const token = auth.getToken()
+    if (!token) return
+
+    getDashboards(token)
+      .then((data) => {
+        // Combiner tous les dashboards (obligatoires + mes dashboards)
+        const allDashboards = [
+          ...(data.mandatory_dashboards || []),
+          ...(data.my_dashboards || []),
+        ]
+        setDashboards(allDashboards)
+      })
+      .catch((error) => {
+        console.error("Failed to load dashboards for sidebar:", error)
+      })
+  }, [])
 
   // Convertir les menus des modules en NavGroups
   const moduleNavGroups = useMemo(() => {
@@ -52,6 +75,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     })
   }, [moduleMenus])
 
+  // Créer le groupe de navigation des dashboards dynamiques
+  const dashboardNavGroup = useMemo((): NavGroupType | null => {
+    if (dashboards.length === 0) return null
+
+    return {
+      title: "Dashboards",
+      items: dashboards.map((dashboard) => ({
+        title: dashboard.name,
+        url: `/dashboards/${dashboard.id}`,
+        icon: dashboard.is_mandatory ? TablerIcons.IconLock : TablerIcons.IconLayoutDashboard,
+      })),
+    }
+  }, [dashboards])
+
   // Filtrer les groupes de navigation selon les permissions
   const filteredNavGroups = useMemo(() => {
     if (isLoading) {
@@ -64,8 +101,43 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       hasAllPermissions,
     }
 
-    // Combiner les nav groups statiques et les modules
-    const allNavGroups = [...sidebarData.navGroups, ...moduleNavGroups]
+    // Modifier le groupe "Général" pour remplacer le sous-menu "Dashboards" par les dashboards individuels
+    const modifiedSidebarGroups = sidebarData.navGroups.map((group) => {
+      if (group.title === "Général") {
+        return {
+          ...group,
+          items: group.items.map((item) => {
+            // Remplacer le menu "Dashboards" avec sous-items par les dashboards directs
+            if (item.title === "Dashboards" && dashboardNavGroup) {
+              return {
+                title: "Dashboards",
+                icon: TablerIcons.IconChartBar,
+                permission: "dashboards.read",
+                items: [
+                  ...dashboardNavGroup.items,
+                  {
+                    title: "Tous les dashboards",
+                    url: "/dashboards",
+                    icon: TablerIcons.IconLayoutDashboard,
+                  },
+                  {
+                    title: "Nouveau dashboard",
+                    url: "/dashboards/new",
+                    icon: TablerIcons.IconPlus,
+                    permission: "dashboards.create",
+                  },
+                ],
+              }
+            }
+            return item
+          }),
+        }
+      }
+      return group
+    })
+
+    // Combiner les nav groups modifiés et les modules
+    const allNavGroups = [...modifiedSidebarGroups, ...moduleNavGroups]
 
     return allNavGroups
       .map((group) => ({
@@ -73,7 +145,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         items: filterNavItems(group.items, permissionChecker),
       }))
       .filter((group) => group.items.length > 0)
-  }, [hasPermission, hasAnyPermission, hasAllPermissions, isLoading, moduleNavGroups])
+  }, [hasPermission, hasAnyPermission, hasAllPermissions, isLoading, moduleNavGroups, dashboardNavGroup, dashboards])
 
   return (
     <div className="relative">

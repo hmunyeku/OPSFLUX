@@ -108,37 +108,6 @@ export const sidebarData: SidebarData = {
             },
           ],
         },
-        {
-          title: "Erreurs",
-          icon: IconBug,
-          items: [
-            {
-              title: "Non autorisé",
-              url: "/401",
-              icon: IconLock,
-            },
-            {
-              title: "Interdit",
-              url: "/403",
-              icon: IconUserOff,
-            },
-            {
-              title: "Page introuvable",
-              url: "/404",
-              icon: IconError404,
-            },
-            {
-              title: "Erreur serveur interne",
-              url: "/error",
-              icon: IconServerOff,
-            },
-            {
-              title: "Erreur de maintenance",
-              url: "/503",
-              icon: IconBarrierBlock,
-            },
-          ],
-        },
       ],
     },
     {

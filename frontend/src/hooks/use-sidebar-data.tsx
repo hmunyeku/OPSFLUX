@@ -96,60 +96,6 @@ export function useSidebarData(): SidebarData {
         ],
       },
       {
-        title: t("navgroup.pages", "Pages"),
-        items: [
-          {
-            title: t("authentication", "Authentification"),
-            icon: IconLockAccess,
-            items: [
-              {
-                title: t("auth.login", "Connexion"),
-                url: "/login",
-              },
-              {
-                title: t("auth.register", "Inscription"),
-                url: "/register",
-              },
-              {
-                title: t("auth.forgot_password", "Mot de passe oublié"),
-                url: "/forgot-password",
-              },
-            ],
-          },
-          {
-            title: t("errors", "Erreurs"),
-            icon: IconBug,
-            items: [
-              {
-                title: t("error.unauthorized", "Non autorisé"),
-                url: "/401",
-                icon: IconLock,
-              },
-              {
-                title: t("error.forbidden", "Interdit"),
-                url: "/403",
-                icon: IconUserOff,
-              },
-              {
-                title: t("error.not_found", "Page introuvable"),
-                url: "/404",
-                icon: IconError404,
-              },
-              {
-                title: t("error.internal", "Erreur serveur interne"),
-                url: "/error",
-                icon: IconServerOff,
-              },
-              {
-                title: t("error.maintenance", "Erreur de maintenance"),
-                url: "/503",
-                icon: IconBarrierBlock,
-              },
-            ],
-          },
-        ],
-      },
-      {
         title: t("navgroup.other", "Autre"),
         items: [
           {

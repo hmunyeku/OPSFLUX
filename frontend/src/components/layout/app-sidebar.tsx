@@ -103,15 +103,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
     // Modifier le groupe "Général" pour remplacer le sous-menu "Dashboards" par les dashboards individuels
     const modifiedSidebarGroups = sidebarData.navGroups.map((group) => {
-      if (group.title === "Général") {
+      if (group.title === "Général" || group.title.includes("énéral")) {
         return {
           ...group,
           items: group.items.map((item) => {
-            // Remplacer le menu "Dashboards" avec sous-items par les dashboards directs
-            if (item.title === "Dashboards" && dashboardNavGroup) {
+            // Remplacer le menu dashboard (vérifier par l'icône car le titre est traduit)
+            if (item.icon === TablerIcons.IconLayoutDashboard && dashboardNavGroup) {
               return {
-                title: "Dashboards",
-                icon: TablerIcons.IconChartBar,
+                title: item.title, // Garder le titre traduit
+                icon: TablerIcons.IconLayoutDashboard,
                 permission: "dashboards.read",
                 items: [
                   ...dashboardNavGroup.items,

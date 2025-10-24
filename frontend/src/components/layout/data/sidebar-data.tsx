@@ -88,29 +88,6 @@ export const sidebarData: SidebarData = {
       ],
     },
     {
-      title: "Pages",
-      items: [
-        {
-          title: "Authentification",
-          icon: IconLockAccess,
-          items: [
-            {
-              title: "Connexion",
-              url: "/login",
-            },
-            {
-              title: "Inscription",
-              url: "/register",
-            },
-            {
-              title: "Mot de passe oublié",
-              url: "/forgot-password",
-            },
-          ],
-        },
-      ],
-    },
-    {
       title: "Autre",
       items: [
         {

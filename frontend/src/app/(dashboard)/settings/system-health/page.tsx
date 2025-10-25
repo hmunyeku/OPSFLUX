@@ -17,7 +17,6 @@ import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 import { RefreshCw, AlertTriangle, CheckCircle2, XCircle, Activity, Database, Server, Cpu, HardDrive, MemoryStick } from "lucide-react"
 import { getSystemHealth, type SystemHealthResponse } from "@/api/system-health"
-import { toast } from "sonner"
 
 export default function SystemHealthPage() {
   const { t } = useTranslation("core.settings")
@@ -34,7 +33,6 @@ export default function SystemHealthPage() {
       setLastUpdate(new Date())
     } catch (error) {
       console.error("Failed to fetch system health:", error)
-      toast.error("Impossible de récupérer l'état de santé du système")
     } finally {
       setLoading(false)
     }

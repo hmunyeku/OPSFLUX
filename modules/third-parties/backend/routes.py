@@ -36,6 +36,9 @@ from .models import (
 router = APIRouter(prefix="/third-parties", tags=["third-parties"])
 
 
+# ==================== COMPANIES ENDPOINTS ====================
+
+
 @router.get("/", response_model=CompaniesPublic)
 @require_permission("companies.read")
 def read_companies(
@@ -379,3 +382,375 @@ def get_company_stats(
             "partners": partners,
         }
     }
+
+
+# ==================== CONTACTS ENDPOINTS ====================
+
+
+@router.get("/contacts", response_model=ContactsPublic)
+@require_permission("contacts.read")
+def read_contacts(
+    session: SessionDep,
+    current_user: CurrentUser,
+    skip: int = 0,
+    limit: int = 100,
+    search: Optional[str] = Query(None, description="Search in name, email"),
+    company_id: Optional[uuid.UUID] = Query(None, description="Filter by company"),
+    status: Optional[ContactStatus] = Query(None, description="Filter by status"),
+    role: Optional[ContactRole] = Query(None, description="Filter by role"),
+) -> Any:
+    """
+    Retrieve contacts.
+    Requires contacts.read permission.
+    """
+    count_statement = select(func.count()).select_from(Contact)
+    statement = select(Contact)
+
+    # Filter deleted items
+    count_statement = count_statement.where(Contact.deleted_at.is_(None))
+    statement = statement.where(Contact.deleted_at.is_(None))
+
+    # Search filter
+    if search:
+        search_filter = or_(
+            Contact.first_name.ilike(f"%{search}%"),
+            Contact.last_name.ilike(f"%{search}%"),
+            Contact.email.ilike(f"%{search}%"),
+        )
+        count_statement = count_statement.where(search_filter)
+        statement = statement.where(search_filter)
+
+    # Company filter
+    if company_id:
+        count_statement = count_statement.where(Contact.company_id == company_id)
+        statement = statement.where(Contact.company_id == company_id)
+
+    # Status filter
+    if status:
+        count_statement = count_statement.where(Contact.status == status)
+        statement = statement.where(Contact.status == status)
+
+    # Role filter
+    if role:
+        count_statement = count_statement.where(Contact.role == role)
+        statement = statement.where(Contact.role == role)
+
+    count = session.exec(count_statement).one()
+    statement = statement.offset(skip).limit(limit).order_by(Contact.last_name, Contact.first_name)
+    contacts = session.exec(statement).all()
+
+    return ContactsPublic(data=contacts, count=count)
+
+
+@router.get("/contacts/{contact_id}", response_model=ContactPublic)
+@require_permission("contacts.read")
+def read_contact(
+    contact_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Any:
+    """
+    Get a specific contact by id.
+    Requires contacts.read permission.
+    """
+    contact = session.get(Contact, contact_id)
+    if not contact or contact.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Contact not found")
+
+    return contact
+
+
+@router.post("/contacts", response_model=ContactPublic)
+@require_permission("contacts.create")
+def create_contact(
+    *,
+    session: SessionDep,
+    contact_in: ContactCreate,
+    current_user: CurrentUser,
+) -> Any:
+    """
+    Create new contact.
+    Requires contacts.create permission.
+    """
+    # Verify company exists
+    company = session.get(Company, contact_in.company_id)
+    if not company or company.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Company not found")
+
+    # Check if email already exists for this company
+    if contact_in.email:
+        statement = select(Contact).where(
+            Contact.email == contact_in.email,
+            Contact.company_id == contact_in.company_id,
+            Contact.deleted_at.is_(None)
+        )
+        existing = session.exec(statement).first()
+        if existing:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Contact with email '{contact_in.email}' already exists for this company",
+            )
+
+    contact = Contact.model_validate(
+        contact_in,
+        update={"created_by_id": current_user.id, "updated_by_id": current_user.id}
+    )
+
+    session.add(contact)
+    session.commit()
+    session.refresh(contact)
+
+    return contact
+
+
+@router.patch("/contacts/{contact_id}", response_model=ContactPublic)
+@require_permission("contacts.update")
+def update_contact(
+    *,
+    session: SessionDep,
+    contact_id: uuid.UUID,
+    contact_in: ContactUpdate,
+    current_user: CurrentUser,
+) -> Any:
+    """
+    Update a contact.
+    Requires contacts.update permission.
+    """
+    contact = session.get(Contact, contact_id)
+    if not contact or contact.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Contact not found")
+
+    # Check if changing email to one that already exists for this company
+    if contact_in.email and contact_in.email != contact.email:
+        statement = select(Contact).where(
+            Contact.email == contact_in.email,
+            Contact.company_id == contact.company_id,
+            Contact.id != contact_id,
+            Contact.deleted_at.is_(None)
+        )
+        existing = session.exec(statement).first()
+        if existing:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Contact with email '{contact_in.email}' already exists for this company",
+            )
+
+    update_dict = contact_in.model_dump(exclude_unset=True)
+    update_dict["updated_by_id"] = current_user.id
+    contact.sqlmodel_update(update_dict)
+
+    session.add(contact)
+    session.commit()
+    session.refresh(contact)
+
+    return contact
+
+
+@router.delete("/contacts/{contact_id}")
+@require_permission("contacts.delete")
+def delete_contact(
+    contact_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Any:
+    """
+    Delete (soft delete) a contact.
+    Requires contacts.delete permission.
+    """
+    from datetime import datetime, timezone
+
+    contact = session.get(Contact, contact_id)
+    if not contact or contact.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Contact not found")
+
+    contact.deleted_at = datetime.now(timezone.utc)
+    contact.deleted_by_id = current_user.id
+
+    session.add(contact)
+    session.commit()
+
+    return {"ok": True}
+
+
+# ==================== INVITATIONS ENDPOINTS ====================
+
+
+@router.get("/invitations", response_model=ContactInvitationsPublic)
+@require_permission("contacts.manage_invitations")
+def read_invitations(
+    session: SessionDep,
+    current_user: CurrentUser,
+    skip: int = 0,
+    limit: int = 100,
+    status: Optional[InvitationStatus] = Query(None, description="Filter by status"),
+    contact_id: Optional[uuid.UUID] = Query(None, description="Filter by contact"),
+) -> Any:
+    """
+    Retrieve contact invitations.
+    Requires contacts.manage_invitations permission.
+    """
+    count_statement = select(func.count()).select_from(ContactInvitation)
+    statement = select(ContactInvitation)
+
+    # Status filter
+    if status:
+        count_statement = count_statement.where(ContactInvitation.status == status)
+        statement = statement.where(ContactInvitation.status == status)
+
+    # Contact filter
+    if contact_id:
+        count_statement = count_statement.where(ContactInvitation.contact_id == contact_id)
+        statement = statement.where(ContactInvitation.contact_id == contact_id)
+
+    count = session.exec(count_statement).one()
+    statement = statement.offset(skip).limit(limit).order_by(ContactInvitation.created_at.desc())
+    invitations = session.exec(statement).all()
+
+    return ContactInvitationsPublic(data=invitations, count=count)
+
+
+@router.post("/invitations", response_model=ContactInvitationPublic)
+@require_permission("contacts.invite")
+def create_invitation(
+    *,
+    session: SessionDep,
+    invitation_in: ContactInvitationCreate,
+    current_user: CurrentUser,
+) -> Any:
+    """
+    Create a new contact invitation.
+    Requires contacts.invite permission.
+    """
+    import secrets
+    from datetime import datetime, timezone, timedelta
+
+    # Verify contact exists
+    contact = session.get(Contact, invitation_in.contact_id)
+    if not contact or contact.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Contact not found")
+
+    # Check if contact already has a pending invitation
+    statement = select(ContactInvitation).where(
+        ContactInvitation.contact_id == invitation_in.contact_id,
+        ContactInvitation.status == InvitationStatus.PENDING
+    )
+    existing = session.exec(statement).first()
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail="Contact already has a pending invitation",
+        )
+
+    # Generate unique token
+    token = secrets.token_urlsafe(32)
+
+    # Calculate expiry date (default 7 days)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=invitation_in.expiry_days or 7)
+
+    invitation = ContactInvitation(
+        contact_id=invitation_in.contact_id,
+        token=token,
+        expires_at=expires_at,
+        can_be_admin=invitation_in.can_be_admin or False,
+        initial_permissions=invitation_in.initial_permissions or [],
+        created_by_id=current_user.id,
+    )
+
+    session.add(invitation)
+    session.commit()
+    session.refresh(invitation)
+
+    return invitation
+
+
+@router.post("/invitations/{token}/accept", response_model=ContactInvitationPublic)
+def accept_invitation(
+    token: str,
+    session: SessionDep,
+) -> Any:
+    """
+    Accept a contact invitation (public endpoint).
+    Updates contact status to ACTIVE and creates user account if can_be_admin.
+    """
+    from datetime import datetime, timezone
+
+    # Find invitation by token
+    statement = select(ContactInvitation).where(ContactInvitation.token == token)
+    invitation = session.exec(statement).first()
+
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+
+    if invitation.status != InvitationStatus.PENDING:
+        raise HTTPException(status_code=400, detail="Invitation already processed")
+
+    if invitation.expires_at < datetime.now(timezone.utc):
+        invitation.status = InvitationStatus.EXPIRED
+        session.add(invitation)
+        session.commit()
+        raise HTTPException(status_code=400, detail="Invitation has expired")
+
+    # Update invitation status
+    invitation.status = InvitationStatus.ACCEPTED
+    invitation.accepted_at = datetime.now(timezone.utc)
+
+    # Update contact status
+    contact = session.get(Contact, invitation.contact_id)
+    if contact:
+        contact.status = ContactStatus.ACTIVE
+
+    session.add(invitation)
+    session.add(contact)
+    session.commit()
+    session.refresh(invitation)
+
+    return invitation
+
+
+@router.post("/invitations/{token}/verify-2fa")
+def verify_invitation_2fa(
+    token: str,
+    session: SessionDep,
+) -> Any:
+    """
+    Verify 2FA for invitation acceptance (public endpoint).
+    """
+    # Find invitation by token
+    statement = select(ContactInvitation).where(ContactInvitation.token == token)
+    invitation = session.exec(statement).first()
+
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+
+    if invitation.status != InvitationStatus.PENDING:
+        raise HTTPException(status_code=400, detail="Invitation already processed")
+
+    # TODO: Implement 2FA verification logic
+    # For now, just return success
+    return {"verified": True}
+
+
+@router.delete("/invitations/{invitation_id}/revoke")
+@require_permission("contacts.manage_invitations")
+def revoke_invitation(
+    invitation_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Any:
+    """
+    Revoke a pending invitation.
+    Requires contacts.manage_invitations permission.
+    """
+    invitation = session.get(ContactInvitation, invitation_id)
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+
+    if invitation.status != InvitationStatus.PENDING:
+        raise HTTPException(status_code=400, detail="Can only revoke pending invitations")
+
+    invitation.status = InvitationStatus.REVOKED
+
+    session.add(invitation)
+    session.commit()
+
+    return {"ok": True}

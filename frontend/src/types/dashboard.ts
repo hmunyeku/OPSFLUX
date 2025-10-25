@@ -64,6 +64,7 @@ export type DashboardScope = "global" | "group" | "role" | "user"
 export interface Dashboard {
   id: string
   name: string
+  menu_name?: string
   description?: string
   is_default: boolean
   is_mandatory: boolean
@@ -89,6 +90,7 @@ export interface Dashboard {
 
 export interface DashboardCreate {
   name: string
+  menu_name?: string
   description?: string
   is_default?: boolean
   is_mandatory?: boolean
@@ -117,6 +119,7 @@ export interface DashboardCreate {
 
 export interface DashboardUpdate {
   name?: string
+  menu_name?: string
   description?: string
   is_default?: boolean
   is_active?: boolean

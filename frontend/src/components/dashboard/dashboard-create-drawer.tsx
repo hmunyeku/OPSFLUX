@@ -42,6 +42,7 @@ export function DashboardCreateDrawer({
 
   const [activeTab, setActiveTab] = useState<"create" | "import">("create")
   const [name, setName] = useState("")
+  const [menuName, setMenuName] = useState("")
   const [description, setDescription] = useState("")
   const [isPublic, setIsPublic] = useState(false)
   const [isHome, setIsHome] = useState(false)
@@ -51,6 +52,7 @@ export function DashboardCreateDrawer({
 
   const resetForm = () => {
     setName("")
+    setMenuName("")
     setDescription("")
     setIsPublic(false)
     setIsHome(false)
@@ -111,6 +113,7 @@ export function DashboardCreateDrawer({
 
       const dashboardData: DashboardCreate = {
         name: name.trim(),
+        menu_name: menuName.trim() || undefined,
         description: description.trim() || undefined,
         is_public: isPublic,
         is_home: isHome,
@@ -236,6 +239,23 @@ export function DashboardCreateDrawer({
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                       />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="menuName">Nom dans le menu</Label>
+                      <Input
+                        id="menuName"
+                        placeholder="Max 10 caractères"
+                        value={menuName}
+                        onChange={(e) => {
+                          const value = e.target.value.slice(0, 10)
+                          setMenuName(value)
+                        }}
+                        maxLength={10}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {menuName.length}/10 caractères
+                      </p>
                     </div>
 
                     <div className="space-y-2">

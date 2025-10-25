@@ -123,6 +123,7 @@ class WidgetsPublic(SQLModel):
 class DashboardBase(SQLModel):
     """Propriétés de base pour Dashboard"""
     name: str = Field(max_length=255, description="Nom du dashboard")
+    menu_name: Optional[str] = Field(default=None, max_length=10, description="Nom court pour affichage dans le menu (max 10 caractères)")
     description: Optional[str] = Field(default=None, description="Description du dashboard")
     is_default: bool = Field(default=False, description="Dashboard par défaut pour nouveaux utilisateurs")
     is_mandatory: bool = Field(default=False, description="Dashboard obligatoire, non supprimable par l'utilisateur")
@@ -151,6 +152,7 @@ class DashboardCreate(DashboardBase):
 class DashboardUpdate(SQLModel):
     """Schéma pour mettre à jour un dashboard"""
     name: Optional[str] = Field(default=None, max_length=255)
+    menu_name: Optional[str] = Field(default=None, max_length=10)
     description: Optional[str] = None
     is_default: Optional[bool] = None
     is_active: Optional[bool] = None

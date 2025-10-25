@@ -37,30 +37,32 @@ export function useSidebarData(): SidebarData {
               items: group.items.map((item) => {
                 if (item.title === "Tableau de bord") {
                   // Build the updated items array
-                  const updatedItems = [
-                    {
+                  const updatedItems = []
+
+                  // Premier dashboard home devient "Général"
+                  if (homeDashboards.length > 0) {
+                    const firstDashboard = homeDashboards[0]
+                    updatedItems.push({
                       title: "Général",
-                      url: "/dashboards",
+                      url: `/dashboards/${firstDashboard.id}`,
                       icon: IconLayoutDashboard,
-                    },
-                    {
-                      title: "Galerie",
-                      url: "/dashboards",
-                      icon: IconChartBar,
-                    },
-                    {
-                      title: "Nouveau",
-                      url: "/dashboards/new",
-                      icon: IconPlus,
-                      permission: "dashboards.create",
-                    },
-                    // Add home dashboards as direct links
-                    ...homeDashboards.map((dashboard: Dashboard) => ({
-                      title: dashboard.name,
-                      url: `/dashboards/${dashboard.id}`,
-                      icon: IconChartBar,
-                    })),
-                  ]
+                    })
+                  }
+
+                  // "Galerie" = tous les tableaux
+                  updatedItems.push({
+                    title: "Galerie",
+                    url: "/dashboards",
+                    icon: IconChartBar,
+                  })
+
+                  // "Nouveau" = créer un tableau
+                  updatedItems.push({
+                    title: "Nouveau",
+                    url: "/dashboards/new",
+                    icon: IconPlus,
+                    permission: "dashboards.create",
+                  })
 
                   return {
                     ...item,

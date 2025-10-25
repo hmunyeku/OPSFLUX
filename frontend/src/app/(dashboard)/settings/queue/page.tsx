@@ -453,39 +453,41 @@ function QueuePageContent() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="pt-0">
-                <div className="space-y-2">
+                {/* Version ultra-compacte: grid responsive */}
+                <div className="grid gap-2 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                   {Object.entries(stats?.queues || {}).map(([name, queue]) => (
-                    <Card key={name}>
-                      <CardContent className="p-3">
-                        <div className="flex items-center gap-2">
-                          <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                            <IconActivity className="h-4 w-4 text-primary" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-sm truncate">{name}</h4>
-                            <p className="text-[10px] text-muted-foreground">
-                              {queue.length} tâche{queue.length !== 1 ? 's' : ''}
-                            </p>
-                          </div>
-                          <Badge variant={queue.length > 0 ? "default" : "outline"} className="h-6 px-2 text-xs">
-                            {queue.length}
-                          </Badge>
-                          {queue.length > 0 && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0"
-                              onClick={() => {
-                                setSelectedQueue(name)
-                                setPurgeDialogOpen(true)
-                              }}
-                            >
-                              <IconTrash className="h-3.5 w-3.5 text-destructive" />
-                            </Button>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
+                    <div
+                      key={name}
+                      className="group relative flex items-center gap-3 rounded-lg border bg-card p-3 hover:bg-accent/50 transition-colors"
+                    >
+                      <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <IconActivity className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-sm truncate">{name}</h4>
+                        <p className="text-[10px] text-muted-foreground">
+                          {queue.length} tâche{queue.length !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={queue.length > 0 ? "default" : "outline"} className="h-6 px-2 text-xs">
+                          {queue.length}
+                        </Badge>
+                        {queue.length > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => {
+                              setSelectedQueue(name)
+                              setPurgeDialogOpen(true)
+                            }}
+                          >
+                            <IconTrash className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
                   ))}
                 </div>
               </CardContent>

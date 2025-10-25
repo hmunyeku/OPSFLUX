@@ -594,3 +594,114 @@ class ModuleLoader:
         for router in cls._loaded_routers:
             app.include_router(router)
             print(f"  ✓ Router registered: {router.prefix}")
+
+    @classmethod
+    def load_module_tasks(cls, module_code: str) -> List[str]:
+        """
+        Charge les tâches Celery d'un module.
+
+        Les tâches doivent être définies dans /modules/{module_code}/backend/tasks.py
+
+        Args:
+            module_code: Code du module (ex: 'hse')
+
+        Returns:
+            Liste des noms de tâches chargées
+        """
+        module_path = cls.MODULES_DIR / module_code
+        backend_path = module_path / "backend"
+        tasks_file = backend_path / "tasks.py"
+
+        if not tasks_file.exists():
+            return []
+
+        # Ajouter le chemin du module au sys.path si nécessaire
+        module_backend_path_str = str(backend_path)
+        if module_backend_path_str not in sys.path:
+            sys.path.insert(0, module_backend_path_str)
+
+        tasks_loaded = []
+
+        try:
+            # Charger le module tasks avec un nom unique
+            module_name = f"modules_{module_code}_tasks"
+
+            # Supprimer l'ancien module s'il existe (pour permettre le reload)
+            if module_name in sys.modules:
+                del sys.modules[module_name]
+
+            spec = importlib.util.spec_from_file_location(module_name, tasks_file)
+            if spec and spec.loader:
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[module_name] = module
+                spec.loader.exec_module(module)
+
+                # Scanner le module pour trouver les tâches Celery
+                for name in dir(module):
+                    obj = getattr(module, name)
+                    # Vérifier si c'est une tâche Celery
+                    if hasattr(obj, 'delay') and hasattr(obj, 'apply_async'):
+                        # C'est probablement une tâche Celery
+                        task_name = getattr(obj, 'name', None)
+                        if task_name:
+                            tasks_loaded.append(task_name)
+                            print(f"  ✓ Task loaded: {task_name}")
+
+        except Exception as e:
+            print(f"  ✗ Error loading tasks from {module_code}: {e}")
+            import traceback
+            traceback.print_exc()
+
+        return tasks_loaded
+
+    @classmethod
+    def get_all_available_tasks(cls) -> List[str]:
+        """
+        Récupère toutes les tâches Celery disponibles (CORE + modules).
+
+        Returns:
+            Liste des noms de tâches disponibles réellement enregistrées dans Celery
+        """
+        tasks = []
+
+        # Récupérer les tâches réellement enregistrées dans Celery
+        try:
+            from app.core.queue_service import celery_app
+
+            # Filtrer les tâches Celery internes (commençant par 'celery.')
+            registered_tasks = [
+                name for name in celery_app.tasks.keys()
+                if not name.startswith('celery.')
+            ]
+            tasks.extend(registered_tasks)
+
+        except Exception as e:
+            print(f"Error loading Celery tasks: {e}")
+            # Fallback: tâches CORE minimales
+            tasks = [
+                'app.tasks.send_email',
+                'app.tasks.cleanup_old_files',
+                'app.tasks.collect_stats',
+            ]
+
+        # Charger les tâches des modules actifs
+        from sqlmodel import Session, select
+        from app.core.db import engine
+        from app.models_modules import Module, ModuleStatus
+
+        try:
+            with Session(engine) as session:
+                statement = select(Module).where(
+                    Module.status == ModuleStatus.ACTIVE,
+                    Module.deleted_at == None
+                )
+                active_modules = session.exec(statement).all()
+
+                for module in active_modules:
+                    module_tasks = cls.load_module_tasks(module.code)
+                    tasks.extend(module_tasks)
+
+        except Exception as e:
+            print(f"Error loading module tasks: {e}")
+
+        return sorted(list(set(tasks)))  # Dédupliquer et trier

@@ -43,6 +43,29 @@ async def read_settings(session: SessionDep) -> Any:
     return settings
 
 
+@router.get(
+    "/admin",
+    dependencies=[Depends(get_current_active_superuser)],
+    response_model=AppSettings,
+)
+async def read_settings_admin(session: SessionDep) -> Any:
+    """
+    Get ALL application settings including sensitive fields (API keys, passwords, etc).
+    Only superusers can access this endpoint.
+    This is used for the admin settings page where superusers need to edit sensitive config.
+    """
+    statement = select(AppSettings).where(AppSettings.deleted_at == None).limit(1)  # noqa: E711
+    settings = session.exec(statement).first()
+
+    if not settings:
+        raise HTTPException(
+            status_code=404,
+            detail="Application settings not found. Please contact administrator.",
+        )
+
+    return settings
+
+
 @router.put(
     "/",
     dependencies=[Depends(get_current_active_superuser)],

@@ -19,6 +19,7 @@ import { userListSchema, User } from "../data/schema"
 import { getUsers } from "../data/users-api"
 import { UserDetailForm } from "./components/user-detail-form"
 import { UserPermissionsCard } from "./components/user-permissions-card"
+import { UserRolesCard } from "./components/user-roles-card"
 
 export default function UserDetailPage() {
   const { t } = useTranslation("core.users")
@@ -106,6 +107,7 @@ export default function UserDetailPage() {
 
       <div className="mt-4 space-y-6">
         <UserDetailForm user={user} />
+        <UserRolesCard userId={user.id} />
         <UserPermissionsCard userId={user.id} />
       </div>
     </PermissionGuard>

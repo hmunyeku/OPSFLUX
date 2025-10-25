@@ -126,25 +126,29 @@ celery_app.conf.update(
         "app.tasks.generate_report": {"queue": "reports"},
     },
 
-    # Beat (scheduled tasks)
-    beat_schedule={
-        # Exécution des sauvegardes planifiées - toutes les minutes
-        "execute-scheduled-backups": {
-            "task": "app.tasks.execute_scheduled_backups",
-            "schedule": crontab(minute="*"),  # Toutes les minutes
-        },
-        # Exemple: Nettoyage tous les jours à 2h
-        "cleanup-old-files": {
-            "task": "app.tasks.cleanup_old_files",
-            "schedule": crontab(hour=2, minute=0),
-        },
-        # Exemple: Stats toutes les heures
-        "collect-stats": {
-            "task": "app.tasks.collect_stats",
-            "schedule": crontab(minute=0),
-        },
-    },
+    # Beat (scheduled tasks) - will be loaded dynamically from database
+    beat_schedule={},
+    beat_schedule_filename="/tmp/celerybeat-schedule",
 )
+
+
+# Initialize beat schedule from database on startup
+def init_beat_schedule():
+    """Load beat schedule from database on startup"""
+    try:
+        from app.core.celery_beat_loader import get_beat_schedule
+        schedule = get_beat_schedule()
+        celery_app.conf.beat_schedule = schedule
+        print(f"✓ Loaded {len(schedule)} scheduled tasks from database")
+    except Exception as e:
+        print(f"✗ Failed to load beat schedule: {e}")
+
+
+# Call init on module import (for Celery Beat)
+try:
+    init_beat_schedule()
+except:
+    pass  # Silently fail if DB not ready yet (during migrations, etc.)
 
 
 class QueueService:
@@ -501,25 +505,4 @@ def task(
     return decorator
 
 
-# Exemple de tâches de base
-@task(name="app.tasks.send_email", max_retries=3)
-def send_email_task(to: str, subject: str, body: str):
-    """Tâche d'envoi d'email"""
-    from app.core.email_service import EmailService
-    email_service = EmailService()
-    # email_service.send(to=to, subject=subject, body=body)
-    return {"sent": True, "to": to}
-
-
-@task(name="app.tasks.cleanup_old_files", time_limit=3600)
-def cleanup_old_files_task():
-    """Tâche de nettoyage"""
-    # Logique de nettoyage
-    return {"cleaned": 0}
-
-
-@task(name="app.tasks.collect_stats")
-def collect_stats_task():
-    """Tâche de collecte de stats"""
-    # Logique de stats
-    return {"collected": True}
+# Note: Tasks are defined in app/tasks.py and automatically loaded via include=["app.tasks"] in celery_app config

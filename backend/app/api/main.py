@@ -25,6 +25,7 @@ from app.api.routes import (
     private,
     queue,
     roles,
+    scheduled_tasks,
     search,
     security,
     settings as settings_routes,
@@ -79,6 +80,7 @@ api_router.include_router(widgets.router)  # Widget catalog
 api_router.include_router(storage.router)  # File storage service
 api_router.include_router(cache.router)  # Cache service (Redis)
 api_router.include_router(queue.router)  # Queue service (Celery)
+api_router.include_router(scheduled_tasks.router)  # Scheduled tasks (Celery Beat)
 api_router.include_router(metrics.router)  # Metrics service (Prometheus)
 api_router.include_router(search.router)  # Search service (PostgreSQL FTS)
 api_router.include_router(backups.router)  # Backup & Restore service

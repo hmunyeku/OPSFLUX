@@ -84,6 +84,7 @@ services:
     restart: always
     command: celery -A app.core.queue_service.celery_app worker --loglevel=info
     networks:
+      - dokploy-network
       - default
     depends_on:
       redis:
@@ -121,6 +122,7 @@ services:
     restart: always
     command: celery -A app.core.queue_service.celery_app beat --loglevel=info
     networks:
+      - dokploy-network
       - default
     depends_on:
       redis:

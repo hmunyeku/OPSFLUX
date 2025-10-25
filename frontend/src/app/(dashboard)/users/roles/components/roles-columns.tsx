@@ -18,7 +18,8 @@ import { DataTableColumnHeader } from "./data-table-column-header"
 export function getColumns(
   onManagePermissions: (role: Role) => void,
   onEditRole: (role: Role) => void,
-  onDeleteRole: (role: Role) => void
+  onDeleteRole: (role: Role) => void,
+  onManageMembers: (role: Role) => void
 ): ColumnDef<Role>[] {
   return [
   {
@@ -126,6 +127,9 @@ export function getColumns(
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onManagePermissions(role)}>
               Gérer les permissions
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onManageMembers(role)}>
+              Gérer les utilisateurs
             </DropdownMenuItem>
             {!role.is_system && (
               <>

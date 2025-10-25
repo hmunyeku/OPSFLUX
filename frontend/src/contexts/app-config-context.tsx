@@ -114,11 +114,24 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
   // Fetch config from API
   const fetchConfig = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/settings/`, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
+      // Try to get token from localStorage (client-side only)
+      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null
+
+      // Use admin endpoint if authenticated, otherwise use public endpoint
+      const endpoint = token
+        ? `${process.env.NEXT_PUBLIC_API_URL}/api/v1/settings/admin`
+        : `${process.env.NEXT_PUBLIC_API_URL}/api/v1/settings/`
+
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      }
+
+      // Add authorization header if token exists
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+
+      const response = await fetch(endpoint, { headers })
 
       if (response.ok) {
         const data = await response.json()

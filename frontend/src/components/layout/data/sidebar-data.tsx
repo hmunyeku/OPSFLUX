@@ -67,12 +67,17 @@ export const sidebarData: SidebarData = {
           permission: "dashboards.read",
           items: [
             {
-              title: "Mes dashboards",
+              title: "Bienvenue",
               url: "/dashboards",
               icon: IconLayoutDashboard,
             },
             {
-              title: "Nouveau dashboard",
+              title: "Galerie",
+              url: "/dashboards",
+              icon: IconChartBar,
+            },
+            {
+              title: "Nouveau",
               url: "/dashboards/new",
               icon: IconPlus,
               permission: "dashboards.create",

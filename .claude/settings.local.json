@@ -57,7 +57,15 @@
       "Bash(for file in /etc/dokploy/compose/perenco-opsflux-gwxapr/code/frontend/src/widgets/core/*.tsx)",
       "WebFetch(domain:app.opsflux.io)",
       "Bash(timeout 600 docker compose build:*)",
-      "Bash(timeout 300 docker compose:*)"
+      "Bash(timeout 300 docker compose:*)",
+      "Bash(awk:*)",
+      "Bash(git pull:*)",
+      "Bash(wget:*)",
+      "Read(//etc/dokploy/**)",
+      "Bash(docker image rm:*)",
+      "Bash(tar:*)",
+      "Bash(python:*)",
+      "Bash(docker network connect:*)"
     ],
     "deny": [],
     "ask": []

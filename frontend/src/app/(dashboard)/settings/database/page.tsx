@@ -12,6 +12,7 @@ import { DatabaseService, BackupInfo } from "@/api/database"
 import { DatabaseTablesTable } from "./components/database-tables-table"
 import { columns } from "./components/database-tables-columns"
 import { adminerWindowManager } from "@/lib/adminer-windows"
+import ContentSection from "../components/content-section"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -197,313 +198,313 @@ export default function DatabasePage() {
 
   if (error) {
     return (
-      <div className="flex h-[450px] items-center justify-center">
-        <div className="text-center">
-          <p className="text-sm text-muted-foreground">Impossible de charger les informations de la base de données</p>
-          <p className="text-xs text-muted-foreground mt-2">Vous n&apos;avez peut-être pas les permissions nécessaires</p>
+      <ContentSection
+        title="Base de données"
+        desc="Informations et gestion de la base de données PostgreSQL"
+        className="w-full lg:max-w-full"
+      >
+        <div className="flex h-[450px] items-center justify-center">
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">Impossible de charger les informations de la base de données</p>
+            <p className="text-xs text-muted-foreground mt-2">Vous n&apos;avez peut-être pas les permissions nécessaires</p>
+          </div>
         </div>
-      </div>
+      </ContentSection>
     )
   }
 
   return (
-    <div className="space-y-3">
-      <div>
-        <h3 className="text-base font-medium">Base de données</h3>
-        <p className="text-xs text-muted-foreground">
-          Informations et gestion de la base de données PostgreSQL
-        </p>
-      </div>
+    <ContentSection
+      title="Base de données"
+      desc="Informations et gestion de la base de données PostgreSQL"
+      className="w-full lg:max-w-full"
+    >
+      <div className="space-y-4">
 
-      <Separator />
-
-      {/* Database Overview - Compact */}
-      <div className="grid gap-2 grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 p-3">
-            <CardTitle className="text-xs font-medium">Base de données</CardTitle>
-            <Database className="h-3.5 w-3.5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="p-3 pt-0">
-            {loading ? (
-              <Skeleton className="h-5 w-24" />
-            ) : (
-              <div className="text-lg font-bold truncate">{dbInfo?.database_name}</div>
-            )}
-            {loading ? (
-              <Skeleton className="h-3 w-20 mt-0.5" />
-            ) : (
-              <p className="text-[10px] text-muted-foreground truncate">{dbInfo?.postgres_version}</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 p-3">
-            <CardTitle className="text-xs font-medium">Serveur</CardTitle>
-            <Server className="h-3.5 w-3.5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="p-3 pt-0">
-            {loading ? (
-              <Skeleton className="h-5 w-24" />
-            ) : (
-              <div className="text-lg font-bold truncate">{dbInfo?.server_host}</div>
-            )}
-            {loading ? (
-              <Skeleton className="h-3 w-16 mt-0.5" />
-            ) : (
-              <p className="text-[10px] text-muted-foreground">Port {dbInfo?.server_port}</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 p-3">
-            <CardTitle className="text-xs font-medium">Taille</CardTitle>
-            <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="p-3 pt-0">
-            {loading ? (
-              <Skeleton className="h-5 w-16" />
-            ) : (
-              <div className="text-lg font-bold">{dbInfo?.database_size}</div>
-            )}
-            {loading ? (
-              <Skeleton className="h-3 w-20 mt-0.5" />
-            ) : (
-              <p className="text-[10px] text-muted-foreground">{dbInfo?.total_tables} tables</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 p-3">
-            <CardTitle className="text-xs font-medium">Connexions</CardTitle>
-            <Activity className="h-3.5 w-3.5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="p-3 pt-0">
-            {loading ? (
-              <Skeleton className="h-5 w-10" />
-            ) : (
-              <div className="text-lg font-bold">{dbInfo?.total_connections}</div>
-            )}
-            {loading ? (
-              <Skeleton className="h-3 w-16 mt-0.5" />
-            ) : (
-              <p className="text-[10px] text-muted-foreground">{dbInfo?.active_connections} actives</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Adminer Access - Compact */}
-      <Card>
-        <CardHeader className="p-3 pb-2">
-          <CardTitle className="text-sm">Accès Adminer</CardTitle>
-          <CardDescription className="text-xs">
-            Connexion automatique sécurisée (token 30min)
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-3 pt-0">
-          <Button onClick={handleOpenAdminer} disabled={isGeneratingToken} size="sm" className="w-full sm:w-auto h-8">
-            <Key className="mr-1.5 h-3.5 w-3.5" />
-            <span className="text-xs">{isGeneratingToken ? "Génération..." : "Ouvrir Adminer"}</span>
-            <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Backups Section - Compact */}
-      <Card>
-        <CardHeader className="p-3 pb-2">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <CardTitle className="text-sm">Sauvegardes</CardTitle>
-              <CardDescription className="text-xs">
-                Gérez les sauvegardes de votre base de données
-              </CardDescription>
-            </div>
-            <div className="flex gap-1.5 flex-wrap">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={fetchBackups}
-                disabled={loadingBackups}
-                className="h-7 text-xs flex-1 sm:flex-none"
-              >
-                <RefreshCw className={`h-3 w-3 ${loadingBackups ? "animate-spin" : ""}`} />
-                <span className="ml-1.5 sm:hidden">Actualiser</span>
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleCreateBackup}
-                disabled={creatingBackup}
-                className="h-7 text-xs flex-1 sm:flex-none"
-              >
-                <Plus className="mr-1.5 h-3 w-3" />
-                {creatingBackup ? "Création..." : "Nouvelle"}
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-3 pt-0">
-          {loadingBackups ? (
-            <div className="space-y-1.5">
-              {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-12 w-full" />
-              ))}
-            </div>
-          ) : backups.length === 0 ? (
-            <div className="text-center py-6">
-              <p className="text-xs text-muted-foreground">Aucune sauvegarde disponible</p>
-              <p className="text-[10px] text-muted-foreground mt-1">
-                Créez votre première sauvegarde
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-1.5">
-              {backups.map((backup) => (
-                <div
-                  key={backup.filename}
-                  className="flex flex-col sm:flex-row sm:items-center gap-2 p-2 border rounded hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <Database className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                      <span className="text-xs font-medium truncate">{backup.filename}</span>
-                    </div>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      <span className="text-[10px] text-muted-foreground">
-                        {new Date(backup.created_at).toLocaleString('fr-FR', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: '2-digit',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </span>
-                      <Badge variant="secondary" className="text-[9px] h-4 px-1">
-                        {backup.size}
-                      </Badge>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 self-end sm:self-center">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDownloadBackup(backup.filename)}
-                      className="h-6 w-6 p-0 flex-1 sm:flex-none sm:w-6"
-                    >
-                      <Download className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setDeleteBackupFilename(backup.filename)}
-                      className="h-6 w-6 p-0 flex-1 sm:flex-none sm:w-6"
-                    >
-                      <Trash2 className="h-3 w-3 text-destructive" />
-                    </Button>
-                  </div>
+        {/* Database Overview - Ultra compact like storage/queue */}
+        <div className="grid gap-2 grid-cols-2 sm:grid-cols-4">
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Database className="h-4 w-4 text-primary" />
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Tables List - Compact */}
-      <Card>
-        <CardHeader className="p-3 pb-2">
-          <CardTitle className="text-sm">Tables de la base de données</CardTitle>
-          <CardDescription className="text-xs">Liste complète avec filtres et tri</CardDescription>
-        </CardHeader>
-        <CardContent className="p-3 pt-0">
-          {loading ? (
-            <div className="space-y-1.5">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <Skeleton key={i} className="h-10 w-full" />
-              ))}
-            </div>
-          ) : (
-            <DatabaseTablesTable columns={columns} data={tablesData?.tables || []} />
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Recent Activity - Compact */}
-      <Card>
-        <CardHeader className="p-3 pb-2">
-          <CardTitle className="text-sm">Activité récente</CardTitle>
-          <CardDescription className="text-xs">Dernières opérations</CardDescription>
-        </CardHeader>
-        <CardContent className="p-3 pt-0">
-          {loading ? (
-            <div className="space-y-1.5">
-              {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-12 w-full" />
-              ))}
-            </div>
-          ) : activityData?.activities.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Aucune activité récente</p>
-          ) : (
-            <div className="space-y-1.5">
-              {activityData?.activities.map((activity) => (
-                <div key={activity.pid} className="p-2 border rounded space-y-1.5">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <Badge variant={activity.state === "active" ? "default" : "secondary"} className="text-[9px] h-4 px-1">
-                        {activity.state}
-                      </Badge>
-                      <span className="text-xs font-medium">{activity.user}</span>
-                      {activity.client_address && (
-                        <span className="text-[10px] text-muted-foreground">({activity.client_address})</span>
-                      )}
-                    </div>
-                    {activity.timestamp && (
-                      <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                        {new Date(activity.timestamp).toLocaleString('fr-FR', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </span>
-                    )}
-                  </div>
-                  {activity.query && (
-                    <p className="text-[10px] text-muted-foreground font-mono bg-muted p-1.5 rounded break-all">
-                      {activity.query.length > 200 ? activity.query.substring(0, 200) + '...' : activity.query}
-                    </p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] text-muted-foreground font-medium mb-1">Database</p>
+                  {loading ? (
+                    <Skeleton className="h-5 w-16" />
+                  ) : (
+                    <div className="text-base font-bold truncate">{dbInfo?.database_name}</div>
                   )}
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              </div>
+            </CardContent>
+          </Card>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deleteBackupFilename} onOpenChange={(open) => !open && setDeleteBackupFilename(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
-            <AlertDialogDescription>
-              Êtes-vous sûr de vouloir supprimer la sauvegarde <strong>{deleteBackupFilename}</strong> ?
-              Cette action est irréversible.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => deleteBackupFilename && handleDeleteBackup(deleteBackupFilename)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Supprimer
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                  <Server className="h-4 w-4 text-blue-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] text-muted-foreground font-medium mb-1">Serveur</p>
+                  {loading ? (
+                    <Skeleton className="h-5 w-16" />
+                  ) : (
+                    <div className="text-base font-bold truncate">{dbInfo?.server_host}</div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                  <HardDrive className="h-4 w-4 text-purple-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] text-muted-foreground font-medium mb-1">Taille</p>
+                  {loading ? (
+                    <Skeleton className="h-5 w-16" />
+                  ) : (
+                    <div className="text-base font-bold">{dbInfo?.database_size}</div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center">
+                  <Activity className="h-4 w-4 text-green-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] text-muted-foreground font-medium mb-1">Connexions</p>
+                  {loading ? (
+                    <Skeleton className="h-5 w-10" />
+                  ) : (
+                    <div className="text-base font-bold">{dbInfo?.total_connections}</div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Adminer Access */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Accès Adminer</CardTitle>
+            <CardDescription className="text-xs">
+              Connexion automatique sécurisée (token 30min)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <Button onClick={handleOpenAdminer} disabled={isGeneratingToken} size="sm" className="w-full sm:w-auto">
+              <Key className="mr-2 h-4 w-4" />
+              {isGeneratingToken ? "Génération..." : "Ouvrir Adminer"}
+              <ExternalLink className="ml-2 h-4 w-4" />
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Backups Section */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <CardTitle className="text-base">Sauvegardes</CardTitle>
+                <CardDescription className="text-xs">
+                  Gérez les sauvegardes de votre base de données
+                </CardDescription>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchBackups}
+                  disabled={loadingBackups}
+                >
+                  <RefreshCw className={`h-4 w-4 ${loadingBackups ? "animate-spin" : ""}`} />
+                  <span className="ml-2 hidden sm:inline">Actualiser</span>
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleCreateBackup}
+                  disabled={creatingBackup}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  {creatingBackup ? "Création..." : "Nouvelle"}
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {loadingBackups ? (
+              <div className="flex items-center justify-center py-8">
+                <RefreshCw className="h-6 w-6 animate-spin" />
+              </div>
+            ) : backups.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Database className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">Aucune sauvegarde disponible</p>
+                <p className="text-xs mt-1">Créez votre première sauvegarde</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {backups.map((backup) => (
+                  <div
+                    key={backup.filename}
+                    className="flex items-center gap-2 p-2.5 border rounded-lg hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center">
+                      <Database className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{backup.filename}</p>
+                      <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                        <span>{backup.size}</span>
+                        <span className="hidden sm:inline">•</span>
+                        <span className="truncate">
+                          {new Date(backup.created_at).toLocaleString('fr-FR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => handleDownloadBackup(backup.filename)}
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        <span className="sr-only">Télécharger</span>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => setDeleteBackupFilename(backup.filename)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        <span className="sr-only">Supprimer</span>
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Tables List */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Tables de la base de données</CardTitle>
+            <CardDescription className="text-xs">
+              {tablesData?.count || 0} table{(tablesData?.count || 0) !== 1 ? 's' : ''} dans la base
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <RefreshCw className="h-6 w-6 animate-spin" />
+              </div>
+            ) : (
+              <DatabaseTablesTable columns={columns} data={tablesData?.tables || []} />
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Recent Activity */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Activité récente</CardTitle>
+            <CardDescription className="text-xs">Dernières opérations sur la base de données</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <RefreshCw className="h-6 w-6 animate-spin" />
+              </div>
+            ) : activityData?.activities.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Activity className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">Aucune activité récente</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {activityData?.activities.map((activity) => (
+                  <div key={activity.pid} className="p-2.5 border rounded-lg space-y-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge
+                          variant={activity.state === "active" ? "default" : "secondary"}
+                          className="text-[10px] h-5 px-1.5"
+                        >
+                          {activity.state}
+                        </Badge>
+                        <span className="text-sm font-medium">{activity.user}</span>
+                        {activity.client_address && (
+                          <span className="text-xs text-muted-foreground">({activity.client_address})</span>
+                        )}
+                      </div>
+                      {activity.timestamp && (
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(activity.timestamp).toLocaleString('fr-FR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      )}
+                    </div>
+                    {activity.query && (
+                      <p className="text-xs text-muted-foreground font-mono bg-muted p-2 rounded break-all">
+                        {activity.query.length > 150 ? activity.query.substring(0, 150) + '...' : activity.query}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={!!deleteBackupFilename} onOpenChange={(open) => !open && setDeleteBackupFilename(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+              <AlertDialogDescription>
+                Êtes-vous sûr de vouloir supprimer la sauvegarde <strong>{deleteBackupFilename}</strong> ?
+                Cette action est irréversible.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Annuler</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => deleteBackupFilename && handleDeleteBackup(deleteBackupFilename)}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Supprimer
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    </ContentSection>
   )
 }

@@ -11,6 +11,7 @@ import { CreateRoleDialog } from "../../roles/components/create-role-dialog"
 import { ManagePermissionsDialog } from "../../roles/components/manage-permissions-dialog"
 import { EditRoleDialog } from "../../roles/components/edit-role-dialog"
 import { DeleteRoleDialog } from "../../roles/components/delete-role-dialog"
+import { ManageMembersDialog } from "../../roles/components/manage-members-dialog"
 
 export function RolesSection() {
   const [roles, setRoles] = useState<Role[]>([])
@@ -20,6 +21,7 @@ export function RolesSection() {
   const [isPermissionsDialogOpen, setIsPermissionsDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isMembersDialogOpen, setIsMembersDialogOpen] = useState(false)
 
   const loadRoles = async () => {
     try {
@@ -47,6 +49,11 @@ export function RolesSection() {
   const handleDeleteRole = (role: Role) => {
     setSelectedRole(role)
     setIsDeleteDialogOpen(true)
+  }
+
+  const handleManageMembers = (role: Role) => {
+    setSelectedRole(role)
+    setIsMembersDialogOpen(true)
   }
 
   useEffect(() => {
@@ -77,7 +84,7 @@ export function RolesSection() {
       </div>
 
       <RolesTable
-        columns={getColumns(handleManagePermissions, handleEditRole, handleDeleteRole)}
+        columns={getColumns(handleManagePermissions, handleEditRole, handleDeleteRole, handleManageMembers)}
         data={roles}
       />
 
@@ -107,6 +114,14 @@ export function RolesSection() {
             open={isDeleteDialogOpen}
             onOpenChange={setIsDeleteDialogOpen}
             role={selectedRole}
+            onSuccess={loadRoles}
+          />
+          <ManageMembersDialog
+            open={isMembersDialogOpen}
+            onOpenChange={setIsMembersDialogOpen}
+            roleId={selectedRole.id}
+            roleName={selectedRole.name}
+            currentMembers={[]}
             onSuccess={loadRoles}
           />
         </>

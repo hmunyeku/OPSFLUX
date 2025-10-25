@@ -23,6 +23,10 @@ import {
   IconCircleCheck,
   IconCircleX,
   IconCircleDashed,
+  IconPlus,
+  IconEdit,
+  IconPlayerPause,
+  IconPlayerPlayFilled,
 } from "@tabler/icons-react"
 import { useToast } from "@/hooks/use-toast"
 import { getQueueStats, type QueueStats, cancelTask, purgeQueue } from "@/api/queue"
@@ -37,8 +41,30 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { formatDistanceToNow } from "date-fns"
 import { fr } from "date-fns/locale"
+import { TaskDrawer } from "./components/task-drawer"
+import {
+  listScheduledTasks,
+  createScheduledTask,
+  updateScheduledTask,
+  deleteScheduledTask,
+  pauseScheduledTask,
+  resumeScheduledTask,
+  runTaskNow,
+  cronToHumanReadable,
+  type ScheduledTask,
+  type ScheduledTaskCreate,
+  type ScheduledTaskUpdate,
+} from "@/api/scheduled-tasks"
+import { IconDotsVertical } from "@tabler/icons-react"
+import { t } from "./components/translations"
 
 export default function QueuePage() {
   return (
@@ -48,45 +74,17 @@ export default function QueuePage() {
   )
 }
 
-interface Task {
-  id: string
-  name: string
-  status: "pending" | "started" | "success" | "failure" | "retry" | "revoked"
-  started_at?: string
-  result?: any
-  error?: string
-}
-
-// Simulated beat schedule from backend configuration
-const BEAT_SCHEDULE = [
-  {
-    name: "execute-scheduled-backups",
-    task: "app.tasks.execute_scheduled_backups",
-    schedule: "Toutes les minutes",
-    enabled: true,
-    last_run: new Date(Date.now() - 45000),
-  },
-  {
-    name: "cleanup-old-files",
-    task: "app.tasks.cleanup_old_files",
-    schedule: "Tous les jours à 02:00",
-    enabled: true,
-    last_run: new Date(Date.now() - 7200000),
-  },
-  {
-    name: "collect-stats",
-    task: "app.tasks.collect_stats",
-    schedule: "Toutes les heures",
-    enabled: true,
-    last_run: new Date(Date.now() - 1800000),
-  },
-]
-
 function QueuePageContent() {
   const [stats, setStats] = useState<QueueStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [purgeDialogOpen, setPurgeDialogOpen] = useState(false)
   const [selectedQueue, setSelectedQueue] = useState<string | null>(null)
+  const [scheduledTasks, setScheduledTasks] = useState<ScheduledTask[]>([])
+  const [tasksLoading, setTasksLoading] = useState(false)
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false)
+  const [selectedTask, setSelectedTask] = useState<ScheduledTask | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [taskToDelete, setTaskToDelete] = useState<ScheduledTask | null>(null)
   const { toast } = useToast()
 
   const fetchStats = useCallback(async () => {
@@ -105,12 +103,119 @@ function QueuePageContent() {
     }
   }, [toast])
 
+  const fetchScheduledTasks = useCallback(async () => {
+    setTasksLoading(true)
+    try {
+      const response = await listScheduledTasks({ include_inactive: true })
+      setScheduledTasks(response.data)
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Impossible de charger les tâches planifiées",
+      })
+    } finally {
+      setTasksLoading(false)
+    }
+  }, [toast])
+
   useEffect(() => {
     fetchStats()
+    fetchScheduledTasks()
     // Refresh every 5 seconds
     const interval = setInterval(fetchStats, 5000)
     return () => clearInterval(interval)
-  }, [fetchStats])
+  }, [fetchStats, fetchScheduledTasks])
+
+  const handleCreateTask = () => {
+    setSelectedTask(null)
+    setTaskDialogOpen(true)
+  }
+
+  const handleEditTask = (task: ScheduledTask) => {
+    setSelectedTask(task)
+    setTaskDialogOpen(true)
+  }
+
+  const handleSaveTask = async (data: ScheduledTaskCreate | ScheduledTaskUpdate) => {
+    if (selectedTask) {
+      await updateScheduledTask(selectedTask.id, data as ScheduledTaskUpdate)
+    } else {
+      await createScheduledTask(data as ScheduledTaskCreate)
+    }
+    await fetchScheduledTasks()
+  }
+
+  const handleDeleteTask = async () => {
+    if (!taskToDelete) return
+    try {
+      await deleteScheduledTask(taskToDelete.id)
+      toast({
+        title: "Tâche supprimée",
+        description: `La tâche "${taskToDelete.name}" a été supprimée`,
+      })
+      await fetchScheduledTasks()
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Impossible de supprimer la tâche",
+      })
+    } finally {
+      setDeleteDialogOpen(false)
+      setTaskToDelete(null)
+    }
+  }
+
+  const handlePauseTask = async (task: ScheduledTask) => {
+    try {
+      await pauseScheduledTask(task.id)
+      toast({
+        title: "Tâche mise en pause",
+        description: `La tâche "${task.name}" est en pause`,
+      })
+      await fetchScheduledTasks()
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Impossible de mettre en pause la tâche",
+      })
+    }
+  }
+
+  const handleResumeTask = async (task: ScheduledTask) => {
+    try {
+      await resumeScheduledTask(task.id)
+      toast({
+        title: "Tâche reprise",
+        description: `La tâche "${task.name}" est active`,
+      })
+      await fetchScheduledTasks()
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Impossible de reprendre la tâche",
+      })
+    }
+  }
+
+  const handleRunNow = async (task: ScheduledTask) => {
+    try {
+      const result = await runTaskNow(task.id)
+      toast({
+        title: "Tâche lancée",
+        description: `La tâche "${task.name}" a été lancée avec l'ID ${result.task_id}`,
+      })
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Impossible de lancer la tâche",
+      })
+    }
+  }
 
   const handlePurgeQueue = async () => {
     if (!selectedQueue) return
@@ -386,53 +491,144 @@ function QueuePageContent() {
           <TabsContent value="schedule" className="space-y-4">
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <IconClock className="h-4 w-4" />
-                  Tâches Planifiées (Beat)
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Tâches exécutées automatiquement selon un calendrier
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <IconClock className="h-4 w-4" />
+                      Tâches Planifiées (Beat)
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Tâches exécutées automatiquement selon un calendrier
+                    </CardDescription>
+                  </div>
+                  <Button size="sm" onClick={handleCreateTask}>
+                    <IconPlus className="h-4 w-4 mr-2" />
+                    Créer
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="pt-0">
-                <div className="space-y-2">
-                  {BEAT_SCHEDULE.map((schedule) => (
-                    <Card key={schedule.name}>
-                      <CardContent className="p-3">
-                        <div className="flex items-start gap-2 mb-2">
-                          <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5" />
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-sm break-all">{schedule.task}</h4>
-                          </div>
-                          <Badge variant={schedule.enabled ? "secondary" : "outline"} className="h-5 px-1.5 text-[10px]">
-                            {schedule.enabled ? "Actif" : "Inactif"}
-                          </Badge>
-                        </div>
-
-                        <div className="space-y-1 text-xs pl-4">
-                          <div className="flex items-center gap-1.5 text-muted-foreground">
-                            <IconClock className="h-3 w-3 flex-shrink-0" />
-                            <span className="break-words">{schedule.schedule}</span>
-                          </div>
-
-                          {schedule.last_run ? (
-                            <div className="flex items-center gap-1.5 text-muted-foreground">
-                              <IconCircleCheck className="h-3 w-3 flex-shrink-0 text-green-600" />
-                              <span className="break-words text-[11px]">
-                                {formatDistanceToNow(new Date(schedule.last_run), { addSuffix: true, locale: fr })}
-                              </span>
+                {tasksLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <IconRefresh className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : scheduledTasks.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                      <IconClock className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2">Aucune tâche planifiée</h3>
+                    <p className="text-sm text-muted-foreground max-w-md mx-auto mb-4">
+                      Créez votre première tâche planifiée pour automatiser des processus récurrents.
+                    </p>
+                    <Button onClick={handleCreateTask}>
+                      <IconPlus className="h-4 w-4 mr-2" />
+                      Créer une tâche
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {scheduledTasks.map((task) => (
+                      <Card key={task.id}>
+                        <CardContent className="p-3">
+                          <div className="flex items-start gap-2 mb-2">
+                            <div className={`w-2 h-2 rounded-full mt-1.5 ${
+                              task.is_paused ? 'bg-amber-500' : task.is_active ? 'bg-green-500' : 'bg-gray-400'
+                            }`} />
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-semibold text-sm break-all">{task.task_name}</h4>
+                              <p className="text-[11px] text-muted-foreground">{task.name}</p>
+                              {task.description && (
+                                <p className="text-[10px] text-muted-foreground mt-0.5">{task.description}</p>
+                              )}
                             </div>
-                          ) : (
-                            <div className="flex items-center gap-1.5 text-muted-foreground">
-                              <IconCircleDashed className="h-3 w-3 flex-shrink-0" />
-                              <span className="text-[11px]">Jamais exécuté</span>
+                            <div className="flex items-center gap-1">
+                              <Badge
+                                variant={task.is_paused ? "outline" : task.is_active ? "secondary" : "outline"}
+                                className="h-5 px-1.5 text-[10px]"
+                              >
+                                {task.is_paused ? "Pause" : task.is_active ? "Actif" : "Inactif"}
+                              </Badge>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                                    <IconDotsVertical className="h-3.5 w-3.5" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => handleEditTask(task)}>
+                                    <IconEdit className="h-3.5 w-3.5 mr-2" />
+                                    Éditer
+                                  </DropdownMenuItem>
+                                  {task.is_paused ? (
+                                    <DropdownMenuItem onClick={() => handleResumeTask(task)}>
+                                      <IconPlayerPlayFilled className="h-3.5 w-3.5 mr-2" />
+                                      Reprendre
+                                    </DropdownMenuItem>
+                                  ) : (
+                                    <DropdownMenuItem onClick={() => handlePauseTask(task)}>
+                                      <IconPlayerPause className="h-3.5 w-3.5 mr-2" />
+                                      Mettre en pause
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuItem onClick={() => handleRunNow(task)}>
+                                    <IconPlayerPlay className="h-3.5 w-3.5 mr-2" />
+                                    Exécuter maintenant
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setTaskToDelete(task)
+                                      setDeleteDialogOpen(true)
+                                    }}
+                                    className="text-destructive"
+                                  >
+                                    <IconTrash className="h-3.5 w-3.5 mr-2" />
+                                    Supprimer
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                          </div>
+
+                          <div className="space-y-1 text-xs pl-4">
+                            <div className="flex items-center gap-1.5 text-muted-foreground">
+                              <IconClock className="h-3 w-3 flex-shrink-0" />
+                              <span className="break-words">{cronToHumanReadable(task)}</span>
+                            </div>
+
+                            {task.last_run_at ? (
+                              <div className="flex items-center gap-1.5 text-muted-foreground">
+                                {task.last_run_success ? (
+                                  <IconCircleCheck className="h-3 w-3 flex-shrink-0 text-green-600" />
+                                ) : (
+                                  <IconCircleX className="h-3 w-3 flex-shrink-0 text-red-600" />
+                                )}
+                                <span className="break-words text-[11px]">
+                                  {formatDistanceToNow(new Date(task.last_run_at), { addSuffix: true, locale: fr })}
+                                  {!task.last_run_success && task.last_run_error && (
+                                    <span className="text-red-600"> - {task.last_run_error}</span>
+                                  )}
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5 text-muted-foreground">
+                                <IconCircleDashed className="h-3 w-3 flex-shrink-0" />
+                                <span className="text-[11px]">Jamais exécuté</span>
+                              </div>
+                            )}
+
+                            {task.total_run_count > 0 && (
+                              <div className="flex items-center gap-1.5 text-muted-foreground">
+                                <IconTrendingUp className="h-3 w-3 flex-shrink-0" />
+                                <span className="text-[11px]">{task.total_run_count} exécution{task.total_run_count > 1 ? 's' : ''}</span>
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -476,6 +672,36 @@ function QueuePageContent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Delete Task Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer la tâche planifiée</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer la tâche "{taskToDelete?.name}" ?
+              Cette action est irréversible et la tâche ne sera plus exécutée.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setTaskToDelete(null)}>
+              Annuler
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteTask} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              <IconTrash className="h-4 w-4 mr-2" />
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Task Drawer */}
+      <TaskDrawer
+        open={taskDialogOpen}
+        onOpenChange={setTaskDialogOpen}
+        task={selectedTask}
+        onSave={handleSaveTask}
+      />
     </div>
   )
 }

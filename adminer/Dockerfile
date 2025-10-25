@@ -1,7 +1,8 @@
-FROM adminer:5.4.1
+FROM adminer:latest
 
-# Download Adminer PHP file
-RUN wget https://github.com/vrana/adminer/releases/download/v4.8.1/adminer-4.8.1.php -O /var/www/html/adminer-4.8.1.php
+# Download latest Adminer PHP file dynamically
+RUN LATEST_VERSION=$(wget -qO- https://api.github.com/repos/vrana/adminer/releases/latest | sed -n 's/.*"tag_name": "\([^"]*\)".*/\1/p') && \
+    wget https://github.com/vrana/adminer/releases/download/${LATEST_VERSION}/adminer-${LATEST_VERSION#v}.php -O /var/www/html/adminer-latest.php
 
 # Copy plugin base class, custom plugin and index
 COPY plugin.php /var/www/html/plugin.php

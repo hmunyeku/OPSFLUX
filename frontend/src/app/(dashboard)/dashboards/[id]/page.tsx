@@ -423,7 +423,7 @@ export default function DashboardViewPageNew() {
       <div className="flex flex-col h-[calc(100vh-4rem)] bg-background">
         {/* Dashboard Header Bar - Compact Style */}
         <div className="flex-none border-b bg-card/80 backdrop-blur-sm supports-[backdrop-filter]:bg-card/60">
-          <div className="container mx-auto px-4 lg:px-6 py-2.5">
+          <div className="container mx-auto px-2 lg:px-4 py-2.5">
             <div className="flex items-center justify-between gap-4">
               {/* Left: Breadcrumb + Title */}
               <div className="flex items-center gap-2 min-w-0 flex-1 group">

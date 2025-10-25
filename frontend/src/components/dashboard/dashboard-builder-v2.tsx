@@ -209,7 +209,7 @@ export function DashboardBuilderV2({
       {/* Edit Mode Toolbar - Professional Style */}
       {isEditMode && (
         <div className="flex-none border-b bg-gradient-to-r from-amber-500/5 via-orange-500/5 to-amber-500/5 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="container mx-auto px-4 lg:px-6 py-3">
+          <div className="container mx-auto px-2 lg:px-4 py-3">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
@@ -262,7 +262,7 @@ export function DashboardBuilderV2({
 
       {/* Dashboard Grid - Full Width Professional Layout */}
       <div className="flex-1 overflow-auto bg-muted/10">
-        <div className="container mx-auto h-full py-4 lg:py-6 px-4 lg:px-6">
+        <div className="container mx-auto h-full py-4 lg:py-6 px-2 lg:px-4 pb-20">
           {widgets.length === 0 ? (
             <div className="flex items-center justify-center h-full min-h-[500px]">
               <div className="text-center max-w-md space-y-4">

@@ -10,12 +10,10 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import {
   IconArrowLeft,
-  IconArrowRight,
   IconCheck,
-  IconChevronLeft,
-  IconLayoutGrid,
-  IconSettings,
-  IconSparkles,
+  IconDeviceFloppy,
+  IconPlus,
+  IconSearch,
   IconX,
 } from "@tabler/icons-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -25,23 +23,22 @@ import { getWidgetMeta, getAllWidgets } from "@/widgets/registry"
 import type { DashboardCreate } from "@/types/dashboard"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
-import { Progress } from "@/components/ui/progress"
 import { cn } from "@/lib/utils"
 import { ScrollArea } from "@/components/ui/scroll-area"
-
-type Step = "info" | "widgets" | "preview"
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer"
+import { Separator } from "@/components/ui/separator"
 
 export default function NewDashboardPage() {
   const router = useRouter()
   const { toast } = useToast()
 
-  const [currentStep, setCurrentStep] = useState<Step>("info")
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [isPublic, setIsPublic] = useState(false)
   const [isHome, setIsHome] = useState(false)
   const [selectedWidgets, setSelectedWidgets] = useState<string[]>([])
   const [isSaving, setIsSaving] = useState(false)
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
 
   const allWidgets = getAllWidgets()
@@ -52,45 +49,18 @@ export default function NewDashboardPage() {
       widget.category.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const steps = [
-    { id: "info" as Step, label: "Informations", icon: IconSettings },
-    { id: "widgets" as Step, label: "Widgets", icon: IconLayoutGrid },
-    { id: "preview" as Step, label: "Aperçu", icon: IconSparkles },
-  ]
-
-  const currentStepIndex = steps.findIndex((s) => s.id === currentStep)
-  const progress = ((currentStepIndex + 1) / steps.length) * 100
-
-  const handleToggleWidget = (widgetType: string) => {
-    if (selectedWidgets.includes(widgetType)) {
-      setSelectedWidgets(selectedWidgets.filter((w) => w !== widgetType))
-    } else {
+  const handleAddWidget = (widgetType: string) => {
+    if (!selectedWidgets.includes(widgetType)) {
       setSelectedWidgets([...selectedWidgets, widgetType])
+      toast({
+        title: "Widget ajouté",
+        description: getWidgetMeta(widgetType)?.name || widgetType,
+      })
     }
   }
 
-  const handleNext = () => {
-    if (currentStep === "info") {
-      if (!name.trim()) {
-        toast({
-          title: "Nom requis",
-          description: "Veuillez entrer un nom pour votre dashboard",
-          variant: "destructive",
-        })
-        return
-      }
-      setCurrentStep("widgets")
-    } else if (currentStep === "widgets") {
-      setCurrentStep("preview")
-    }
-  }
-
-  const handleBack = () => {
-    if (currentStep === "widgets") {
-      setCurrentStep("info")
-    } else if (currentStep === "preview") {
-      setCurrentStep("widgets")
-    }
+  const handleRemoveWidget = (widgetType: string) => {
+    setSelectedWidgets(selectedWidgets.filter((w) => w !== widgetType))
   }
 
   const handleCreate = async () => {
@@ -150,330 +120,253 @@ export default function NewDashboardPage() {
   return (
     <>
       <Header />
-      <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-b from-background to-muted/20">
-        {/* Progress Header */}
-        <div className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="container max-w-5xl mx-auto px-4 py-4 sm:px-6">
-            <div className="flex items-center gap-3 sm:gap-4 mb-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="shrink-0"
-                onClick={() => router.push("/dashboards")}
-              >
-                <IconArrowLeft className="h-4 w-4" />
-              </Button>
-              <div className="min-w-0 flex-1">
-                <h1 className="text-lg sm:text-2xl font-bold tracking-tight truncate">
-                  Nouveau Dashboard
-                </h1>
-                <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
-                  {steps[currentStepIndex].label}
-                </p>
-              </div>
-            </div>
-
-            {/* Steps */}
-            <div className="flex items-center gap-2 mb-3">
-              {steps.map((step, index) => {
-                const Icon = step.icon
-                const isActive = step.id === currentStep
-                const isCompleted = index < currentStepIndex
-
-                return (
-                  <div key={step.id} className="flex items-center flex-1">
-                    <div
-                      className={cn(
-                        "flex items-center gap-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-all flex-1",
-                        isActive && "bg-primary text-primary-foreground shadow-sm",
-                        isCompleted && "bg-muted",
-                        !isActive && !isCompleted && "bg-muted/50"
-                      )}
-                    >
-                      <Icon className="h-4 w-4 shrink-0" />
-                      <span className="text-xs sm:text-sm font-medium truncate hidden sm:inline">
-                        {step.label}
-                      </span>
-                      {isCompleted && (
-                        <IconCheck className="h-3 w-3 sm:h-4 sm:w-4 ml-auto shrink-0" />
-                      )}
-                    </div>
-                    {index < steps.length - 1 && (
-                      <IconArrowRight className="h-4 w-4 mx-1 text-muted-foreground shrink-0 hidden sm:block" />
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-
-            <Progress value={progress} className="h-1" />
+      <div className="container max-w-4xl mx-auto px-4 py-6 sm:py-8">
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-6">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => router.push("/dashboards")}
+          >
+            <IconArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+              Créer un dashboard
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Personnalisez votre tableau de bord avec vos widgets préférés
+            </p>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="container max-w-5xl mx-auto px-4 py-6 sm:px-6 sm:py-8">
-          {/* Step 1: Info */}
-          {currentStep === "info" && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Informations générales</CardTitle>
-                  <CardDescription>
-                    Définissez les paramètres de base de votre dashboard
+        {/* Form */}
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Informations du dashboard</CardTitle>
+              <CardDescription>
+                Définissez le nom et les paramètres de votre dashboard
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">
+                  Nom <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="name"
+                  placeholder="Mon Dashboard"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  autoFocus
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Description de mon dashboard..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={3}
+                />
+              </div>
+
+              <Separator className="my-4" />
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="public">Dashboard public</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Les autres utilisateurs pourront voir ce dashboard
+                    </p>
+                  </div>
+                  <Switch
+                    id="public"
+                    checked={isPublic}
+                    onCheckedChange={setIsPublic}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="home">Afficher dans l'accueil</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Ce dashboard sera affiché dans le menu
+                    </p>
+                  </div>
+                  <Switch
+                    id="home"
+                    checked={isHome}
+                    onCheckedChange={setIsHome}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Widgets Selection */}
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <CardTitle>Widgets</CardTitle>
+                  <CardDescription className="mt-1.5">
+                    {selectedWidgets.length} widget{selectedWidgets.length !== 1 ? "s" : ""} sélectionné{selectedWidgets.length !== 1 ? "s" : ""}
                   </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">
-                      Nom du dashboard <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      id="name"
-                      placeholder="ex: Tableau de bord commercial"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="text-base"
-                      autoFocus
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Description</Label>
-                    <Textarea
-                      id="description"
-                      placeholder="Décrivez l'objectif de ce dashboard..."
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      rows={4}
-                      className="text-base resize-none"
-                    />
-                  </div>
-
-                  <div className="space-y-4 pt-2">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-lg border bg-muted/50">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="public" className="text-base cursor-pointer">
-                          Dashboard public
-                        </Label>
-                        <p className="text-xs sm:text-sm text-muted-foreground">
-                          Visible par tous les utilisateurs
-                        </p>
+                </div>
+                <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+                  <DrawerTrigger asChild>
+                    <Button>
+                      <IconPlus className="h-4 w-4 mr-2" />
+                      Ajouter un widget
+                    </Button>
+                  </DrawerTrigger>
+                  <DrawerContent className="max-h-[85vh]">
+                    <DrawerHeader>
+                      <DrawerTitle>Ajouter des widgets</DrawerTitle>
+                      <DrawerDescription>
+                        Sélectionnez les widgets à ajouter à votre dashboard
+                      </DrawerDescription>
+                    </DrawerHeader>
+                    <div className="px-4 pb-6">
+                      {/* Search */}
+                      <div className="relative mb-4">
+                        <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Rechercher un widget..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="pl-9"
+                        />
                       </div>
-                      <Switch
-                        id="public"
-                        checked={isPublic}
-                        onCheckedChange={setIsPublic}
-                      />
-                    </div>
 
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-lg border bg-muted/50">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="home" className="text-base cursor-pointer">
-                          Afficher dans l'accueil
-                        </Label>
-                        <p className="text-xs sm:text-sm text-muted-foreground">
-                          Apparaît dans le menu principal
-                        </p>
-                      </div>
-                      <Switch
-                        id="home"
-                        checked={isHome}
-                        onCheckedChange={setIsHome}
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {/* Step 2: Widgets */}
-          {currentStep === "widgets" && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
-              <Card>
-                <CardHeader>
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div>
-                      <CardTitle>Sélectionner vos widgets</CardTitle>
-                      <CardDescription className="mt-1.5">
-                        {selectedWidgets.length} widget{selectedWidgets.length > 1 ? "s" : ""} sélectionné{selectedWidgets.length > 1 ? "s" : ""}
-                      </CardDescription>
-                    </div>
-                    <Input
-                      placeholder="Rechercher..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full sm:w-64"
-                    />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <ScrollArea className="h-[calc(100vh-28rem)] sm:h-[500px]">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 pr-4">
-                      {filteredWidgets.map((widget) => {
-                        const isSelected = selectedWidgets.includes(widget.type)
-                        const meta = getWidgetMeta(widget.type)
-
-                        return (
-                          <Card
-                            key={widget.type}
-                            className={cn(
-                              "cursor-pointer transition-all hover:shadow-md relative overflow-hidden group",
-                              isSelected && "ring-2 ring-primary shadow-sm"
-                            )}
-                            onClick={() => handleToggleWidget(widget.type)}
-                          >
-                            <CardHeader className="p-4 pb-3">
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="flex-1 min-w-0">
-                                  <CardTitle className="text-sm sm:text-base truncate">
-                                    {widget.name}
-                                  </CardTitle>
-                                  <Badge
-                                    variant="secondary"
-                                    className="mt-1.5 text-xs"
-                                  >
-                                    {widget.category}
-                                  </Badge>
-                                </div>
-                                <div
-                                  className={cn(
-                                    "h-5 w-5 sm:h-6 sm:w-6 rounded-full border-2 flex items-center justify-center transition-all shrink-0",
-                                    isSelected
-                                      ? "border-primary bg-primary"
-                                      : "border-muted-foreground/25"
-                                  )}
-                                >
-                                  {isSelected && (
-                                    <IconCheck className="h-3 w-3 sm:h-4 sm:w-4 text-primary-foreground" />
-                                  )}
-                                </div>
-                              </div>
-                            </CardHeader>
-                            <CardContent className="p-4 pt-0">
-                              <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
-                                {widget.description}
-                              </p>
-                            </CardContent>
-                            {isSelected && (
-                              <div className="absolute inset-0 bg-primary/5 pointer-events-none" />
-                            )}
-                          </Card>
-                        )
-                      })}
-                    </div>
-                  </ScrollArea>
-
-                  {filteredWidgets.length === 0 && (
-                    <div className="text-center py-12">
-                      <p className="text-sm text-muted-foreground">
-                        Aucun widget trouvé
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {/* Step 3: Preview */}
-          {currentStep === "preview" && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Récapitulatif</CardTitle>
-                  <CardDescription>
-                    Vérifiez les informations avant de créer votre dashboard
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="space-y-4">
-                    <div className="p-4 rounded-lg border bg-muted/50">
-                      <h3 className="font-semibold text-base mb-3">Informations</h3>
-                      <dl className="space-y-2 text-sm">
-                        <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                          <dt className="text-muted-foreground">Nom :</dt>
-                          <dd className="font-medium">{name}</dd>
-                        </div>
-                        {description && (
-                          <div className="flex flex-col gap-1">
-                            <dt className="text-muted-foreground">Description :</dt>
-                            <dd className="font-medium">{description}</dd>
-                          </div>
-                        )}
-                        <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                          <dt className="text-muted-foreground">Visibilité :</dt>
-                          <dd className="font-medium">
-                            {isPublic ? "Public" : "Privé"}
-                          </dd>
-                        </div>
-                        <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                          <dt className="text-muted-foreground">Accueil :</dt>
-                          <dd className="font-medium">
-                            {isHome ? "Oui" : "Non"}
-                          </dd>
-                        </div>
-                      </dl>
-                    </div>
-
-                    <div className="p-4 rounded-lg border bg-muted/50">
-                      <h3 className="font-semibold text-base mb-3">
-                        Widgets ({selectedWidgets.length})
-                      </h3>
-                      {selectedWidgets.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">
-                          Aucun widget sélectionné
-                        </p>
-                      ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {selectedWidgets.map((widgetType) => {
-                            const meta = getWidgetMeta(widgetType)
+                      {/* Widgets Grid */}
+                      <ScrollArea className="h-[60vh]">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pr-4">
+                          {filteredWidgets.map((widget) => {
+                            const isSelected = selectedWidgets.includes(widget.type)
                             return (
-                              <div
-                                key={widgetType}
-                                className="flex items-center gap-2 p-2 rounded border bg-background text-sm"
+                              <Card
+                                key={widget.type}
+                                className={cn(
+                                  "cursor-pointer transition-all hover:bg-accent/50",
+                                  isSelected && "ring-2 ring-primary"
+                                )}
+                                onClick={() => handleAddWidget(widget.type)}
                               >
-                                <IconCheck className="h-4 w-4 text-primary shrink-0" />
-                                <span className="truncate">{meta?.name}</span>
-                              </div>
+                                <CardHeader className="p-4">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <CardTitle className="text-sm truncate">
+                                        {widget.name}
+                                      </CardTitle>
+                                      <Badge variant="secondary" className="mt-1 text-xs">
+                                        {widget.category}
+                                      </Badge>
+                                    </div>
+                                    {isSelected && (
+                                      <IconCheck className="h-5 w-5 text-primary shrink-0" />
+                                    )}
+                                  </div>
+                                </CardHeader>
+                                <CardContent className="p-4 pt-0">
+                                  <p className="text-xs text-muted-foreground line-clamp-2">
+                                    {widget.description}
+                                  </p>
+                                </CardContent>
+                              </Card>
                             )
                           })}
                         </div>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
 
-          {/* Navigation */}
-          <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-between mt-6 sm:mt-8 sticky bottom-0 sm:static bg-background p-4 sm:p-0 border-t sm:border-0 -mx-4 sm:mx-0">
+                        {filteredWidgets.length === 0 && (
+                          <div className="text-center py-12">
+                            <p className="text-sm text-muted-foreground">
+                              Aucun widget trouvé
+                            </p>
+                          </div>
+                        )}
+                      </ScrollArea>
+                    </div>
+                  </DrawerContent>
+                </Drawer>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {selectedWidgets.length === 0 ? (
+                <div className="border-2 border-dashed rounded-lg p-8 text-center">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Aucun widget sélectionné
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={() => setDrawerOpen(true)}
+                  >
+                    <IconPlus className="h-4 w-4 mr-2" />
+                    Ajouter votre premier widget
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {selectedWidgets.map((widgetType) => {
+                    const meta = getWidgetMeta(widgetType)
+                    return (
+                      <div
+                        key={widgetType}
+                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <IconCheck className="h-4 w-4 text-primary shrink-0" />
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm truncate">{meta?.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {meta?.description}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Badge variant="secondary" className="text-xs">
+                            {meta?.category}
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleRemoveWidget(widgetType)}
+                          >
+                            <IconX className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Actions */}
+          <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
             <Button
               variant="outline"
-              onClick={currentStepIndex === 0 ? () => router.push("/dashboards") : handleBack}
+              onClick={() => router.push("/dashboards")}
               disabled={isSaving}
               className="w-full sm:w-auto"
             >
-              <IconChevronLeft className="h-4 w-4 mr-2" />
-              {currentStepIndex === 0 ? "Annuler" : "Retour"}
+              Annuler
             </Button>
-
-            {currentStep !== "preview" ? (
-              <Button onClick={handleNext} className="w-full sm:w-auto">
-                Suivant
-                <IconArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-            ) : (
-              <Button
-                onClick={handleCreate}
-                disabled={isSaving}
-                className="w-full sm:w-auto"
-              >
-                <IconCheck className="h-4 w-4 mr-2" />
-                {isSaving ? "Création..." : "Créer le dashboard"}
-              </Button>
-            )}
+            <Button
+              onClick={handleCreate}
+              disabled={isSaving || !name.trim()}
+              className="w-full sm:w-auto"
+            >
+              <IconDeviceFloppy className="h-4 w-4 mr-2" />
+              {isSaving ? "Création..." : "Créer le dashboard"}
+            </Button>
           </div>
         </div>
       </div>

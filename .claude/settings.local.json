@@ -67,7 +67,8 @@
       "Bash(python:*)",
       "Bash(docker network connect:*)",
       "Bash(docker stop:*)",
-      "Bash(docker rm:*)"
+      "Bash(docker rm:*)",
+      "Bash(PGPASSWORD=YBp44BSqEBvCXab docker exec:*)"
     ],
     "deny": [],
     "ask": []

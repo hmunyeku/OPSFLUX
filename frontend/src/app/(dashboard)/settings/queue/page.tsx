@@ -354,15 +354,11 @@ function QueuePageContent() {
           </Card>
         </div>
 
-        <Tabs defaultValue="workers" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="workers" className="text-xs sm:text-sm">
-              <IconServer className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Workers</span>
-            </TabsTrigger>
-            <TabsTrigger value="queues" className="text-xs sm:text-sm">
-              <IconActivity className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Queues</span>
+        <Tabs defaultValue="overview" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="overview" className="text-xs sm:text-sm">
+              <IconTrendingUp className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Vue d'ensemble</span>
             </TabsTrigger>
             <TabsTrigger value="schedule" className="text-xs sm:text-sm">
               <IconClock className="h-4 w-4 sm:mr-2" />
@@ -370,47 +366,45 @@ function QueuePageContent() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Workers Tab */}
-          <TabsContent value="workers" className="space-y-4">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <IconServer className="h-4 w-4" />
-                  Workers Celery
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Workers actifs et leurs tâches en cours
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-0">
-                {totalWorkers === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-                      <IconAlertTriangle className="h-8 w-8 text-muted-foreground" />
+          {/* Overview Tab - Workers + Queues fusionnés */}
+          <TabsContent value="overview" className="space-y-4">
+            <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+              {/* Workers Section */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <IconServer className="h-4 w-4" />
+                    Workers
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    {totalWorkers} worker{totalWorkers > 1 ? 's' : ''} actif{totalWorkers > 1 ? 's' : ''}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  {totalWorkers === 0 ? (
+                    <div className="text-center py-8">
+                      <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
+                        <IconAlertTriangle className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <p className="text-sm text-muted-foreground">Aucun worker connecté</p>
                     </div>
-                    <h3 className="text-lg font-semibold mb-2">Aucun worker actif</h3>
-                    <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                      Aucun worker Celery n'est actuellement connecté. Vérifiez que le service celery-worker est démarré.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {Object.entries(stats?.workers || {}).map(([name, worker]) => (
-                      <Card key={name}>
-                        <CardContent className="p-3">
+                  ) : (
+                    <div className="space-y-2">
+                      {Object.entries(stats?.workers || {}).map(([name, worker]) => (
+                        <div
+                          key={name}
+                          className="group rounded-lg border bg-card p-3 hover:bg-accent/30 transition-colors"
+                        >
                           <div className="flex items-center gap-2 mb-2">
-                            <div className="w-2 h-2 rounded-full bg-green-500" />
+                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                             <h4 className="font-semibold text-sm truncate flex-1">{name}</h4>
-                            <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
-                              Actif
-                            </Badge>
                           </div>
 
                           <div className="grid grid-cols-3 gap-2">
                             <div className="bg-muted/30 rounded p-1.5">
                               <div className="flex items-center gap-1 mb-0.5">
                                 <IconPlayerPlay className="h-3 w-3 text-green-600" />
-                                <span className="text-[10px] text-muted-foreground">En cours</span>
+                                <span className="text-[10px] text-muted-foreground">Actif</span>
                               </div>
                               <div className="text-base font-bold">{worker.active}</div>
                             </div>
@@ -418,7 +412,7 @@ function QueuePageContent() {
                             <div className="bg-muted/30 rounded p-1.5">
                               <div className="flex items-center gap-1 mb-0.5">
                                 <IconClock className="h-3 w-3 text-blue-600" />
-                                <span className="text-[10px] text-muted-foreground">Planif.</span>
+                                <span className="text-[10px] text-muted-foreground">Plan.</span>
                               </div>
                               <div className="text-base font-bold">{worker.scheduled}</div>
                             </div>
@@ -426,72 +420,69 @@ function QueuePageContent() {
                             <div className="bg-muted/30 rounded p-1.5">
                               <div className="flex items-center gap-1 mb-0.5">
                                 <IconCircleDashed className="h-3 w-3 text-amber-600" />
-                                <span className="text-[10px] text-muted-foreground">Réserv.</span>
+                                <span className="text-[10px] text-muted-foreground">Rés.</span>
                               </div>
                               <div className="text-base font-bold">{worker.reserved}</div>
                             </div>
                           </div>
-                        </CardContent>
-                      </Card>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Queues Section */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <IconActivity className="h-4 w-4" />
+                    Files d'Attente
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    {Object.keys(stats?.queues || {}).length} queue{Object.keys(stats?.queues || {}).length > 1 ? 's' : ''}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="space-y-2">
+                    {Object.entries(stats?.queues || {}).map(([name, queue]) => (
+                      <div
+                        key={name}
+                        className="group relative flex items-center gap-3 rounded-lg border bg-card p-3 hover:bg-accent/30 transition-colors"
+                      >
+                        <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <IconActivity className="h-4 w-4 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-sm truncate">{name}</h4>
+                          <p className="text-[10px] text-muted-foreground">
+                            {queue.length} tâche{queue.length !== 1 ? 's' : ''}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={queue.length > 0 ? "default" : "outline"} className="h-6 px-2 text-xs">
+                            {queue.length}
+                          </Badge>
+                          {queue.length > 0 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => {
+                                setSelectedQueue(name)
+                                setPurgeDialogOpen(true)
+                              }}
+                            >
+                              <IconTrash className="h-3.5 w-3.5 text-destructive" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                     ))}
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Queues Tab */}
-          <TabsContent value="queues" className="space-y-4">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <IconActivity className="h-4 w-4" />
-                  Files d'Attente
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Gestion des différentes queues de tâches
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-0">
-                {/* Version ultra-compacte: grid responsive */}
-                <div className="grid gap-2 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                  {Object.entries(stats?.queues || {}).map(([name, queue]) => (
-                    <div
-                      key={name}
-                      className="group relative flex items-center gap-3 rounded-lg border bg-card p-3 hover:bg-accent/50 transition-colors"
-                    >
-                      <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <IconActivity className="h-4 w-4 text-primary" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-sm truncate">{name}</h4>
-                        <p className="text-[10px] text-muted-foreground">
-                          {queue.length} tâche{queue.length !== 1 ? 's' : ''}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={queue.length > 0 ? "default" : "outline"} className="h-6 px-2 text-xs">
-                          {queue.length}
-                        </Badge>
-                        {queue.length > 0 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={() => {
-                              setSelectedQueue(name)
-                              setPurgeDialogOpen(true)
-                            }}
-                          >
-                            <IconTrash className="h-3.5 w-3.5 text-destructive" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           {/* Schedule Tab */}

@@ -14,7 +14,7 @@ import httpx
 
 from app.api.deps import get_db, CurrentUser
 from app.core.config import settings
-from app.core.permissions import require_permission
+from app.core.rbac import require_permission
 
 router = APIRouter(prefix="/system-health", tags=["System Health"])
 

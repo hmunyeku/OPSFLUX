@@ -14,6 +14,7 @@ from app.api.routes import (
     database,
     developer_analytics,
     email_templates,
+    error_tracking,
     groups,
     hooks,
     items,
@@ -88,6 +89,7 @@ api_router.include_router(search.router)  # Search service (PostgreSQL FTS)
 api_router.include_router(backups.router)  # Backup & Restore service
 api_router.include_router(database.router)  # Database management & monitoring
 api_router.include_router(system_health.router)  # System health monitoring
+api_router.include_router(error_tracking.router)  # Error tracking & monitoring
 api_router.include_router(ai.router, prefix="/ai", tags=["AI"])  # AI Assistant service
 api_router.include_router(developer_analytics.router)  # Developer analytics & overview
 

@@ -35,16 +35,21 @@ export function useSidebarData(): SidebarData {
             return {
               ...group,
               items: group.items.map((item) => {
-                if (item.title === "Dashboards") {
+                if (item.title === "Tableau de bord") {
                   // Build the updated items array
                   const updatedItems = [
                     {
-                      title: "Panel",
+                      title: "Général",
                       url: "/dashboards",
                       icon: IconLayoutDashboard,
                     },
                     {
-                      title: "Nouveau dashboard",
+                      title: "Galerie",
+                      url: "/dashboards",
+                      icon: IconChartBar,
+                    },
+                    {
+                      title: "Nouveau",
                       url: "/dashboards/new",
                       icon: IconPlus,
                       permission: "dashboards.create",

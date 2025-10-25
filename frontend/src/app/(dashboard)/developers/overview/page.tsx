@@ -46,7 +46,7 @@ export default function OverviewPage() {
   const tCommon = useTranslation("core.common").t
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-3 lg:gap-4">
       <div className="flex w-full flex-col gap-2">
         <Breadcrumb>
           <BreadcrumbList>
@@ -66,16 +66,16 @@ export default function OverviewPage() {
           </BreadcrumbList>
         </Breadcrumb>
 
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-2xl font-bold">{t("overview.title", "Title")}</h2>
-            <p className="text-muted-foreground text-sm">
+            <h2 className="text-xl font-bold tracking-tight sm:text-2xl">{t("overview.title", "Title")}</h2>
+            <p className="text-xs text-muted-foreground sm:text-sm">
               {t("overview.description", "Description")}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
             <Select>
-              <SelectTrigger className="w-fit gap-2 text-sm">
+              <SelectTrigger className="w-full gap-2 text-xs sm:w-fit sm:text-sm">
                 <SelectValue placeholder="Serveur" />
               </SelectTrigger>
               <SelectContent>
@@ -98,9 +98,9 @@ export default function OverviewPage() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 lg:flex-row lg:gap-8">
-        <div className="flex basis-2/3 flex-col gap-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:gap-6">
+      <div className="flex flex-col gap-3 lg:flex-row lg:gap-6">
+        <div className="flex basis-2/3 flex-col gap-3 lg:gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:gap-4 lg:gap-6">
             <ApiRequestsChart className="flex-1" />
             <Separator className="sm:hidden" />
             <ApiResponseTimeChart className="flex-1" />

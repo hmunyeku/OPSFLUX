@@ -68,7 +68,10 @@
       "Bash(docker network connect:*)",
       "Bash(docker stop:*)",
       "Bash(docker rm:*)",
-      "Bash(PGPASSWORD=YBp44BSqEBvCXab docker exec:*)"
+      "Bash(PGPASSWORD=YBp44BSqEBvCXab docker exec:*)",
+      "Bash(pip install:*)",
+      "Bash(/dev/null)",
+      "Bash(./manual_test_report.sh:*)"
     ],
     "deny": [],
     "ask": []

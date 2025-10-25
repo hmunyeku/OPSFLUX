@@ -60,7 +60,10 @@ yarn-debug.log*
 yarn-error.log*
 /frontend/dist/
 /frontend/build/
+/frontend/.next/
 .eslintcache
+package-lock.json
+yarn.lock
 
 # Testing
 .coverage
@@ -95,6 +98,10 @@ backups/*.dump
 *.bak
 *.swp
 *~
+*.old
+test_*.py
+test_*.sh
+manual_test_*.sh
 
 # OS
 .DS_Store

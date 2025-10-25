@@ -12,6 +12,7 @@ from app.api.routes import (
     cache,
     dashboards,
     database,
+    developer_analytics,
     email_templates,
     groups,
     hooks,
@@ -86,6 +87,7 @@ api_router.include_router(search.router)  # Search service (PostgreSQL FTS)
 api_router.include_router(backups.router)  # Backup & Restore service
 api_router.include_router(database.router)  # Database management & monitoring
 api_router.include_router(ai.router, prefix="/ai", tags=["AI"])  # AI Assistant service
+api_router.include_router(developer_analytics.router)  # Developer analytics & overview
 
 
 if settings.ENVIRONMENT == "local":

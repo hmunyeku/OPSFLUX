@@ -1,6 +1,7 @@
 "use client"
 
-import { TrendingUp } from "lucide-react"
+import { useEffect, useState } from "react"
+import { TrendingUp, TrendingDown } from "lucide-react"
 import { CartesianGrid, Line, LineChart, XAxis } from "recharts"
 import { cn } from "@/lib/utils"
 import {
@@ -17,19 +18,12 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
+import { getApiRequestsStats, ApiRequestsStats } from "@/api/developer-analytics"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface Props {
   className?: string
 }
-
-const chartData = [
-  { week: "W1", count: 40 },
-  { week: "W2", count: 24 },
-  { week: "W3", count: 52 },
-  { week: "W4", count: 33 },
-  { week: "W5", count: 80 },
-  { week: "W6", count: 95 },
-]
 
 const chartConfig = {
   count: {
@@ -39,6 +33,59 @@ const chartConfig = {
 } satisfies ChartConfig
 
 export function ApiRequestsChart({ className = "" }: Props) {
+  const [data, setData] = useState<ApiRequestsStats | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        setLoading(true)
+        const stats = await getApiRequestsStats({ period: "week" })
+        setData(stats)
+        setError(null)
+      } catch (err) {
+        console.error("Failed to fetch API requests stats:", err)
+        setError("Failed to load data")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
+
+  if (loading) {
+    return (
+      <Card className={cn("space-y-4 rounded-none border-none bg-transparent shadow-none", className)}>
+        <CardHeader className="space-y-2 p-0">
+          <Skeleton className="h-6 w-32" />
+          <Skeleton className="h-4 w-48" />
+        </CardHeader>
+        <Skeleton className="h-[200px] w-full" />
+      </Card>
+    )
+  }
+
+  if (error || !data) {
+    return (
+      <Card className={cn("space-y-4 rounded-none border-none bg-transparent shadow-none", className)}>
+        <CardHeader className="space-y-2 p-0">
+          <CardTitle>API requests</CardTitle>
+          <CardDescription>No data available</CardDescription>
+        </CardHeader>
+      </Card>
+    )
+  }
+
+  // Calculate percentage change from previous period
+  const lastValue = data.chart_data[data.chart_data.length - 1]?.count || 0
+  const previousValue = data.chart_data[data.chart_data.length - 2]?.count || 0
+  const percentChange = previousValue > 0
+    ? ((lastValue - previousValue) / previousValue * 100).toFixed(1)
+    : "0.0"
+  const isIncrease = parseFloat(percentChange) >= 0
+
   return (
     <Card
       className={cn(
@@ -53,13 +100,13 @@ export function ApiRequestsChart({ className = "" }: Props) {
             <div className="text-muted-foreground/85 text-xs font-semibold">
               Successful
             </div>
-            <span className="text-foreground text-sm">270</span>
+            <span className="text-foreground text-sm">{data.successful}</span>
           </div>
           <div>
             <div className="text-muted-foreground/85 text-xs font-semibold">
               Failed
             </div>
-            <span className="text-foreground text-sm">6</span>
+            <span className="text-foreground text-sm">{data.failed}</span>
           </div>
         </CardDescription>
       </CardHeader>
@@ -67,7 +114,7 @@ export function ApiRequestsChart({ className = "" }: Props) {
         <ChartContainer config={chartConfig}>
           <LineChart
             accessibilityLayer
-            data={chartData}
+            data={data.chart_data}
             margin={{
               left: 12,
               right: 12,
@@ -75,7 +122,7 @@ export function ApiRequestsChart({ className = "" }: Props) {
           >
             <CartesianGrid vertical={false} />
             <XAxis
-              dataKey="week"
+              dataKey="period"
               tickLine={false}
               axisLine={false}
               tickMargin={8}
@@ -96,11 +143,11 @@ export function ApiRequestsChart({ className = "" }: Props) {
       </CardContent>
       <CardFooter className="flex-col items-start gap-2 p-0 text-sm">
         <div className="flex gap-2 leading-none font-medium">
-          Requests increased by 8.7% this week{" "}
-          <TrendingUp className="h-4 w-4" />
+          Requests {isIncrease ? "increased" : "decreased"} by {Math.abs(parseFloat(percentChange))}% this week{" "}
+          {isIncrease ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
         </div>
         <div className="text-muted-foreground leading-none">
-          Displaying total API requests for the past {chartData.length} weeks
+          Displaying total API requests for the past {data.chart_data.length} weeks
         </div>
       </CardFooter>
     </Card>

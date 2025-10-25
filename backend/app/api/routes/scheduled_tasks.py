@@ -428,7 +428,8 @@ async def run_task_now(
         return {
             "success": True,
             "message": "Task enqueued for immediate execution",
-            "celery_task_id": result.id,
+            "task_id": result.id,  # ID de la tâche Celery
+            "celery_task_id": result.id,  # Alias pour compatibilité
             "log_id": str(log.id)
         }
     except Exception as e:

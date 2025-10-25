@@ -333,10 +333,15 @@ export default function GeneralForm() {
   const uploadLogo = useCallback(async (file: File): Promise<string> => {
     const formData = new FormData()
     formData.append('file', file)
-    formData.append('module', 'core')
-    formData.append('public', 'true')
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/storage/upload`, {
+    // Les paramètres doivent être dans l'URL, pas dans FormData
+    const params = new URLSearchParams({
+      module: 'core',
+      category: 'images',
+      generate_thumbnail: 'true'
+    })
+
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/storage/upload?${params.toString()}`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${localStorage.getItem('access_token')}`,
@@ -345,11 +350,12 @@ export default function GeneralForm() {
     })
 
     if (!response.ok) {
-      throw new Error('Failed to upload logo')
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.detail || 'Failed to upload logo')
     }
 
     const result = await response.json()
-    return result.url
+    return result.file.path // Retourner le path du fichier
   }, [])
 
   // Save function (immediate save like preferences)

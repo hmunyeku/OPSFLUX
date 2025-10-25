@@ -3,19 +3,23 @@
  * Adminer custom loader with auto-login plugin
  */
 
+// Define adminer_object function that will be called by Adminer
 function adminer_object() {
-    // Load plugin files
-    include_once "./plugin.php";
-    include_once "./login-token.php";
+    // At this point, Adminer class is already defined
+    // Load plugin base class (sets up Adminer namespace)
+    require_once "./plugin.php";
+
+    // Load our custom plugins
+    require_once "./login-token.php";
 
     // Create plugins array
     $plugins = array(
         new AdminerAutoLogin(),
     );
 
-    // Return AdminerPlugin with our plugins
-    return new AdminerPlugin($plugins);
+    // Return AdminerPlugin with our plugins - use fully qualified name
+    return new \Adminer\AdminerPlugin($plugins);
 }
 
-// Include Adminer (latest version)
-include "./adminer-latest.php";
+// Include Adminer - it will call adminer_object() after defining the Adminer class
+require "./adminer-latest.php";

@@ -385,13 +385,12 @@ def update_dashboard(
     if not dashboard or dashboard.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Dashboard not found")
 
-    # Check permissions
-    if dashboard.created_by_id != current_user.id:
-        # Only allow if user is admin (TODO: check permissions)
+    # Check permissions (superadmin can modify any dashboard)
+    if dashboard.created_by_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Not enough permissions")
 
-    # Don't allow modifying mandatory dashboards unless admin
-    if dashboard.is_mandatory and dashboard_in.is_mandatory is not None:
+    # Don't allow modifying mandatory dashboards unless superadmin
+    if dashboard.is_mandatory and dashboard_in.is_mandatory is not None and not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Cannot modify mandatory dashboard settings")
 
     update_dict = dashboard_in.model_dump(exclude_unset=True)
@@ -420,8 +419,8 @@ def update_dashboard_layout(
     if not dashboard or dashboard.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Dashboard not found")
 
-    # Check permissions
-    if dashboard.created_by_id != current_user.id:
+    # Check permissions (superadmin can modify any dashboard)
+    if dashboard.created_by_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Not enough permissions")
 
     # Update widget positions
@@ -463,12 +462,12 @@ def delete_dashboard(
     if not dashboard or dashboard.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Dashboard not found")
 
-    # Check permissions
-    if dashboard.created_by_id != current_user.id:
+    # Check permissions (superadmin can delete any dashboard)
+    if dashboard.created_by_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Not enough permissions")
 
-    # Cannot delete mandatory dashboards
-    if dashboard.is_mandatory:
+    # Cannot delete mandatory dashboards unless superadmin
+    if dashboard.is_mandatory and not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Cannot delete mandatory dashboard")
 
     dashboard.soft_delete(deleted_by_id=current_user.id)

@@ -366,63 +366,50 @@ function QueuePageContent() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Overview Tab - Workers + Queues fusionnés */}
-          <TabsContent value="overview" className="space-y-4">
-            <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-              {/* Workers Section */}
+          {/* Overview Tab - Workers + Queues ultra compacts */}
+          <TabsContent value="overview" className="space-y-2">
+            <div className="grid gap-2 grid-cols-1 lg:grid-cols-2">
+              {/* Workers Section - Ultra compact */}
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <IconServer className="h-4 w-4" />
-                    Workers
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    {totalWorkers} worker{totalWorkers > 1 ? 's' : ''} actif{totalWorkers > 1 ? 's' : ''}
-                  </CardDescription>
+                <CardHeader className="p-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-1 text-xs font-semibold">
+                      <IconServer className="h-3 w-3" />
+                      Workers ({totalWorkers})
+                    </CardTitle>
+                  </div>
                 </CardHeader>
-                <CardContent className="pt-0">
+                <CardContent className="p-2 pt-0">
                   {totalWorkers === 0 ? (
-                    <div className="text-center py-8">
-                      <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
-                        <IconAlertTriangle className="h-6 w-6 text-muted-foreground" />
-                      </div>
-                      <p className="text-sm text-muted-foreground">Aucun worker connecté</p>
+                    <div className="text-center py-2">
+                      <IconAlertTriangle className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
+                      <p className="text-[10px] text-muted-foreground">Aucun worker</p>
                     </div>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-1">
                       {Object.entries(stats?.workers || {}).map(([name, worker]) => (
                         <div
                           key={name}
-                          className="group rounded-lg border bg-card p-3 hover:bg-accent/30 transition-colors"
+                          className="group rounded border bg-card p-1.5 hover:bg-accent/30 transition-colors"
                         >
-                          <div className="flex items-center gap-2 mb-2">
-                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                            <h4 className="font-semibold text-sm truncate flex-1">{name}</h4>
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-2">
-                            <div className="bg-muted/30 rounded p-1.5">
-                              <div className="flex items-center gap-1 mb-0.5">
-                                <IconPlayerPlay className="h-3 w-3 text-green-600" />
-                                <span className="text-[10px] text-muted-foreground">Actif</span>
-                              </div>
-                              <div className="text-base font-bold">{worker.active}</div>
+                          <div className="flex items-center justify-between gap-1.5">
+                            <div className="flex items-center gap-1 flex-1 min-w-0">
+                              <div className="w-1 h-1 rounded-full bg-green-500 flex-shrink-0" />
+                              <h4 className="font-medium text-[10px] truncate">{name}</h4>
                             </div>
-
-                            <div className="bg-muted/30 rounded p-1.5">
-                              <div className="flex items-center gap-1 mb-0.5">
-                                <IconClock className="h-3 w-3 text-blue-600" />
-                                <span className="text-[10px] text-muted-foreground">Plan.</span>
+                            <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-0.5 bg-green-500/10 rounded px-1 py-0.5">
+                                <IconPlayerPlay className="h-2 w-2 text-green-600" />
+                                <span className="text-[10px] font-semibold">{worker.active}</span>
                               </div>
-                              <div className="text-base font-bold">{worker.scheduled}</div>
-                            </div>
-
-                            <div className="bg-muted/30 rounded p-1.5">
-                              <div className="flex items-center gap-1 mb-0.5">
-                                <IconCircleDashed className="h-3 w-3 text-amber-600" />
-                                <span className="text-[10px] text-muted-foreground">Rés.</span>
+                              <div className="flex items-center gap-0.5 bg-blue-500/10 rounded px-1 py-0.5">
+                                <IconClock className="h-2 w-2 text-blue-600" />
+                                <span className="text-[10px] font-semibold">{worker.scheduled}</span>
                               </div>
-                              <div className="text-base font-bold">{worker.reserved}</div>
+                              <div className="flex items-center gap-0.5 bg-amber-500/10 rounded px-1 py-0.5">
+                                <IconCircleDashed className="h-2 w-2 text-amber-600" />
+                                <span className="text-[10px] font-semibold">{worker.reserved}</span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -432,51 +419,45 @@ function QueuePageContent() {
                 </CardContent>
               </Card>
 
-              {/* Queues Section */}
+              {/* Queues Section - Ultra compact */}
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <IconActivity className="h-4 w-4" />
-                    Files d'Attente
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    {Object.keys(stats?.queues || {}).length} queue{Object.keys(stats?.queues || {}).length > 1 ? 's' : ''}
-                  </CardDescription>
+                <CardHeader className="p-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-1 text-xs font-semibold">
+                      <IconActivity className="h-3 w-3" />
+                      Files ({Object.keys(stats?.queues || {}).length})
+                    </CardTitle>
+                  </div>
                 </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="space-y-2">
+                <CardContent className="p-2 pt-0">
+                  <div className="space-y-1">
                     {Object.entries(stats?.queues || {}).map(([name, queue]) => (
                       <div
                         key={name}
-                        className="group relative flex items-center gap-3 rounded-lg border bg-card p-3 hover:bg-accent/30 transition-colors"
+                        className="group flex items-center gap-1.5 rounded border bg-card p-1.5 hover:bg-accent/30 transition-colors"
                       >
-                        <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                          <IconActivity className="h-4 w-4 text-primary" />
+                        <div className="flex-shrink-0 w-5 h-5 rounded bg-primary/10 flex items-center justify-center">
+                          <IconActivity className="h-2.5 w-2.5 text-primary" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-sm truncate">{name}</h4>
-                          <p className="text-[10px] text-muted-foreground">
-                            {queue.length} tâche{queue.length !== 1 ? 's' : ''}
-                          </p>
+                          <h4 className="font-medium text-[10px] truncate">{name}</h4>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={queue.length > 0 ? "default" : "outline"} className="h-6 px-2 text-xs">
-                            {queue.length}
-                          </Badge>
-                          {queue.length > 0 && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={() => {
-                                setSelectedQueue(name)
-                                setPurgeDialogOpen(true)
-                              }}
-                            >
-                              <IconTrash className="h-3.5 w-3.5 text-destructive" />
-                            </Button>
-                          )}
-                        </div>
+                        <Badge variant={queue.length > 0 ? "default" : "outline"} className="h-4 px-1 text-[9px] font-semibold">
+                          {queue.length}
+                        </Badge>
+                        {queue.length > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => {
+                              setSelectedQueue(name)
+                              setPurgeDialogOpen(true)
+                            }}
+                          >
+                            <IconTrash className="h-2.5 w-2.5 text-destructive" />
+                          </Button>
+                        )}
                       </div>
                     ))}
                   </div>

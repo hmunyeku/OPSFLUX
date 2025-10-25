@@ -1,5 +1,9 @@
 <?php
 /** Adminer plugin base class */
+
+// Use the Adminer namespace
+namespace Adminer;
+
 class AdminerPlugin extends Adminer {
 	var $plugins;
 

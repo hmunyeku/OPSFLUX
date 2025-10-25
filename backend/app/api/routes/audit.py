@@ -136,6 +136,7 @@ MOCK_LOGS = [
 
 
 @router.get("/")
+@router.get("/logs")  # Alias pour rétrocompatibilité
 @require_permission("core.audit.read")
 def get_audit_logs(
     session: SessionDep,

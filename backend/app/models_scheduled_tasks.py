@@ -112,3 +112,47 @@ class ScheduledTasksResponse(SQLModel):
 
     count: int
     data: list[ScheduledTaskPublic]
+
+
+# Task Execution Logs
+
+class TaskExecutionLogBase(SQLModel):
+    """Base model for task execution logs"""
+
+    task_id: UUID = Field(foreign_key="scheduled_tasks.id", description="ID de la tâche planifiée")
+    celery_task_id: str = Field(description="ID de la tâche Celery")
+
+    started_at: datetime = Field(default_factory=datetime.utcnow, description="Heure de début")
+    finished_at: Optional[datetime] = Field(default=None, description="Heure de fin")
+
+    status: str = Field(description="success, failure, pending, running")
+    result: Optional[str] = Field(default=None, description="Résultat de l'exécution (JSON)")
+    error: Optional[str] = Field(default=None, description="Message d'erreur si échec")
+    traceback: Optional[str] = Field(default=None, description="Traceback complet si erreur")
+
+    duration_seconds: Optional[float] = Field(default=None, description="Durée d'exécution en secondes")
+
+
+class TaskExecutionLog(TaskExecutionLogBase, table=True):
+    """Task execution log model for database"""
+
+    __tablename__ = "task_execution_logs"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+
+
+class TaskExecutionLogPublic(TaskExecutionLogBase):
+    """Schema for public log representation"""
+
+    id: UUID
+
+    model_config = {
+        "from_attributes": True
+    }
+
+
+class TaskExecutionLogsResponse(SQLModel):
+    """Response model for list of logs"""
+
+    count: int
+    data: list[TaskExecutionLogPublic]

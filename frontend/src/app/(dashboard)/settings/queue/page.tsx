@@ -50,6 +50,8 @@ import {
 import { formatDistanceToNow } from "date-fns"
 import { fr } from "date-fns/locale"
 import { TaskDrawer } from "./components/task-drawer"
+import { TaskLogsDialog } from "./components/task-logs-dialog"
+import { Input } from "@/components/ui/input"
 import {
   listScheduledTasks,
   createScheduledTask,
@@ -63,7 +65,7 @@ import {
   type ScheduledTaskCreate,
   type ScheduledTaskUpdate,
 } from "@/api/scheduled-tasks"
-import { IconDotsVertical } from "@tabler/icons-react"
+import { IconDotsVertical, IconHistory, IconSearch } from "@tabler/icons-react"
 import { t } from "./components/translations"
 
 export default function QueuePage() {
@@ -85,6 +87,9 @@ function QueuePageContent() {
   const [selectedTask, setSelectedTask] = useState<ScheduledTask | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [taskToDelete, setTaskToDelete] = useState<ScheduledTask | null>(null)
+  const [logsDialogOpen, setLogsDialogOpen] = useState(false)
+  const [taskForLogs, setTaskForLogs] = useState<ScheduledTask | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
   const { toast } = useToast()
 
   const fetchStats = useCallback(async () => {

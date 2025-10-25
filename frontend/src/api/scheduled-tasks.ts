@@ -270,3 +270,42 @@ export function validateCronField(value: string, min: number, max: number): bool
   const num = Number(value);
   return num >= min && num <= max;
 }
+
+// Task Execution Logs
+
+export interface TaskExecutionLog {
+  id: string;
+  task_id: string;
+  celery_task_id: string;
+  started_at: string;
+  finished_at?: string;
+  status: 'success' | 'failure' | 'pending' | 'running';
+  result?: string;
+  error?: string;
+  traceback?: string;
+  duration_seconds?: number;
+}
+
+export interface TaskExecutionLogsResponse {
+  count: number;
+  data: TaskExecutionLog[];
+}
+
+/**
+ * Get execution logs for a scheduled task
+ */
+export async function getTaskLogs(
+  taskId: string,
+  params?: {
+    skip?: number;
+    limit?: number;
+  }
+): Promise<TaskExecutionLogsResponse> {
+  const searchParams = new URLSearchParams();
+  if (params?.skip !== undefined) searchParams.append('skip', params.skip.toString());
+  if (params?.limit !== undefined) searchParams.append('limit', params.limit.toString());
+
+  const query = searchParams.toString() ? `?${searchParams.toString()}` : '';
+  const response = await apiClient.get(`/scheduled-tasks/${taskId}/logs${query}`);
+  return response.data;
+}

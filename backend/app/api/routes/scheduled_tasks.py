@@ -14,6 +14,9 @@ from app.models_scheduled_tasks import (
     ScheduledTaskUpdate,
     ScheduledTaskPublic,
     ScheduledTasksResponse,
+    TaskExecutionLog,
+    TaskExecutionLogPublic,
+    TaskExecutionLogsResponse,
 )
 from app.core.rbac import require_permission
 from app.core.hook_trigger_service import hook_trigger
@@ -412,10 +415,62 @@ async def run_task_now(
             queue=task.queue,
         )
 
+        # Create execution log
+        log = TaskExecutionLog(
+            task_id=task_id,
+            celery_task_id=result.id,
+            started_at=datetime.utcnow(),
+            status="pending",
+        )
+        session.add(log)
+        session.commit()
+
         return {
             "success": True,
             "message": "Task enqueued for immediate execution",
-            "task_id": result.id
+            "celery_task_id": result.id,
+            "log_id": str(log.id)
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to enqueue task: {str(e)}")
+
+
+@router.get("/{task_id}/logs")
+@require_permission("core.scheduled_tasks.read")
+async def get_task_logs(
+    task_id: UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+    skip: int = 0,
+    limit: int = 50,
+) -> TaskExecutionLogsResponse:
+    """
+    Récupère l'historique d'exécution d'une tâche planifiée.
+
+    Requiert la permission: core.scheduled_tasks.read
+    """
+    # Verify task exists
+    task = session.get(ScheduledTask, task_id)
+    if not task or task.deleted_at:
+        raise HTTPException(status_code=404, detail="Scheduled task not found")
+
+    # Get logs
+    statement = (
+        select(TaskExecutionLog)
+        .where(TaskExecutionLog.task_id == task_id)
+        .order_by(TaskExecutionLog.started_at.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+    logs = session.exec(statement).all()
+
+    # Count total
+    count_statement = select(func.count()).select_from(TaskExecutionLog).where(
+        TaskExecutionLog.task_id == task_id
+    )
+    total = session.exec(count_statement).one()
+
+    return TaskExecutionLogsResponse(
+        count=total,
+        data=[TaskExecutionLogPublic.model_validate(log) for log in logs]
+    )

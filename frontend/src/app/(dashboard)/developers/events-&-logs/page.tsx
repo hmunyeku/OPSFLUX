@@ -107,7 +107,7 @@ function EventsAndLogsPageContent() {
   }, [stats])
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-3 lg:gap-4">
       {/* Breadcrumb */}
       <Breadcrumb>
         <BreadcrumbList>
@@ -128,127 +128,129 @@ function EventsAndLogsPageContent() {
       </Breadcrumb>
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">{t("logs.title", "Événements & Logs d'Audit")}</h2>
-          <p className="text-muted-foreground">
+          <h2 className="text-xl font-bold tracking-tight sm:text-2xl">{t("logs.title", "Événements & Logs d'Audit")}</h2>
+          <p className="text-xs text-muted-foreground sm:text-sm">
             {t("logs.description", "Suivez et analysez tous les événements système en temps réel")}
           </p>
         </div>
-        <ImportDialog disabled={!hasPermission("core.audit.configure")} />
+        <div className="hidden sm:block">
+          <ImportDialog disabled={!hasPermission("core.audit.configure")} />
+        </div>
       </div>
 
       {/* Statistics Cards */}
       {isLoadingStats ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-4">
           {[...Array(8)].map((_, i) => (
-            <Skeleton key={i} className="h-32" />
+            <Skeleton key={i} className="h-24 sm:h-28" />
           ))}
         </div>
       ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{t("stats.total_events", "Total événements")}</CardTitle>
-                <Activity className="h-4 w-4 text-muted-foreground" />
+          <div className="grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-4">
+            <Card className="shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-2 sm:p-4 sm:pb-2">
+                <CardTitle className="text-xs font-medium sm:text-sm">{t("stats.total_events", "Total événements")}</CardTitle>
+                <Activity className="h-3 w-3 text-muted-foreground sm:h-4 sm:w-4" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.total.toLocaleString()}</div>
-                <p className="text-xs text-muted-foreground">
+              <CardContent className="p-3 pt-0 sm:p-4 sm:pt-0">
+                <div className="text-xl font-bold sm:text-2xl">{stats.total.toLocaleString()}</div>
+                <p className="text-[10px] text-muted-foreground sm:text-xs">
                   {t("stats.last_24h", "{{count}} dernières 24h", { count: stats.last24h })}
                 </p>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{t("stats.error_rate", "Taux d'erreur")}</CardTitle>
-                <AlertTriangle className="h-4 w-4 text-destructive" />
+            <Card className="shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-2 sm:p-4 sm:pb-2">
+                <CardTitle className="text-xs font-medium sm:text-sm">{t("stats.error_rate", "Taux d'erreur")}</CardTitle>
+                <AlertTriangle className="h-3 w-3 text-destructive sm:h-4 sm:w-4" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{errorRate}%</div>
-                <p className="text-xs text-muted-foreground">
+              <CardContent className="p-3 pt-0 sm:p-4 sm:pt-0">
+                <div className="text-xl font-bold sm:text-2xl">{errorRate}%</div>
+                <p className="text-[10px] text-muted-foreground sm:text-xs">
                   {t("stats.total_errors", "{{count}} erreurs totales", { count: stats.error })}
                 </p>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{t("stats.avg_duration", "Durée moyenne")}</CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
+            <Card className="shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-2 sm:p-4 sm:pb-2">
+                <CardTitle className="text-xs font-medium sm:text-sm">{t("stats.avg_duration", "Durée moyenne")}</CardTitle>
+                <Clock className="h-3 w-3 text-muted-foreground sm:h-4 sm:w-4" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.avgDuration}ms</div>
-                <p className="text-xs text-muted-foreground">
+              <CardContent className="p-3 pt-0 sm:p-4 sm:pt-0">
+                <div className="text-xl font-bold sm:text-2xl">{stats.avgDuration}ms</div>
+                <p className="text-[10px] text-muted-foreground sm:text-xs">
                   {t("stats.avg_response_time", "Temps de réponse moyen")}
                 </p>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{t("stats.api_events", "Événements API")}</CardTitle>
-                <Zap className="h-4 w-4 text-muted-foreground" />
+            <Card className="shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-2 sm:p-4 sm:pb-2">
+                <CardTitle className="text-xs font-medium sm:text-sm">{t("stats.api_events", "Événements API")}</CardTitle>
+                <Zap className="h-3 w-3 text-muted-foreground sm:h-4 sm:w-4" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.api.toLocaleString()}</div>
-                <p className="text-xs text-muted-foreground">
+              <CardContent className="p-3 pt-0 sm:p-4 sm:pt-0">
+                <div className="text-xl font-bold sm:text-2xl">{stats.api.toLocaleString()}</div>
+                <p className="text-[10px] text-muted-foreground sm:text-xs">
                   {t("stats.api_requests_processed", "Requêtes API traitées")}
                 </p>
               </CardContent>
             </Card>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{t("stats.info", "Info")}</CardTitle>
-                <Info className="h-4 w-4 text-blue-500" />
+          <div className="grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-4">
+            <Card className="shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-2 sm:p-4 sm:pb-2">
+                <CardTitle className="text-xs font-medium sm:text-sm">{t("stats.info", "Info")}</CardTitle>
+                <Info className="h-3 w-3 text-blue-500 sm:h-4 sm:w-4" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.info.toLocaleString()}</div>
-                <Badge variant="outline" className="mt-2 text-xs">
+              <CardContent className="p-3 pt-0 sm:p-4 sm:pt-0">
+                <div className="text-xl font-bold sm:text-2xl">{stats.info.toLocaleString()}</div>
+                <Badge variant="outline" className="mt-1 text-[10px] sm:mt-2 sm:text-xs">
                   {((stats.info / stats.total) * 100).toFixed(1)}%
                 </Badge>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{t("stats.warnings", "Avertissements")}</CardTitle>
-                <AlertTriangle className="h-4 w-4 text-amber-500" />
+            <Card className="shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-2 sm:p-4 sm:pb-2">
+                <CardTitle className="text-xs font-medium sm:text-sm">{t("stats.warnings", "Avertissements")}</CardTitle>
+                <AlertTriangle className="h-3 w-3 text-amber-500 sm:h-4 sm:w-4" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.warn.toLocaleString()}</div>
-                <Badge variant="outline" className="mt-2 text-xs">
+              <CardContent className="p-3 pt-0 sm:p-4 sm:pt-0">
+                <div className="text-xl font-bold sm:text-2xl">{stats.warn.toLocaleString()}</div>
+                <Badge variant="outline" className="mt-1 text-[10px] sm:mt-2 sm:text-xs">
                   {((stats.warn / stats.total) * 100).toFixed(1)}%
                 </Badge>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{t("stats.errors", "Erreurs")}</CardTitle>
-                <ShieldAlert className="h-4 w-4 text-destructive" />
+            <Card className="shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-2 sm:p-4 sm:pb-2">
+                <CardTitle className="text-xs font-medium sm:text-sm">{t("stats.errors", "Erreurs")}</CardTitle>
+                <ShieldAlert className="h-3 w-3 text-destructive sm:h-4 sm:w-4" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.error.toLocaleString()}</div>
-                <Badge variant="destructive" className="mt-2 text-xs">
+              <CardContent className="p-3 pt-0 sm:p-4 sm:pt-0">
+                <div className="text-xl font-bold sm:text-2xl">{stats.error.toLocaleString()}</div>
+                <Badge variant="destructive" className="mt-1 text-[10px] sm:mt-2 sm:text-xs">
                   {((stats.error / stats.total) * 100).toFixed(1)}%
                 </Badge>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{t("stats.debug", "Debug")}</CardTitle>
-                <Bug className="h-4 w-4 text-purple-500" />
+            <Card className="shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-2 sm:p-4 sm:pb-2">
+                <CardTitle className="text-xs font-medium sm:text-sm">{t("stats.debug", "Debug")}</CardTitle>
+                <Bug className="h-3 w-3 text-purple-500 sm:h-4 sm:w-4" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.debug.toLocaleString()}</div>
-                <Badge variant="outline" className="mt-2 text-xs">
+              <CardContent className="p-3 pt-0 sm:p-4 sm:pt-0">
+                <div className="text-xl font-bold sm:text-2xl">{stats.debug.toLocaleString()}</div>
+                <Badge variant="outline" className="mt-1 text-[10px] sm:mt-2 sm:text-xs">
                   {((stats.debug / stats.total) * 100).toFixed(1)}%
                 </Badge>
               </CardContent>
@@ -258,11 +260,11 @@ function EventsAndLogsPageContent() {
       )}
 
       {/* Main Content */}
-      <div className="grid grid-cols-1 gap-6">
+      <div className="grid grid-cols-1 gap-3 lg:gap-4">
         <div className="col-span-1">
           <Logs />
         </div>
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-3 lg:grid-cols-2 lg:gap-4">
           <RouteView />
           <Referrers />
         </div>

@@ -369,7 +369,15 @@ export default function RBACPage() {
                       </div>
 
                       <div className="flex items-center gap-2 pt-3 border-t">
-                        <Badge variant="secondary" className="text-[10px] py-1 px-2 flex-1">
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] py-1 px-2 flex-1 cursor-pointer hover:bg-purple-100 hover:text-purple-700 dark:hover:bg-purple-900/30 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedRole(role)
+                            setIsPermissionsDialogOpen(true)
+                          }}
+                        >
                           <Key className="h-3 w-3 mr-1" />
                           {role.permissions?.length || 0} perms
                         </Badge>
@@ -403,11 +411,19 @@ export default function RBACPage() {
         <>
           <ManagePermissionsDialog
             open={isPermissionsDialogOpen}
-            onOpenChange={setIsPermissionsDialogOpen}
+            onOpenChange={(open) => {
+              setIsPermissionsDialogOpen(open)
+              // Ne pas fermer le drawer du rôle quand on ferme le dialog
+            }}
             roleId={selectedRole.id}
             roleName={selectedRole.name}
             currentPermissions={selectedRole.permissions || []}
-            onSuccess={refreshRoles}
+            onSuccess={async () => {
+              // Actualiser les données du rôle
+              await refreshRoles()
+              // Garder le drawer ouvert
+              setIsRoleSheetOpen(true)
+            }}
           />
           <EditRoleDialog
             open={isEditDialogOpen}

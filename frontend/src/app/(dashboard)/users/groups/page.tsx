@@ -321,11 +321,27 @@ export default function GroupsPage() {
                       </div>
 
                       <div className="flex items-center gap-2 pt-3 border-t">
-                        <Badge variant="secondary" className="text-[10px] py-1 px-2">
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] py-1 px-2 cursor-pointer hover:bg-purple-100 hover:text-purple-700 dark:hover:bg-purple-900/30 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedGroup(group)
+                            setIsPermissionsDialogOpen(true)
+                          }}
+                        >
                           <Key className="h-3 w-3 mr-1" />
                           {group.permissions?.length || 0} perms
                         </Badge>
-                        <Badge variant="outline" className="text-[10px] py-1 px-2">
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] py-1 px-2 cursor-pointer hover:bg-blue-100 hover:text-blue-700 dark:hover:bg-blue-900/30 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedGroup(group)
+                            setIsMembersDialogOpen(true)
+                          }}
+                        >
                           <Users className="h-3 w-3 mr-1" />
                           {group.users_count || 0}
                         </Badge>

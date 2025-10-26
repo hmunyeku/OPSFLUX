@@ -95,13 +95,6 @@ const nextConfig: NextConfig = {
     },
   },
 
-  // Optimiser les images
-  images: {
-    ...nextConfig.images,
-    formats: ['image/avif', 'image/webp'],
-    minimumCacheTTL: 60,
-  },
-
   // Compiler uniquement les fichiers nécessaires
   pageExtensions: ['tsx', 'ts', 'jsx', 'js'],
 

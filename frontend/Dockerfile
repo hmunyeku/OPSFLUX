@@ -26,11 +26,11 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY frontend/package*.json ./
 COPY frontend/next.config.ts ./
 COPY frontend/tsconfig.json ./
-COPY frontend/postcss.config.js ./
-COPY frontend/tailwind.config.ts ./
-COPY frontend/components.json ./
 COPY frontend/src ./src
 COPY frontend/public ./public
+# Copy optional config files if they exist
+COPY frontend/*.js* ./
+COPY frontend/*.json ./
 
 # Set environment variables for build
 ARG NEXT_PUBLIC_API_URL

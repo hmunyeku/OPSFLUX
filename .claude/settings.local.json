@@ -71,7 +71,20 @@
       "Bash(PGPASSWORD=YBp44BSqEBvCXab docker exec:*)",
       "Bash(pip install:*)",
       "Bash(/dev/null)",
-      "Bash(./manual_test_report.sh:*)"
+      "Bash(./manual_test_report.sh:*)",
+      "Bash(alembic revision:*)",
+      "Bash(timeout 300 docker-compose build:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjE0MTQyMDAsInN1YiI6ImRlM2E2ZDIzLWNjOGYtNDY2Mi1hZGI5LTRjYmU2YzdhNWI0NCIsInR5cGUiOiJhY2Nlc3MifQ.BwXiWLiUkrbg0zvF_WnADFIawpHR_l4rYb5B24CDrVc\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjE0MTQzNjAsInN1YiI6ImRlM2E2ZDIzLWNjOGYtNDY2Mi1hZGI5LTRjYmU2YzdhNWI0NCIsInR5cGUiOiJhY2Nlc3MifQ.XTZ-xW_m5KQMZYpIQBZQclS5xz7Rvn_PAPU9Qm_PVqw\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjE0MTQ0OTgsInN1YiI6ImRlM2E2ZDIzLWNjOGYtNDY2Mi1hZGI5LTRjYmU2YzdhNWI0NCIsInR5cGUiOiJhY2Nlc3MifQ.8ZPky-8JB8DsUnUrTKqvqR3Kdxb3fw5mEYVG4CRUeW4\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjE0MTQ0OTgsInN1YiI6ImRlM2E2ZDIzLWNjOGYtNDY2Mi1hZGI5LTRjYmU2YzdhNWI0NCIsInR5cGUiOiJhY2Nlc3MifQ.8ZPky-8JB8DsUnUrTKqvqR3Kdxb3fw5mEYVG4CRUeW4\" docker exec perenco-opsflux-gwxapr-backend-1 curl -s -w \"\\nHTTP: %{http_code}\\n\" -H \"Authorization: Bearer $TOKEN\" http://localhost:8000/api/v1/third-parties/companies)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjE0OTc1NDksInN1YiI6ImRlM2E2ZDIzLWNjOGYtNDY2Mi1hZGI5LTRjYmU2YzdhNWI0NCIsInR5cGUiOiJhY2Nlc3MifQ.Tr6XtjkrB7bJNgfCZMifI9lSCCNmmV9_UYlNO7l1rwA\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjE0OTc1NDksInN1YiI6ImRlM2E2ZDIzLWNjOGYtNDY2Mi1hZGI5LTRjYmU2YzdhNWI0NCIsInR5cGUiOiJhY2Nlc3MifQ.Tr6XtjkrB7bJNgfCZMifI9lSCCNmmV9_UYlNO7l1rwA\" docker exec perenco-opsflux-gwxapr-backend-1 curl -s -H \"Authorization: Bearer $TOKEN\" \"http://localhost:8000/api/v1/modules/43fa93fb-abc0-40e4-96af-cabb728c2d81\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjE0OTc2MjQsInN1YiI6ImRlM2E2ZDIzLWNjOGYtNDY2Mi1hZGI5LTRjYmU2YzdhNWI0NCIsInR5cGUiOiJhY2Nlc3MifQ.PvYkzNBX82YHQnrCP0eCDVQApnLG3g58DWfxOvYLuzc\" docker exec perenco-opsflux-gwxapr-backend-1 curl -s -H \"Authorization: Bearer $TOKEN\" \"http://localhost:8000/api/v1/modules/43fa93fb-abc0-40e4-96af-cabb728c2d81\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjE0OTc2MjQsInN1YiI6ImRlM2E2ZDIzLWNjOGYtNDY2Mi1hZGI5LTRjYmU2YzdhNWI0NCIsInR5cGUiOiJhY2Nlc3MifQ.PvYkzNBX82YHQnrCP0eCDVQApnLG3g58DWfxOvYLuzc\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjE0OTc2MjQsInN1YiI6ImRlM2E2ZDIzLWNjOGYtNDY2Mi1hZGI5LTRjYmU2YzdhNWI0NCIsInR5cGUiOiJhY2Nlc3MifQ.PvYkzNBX82YHQnrCP0eCDVQApnLG3g58DWfxOvYLuzc\" docker exec perenco-opsflux-gwxapr-backend-1 curl -s -H \"Authorization: Bearer $TOKEN\" \"http://localhost:8000/api/v1/modules?code=third_parties\")",
+      "Bash(node scripts/build-modules.js:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjE0OTc2MjQsInN1YiI6ImRlM2E2ZDIzLWNjOGYtNDY2Mi1hZGI5LTRjYmU2YzdhNWI0NCIsInR5cGUiOiJhY2Nlc3MifQ.PvYkzNBX82YHQnrCP0eCDVQApnLG3g58DWfxOvYLuzc\" docker exec perenco-opsflux-gwxapr-backend-1 curl -s -w \"\\nHTTP: %{http_code}\\n\" -H \"Authorization: Bearer $TOKEN\" http://localhost:8000/api/v1/modules/third_parties/frontend/module.config.js)"
     ],
     "deny": [],
     "ask": []

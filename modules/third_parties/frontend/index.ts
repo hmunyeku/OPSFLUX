@@ -21,6 +21,19 @@ export * from "./types"
 // Export API client
 export * from "./api"
 
+// Export pages
+export { default as CompaniesList } from "./pages/Companies/List"
+export { default as CompaniesCreate } from "./pages/Companies/Create"
+export { default as CompaniesDetails } from "./pages/Companies/Details"
+export { default as CompaniesEdit } from "./pages/Companies/Edit"
+
+export { default as ContactsList } from "./pages/Contacts/List"
+export { default as ContactsCreate } from "./pages/Contacts/Create"
+export { default as ContactsDetails } from "./pages/Contacts/Details"
+
+export { default as InvitationsList } from "./pages/Invitations/List"
+export { default as AcceptInvitation } from "./pages/AcceptInvitation"
+
 // Module metadata (deprecated - utilisez ThirdPartiesModule.config à la place)
 export const MODULE_INFO = {
   code: "third-parties",

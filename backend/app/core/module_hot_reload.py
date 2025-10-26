@@ -228,6 +228,50 @@ class ModuleHotReloadService:
         logger.info("Stopping module hot reload service...")
         module_watcher.stop()
 
+    def reload_module(self, module_code: str):
+        """
+        Recharge un module spécifique (utilisé après activation/désactivation).
+
+        Args:
+            module_code: Code du module à recharger
+        """
+        logger.info(f"🔄 Manual reload requested for module: {module_code}")
+
+        try:
+            if not self._db_session or not self.app:
+                logger.error("Cannot reload module: DB session or app not set")
+                return
+
+            from app.services.module_service import ModuleManager
+            from app.models_modules import Module, ModuleStatus
+            from sqlmodel import select
+
+            # Vérifier si le module est actif
+            statement = select(Module).where(
+                Module.code == module_code,
+                Module.status == ModuleStatus.ACTIVE
+            )
+            active_module = self._db_session.exec(statement).first()
+
+            if active_module:
+                # Le module est actif: charger ses routes
+                logger.info(f"  → Loading routes for active module {module_code}")
+                ModuleLoader.unload_module_router(module_code, app=self.app)
+                router = ModuleLoader.load_module_router(module_code, app=self.app)
+                if router:
+                    logger.info(f"  ✓ Routes loaded for {module_code}")
+            else:
+                # Le module est désactivé: décharger ses routes
+                logger.info(f"  → Unloading routes for disabled module {module_code}")
+                ModuleLoader.unload_module_router(module_code, app=self.app)
+                logger.info(f"  ✓ Routes unloaded for {module_code}")
+
+            # Invalider le cache
+            self._invalidate_cache()
+
+        except Exception as e:
+            logger.error(f"Error reloading module {module_code}: {e}", exc_info=True)
+
 
 # Instance globale
 hot_reload_service = ModuleHotReloadService()

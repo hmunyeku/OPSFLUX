@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Optional, TYPE_CHECKING
 
-from sqlmodel import Field, Relationship, SQLModel, Column
+from sqlmodel import Field, SQLModel, Column
 from sqlalchemy import Text, Index
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -108,10 +108,10 @@ class CompanyBase(SQLModel):
     annual_revenue: Optional[float] = Field(default=None, description="Chiffre d'affaires annuel")
 
     # Tags
-    tags: list[str] = Field(default=[], sa_column=Column(JSONB), description="Tags")
+    tags: list[str] = Field(default_factory=list, sa_column=Column(JSONB), description="Tags")
 
-    # Métadonnées supplémentaires (flexible)
-    metadata: dict = Field(default={}, sa_column=Column(JSONB), description="Métadonnées")
+    # Métadonnées supplémentaires (flexible) - renamed from 'metadata' to avoid SQLModel conflict
+    extra_metadata: dict = Field(default_factory=dict, sa_column=Column(JSONB), description="Métadonnées")
 
 
 class CompanyCreate(CompanyBase):
@@ -143,7 +143,7 @@ class CompanyUpdate(SQLModel):
     employee_count: Optional[int] = None
     annual_revenue: Optional[float] = None
     tags: Optional[list[str]] = None
-    metadata: Optional[dict] = None
+    extra_metadata: Optional[dict] = None
 
 
 class Company(AbstractBaseModel, CompanyBase, table=True):
@@ -154,9 +154,6 @@ class Company(AbstractBaseModel, CompanyBase, table=True):
     avec laquelle l'organisation interagit.
     """
     __tablename__ = "company"
-
-    # Relations
-    contacts: list["Contact"] = Relationship(back_populates="company", cascade_delete=True)
 
     # Créateur
     created_by_id: Optional[uuid.UUID] = Field(default=None, foreign_key="user.id")
@@ -216,8 +213,8 @@ class ContactBase(SQLModel):
     # Contact principal
     is_primary: bool = Field(default=False, description="Contact principal de l'entreprise")
 
-    # Métadonnées
-    metadata: dict = Field(default={}, sa_column=Column(JSONB), description="Métadonnées")
+    # Métadonnées - renamed from 'metadata' to avoid SQLModel conflict
+    extra_metadata: dict = Field(default_factory=dict, sa_column=Column(JSONB), description="Métadonnées")
 
 
 class ContactCreate(ContactBase):
@@ -244,7 +241,7 @@ class ContactUpdate(SQLModel):
     avatar_url: Optional[str] = None
     notes: Optional[str] = None
     is_primary: Optional[bool] = None
-    metadata: Optional[dict] = None
+    extra_metadata: Optional[dict] = None
 
 
 class Contact(AbstractBaseModel, ContactBase, table=True):
@@ -258,10 +255,6 @@ class Contact(AbstractBaseModel, ContactBase, table=True):
 
     # Compte utilisateur associé (si le contact devient administrateur)
     user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="user.id", index=True, unique=True)
-
-    # Relations
-    company: Company = Relationship(back_populates="contacts")
-    invitations: list["ContactInvitation"] = Relationship(back_populates="contact", cascade_delete=True)
 
     # Créateur
     created_by_id: Optional[uuid.UUID] = Field(default=None, foreign_key="user.id")
@@ -310,7 +303,7 @@ class ContactInvitationBase(SQLModel):
 
     # Permissions
     can_be_admin: bool = Field(default=False, description="Peut devenir administrateur")
-    initial_permissions: list[str] = Field(default=[], sa_column=Column(JSONB), description="Permissions initiales")
+    initial_permissions: list[str] = Field(default_factory=list, sa_column=Column(JSONB), description="Permissions initiales")
 
 
 class ContactInvitationCreate(SQLModel):
@@ -352,9 +345,6 @@ class ContactInvitation(AbstractBaseModel, ContactInvitationBase, table=True):
     ip_address: Optional[str] = Field(default=None, max_length=45, description="Adresse IP d'acceptation")
     user_agent: Optional[str] = Field(default=None, max_length=500, description="User agent d'acceptation")
 
-    # Relations
-    contact: Contact = Relationship(back_populates="invitations")
-
     # Créateur
     created_by_id: uuid.UUID = Field(foreign_key="user.id", index=True, description="Créateur de l'invitation")
 
@@ -382,7 +372,7 @@ class ContactInvitationAccept(SQLModel):
     token: str
     password: str = Field(min_length=8, max_length=40, description="Mot de passe")
     two_factor_method: str = Field(description="Méthode 2FA (email ou app)")
-    profile_data: Optional[dict] = Field(default={}, description="Données de profil supplémentaires")
+    profile_data: Optional[dict] = Field(default=None, description="Données de profil supplémentaires")
 
 
 class ContactInvitationVerify2FA(SQLModel):

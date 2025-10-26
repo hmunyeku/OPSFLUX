@@ -435,7 +435,12 @@ export default function ModulesPage() {
       <div className="space-y-3">
         {/* Compact Stats Bar */}
         <div className="grid grid-cols-3 gap-2 md:grid-cols-4 lg:gap-3">
-          <div className="rounded-lg border bg-card p-2.5 lg:p-3">
+          <div
+            className={`rounded-lg border bg-card p-2.5 lg:p-3 cursor-pointer transition-all hover:shadow-md ${
+              filterStatus === "all" ? "ring-2 ring-primary" : ""
+            }`}
+            onClick={() => setFilterStatus("all")}
+          >
             <div className="flex items-center gap-2">
               <div className="rounded bg-primary/10 p-1.5">
                 <IconPuzzle className="h-3.5 w-3.5 text-primary" />
@@ -446,7 +451,12 @@ export default function ModulesPage() {
               </div>
             </div>
           </div>
-          <div className="rounded-lg border bg-card p-2.5 lg:p-3">
+          <div
+            className={`rounded-lg border bg-card p-2.5 lg:p-3 cursor-pointer transition-all hover:shadow-md ${
+              filterStatus === "active" ? "ring-2 ring-green-600" : ""
+            }`}
+            onClick={() => setFilterStatus(filterStatus === "active" ? "all" : "active")}
+          >
             <div className="flex items-center gap-2">
               <div className="rounded bg-green-500/10 p-1.5">
                 <IconCheck className="h-3.5 w-3.5 text-green-600" />
@@ -457,7 +467,12 @@ export default function ModulesPage() {
               </div>
             </div>
           </div>
-          <div className="rounded-lg border bg-card p-2.5 lg:p-3">
+          <div
+            className={`rounded-lg border bg-card p-2.5 lg:p-3 cursor-pointer transition-all hover:shadow-md ${
+              filterStatus === "inactive" ? "ring-2 ring-gray-600" : ""
+            }`}
+            onClick={() => setFilterStatus(filterStatus === "inactive" ? "all" : "inactive")}
+          >
             <div className="flex items-center gap-2">
               <div className="rounded bg-gray-500/10 p-1.5">
                 <IconX className="h-3.5 w-3.5 text-muted-foreground" />

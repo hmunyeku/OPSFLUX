@@ -98,3 +98,56 @@ class WebSocketMessage(SQLModel):
     type: str  # "notification", "ping", "pong", "error"
     data: Optional[dict] = None
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+# ========================================
+# User Notification Preferences
+# ========================================
+
+class UserNotificationPreferences(AbstractBaseModel, table=True):
+    """
+    Préférences de notifications pour un utilisateur.
+    Contrôle comment et quand l'utilisateur reçoit des notifications.
+    """
+    __tablename__ = "user_notification_preferences"
+
+    user_id: UUID = Field(foreign_key="user.id", unique=True, index=True)
+
+    # Type de notification (all, mentions, none)
+    notification_type: str = Field(default="mentions", max_length=20)
+
+    # Notifications mobiles
+    mobile_enabled: bool = Field(default=False)
+
+    # Types d'emails
+    communication_emails: bool = Field(default=False)
+    social_emails: bool = Field(default=True)
+    marketing_emails: bool = Field(default=False)
+    security_emails: bool = Field(default=True)  # Toujours activé (sécurité)
+
+
+class NotificationPreferencesBase(SQLModel):
+    """Base pour les préférences de notifications."""
+    notification_type: str = Field(default="mentions", max_length=20)
+    mobile_enabled: bool = Field(default=False)
+    communication_emails: bool = Field(default=False)
+    social_emails: bool = Field(default=True)
+    marketing_emails: bool = Field(default=False)
+    security_emails: bool = Field(default=True)
+
+
+class NotificationPreferencesUpdate(NotificationPreferencesBase):
+    """Mise à jour de préférences (tous les champs optionnels)."""
+    notification_type: Optional[str] = Field(default=None, max_length=20)
+    mobile_enabled: Optional[bool] = None
+    communication_emails: Optional[bool] = None
+    social_emails: Optional[bool] = None
+    marketing_emails: Optional[bool] = None
+    security_emails: Optional[bool] = None
+
+
+class NotificationPreferencesPublic(NotificationPreferencesBase):
+    """Préférences publiques (réponse API)."""
+    user_id: UUID
+    created_at: datetime
+    updated_at: datetime

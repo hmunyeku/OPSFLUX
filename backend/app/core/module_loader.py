@@ -298,8 +298,9 @@ class ModuleLoader:
 
                         # Enregistrer dans l'app si fournie
                         if app:
-                            app.include_router(router)
-                            print(f"  ✓ Router registered: {module_code} (prefix: {router.prefix})")
+                            from app.core.config import settings
+                            app.include_router(router, prefix=settings.API_V1_STR)
+                            print(f"  ✓ Router registered: {module_code} (prefix: {settings.API_V1_STR}{router.prefix})")
                         else:
                             print(f"  ✓ Router loaded: {module_code} (prefix: {router.prefix})")
 
@@ -334,8 +335,8 @@ class ModuleLoader:
         # Retirer les routes de FastAPI
         if app:
             # FastAPI ne supporte pas nativement le retrait de routes
-            # On doit reconstruire la liste des routes
-            app.routes = [route for route in app.routes if not any(
+            # On doit reconstruire la liste des routes via app.router
+            app.router.routes = [route for route in app.router.routes if not any(
                 route.path.startswith(router.prefix) for router in [router]
             )]
 

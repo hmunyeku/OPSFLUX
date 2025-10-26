@@ -16,6 +16,9 @@ from app.models_notifications import (
     NotificationsPublic,
     NotificationType,
     NotificationUpdate,
+    NotificationPreferencesPublic,
+    NotificationPreferencesUpdate,
+    UserNotificationPreferences,
 )
 from app.services import notification_service
 
@@ -198,3 +201,107 @@ async def create_test_notification(
     )
 
     return notification
+
+
+# ========================================
+# Notification Preferences Routes
+# ========================================
+
+@router.get("/preferences", response_model=NotificationPreferencesPublic)
+def get_notification_preferences(
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Any:
+    """
+    Récupère les préférences de notifications de l'utilisateur connecté.
+    Si aucune préférence n'existe, retourne les valeurs par défaut.
+    """
+    from sqlmodel import select
+
+    # Chercher les préférences existantes
+    statement = select(UserNotificationPreferences).where(
+        UserNotificationPreferences.user_id == current_user.id
+    )
+    preferences = session.exec(statement).first()
+
+    # Si aucune préférence n'existe, créer avec les valeurs par défaut
+    if not preferences:
+        preferences = UserNotificationPreferences(
+            user_id=current_user.id,
+            notification_type="mentions",
+            mobile_enabled=False,
+            communication_emails=False,
+            social_emails=True,
+            marketing_emails=False,
+            security_emails=True,
+        )
+        session.add(preferences)
+        session.commit()
+        session.refresh(preferences)
+
+    return preferences
+
+
+@router.put("/preferences", response_model=NotificationPreferencesPublic)
+def update_notification_preferences(
+    session: SessionDep,
+    current_user: CurrentUser,
+    preferences_in: NotificationPreferencesUpdate,
+) -> Any:
+    """
+    Met à jour les préférences de notifications de l'utilisateur.
+    Crée les préférences si elles n'existent pas encore.
+    """
+    from sqlmodel import select
+    from datetime import datetime
+
+    # Chercher les préférences existantes
+    statement = select(UserNotificationPreferences).where(
+        UserNotificationPreferences.user_id == current_user.id
+    )
+    preferences = session.exec(statement).first()
+
+    if not preferences:
+        # Créer de nouvelles préférences
+        preferences = UserNotificationPreferences(
+            user_id=current_user.id,
+        )
+        session.add(preferences)
+
+    # Mettre à jour les champs fournis
+    update_data = preferences_in.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        if value is not None:
+            setattr(preferences, key, value)
+
+    # Toujours forcer security_emails à True
+    preferences.security_emails = True
+    preferences.updated_at = datetime.utcnow()
+
+    session.add(preferences)
+    session.commit()
+    session.refresh(preferences)
+
+    return preferences
+
+
+@router.delete("/preferences", response_model=Message)
+def reset_notification_preferences(
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Any:
+    """
+    Réinitialise les préférences de notifications aux valeurs par défaut.
+    """
+    from sqlmodel import select
+
+    statement = select(UserNotificationPreferences).where(
+        UserNotificationPreferences.user_id == current_user.id
+    )
+    preferences = session.exec(statement).first()
+
+    if preferences:
+        session.delete(preferences)
+        session.commit()
+
+    return Message(message="Préférences réinitialisées aux valeurs par défaut")

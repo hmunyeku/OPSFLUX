@@ -7,6 +7,7 @@ from typing import Any
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi.responses import FileResponse, Response
 from sqlmodel import func, select
 
 from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
@@ -340,7 +341,9 @@ def read_module(
     if not module or module.deleted_at:
         raise HTTPException(status_code=404, detail="Module not found")
 
-    return ModulePublic(
+    print(f"DEBUG: Module {module.code} - manifest keys: {list(module.manifest.keys()) if module.manifest else 'None'}")
+
+    result = ModulePublic(
         id=module.id,
         name=module.name,
         code=module.code,
@@ -359,7 +362,12 @@ def read_module(
         requires_license=module.requires_license,
         created_at=module.created_at,
         updated_at=module.updated_at,
+        manifest=module.manifest,
     )
+
+    print(f"DEBUG: Result manifest: {result.manifest is not None}")
+
+    return result
 
 
 @router.patch("/{module_id}", response_model=ModulePublic)
@@ -432,6 +440,7 @@ async def update_module(
         requires_license=module.requires_license,
         created_at=module.created_at,
         updated_at=module.updated_at,
+        manifest=module.manifest,
     )
 
 
@@ -455,6 +464,10 @@ async def activate_module(
 
     # Invalidate modules cache
     await cache_service.clear_namespace("modules")
+
+    # Trigger hot reload for the module
+    from app.core.module_hot_reload import hot_reload_service
+    hot_reload_service.reload_module(module.code)
 
     # Trigger hook: module.activated
     try:
@@ -493,6 +506,7 @@ async def activate_module(
         requires_license=module.requires_license,
         created_at=module.created_at,
         updated_at=module.updated_at,
+        manifest=module.manifest,
     )
 
 
@@ -516,6 +530,10 @@ async def deactivate_module(
 
     # Invalidate modules cache
     await cache_service.clear_namespace("modules")
+
+    # Trigger hot reload for the module
+    from app.core.module_hot_reload import hot_reload_service
+    hot_reload_service.reload_module(module.code)
 
     # Trigger hook: module.deactivated
     try:
@@ -553,6 +571,7 @@ async def deactivate_module(
         requires_license=module.requires_license,
         created_at=module.created_at,
         updated_at=module.updated_at,
+        manifest=module.manifest,
     )
 
 
@@ -684,3 +703,44 @@ def list_registry_modules(
         )
 
     return {"data": public_modules, "count": count}
+
+
+@router.get("/{module_code}/frontend/module.config.js")
+async def get_compiled_module(
+    module_code: str,
+    current_user: CurrentUser,
+) -> Response:
+    """
+    Sert le module frontend compilé depuis /modules/[code]/frontend/compiled/module.config.js
+
+    Ce endpoint permet au frontend de charger dynamiquement les modules sans les inclure
+    dans le build. Les modules sont compilés par le backend lors de l'installation.
+    """
+    # Chemin vers le module compilé
+    compiled_path = Path(f"/modules/{module_code}/frontend/compiled/module.config.js")
+
+    if not compiled_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"Compiled module {module_code} not found. The module may not have a frontend component or hasn't been compiled yet."
+        )
+
+    # Lire le contenu du fichier
+    try:
+        with open(compiled_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        return Response(
+            content=content,
+            media_type="application/javascript",
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            }
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to read compiled module: {str(e)}"
+        )

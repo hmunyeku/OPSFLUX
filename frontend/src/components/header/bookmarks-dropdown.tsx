@@ -35,6 +35,18 @@ export function BookmarksDropdown() {
     }
   }, [open])
 
+  // Listen for bookmark changes from other components
+  useEffect(() => {
+    const handleBookmarkChange = () => {
+      if (open) {
+        loadBookmarks()
+      }
+    }
+
+    window.addEventListener('bookmarkChanged', handleBookmarkChange)
+    return () => window.removeEventListener('bookmarkChanged', handleBookmarkChange)
+  }, [open])
+
   async function loadBookmarks() {
     try {
       setIsLoading(true)

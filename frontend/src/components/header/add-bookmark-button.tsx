@@ -12,9 +12,15 @@ import {
   deleteBookmark,
   type Bookmark,
 } from "@/api/bookmarks"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 interface AddBookmarkButtonProps {
-  title: string
+  title?: string
   category?: string
   className?: string
 }
@@ -49,6 +55,35 @@ export function AddBookmarkButton({
     }
   }
 
+  const getPageTitle = () => {
+    if (title) return title
+
+    // Extract title from pathname
+    const segments = pathname.split("/").filter(Boolean)
+    if (segments.length === 0) return "Accueil"
+
+    // Get the last segment and format it
+    const lastSegment = segments[segments.length - 1]
+    return lastSegment
+      .split("-")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ")
+  }
+
+  const getPageCategory = () => {
+    if (category) return category
+
+    const segments = pathname.split("/").filter(Boolean)
+    if (segments.length === 0) return "Navigation"
+
+    // First segment as category
+    const firstSegment = segments[0]
+    return firstSegment
+      .split("-")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ")
+  }
+
   async function toggleBookmark() {
     if (isLoading) return
 
@@ -64,12 +99,14 @@ export function AddBookmarkButton({
           title: "Marque-page retiré",
           description: "Cette page a été retirée de vos marque-pages",
         })
+        // Notify other components
+        window.dispatchEvent(new Event('bookmarkChanged'))
       } else {
         // Add bookmark
         const bookmark = await createBookmark({
-          title,
+          title: getPageTitle(),
           path: pathname,
-          category: category || "Autres",
+          category: getPageCategory(),
         })
         setIsBookmarked(true)
         setBookmarkId(bookmark.id)
@@ -77,6 +114,8 @@ export function AddBookmarkButton({
           title: "Marque-page ajouté",
           description: "Cette page a été ajoutée à vos marque-pages",
         })
+        // Notify other components
+        window.dispatchEvent(new Event('bookmarkChanged'))
       }
     } catch (error) {
       toast({
@@ -93,20 +132,32 @@ export function AddBookmarkButton({
   }
 
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      onClick={toggleBookmark}
-      disabled={isLoading}
-      className={cn("relative", className)}
-      title={isBookmarked ? "Retirer des marque-pages" : "Ajouter aux marque-pages"}
-    >
-      <Star
-        className={cn(
-          "h-5 w-5 transition-colors",
-          isBookmarked && "fill-yellow-400 text-yellow-400"
-        )}
-      />
-    </Button>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleBookmark}
+            disabled={isLoading}
+            className={cn("relative", className)}
+          >
+            <Star
+              className={cn(
+                "h-5 w-5 transition-all duration-200",
+                isBookmarked
+                  ? "fill-yellow-400 text-yellow-400 scale-110"
+                  : "text-muted-foreground hover:text-yellow-400 hover:scale-110"
+              )}
+            />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p className="text-xs">
+            {isBookmarked ? "Retirer des marque-pages" : "Ajouter aux marque-pages"}
+          </p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }

@@ -53,9 +53,77 @@ class ModuleManager:
 
     # Dossier de base des modules (à la racine du projet)
     MODULES_DIR = Path("/modules")
+    # Les modules compilés sont stockés dans le dossier du module lui-même
+    # Cela permet le hot-reload sans rebuild du frontend
 
     # Les modules restent dans /modules/ et ne sont PAS copiés ailleurs
     # Le chargement dynamique se fait directement depuis /modules/{code}/backend/
+
+    @staticmethod
+    def compile_module_frontend(module_code: str) -> dict:
+        """
+        Compile le frontend d'un module (TypeScript + JSX → JavaScript)
+        pour permettre le chargement dynamique sans redémarrage.
+
+        Args:
+            module_code: Code du module à compiler
+
+        Returns:
+            dict avec status et message
+        """
+        module_path = ModuleManager.MODULES_DIR / module_code / "frontend"
+        module_config_path = module_path / "module.config.ts"
+
+        if not module_config_path.exists():
+            return {"status": "skipped", "message": "No frontend or module.config.ts"}
+
+        # Créer le dossier de sortie dans le module lui-même
+        output_dir = module_path / "compiled"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            # Compiler avec esbuild (installé globalement dans le conteneur backend)
+            # Format IIFE pour éviter les problèmes d'import avec Blob URLs
+            cmd = [
+                "esbuild", str(module_config_path),
+                "--bundle",
+                "--format=iife",
+                "--global-name=ModuleExport",
+                "--platform=browser",
+                "--target=es2020",
+                "--jsx=automatic",
+                "--loader:.tsx=tsx",
+                "--loader:.ts=ts",
+                # Seules les dépendances principales sont externalisées
+                # Les composants @/* sont bundlés dans le module
+                "--external:react",
+                "--external:react-dom",
+                "--external:react/jsx-runtime",
+                "--external:next/navigation",
+                "--external:@tabler/icons-react",
+                f"--outfile={output_dir / 'module.config.js'}"
+            ]
+
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                cwd=str(module_path)
+            )
+
+            if result.returncode != 0:
+                return {
+                    "status": "error",
+                    "message": f"Compilation failed: {result.stderr}"
+                }
+
+            return {"status": "success", "message": "Module compiled successfully"}
+
+        except subprocess.TimeoutExpired:
+            return {"status": "error", "message": "Compilation timeout"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
 
     @staticmethod
     def discover_modules(session: Session) -> list[Module]:
@@ -191,7 +259,8 @@ class ModuleManager:
         # Services CORE disponibles (à compléter selon implémentation)
         available_core_services = [
             'notification', 'email', 'file_manager', 'audit', 'translation',
-            'user_preference', 'settings', 'hook', 'permission', 'menu'
+            'user_preference', 'settings', 'hook', 'permission', 'menu',
+            'authentication', 'rbac', 'user_management'
         ]
 
         for service in core_services:
@@ -472,6 +541,11 @@ class ModuleManager:
 
             ModuleManager.MODULES_DIR.mkdir(parents=True, exist_ok=True)
             shutil.copytree(temp_dir, module_dir)
+
+            # 5.5. Compiler le frontend du module (TypeScript + JSX → JavaScript)
+            # Cela permet le chargement dynamique sans redémarrage du frontend
+            compilation_result = ModuleManager.compile_module_frontend(manifest['code'])
+            print(f"Frontend compilation: {compilation_result['status']} - {compilation_result['message']}")
 
             # 6. Installer les packages Python (si requirements.txt existe)
             requirements_path = module_dir / "requirements.txt"

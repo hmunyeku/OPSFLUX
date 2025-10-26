@@ -11,7 +11,10 @@ from sqlmodel import func, select, or_
 
 from app.api.deps import CurrentUser, SessionDep
 from app.core.rbac import require_permission
-from .models import (
+
+# Import models from the module (module loader adds backend dir to sys.path)
+import models
+from models import (
     Company,
     CompanyCreate,
     CompanyPublic,

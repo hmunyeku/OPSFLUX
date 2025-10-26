@@ -16,6 +16,7 @@
 
 import { registerWidgets } from "@/widgets/registry"
 import type { Module, LoadedModule } from "@/lib/types/module"
+import { loadModuleFromRegistry, isModuleAvailable } from "./modules-registry"
 
 // API base URL from environment
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.opsflux.io'
@@ -30,15 +31,22 @@ async function loadModule(moduleCode: string): Promise<LoadedModule | null> {
   try {
     console.log(`  📦 Loading module: ${moduleCode}...`)
 
-    // Import dynamique du module
-    // Le chemin est relatif au dossier modules à la racine du projet
-    const modulePath = `../../../modules/${moduleCode}/frontend/module.config`
-    const moduleExport = await import(modulePath)
+    // Vérifier si le module est disponible dans le registre
+    if (!isModuleAvailable(moduleCode)) {
+      console.log(`  ℹ️  Module ${moduleCode} has no frontend configuration (backend-only module)`)
+      return null
+    }
 
-    // Le module doit exporter un objet Module par défaut
-    const module: Module = moduleExport.default || moduleExport.ThirdPartiesModule
+    // Charger le module depuis le registre
+    const module = await loadModuleFromRegistry(moduleCode)
+
+    console.log(`  🔍 Module loaded from registry:`, module)
+    console.log(`  🔍 Module type:`, typeof module)
+    console.log(`  🔍 Module keys:`, module ? Object.keys(module) : 'null')
+    console.log(`  🔍 Module.config:`, module?.config)
 
     if (!module || !module.config) {
+      console.error(`  ❌ Invalid module structure:`, { module, hasConfig: !!module?.config })
       throw new Error(`Module ${moduleCode} does not export a valid Module object`)
     }
 

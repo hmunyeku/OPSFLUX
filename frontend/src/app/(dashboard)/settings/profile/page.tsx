@@ -1,6 +1,6 @@
 "use client"
 
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useTranslation } from "@/hooks/use-translation"
 import ContentSection from "../components/content-section"
@@ -11,11 +11,16 @@ import { ApiTab } from "./api-tab"
 export default function SettingsProfilePage() {
   const { t } = useTranslation("core.profile")
   const searchParams = useSearchParams()
-  const tab = searchParams.get("tab", "Tab") || "profile"
+  const router = useRouter()
+  const tab = searchParams.get("tab") || "profile"
+
+  const handleTabChange = (value: string) => {
+    router.push(`/settings/profile?tab=${value}`)
+  }
 
   return (
     <ContentSection title={t("title", "Profil")} desc={t("description", "Gérez les paramètres de votre profil")} className="w-full lg:max-w-full">
-      <Tabs defaultValue={tab} className="w-full">
+      <Tabs value={tab} onValueChange={handleTabChange} className="w-full">
         <TabsList className="w-full h-auto flex-col sm:flex-row sm:grid sm:grid-cols-3 p-1">
           <TabsTrigger value="profile" className="w-full justify-start sm:justify-center text-sm">
             {t("tabs.profile", "Profil")}

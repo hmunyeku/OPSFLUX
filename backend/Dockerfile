@@ -2,8 +2,15 @@ FROM python:3.10
 
 ENV PYTHONUNBUFFERED=1
 
-# Install PostgreSQL client tools (including pg_dump)
-RUN apt-get update && apt-get install -y postgresql-client && rm -rf /var/lib/apt/lists/*
+# Install PostgreSQL client tools (including pg_dump) and Node.js (for module compilation)
+RUN apt-get update && apt-get install -y \
+    postgresql-client \
+    nodejs \
+    npm \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install esbuild globally for module compilation
+RUN npm install -g esbuild@0.24.2
 
 WORKDIR /app/
 

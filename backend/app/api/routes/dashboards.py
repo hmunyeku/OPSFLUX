@@ -473,6 +473,15 @@ def delete_dashboard(
     dashboard.soft_delete(deleted_by_id=current_user.id)
     session.add(dashboard)
     session.commit()
+
+    # Invalider le cache pour les dashboards de ce menu
+    if dashboard.menu_key:
+        cache_service.invalidate(namespace="dashboards", pattern=f"menu:{dashboard.menu_key}:*")
+
+    # Invalider le cache des dashboards home si nécessaire
+    if dashboard.is_home:
+        cache_service.invalidate(namespace="dashboards", pattern="home:*")
+
     return {"ok": True}
 
 

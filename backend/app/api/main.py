@@ -72,7 +72,7 @@ api_router.include_router(hooks.router)  # Hooks & Triggers system
 api_router.include_router(tasks.router)  # Tasks management
 api_router.include_router(bookmarks.router)  # Bookmarks management
 api_router.include_router(audit.router, prefix="/audit", tags=["Audit"])  # Audit logs
-api_router.include_router(modules.router)  # Module management system
+api_router.include_router(modules.router)  # Module management system with upload & hot reload
 api_router.include_router(languages.router)  # Multilingual (i18n) system
 api_router.include_router(email_templates.router)  # Email templates management
 api_router.include_router(user_preferences.router)  # User preferences (UI + modules)

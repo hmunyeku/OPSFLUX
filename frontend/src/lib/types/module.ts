@@ -30,6 +30,17 @@ export interface ModuleConfig {
 }
 
 /**
+ * Page de module
+ */
+export interface ModulePage {
+  /** Chemin de la page (avec support des paramètres :id) */
+  path: string
+
+  /** Composant à afficher */
+  component: React.ComponentType<any>
+}
+
+/**
  * Interface complète d'un module
  * Chaque module doit exporter un objet de ce type
  */
@@ -40,7 +51,10 @@ export interface Module {
   /** Widgets fournis par le module */
   widgets?: WidgetComponent[]
 
-  /** Routes à ajouter à l'application */
+  /** Pages du module (Next.js pages) */
+  pages?: ModulePage[]
+
+  /** Routes à ajouter à l'application (DEPRECATED - utiliser pages) */
   routes?: ModuleRoute[]
 
   /** Hook d'initialisation (appelé au chargement du module) */

@@ -28,6 +28,7 @@ export default function EmailTemplatesClient() {
   })
   const [searchQuery, setSearchQuery] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
+  const [statusFilter, setStatusFilter] = useState<string>("all")
 
   const handleCreate = () => {
     setSelectedTemplateId(null)
@@ -90,7 +91,12 @@ export default function EmailTemplatesClient() {
 
         {/* Statistics Cards - Compact */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/20 border-blue-200 dark:border-blue-800">
+          <Card
+            className={`bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/20 border-blue-200 dark:border-blue-800 cursor-pointer transition-all hover:shadow-md ${
+              statusFilter === "all" ? "ring-2 ring-blue-600" : ""
+            }`}
+            onClick={() => setStatusFilter("all")}
+          >
             <CardContent className="p-2.5">
               <div className="flex items-center gap-2">
                 <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-blue-500/10 dark:bg-blue-500/20 flex items-center justify-center">
@@ -104,7 +110,12 @@ export default function EmailTemplatesClient() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/30 dark:to-green-900/20 border-green-200 dark:border-green-800">
+          <Card
+            className={`bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/30 dark:to-green-900/20 border-green-200 dark:border-green-800 cursor-pointer transition-all hover:shadow-md ${
+              statusFilter === "active" ? "ring-2 ring-green-600" : ""
+            }`}
+            onClick={() => setStatusFilter(statusFilter === "active" ? "all" : "active")}
+          >
             <CardContent className="p-2.5">
               <div className="flex items-center gap-2">
                 <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-green-500/10 dark:bg-green-500/20 flex items-center justify-center">
@@ -118,7 +129,12 @@ export default function EmailTemplatesClient() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/30 dark:to-amber-900/20 border-amber-200 dark:border-amber-800">
+          <Card
+            className={`bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/30 dark:to-amber-900/20 border-amber-200 dark:border-amber-800 cursor-pointer transition-all hover:shadow-md ${
+              statusFilter === "inactive" ? "ring-2 ring-amber-600" : ""
+            }`}
+            onClick={() => setStatusFilter(statusFilter === "inactive" ? "all" : "inactive")}
+          >
             <CardContent className="p-2.5">
               <div className="flex items-center gap-2">
                 <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-amber-500/10 dark:bg-amber-500/20 flex items-center justify-center">
@@ -213,6 +229,7 @@ export default function EmailTemplatesClient() {
           onEdit={handleEdit}
           searchQuery={searchQuery}
           categoryFilter={categoryFilter}
+          statusFilter={statusFilter}
         />
       </div>
 

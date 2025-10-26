@@ -3,7 +3,7 @@ FROM node:24-alpine AS deps
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY frontend/package*.json ./
 
 # Install dependencies
 RUN npm ci --legacy-peer-deps
@@ -14,7 +14,7 @@ WORKDIR /app
 
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY frontend .
 
 # Set environment variables for build
 ARG NEXT_PUBLIC_API_URL
@@ -39,6 +39,7 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
 # Set correct permissions
+# Note: /modules will be mounted as a volume at runtime
 RUN chown -R nextjs:nodejs /app
 
 USER nextjs

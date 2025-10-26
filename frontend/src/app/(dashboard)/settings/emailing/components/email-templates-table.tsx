@@ -77,9 +77,10 @@ interface EmailTemplatesTableProps {
   onEdit: (templateId: string) => void
   searchQuery?: string
   categoryFilter?: string
+  statusFilter?: string
 }
 
-export default function EmailTemplatesTable({ onEdit, searchQuery = "", categoryFilter = "all" }: EmailTemplatesTableProps) {
+export default function EmailTemplatesTable({ onEdit, searchQuery = "", categoryFilter = "all", statusFilter = "all" }: EmailTemplatesTableProps) {
   const [templates, setTemplates] = useState<EmailTemplate[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -135,7 +136,7 @@ export default function EmailTemplatesTable({ onEdit, searchQuery = "", category
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pagination.pageIndex, pagination.pageSize])
 
-  // Filter templates based on search and category
+  // Filter templates based on search, category and status
   const filteredTemplates = useMemo(() => {
     let filtered = templates
 
@@ -156,8 +157,17 @@ export default function EmailTemplatesTable({ onEdit, searchQuery = "", category
       filtered = filtered.filter((t) => t.category === categoryFilter)
     }
 
+    // Apply status filter
+    if (statusFilter && statusFilter !== "all") {
+      if (statusFilter === "active") {
+        filtered = filtered.filter((t) => t.is_active)
+      } else if (statusFilter === "inactive") {
+        filtered = filtered.filter((t) => !t.is_active)
+      }
+    }
+
     return filtered
-  }, [templates, searchQuery, categoryFilter])
+  }, [templates, searchQuery, categoryFilter, statusFilter])
 
   const handleDelete = (templateId: string, isSystem: boolean) => {
     if (isSystem) {

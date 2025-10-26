@@ -65,6 +65,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
       return {
         title: moduleGroup.module_name,
+        icon: getIcon(moduleGroup.module_icon),
+        color: moduleGroup.module_color,
         items: moduleGroup.menu_items.map((item) => ({
           title: item.label,
           url: item.route,

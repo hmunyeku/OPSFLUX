@@ -29,14 +29,17 @@ import {
 import { Badge } from "../ui/badge"
 import { NavItem, type NavGroup } from "./types"
 
-export function NavGroup({ title, items }: NavGroup) {
+export function NavGroup({ title, icon: Icon, color, items }: NavGroup) {
   const { setOpenMobile, state } = useSidebar()
   const pathname = usePathname()
   const isCollapsed = state === "collapsed"
 
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>{title}</SidebarGroupLabel>
+      <SidebarGroupLabel className="flex items-center gap-2">
+        {Icon && <Icon className="h-4 w-4" style={color ? { color } : undefined} />}
+        <span>{title}</span>
+      </SidebarGroupLabel>
       <SidebarMenu>
         {items.map((item) => {
           if (!item.items) {

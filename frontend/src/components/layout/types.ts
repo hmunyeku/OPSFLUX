@@ -31,6 +31,8 @@ export type NavItem =
 
 interface NavGroup {
   title: string
+  icon?: React.ElementType
+  color?: string
   items: NavItem[]
 }
 

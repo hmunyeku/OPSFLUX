@@ -301,6 +301,7 @@ class ModulePublic(ModuleBase):
     requires_license: bool
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    manifest: Optional[dict] = None
 
 
 class ModulesPublic(SQLModel):

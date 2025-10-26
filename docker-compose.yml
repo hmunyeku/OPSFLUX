@@ -308,8 +308,11 @@ services:
     networks:
       - dokploy-network
       - default
+    volumes:
+      - ./modules:/modules
     build:
-      context: ./frontend
+      context: .
+      dockerfile: ./frontend/Dockerfile
       args:
         - NEXT_PUBLIC_API_URL=https://api.${DOMAIN?Variable not set}
     environment:

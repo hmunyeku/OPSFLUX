@@ -38,7 +38,10 @@ import {
   UserCheck,
   UserX,
   Calendar,
-  Clock
+  Clock,
+  Key,
+  Users2,
+  ShieldCheck
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { User } from "./data/schema"
@@ -51,6 +54,7 @@ export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
+  const [statusFilter, setStatusFilter] = useState<string>("all")
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -93,10 +97,28 @@ export default function UsersPage() {
     loadUsers()
   }, [])
 
-  const filteredUsers = users.filter(user =>
-    user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.full_name?.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredUsers = useMemo(() => {
+    let filtered = users
+
+    // Apply search filter
+    if (searchQuery) {
+      filtered = filtered.filter(user =>
+        user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.full_name?.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    }
+
+    // Apply status filter
+    if (statusFilter && statusFilter !== "all") {
+      if (statusFilter === "active") {
+        filtered = filtered.filter(user => user.is_active)
+      } else if (statusFilter === "inactive") {
+        filtered = filtered.filter(user => !user.is_active)
+      }
+    }
+
+    return filtered
+  }, [users, searchQuery, statusFilter])
 
   // Calculate statistics
   const stats = useMemo(() => {
@@ -177,7 +199,12 @@ export default function UsersPage() {
 
             {/* Stats - Always visible, responsive grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-              <Card className="bg-muted/50">
+              <Card
+                className={`bg-muted/50 cursor-pointer transition-all hover:shadow-md ${
+                  statusFilter === "all" ? "ring-2 ring-primary" : ""
+                }`}
+                onClick={() => setStatusFilter("all")}
+              >
                 <CardContent className="p-3 sm:p-4">
                   <div className="flex items-center gap-2">
                     <UsersIcon className="h-4 w-4 text-muted-foreground" />
@@ -188,7 +215,12 @@ export default function UsersPage() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-green-50/50 dark:bg-green-950/20">
+              <Card
+                className={`bg-green-50/50 dark:bg-green-950/20 cursor-pointer transition-all hover:shadow-md ${
+                  statusFilter === "active" ? "ring-2 ring-green-600" : ""
+                }`}
+                onClick={() => setStatusFilter(statusFilter === "active" ? "all" : "active")}
+              >
                 <CardContent className="p-3 sm:p-4">
                   <div className="flex items-center gap-2">
                     <UserCheck className="h-4 w-4 text-green-600" />
@@ -199,7 +231,12 @@ export default function UsersPage() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-orange-50/50 dark:bg-orange-950/20">
+              <Card
+                className={`bg-orange-50/50 dark:bg-orange-950/20 cursor-pointer transition-all hover:shadow-md ${
+                  statusFilter === "inactive" ? "ring-2 ring-orange-600" : ""
+                }`}
+                onClick={() => setStatusFilter(statusFilter === "inactive" ? "all" : "inactive")}
+              >
                 <CardContent className="p-3 sm:p-4">
                   <div className="flex items-center gap-2">
                     <UserX className="h-4 w-4 text-orange-600" />
@@ -463,6 +500,116 @@ export default function UsersPage() {
                     </CardContent>
                   </Card>
                 </div>
+
+                {/* Roles Section */}
+                {selectedUser.roles && selectedUser.roles.length > 0 && (
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-2">
+                      <ShieldCheck className="h-4 w-4" />
+                      {t("details.roles", "Rôles")}
+                    </h3>
+                    <Card>
+                      <CardContent className="p-4 space-y-3">
+                        {selectedUser.roles.map((role) => (
+                          <div key={role.id} className="space-y-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1">
+                                <p className="text-sm font-semibold">{role.name}</p>
+                                <p className="text-xs font-mono text-muted-foreground">{role.code}</p>
+                                {role.description && (
+                                  <p className="text-xs text-muted-foreground mt-1">{role.description}</p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {role.is_system && (
+                                  <Badge variant="secondary" className="text-[10px]">Système</Badge>
+                                )}
+                                <Badge variant={role.is_active ? "default" : "outline"} className="text-[10px]">
+                                  {role.is_active ? "Actif" : "Inactif"}
+                                </Badge>
+                              </div>
+                            </div>
+                            {role.permissions && role.permissions.length > 0 && (
+                              <div className="pt-2 border-t">
+                                <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                                  <Key className="h-3 w-3" />
+                                  {role.permissions.length} permission(s)
+                                </p>
+                                <div className="flex flex-wrap gap-1">
+                                  {role.permissions.slice(0, 5).map((perm) => (
+                                    <Badge key={perm.id} variant="outline" className="text-[9px] py-0 px-1.5">
+                                      {perm.name}
+                                    </Badge>
+                                  ))}
+                                  {role.permissions.length > 5 && (
+                                    <Badge variant="outline" className="text-[9px] py-0 px-1.5">
+                                      +{role.permissions.length - 5} autres
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                {/* Groups Section */}
+                {selectedUser.groups && selectedUser.groups.length > 0 && (
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-2">
+                      <Users2 className="h-4 w-4" />
+                      {t("details.groups", "Groupes")}
+                    </h3>
+                    <Card>
+                      <CardContent className="p-4 space-y-3">
+                        {selectedUser.groups.map((group) => (
+                          <div key={group.id} className="space-y-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1">
+                                <p className="text-sm font-semibold">{group.name}</p>
+                                <p className="text-xs font-mono text-muted-foreground">{group.code}</p>
+                                {group.description && (
+                                  <p className="text-xs text-muted-foreground mt-1">{group.description}</p>
+                                )}
+                                {group.parent && (
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    Parent: {group.parent.name}
+                                  </p>
+                                )}
+                              </div>
+                              <Badge variant={group.is_active ? "default" : "outline"} className="text-[10px]">
+                                {group.is_active ? "Actif" : "Inactif"}
+                              </Badge>
+                            </div>
+                            {group.permissions && group.permissions.length > 0 && (
+                              <div className="pt-2 border-t">
+                                <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                                  <Key className="h-3 w-3" />
+                                  {group.permissions.length} permission(s)
+                                </p>
+                                <div className="flex flex-wrap gap-1">
+                                  {group.permissions.slice(0, 5).map((perm) => (
+                                    <Badge key={perm.id} variant="outline" className="text-[9px] py-0 px-1.5">
+                                      {perm.name}
+                                    </Badge>
+                                  ))}
+                                  {group.permissions.length > 5 && (
+                                    <Badge variant="outline" className="text-[9px] py-0 px-1.5">
+                                      +{group.permissions.length - 5} autres
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
               </div>
             </>
           )}

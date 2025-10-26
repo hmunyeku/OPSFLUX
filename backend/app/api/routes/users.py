@@ -62,10 +62,82 @@ def read_users(
     )
     count = session.exec(count_statement).one()
 
-    # Simple query without eager loading for now
-    # TODO: Implement proper RBAC data loading when with_rbac=True
     statement = select(User).where(User.deleted_at.is_(None)).offset(skip).limit(limit)
     users = session.exec(statement).all()
+
+    # Load RBAC data if requested
+    if with_rbac:
+        from app.models_rbac import UserRole, UserGroup, Role, Group, RolePermission, Permission
+
+        # Convert users to list of dicts with RBAC data
+        users_with_rbac = []
+        for user in users:
+            # Get user roles with their permissions
+            user_roles_statement = (
+                select(Role)
+                .join(UserRole, UserRole.role_id == Role.id)
+                .where(UserRole.user_id == user.id)
+                .where(Role.deleted_at == None)
+            )
+            user_roles = session.exec(user_roles_statement).all()
+
+            # Get user groups
+            user_groups_statement = (
+                select(Group)
+                .join(UserGroup, UserGroup.group_id == Group.id)
+                .where(UserGroup.user_id == user.id)
+                .where(Group.deleted_at == None)
+            )
+            user_groups = session.exec(user_groups_statement).all()
+
+            # Get permissions for each role
+            roles_with_permissions = []
+            for role in user_roles:
+                role_perms_statement = (
+                    select(Permission)
+                    .join(RolePermission, RolePermission.permission_id == Permission.id)
+                    .where(RolePermission.role_id == role.id)
+                    .where(Permission.deleted_at == None)
+                )
+                role_perms = session.exec(role_perms_statement).all()
+
+                roles_with_permissions.append({
+                    "id": str(role.id),
+                    "code": role.code,
+                    "name": role.name,
+                    "description": role.description,
+                    "is_system": role.is_system,
+                    "is_active": role.is_active,
+                    "permissions": [
+                        {
+                            "id": str(perm.id),
+                            "code": perm.code,
+                            "name": perm.name,
+                            "description": perm.description
+                        } for perm in role_perms
+                    ]
+                })
+
+            # Convert user to dict with RBAC data
+            user_dict = {
+                **user.model_dump(),
+                "roles": roles_with_permissions,
+                "groups": [
+                    {
+                        "id": str(group.id),
+                        "code": group.code,
+                        "name": group.name,
+                        "description": group.description,
+                        "parent": {
+                            "id": str(group.parent.id),
+                            "name": group.parent.name
+                        } if group.parent_id else None
+                    } for group in user_groups
+                ]
+            }
+            users_with_rbac.append(user_dict)
+
+        return UsersPublic(data=users_with_rbac, count=count)
 
     return UsersPublic(data=users, count=count)
 

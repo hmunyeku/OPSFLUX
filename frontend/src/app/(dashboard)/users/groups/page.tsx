@@ -351,19 +351,36 @@ export default function GroupsPage() {
         <>
           <ManagePermissionsDialog
             open={isPermissionsDialogOpen}
-            onOpenChange={setIsPermissionsDialogOpen}
+            onOpenChange={(open) => {
+              setIsPermissionsDialogOpen(open)
+              // Ne pas fermer le drawer du groupe quand on ferme le dialog
+              // Le drawer reste ouvert pour voir les changements
+            }}
             groupId={selectedGroup.id}
             groupName={selectedGroup.name}
             currentPermissions={selectedGroup.permissions || []}
-            onSuccess={refreshGroups}
+            onSuccess={async () => {
+              // Actualiser les données du groupe
+              await refreshGroups()
+              // Garder le drawer ouvert
+              setIsGroupSheetOpen(true)
+            }}
           />
           <ManageMembersDialog
             open={isMembersDialogOpen}
-            onOpenChange={setIsMembersDialogOpen}
+            onOpenChange={(open) => {
+              setIsMembersDialogOpen(open)
+              // Ne pas fermer le drawer du groupe quand on ferme le dialog
+            }}
             groupId={selectedGroup.id}
             groupName={selectedGroup.name}
             currentMembers={[]}
-            onSuccess={refreshGroups}
+            onSuccess={async () => {
+              // Actualiser les données du groupe
+              await refreshGroups()
+              // Garder le drawer ouvert
+              setIsGroupSheetOpen(true)
+            }}
           />
           <EditGroupDialog
             open={isEditDialogOpen}

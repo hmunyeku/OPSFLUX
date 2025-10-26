@@ -197,67 +197,46 @@ export default function UsersPage() {
               </Button>
             </div>
 
-            {/* Stats - Always visible, responsive grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-              <Card
-                className={`bg-muted/50 cursor-pointer transition-all hover:shadow-md ${
-                  statusFilter === "all" ? "ring-2 ring-primary" : ""
-                }`}
+            {/* Stats - Compact horizontal banner */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              <div
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-md cursor-pointer transition-all hover:bg-accent/50 flex-shrink-0",
+                  statusFilter === "all" && "bg-accent ring-1 ring-primary"
+                )}
                 onClick={() => setStatusFilter("all")}
               >
-                <CardContent className="p-3 sm:p-4">
-                  <div className="flex items-center gap-2">
-                    <UsersIcon className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Total</p>
-                      <p className="text-lg sm:text-xl font-bold">{stats.totalUsers}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card
-                className={`bg-green-50/50 dark:bg-green-950/20 cursor-pointer transition-all hover:shadow-md ${
-                  statusFilter === "active" ? "ring-2 ring-green-600" : ""
-                }`}
+                <UsersIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Total</span>
+                <span className="text-sm font-bold">{stats.totalUsers}</span>
+              </div>
+              <div
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-md cursor-pointer transition-all hover:bg-green-50 dark:hover:bg-green-950/30 flex-shrink-0",
+                  statusFilter === "active" && "bg-green-50 dark:bg-green-950/20 ring-1 ring-green-600"
+                )}
                 onClick={() => setStatusFilter(statusFilter === "active" ? "all" : "active")}
               >
-                <CardContent className="p-3 sm:p-4">
-                  <div className="flex items-center gap-2">
-                    <UserCheck className="h-4 w-4 text-green-600" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Actifs</p>
-                      <p className="text-lg sm:text-xl font-bold text-green-600">{stats.activeUsers}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card
-                className={`bg-orange-50/50 dark:bg-orange-950/20 cursor-pointer transition-all hover:shadow-md ${
-                  statusFilter === "inactive" ? "ring-2 ring-orange-600" : ""
-                }`}
+                <UserCheck className="h-3.5 w-3.5 text-green-600" />
+                <span className="text-xs text-muted-foreground">Actifs</span>
+                <span className="text-sm font-bold text-green-600">{stats.activeUsers}</span>
+              </div>
+              <div
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-md cursor-pointer transition-all hover:bg-orange-50 dark:hover:bg-orange-950/30 flex-shrink-0",
+                  statusFilter === "inactive" && "bg-orange-50 dark:bg-orange-950/20 ring-1 ring-orange-600"
+                )}
                 onClick={() => setStatusFilter(statusFilter === "inactive" ? "all" : "inactive")}
               >
-                <CardContent className="p-3 sm:p-4">
-                  <div className="flex items-center gap-2">
-                    <UserX className="h-4 w-4 text-orange-600" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Inactifs</p>
-                      <p className="text-lg sm:text-xl font-bold text-orange-600">{stats.inactiveUsers}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="bg-primary/5">
-                <CardContent className="p-3 sm:p-4">
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-primary" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Admins</p>
-                      <p className="text-lg sm:text-xl font-bold text-primary">{stats.superusers}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                <UserX className="h-3.5 w-3.5 text-orange-600" />
+                <span className="text-xs text-muted-foreground">Inactifs</span>
+                <span className="text-sm font-bold text-orange-600">{stats.inactiveUsers}</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary/5 flex-shrink-0">
+                <Shield className="h-3.5 w-3.5 text-primary" />
+                <span className="text-xs text-muted-foreground">Admins</span>
+                <span className="text-sm font-bold text-primary">{stats.superusers}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -308,49 +287,39 @@ export default function UsersPage() {
                 )}
               </div>
             ) : (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                 {filteredUsers.map((user) => (
                   <Card
                     key={user.id}
                     className="cursor-pointer transition-all hover:shadow-md hover:border-primary/50"
                     onClick={() => handleUserSelect(user)}
                   >
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-3">
-                        <Avatar className="h-12 w-12 flex-shrink-0">
+                    <CardContent className="p-2.5">
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-9 w-9 flex-shrink-0">
                           <AvatarImage src={user.avatar_url || undefined} alt={user.full_name || user.email} />
-                          <AvatarFallback className="text-sm">
+                          <AvatarFallback className="text-xs">
                             {getInitials(user)}
                           </AvatarFallback>
                         </Avatar>
 
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2 mb-1">
-                            <h4 className="font-semibold text-sm truncate">
-                              {user.full_name || user.email}
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <h4 className="font-semibold text-xs truncate flex-1">
+                              {user.full_name || user.email.split('@')[0]}
                             </h4>
                             {user.is_superuser && (
-                              <Badge variant="default" className="text-[10px] py-0 px-1.5 h-5 flex-shrink-0">
-                                Admin
-                              </Badge>
+                              <Shield className="h-3 w-3 text-primary flex-shrink-0" title="Admin" />
                             )}
+                            <div className={cn(
+                              "h-1.5 w-1.5 rounded-full flex-shrink-0",
+                              user.is_active ? "bg-green-500" : "bg-orange-500"
+                            )} title={user.is_active ? "Actif" : "Inactif"} />
                           </div>
 
-                          <p className="text-xs text-muted-foreground truncate mb-2">
+                          <p className="text-[10px] text-muted-foreground truncate">
                             {user.email}
                           </p>
-
-                          <div className="flex items-center gap-2">
-                            <Badge
-                              variant={user.is_active ? "default" : "secondary"}
-                              className={cn(
-                                "text-[10px] py-0 px-1.5 h-5",
-                                user.is_active ? "bg-green-100 text-green-700 hover:bg-green-100" : ""
-                              )}
-                            >
-                              {user.is_active ? "Actif" : "Inactif"}
-                            </Badge>
-                          </div>
                         </div>
                       </div>
                     </CardContent>

@@ -20,6 +20,13 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   Table,
   TableBody,
   TableCell,
@@ -51,7 +58,12 @@ import {
   Users2,
   ShieldCheck,
   LayoutGrid,
-  Table as TableIcon
+  Table as TableIcon,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Filter
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { User } from "./data/schema"
@@ -73,6 +85,14 @@ export default function UsersPage() {
   const [isUserSheetOpen, setIsUserSheetOpen] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>("grid")
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10) // TODO: Get from user preferences
+
+  // Table filters
+  const [roleFilter, setRoleFilter] = useState<string>("all")
+  const [emailFilter, setEmailFilter] = useState("")
+
   const loadUsers = async () => {
     try {
       setIsLoading(true)
@@ -86,6 +106,9 @@ export default function UsersPage() {
   }
 
   const handleUserSelect = (user: User) => {
+    console.log('Selected user:', user)
+    console.log('Roles:', user.roles)
+    console.log('Groups:', user.groups)
     setSelectedUser(user)
     setIsUserSheetOpen(true)
   }
@@ -130,8 +153,38 @@ export default function UsersPage() {
       }
     }
 
+    // Apply role filter (for table view)
+    if (roleFilter && roleFilter !== "all") {
+      if (roleFilter === "admin") {
+        filtered = filtered.filter(user => user.is_superuser)
+      } else if (roleFilter === "user") {
+        filtered = filtered.filter(user => !user.is_superuser)
+      }
+    }
+
+    // Apply email filter (for table view)
+    if (emailFilter) {
+      filtered = filtered.filter(user =>
+        user.email.toLowerCase().includes(emailFilter.toLowerCase())
+      )
+    }
+
     return filtered
-  }, [users, searchQuery, statusFilter])
+  }, [users, searchQuery, statusFilter, roleFilter, emailFilter])
+
+  // Paginated users for table view
+  const paginatedUsers = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage
+    const endIndex = startIndex + itemsPerPage
+    return filteredUsers.slice(startIndex, endIndex)
+  }, [filteredUsers, currentPage, itemsPerPage])
+
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage)
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, statusFilter, roleFilter, emailFilter])
 
   // Calculate statistics
   const stats = useMemo(() => {
@@ -362,21 +415,72 @@ export default function UsersPage() {
                 ))}
               </div>
             ) : (
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12"></TableHead>
-                      <TableHead>{t("table.name", "Nom")}</TableHead>
-                      <TableHead className="hidden md:table-cell">{t("table.email", "Email")}</TableHead>
-                      <TableHead className="hidden lg:table-cell">{t("table.role", "Rôle")}</TableHead>
-                      <TableHead className="hidden xl:table-cell">{t("table.groups", "Groupes")}</TableHead>
-                      <TableHead className="text-center">{t("table.status", "Statut")}</TableHead>
-                      <TableHead className="hidden sm:table-cell text-right">{t("table.last_login", "Dernière connexion")}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredUsers.map((user) => (
+              <div className="space-y-3">
+                {/* Table Filters */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <Select value={roleFilter} onValueChange={setRoleFilter}>
+                    <SelectTrigger className="w-[150px] h-9">
+                      <SelectValue placeholder="Rôle" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tous les rôles</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="user">Utilisateur</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <div className="relative flex-1 min-w-[200px]">
+                    <Mail className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Filtrer par email..."
+                      value={emailFilter}
+                      onChange={(e) => setEmailFilter(e.target.value)}
+                      className="pl-8 h-9"
+                    />
+                    {emailFilter && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0"
+                        onClick={() => setEmailFilter("")}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground ml-auto">
+                    <span>{filteredUsers.length} résultat{filteredUsers.length > 1 ? 's' : ''}</span>
+                  </div>
+                </div>
+
+                {/* Table */}
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12"></TableHead>
+                        <TableHead>{t("table.name", "Nom")}</TableHead>
+                        <TableHead className="hidden md:table-cell">{t("table.email", "Email")}</TableHead>
+                        <TableHead className="hidden lg:table-cell">{t("table.role", "Rôle")}</TableHead>
+                        <TableHead className="hidden xl:table-cell">{t("table.groups", "Groupes")}</TableHead>
+                        <TableHead className="text-center">{t("table.status", "Statut")}</TableHead>
+                        <TableHead className="hidden sm:table-cell text-right">{t("table.last_login", "Dernière connexion")}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedUsers.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={7} className="h-24 text-center">
+                            <div className="flex flex-col items-center justify-center text-muted-foreground">
+                              <UsersIcon className="h-8 w-8 mb-2" />
+                              <p className="text-sm">Aucun utilisateur trouvé</p>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        paginatedUsers.map((user) => (
                       <TableRow
                         key={user.id}
                         className="cursor-pointer"
@@ -442,10 +546,79 @@ export default function UsersPage() {
                         <TableCell className="hidden sm:table-cell text-right text-xs text-muted-foreground">
                           {formatDate(user.last_login_at)}
                         </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                        </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Pagination */}
+                {filteredUsers.length > 0 && (
+                  <div className="flex items-center justify-between px-2">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-muted-foreground">
+                        {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredUsers.length)} sur {filteredUsers.length}
+                      </p>
+                      <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
+                        <SelectTrigger className="h-8 w-[100px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="5">5 / page</SelectItem>
+                          <SelectItem value="10">10 / page</SelectItem>
+                          <SelectItem value="20">20 / page</SelectItem>
+                          <SelectItem value="50">50 / page</SelectItem>
+                          <SelectItem value="100">100 / page</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setCurrentPage(1)}
+                        disabled={currentPage === 1}
+                      >
+                        <ChevronsLeft className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <div className="flex items-center gap-1 px-2">
+                        <span className="text-sm">Page</span>
+                        <span className="text-sm font-medium">{currentPage}</span>
+                        <span className="text-sm text-muted-foreground">sur {totalPages}</span>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setCurrentPage(totalPages)}
+                        disabled={currentPage === totalPages}
+                      >
+                        <ChevronsRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -471,8 +644,8 @@ export default function UsersPage() {
         <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
           {selectedUser && (
             <>
-              <SheetHeader>
-                <div className="flex items-center gap-2 pb-3">
+              <SheetHeader className="border-b pb-3">
+                <div className="flex items-center gap-2">
                   <Avatar className="h-12 w-12 flex-shrink-0">
                     <AvatarImage src={selectedUser.avatar_url || undefined} alt={selectedUser.full_name || selectedUser.email} />
                     <AvatarFallback className="text-sm">

@@ -288,6 +288,25 @@ class CacheService:
         """
         return await self.delete_pattern("*", namespace=namespace)
 
+    async def clear_all(self) -> bool:
+        """
+        Vide complètement le cache Redis (FLUSHDB).
+
+        ATTENTION: Opération destructive qui supprime TOUTES les clés de la base Redis.
+        À utiliser avec précaution!
+
+        Returns:
+            True si succès, False sinon
+        """
+        try:
+            await self._ensure_connected()
+            await self._redis.flushdb()
+            print(f"Cache cleared: all keys deleted")
+            return True
+        except Exception as e:
+            print(f"Cache clear_all error: {e}")
+            return False
+
     async def exists(
         self,
         key: str,

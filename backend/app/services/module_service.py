@@ -845,18 +845,28 @@ class ModuleManager:
                 )
                 session.add(module_hook)
 
-                # Créer aussi dans la table Hook principale (CORE)
-                hook = Hook(
-                    name=hook_data.get('name', f"Hook {hook_data['event']} - {module.name}"),
-                    event=hook_data['event'],
-                    is_active=hook_data.get('is_active', False),
-                    priority=hook_data.get('priority', 0),
-                    description=hook_data.get('description', f"Hook from module {module.name}"),
-                    conditions=hook_data.get('conditions'),
-                    actions=hook_data.get('actions', []),
-                    created_by_id=activated_by.id,
-                )
-                session.add(hook)
+                # Vérifier si le hook existe déjà dans la table Hook principale (CORE)
+                hook_name = hook_data.get('name', f"Hook {hook_data['event']} - {module.name}")
+                existing_core_hook = session.exec(
+                    select(Hook).where(
+                        Hook.event == hook_data['event'],
+                        Hook.name == hook_name
+                    )
+                ).first()
+
+                if not existing_core_hook:
+                    # Créer dans la table Hook principale (CORE)
+                    hook = Hook(
+                        name=hook_name,
+                        event=hook_data['event'],
+                        is_active=hook_data.get('is_active', False),
+                        priority=hook_data.get('priority', 0),
+                        description=hook_data.get('description', f"Hook from module {module.name}"),
+                        conditions=hook_data.get('conditions'),
+                        actions=hook_data.get('actions', []),
+                        created_by_id=activated_by.id,
+                    )
+                    session.add(hook)
 
         # Activer le module
         module.status = ModuleStatus.ACTIVE
@@ -924,16 +934,22 @@ class ModuleManager:
         module.deactivated_at = datetime.utcnow()
         module.updated_by_id = deactivated_by.id
 
-        # Supprimer les hooks du module dans le système CORE
-        statement = select(Hook).where(Hook.name.like(f"%{module.name}%"))
-        hooks = session.exec(statement).all()
-        for hook in hooks:
-            session.delete(hook)
-
-        # Supprimer les hooks du module
+        # Supprimer les hooks du module (module_hook)
         statement = select(ModuleHook).where(ModuleHook.module_id == module_id)
         module_hooks = session.exec(statement).all()
+
+        # Pour chaque hook du module, supprimer le hook CORE correspondant
         for module_hook in module_hooks:
+            # Supprimer le hook CORE avec correspondance exacte sur event et module
+            hook_statement = select(Hook).where(
+                Hook.event == module_hook.event,
+                Hook.name.like(f"%{module.name}%")
+            )
+            hooks = session.exec(hook_statement).all()
+            for hook in hooks:
+                session.delete(hook)
+
+            # Supprimer le module_hook
             session.delete(module_hook)
 
         # Supprimer les permissions du module

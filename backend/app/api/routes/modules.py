@@ -705,6 +705,60 @@ def list_registry_modules(
     return {"data": public_modules, "count": count}
 
 
+@router.post("/cleanup/duplicates")
+async def cleanup_duplicate_resources(
+    session: SessionDep,
+    current_user: CurrentUser,
+    _: User = Depends(get_current_active_superuser),
+) -> Any:
+    """
+    Nettoie les ressources en doublon (hooks, permissions, menus) créées par
+    les multiples activations/désactivations de modules.
+
+    Garde la ressource la plus récente et supprime les anciennes.
+    Vide également le cache Redis.
+
+    Requiert les privilèges superuser.
+    """
+    from app.models_hooks import Hook
+
+    cleaned_count = {
+        "hooks": 0,
+        "permissions": 0,
+        "menus": 0,
+    }
+
+    # Nettoyer les hooks en doublon
+    statement = select(Hook)
+    all_hooks = session.exec(statement).all()
+
+    hooks_by_key = {}
+    for hook in all_hooks:
+        key = (hook.event, hook.name)
+        if key not in hooks_by_key:
+            hooks_by_key[key] = []
+        hooks_by_key[key].append(hook)
+
+    for (event, name), hooks in hooks_by_key.items():
+        if len(hooks) > 1:
+            # Garder le plus récent
+            hooks_sorted = sorted(hooks, key=lambda h: h.created_at, reverse=True)
+            for hook in hooks_sorted[1:]:
+                session.delete(hook)
+                cleaned_count["hooks"] += 1
+
+    session.commit()
+
+    # Vider complètement le cache Redis
+    await cache_service.clear_all()
+
+    return {
+        "success": True,
+        "message": "Cleanup completed successfully",
+        "cleaned": cleaned_count,
+    }
+
+
 @router.get("/{module_code}/frontend/module.config.js")
 async def get_compiled_module(
     module_code: str,

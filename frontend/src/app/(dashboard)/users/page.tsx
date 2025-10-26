@@ -26,6 +26,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Table,
   TableBody,
@@ -63,7 +72,11 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  Filter
+  Filter,
+  MoreHorizontal,
+  CheckCircle2,
+  XCircle,
+  Eye
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { User } from "./data/schema"
@@ -92,6 +105,45 @@ export default function UsersPage() {
   // Table filters
   const [roleFilter, setRoleFilter] = useState<string>("all")
   const [emailFilter, setEmailFilter] = useState("")
+
+  // Selection for bulk actions
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set())
+
+  const toggleSelectAll = () => {
+    if (selectedUserIds.size === paginatedUsers.length) {
+      setSelectedUserIds(new Set())
+    } else {
+      setSelectedUserIds(new Set(paginatedUsers.map(u => u.id)))
+    }
+  }
+
+  const toggleSelectUser = (userId: string) => {
+    const newSelection = new Set(selectedUserIds)
+    if (newSelection.has(userId)) {
+      newSelection.delete(userId)
+    } else {
+      newSelection.add(userId)
+    }
+    setSelectedUserIds(newSelection)
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedUserIds.size === 0) return
+    // TODO: Implement bulk delete with confirmation
+    console.log('Bulk delete:', Array.from(selectedUserIds))
+  }
+
+  const handleBulkActivate = async () => {
+    if (selectedUserIds.size === 0) return
+    // TODO: Implement bulk activate
+    console.log('Bulk activate:', Array.from(selectedUserIds))
+  }
+
+  const handleBulkDeactivate = async () => {
+    if (selectedUserIds.size === 0) return
+    // TODO: Implement bulk deactivate
+    console.log('Bulk deactivate:', Array.from(selectedUserIds))
+  }
 
   const loadUsers = async () => {
     try {
@@ -416,6 +468,52 @@ export default function UsersPage() {
               </div>
             ) : (
               <div className="space-y-3">
+                {/* Bulk Actions Bar */}
+                {selectedUserIds.size > 0 && (
+                  <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md border">
+                    <span className="text-sm font-medium">
+                      {selectedUserIds.size} sélectionné{selectedUserIds.size > 1 ? 's' : ''}
+                    </span>
+                    <div className="flex items-center gap-1 ml-auto">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleBulkActivate}
+                        className="h-8"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                        Activer
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleBulkDeactivate}
+                        className="h-8"
+                      >
+                        <XCircle className="h-3.5 w-3.5 mr-1.5" />
+                        Désactiver
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleBulkDelete}
+                        className="h-8 text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                        Supprimer
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedUserIds(new Set())}
+                        className="h-8"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Table Filters */}
                 <div className="flex items-center gap-2 flex-wrap">
                   <Filter className="h-4 w-4 text-muted-foreground" />
@@ -460,6 +558,13 @@ export default function UsersPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-12">
+                          <Checkbox
+                            checked={selectedUserIds.size === paginatedUsers.length && paginatedUsers.length > 0}
+                            onCheckedChange={toggleSelectAll}
+                            aria-label="Tout sélectionner"
+                          />
+                        </TableHead>
                         <TableHead className="w-12"></TableHead>
                         <TableHead>{t("table.name", "Nom")}</TableHead>
                         <TableHead className="hidden md:table-cell">{t("table.email", "Email")}</TableHead>
@@ -467,12 +572,13 @@ export default function UsersPage() {
                         <TableHead className="hidden xl:table-cell">{t("table.groups", "Groupes")}</TableHead>
                         <TableHead className="text-center">{t("table.status", "Statut")}</TableHead>
                         <TableHead className="hidden sm:table-cell text-right">{t("table.last_login", "Dernière connexion")}</TableHead>
+                        <TableHead className="w-12"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {paginatedUsers.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={7} className="h-24 text-center">
+                          <TableCell colSpan={10} className="h-24 text-center">
                             <div className="flex flex-col items-center justify-center text-muted-foreground">
                               <UsersIcon className="h-8 w-8 mb-2" />
                               <p className="text-sm">Aucun utilisateur trouvé</p>
@@ -484,9 +590,15 @@ export default function UsersPage() {
                       <TableRow
                         key={user.id}
                         className="cursor-pointer"
-                        onClick={() => handleUserSelect(user)}
                       >
-                        <TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedUserIds.has(user.id)}
+                            onCheckedChange={() => toggleSelectUser(user.id)}
+                            aria-label={`Sélectionner ${user.full_name || user.email}`}
+                          />
+                        </TableCell>
+                        <TableCell onClick={() => handleUserSelect(user)}>
                           <Avatar className="h-8 w-8">
                             <AvatarImage src={user.avatar_url || undefined} alt={user.full_name || user.email} />
                             <AvatarFallback className="text-xs">
@@ -494,7 +606,7 @@ export default function UsersPage() {
                             </AvatarFallback>
                           </Avatar>
                         </TableCell>
-                        <TableCell className="font-medium">
+                        <TableCell className="font-medium" onClick={() => handleUserSelect(user)}>
                           <div className="flex items-center gap-2">
                             <span className="truncate">{user.full_name || user.email.split('@')[0]}</span>
                             {user.is_superuser && (
@@ -502,17 +614,17 @@ export default function UsersPage() {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="hidden md:table-cell">
+                        <TableCell className="hidden md:table-cell" onClick={() => handleUserSelect(user)}>
                           <span className="text-sm text-muted-foreground truncate block max-w-[200px]">
                             {user.email}
                           </span>
                         </TableCell>
-                        <TableCell className="hidden lg:table-cell">
+                        <TableCell className="hidden lg:table-cell" onClick={() => handleUserSelect(user)}>
                           <Badge variant={user.is_superuser ? "default" : "secondary"} className="text-xs">
                             {user.is_superuser ? "Admin" : "Utilisateur"}
                           </Badge>
                         </TableCell>
-                        <TableCell className="hidden xl:table-cell">
+                        <TableCell className="hidden xl:table-cell" onClick={() => handleUserSelect(user)}>
                           <div className="flex flex-wrap gap-1">
                             {user.groups && user.groups.length > 0 ? (
                               <>
@@ -543,8 +655,52 @@ export default function UsersPage() {
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell className="hidden sm:table-cell text-right text-xs text-muted-foreground">
+                        <TableCell className="hidden sm:table-cell text-right text-xs text-muted-foreground" onClick={() => handleUserSelect(user)}>
                           {formatDate(user.last_login_at)}
+                        </TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Actions</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuItem onClick={() => handleUserSelect(user)}>
+                                <Eye className="h-3.5 w-3.5 mr-2" />
+                                Voir détails
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => {
+                                setSelectedUser(user)
+                                setIsEditDialogOpen(true)
+                              }}>
+                                <Edit className="h-3.5 w-3.5 mr-2" />
+                                Modifier
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {user.is_active ? (
+                                <DropdownMenuItem onClick={() => console.log('Deactivate', user.id)}>
+                                  <XCircle className="h-3.5 w-3.5 mr-2" />
+                                  Désactiver
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem onClick={() => console.log('Activate', user.id)}>
+                                  <CheckCircle2 className="h-3.5 w-3.5 mr-2" />
+                                  Activer
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => console.log('Delete', user.id)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="h-3.5 w-3.5 mr-2" />
+                                Supprimer
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                         </TableRow>
                         ))

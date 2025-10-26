@@ -16,6 +16,15 @@ const nextConfig: NextConfig = {
   experimental: {
     // Permettre les imports depuis l'extérieur de l'app
     externalDir: true,
+    // Turbopack pour dev ultra-rapide (expérimental)
+    turbo: {
+      rules: {
+        '*.svg': {
+          loaders: ['@svgr/webpack'],
+          as: '*.js',
+        },
+      },
+    },
   },
 
   // Webpack configuration to resolve modules from parent directory
@@ -72,9 +81,40 @@ const nextConfig: NextConfig = {
     domains: ["ui.shadcn.com"],
   },
 
-  // Optimisation des performances
+  // Optimisations des performances
   poweredByHeader: false,
   compress: true,
+
+  // Optimisations de build supplémentaires
+  swcMinify: true, // Utiliser SWC au lieu de Terser (beaucoup plus rapide)
+
+  // Réduire la taille du bundle
+  modularizeImports: {
+    'lucide-react': {
+      transform: 'lucide-react/dist/esm/icons/{{kebabCase member}}',
+    },
+  },
+
+  // Optimiser les images
+  images: {
+    ...nextConfig.images,
+    formats: ['image/avif', 'image/webp'],
+    minimumCacheTTL: 60,
+  },
+
+  // Compiler uniquement les fichiers nécessaires
+  pageExtensions: ['tsx', 'ts', 'jsx', 'js'],
+
+  // Production optimizations
+  productionBrowserSourceMaps: false, // Désactiver sourcemaps en prod
+
+  // Optimisations React
+  reactStrictMode: true,
+
+  // Optimiser le bundle size
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
 };
 
 export default nextConfig;

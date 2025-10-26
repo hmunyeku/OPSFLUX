@@ -3,22 +3,40 @@ node_modules
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.pnpm-debug.log*
 
 # Next.js
 .next
 out
-.swc
-
-# Build outputs
 dist
 build
 
-# Environment files
+# Testing
+coverage
+.nyc_output
+
+# Misc
+.DS_Store
+*.pem
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local env files
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
 
 # IDE
 .vscode
@@ -27,13 +45,18 @@ build
 *.swo
 *~
 
-# OS
-.DS_Store
-Thumbs.db
+# Git
+.git
+.gitignore
+README.md
 
-# Testing
-coverage
-.nyc_output
+# CI/CD
+.github
+.gitlab-ci.yml
 
-# Misc
+# Logs
+logs
 *.log
+
+# OS
+Thumbs.db

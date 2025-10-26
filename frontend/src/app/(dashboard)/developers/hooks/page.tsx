@@ -407,8 +407,95 @@ function HooksPageContent() {
                 </div>
               </div>
 
-              {/* Data Table */}
-              <div className="rounded-lg border">
+              {/* Mobile View - Cards */}
+              <div className="md:hidden space-y-3">
+                {filteredHooks.length > 0 ? (
+                  filteredHooks.map((hook) => (
+                    <Card key={hook.id} className="p-4">
+                      <div className="space-y-3">
+                        {/* Header */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-sm truncate">{hook.name}</h4>
+                            <Badge variant="outline" className="mt-1 text-xs">
+                              {hook.event}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <Switch
+                              checked={hook.is_active}
+                              onCheckedChange={() => handleToggleActive(hook)}
+                              disabled={!hasPermission("core.hooks.update")}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Description */}
+                        {hook.description && (
+                          <p className="text-xs text-muted-foreground line-clamp-2">
+                            {hook.description}
+                          </p>
+                        )}
+
+                        {/* Metadata */}
+                        <div className="flex items-center gap-3 text-xs">
+                          <div className="flex items-center gap-1">
+                            <span className="text-muted-foreground">{t("hooks.column_priority", "Priorité")}:</span>
+                            <Badge variant={hook.priority > 50 ? "default" : "secondary"} className="text-xs">
+                              {hook.priority}
+                            </Badge>
+                          </div>
+                          {hook.actions && hook.actions.length > 0 && (
+                            <div className="flex items-center gap-1">
+                              <span className="text-muted-foreground">{hook.actions.length} action(s)</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Actions Types */}
+                        {hook.actions && hook.actions.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {hook.actions.map((action, idx) => (
+                              <Badge key={idx} variant="secondary" className="text-[10px] py-0 px-1.5">
+                                {action.type.replace("_", " ")}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2 pt-2 border-t">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => setEditingHook(hook)}
+                            disabled={!hasPermission("core.hooks.update")}
+                          >
+                            <Edit2 className="h-3.5 w-3.5 mr-1.5" />
+                            {t("hooks.edit", "Modifier")}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDeletingHook(hook)}
+                            disabled={!hasPermission("core.hooks.delete")}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))
+                ) : (
+                  <div className="text-center py-12 text-sm text-muted-foreground">
+                    {t("hooks.no_match", "Aucun hook ne correspond à votre recherche.")}
+                  </div>
+                )}
+              </div>
+
+              {/* Desktop View - Table */}
+              <div className="hidden md:block rounded-lg border">
                 <Table>
                   <TableHeader>
                     {table.getHeaderGroups().map((headerGroup) => (

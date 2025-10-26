@@ -2,8 +2,7 @@ import { cn } from "@/lib/utils"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Search } from "@/components/search"
-import { AddBookmarkButton } from "@/components/header/add-bookmark-button"
-import { BookmarksDropdown } from "@/components/header/bookmarks-dropdown"
+import { Bookmarks } from "@/components/header/bookmarks"
 import { NotificationsPanel } from "@/components/header/notifications-panel"
 import { CalendarButton } from "@/components/header/calendar-button"
 import { LanguageSwitcher } from "@/components/header/language-switcher"
@@ -25,8 +24,7 @@ export function Header() {
         <Search />
         <div className="flex items-center gap-0.5 md:gap-1">
           <NavigationSpinner />
-          <AddBookmarkButton />
-          <BookmarksDropdown />
+          <Bookmarks />
           <NotificationsPanel />
           <CalendarButton className="hidden sm:flex" />
           <Separator orientation="vertical" className="mx-0.5 md:mx-1 h-6 hidden md:block" />

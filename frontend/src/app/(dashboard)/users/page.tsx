@@ -20,6 +20,14 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
   Sheet,
   SheetContent,
   SheetHeader,
@@ -41,13 +49,17 @@ import {
   Clock,
   Key,
   Users2,
-  ShieldCheck
+  ShieldCheck,
+  LayoutGrid,
+  Table as TableIcon
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { User } from "./data/schema"
 import { getUsers } from "./data/users-api"
 import { UsersInviteDialog } from "./components/users-invite-dialog"
 import { UsersActionDialog } from "./components/users-action-dialog"
+
+type ViewMode = "grid" | "table"
 
 export default function UsersPage() {
   const { t } = useTranslation("core.users")
@@ -59,6 +71,7 @@ export default function UsersPage() {
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isUserSheetOpen, setIsUserSheetOpen] = useState(false)
+  const [viewMode, setViewMode] = useState<ViewMode>("grid")
 
   const loadUsers = async () => {
     try {
@@ -244,25 +257,47 @@ export default function UsersPage() {
         {/* Main Content */}
         <div className="flex-1 overflow-auto">
           <div className="p-4 sm:p-6 space-y-4">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder={t("action.search", "Rechercher par nom ou email...")}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-10"
-              />
-              {searchQuery && (
+            {/* Search and View Toggle */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder={t("action.search", "Rechercher par nom ou email...")}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 pr-10"
+                />
+                {searchQuery && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                    onClick={() => setSearchQuery("")}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+              <div className="flex items-center rounded-md border bg-background">
                 <Button
-                  variant="ghost"
+                  variant={viewMode === "grid" ? "secondary" : "ghost"}
                   size="sm"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
-                  onClick={() => setSearchQuery("")}
+                  onClick={() => setViewMode("grid")}
+                  className="rounded-r-none"
+                  aria-label="Affichage grille"
                 >
-                  <X className="h-3 w-3" />
+                  <LayoutGrid className="h-4 w-4" />
                 </Button>
-              )}
+                <Button
+                  variant={viewMode === "table" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("table")}
+                  className="rounded-l-none border-l"
+                  aria-label="Affichage tableau"
+                >
+                  <TableIcon className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
 
             {/* Users Grid/List */}
@@ -286,7 +321,7 @@ export default function UsersPage() {
                   </Button>
                 )}
               </div>
-            ) : (
+            ) : viewMode === "grid" ? (
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                 {filteredUsers.map((user) => (
                   <Card
@@ -326,6 +361,92 @@ export default function UsersPage() {
                   </Card>
                 ))}
               </div>
+            ) : (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12"></TableHead>
+                      <TableHead>{t("table.name", "Nom")}</TableHead>
+                      <TableHead className="hidden md:table-cell">{t("table.email", "Email")}</TableHead>
+                      <TableHead className="hidden lg:table-cell">{t("table.role", "Rôle")}</TableHead>
+                      <TableHead className="hidden xl:table-cell">{t("table.groups", "Groupes")}</TableHead>
+                      <TableHead className="text-center">{t("table.status", "Statut")}</TableHead>
+                      <TableHead className="hidden sm:table-cell text-right">{t("table.last_login", "Dernière connexion")}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredUsers.map((user) => (
+                      <TableRow
+                        key={user.id}
+                        className="cursor-pointer"
+                        onClick={() => handleUserSelect(user)}
+                      >
+                        <TableCell>
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={user.avatar_url || undefined} alt={user.full_name || user.email} />
+                            <AvatarFallback className="text-xs">
+                              {getInitials(user)}
+                            </AvatarFallback>
+                          </Avatar>
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <span className="truncate">{user.full_name || user.email.split('@')[0]}</span>
+                            {user.is_superuser && (
+                              <Shield className="h-3 w-3 text-primary flex-shrink-0" title="Admin" />
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          <span className="text-sm text-muted-foreground truncate block max-w-[200px]">
+                            {user.email}
+                          </span>
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          <Badge variant={user.is_superuser ? "default" : "secondary"} className="text-xs">
+                            {user.is_superuser ? "Admin" : "Utilisateur"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="hidden xl:table-cell">
+                          <div className="flex flex-wrap gap-1">
+                            {user.groups && user.groups.length > 0 ? (
+                              <>
+                                {user.groups.slice(0, 2).map((group) => (
+                                  <Badge key={group.id} variant="outline" className="text-[10px] py-0 px-1.5">
+                                    {group.name}
+                                  </Badge>
+                                ))}
+                                {user.groups.length > 2 && (
+                                  <Badge variant="outline" className="text-[10px] py-0 px-1.5">
+                                    +{user.groups.length - 2}
+                                  </Badge>
+                                )}
+                              </>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <div className={cn(
+                              "h-2 w-2 rounded-full",
+                              user.is_active ? "bg-green-500" : "bg-orange-500"
+                            )} />
+                            <span className="text-xs hidden sm:inline">
+                              {user.is_active ? t("status.active", "Actif") : t("status.inactive", "Inactif")}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell text-right text-xs text-muted-foreground">
+                          {formatDate(user.last_login_at)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </div>
         </div>
@@ -351,51 +472,52 @@ export default function UsersPage() {
           {selectedUser && (
             <>
               <SheetHeader>
-                <div className="flex items-center gap-3 pb-4">
-                  <Avatar className="h-16 w-16 flex-shrink-0">
+                <div className="flex items-center gap-2 pb-3">
+                  <Avatar className="h-12 w-12 flex-shrink-0">
                     <AvatarImage src={selectedUser.avatar_url || undefined} alt={selectedUser.full_name || selectedUser.email} />
-                    <AvatarFallback className="text-lg">
+                    <AvatarFallback className="text-sm">
                       {getInitials(selectedUser)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
-                    <SheetTitle className="text-xl truncate">
+                    <SheetTitle className="text-lg truncate">
                       {selectedUser.full_name || selectedUser.email}
                     </SheetTitle>
-                    <p className="text-sm text-muted-foreground truncate">
+                    <p className="text-xs text-muted-foreground truncate">
                       {selectedUser.email}
                     </p>
                   </div>
                 </div>
               </SheetHeader>
 
-              <div className="space-y-6 pt-4">
+              <div className="space-y-4 pt-3">
                 {/* Action Button */}
                 <Button
                   className="w-full"
                   variant="outline"
+                  size="sm"
                   onClick={() => {
                     setIsUserSheetOpen(false)
                     setIsEditDialogOpen(true)
                   }}
                 >
-                  <Edit className="h-4 w-4 mr-2" />
+                  <Edit className="h-3.5 w-3.5 mr-2" />
                   {t("action.edit", "Modifier")}
                 </Button>
 
-                {/* Status Cards */}
-                <div className="grid gap-3 grid-cols-2">
+                {/* Status Cards - Compact */}
+                <div className="grid gap-2 grid-cols-2">
                   <Card>
-                    <CardContent className="p-4">
+                    <CardContent className="p-2.5">
                       <div className="text-center">
                         <div className={cn(
-                          "mx-auto w-10 h-10 rounded-full flex items-center justify-center mb-2",
+                          "mx-auto w-8 h-8 rounded-full flex items-center justify-center mb-1.5",
                           selectedUser.is_active ? "bg-green-100 text-green-600" : "bg-orange-100 text-orange-600"
                         )}>
-                          {selectedUser.is_active ? <UserCheck className="h-5 w-5" /> : <UserX className="h-5 w-5" />}
+                          {selectedUser.is_active ? <UserCheck className="h-4 w-4" /> : <UserX className="h-4 w-4" />}
                         </div>
-                        <p className="text-xs text-muted-foreground mb-1">{t("details.status", "Statut")}</p>
-                        <p className="text-sm font-semibold">
+                        <p className="text-[10px] text-muted-foreground mb-0.5">{t("details.status", "Statut")}</p>
+                        <p className="text-xs font-semibold">
                           {selectedUser.is_active ? t("details.active", "Actif") : t("details.inactive", "Inactif")}
                         </p>
                       </div>
@@ -403,13 +525,13 @@ export default function UsersPage() {
                   </Card>
 
                   <Card>
-                    <CardContent className="p-4">
+                    <CardContent className="p-2.5">
                       <div className="text-center">
-                        <div className="mx-auto w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-2">
-                          <Shield className="h-5 w-5" />
+                        <div className="mx-auto w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-1.5">
+                          <Shield className="h-4 w-4" />
                         </div>
-                        <p className="text-xs text-muted-foreground mb-1">{t("details.role", "Rôle")}</p>
-                        <p className="text-sm font-semibold">
+                        <p className="text-[10px] text-muted-foreground mb-0.5">{t("details.role", "Rôle")}</p>
+                        <p className="text-xs font-semibold">
                           {selectedUser.is_superuser ? "Admin" : "Utilisateur"}
                         </p>
                       </div>
@@ -417,52 +539,52 @@ export default function UsersPage() {
                   </Card>
                 </div>
 
-                {/* User Info */}
-                <div className="space-y-4">
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                {/* User Info - Compact */}
+                <div className="space-y-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     {t("details.user_info", "Informations")}
                   </h3>
 
                   <Card>
-                    <CardContent className="p-4 space-y-4">
-                      <div className="space-y-1">
-                        <span className="text-xs text-muted-foreground flex items-center gap-2">
-                          <Mail className="h-3.5 w-3.5" />
+                    <CardContent className="p-3 space-y-2.5">
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] text-muted-foreground flex items-center gap-1.5">
+                          <Mail className="h-3 w-3" />
                           {t("details.email_label", "Email")}
                         </span>
-                        <p className="text-sm font-medium break-all">
+                        <p className="text-xs font-medium break-all">
                           {selectedUser.email}
                         </p>
                       </div>
 
                       {selectedUser.phone_number && (
-                        <div className="space-y-1 pt-3 border-t">
-                          <span className="text-xs text-muted-foreground flex items-center gap-2">
-                            <Phone className="h-3.5 w-3.5" />
+                        <div className="space-y-0.5 pt-2 border-t">
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-1.5">
+                            <Phone className="h-3 w-3" />
                             {t("details.phone_label", "Téléphone")}
                           </span>
-                          <p className="text-sm font-medium">
+                          <p className="text-xs font-medium">
                             {selectedUser.phone_number}
                           </p>
                         </div>
                       )}
 
-                      <div className="space-y-1 pt-3 border-t">
-                        <span className="text-xs text-muted-foreground flex items-center gap-2">
-                          <Calendar className="h-3.5 w-3.5" />
+                      <div className="space-y-0.5 pt-2 border-t">
+                        <span className="text-[10px] text-muted-foreground flex items-center gap-1.5">
+                          <Calendar className="h-3 w-3" />
                           {t("details.created_at", "Créé le")}
                         </span>
-                        <p className="text-sm font-medium">
+                        <p className="text-xs font-medium">
                           {formatDate(selectedUser.created_at)}
                         </p>
                       </div>
 
-                      <div className="space-y-1 pt-3 border-t">
-                        <span className="text-xs text-muted-foreground flex items-center gap-2">
-                          <Clock className="h-3.5 w-3.5" />
+                      <div className="space-y-0.5 pt-2 border-t">
+                        <span className="text-[10px] text-muted-foreground flex items-center gap-1.5">
+                          <Clock className="h-3 w-3" />
                           {t("details.last_login", "Dernière connexion")}
                         </span>
-                        <p className="text-sm font-medium">
+                        <p className="text-xs font-medium">
                           {formatDate(selectedUser.last_login_at)}
                         </p>
                       </div>
@@ -470,49 +592,49 @@ export default function UsersPage() {
                   </Card>
                 </div>
 
-                {/* Roles Section */}
+                {/* Roles Section - Compact */}
                 {selectedUser.roles && selectedUser.roles.length > 0 && (
-                  <div className="space-y-4">
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-2">
-                      <ShieldCheck className="h-4 w-4" />
+                  <div className="space-y-2">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                      <ShieldCheck className="h-3.5 w-3.5" />
                       {t("details.roles", "Rôles")}
                     </h3>
                     <Card>
-                      <CardContent className="p-4 space-y-3">
+                      <CardContent className="p-3 space-y-2.5">
                         {selectedUser.roles.map((role) => (
-                          <div key={role.id} className="space-y-2">
+                          <div key={role.id} className="space-y-1.5">
                             <div className="flex items-start justify-between gap-2">
-                              <div className="flex-1">
-                                <p className="text-sm font-semibold">{role.name}</p>
-                                <p className="text-xs font-mono text-muted-foreground">{role.code}</p>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-semibold truncate">{role.name}</p>
+                                <p className="text-[10px] font-mono text-muted-foreground truncate">{role.code}</p>
                                 {role.description && (
-                                  <p className="text-xs text-muted-foreground mt-1">{role.description}</p>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2">{role.description}</p>
                                 )}
                               </div>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1 flex-shrink-0">
                                 {role.is_system && (
-                                  <Badge variant="secondary" className="text-[10px]">Système</Badge>
+                                  <Badge variant="secondary" className="text-[9px] py-0 px-1.5">Sys</Badge>
                                 )}
-                                <Badge variant={role.is_active ? "default" : "outline"} className="text-[10px]">
+                                <Badge variant={role.is_active ? "default" : "outline"} className="text-[9px] py-0 px-1.5">
                                   {role.is_active ? "Actif" : "Inactif"}
                                 </Badge>
                               </div>
                             </div>
                             {role.permissions && role.permissions.length > 0 && (
-                              <div className="pt-2 border-t">
-                                <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-                                  <Key className="h-3 w-3" />
-                                  {role.permissions.length} permission(s)
+                              <div className="pt-1.5 border-t">
+                                <p className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1">
+                                  <Key className="h-2.5 w-2.5" />
+                                  {role.permissions.length} perm{role.permissions.length > 1 ? 's' : ''}
                                 </p>
                                 <div className="flex flex-wrap gap-1">
-                                  {role.permissions.slice(0, 5).map((perm) => (
+                                  {role.permissions.slice(0, 3).map((perm) => (
                                     <Badge key={perm.id} variant="outline" className="text-[9px] py-0 px-1.5">
                                       {perm.name}
                                     </Badge>
                                   ))}
-                                  {role.permissions.length > 5 && (
+                                  {role.permissions.length > 3 && (
                                     <Badge variant="outline" className="text-[9px] py-0 px-1.5">
-                                      +{role.permissions.length - 5} autres
+                                      +{role.permissions.length - 3}
                                     </Badge>
                                   )}
                                 </div>
@@ -525,49 +647,49 @@ export default function UsersPage() {
                   </div>
                 )}
 
-                {/* Groups Section */}
+                {/* Groups Section - Compact */}
                 {selectedUser.groups && selectedUser.groups.length > 0 && (
-                  <div className="space-y-4">
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-2">
-                      <Users2 className="h-4 w-4" />
+                  <div className="space-y-2">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                      <Users2 className="h-3.5 w-3.5" />
                       {t("details.groups", "Groupes")}
                     </h3>
                     <Card>
-                      <CardContent className="p-4 space-y-3">
+                      <CardContent className="p-3 space-y-2.5">
                         {selectedUser.groups.map((group) => (
-                          <div key={group.id} className="space-y-2">
+                          <div key={group.id} className="space-y-1.5">
                             <div className="flex items-start justify-between gap-2">
-                              <div className="flex-1">
-                                <p className="text-sm font-semibold">{group.name}</p>
-                                <p className="text-xs font-mono text-muted-foreground">{group.code}</p>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-semibold truncate">{group.name}</p>
+                                <p className="text-[10px] font-mono text-muted-foreground truncate">{group.code}</p>
                                 {group.description && (
-                                  <p className="text-xs text-muted-foreground mt-1">{group.description}</p>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2">{group.description}</p>
                                 )}
                                 {group.parent && (
-                                  <p className="text-xs text-muted-foreground mt-1">
+                                  <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
                                     Parent: {group.parent.name}
                                   </p>
                                 )}
                               </div>
-                              <Badge variant={group.is_active ? "default" : "outline"} className="text-[10px]">
+                              <Badge variant={group.is_active ? "default" : "outline"} className="text-[9px] py-0 px-1.5 flex-shrink-0">
                                 {group.is_active ? "Actif" : "Inactif"}
                               </Badge>
                             </div>
                             {group.permissions && group.permissions.length > 0 && (
-                              <div className="pt-2 border-t">
-                                <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-                                  <Key className="h-3 w-3" />
-                                  {group.permissions.length} permission(s)
+                              <div className="pt-1.5 border-t">
+                                <p className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1">
+                                  <Key className="h-2.5 w-2.5" />
+                                  {group.permissions.length} perm{group.permissions.length > 1 ? 's' : ''}
                                 </p>
                                 <div className="flex flex-wrap gap-1">
-                                  {group.permissions.slice(0, 5).map((perm) => (
+                                  {group.permissions.slice(0, 3).map((perm) => (
                                     <Badge key={perm.id} variant="outline" className="text-[9px] py-0 px-1.5">
                                       {perm.name}
                                     </Badge>
                                   ))}
-                                  {group.permissions.length > 5 && (
+                                  {group.permissions.length > 3 && (
                                     <Badge variant="outline" className="text-[9px] py-0 px-1.5">
-                                      +{group.permissions.length - 5} autres
+                                      +{group.permissions.length - 3}
                                     </Badge>
                                   )}
                                 </div>

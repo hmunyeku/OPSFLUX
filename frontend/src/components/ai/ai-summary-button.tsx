@@ -14,7 +14,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { FileText, Loader2, Copy, Check } from "lucide-react"
+import { FileText, Copy, Check } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useAI } from "@/hooks/use-ai"
 import { cn } from "@/lib/utils"
 
@@ -86,8 +87,10 @@ export function AISummaryButton({
 
         <div className="space-y-4">
           {ai.loading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <div className="space-y-3 py-4">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-5/6" />
+              <Skeleton className="h-4 w-4/6" />
             </div>
           ) : ai.error ? (
             <div className="p-4 rounded-lg bg-destructive/10 text-destructive text-sm">

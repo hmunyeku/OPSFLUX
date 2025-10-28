@@ -8,7 +8,6 @@ import { CalendarButton } from "@/components/header/calendar-button"
 import { LanguageSwitcher } from "@/components/header/language-switcher"
 import { AiChatButton } from "@/components/header/ai-chat-button"
 import { UserMenu } from "@/components/header/user-menu"
-import { NavigationSpinner } from "@/components/navigation-progress"
 
 export function Header() {
   return (
@@ -23,7 +22,6 @@ export function Header() {
       <div className="flex w-full justify-between items-center gap-1 md:gap-2">
         <Search />
         <div className="flex items-center gap-0.5 md:gap-1">
-          <NavigationSpinner />
           <Bookmarks />
           <NotificationsPanel />
           <CalendarButton className="hidden sm:flex" />

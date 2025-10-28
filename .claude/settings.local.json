@@ -88,7 +88,10 @@
       "Bash(git restore:*)",
       "Bash(tree:*)",
       "Bash(git remote set-url:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(for file in bookmarks-dropdown.tsx bookmarks.tsx language-switcher.tsx notifications-panel.tsx)",
+      "Bash(do echo \"=== $file ===\")",
+      "Bash(done)"
     ],
     "deny": [],
     "ask": []

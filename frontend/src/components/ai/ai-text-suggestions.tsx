@@ -11,7 +11,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { Sparkles, Loader2 } from "lucide-react"
+import { Sparkles } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useAI } from "@/hooks/use-ai"
 import { cn } from "@/lib/utils"
 
@@ -74,8 +75,10 @@ export function AITextSuggestions({
           <p className="text-sm font-medium">Suggestions</p>
 
           {ai.loading ? (
-            <div className="flex items-center justify-center py-6">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <div className="space-y-2 py-2">
+              <Skeleton className="h-14 w-full" />
+              <Skeleton className="h-14 w-full" />
+              <Skeleton className="h-14 w-full" />
             </div>
           ) : ai.error ? (
             <p className="text-sm text-destructive">{ai.error}</p>

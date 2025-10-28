@@ -2,8 +2,12 @@
 
 import { useEffect, useState } from "react"
 import { usePathname, useSearchParams } from "next/navigation"
-import { Loader2 } from "lucide-react"
 
+/**
+ * NavigationProgress - Barre de progression linéaire en haut de la page
+ * Affichée lors de la navigation entre les pages
+ * Conforme FRONTEND_RULES.md: Pas de spinner, uniquement des indicateurs visuels non-rotatifs
+ */
 export function NavigationProgress() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -50,43 +54,8 @@ export function NavigationProgress() {
   )
 }
 
-export function NavigationSpinner() {
-  const pathname = usePathname()
-  const searchParams = useSearchParams()
-  const [isNavigating, setIsNavigating] = useState(false)
-
-  useEffect(() => {
-    // Reset navigation state when route changes
-    setIsNavigating(false)
-  }, [pathname, searchParams])
-
-  useEffect(() => {
-    // Intercept all link clicks to show loading state
-    const handleClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement
-      const link = target.closest('a')
-
-      if (link && link.href && !link.target && link.href.startsWith(window.location.origin)) {
-        // Internal navigation
-        const url = new URL(link.href)
-        if (url.pathname !== pathname) {
-          setIsNavigating(true)
-        }
-      }
-    }
-
-    document.addEventListener('click', handleClick)
-
-    return () => {
-      document.removeEventListener('click', handleClick)
-    }
-  }, [pathname])
-
-  if (!isNavigating) return null
-
-  return (
-    <div className="flex items-center justify-center">
-      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-    </div>
-  )
-}
+/**
+ * NavigationSpinner - SUPPRIMÉ
+ * Ancienne version avec spinner Loader2 (violation FRONTEND_RULES.md)
+ * La barre de progression NavigationProgress suffit pour indiquer la navigation
+ */

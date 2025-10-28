@@ -38,7 +38,6 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useToast } from "@/hooks/use-toast"
 import { apiClient } from "@/lib/api-client"
-import { IconCode, IconEye, IconLoader2, IconVariable } from "@tabler/icons-react"
 
 // Dynamic import pour Monaco Editor (évite SSR issues)
 const HtmlEditor = dynamic(() => import("@/components/html-editor"), {
@@ -458,7 +457,6 @@ export default function EmailTemplateDialog({
               onClick={form.handleSubmit(onSubmit)}
               className="w-full sm:w-auto"
             >
-              {loading && <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />}
               {templateId ? "Mettre à jour" : "Créer le template"}
             </Button>
           </div>

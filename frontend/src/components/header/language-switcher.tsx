@@ -10,7 +10,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
-import { Globe, Check, Loader2 } from "lucide-react"
+import { Globe, Check } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useLanguageContext } from "@/contexts/language-context"
 import { cn } from "@/lib/utils"
 
@@ -38,7 +39,7 @@ export function LanguageSwitcher() {
   if (isLoading) {
     return (
       <Button variant="ghost" size="icon" disabled title="Chargement des langues...">
-        <Loader2 className="h-5 w-5 animate-spin" />
+        <Skeleton className="h-5 w-32" />
       </Button>
     )
   }
@@ -48,7 +49,7 @@ export function LanguageSwitcher() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" title="Changer la langue" disabled={changing}>
           {changing ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <Skeleton className="h-5 w-32" />
           ) : currentLanguage?.flag_emoji ? (
             <span className="text-lg">{currentLanguage.flag_emoji}</span>
           ) : (

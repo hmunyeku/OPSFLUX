@@ -13,7 +13,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
-import { Bell, Check, CheckCheck, X, Loader2 } from "lucide-react"
+import { Bell, Check, CheckCheck, X } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { useNotifications } from "@/contexts/notifications-context"
 import { useAuth } from "@/hooks/use-auth"
@@ -135,7 +136,11 @@ export function NotificationsPanel() {
           <div className="p-4 space-y-2">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Loader2 className="h-8 w-8 text-muted-foreground mb-4 animate-spin" />
+                <div className="space-y-2">
+                  <Skeleton className="h-16 w-full" />
+                  <Skeleton className="h-16 w-full" />
+                  <Skeleton className="h-16 w-full" />
+                </div>
                 <p className="text-sm text-muted-foreground">
                   Chargement des notifications...
                 </p>

@@ -55,7 +55,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { IconSearch, IconFilter, IconArrowsSort, IconX, IconLoader2 } from "@tabler/icons-react"
 import { Shield, ShieldCheck, Key, Download, RefreshCw, Smartphone } from "lucide-react"
 import { type UserPreferences } from "@/types/preferences"
 import { Switch } from "@/components/ui/switch"
@@ -742,7 +741,6 @@ export function PreferencesTab() {
             <div className="min-w-[200px] flex items-center gap-2">
               <span className="font-medium">{row.original.label}</span>
               {isSaving && (
-                <IconLoader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
               )}
               {!isSaving && isRecentlyModified && (
                 <Badge variant="outline" className="text-green-600 border-green-600 dark:text-green-400 dark:border-green-400 text-xs">
@@ -1038,7 +1036,6 @@ export function PreferencesTab() {
                   <div className="flex items-center gap-2">
                     <h4 className="font-medium text-sm">{pref.label}</h4>
                     {isSaving && (
-                      <IconLoader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
                     )}
                     {!isSaving && isRecentlyModified && (
                       <Badge variant="outline" className="text-green-600 border-green-600 dark:text-green-400 dark:border-green-400 text-xs">

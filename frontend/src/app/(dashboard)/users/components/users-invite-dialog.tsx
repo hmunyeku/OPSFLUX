@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { z } from "zod"
 import { useForm } from "react-hook-form"
-import { IconMailPlus, IconSend, IconLoader2 } from "@tabler/icons-react"
+import { IconMailPlus, IconSend } from "@tabler/icons-react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "@/hooks/use-toast"
 import { useTranslation } from "@/hooks/use-translation"
@@ -300,7 +300,7 @@ export function UsersInviteDialog({ open, onOpenChange, onUserCreated }: Props) 
             >
               {isSubmitting ? (
                 <>
-                  <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+                  
                   {t("invite_dialog.sending", "Envoi...")}
                 </>
               ) : (

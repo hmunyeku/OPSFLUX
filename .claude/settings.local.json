@@ -91,7 +91,9 @@
       "Bash(wc:*)",
       "Bash(for file in bookmarks-dropdown.tsx bookmarks.tsx language-switcher.tsx notifications-panel.tsx)",
       "Bash(do echo \"=== $file ===\")",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(for file in language-switcher notifications-panel)",
+      "Bash(do echo \"Processing $file.tsx...\" grep -n \"Loader2\" /etc/dokploy/compose/perenco-opsflux-gwxapr/code/frontend/src/components/header/$file.tsx)"
     ],
     "deny": [],
     "ask": []

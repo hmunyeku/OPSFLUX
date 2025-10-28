@@ -11,7 +11,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
-import { Star, StarOff, ExternalLink, Loader2, Plus } from "lucide-react"
+import { Star, StarOff, ExternalLink, Plus } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { toast } from "@/hooks/use-toast"
 import {
@@ -270,9 +271,10 @@ export function Bookmarks() {
         <DropdownMenuSeparator />
 
         {isLoading ? (
-          <div className="py-8 text-center">
-            <Loader2 className="h-8 w-8 mx-auto text-muted-foreground mb-2 animate-spin" />
-            <p className="text-sm text-muted-foreground">Chargement...</p>
+          <div className="py-4 px-2 space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
           </div>
         ) : !hasBookmarks ? (
           <div className="py-8 text-center">

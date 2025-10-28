@@ -35,7 +35,7 @@ import { Role } from "../roles/data/schema"
 import { getAddressTypes, createAddress, type AddressType } from "../data/addresses-api"
 import { AddressInput, type AddressData } from "@/components/ui/address-input"
 import { useState, useEffect, useMemo } from "react"
-import { IconLoader2, IconCheck, IconX } from "@tabler/icons-react"
+import { IconCheck, IconX } from "@tabler/icons-react"
 
 interface Props {
   currentRow?: User
@@ -566,7 +566,7 @@ export function UsersActionDialog({ currentRow, open, onOpenChange, onUserCreate
               disabled={isSubmitting || isLoadingRoles}
               className="w-full sm:w-auto"
             >
-              {isSubmitting && <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />}
+              
               {isSubmitting ? t("create_dialog.saving", "Enregistrement...") : t("create_dialog.save_changes", "Enregistrer")}
             </Button>
           </div>

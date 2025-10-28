@@ -15,7 +15,6 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
-import { Upload, Loader2 } from "lucide-react"
 import { checkForNewModules } from "@/lib/module-loader"
 
 export function UploadModuleDialog() {
@@ -136,7 +135,6 @@ export function UploadModuleDialog() {
             onClick={handleUpload}
             disabled={!file || uploading}
           >
-            {uploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {uploading ? "Installation..." : "Installer"}
           </Button>
         </DialogFooter>

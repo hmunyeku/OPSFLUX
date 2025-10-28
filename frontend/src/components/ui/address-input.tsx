@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
-import { MapPin, Search, Loader2 } from "lucide-react"
+import { MapPin, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface AddressType {
@@ -237,7 +237,7 @@ export function AddressInput({
               required={required}
             />
             {isGeocoding && (
-              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+              
             )}
           </div>
         </div>
@@ -355,7 +355,7 @@ export function AddressInput({
               className="gap-2"
             >
               {isGeocoding ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                
               ) : (
                 <MapPin className="h-4 w-4" />
               )}

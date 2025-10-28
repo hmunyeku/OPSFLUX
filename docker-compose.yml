@@ -29,6 +29,16 @@ services:
       - ADMINER_DESIGN=pepa-linha-dark
       - BACKEND_URL=http://backend:8000
     labels:
+      - traefik.http.routers.perenco-opsflux-gwxapr-14-web.rule=Host(`adminer.opsflux.io`)
+      - traefik.http.routers.perenco-opsflux-gwxapr-14-web.entrypoints=web
+      - traefik.http.services.perenco-opsflux-gwxapr-14-web.loadbalancer.server.port=8080
+      - traefik.http.routers.perenco-opsflux-gwxapr-14-web.service=perenco-opsflux-gwxapr-14-web
+      - traefik.http.routers.perenco-opsflux-gwxapr-14-web.middlewares=redirect-to-https@file
+      - traefik.http.routers.perenco-opsflux-gwxapr-14-websecure.rule=Host(`adminer.opsflux.io`)
+      - traefik.http.routers.perenco-opsflux-gwxapr-14-websecure.entrypoints=websecure
+      - traefik.http.services.perenco-opsflux-gwxapr-14-websecure.loadbalancer.server.port=8080
+      - traefik.http.routers.perenco-opsflux-gwxapr-14-websecure.service=perenco-opsflux-gwxapr-14-websecure
+      - traefik.http.routers.perenco-opsflux-gwxapr-14-websecure.tls.certresolver=letsencrypt
       - traefik.enable=true
       - traefik.docker.network=dokploy-network
       - traefik.constraint-label=dokploy-network
@@ -79,7 +89,6 @@ services:
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
       - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
       - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER:-}
-  # Worker haute priorité - 2 process pour tâches urgentes
   celery-worker-high:
     image: ${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}
     restart: always
@@ -118,8 +127,6 @@ services:
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
       - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
       - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER:-}
-
-  # Worker priorité normale - 4 process pour tâches standard
   celery-worker-default:
     image: ${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}
     restart: always
@@ -158,8 +165,6 @@ services:
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
       - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
       - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER:-}
-
-  # Worker basse priorité - 2 process pour tâches longues/lourdes
   celery-worker-low:
     image: ${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}
     restart: always
@@ -285,6 +290,16 @@ services:
     build:
       context: ./backend
     labels:
+      - traefik.http.routers.perenco-opsflux-gwxapr-4-web.rule=Host(`api.opsflux.io`)
+      - traefik.http.routers.perenco-opsflux-gwxapr-4-web.entrypoints=web
+      - traefik.http.services.perenco-opsflux-gwxapr-4-web.loadbalancer.server.port=8000
+      - traefik.http.routers.perenco-opsflux-gwxapr-4-web.service=perenco-opsflux-gwxapr-4-web
+      - traefik.http.routers.perenco-opsflux-gwxapr-4-web.middlewares=redirect-to-https@file
+      - traefik.http.routers.perenco-opsflux-gwxapr-4-websecure.rule=Host(`api.opsflux.io`)
+      - traefik.http.routers.perenco-opsflux-gwxapr-4-websecure.entrypoints=websecure
+      - traefik.http.services.perenco-opsflux-gwxapr-4-websecure.loadbalancer.server.port=8000
+      - traefik.http.routers.perenco-opsflux-gwxapr-4-websecure.service=perenco-opsflux-gwxapr-4-websecure
+      - traefik.http.routers.perenco-opsflux-gwxapr-4-websecure.tls.certresolver=letsencrypt
       - traefik.enable=true
       - traefik.docker.network=dokploy-network
       - traefik.constraint-label=dokploy-network
@@ -319,6 +334,16 @@ services:
       - NEXT_PUBLIC_API_URL=https://api.${DOMAIN?Variable not set}
       - NODE_ENV=production
     labels:
+      - traefik.http.routers.perenco-opsflux-gwxapr-3-web.rule=Host(`app.opsflux.io`)
+      - traefik.http.routers.perenco-opsflux-gwxapr-3-web.entrypoints=web
+      - traefik.http.services.perenco-opsflux-gwxapr-3-web.loadbalancer.server.port=80
+      - traefik.http.routers.perenco-opsflux-gwxapr-3-web.service=perenco-opsflux-gwxapr-3-web
+      - traefik.http.routers.perenco-opsflux-gwxapr-3-web.middlewares=redirect-to-https@file
+      - traefik.http.routers.perenco-opsflux-gwxapr-3-websecure.rule=Host(`app.opsflux.io`)
+      - traefik.http.routers.perenco-opsflux-gwxapr-3-websecure.entrypoints=websecure
+      - traefik.http.services.perenco-opsflux-gwxapr-3-websecure.loadbalancer.server.port=80
+      - traefik.http.routers.perenco-opsflux-gwxapr-3-websecure.service=perenco-opsflux-gwxapr-3-websecure
+      - traefik.http.routers.perenco-opsflux-gwxapr-3-websecure.tls.certresolver=letsencrypt
       - traefik.enable=true
       - traefik.docker.network=dokploy-network
       - traefik.constraint-label=dokploy-network

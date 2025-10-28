@@ -86,7 +86,8 @@
       "Bash(node scripts/build-modules.js:*)",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjE0OTc2MjQsInN1YiI6ImRlM2E2ZDIzLWNjOGYtNDY2Mi1hZGI5LTRjYmU2YzdhNWI0NCIsInR5cGUiOiJhY2Nlc3MifQ.PvYkzNBX82YHQnrCP0eCDVQApnLG3g58DWfxOvYLuzc\" docker exec perenco-opsflux-gwxapr-backend-1 curl -s -w \"\\nHTTP: %{http_code}\\n\" -H \"Authorization: Bearer $TOKEN\" http://localhost:8000/api/v1/modules/third_parties/frontend/module.config.js)",
       "Bash(git restore:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(git remote set-url:*)"
     ],
     "deny": [],
     "ask": []

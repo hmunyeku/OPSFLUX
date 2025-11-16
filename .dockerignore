@@ -1,0 +1,19 @@
+# Ignore node_modules in frontend
+frontend/node_modules
+frontend/.next
+frontend/.vercel
+frontend/*.log
+frontend/.DS_Store
+frontend/.env*.local
+
+# Ignore backend artifacts
+backend/__pycache__
+backend/*.pyc
+backend/.pytest_cache
+backend/.mypy_cache
+backend/.coverage
+backend/htmlcov
+
+# Ignore git files
+.git
+.gitignore

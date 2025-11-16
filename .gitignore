@@ -109,3 +109,4 @@ Thumbs.db
 
 # Claude Code (settings should be kept in git)
 # .claude/settings.local.json peut être ignoré si contient config personnelle
+.claude/settings.local.json

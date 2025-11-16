@@ -336,12 +336,12 @@ services:
     labels:
       - traefik.http.routers.perenco-opsflux-gwxapr-3-web.rule=Host(`app.opsflux.io`)
       - traefik.http.routers.perenco-opsflux-gwxapr-3-web.entrypoints=web
-      - traefik.http.services.perenco-opsflux-gwxapr-3-web.loadbalancer.server.port=80
+      - traefik.http.services.perenco-opsflux-gwxapr-3-web.loadbalancer.server.port=3000
       - traefik.http.routers.perenco-opsflux-gwxapr-3-web.service=perenco-opsflux-gwxapr-3-web
       - traefik.http.routers.perenco-opsflux-gwxapr-3-web.middlewares=redirect-to-https@file
       - traefik.http.routers.perenco-opsflux-gwxapr-3-websecure.rule=Host(`app.opsflux.io`)
       - traefik.http.routers.perenco-opsflux-gwxapr-3-websecure.entrypoints=websecure
-      - traefik.http.services.perenco-opsflux-gwxapr-3-websecure.loadbalancer.server.port=80
+      - traefik.http.services.perenco-opsflux-gwxapr-3-websecure.loadbalancer.server.port=3000
       - traefik.http.routers.perenco-opsflux-gwxapr-3-websecure.service=perenco-opsflux-gwxapr-3-websecure
       - traefik.http.routers.perenco-opsflux-gwxapr-3-websecure.tls.certresolver=letsencrypt
       - traefik.enable=true

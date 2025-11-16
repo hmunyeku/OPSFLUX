@@ -39,6 +39,9 @@ from app.models_rbac import (
     UserRoleLink,
     UserGroupLink,
     UserPermissionLink,
+    Permission,
+    RolePermissionLink,
+    GroupPermissionLink,
 )
 from app.utils import generate_new_account_email, send_email
 
@@ -67,16 +70,14 @@ def read_users(
 
     # Load RBAC data if requested
     if with_rbac:
-        from app.models_rbac import UserRole, UserGroup, Role, Group, RolePermission, Permission
-
         # Convert users to list of dicts with RBAC data
         users_with_rbac = []
         for user in users:
             # Get user roles with their permissions
             user_roles_statement = (
                 select(Role)
-                .join(UserRole, UserRole.role_id == Role.id)
-                .where(UserRole.user_id == user.id)
+                .join(UserRoleLink, UserRoleLink.role_id == Role.id)
+                .where(UserRoleLink.user_id == user.id)
                 .where(Role.deleted_at == None)
             )
             user_roles = session.exec(user_roles_statement).all()
@@ -84,8 +85,8 @@ def read_users(
             # Get user groups
             user_groups_statement = (
                 select(Group)
-                .join(UserGroup, UserGroup.group_id == Group.id)
-                .where(UserGroup.user_id == user.id)
+                .join(UserGroupLink, UserGroupLink.group_id == Group.id)
+                .where(UserGroupLink.user_id == user.id)
                 .where(Group.deleted_at == None)
             )
             user_groups = session.exec(user_groups_statement).all()
@@ -95,8 +96,8 @@ def read_users(
             for role in user_roles:
                 role_perms_statement = (
                     select(Permission)
-                    .join(RolePermission, RolePermission.permission_id == Permission.id)
-                    .where(RolePermission.role_id == role.id)
+                    .join(RolePermissionLink, RolePermissionLink.permission_id == Permission.id)
+                    .where(RolePermissionLink.role_id == role.id)
                     .where(Permission.deleted_at == None)
                 )
                 role_perms = session.exec(role_perms_statement).all()
@@ -280,14 +281,11 @@ async def read_user_me(
         return current_user
 
     # Load RBAC information
-    from app.models_rbac import UserRole, UserGroup, Role, Group, RolePermission, GroupPermission
-    from sqlmodel import select
-
     # Get user roles
     user_roles_statement = (
         select(Role)
-        .join(UserRole, UserRole.role_id == Role.id)
-        .where(UserRole.user_id == current_user.id)
+        .join(UserRoleLink, UserRoleLink.role_id == Role.id)
+        .where(UserRoleLink.user_id == current_user.id)
         .where(Role.deleted_at == None)
     )
     user_roles = session.exec(user_roles_statement).all()
@@ -295,8 +293,8 @@ async def read_user_me(
     # Get user groups
     user_groups_statement = (
         select(Group)
-        .join(UserGroup, UserGroup.group_id == Group.id)
-        .where(UserGroup.user_id == current_user.id)
+        .join(UserGroupLink, UserGroupLink.group_id == Group.id)
+        .where(UserGroupLink.user_id == current_user.id)
         .where(Group.deleted_at == None)
     )
     user_groups = session.exec(user_groups_statement).all()
@@ -307,8 +305,8 @@ async def read_user_me(
     # Permissions from roles
     for role in user_roles:
         role_perms_statement = (
-            select(RolePermission.permission_code)
-            .where(RolePermission.role_id == role.id)
+            select(RolePermissionLink.permission_code)
+            .where(RolePermissionLink.role_id == role.id)
         )
         role_perms = session.exec(role_perms_statement).all()
         permissions_set.update(role_perms)
@@ -316,8 +314,8 @@ async def read_user_me(
     # Permissions from groups
     for group in user_groups:
         group_perms_statement = (
-            select(GroupPermission.permission_code)
-            .where(GroupPermission.group_id == group.id)
+            select(GroupPermissionLink.permission_code)
+            .where(GroupPermissionLink.group_id == group.id)
         )
         group_perms = session.exec(group_perms_statement).all()
         permissions_set.update(group_perms)

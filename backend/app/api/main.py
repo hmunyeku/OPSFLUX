@@ -10,7 +10,11 @@ from app.api.routes import (
     backups,
     bookmarks,
     cache,
+    companies,
+    contacts,
+    custom_blocks,
     dashboards,
+    dashboards_system,
     database,
     developer_analytics,
     email_templates,
@@ -26,14 +30,23 @@ from app.api.routes import (
     permissions,
     private,
     queue,
+    report_audit,
+    report_collaborators,
+    report_comments,
+    report_exports,
+    report_templates,
+    report_versions,
+    reports,
     roles,
     scheduled_tasks,
     search,
     security,
     settings as settings_routes,
+    stay_requests,
     storage,
     system_health,
     tasks,
+    travelwiz,
     twofa,
     user_api_keys,
     user_invitations,
@@ -70,13 +83,28 @@ api_router.include_router(user_invitations.router)  # User invitations managemen
 api_router.include_router(webhooks.router)  # Webhooks management
 api_router.include_router(hooks.router)  # Hooks & Triggers system
 api_router.include_router(tasks.router)  # Tasks management
+api_router.include_router(stay_requests.router)  # Stay Requests (POB) management
+api_router.include_router(companies.router)  # Companies (Tiers) management
+api_router.include_router(contacts.router)  # Contacts (Tiers) management
+api_router.include_router(travelwiz.router)  # TravelWiz - Back Cargo System
 api_router.include_router(bookmarks.router)  # Bookmarks management
 api_router.include_router(audit.router, prefix="/audit", tags=["Audit"])  # Audit logs
 api_router.include_router(modules.router)  # Module management system with upload & hot reload
+
+# REDACTEUR Module - Professional report writing assistant
+api_router.include_router(reports.router)  # Reports CRUD
+api_router.include_router(report_templates.router)  # Report templates (gabarits)
+api_router.include_router(report_collaborators.router)  # Report collaborators & sharing
+api_router.include_router(report_comments.router)  # Report comments with threading
+api_router.include_router(report_versions.router)  # Report versioning & history
+api_router.include_router(report_exports.router)  # Report exports (PDF, Word, Excel)
+api_router.include_router(report_audit.router)  # Report audit logs & AI suggestions
+api_router.include_router(custom_blocks.router)  # Custom configurable blocks
 api_router.include_router(languages.router)  # Multilingual (i18n) system
 api_router.include_router(email_templates.router)  # Email templates management
 api_router.include_router(user_preferences.router)  # User preferences (UI + modules)
-api_router.include_router(dashboards.router)  # Dashboards & Widgets system
+api_router.include_router(dashboards.router)  # Dashboards & Widgets system (legacy)
+api_router.include_router(dashboards_system.router)  # Dashboards V2 - Advanced customizable system
 api_router.include_router(widgets.router)  # Widget catalog
 
 # CORE Services API

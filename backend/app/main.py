@@ -5,6 +5,8 @@ from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 from contextlib import asynccontextmanager
 import logging
 
@@ -17,6 +19,29 @@ from app.core.module_loader import ModuleLoader
 from app.core.api_key_auth import get_api_key_or_token
 
 logger = logging.getLogger(__name__)
+
+
+class CORSRedirectMiddleware(BaseHTTPMiddleware):
+    """
+    Middleware to add CORS headers to redirect and error responses.
+    This fixes issues where redirect/error responses don't include CORS headers.
+    """
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+
+        # Add CORS headers for redirects, 401, 403, and other error responses if Origin header is present
+        if "origin" in request.headers:
+            origin = request.headers["origin"]
+            # Check if origin is allowed
+            if origin in settings.all_cors_origins:
+                # Always add CORS headers for auth errors and redirects
+                if response.status_code in (301, 302, 303, 307, 308, 401, 403):
+                    response.headers["Access-Control-Allow-Origin"] = origin
+                    response.headers["Access-Control-Allow-Credentials"] = "true"
+                    response.headers["Access-Control-Allow-Methods"] = "*"
+                    response.headers["Access-Control-Allow-Headers"] = "*"
+
+        return response
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
@@ -124,6 +149,8 @@ if settings.all_cors_origins:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    # Add custom middleware to handle CORS headers in redirect responses
+    app.add_middleware(CORSRedirectMiddleware)
 
 # Add proxy headers middleware to handle X-Forwarded-* headers
 # This ensures redirects use HTTPS when behind a reverse proxy

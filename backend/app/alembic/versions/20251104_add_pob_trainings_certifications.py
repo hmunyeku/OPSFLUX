@@ -1,7 +1,7 @@
 """Add POB trainings, certifications, and periods
 
 Revision ID: 20251104_000000
-Revises: 20251102_add_stay_requests_pob
+Revises: 20250104_000000
 Create Date: 2025-11-04 12:00:00.000000
 
 """
@@ -12,7 +12,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = '20251104_000000'
-down_revision = '20251102_add_stay_requests_pob'
+down_revision = '20250104_000000'
 branch_labels = None
 depends_on = None
 

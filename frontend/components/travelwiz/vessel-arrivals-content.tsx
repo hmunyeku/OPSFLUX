@@ -22,7 +22,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
-import { travelwizAPI } from "@/api/travelwiz"
+import { travelwizAPI } from "@/src/api/travelwiz"
 import {
   VesselArrivalStatusEnum,
   VesselTypeEnum,

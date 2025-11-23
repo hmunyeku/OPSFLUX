@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { travelwizAPI } from "@/api/travelwiz"
+import { travelwizAPI } from "@/src/api/travelwiz"
 import type {
   BackCargoTypeEnum,
   DestinationTypeEnum,

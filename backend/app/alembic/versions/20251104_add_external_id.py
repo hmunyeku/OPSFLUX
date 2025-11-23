@@ -1,7 +1,7 @@
 """add external_id column to all tables
 
 Revision ID: 20251104_add_external_id
-Revises: 21fa56201f3d
+Revises: 20250104_000000
 Create Date: 2025-11-04 16:15:00.000000
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '20251104_add_external_id'
-down_revision = '21fa56201f3d'
+down_revision = '20251104_000000'
 branch_labels = None
 depends_on = None
 
@@ -46,7 +46,7 @@ def upgrade():
                 -- Only add if doesn't exist
                 IF NOT has_column THEN
                     EXECUTE format('ALTER TABLE %I ADD COLUMN external_id VARCHAR(255) NULL', table_record.table_name);
-                    EXECUTE format('CREATE UNIQUE INDEX ix_%I_external_id ON %I (external_id) WHERE external_id IS NOT NULL', table_record.table_name, table_record.table_name);
+                    EXECUTE format('CREATE UNIQUE INDEX %I ON %I (external_id) WHERE external_id IS NOT NULL', 'ix_' || table_record.table_name || '_external_id', table_record.table_name);
                 END IF;
             END LOOP;
         END $$;
@@ -75,7 +75,7 @@ def downgrade():
                     AND column_name = 'external_id'
                 )
             LOOP
-                EXECUTE format('DROP INDEX IF EXISTS ix_%I_external_id', table_record.table_name);
+                EXECUTE format('DROP INDEX IF EXISTS %I', 'ix_' || table_record.table_name || '_external_id');
                 EXECUTE format('ALTER TABLE %I DROP COLUMN IF EXISTS external_id', table_record.table_name);
             END LOOP;
         END $$;

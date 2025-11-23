@@ -1,14 +1,13 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useRef, useEffect } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, Shield, AlertCircle, ArrowLeft, CheckCircle2 } from "lucide-react"
+import { Loader2, ArrowLeft } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface TwoFactorFormProps {
@@ -27,14 +26,12 @@ export function TwoFactorForm({ onBack }: TwoFactorFormProps) {
   }, [])
 
   const handleChange = (index: number, value: string) => {
-    // Only allow digits
     if (value && !/^\d+$/.test(value)) return
 
     const newCode = [...code]
-    newCode[index] = value.slice(-1) // Only take the last character
+    newCode[index] = value.slice(-1)
     setCode(newCode)
 
-    // Auto-focus next input
     if (value && index < 5) {
       inputRefs.current[index + 1]?.focus()
     }
@@ -56,8 +53,6 @@ export function TwoFactorForm({ onBack }: TwoFactorFormProps) {
     }
 
     setCode(newCode)
-
-    // Focus the next empty input or the last one
     const nextIndex = Math.min(pastedData.length, 5)
     inputRefs.current[nextIndex]?.focus()
   }
@@ -73,7 +68,7 @@ export function TwoFactorForm({ onBack }: TwoFactorFormProps) {
     try {
       await verifyTwoFactor(fullCode)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Code de vérification invalide")
+      setError(err instanceof Error ? err.message : "Code de verification invalide")
       setCode(["", "", "", "", "", ""])
       inputRefs.current[0]?.focus()
     } finally {
@@ -85,34 +80,22 @@ export function TwoFactorForm({ onBack }: TwoFactorFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Icon & Description */}
-      <div className="text-center space-y-4">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 ring-8 ring-primary/5">
-          <Shield className="h-8 w-8 text-primary" />
-        </div>
-        <p className="text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto">
-          Entrez le code de vérification à 6 chiffres généré par votre application d'authentification
-        </p>
-      </div>
-
       {error && (
-        <Alert variant="destructive" className="animate-in fade-in slide-in-from-top-1 duration-300">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
+        <Alert variant="destructive" className="animate-in fade-in slide-in-from-top-1 duration-200">
+          <AlertDescription className="text-sm">{error}</AlertDescription>
         </Alert>
       )}
 
       <div className="space-y-4">
         <Label className="text-sm font-medium text-center block">
-          Code de vérification
+          Code de verification
         </Label>
 
-        {/* OTP Input */}
         <div className="flex justify-center gap-2" onPaste={handlePaste}>
           {code.map((digit, index) => (
             <Input
               key={index}
-              ref={(el) => (inputRefs.current[index] = el)}
+              ref={(el) => { inputRefs.current[index] = el }}
               type="text"
               inputMode="numeric"
               maxLength={1}
@@ -120,67 +103,46 @@ export function TwoFactorForm({ onBack }: TwoFactorFormProps) {
               onChange={(e) => handleChange(index, e.target.value)}
               onKeyDown={(e) => handleKeyDown(index, e)}
               className={cn(
-                "w-12 h-14 text-center text-2xl font-semibold transition-all",
-                digit && "border-primary ring-2 ring-primary/20",
-                !digit && "border-input"
+                "w-11 h-12 sm:w-12 sm:h-14 text-center text-xl sm:text-2xl font-semibold transition-all",
+                digit && "border-primary ring-2 ring-primary/20"
               )}
               disabled={isLoading}
               autoComplete="off"
             />
           ))}
         </div>
+
+        <p className="text-xs text-muted-foreground text-center">
+          Entrez le code genere par votre application d'authentification
+        </p>
       </div>
 
       <div className="space-y-3">
         <Button
           type="submit"
-          className="w-full h-11 font-medium group"
+          className="w-full h-11 font-medium"
           disabled={isLoading || !isCodeComplete}
         >
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Vérification en cours...
+              Verification...
             </>
           ) : (
-            <>
-              <CheckCircle2 className="mr-2 h-4 w-4 transition-transform group-hover:scale-110" />
-              Vérifier le code
-            </>
+            "Verifier"
           )}
         </Button>
 
         <Button
           type="button"
-          variant="outline"
-          className="w-full h-11"
+          variant="ghost"
+          className="w-full h-11 text-muted-foreground"
           onClick={onBack}
           disabled={isLoading}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Retour à la connexion
+          Retour
         </Button>
-      </div>
-
-      {/* Demo Info */}
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center">
-          <span className="w-full border-t" />
-        </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-card px-2 text-muted-foreground font-medium">
-            Mode démo
-          </span>
-        </div>
-      </div>
-
-      <div className="bg-muted/50 rounded-lg p-4 border border-border/50">
-        <p className="text-xs text-center text-muted-foreground">
-          Code de test :{" "}
-          <code className="px-2 py-1 rounded bg-background border font-mono text-sm font-semibold text-foreground">
-            123456
-          </code>
-        </p>
       </div>
     </form>
   )

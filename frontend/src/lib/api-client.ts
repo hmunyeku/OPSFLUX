@@ -10,7 +10,7 @@ export class ApiClient {
   }
 
   private getHeaders(): HeadersInit {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
 
     const headers: HeadersInit = {
       'Content-Type': 'application/json',

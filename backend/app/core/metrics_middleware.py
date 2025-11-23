@@ -8,6 +8,7 @@ Ce middleware mesure automatiquement :
 - Les utilisateurs actifs (active_users)
 """
 import time
+import traceback
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
@@ -75,8 +76,8 @@ class MetricsMiddleware(BaseHTTPMiddleware):
             return response
 
         except Exception as e:
-            # En cas d'exception non catchée
-            logger.error(f"Unhandled exception in request {method} {endpoint}: {e}")
+            # En cas d'exception non catchée - log avec traceback complet
+            logger.error(f"Unhandled exception in request {method} {endpoint}: {e}\n{traceback.format_exc()}")
             metrics_service.increment(
                 "errors_total",
                 labels={"type": "exception", "module": "http"}

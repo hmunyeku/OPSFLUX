@@ -4,7 +4,16 @@ import { useState, useEffect } from "react"
 
 export type ServerStatus = "connected" | "connecting" | "disconnected"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.opsflux.io'
+// Get API URL - use proxy on localhost to avoid CORS
+const getApiUrl = (): string => {
+  if (typeof window !== 'undefined') {
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (isLocalhost) {
+      return ''; // Use Next.js proxy
+    }
+  }
+  return process.env.NEXT_PUBLIC_API_URL || '';
+};
 
 interface ServerStatusState {
   status: ServerStatus
@@ -29,10 +38,11 @@ export function useServerStatus() {
 
     const checkServerStatus = async () => {
       const startTime = Date.now()
+      const apiUrl = getApiUrl()
 
       try {
         // Appeler l'endpoint health check public existant
-        const response = await fetch(`${API_URL}/api/v1/utils/health-check/`, {
+        const response = await fetch(`${apiUrl}/api/v1/utils/health-check/`, {
           method: "GET",
           signal: AbortSignal.timeout(5000), // Timeout de 5 secondes
         })

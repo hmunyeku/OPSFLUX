@@ -5,8 +5,11 @@ Système de dashboards personnalisables avec widgets dynamiques
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 from uuid import UUID
+
+if TYPE_CHECKING:
+    from app.models import User
 
 from sqlmodel import Column, Field, JSON, Relationship, SQLModel
 from app.models import AbstractBaseModel
@@ -258,3 +261,28 @@ class DashboardView(AbstractBaseModel, table=True):
     duration_seconds: Optional[int] = Field(default=None)
     device_type: Optional[str] = Field(default=None, max_length=50)  # "mobile", "tablet", "desktop"
     ip_address: Optional[str] = Field(default=None, max_length=45)
+
+
+class UserDashboard(AbstractBaseModel, table=True):
+    """Préférences utilisateur pour les dashboards"""
+    __tablename__ = "user_dashboards"
+
+    user_id: UUID = Field(foreign_key="users.id")
+    dashboard_id: UUID = Field(foreign_key="dashboards.id")
+
+    # Préférences d'affichage
+    is_pinned: bool = Field(default=False)
+    is_default: bool = Field(default=False)
+    display_order: int = Field(default=0)
+
+    # Layout personnalisé (override du layout du dashboard)
+    custom_layout_mobile: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+    custom_layout_tablet: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+    custom_layout_desktop: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+
+    # Configuration widgets personnalisée
+    hidden_widgets: Optional[list] = Field(default=None, sa_column=Column(JSON))  # IDs des widgets masqués
+    widget_overrides: Optional[dict] = Field(default=None, sa_column=Column(JSON))  # Config widgets personnalisée
+
+    # Dernière consultation
+    last_viewed_at: Optional[datetime] = Field(default=None)

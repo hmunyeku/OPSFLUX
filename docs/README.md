@@ -1,7 +1,7 @@
 # 📚 Documentation OpsFlux
 
-> **Version :** 4.0 - Architecture UI Complète
-> **Dernière mise à jour :** 28 Octobre 2025
+> **Version :** 5.0 - Next.js Migration
+> **Dernière mise à jour :** 21 Novembre 2025
 
 ---
 
@@ -22,7 +22,7 @@ docs/
 ### 🤖 **Instructions Claude Code**
 Fichiers d'instructions pour le développement assisté par IA (Claude Code).
 
-- **[CLAUDE.md](instructions/CLAUDE.md)** - Instructions maître complètes
+- **[instructions.md](../.claude/instructions.md)** - Instructions maître Claude Code
   - Autorisations et interdictions
   - Stack technique détaillée
   - Workflow de développement
@@ -61,7 +61,7 @@ Documents historiques et analyses précédentes (conservés pour référence).
 ## 🎯 **Liens Rapides**
 
 ### Pour les Développeurs
-- [Instructions Claude complètes](instructions/CLAUDE.md)
+- [Instructions Claude complètes](../.claude/instructions.md)
 - [Guide développement local](deployment/development.md)
 - [Architecture RBAC](architecture/RBAC_ARCHITECTURE.md)
 
@@ -85,12 +85,12 @@ Documents historiques et analyses précédentes (conservés pour référence).
 - **Tasks** : Celery + Beat
 
 ### Frontend
-- **Framework** : React 18.3 + TypeScript 5.3 + Vite 5.1
-- **UI** : Radix UI (primitives headless) + Tailwind CSS 3.4+
-- **Routing** : TanStack Router v1
-- **State** : TanStack Query v5 + Zustand v4
+- **Framework** : Next.js 16.0.0 + React 19 + TypeScript 5.x
+- **UI** : Radix UI (primitives headless) + Tailwind CSS 4.x
+- **State** : TanStack Query v5 + Zustand v5
 - **Forms** : React Hook Form + Zod
 - **Icons** : Lucide React
+- **Build** : Standalone output pour Docker
 
 ### Infrastructure
 - **Containers** : Docker + Docker Compose

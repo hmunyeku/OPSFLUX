@@ -230,6 +230,7 @@ async def get_database_health(
 @router.get("/cache")
 @require_permission("core.system.health.read")
 async def get_cache_health(
+    db: AsyncSession = Depends(get_db),
     current_user: CurrentUser = None
 ) -> Dict[str, Any]:
     """Détails de santé du cache Redis"""
@@ -239,6 +240,7 @@ async def get_cache_health(
 @router.get("/workers")
 @require_permission("core.system.health.read")
 async def get_workers_health(
+    db: AsyncSession = Depends(get_db),
     current_user: CurrentUser = None
 ) -> Dict[str, Any]:
     """Détails de santé des workers Celery"""
@@ -248,6 +250,7 @@ async def get_workers_health(
 @router.get("/system")
 @require_permission("core.system.health.read")
 async def get_system_resources_health(
+    db: AsyncSession = Depends(get_db),
     current_user: CurrentUser = None
 ) -> Dict[str, Any]:
     """Détails des ressources système"""

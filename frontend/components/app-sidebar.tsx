@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import {
   ChevronRight,
   Home,
@@ -64,9 +65,12 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { Badge } from "@/components/ui/badge"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
+import { cn } from "@/lib/utils"
 import { useFavorites } from "@/lib/favorites-context"
 import { usePermissions } from "@/lib/permissions-context"
 import {
@@ -111,6 +115,7 @@ const menuItems: MenuItem[] = [
     children: [
       { icon: FolderKanban, label: "Projets", badge: 8, href: "/projects/list" },
       { icon: ListTodo, label: "Tâches", badge: 24, href: "/projects/tasks" },
+      { icon: CalendarDays, label: "Calendrier", href: "/projects/calendar" },
       { icon: GanttChart, label: "Gantt", href: "/projects/gantt" },
       { icon: BarChart3, label: "Suivi", href: "/projects/tracking" },
       { icon: Plus, label: "Nouveau Projet", href: "/projects/new" },
@@ -225,12 +230,188 @@ const systemMenuItems: MenuItem[] = [
   },
 ]
 
+// Hover submenu component for collapsed sidebar
+interface HoverSubmenuProps {
+  item: MenuItem
+  children: MenuItem[]
+  dashboards?: DashboardPublic[]
+  activeItem: string
+  setActiveItem: (item: string) => void
+  isCollapsed: boolean
+  defaultOpen?: boolean
+  isParentActive?: boolean
+}
+
+function CollapsibleMenuItem({
+  item,
+  children,
+  dashboards = [],
+  activeItem,
+  setActiveItem,
+  isCollapsed,
+  defaultOpen = false,
+  isParentActive = false,
+}: HoverSubmenuProps) {
+  const allChildren = [
+    ...children,
+    ...dashboards.map((d) => ({
+      icon: d.menu_icon
+        ? (Icons[d.menu_icon as keyof typeof Icons] as React.ElementType) || Icons.LayoutDashboard
+        : Icons.LayoutDashboard,
+      label: d.menu_label,
+      href: `/dashboards-system/${d.id}`,
+      badge: d.is_home_page ? "Home" : undefined,
+    })),
+  ]
+
+  // When collapsed, show hover card
+  if (isCollapsed) {
+    return (
+      <HoverCard openDelay={0} closeDelay={100}>
+        <HoverCardTrigger asChild>
+          <SidebarMenuButton
+            className={cn(
+              "cursor-pointer",
+              isParentActive && "bg-accent text-accent-foreground"
+            )}
+          >
+            <item.icon className={cn(
+              "h-5 w-5 transition-colors",
+              isParentActive && "text-primary"
+            )} />
+            <span className="font-medium">{item.label}</span>
+          </SidebarMenuButton>
+        </HoverCardTrigger>
+        <HoverCardContent
+          side="right"
+          align="start"
+          sideOffset={8}
+          className="w-56 p-1"
+        >
+          <div className="flex flex-col">
+            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground border-b mb-1">
+              {item.label}
+            </div>
+            {allChildren.map((child) => (
+              <Link
+                key={child.label}
+                href={child.href || "#"}
+                onClick={() => child.href && setActiveItem(child.href)}
+                className={cn(
+                  "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
+                  "hover:bg-accent hover:text-accent-foreground",
+                  activeItem === child.href && "bg-accent text-accent-foreground font-medium"
+                )}
+              >
+                <child.icon className="h-3.5 w-3.5" />
+                <span className="flex-1">{child.label}</span>
+                {child.badge && (
+                  <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+                    {child.badge}
+                  </Badge>
+                )}
+              </Link>
+            ))}
+          </div>
+        </HoverCardContent>
+      </HoverCard>
+    )
+  }
+
+  // When expanded, show collapsible
+  return (
+    <Collapsible defaultOpen={defaultOpen} className="group/collapsible">
+      <CollapsibleTrigger asChild>
+        <SidebarMenuButton tooltip={item.label}>
+          <item.icon className="h-4 w-4 group-data-[state=open]/collapsible:text-primary" />
+          <span className="font-medium">{item.label}</span>
+          <ChevronRight className="ml-auto h-3 w-3 transition-transform group-data-[state=open]/collapsible:rotate-90" />
+        </SidebarMenuButton>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <SidebarMenuSub>
+          {children.map((child) => (
+            <SidebarMenuSubItem key={child.label}>
+              <SidebarMenuSubButton
+                asChild
+                isActive={activeItem === child.href}
+                onClick={() => child.href && setActiveItem(child.href)}
+              >
+                <Link href={child.href || "#"}>
+                  <child.icon className="h-3 w-3" />
+                  <span>{child.label}</span>
+                  {child.badge && (
+                    <Badge variant="secondary" className="ml-auto h-5 px-1.5 text-[10px]">
+                      {child.badge}
+                    </Badge>
+                  )}
+                </Link>
+              </SidebarMenuSubButton>
+            </SidebarMenuSubItem>
+          ))}
+          {dashboards.map((dashboard) => {
+            const DashboardIcon = dashboard.menu_icon
+              ? (Icons[dashboard.menu_icon as keyof typeof Icons] as React.ComponentType<{ className?: string }>)
+              : Icons.LayoutDashboard
+            const dashboardHref = `/dashboards-system/${dashboard.id}`
+
+            return (
+              <SidebarMenuSubItem key={dashboard.id}>
+                <SidebarMenuSubButton
+                  asChild
+                  isActive={activeItem === dashboardHref}
+                  onClick={() => setActiveItem(dashboardHref)}
+                >
+                  <Link href={dashboardHref}>
+                    {DashboardIcon && <DashboardIcon className="h-3 w-3" />}
+                    <span>{dashboard.menu_label}</span>
+                    {dashboard.is_home_page && (
+                      <Badge variant="secondary" className="ml-auto h-5 px-1.5 text-[10px]">
+                        Home
+                      </Badge>
+                    )}
+                  </Link>
+                </SidebarMenuSubButton>
+              </SidebarMenuSubItem>
+            )
+          })}
+        </SidebarMenuSub>
+      </CollapsibleContent>
+    </Collapsible>
+  )
+}
+
 export function AppSidebar() {
+  const pathname = usePathname()
   const [activeItem, setActiveItem] = React.useState("/logistics/shipments")
   const { favorites } = useFavorites()
   const { hasPermission, hasAnyPermission, hasAllPermissions, isLoading } = usePermissions()
   const [dashboards, setDashboards] = React.useState<DashboardPublic[]>([])
   const [dashboardsLoading, setDashboardsLoading] = React.useState(true)
+  const { state } = useSidebar()
+  const isCollapsed = state === "collapsed"
+
+  // Helper to check if menu item is the parent of current path
+  const isMenuParentOfCurrentPage = React.useCallback(
+    (item: MenuItem, menuDashboards: DashboardPublic[] = []) => {
+      // Check children
+      if (item.children) {
+        for (const child of item.children) {
+          if (child.href && pathname.startsWith(child.href)) {
+            return true
+          }
+        }
+      }
+      // Check dashboards
+      for (const d of menuDashboards) {
+        if (pathname === `/dashboards-system/${d.id}`) {
+          return true
+        }
+      }
+      return false
+    },
+    [pathname]
+  )
 
   // Charger les dashboards
   React.useEffect(() => {
@@ -244,6 +425,7 @@ export function AppSidebar() {
         setDashboards(response.data.filter((d) => d.show_in_sidebar))
       } catch (error) {
         console.error("Error loading dashboards:", error)
+        setDashboards([])
       } finally {
         setDashboardsLoading(false)
       }
@@ -341,41 +523,83 @@ export function AppSidebar() {
             {/* Favoris Menu - Hidden when no favorites */}
             {favorites.length > 0 && (
               <SidebarMenuItem>
-                <Collapsible defaultOpen={favorites.length > 0} className="group/collapsible">
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton tooltip="Favoris">
-                      <Star className="h-4 w-4 group-data-[state=open]/collapsible:text-primary group-data-[state=open]/collapsible:fill-primary" />
-                      <span className="font-medium">Favoris</span>
-                      <Badge variant="secondary" className="ml-auto h-5 px-1.5 text-[10px]">
-                        {favorites.length}
-                      </Badge>
-                      <ChevronRight className="ml-auto h-3 w-3 transition-transform group-data-[state=open]/collapsible:rotate-90" />
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <SidebarMenuSub>
-                      {favorites.map((favorite) => (
-                        <SidebarMenuSubItem key={favorite.id}>
-                          <SidebarMenuSubButton
-                            asChild
-                            isActive={activeItem === favorite.path}
+                {isCollapsed ? (
+                  <HoverCard openDelay={0} closeDelay={100}>
+                    <HoverCardTrigger asChild>
+                      <SidebarMenuButton className="cursor-pointer">
+                        <Star className="h-5 w-5 fill-primary text-primary" />
+                        <span className="font-medium">Favoris</span>
+                      </SidebarMenuButton>
+                    </HoverCardTrigger>
+                    <HoverCardContent
+                      side="right"
+                      align="start"
+                      sideOffset={8}
+                      className="w-56 p-1"
+                    >
+                      <div className="flex flex-col">
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground border-b mb-1 flex items-center gap-2">
+                          <Star className="h-3 w-3 fill-primary text-primary" />
+                          Favoris
+                          <Badge variant="secondary" className="ml-auto h-4 px-1 text-[9px]">
+                            {favorites.length}
+                          </Badge>
+                        </div>
+                        {favorites.map((favorite) => (
+                          <Link
+                            key={favorite.id}
+                            href={favorite.path}
                             onClick={() => setActiveItem(favorite.path)}
+                            className={cn(
+                              "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
+                              "hover:bg-accent hover:text-accent-foreground",
+                              activeItem === favorite.path && "bg-accent text-accent-foreground font-medium"
+                            )}
                           >
-                            <Link href={favorite.path} title={favorite.title}>
-                              <Star className="h-3 w-3 fill-primary text-primary" />
-                              <span className="truncate">{favorite.title}</span>
-                              {favorite.category && (
-                                <Badge variant="outline" className="ml-auto h-4 px-1 text-[9px] hidden xl:flex">
-                                  {favorite.category}
-                                </Badge>
-                              )}
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ))}
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
-                </Collapsible>
+                            <Star className="h-3.5 w-3.5 fill-primary text-primary" />
+                            <span className="flex-1 truncate">{favorite.title}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    </HoverCardContent>
+                  </HoverCard>
+                ) : (
+                  <Collapsible defaultOpen={favorites.length > 0} className="group/collapsible">
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton tooltip="Favoris">
+                        <Star className="h-4 w-4 group-data-[state=open]/collapsible:text-primary group-data-[state=open]/collapsible:fill-primary" />
+                        <span className="font-medium">Favoris</span>
+                        <Badge variant="secondary" className="ml-auto h-5 px-1.5 text-[10px]">
+                          {favorites.length}
+                        </Badge>
+                        <ChevronRight className="ml-auto h-3 w-3 transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {favorites.map((favorite) => (
+                          <SidebarMenuSubItem key={favorite.id}>
+                            <SidebarMenuSubButton
+                              asChild
+                              isActive={activeItem === favorite.path}
+                              onClick={() => setActiveItem(favorite.path)}
+                            >
+                              <Link href={favorite.path} title={favorite.title}>
+                                <Star className="h-3 w-3 fill-primary text-primary" />
+                                <span className="truncate">{favorite.title}</span>
+                                {favorite.category && (
+                                  <Badge variant="outline" className="ml-auto h-4 px-1 text-[9px] hidden xl:flex">
+                                    {favorite.category}
+                                  </Badge>
+                                )}
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
               </SidebarMenuItem>
             )}
 
@@ -383,71 +607,21 @@ export function AppSidebar() {
             {filteredMenuItems.map((item) => {
               const menuEnum = menuLabelToEnum[item.label]
               const menuDashboards = menuEnum ? (dashboardsByMenu[menuEnum] || []) : []
+              const isParentActive = isMenuParentOfCurrentPage(item, menuDashboards)
 
               return (
                 <SidebarMenuItem key={item.label}>
                   {item.children || menuDashboards.length > 0 ? (
-                    <Collapsible defaultOpen={item.label === "Pilotage"} className="group/collapsible">
-                      <CollapsibleTrigger asChild>
-                        <SidebarMenuButton tooltip={item.label}>
-                          <item.icon className="h-4 w-4 group-data-[state=open]/collapsible:text-primary" />
-                          <span className="font-medium">{item.label}</span>
-                          <ChevronRight className="ml-auto h-3 w-3 transition-transform group-data-[state=open]/collapsible:rotate-90" />
-                        </SidebarMenuButton>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <SidebarMenuSub>
-                          {/* Static menu children */}
-                          {item.children?.map((child) => (
-                            <SidebarMenuSubItem key={child.label}>
-                              <SidebarMenuSubButton
-                                asChild
-                                isActive={activeItem === child.href}
-                                onClick={() => child.href && setActiveItem(child.href)}
-                              >
-                                <Link href={child.href || "#"}>
-                                  <child.icon className="h-3 w-3 group-data-[collapsible=icon]:text-primary" />
-                                  <span>{child.label}</span>
-                                  {child.badge && (
-                                    <Badge variant="secondary" className="ml-auto h-5 px-1.5 text-[10px]">
-                                      {child.badge}
-                                    </Badge>
-                                  )}
-                                </Link>
-                              </SidebarMenuSubButton>
-                            </SidebarMenuSubItem>
-                          ))}
-
-                          {/* Dynamic dashboards for this menu */}
-                          {menuDashboards.map((dashboard) => {
-                            const DashboardIcon = dashboard.menu_icon
-                              ? (Icons[dashboard.menu_icon as keyof typeof Icons] as React.ComponentType<{ className?: string }>)
-                              : Icons.LayoutDashboard
-                            const dashboardHref = `/dashboards-system/${dashboard.id}`
-
-                            return (
-                              <SidebarMenuSubItem key={dashboard.id}>
-                                <SidebarMenuSubButton
-                                  asChild
-                                  isActive={activeItem === dashboardHref}
-                                  onClick={() => setActiveItem(dashboardHref)}
-                                >
-                                  <Link href={dashboardHref}>
-                                    {DashboardIcon && <DashboardIcon className="h-3 w-3 group-data-[collapsible=icon]:text-primary" />}
-                                    <span>{dashboard.menu_label}</span>
-                                    {dashboard.is_home_page && (
-                                      <Badge variant="secondary" className="ml-auto h-5 px-1.5 text-[10px]">
-                                        Home
-                                      </Badge>
-                                    )}
-                                  </Link>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                            )
-                          })}
-                        </SidebarMenuSub>
-                      </CollapsibleContent>
-                    </Collapsible>
+                    <CollapsibleMenuItem
+                      item={item}
+                      children={item.children || []}
+                      dashboards={menuDashboards}
+                      activeItem={activeItem}
+                      setActiveItem={setActiveItem}
+                      isCollapsed={isCollapsed}
+                      defaultOpen={item.label === "Pilotage"}
+                      isParentActive={isParentActive}
+                    />
                   ) : (
                     <SidebarMenuButton
                       asChild
@@ -477,36 +651,19 @@ export function AppSidebar() {
       <SidebarFooter className="border-t">
         <SidebarGroup>
           <SidebarMenu>
-            {filteredSystemMenuItems.map((item) => (
+            {filteredSystemMenuItems.map((item) => {
+              const isParentActive = isMenuParentOfCurrentPage(item)
+              return (
               <SidebarMenuItem key={item.label}>
                 {item.children ? (
-                  <Collapsible className="group/collapsible">
-                    <CollapsibleTrigger asChild>
-                      <SidebarMenuButton tooltip={item.label}>
-                        <item.icon className="h-4 w-4 group-data-[state=open]/collapsible:text-primary" />
-                        <span className="font-medium">{item.label}</span>
-                        <ChevronRight className="ml-auto h-3 w-3 transition-transform group-data-[state=open]/collapsible:rotate-90" />
-                      </SidebarMenuButton>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <SidebarMenuSub>
-                        {item.children.map((child) => (
-                          <SidebarMenuSubItem key={child.label}>
-                            <SidebarMenuSubButton
-                              asChild
-                              isActive={activeItem === child.href}
-                              onClick={() => child.href && setActiveItem(child.href)}
-                            >
-                              <Link href={child.href || "#"}>
-                                <child.icon className="h-3 w-3 group-data-[collapsible=icon]:text-primary" />
-                                <span>{child.label}</span>
-                              </Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ))}
-                      </SidebarMenuSub>
-                    </CollapsibleContent>
-                  </Collapsible>
+                  <CollapsibleMenuItem
+                    item={item}
+                    children={item.children}
+                    activeItem={activeItem}
+                    setActiveItem={setActiveItem}
+                    isCollapsed={isCollapsed}
+                    isParentActive={isParentActive}
+                  />
                 ) : (
                   <SidebarMenuButton
                     asChild
@@ -521,7 +678,7 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 )}
               </SidebarMenuItem>
-            ))}
+            )})}
           </SidebarMenu>
         </SidebarGroup>
       </SidebarFooter>

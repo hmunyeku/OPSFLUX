@@ -357,3 +357,57 @@ class DashboardClone(BaseModel):
     new_name: str
     copy_widgets: bool = Field(default=True)
     menu_parent: Optional[MenuParentEnum] = None
+
+
+# ============================================================================
+# USER DASHBOARD SCHEMAS (Préférences utilisateur)
+# ============================================================================
+
+class UserDashboardBase(BaseModel):
+    """Base user dashboard preferences schema"""
+    is_pinned: bool = Field(default=False)
+    is_default: bool = Field(default=False)
+    display_order: int = Field(default=0)
+    custom_layout_mobile: Optional[dict] = None
+    custom_layout_tablet: Optional[dict] = None
+    custom_layout_desktop: Optional[dict] = None
+    hidden_widgets: Optional[list[str]] = None
+    widget_overrides: Optional[dict] = None
+
+
+class UserDashboardCreate(UserDashboardBase):
+    """Schema for creating user dashboard preferences"""
+    dashboard_id: UUID
+
+
+class UserDashboardUpdate(BaseModel):
+    """Schema for updating user dashboard preferences"""
+    is_pinned: Optional[bool] = None
+    is_default: Optional[bool] = None
+    display_order: Optional[int] = None
+    custom_layout_mobile: Optional[dict] = None
+    custom_layout_tablet: Optional[dict] = None
+    custom_layout_desktop: Optional[dict] = None
+    hidden_widgets: Optional[list[str]] = None
+    widget_overrides: Optional[dict] = None
+
+
+class UserDashboardPublic(UserDashboardBase):
+    """Public user dashboard preferences schema"""
+    id: UUID
+    user_id: UUID
+    dashboard_id: UUID
+    last_viewed_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class UserDashboardsPublic(BaseModel):
+    """List of user dashboard preferences"""
+    data: list[UserDashboardPublic]
+    count: int
+
+
+class UserDashboardWithDashboard(UserDashboardPublic):
+    """User dashboard with full dashboard info"""
+    dashboard: DashboardPublic

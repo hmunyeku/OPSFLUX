@@ -1,9 +1,11 @@
 import { DashboardViewer } from "@/components/dashboard/dashboard-viewer"
+import { use } from "react"
 
 export default function DashboardPage({
   params,
 }: {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }) {
-  return <DashboardViewer dashboardId={params.id} />
+  const { id } = use(params)
+  return <DashboardViewer dashboardId={id} />
 }

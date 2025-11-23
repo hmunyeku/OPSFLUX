@@ -11,6 +11,7 @@ export function CacheContent() {
   const [stats, setStats] = useState<CacheStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isHealthy, setIsHealthy] = useState<boolean | null>(null)
+  const [healthMessage, setHealthMessage] = useState<string | null>(null)
   const [isClearing, setIsClearing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
@@ -29,6 +30,7 @@ export function CacheContent() {
       ])
       setStats(statsData)
       setIsHealthy(healthData.healthy)
+      setHealthMessage(healthData.message || null)
     } catch (error) {
       console.error('Failed to load cache data:', error)
       setError("Impossible de charger les données du cache")
@@ -91,7 +93,7 @@ export function CacheContent() {
         {isHealthy !== null && (
           <Badge variant={isHealthy ? "default" : "destructive"} className="gap-1 h-6 text-[10px]">
             {isHealthy ? <CheckCircle2 className="h-2.5 w-2.5" /> : <XCircle className="h-2.5 w-2.5" />}
-            {isHealthy ? "Connecté" : "Déconnecté"}
+            {isHealthy ? "Connecté" : (healthMessage || "Déconnecté")}
           </Badge>
         )}
       </div>

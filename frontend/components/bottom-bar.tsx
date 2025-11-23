@@ -103,14 +103,14 @@ export function BottomBar() {
             <SheetHeader className="px-6 py-4 border-b">
               <SheetTitle className="flex items-center gap-2">
                 <Lightbulb className="h-5 w-5 text-primary" />
-                {pageHelp.title}
+                {pageHelp?.title || "Aide"}
               </SheetTitle>
-              <p className="text-xs text-muted-foreground mt-1">{pageHelp.description}</p>
+              <p className="text-xs text-muted-foreground mt-1">{pageHelp?.description || "Aucune aide disponible pour cette page"}</p>
             </SheetHeader>
             <div className="p-6">
               <ScrollArea className="h-[calc(100vh-120px)]">
                 <div className="space-y-4">
-                  {pageHelp.sections.map((section, sectionIdx) => {
+                  {pageHelp?.sections?.map((section, sectionIdx) => {
                     const IconComponent = iconMap[section.icon] || HelpCircle
                     return (
                       <Card key={sectionIdx}>

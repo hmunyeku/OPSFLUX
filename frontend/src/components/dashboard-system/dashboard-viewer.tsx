@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { DashboardWithWidgets, WidgetPublic } from "@/types/dashboard-system";
-import { dashboardSystemAPI } from "@/api/dashboard-system";
+import { dashboardSystemAPI } from "@/src/api/dashboard-system";
 import { Loader2, RefreshCw, Maximize2, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";

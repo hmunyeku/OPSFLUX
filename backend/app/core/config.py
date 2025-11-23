@@ -44,9 +44,16 @@ class Settings(BaseSettings):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def all_cors_origins(self) -> list[str]:
-        return [str(origin).rstrip("/") for origin in self.BACKEND_CORS_ORIGINS] + [
+        origins = [str(origin).rstrip("/") for origin in self.BACKEND_CORS_ORIGINS] + [
             self.FRONTEND_HOST
         ]
+        # Add localhost:3000 for Next.js development
+        if self.ENVIRONMENT == "local":
+            origins.extend([
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+            ])
+        return origins
 
     PROJECT_NAME: str
     SENTRY_DSN: HttpUrl | None = None

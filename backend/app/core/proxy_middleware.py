@@ -10,6 +10,8 @@ from starlette.requests import Request
 from starlette.responses import Response
 from typing import Callable
 
+from app.core.config import settings
+
 
 class ProxyHeadersMiddleware(BaseHTTPMiddleware):
     """
@@ -18,11 +20,16 @@ class ProxyHeadersMiddleware(BaseHTTPMiddleware):
     Ce middleware lit les headers X-Forwarded-Proto, X-Forwarded-Host, X-Forwarded-Port
     envoyés par le reverse proxy et met à jour la requête pour que FastAPI
     génère des URLs correctes dans les redirects.
+
+    En environnement local, HTTP est utilisé par défaut.
     """
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        # En local, utiliser http par défaut; sinon https
+        default_proto = "http" if settings.ENVIRONMENT == "local" else "https"
+
         # Lire les headers de proxy
-        forwarded_proto = request.headers.get("X-Forwarded-Proto", "https")
+        forwarded_proto = request.headers.get("X-Forwarded-Proto", default_proto)
         forwarded_host = request.headers.get("X-Forwarded-Host")
         forwarded_port = request.headers.get("X-Forwarded-Port")
 
@@ -39,8 +46,8 @@ class ProxyHeadersMiddleware(BaseHTTPMiddleware):
         # Traiter la requête
         response = await call_next(request)
 
-        # Si c'est un redirect, forcer HTTPS dans la location
-        if response.status_code in (301, 302, 303, 307, 308):
+        # Si c'est un redirect et on n'est pas en local, forcer HTTPS dans la location
+        if settings.ENVIRONMENT != "local" and response.status_code in (301, 302, 303, 307, 308):
             location = response.headers.get("location", "")
             if location.startswith("http://"):
                 # Remplacer http:// par https://

@@ -12,7 +12,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
-import { travelwizAPI } from "@/api/travelwiz"
+import { travelwizAPI } from "@/src/api/travelwiz"
 import {
   PackagingTypeEnum,
   DestinationTypeEnum,

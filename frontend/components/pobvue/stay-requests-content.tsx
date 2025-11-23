@@ -1,8 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { mockStayRequests, type StayRequest } from "@/lib/pobvue-data"
-import { StayRequestsApi, type StayRequest as ApiStayRequest } from "@/lib/stay-requests-api"
+import { StayRequestsApi, type ApiStayRequest } from "@/lib/stay-requests-api"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -58,6 +57,31 @@ import {
   parseDateFromInput,
   getMinEndDate,
 } from "@/src/lib/date-validations"
+
+// Types for stay requests (matching API response)
+type RequestStatus = "draft" | "pending" | "in-validation" | "approved" | "rejected" | "cancelled"
+
+interface StayRequestValidator {
+  name: string
+  level: number
+  status: "pending" | "approved" | "rejected"
+  date?: string
+}
+
+interface StayRequest {
+  id: string
+  person: string
+  site: string
+  startDate: string
+  endDate: string
+  reason: string
+  status: RequestStatus
+  createdAt: string
+  validationLevel: number
+  totalLevels: number
+  validators: StayRequestValidator[]
+  project: string
+}
 
 const statusColors = {
   draft: "bg-gray-500/10 text-gray-700 dark:text-gray-400",
@@ -158,9 +182,10 @@ export function StayRequestsContent() {
   }, [])
 
   const loadRequests = async () => {
+    setIsLoading(true)
+    setError(null)
+
     try {
-      setIsLoading(true)
-      setError(null)
       const response = await StayRequestsApi.listStayRequests({ limit: 1000 })
 
       // Transform API requests to match component format
@@ -170,7 +195,7 @@ export function StayRequestsContent() {
         site: apiReq.site,
         startDate: apiReq.start_date,
         endDate: apiReq.end_date,
-        reason: apiReq.reason,
+        reason: apiReq.reason || "",
         status: apiReq.status as RequestStatus,
         createdAt: apiReq.created_at,
         validationLevel: apiReq.validation_level,
@@ -181,15 +206,14 @@ export function StayRequestsContent() {
           status: v.status as "pending" | "approved" | "rejected",
           date: v.validation_date || undefined,
         })),
-        project: apiReq.project,
+        project: apiReq.project || "",
       }))
 
       setRequests(transformedRequests)
     } catch (err) {
       console.error('Failed to load stay requests:', err)
-      setError('Échec du chargement des demandes. Utilisation des données de test.')
-      // Fallback to mock data
-      setRequests(mockStayRequests)
+      setError('Échec du chargement des demandes de séjour.')
+      setRequests([])
     } finally {
       setIsLoading(false)
     }

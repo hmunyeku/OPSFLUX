@@ -10,7 +10,7 @@ from app.core.models import AbstractBaseModel
 if TYPE_CHECKING:
     from app.models_rbac import Role, Group, UserRoleLink, UserGroupLink
     from app.models_api_keys import UserApiKey
-    from app.models_dashboard import Dashboard, UserDashboard
+    from app.models_dashboards import Dashboard, UserDashboard
 
 
 # Shared properties
@@ -91,7 +91,7 @@ class User(AbstractBaseModel, UserBase, table=True):
     webhooks: list["Webhook"] = Relationship(back_populates="user", cascade_delete=True)
     tasks: list["Task"] = Relationship(back_populates="assigned_user")
     user_api_keys: list["UserApiKey"] = Relationship(back_populates="user", cascade_delete=True)
-    user_dashboards: list["UserDashboard"] = Relationship(back_populates="user", cascade_delete=True)
+    # user_dashboards: list["UserDashboard"] = Relationship(back_populates="user", cascade_delete=True)  # TODO: Fix circular import
 
     # RBAC relationships are managed via RBAC routes, not directly here
     # to avoid circular import issues. The relationships are defined in models_rbac.
@@ -776,4 +776,7 @@ from app import models_api_keys  # noqa: F401, E402
 
 # Import UserDashboard to ensure it's loaded before SQLAlchemy mapper initialization
 # This prevents "UserDashboard failed to locate" error
-from app import models_dashboard  # noqa: F401, E402
+from app import models_dashboards  # noqa: F401, E402
+
+# Import Project models for Gantt chart functionality
+from app import models_projects  # noqa: F401, E402

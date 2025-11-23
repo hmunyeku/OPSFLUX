@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { dashboardSystemAPI } from "@/api/dashboard-system";
+import { dashboardSystemAPI } from "@/src/api/dashboard-system";
 import { DashboardPublic, MenuParentEnum, DashboardCreate, DashboardUpdate } from "@/types/dashboard-system";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

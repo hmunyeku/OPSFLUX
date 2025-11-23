@@ -56,7 +56,7 @@ export function EditorContent({ documentId, collaborative = true }: EditorConten
           setDocument(doc)
           setTitle(doc.title)
           // Convert blocks to HTML for Tiptap (simplified)
-          const html = doc.blocks
+          const html = (doc.blocks || [])
             .map((block) => {
               if (block.type === "heading") {
                 const level = block.content.level || 1
@@ -150,7 +150,7 @@ export function EditorContent({ documentId, collaborative = true }: EditorConten
           <div>
             <label className="text-[10px] text-muted-foreground">Tags</label>
             <div className="mt-1 flex flex-wrap gap-1">
-              {document.tags.map((tag) => (
+              {(document.tags || []).map((tag) => (
                 <Badge key={tag} variant="secondary" className="h-5 text-[10px]">
                   {tag}
                 </Badge>
@@ -171,7 +171,7 @@ export function EditorContent({ documentId, collaborative = true }: EditorConten
                   <p className="text-[9px] text-muted-foreground">Auteur</p>
                 </div>
               </div>
-              {document.collaborators.map((collab) => (
+              {(document.collaborators || []).map((collab) => (
                 <div key={collab.id} className="flex items-center gap-2">
                   <img src={collab.avatar || "/placeholder.svg"} alt="" className="h-6 w-6 rounded-full" />
                   <div className="flex-1">
@@ -190,7 +190,7 @@ export function EditorContent({ documentId, collaborative = true }: EditorConten
           <div>
             <label className="text-[10px] text-muted-foreground">Historique des Versions</label>
             <div className="mt-2 space-y-2">
-              {document.versions
+              {(document.versions || [])
                 .slice(-3)
                 .reverse()
                 .map((version) => (
@@ -244,7 +244,7 @@ export function EditorContent({ documentId, collaborative = true }: EditorConten
                   alt={document.author.name}
                   className="h-6 w-6 rounded-full border-2 border-background"
                 />
-                {document.collaborators.slice(0, 2).map((collab) => (
+                {(document.collaborators || []).slice(0, 2).map((collab) => (
                   <img
                     key={collab.id}
                     src={collab.avatar || "/placeholder.svg"}

@@ -28,9 +28,18 @@ import {
   WidgetUpdate,
 } from "@/types/dashboard-system";
 
-// Use full API URL for production (Next.js rewrites don't work in standalone mode)
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.opsflux.io'
-const API_BASE = `${API_URL}/api/v1/dashboards-system`;
+// Get API base URL - use proxy on localhost to avoid CORS
+const getApiUrl = (): string => {
+  if (typeof window !== 'undefined') {
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (isLocalhost) {
+      return ''; // Use Next.js proxy
+    }
+  }
+  return process.env.NEXT_PUBLIC_API_URL || '';
+};
+
+const API_BASE = '/api/v1/dashboards-system';
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -40,7 +49,8 @@ async function fetchAPI<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const token = localStorage.getItem("access_token");
+  const token = localStorage.getItem("auth_token");
+  const apiUrl = getApiUrl();
 
   const headers: HeadersInit = {
     "Content-Type": "application/json",
@@ -48,7 +58,7 @@ async function fetchAPI<T>(
     ...options.headers,
   };
 
-  const response = await fetch(`${API_BASE}${endpoint}`, {
+  const response = await fetch(`${apiUrl}${API_BASE}${endpoint}`, {
     ...options,
     headers,
     credentials: 'include',

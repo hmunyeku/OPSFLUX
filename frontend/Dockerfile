@@ -18,6 +18,12 @@ RUN pnpm install --no-frozen-lockfile
 FROM base AS builder
 WORKDIR /app
 
+# Build args for Next.js public env vars (must be set at build time)
+# NEXT_PUBLIC_API_URL is empty for client-side - uses Next.js proxy
+# BACKEND_URL is for server-side proxy to backend container
+ARG NEXT_PUBLIC_API_URL=""
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/package*.json ./

@@ -20,12 +20,13 @@ export function TrackingContent() {
   const avgProgress = projects.reduce((sum, p) => sum + p.progress, 0) / projects.length
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("fr-FR", {
-      style: "currency",
-      currency: "EUR",
-      notation: "compact",
-      maximumFractionDigits: 1,
-    }).format(amount)
+    // Manual formatting to avoid hydration mismatch with Intl.NumberFormat
+    if (amount >= 1000000) {
+      return `${(amount / 1000000).toFixed(1).replace(".", ",")} M €`
+    } else if (amount >= 1000) {
+      return `${(amount / 1000).toFixed(0)} k €`
+    }
+    return `${amount.toFixed(0)} €`
   }
 
   return (
@@ -213,7 +214,7 @@ export function TrackingContent() {
 
                 <div className="flex items-center gap-2 text-[10px]">
                   <span className="text-muted-foreground">Équipe:</span>
-                  <span className="font-medium">{project.team.length} membres</span>
+                  <span className="font-medium">{(project.team || []).length} membres</span>
                   <span className="text-muted-foreground">• Manager: {project.manager}</span>
                 </div>
               </div>

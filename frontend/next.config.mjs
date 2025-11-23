@@ -1,12 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
+  // Disable automatic trailing slash redirect for API routes
+  skipTrailingSlashRedirect: true,
   // Force new build ID to invalidate browser cache
   generateBuildId: async () => {
     return 'build-' + Date.now();
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
   },
   typescript: {
     ignoreBuildErrors: true,
@@ -14,17 +13,8 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Proxy API requests to backend
-  async rewrites() {
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.opsflux.io';
-
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${backendUrl}/:path*`,
-      },
-    ];
-  },
+  // API proxy is handled by app/api/v1/[...path]/route.ts
+  // This ensures proper proxying in standalone mode without redirects
 }
 
 export default nextConfig

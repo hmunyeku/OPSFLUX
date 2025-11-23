@@ -20,6 +20,40 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # Create user table first (required by foreign keys)
+    op.create_table(
+        'user',
+        sa.Column('id', sa.UUID(), nullable=False),
+        sa.Column('external_id', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=True),
+        sa.Column('email', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=False),
+        sa.Column('is_active', sa.Boolean(), nullable=False, server_default='true'),
+        sa.Column('is_superuser', sa.Boolean(), nullable=False, server_default='false'),
+        sa.Column('full_name', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=True),
+        sa.Column('first_name', sqlmodel.sql.sqltypes.AutoString(length=100), nullable=True),
+        sa.Column('last_name', sqlmodel.sql.sqltypes.AutoString(length=100), nullable=True),
+        sa.Column('initials', sqlmodel.sql.sqltypes.AutoString(length=10), nullable=True),
+        sa.Column('recovery_email', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=True),
+        sa.Column('avatar_url', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+        sa.Column('intranet_identifier', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=True),
+        sa.Column('civility', sqlmodel.sql.sqltypes.AutoString(length=10), nullable=True),
+        sa.Column('birth_date', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+        sa.Column('extension', sqlmodel.sql.sqltypes.AutoString(length=20), nullable=True),
+        sa.Column('signature', sqlmodel.sql.sqltypes.AutoString(length=500), nullable=True),
+        sa.Column('signature_image', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+        sa.Column('hashed_password', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column('password_history', postgresql.JSON(astext_type=sa.Text()), nullable=True),
+        sa.Column('phone_numbers', postgresql.JSON(astext_type=sa.Text()), nullable=True),
+        sa.Column('created_at', sa.DateTime(), nullable=False),
+        sa.Column('updated_at', sa.DateTime(), nullable=False),
+        sa.Column('deleted_at', sa.DateTime(), nullable=True),
+        sa.Column('created_by_id', sa.UUID(), nullable=True),
+        sa.Column('updated_by_id', sa.UUID(), nullable=True),
+        sa.Column('deleted_by_id', sa.UUID(), nullable=True),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_user_email'), 'user', ['email'], unique=True)
+    op.create_index(op.f('ix_user_external_id'), 'user', ['external_id'], unique=True)
+
     # Create scheduled_tasks table
     op.create_table(
         'scheduled_tasks',
@@ -59,3 +93,6 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_index(op.f('ix_scheduled_tasks_name'), table_name='scheduled_tasks')
     op.drop_table('scheduled_tasks')
+    op.drop_index(op.f('ix_user_external_id'), table_name='user')
+    op.drop_index(op.f('ix_user_email'), table_name='user')
+    op.drop_table('user')

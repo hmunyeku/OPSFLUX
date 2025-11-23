@@ -1,369 +1,323 @@
+# ============================================================================
+# OpsFlux Docker Compose Configuration
+# ============================================================================
+# Configuration 100% via .env - Pas de valeurs en dur
+#
+# Modes d'utilisation:
+#   DEV LOCAL:   docker-compose --profile local up -d
+#   PROD:        docker-compose up -d  (utilise DB/Redis externes)
+#   PROD LOCAL:  docker-compose --profile local up -d  (avec DB/Redis locaux)
+# ============================================================================
+
 services:
+  # ==========================================================================
+  # DATABASE - PostgreSQL (optionnel, utiliser profile "local" pour activer)
+  # ==========================================================================
+  db:
+    image: postgres:16
+    profiles: ["local"]
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-opsflux_user} -d $${POSTGRES_DB:-opsflux}"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 5s
+    volumes:
+      - app-db-data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-opsflux_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Variable POSTGRES_PASSWORD required}
+      - POSTGRES_DB=${POSTGRES_DB:-opsflux}
+    ports:
+      - "${POSTGRES_EXPOSE_PORT:-5432}:5432"
+    networks:
+      - default
+
+  # ==========================================================================
+  # CACHE - Redis (optionnel, utiliser profile "local" pour activer)
+  # ==========================================================================
   redis:
     image: redis:7-alpine
+    profiles: ["local"]
     restart: always
     command: redis-server --appendonly yes
     healthcheck:
-      test:
-        - CMD
-        - redis-cli
-        - ping
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       retries: 5
       start_period: 10s
       timeout: 3s
     volumes:
       - app-redis-data:/data
+    ports:
+      - "${REDIS_EXPOSE_PORT:-6379}:6379"
     networks:
       - default
+
+  # ==========================================================================
+  # ADMINER - Database Admin (optionnel)
+  # ==========================================================================
   adminer:
     build:
       context: ./adminer
       dockerfile: Dockerfile
-    image: ${DOCKER_IMAGE_ADMINER:-opsflux-adminer}:${TAG-latest}
+    image: ${DOCKER_IMAGE_ADMINER:-opsflux-adminer}:${TAG:-latest}
+    profiles: ["local", "adminer"]
     restart: always
     networks:
       - dokploy-network
       - default
     environment:
-      - ADMINER_DESIGN=pepa-linha-dark
+      - ADMINER_DESIGN=${ADMINER_DESIGN:-pepa-linha-dark}
       - BACKEND_URL=http://backend:8000
+    ports:
+      - "${ADMINER_PORT:-8080}:8080"
     labels:
-      - traefik.http.routers.perenco-opsflux-gwxapr-14-web.rule=Host(`adminer.opsflux.io`)
-      - traefik.http.routers.perenco-opsflux-gwxapr-14-web.entrypoints=web
-      - traefik.http.services.perenco-opsflux-gwxapr-14-web.loadbalancer.server.port=8080
-      - traefik.http.routers.perenco-opsflux-gwxapr-14-web.service=perenco-opsflux-gwxapr-14-web
-      - traefik.http.routers.perenco-opsflux-gwxapr-14-web.middlewares=redirect-to-https@file
-      - traefik.http.routers.perenco-opsflux-gwxapr-14-websecure.rule=Host(`adminer.opsflux.io`)
-      - traefik.http.routers.perenco-opsflux-gwxapr-14-websecure.entrypoints=websecure
-      - traefik.http.services.perenco-opsflux-gwxapr-14-websecure.loadbalancer.server.port=8080
-      - traefik.http.routers.perenco-opsflux-gwxapr-14-websecure.service=perenco-opsflux-gwxapr-14-websecure
-      - traefik.http.routers.perenco-opsflux-gwxapr-14-websecure.tls.certresolver=letsencrypt
-      - traefik.enable=true
+      - traefik.enable=${TRAEFIK_ENABLE:-true}
       - traefik.docker.network=dokploy-network
       - traefik.constraint-label=dokploy-network
-      - traefik.http.services.${STACK_NAME?Variable not set}-adminer.loadbalancer.server.port=8080
-      - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-http.rule=Host(`adminer.${DOMAIN?Variable not set}`)
-      - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-http.entrypoints=web
-      - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-http.middlewares=${STACK_NAME?Variable not set}-https-redirect
-      - traefik.http.middlewares.${STACK_NAME?Variable not set}-https-redirect.redirectscheme.scheme=https
-      - traefik.http.middlewares.${STACK_NAME?Variable not set}-https-redirect.redirectscheme.permanent=true
-      - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-https.rule=Host(`adminer.${DOMAIN?Variable not set}`)
-      - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-https.entrypoints=websecure
-      - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-https.tls=true
-      - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-https.tls.certresolver=letsencrypt
+      - traefik.http.services.${STACK_NAME:?Variable STACK_NAME required}-adminer.loadbalancer.server.port=8080
+      - traefik.http.routers.${STACK_NAME}-adminer-http.rule=Host(`adminer.${DOMAIN:?Variable DOMAIN required}`)
+      - traefik.http.routers.${STACK_NAME}-adminer-http.entrypoints=web
+      - traefik.http.routers.${STACK_NAME}-adminer-http.middlewares=${STACK_NAME}-https-redirect
+      - traefik.http.routers.${STACK_NAME}-adminer-https.rule=Host(`adminer.${DOMAIN}`)
+      - traefik.http.routers.${STACK_NAME}-adminer-https.entrypoints=websecure
+      - traefik.http.routers.${STACK_NAME}-adminer-https.tls=true
+      - traefik.http.routers.${STACK_NAME}-adminer-https.tls.certresolver=letsencrypt
+
+  # ==========================================================================
+  # PRESTART - Database migrations & initial setup
+  # ==========================================================================
   prestart:
-    image: ${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}
+    image: ${DOCKER_IMAGE_BACKEND:?Variable DOCKER_IMAGE_BACKEND required}:${TAG:-latest}
     build:
       context: ./backend
     networks:
       - dokploy-network
       - default
-    depends_on:
-      redis:
-        condition: service_healthy
     command: bash scripts/prestart.sh
     env_file:
       - .env
     environment:
-      - DOMAIN=${DOMAIN}
-      - FRONTEND_HOST=${FRONTEND_HOST?Variable not set}
-      - ENVIRONMENT=${ENVIRONMENT}
-      - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS}
-      - SECRET_KEY=${SECRET_KEY?Variable not set}
-      - FIRST_SUPERUSER=${FIRST_SUPERUSER?Variable not set}
-      - FIRST_SUPERUSER_PASSWORD=${FIRST_SUPERUSER_PASSWORD?Variable not set}
-      - SMTP_HOST=${SMTP_HOST}
-      - SMTP_USER=${SMTP_USER}
-      - SMTP_PASSWORD=${SMTP_PASSWORD}
-      - EMAILS_FROM_EMAIL=${EMAILS_FROM_EMAIL}
-      - POSTGRES_SERVER=${POSTGRES_SERVER}
-      - POSTGRES_PORT=${POSTGRES_PORT}
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER?Variable not set}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
-      - SENTRY_DSN=${SENTRY_DSN}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - POSTGRES_SERVER=${POSTGRES_SERVER:?Variable POSTGRES_SERVER required}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB:-opsflux}
+      - POSTGRES_USER=${POSTGRES_USER:?Variable POSTGRES_USER required}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Variable POSTGRES_PASSWORD required}
+      - REDIS_HOST=${REDIS_HOST:?Variable REDIS_HOST required}
+      - REDIS_PORT=${REDIS_PORT:-6379}
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
-      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
-      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
-      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER:-}
-  celery-worker-high:
-    image: ${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}
-    restart: always
-    command: celery -A app.core.queue_service.celery_app worker --loglevel=info --queues=high_priority --concurrency=2 --hostname=high@%h
-    networks:
-      - dokploy-network
-      - default
-    depends_on:
-      redis:
-        condition: service_healthy
-    volumes:
-      - ./modules:/modules
-    env_file:
-      - .env
-    environment:
       - DOMAIN=${DOMAIN}
-      - FRONTEND_HOST=${FRONTEND_HOST?Variable not set}
-      - ENVIRONMENT=${ENVIRONMENT}
-      - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS}
-      - SECRET_KEY=${SECRET_KEY?Variable not set}
-      - FIRST_SUPERUSER=${FIRST_SUPERUSER?Variable not set}
-      - FIRST_SUPERUSER_PASSWORD=${FIRST_SUPERUSER_PASSWORD?Variable not set}
-      - SMTP_HOST=${SMTP_HOST}
-      - SMTP_USER=${SMTP_USER}
-      - SMTP_PASSWORD=${SMTP_PASSWORD}
-      - EMAILS_FROM_EMAIL=${EMAILS_FROM_EMAIL}
-      - POSTGRES_SERVER=${POSTGRES_SERVER}
-      - POSTGRES_PORT=${POSTGRES_PORT}
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER?Variable not set}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
-      - SENTRY_DSN=${SENTRY_DSN}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
-      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
-      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
-      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER:-}
-  celery-worker-default:
-    image: ${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}
-    restart: always
-    command: celery -A app.core.queue_service.celery_app worker --loglevel=info --queues=default --concurrency=4 --hostname=default@%h
-    networks:
-      - dokploy-network
-      - default
-    depends_on:
-      redis:
-        condition: service_healthy
-    volumes:
-      - ./modules:/modules
-    env_file:
-      - .env
-    environment:
-      - DOMAIN=${DOMAIN}
-      - FRONTEND_HOST=${FRONTEND_HOST?Variable not set}
-      - ENVIRONMENT=${ENVIRONMENT}
-      - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS}
-      - SECRET_KEY=${SECRET_KEY?Variable not set}
-      - FIRST_SUPERUSER=${FIRST_SUPERUSER?Variable not set}
-      - FIRST_SUPERUSER_PASSWORD=${FIRST_SUPERUSER_PASSWORD?Variable not set}
-      - SMTP_HOST=${SMTP_HOST}
-      - SMTP_USER=${SMTP_USER}
-      - SMTP_PASSWORD=${SMTP_PASSWORD}
-      - EMAILS_FROM_EMAIL=${EMAILS_FROM_EMAIL}
-      - POSTGRES_SERVER=${POSTGRES_SERVER}
-      - POSTGRES_PORT=${POSTGRES_PORT}
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER?Variable not set}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
-      - SENTRY_DSN=${SENTRY_DSN}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
-      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
-      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
-      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER:-}
-  celery-worker-low:
-    image: ${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}
-    restart: always
-    command: celery -A app.core.queue_service.celery_app worker --loglevel=info --queues=low_priority --concurrency=2 --hostname=low@%h
-    networks:
-      - dokploy-network
-      - default
-    depends_on:
-      redis:
-        condition: service_healthy
-    volumes:
-      - ./modules:/modules
-    env_file:
-      - .env
-    environment:
-      - DOMAIN=${DOMAIN}
-      - FRONTEND_HOST=${FRONTEND_HOST?Variable not set}
-      - ENVIRONMENT=${ENVIRONMENT}
-      - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS}
-      - SECRET_KEY=${SECRET_KEY?Variable not set}
-      - FIRST_SUPERUSER=${FIRST_SUPERUSER?Variable not set}
-      - FIRST_SUPERUSER_PASSWORD=${FIRST_SUPERUSER_PASSWORD?Variable not set}
-      - SMTP_HOST=${SMTP_HOST}
-      - SMTP_USER=${SMTP_USER}
-      - SMTP_PASSWORD=${SMTP_PASSWORD}
-      - EMAILS_FROM_EMAIL=${EMAILS_FROM_EMAIL}
-      - POSTGRES_SERVER=${POSTGRES_SERVER}
-      - POSTGRES_PORT=${POSTGRES_PORT}
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER?Variable not set}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
-      - SENTRY_DSN=${SENTRY_DSN}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
-      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
-      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
-      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER:-}
-  celery-beat:
-    image: ${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}
-    restart: always
-    command: celery -A app.core.queue_service.celery_app beat --loglevel=info
-    networks:
-      - dokploy-network
-      - default
-    depends_on:
-      redis:
-        condition: service_healthy
-    volumes:
-      - ./modules:/modules
-    env_file:
-      - .env
-    environment:
-      - DOMAIN=${DOMAIN}
-      - FRONTEND_HOST=${FRONTEND_HOST?Variable not set}
-      - ENVIRONMENT=${ENVIRONMENT}
-      - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS}
-      - SECRET_KEY=${SECRET_KEY?Variable not set}
-      - FIRST_SUPERUSER=${FIRST_SUPERUSER?Variable not set}
-      - FIRST_SUPERUSER_PASSWORD=${FIRST_SUPERUSER_PASSWORD?Variable not set}
-      - SMTP_HOST=${SMTP_HOST}
-      - SMTP_USER=${SMTP_USER}
-      - SMTP_PASSWORD=${SMTP_PASSWORD}
-      - EMAILS_FROM_EMAIL=${EMAILS_FROM_EMAIL}
-      - POSTGRES_SERVER=${POSTGRES_SERVER}
-      - POSTGRES_PORT=${POSTGRES_PORT}
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER?Variable not set}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
-      - SENTRY_DSN=${SENTRY_DSN}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
-      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
-      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
-      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER:-}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - SECRET_KEY=${SECRET_KEY:?Variable SECRET_KEY required}
+      - FIRST_SUPERUSER=${FIRST_SUPERUSER:?Variable FIRST_SUPERUSER required}
+      - FIRST_SUPERUSER_PASSWORD=${FIRST_SUPERUSER_PASSWORD:?Variable FIRST_SUPERUSER_PASSWORD required}
+
+  # ==========================================================================
+  # BACKEND - FastAPI Application
+  # ==========================================================================
   backend:
-    image: ${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}
+    image: ${DOCKER_IMAGE_BACKEND:?Variable DOCKER_IMAGE_BACKEND required}:${TAG:-latest}
     restart: always
     networks:
       - dokploy-network
       - default
-    depends_on:
-      redis:
-        condition: service_healthy
     volumes:
       - ./modules:/modules
     env_file:
       - .env
     environment:
-      - DOMAIN=${DOMAIN}
-      - FRONTEND_HOST=${FRONTEND_HOST?Variable not set}
-      - ENVIRONMENT=${ENVIRONMENT}
-      - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS}
-      - SECRET_KEY=${SECRET_KEY?Variable not set}
-      - FIRST_SUPERUSER=${FIRST_SUPERUSER?Variable not set}
-      - FIRST_SUPERUSER_PASSWORD=${FIRST_SUPERUSER_PASSWORD?Variable not set}
-      - SMTP_HOST=${SMTP_HOST}
-      - SMTP_USER=${SMTP_USER}
-      - SMTP_PASSWORD=${SMTP_PASSWORD}
-      - EMAILS_FROM_EMAIL=${EMAILS_FROM_EMAIL}
-      - POSTGRES_SERVER=${POSTGRES_SERVER}
-      - POSTGRES_PORT=${POSTGRES_PORT}
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER?Variable not set}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
-      - SENTRY_DSN=${SENTRY_DSN}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - POSTGRES_SERVER=${POSTGRES_SERVER:?Variable POSTGRES_SERVER required}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB:-opsflux}
+      - POSTGRES_USER=${POSTGRES_USER:?Variable POSTGRES_USER required}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Variable POSTGRES_PASSWORD required}
+      - REDIS_HOST=${REDIS_HOST:?Variable REDIS_HOST required}
+      - REDIS_PORT=${REDIS_PORT:-6379}
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - DOMAIN=${DOMAIN}
+      - FRONTEND_HOST=${FRONTEND_HOST:?Variable FRONTEND_HOST required}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS:-}
+      - SECRET_KEY=${SECRET_KEY:?Variable SECRET_KEY required}
+      - FIRST_SUPERUSER=${FIRST_SUPERUSER:?Variable FIRST_SUPERUSER required}
+      - FIRST_SUPERUSER_PASSWORD=${FIRST_SUPERUSER_PASSWORD:?Variable FIRST_SUPERUSER_PASSWORD required}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - EMAILS_FROM_EMAIL=${EMAILS_FROM_EMAIL:-}
+      - EMAILS_FROM_NAME=${EMAILS_FROM_NAME:-OpsFlux}
+      - SENTRY_DSN=${SENTRY_DSN:-}
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
       - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
       - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER:-}
     healthcheck:
-      test:
-        - CMD
-        - curl
-        - -f
-        - http://localhost:8000/api/v1/utils/health-check/
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/utils/health-check/"]
       interval: 10s
       timeout: 5s
       retries: 5
     build:
       context: ./backend
     labels:
-      - traefik.http.routers.perenco-opsflux-gwxapr-4-web.rule=Host(`api.opsflux.io`)
-      - traefik.http.routers.perenco-opsflux-gwxapr-4-web.entrypoints=web
-      - traefik.http.services.perenco-opsflux-gwxapr-4-web.loadbalancer.server.port=8000
-      - traefik.http.routers.perenco-opsflux-gwxapr-4-web.service=perenco-opsflux-gwxapr-4-web
-      - traefik.http.routers.perenco-opsflux-gwxapr-4-web.middlewares=redirect-to-https@file
-      - traefik.http.routers.perenco-opsflux-gwxapr-4-websecure.rule=Host(`api.opsflux.io`)
-      - traefik.http.routers.perenco-opsflux-gwxapr-4-websecure.entrypoints=websecure
-      - traefik.http.services.perenco-opsflux-gwxapr-4-websecure.loadbalancer.server.port=8000
-      - traefik.http.routers.perenco-opsflux-gwxapr-4-websecure.service=perenco-opsflux-gwxapr-4-websecure
-      - traefik.http.routers.perenco-opsflux-gwxapr-4-websecure.tls.certresolver=letsencrypt
-      - traefik.enable=true
+      - traefik.enable=${TRAEFIK_ENABLE:-true}
       - traefik.docker.network=dokploy-network
       - traefik.constraint-label=dokploy-network
-      - traefik.http.services.${STACK_NAME?Variable not set}-backend.loadbalancer.server.port=8000
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.rule=Host(`api.${DOMAIN?Variable not set}`)
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.entrypoints=web
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.middlewares=${STACK_NAME?Variable not set}-https-redirect
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.rule=Host(`api.${DOMAIN?Variable not set}`)
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.entrypoints=websecure
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.tls=true
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.tls.certresolver=letsencrypt
-      - traefik.http.middlewares.${STACK_NAME?Variable not set}-https-redirect.redirectscheme.scheme=https
-      - traefik.http.middlewares.${STACK_NAME?Variable not set}-https-redirect.redirectscheme.permanent=true
-      - traefik.http.middlewares.${STACK_NAME?Variable not set}-backend-buffering.buffering.maxRequestBodyBytes=52428800
-      - traefik.http.middlewares.${STACK_NAME?Variable not set}-backend-buffering.buffering.memRequestBodyBytes=52428800
-      - traefik.http.middlewares.${STACK_NAME?Variable not set}-backend-buffering.buffering.retryExpression=IsNetworkError() && Attempts() < 2
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.middlewares=${STACK_NAME?Variable not set}-backend-buffering
-  frontend:
-    image: ${DOCKER_IMAGE_FRONTEND?Variable not set}:${TAG-latest}
+      - traefik.http.services.${STACK_NAME:?Variable STACK_NAME required}-backend.loadbalancer.server.port=8000
+      - traefik.http.routers.${STACK_NAME}-backend-http.rule=Host(`api.${DOMAIN:?Variable DOMAIN required}`)
+      - traefik.http.routers.${STACK_NAME}-backend-http.entrypoints=web
+      - traefik.http.routers.${STACK_NAME}-backend-http.middlewares=${STACK_NAME}-https-redirect
+      - traefik.http.middlewares.${STACK_NAME}-https-redirect.redirectscheme.scheme=https
+      - traefik.http.middlewares.${STACK_NAME}-https-redirect.redirectscheme.permanent=true
+      - traefik.http.routers.${STACK_NAME}-backend-https.rule=Host(`api.${DOMAIN}`)
+      - traefik.http.routers.${STACK_NAME}-backend-https.entrypoints=websecure
+      - traefik.http.routers.${STACK_NAME}-backend-https.tls=true
+      - traefik.http.routers.${STACK_NAME}-backend-https.tls.certresolver=letsencrypt
+      - traefik.http.middlewares.${STACK_NAME}-backend-buffering.buffering.maxRequestBodyBytes=52428800
+      - traefik.http.middlewares.${STACK_NAME}-backend-buffering.buffering.memRequestBodyBytes=52428800
+      - traefik.http.middlewares.${STACK_NAME}-backend-buffering.buffering.retryExpression=IsNetworkError() && Attempts() < 2
+      - traefik.http.routers.${STACK_NAME}-backend-https.middlewares=${STACK_NAME}-backend-buffering
+
+  # ==========================================================================
+  # CELERY WORKERS - Background Tasks
+  # ==========================================================================
+  celery-worker-high:
+    image: ${DOCKER_IMAGE_BACKEND:?Variable DOCKER_IMAGE_BACKEND required}:${TAG:-latest}
     restart: always
+    command: celery -A app.core.queue_service.celery_app worker --loglevel=${CELERY_LOG_LEVEL:-info} --queues=high_priority --concurrency=${CELERY_HIGH_CONCURRENCY:-2} --hostname=high@%h
     networks:
       - dokploy-network
       - default
     volumes:
       - ./modules:/modules
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_SERVER=${POSTGRES_SERVER}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB:-opsflux}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - SECRET_KEY=${SECRET_KEY}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+
+  celery-worker-default:
+    image: ${DOCKER_IMAGE_BACKEND:?Variable DOCKER_IMAGE_BACKEND required}:${TAG:-latest}
+    restart: always
+    command: celery -A app.core.queue_service.celery_app worker --loglevel=${CELERY_LOG_LEVEL:-info} --queues=default --concurrency=${CELERY_DEFAULT_CONCURRENCY:-4} --hostname=default@%h
+    networks:
+      - dokploy-network
+      - default
+    volumes:
+      - ./modules:/modules
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_SERVER=${POSTGRES_SERVER}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB:-opsflux}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - SECRET_KEY=${SECRET_KEY}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+
+  celery-worker-low:
+    image: ${DOCKER_IMAGE_BACKEND:?Variable DOCKER_IMAGE_BACKEND required}:${TAG:-latest}
+    restart: always
+    command: celery -A app.core.queue_service.celery_app worker --loglevel=${CELERY_LOG_LEVEL:-info} --queues=low_priority --concurrency=${CELERY_LOW_CONCURRENCY:-2} --hostname=low@%h
+    networks:
+      - dokploy-network
+      - default
+    volumes:
+      - ./modules:/modules
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_SERVER=${POSTGRES_SERVER}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB:-opsflux}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - SECRET_KEY=${SECRET_KEY}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+
+  celery-beat:
+    image: ${DOCKER_IMAGE_BACKEND:?Variable DOCKER_IMAGE_BACKEND required}:${TAG:-latest}
+    restart: always
+    command: celery -A app.core.queue_service.celery_app beat --loglevel=${CELERY_LOG_LEVEL:-info}
+    networks:
+      - dokploy-network
+      - default
+    volumes:
+      - ./modules:/modules
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_SERVER=${POSTGRES_SERVER}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB:-opsflux}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - SECRET_KEY=${SECRET_KEY}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+
+  # ==========================================================================
+  # FRONTEND - Next.js Application
+  # ==========================================================================
+  frontend:
+    image: ${DOCKER_IMAGE_FRONTEND:?Variable DOCKER_IMAGE_FRONTEND required}:${TAG:-latest}
+    restart: always
+    networks:
+      - dokploy-network
+      - default
     build:
       context: .
       dockerfile: ./frontend/Dockerfile
       args:
-        - NEXT_PUBLIC_API_URL=https://api.${DOMAIN?Variable not set}
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://api.${DOMAIN}}
     environment:
-      - NEXT_PUBLIC_API_URL=https://api.${DOMAIN?Variable not set}
-      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://api.${DOMAIN}}
+      - NODE_ENV=${NODE_ENV:-production}
     labels:
-      - traefik.http.routers.perenco-opsflux-gwxapr-3-web.rule=Host(`app.opsflux.io`)
-      - traefik.http.routers.perenco-opsflux-gwxapr-3-web.entrypoints=web
-      - traefik.http.services.perenco-opsflux-gwxapr-3-web.loadbalancer.server.port=3000
-      - traefik.http.routers.perenco-opsflux-gwxapr-3-web.service=perenco-opsflux-gwxapr-3-web
-      - traefik.http.routers.perenco-opsflux-gwxapr-3-web.middlewares=redirect-to-https@file
-      - traefik.http.routers.perenco-opsflux-gwxapr-3-websecure.rule=Host(`app.opsflux.io`)
-      - traefik.http.routers.perenco-opsflux-gwxapr-3-websecure.entrypoints=websecure
-      - traefik.http.services.perenco-opsflux-gwxapr-3-websecure.loadbalancer.server.port=3000
-      - traefik.http.routers.perenco-opsflux-gwxapr-3-websecure.service=perenco-opsflux-gwxapr-3-websecure
-      - traefik.http.routers.perenco-opsflux-gwxapr-3-websecure.tls.certresolver=letsencrypt
-      - traefik.enable=true
+      - traefik.enable=${TRAEFIK_ENABLE:-true}
       - traefik.docker.network=dokploy-network
       - traefik.constraint-label=dokploy-network
-      - traefik.http.services.${STACK_NAME?Variable not set}-frontend.loadbalancer.server.port=3000
-      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.rule=Host(`app.${DOMAIN?Variable not set}`)
-      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.entrypoints=web
-      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.middlewares=${STACK_NAME?Variable not set}-https-redirect
-      - traefik.http.middlewares.${STACK_NAME?Variable not set}-https-redirect.redirectscheme.scheme=https
-      - traefik.http.middlewares.${STACK_NAME?Variable not set}-https-redirect.redirectscheme.permanent=true
-      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.rule=Host(`app.${DOMAIN?Variable not set}`)
-      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.entrypoints=websecure
-      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.tls=true
-      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.tls.certresolver=letsencrypt
-      - traefik.http.middlewares.${STACK_NAME?Variable not set}-no-cache.headers.customresponseheaders.Cache-Control=no-cache, no-store, must-revalidate
-      - traefik.http.middlewares.${STACK_NAME?Variable not set}-no-cache.headers.customresponseheaders.Pragma=no-cache
-      - traefik.http.middlewares.${STACK_NAME?Variable not set}-no-cache.headers.customresponseheaders.Expires=0
-      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.middlewares=${STACK_NAME?Variable not set}-no-cache
+      - traefik.http.services.${STACK_NAME:?Variable STACK_NAME required}-frontend.loadbalancer.server.port=3000
+      - traefik.http.routers.${STACK_NAME}-frontend-http.rule=Host(`app.${DOMAIN:?Variable DOMAIN required}`)
+      - traefik.http.routers.${STACK_NAME}-frontend-http.entrypoints=web
+      - traefik.http.routers.${STACK_NAME}-frontend-http.middlewares=${STACK_NAME}-https-redirect
+      - traefik.http.routers.${STACK_NAME}-frontend-https.rule=Host(`app.${DOMAIN}`)
+      - traefik.http.routers.${STACK_NAME}-frontend-https.entrypoints=websecure
+      - traefik.http.routers.${STACK_NAME}-frontend-https.tls=true
+      - traefik.http.routers.${STACK_NAME}-frontend-https.tls.certresolver=letsencrypt
+      - traefik.http.middlewares.${STACK_NAME}-no-cache.headers.customresponseheaders.Cache-Control=no-cache, no-store, must-revalidate
+      - traefik.http.middlewares.${STACK_NAME}-no-cache.headers.customresponseheaders.Pragma=no-cache
+      - traefik.http.middlewares.${STACK_NAME}-no-cache.headers.customresponseheaders.Expires=0
+      - traefik.http.routers.${STACK_NAME}-frontend-https.middlewares=${STACK_NAME}-no-cache
+
+# ==========================================================================
+# VOLUMES
+# ==========================================================================
 volumes:
-  app-db-data: null
-  app-redis-data: null
+  app-db-data:
+  app-redis-data:
+
+# ==========================================================================
+# NETWORKS
+# ==========================================================================
 networks:
   dokploy-network:
     external: true

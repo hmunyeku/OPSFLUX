@@ -88,20 +88,22 @@ function AppShellContent({ children }: AppShellProps) {
     return <>{children}</>
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-2">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <p className="text-sm text-muted-foreground">Chargement...</p>
-        </div>
-      </div>
-    )
-  }
+  // DEBUG: Temporairement désactivé pour voir l'application
+  // if (isLoading) {
+  //   return (
+  //     <div className="flex h-screen w-full items-center justify-center bg-background">
+  //       <div className="flex flex-col items-center gap-2">
+  //         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+  //         <p className="text-sm text-muted-foreground">Chargement...</p>
+  //       </div>
+  //     </div>
+  //   )
+  // }
 
-  if (!user) {
-    return null
-  }
+  // DEBUG: Temporairement désactivé pour voir l'application
+  // if (!user) {
+  //   return null
+  // }
 
   return (
     <div className="flex h-screen w-full flex-col bg-background overflow-hidden">
@@ -136,16 +138,17 @@ function AppShellWrapper({ children }: AppShellProps) {
   // Use the saved preference for sidebar state
   const defaultOpen = !preferences.sidebarCollapsed
 
-  if (isLoading) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-2">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <p className="text-sm text-muted-foreground">Chargement des préférences...</p>
-        </div>
-      </div>
-    )
-  }
+  // DEBUG: Temporairement désactivé pour voir l'application
+  // if (isLoading) {
+  //   return (
+  //     <div className="flex h-screen w-full items-center justify-center bg-background">
+  //       <div className="flex flex-col items-center gap-2">
+  //         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+  //         <p className="text-sm text-muted-foreground">Chargement des préférences...</p>
+  //       </div>
+  //     </div>
+  //   )
+  // }
 
   return (
     <SidebarProvider defaultOpen={defaultOpen}>

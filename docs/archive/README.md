@@ -1,39 +1,53 @@
-# Documentation OpsFlux
+# 📦 Archive Documentation OpsFlux
 
-Cette documentation est organisée en plusieurs sections pour faciliter la navigation.
+> **Note:** Ces documents sont archivés pour référence historique.
+> Ils peuvent contenir des informations obsolètes.
 
-## Structure
+---
 
-### 📁 architecture/
-Documentation sur l'architecture du système :
-- `RBAC_ARCHITECTURE.md` - Architecture du système de contrôle d'accès basé sur les rôles
-- `PERMISSIONS_SYSTEM.md` - Système de permissions et droits d'accès
+## 📁 Contenu
 
-### 📁 implementation/
-Guides d'implémentation des fonctionnalités :
-- `2FA_IMPLEMENTATION_SUMMARY.md` - Résumé de l'implémentation de l'authentification à deux facteurs
-- `IMPLEMENTATION_SUMMARY.md` - Résumé général des implémentations
-- `USER_API_KEY_IMPLEMENTATION.md` - Implémentation des clés API utilisateur
-- `README_API_KEYS.md` - Guide des clés API
-- `AUDIT_UI_MOBILE_REPORT.md` - Rapport sur l'interface d'audit mobile
+### 📂 analysis/
+Analyses techniques du code et des fonctionnalités:
+- `ANALYSIS_INDEX.md` - Index des analyses
+- `DETAILED_CODE_ANALYSIS.md` - Analyse détaillée du code
+- `INCOMPLETE_FEATURES_REPORT.md` - Rapport fonctionnalités incomplètes
+- `SUMMARY_OF_FINDINGS.md` - Résumé des conclusions
 
-### 📁 deployment/
-Documentation de déploiement et développement :
-- `deployment.md` - Guide de déploiement
-- `development.md` - Guide de développement local
+### 📂 implementation/
+Guides d'implémentation historiques:
+- `2FA_IMPLEMENTATION_SUMMARY.md` - Implémentation 2FA
+- `AUDIT_UI_MOBILE_REPORT.md` - Rapport audit mobile
+- `IMPLEMENTATION_SUMMARY.md` - Résumé implémentations
+- `README_API_KEYS.md` - Guide clés API
+- `USER_API_KEY_IMPLEMENTATION.md` - Implémentation clés API utilisateur
 
-### 📄 Fichiers à la racine docs/
-- `CLAUDE.md` - Documentation pour Claude AI
-- `FRONTEND_SPECIFICATIONS.md` - Spécifications du frontend
+### 📂 planning/
+Plans de développement historiques:
+- `DASHBOARD_MENU_INTEGRATION.md` - Intégration menu dashboards (v1)
+- `DASHBOARD_WIDGETS_PLAN.md` - Plan widgets dashboards (v1)
+
+### 📄 Documents racine
+- `CHANGES_SUMMARY.txt` - Résumé des changements
+- `DESIGN_TOKENS.md` - Tokens de design (ancien)
+- `FRONTEND_SPECIFICATIONS.md` - Spécifications frontend (pré-Next.js)
 - `FUNCTIONAL_ANALYSIS.md` - Analyse fonctionnelle
 - `FUNCTIONAL_REQUIREMENTS.md` - Exigences fonctionnelles
-- `I18N_IMPLEMENTATION_GUIDE.md` - Guide d'implémentation de l'internationalisation
-- `module_manifest_example.json` - Exemple de manifeste de module
+- `I18N_IMPLEMENTATION_GUIDE.md` - Guide i18n
+- `MIGRATION_PLAN.md` - Plan migration frontend
+- `SPINNER_INVENTORY.md` - Inventaire spinners
+- `UI_AUDIT_REPORT.md` - Rapport audit UI
+- `UI_GUIDELINES.md` - Guidelines UI (ancien)
+- `UI_IMPROVEMENTS_COMPLETED.md` - Améliorations UI terminées
 - `release-notes.md` - Notes de version
-- `CHANGES_SUMMARY.txt` - Résumé des changements
 
-## Autres documents importants
+---
 
-À la racine du projet :
-- `README.md` - Documentation principale du projet
-- `SECURITY.md` - Politique de sécurité
+## ⚠️ Avertissement
+
+Ces documents peuvent référencer:
+- Des architectures obsolètes (React+Vite au lieu de Next.js)
+- Des modèles supprimés (models_dashboard.py singulier)
+- Des fichiers qui n'existent plus
+
+Pour la documentation à jour, consultez le [README principal](../README.md).

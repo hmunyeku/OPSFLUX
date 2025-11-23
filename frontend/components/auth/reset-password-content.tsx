@@ -1,14 +1,14 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { Suspense, useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { ResetPasswordForm } from "./reset-password-form"
-import { Zap, CheckCircle2, ArrowLeft, AlertCircle } from "lucide-react"
+import { Zap, CheckCircle2, ArrowLeft, AlertCircle, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
-export function ResetPasswordContent() {
+function ResetPasswordContentInner() {
   const searchParams = useSearchParams()
   const [token, setToken] = useState<string | null>(null)
   const [isSuccess, setIsSuccess] = useState(false)
@@ -138,5 +138,23 @@ export function ResetPasswordContent() {
         </p>
       </div>
     </div>
+  )
+}
+
+function LoadingFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center p-6 bg-background">
+      <div className="w-full max-w-md flex justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    </div>
+  )
+}
+
+export function ResetPasswordContent() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <ResetPasswordContentInner />
+    </Suspense>
   )
 }

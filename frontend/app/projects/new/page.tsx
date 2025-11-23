@@ -1,5 +1,9 @@
-import { CreateProjectContent } from "@/components/projects/create-project-content"
+import { ProjectForm } from "@/components/projects/project-form"
 
 export default function CreateProjectPage() {
-  return <CreateProjectContent />
+  return (
+    <div className="container max-w-4xl py-6">
+      <ProjectForm mode="create" />
+    </div>
+  )
 }

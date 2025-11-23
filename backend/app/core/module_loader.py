@@ -363,8 +363,8 @@ class ModuleLoader:
         """
         Synchronise les widgets d'un module avec la base de données.
 
-        Lit le fichier widgets.json du module et crée/met à jour les widgets
-        dans la table widget de la base de données.
+        Lit le fichier widgets.json du module et crée/met à jour les templates de widgets
+        dans la table widget_templates de la base de données.
 
         Args:
             module_code: Code du module (ex: 'third-parties')
@@ -373,7 +373,7 @@ class ModuleLoader:
         Returns:
             Dict avec les statistiques de synchronisation
         """
-        from app.models_dashboard import Widget
+        from app.models_dashboards import WidgetTemplate, WidgetTypeEnum
         from sqlmodel import select
 
         result = {
@@ -401,62 +401,78 @@ class ModuleLoader:
 
             for widget_data in widgets_data:
                 try:
-                    widget_type = widget_data.get('widget_type')
-                    if not widget_type:
+                    widget_type_str = widget_data.get('widget_type')
+                    if not widget_type_str:
                         result['errors'].append("widget_type manquant")
                         continue
 
-                    # Vérifier si le widget existe déjà
+                    # Convertir en enum (utiliser CUSTOM si type non reconnu)
+                    try:
+                        widget_type = WidgetTypeEnum(widget_type_str)
+                    except ValueError:
+                        widget_type = WidgetTypeEnum.CUSTOM
+
+                    template_name = f"{module_code}:{widget_data.get('name', widget_type_str)}"
+
+                    # Vérifier si le template existe déjà
                     existing = session.exec(
-                        select(Widget).where(
-                            Widget.widget_type == widget_type,
-                            Widget.deleted_at.is_(None)
+                        select(WidgetTemplate).where(
+                            WidgetTemplate.name == template_name,
+                            WidgetTemplate.deleted_at.is_(None)
                         )
                     ).first()
 
+                    # Préparer la config par défaut avec infos module
+                    default_config = widget_data.get('default_config', {})
+                    default_config['module_name'] = module_code
+                    default_config['required_permission'] = widget_data.get('required_permission')
+                    default_config['original_widget_type'] = widget_type_str
+
+                    # Extraire taille recommandée
+                    default_size = widget_data.get('default_size', {})
+                    recommended_width = default_size.get('w', 4)
+                    recommended_height = default_size.get('h', 3)
+
                     if existing:
                         # Mettre à jour
-                        existing.name = widget_data.get('name', existing.name)
                         existing.description = widget_data.get('description')
-                        existing.module_name = module_code
-                        existing.category = widget_data.get('category')
-                        existing.icon = widget_data.get('icon')
-                        existing.required_permission = widget_data.get('required_permission')
-                        existing.is_active = widget_data.get('is_active', True)
-                        existing.default_config = widget_data.get('default_config', {})
-                        existing.default_size = widget_data.get('default_size', {
-                            "w": 3, "h": 2, "minW": 2, "minH": 1, "maxW": 12, "maxH": 6
-                        })
+                        existing.category = widget_data.get('category', module_code)
+                        existing.icon = widget_data.get('icon', 'LayoutDashboard')
+                        existing.default_config = default_config
+                        existing.default_data_source = {'type': 'api', 'module': module_code}
+                        existing.recommended_width = recommended_width
+                        existing.recommended_height = recommended_height
+                        existing.is_public = widget_data.get('is_active', True)
+                        existing.tags = [module_code, widget_type_str]
                         session.add(existing)
                         result['updated'] += 1
                     else:
                         # Créer
-                        new_widget = Widget(
-                            widget_type=widget_type,
-                            name=widget_data.get('name', widget_type),
+                        new_template = WidgetTemplate(
+                            name=template_name,
                             description=widget_data.get('description'),
-                            module_name=module_code,
-                            category=widget_data.get('category'),
-                            icon=widget_data.get('icon'),
-                            required_permission=widget_data.get('required_permission'),
-                            is_active=widget_data.get('is_active', True),
-                            default_config=widget_data.get('default_config', {}),
-                            default_size=widget_data.get('default_size', {
-                                "w": 3, "h": 2, "minW": 2, "minH": 1, "maxW": 12, "maxH": 6
-                            })
+                            widget_type=widget_type,
+                            category=widget_data.get('category', module_code),
+                            default_config=default_config,
+                            default_data_source={'type': 'api', 'module': module_code},
+                            recommended_width=recommended_width,
+                            recommended_height=recommended_height,
+                            icon=widget_data.get('icon', 'LayoutDashboard'),
+                            is_public=widget_data.get('is_active', True),
+                            tags=[module_code, widget_type_str]
                         )
-                        session.add(new_widget)
+                        session.add(new_template)
                         result['created'] += 1
 
                 except Exception as e:
-                    result['errors'].append(f"Erreur widget {widget_type}: {str(e)}")
+                    result['errors'].append(f"Erreur widget {widget_type_str}: {str(e)}")
 
             session.commit()
             result['synced'] = True
             result['total'] = result['created'] + result['updated']
 
             if result['total'] > 0:
-                print(f"    ✓ Widgets synchronisés: {result['created']} créé(s), {result['updated']} mis à jour")
+                print(f"    ✓ Widget templates synchronisés: {result['created']} créé(s), {result['updated']} mis à jour")
 
         except Exception as e:
             result['errors'].append(f"Erreur lecture widgets.json: {str(e)}")

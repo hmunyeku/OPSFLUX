@@ -1,207 +1,230 @@
-# FastAPI Project - Development
+# OpsFlux - Guide de Developpement
 
-## Docker Compose
+## Modes de Deploiement
 
-* Start the local stack with Docker Compose:
+OpsFlux utilise Docker Compose avec un systeme de **profiles** pour gerer differents modes:
+
+| Mode | Commande | DB/Redis | Description |
+|------|----------|----------|-------------|
+| **Dev Local** | `docker-compose --profile local up -d` | Locaux | Developement avec DB/Redis locaux |
+| **Production** | `docker-compose up -d` | Externes | Prod avec DB/Redis externes |
+| **Dev Override** | `docker-compose --profile local -f docker-compose.yml -f docker-compose.override.yml up -d` | Locaux | Dev avec hot-reload |
+
+## Configuration via .env
+
+Toute la configuration se fait dans le fichier `.env`. Aucune valeur n'est en dur dans les Dockerfiles.
+
+### Copier le fichier d'exemple
 
 ```bash
-docker compose watch
+cp .env.example .env
 ```
 
-* Now you can open your browser and interact with these URLs:
-
-Frontend, built with Docker, with routes handled based on the path: http://localhost:5173
-
-Backend, JSON based web API based on OpenAPI: http://localhost:8000
-
-Automatic interactive documentation with Swagger UI (from the OpenAPI backend): http://localhost:8000/docs
-
-Adminer, database web administration: http://localhost:8080
-
-Traefik UI, to see how the routes are being handled by the proxy: http://localhost:8090
-
-**Note**: The first time you start your stack, it might take a minute for it to be ready. While the backend waits for the database to be ready and configures everything. You can check the logs to monitor it.
-
-To check the logs, run (in another terminal):
+### Variables obligatoires
 
 ```bash
-docker compose logs
+# Stack
+STACK_NAME=opsflux              # Nom unique du stack
+DOMAIN=opsflux.io               # Domaine (URLs: api.DOMAIN, app.DOMAIN)
+
+# Docker Images
+DOCKER_IMAGE_BACKEND=opsflux-backend
+DOCKER_IMAGE_FRONTEND=opsflux-frontend
+
+# Database
+POSTGRES_SERVER=db              # 'db' pour local, hostname pour externe
+POSTGRES_USER=opsflux_user
+POSTGRES_PASSWORD=changethis   # CHANGER EN PROD!
+
+# Redis
+REDIS_HOST=redis               # 'redis' pour local, hostname pour externe
+
+# Security
+SECRET_KEY=your-secret-key-min-32-chars
+
+# Admin
+FIRST_SUPERUSER=admin@opsflux.com
+FIRST_SUPERUSER_PASSWORD=AdminPass123!
+
+# Frontend
+FRONTEND_HOST=https://app.opsflux.io
 ```
 
-To check the logs of a specific service, add the name of the service, e.g.:
+## Developpement Local
+
+### 1. Demarrer avec DB/Redis locaux
 
 ```bash
-docker compose logs backend
+# Demarrer le stack complet avec DB et Redis locaux
+docker-compose --profile local up -d
+
+# Verifier les services
+docker-compose ps
 ```
 
-## Local Development
-
-The Docker Compose files are configured so that each of the services is available in a different port in `localhost`.
-
-For the backend and frontend, they use the same port that would be used by their local development server, so, the backend is at `http://localhost:8000` and the frontend at `http://localhost:5173`.
-
-This way, you could turn off a Docker Compose service and start its local development service, and everything would keep working, because it all uses the same ports.
-
-For example, you can stop that `frontend` service in the Docker Compose, in another terminal, run:
+### 2. Demarrer avec hot-reload (recommande)
 
 ```bash
-docker compose stop frontend
+# Utiliser l'override pour le hot-reload
+docker-compose --profile local -f docker-compose.yml -f docker-compose.override.yml up -d
 ```
 
-And then start the local frontend development server:
+### 3. Demarrer le frontend separement (Windows)
+
+Pour le developpement sur Windows, il est recommande de lancer le frontend en dehors de Docker:
 
 ```bash
+# Demarrer seulement backend + DB + Redis
+docker-compose --profile local up -d backend db redis
+
+# Lancer le frontend localement
 cd frontend
+npm install
 npm run dev
 ```
 
-Or you could stop the `backend` Docker Compose service:
+### URLs de Developpement
+
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:8000
+- **API Docs (Swagger)**: http://localhost:8000/docs
+- **API Docs (ReDoc)**: http://localhost:8000/redoc
+- **Adminer (DB Admin)**: http://localhost:8080
+
+## Production
+
+### Avec DB/Redis Externes
+
+En production, vous pouvez utiliser des services de base de donnees geres (AWS RDS, Google Cloud SQL, etc.).
 
 ```bash
-docker compose stop backend
+# Dans .env:
+POSTGRES_SERVER=your-db-hostname.rds.amazonaws.com
+POSTGRES_USER=prod_user
+POSTGRES_PASSWORD=super_secure_password
+
+REDIS_HOST=your-redis-hostname.elasticache.amazonaws.com
+REDIS_PASSWORD=redis_password
+
+# Lancer sans le profile "local" (pas de DB/Redis locaux)
+docker-compose up -d
 ```
 
-And then you can run the local development server for the backend:
+### URLs de Production
+
+Remplacez `opsflux.io` par votre domaine:
+
+- **Frontend**: https://app.opsflux.io
+- **Backend API**: https://api.opsflux.io
+- **API Docs**: https://api.opsflux.io/docs
+- **Adminer** (si active): https://adminer.opsflux.io
+
+## Commandes Utiles
+
+### Logs
 
 ```bash
-cd backend
-fastapi dev app/main.py
+# Tous les logs
+docker-compose logs -f
+
+# Logs d'un service specifique
+docker-compose logs -f backend
+
+# Logs avec timestamps
+docker-compose logs -f --timestamps backend
 ```
 
-## Docker Compose in `localhost.tiangolo.com`
-
-When you start the Docker Compose stack, it uses `localhost` by default, with different ports for each service (backend, frontend, adminer, etc).
-
-When you deploy it to production (or staging), it will deploy each service in a different subdomain, like `api.example.com` for the backend and `dashboard.example.com` for the frontend.
-
-In the guide about [deployment](deployment.md) you can read about Traefik, the configured proxy. That's the component in charge of transmitting traffic to each service based on the subdomain.
-
-If you want to test that it's all working locally, you can edit the local `.env` file, and change:
-
-```dotenv
-DOMAIN=localhost.tiangolo.com
-```
-
-That will be used by the Docker Compose files to configure the base domain for the services.
-
-Traefik will use this to transmit traffic at `api.localhost.tiangolo.com` to the backend, and traffic at `dashboard.localhost.tiangolo.com` to the frontend.
-
-The domain `localhost.tiangolo.com` is a special domain that is configured (with all its subdomains) to point to `127.0.0.1`. This way you can use that for your local development.
-
-After you update it, run again:
+### Gestion des Services
 
 ```bash
-docker compose watch
+# Redemarrer un service
+docker-compose restart backend
+
+# Arreter le stack
+docker-compose down
+
+# Arreter et supprimer les volumes (reset complet)
+docker-compose down -v
 ```
 
-When deploying, for example in production, the main Traefik is configured outside of the Docker Compose files. For local development, there's an included Traefik in `docker-compose.override.yml`, just to let you test that the domains work as expected, for example with `api.localhost.tiangolo.com` and `dashboard.localhost.tiangolo.com`.
-
-## Docker Compose files and env vars
-
-There is a main `docker-compose.yml` file with all the configurations that apply to the whole stack, it is used automatically by `docker compose`.
-
-And there's also a `docker-compose.override.yml` with overrides for development, for example to mount the source code as a volume. It is used automatically by `docker compose` to apply overrides on top of `docker-compose.yml`.
-
-These Docker Compose files use the `.env` file containing configurations to be injected as environment variables in the containers.
-
-They also use some additional configurations taken from environment variables set in the scripts before calling the `docker compose` command.
-
-After changing variables, make sure you restart the stack:
+### Migrations de Base de Donnees
 
 ```bash
-docker compose watch
+# Executer les migrations
+docker-compose exec backend alembic upgrade head
+
+# Creer une nouvelle migration
+docker-compose exec backend alembic revision --autogenerate -m "description"
 ```
 
-## The .env file
-
-The `.env` file is the one that contains all your configurations, generated keys and passwords, etc.
-
-Depending on your workflow, you could want to exclude it from Git, for example if your project is public. In that case, you would have to make sure to set up a way for your CI tools to obtain it while building or deploying your project.
-
-One way to do it could be to add each environment variable to your CI/CD system, and updating the `docker-compose.yml` file to read that specific env var instead of reading the `.env` file.
-
-## Pre-commits and code linting
-
-we are using a tool called [pre-commit](https://pre-commit.com/) for code linting and formatting.
-
-When you install it, it runs right before making a commit in git. This way it ensures that the code is consistent and formatted even before it is committed.
-
-You can find a file `.pre-commit-config.yaml` with configurations at the root of the project.
-
-#### Install pre-commit to run automatically
-
-`pre-commit` is already part of the dependencies of the project, but you could also install it globally if you prefer to, following [the official pre-commit docs](https://pre-commit.com/).
-
-After having the `pre-commit` tool installed and available, you need to "install" it in the local repository, so that it runs automatically before each commit.
-
-Using `uv`, you could do it with:
+### Prestart (Migrations + Setup Initial)
 
 ```bash
-❯ uv run pre-commit install
-pre-commit installed at .git/hooks/pre-commit
+# Executer le prestart manuellement
+docker-compose run --rm prestart
 ```
 
-Now whenever you try to commit, e.g. with:
+## Structure des Fichiers Docker
+
+```
+OPSFLUX/
+├── docker-compose.yml           # Config principale (prod)
+├── docker-compose.override.yml  # Overrides pour dev (hot-reload)
+├── .env                         # Variables d'environnement (local)
+├── .env.example                 # Template des variables
+├── backend/
+│   └── Dockerfile               # Image Python/FastAPI
+└── frontend/
+    └── Dockerfile               # Image Node.js/Next.js
+```
+
+## Variables d'Environnement Completes
+
+Voir `.env.example` pour la liste complete des variables avec leur documentation.
+
+### Variables Specifiques aux Modes
+
+| Variable | Dev Local | Production |
+|----------|-----------|------------|
+| `ENVIRONMENT` | local | production |
+| `POSTGRES_SERVER` | db | external-hostname |
+| `REDIS_HOST` | redis | external-hostname |
+| `TRAEFIK_ENABLE` | false | true |
+| `FRONTEND_HOST` | http://localhost:3000 | https://app.domain.com |
+
+## Troubleshooting
+
+### Port deja utilise
 
 ```bash
-git commit
+# Verifier quel processus utilise le port
+netstat -ano | findstr :3000
+netstat -ano | findstr :8000
+
+# Sur Linux/Mac
+lsof -i :3000
 ```
 
-...pre-commit will run and check and format the code you are about to commit, and will ask you to add that code (stage it) with git again before committing.
-
-Then you can `git add` the modified/fixed files again and now you can commit.
-
-#### Running pre-commit hooks manually
-
-you can also run `pre-commit` manually on all the files, you can do it using `uv` with:
+### Probleme de connexion DB
 
 ```bash
-❯ uv run pre-commit run --all-files
-check for added large files..............................................Passed
-check toml...............................................................Passed
-check yaml...............................................................Passed
-ruff.....................................................................Passed
-ruff-format..............................................................Passed
-eslint...................................................................Passed
-prettier.................................................................Passed
+# Verifier si PostgreSQL repond
+docker-compose exec db pg_isready
+
+# Se connecter manuellement
+docker-compose exec db psql -U opsflux_user -d opsflux
 ```
 
-## URLs
+### Reset complet
 
-The production or staging URLs would use these same paths, but with your own domain.
+```bash
+# Arreter tout et supprimer les volumes
+docker-compose down -v
 
-### Development URLs
+# Supprimer les images
+docker-compose down --rmi local
 
-Development URLs, for local development.
-
-Frontend: http://localhost:5173
-
-Backend: http://localhost:8000
-
-Automatic Interactive Docs (Swagger UI): http://localhost:8000/docs
-
-Automatic Alternative Docs (ReDoc): http://localhost:8000/redoc
-
-Adminer: http://localhost:8080
-
-Traefik UI: http://localhost:8090
-
-MailCatcher: http://localhost:1080
-
-### Development URLs with `localhost.tiangolo.com` Configured
-
-Development URLs, for local development.
-
-Frontend: http://dashboard.localhost.tiangolo.com
-
-Backend: http://api.localhost.tiangolo.com
-
-Automatic Interactive Docs (Swagger UI): http://api.localhost.tiangolo.com/docs
-
-Automatic Alternative Docs (ReDoc): http://api.localhost.tiangolo.com/redoc
-
-Adminer: http://localhost.tiangolo.com:8080
-
-Traefik UI: http://localhost.tiangolo.com:8090
-
-MailCatcher: http://localhost.tiangolo.com:1080
+# Reconstruire
+docker-compose --profile local build
+docker-compose --profile local up -d
+```

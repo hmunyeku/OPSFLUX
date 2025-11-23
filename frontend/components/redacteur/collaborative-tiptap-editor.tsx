@@ -18,7 +18,8 @@ import { Collaboration } from "@tiptap/extension-collaboration"
 import { CollaborationCursor } from "@tiptap/extension-collaboration-cursor"
 import * as Y from "yjs"
 import { WebsocketProvider } from "y-websocket"
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useMemo } from "react"
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
   Bold,
@@ -47,6 +48,10 @@ import {
   Users,
   Wifi,
   WifiOff,
+  Plus,
+  Pilcrow,
+  CheckSquare,
+  FileCode,
 } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -79,6 +84,20 @@ const colors = [
 
 const getRandomColor = () => colors[Math.floor(Math.random() * colors.length)]
 
+// Slash command menu items
+const slashMenuItems = [
+  { title: "Titre 1", description: "Grand titre de section", icon: Heading1, command: "heading1" },
+  { title: "Titre 2", description: "Titre moyen", icon: Heading2, command: "heading2" },
+  { title: "Titre 3", description: "Petit titre", icon: Heading3, command: "heading3" },
+  { title: "Paragraphe", description: "Texte simple", icon: Pilcrow, command: "paragraph" },
+  { title: "Liste à puces", description: "Liste non ordonnée", icon: List, command: "bulletList" },
+  { title: "Liste numérotée", description: "Liste ordonnée", icon: ListOrdered, command: "orderedList" },
+  { title: "Citation", description: "Bloc de citation", icon: Quote, command: "blockquote" },
+  { title: "Séparateur", description: "Ligne horizontale", icon: Minus, command: "horizontalRule" },
+  { title: "Tableau", description: "Tableau 3x3", icon: TableIcon, command: "table" },
+  { title: "Image", description: "Insérer une image", icon: ImageIcon, command: "image" },
+]
+
 export function CollaborativeTiptapEditor({
   documentId,
   userName = "Anonymous",
@@ -90,9 +109,14 @@ export function CollaborativeTiptapEditor({
   const [showLinkInput, setShowLinkInput] = useState(false)
   const [onlineUsers, setOnlineUsers] = useState(0)
   const [isConnected, setIsConnected] = useState(false)
+  const [slashMenuOpen, setSlashMenuOpen] = useState(false)
+  const [slashMenuFilter, setSlashMenuFilter] = useState("")
+  const [selectedSlashIndex, setSelectedSlashIndex] = useState(0)
+  const slashMenuRef = useRef<HTMLDivElement>(null)
 
-  const ydocRef = useRef<Y.Doc>()
-  const providerRef = useRef<WebsocketProvider>()
+  // Initialize Yjs document synchronously so it's available for useEditor
+  const ydoc = useMemo(() => new Y.Doc(), [])
+  const providerRef = useRef<WebsocketProvider | null>(null)
 
   const editor = useEditor({
     extensions: [
@@ -145,28 +169,19 @@ export function CollaborativeTiptapEditor({
       }),
       // Collaboration extensions
       Collaboration.configure({
-        document: ydocRef.current,
+        document: ydoc,
       }),
-      CollaborationCursor.configure({
-        provider: providerRef.current,
-        user: {
-          name: userName,
-          color: userColor,
-        },
-      }),
+      // Note: CollaborationCursor will be configured after provider is created
     ],
     editorProps: {
       attributes: {
         class: "prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none focus:outline-none min-h-[500px] px-4 py-3",
       },
     },
+    immediatelyRender: false,
   })
 
   useEffect(() => {
-    // Initialize Yjs document
-    const ydoc = new Y.Doc()
-    ydocRef.current = ydoc
-
     // Create WebSocket provider for real-time collaboration
     const provider = new WebsocketProvider(
       websocketUrl,
@@ -188,9 +203,40 @@ export function CollaborativeTiptapEditor({
     // Cleanup on unmount
     return () => {
       provider.destroy()
+    }
+  }, [documentId, websocketUrl, ydoc])
+
+  // Cleanup ydoc on unmount
+  useEffect(() => {
+    return () => {
       ydoc.destroy()
     }
-  }, [documentId, websocketUrl])
+  }, [ydoc])
+
+  // Close slash menu on Escape or click outside
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && slashMenuOpen) {
+        setSlashMenuOpen(false)
+        setSlashMenuFilter("")
+      }
+    }
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (slashMenuOpen && slashMenuRef.current && !slashMenuRef.current.contains(e.target as Node)) {
+        setSlashMenuOpen(false)
+        setSlashMenuFilter("")
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown)
+    document.addEventListener("mousedown", handleClickOutside)
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown)
+      document.removeEventListener("mousedown", handleClickOutside)
+    }
+  }, [slashMenuOpen])
 
   if (!editor) {
     return null
@@ -220,8 +266,56 @@ export function CollaborativeTiptapEditor({
     editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
   }
 
+  const executeSlashCommand = (command: string) => {
+    if (!editor) return
+
+    switch (command) {
+      case "heading1":
+        editor.chain().focus().toggleHeading({ level: 1 }).run()
+        break
+      case "heading2":
+        editor.chain().focus().toggleHeading({ level: 2 }).run()
+        break
+      case "heading3":
+        editor.chain().focus().toggleHeading({ level: 3 }).run()
+        break
+      case "paragraph":
+        editor.chain().focus().setParagraph().run()
+        break
+      case "bulletList":
+        editor.chain().focus().toggleBulletList().run()
+        break
+      case "orderedList":
+        editor.chain().focus().toggleOrderedList().run()
+        break
+      case "blockquote":
+        editor.chain().focus().toggleBlockquote().run()
+        break
+      case "horizontalRule":
+        editor.chain().focus().setHorizontalRule().run()
+        break
+      case "table":
+        editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+        break
+      case "image":
+        const url = window.prompt("URL de l'image")
+        if (url) {
+          editor.chain().focus().setImage({ src: url }).run()
+        }
+        break
+    }
+
+    setSlashMenuOpen(false)
+    setSlashMenuFilter("")
+  }
+
+  const filteredSlashItems = slashMenuItems.filter(item =>
+    item.title.toLowerCase().includes(slashMenuFilter.toLowerCase()) ||
+    item.description.toLowerCase().includes(slashMenuFilter.toLowerCase())
+  )
+
   return (
-    <div className="flex flex-col border rounded-md">
+    <div className="relative flex flex-col border rounded-md">
       {/* Collaboration Status Bar */}
       <div className="flex items-center justify-between border-b bg-muted/10 px-3 py-1.5">
         <div className="flex items-center gap-2">
@@ -241,6 +335,26 @@ export function CollaborativeTiptapEditor({
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-1 border-b bg-muted/30 p-2">
+        {/* Add Block Button */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 gap-1 px-2 text-xs font-medium bg-primary/10 hover:bg-primary/20 border-primary/30"
+          onClick={() => {
+            editor.chain().focus().run()
+            setSlashMenuOpen(true)
+            setSlashMenuFilter("")
+            setSelectedSlashIndex(0)
+          }}
+          title="Ajouter un bloc"
+          type="button"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Bloc</span>
+        </Button>
+
+        <Separator orientation="vertical" className="h-6" />
+
         {/* Undo/Redo */}
         <div className="flex items-center gap-0.5">
           <Button
@@ -557,8 +671,71 @@ export function CollaborativeTiptapEditor({
         </div>
       </div>
 
+      {/* Slash Command Menu */}
+      {slashMenuOpen && (
+        <div
+          ref={slashMenuRef}
+          className="absolute z-50 w-80 max-h-96 overflow-y-auto rounded-lg border bg-background shadow-xl"
+          style={{
+            top: "120px",
+            left: "16px",
+          }}
+        >
+          <div className="p-2 border-b">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-xs">+</span>
+              <span>{slashMenuFilter || "Choisir un type de bloc..."}</span>
+            </div>
+          </div>
+          <div className="p-1">
+            {filteredSlashItems.length === 0 ? (
+              <div className="p-4 text-center text-sm text-muted-foreground">
+                Aucun résultat
+              </div>
+            ) : (
+              filteredSlashItems.map((item, index) => (
+                <button
+                  key={item.command}
+                  type="button"
+                  title={item.description}
+                  className={cn(
+                    "w-full flex items-center gap-3 rounded-md p-2 text-left transition-colors",
+                    index === selectedSlashIndex ? "bg-muted" : "hover:bg-muted/50"
+                  )}
+                  onClick={() => executeSlashCommand(item.command)}
+                  onMouseEnter={() => setSelectedSlashIndex(index)}
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border bg-background">
+                    <item.icon className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">{item.title}</p>
+                    <p className="text-xs text-muted-foreground truncate">{item.description}</p>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+          <div className="p-2 border-t">
+            <p className="text-xs text-muted-foreground text-center">
+              Cliquez pour insérer • Échap pour fermer
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Click outside to close slash menu */}
+      {slashMenuOpen && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setSlashMenuOpen(false)}
+        />
+      )}
+
       {/* Editor */}
-      <EditorContent editor={editor} className="flex-1" />
+      <div className="relative">
+        <EditorContent editor={editor} className="flex-1 min-h-[500px]" />
+      </div>
     </div>
   )
 }

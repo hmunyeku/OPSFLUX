@@ -1,0 +1,19 @@
+# Dockerfile de développement pour Next.js avec hot reload
+
+FROM node:20-alpine AS development
+
+WORKDIR /app
+
+# Copier package files
+COPY package*.json ./
+
+# Installer toutes les dépendances (y compris devDependencies)
+RUN npm install --legacy-peer-deps
+
+# Le code source sera monté via volume
+
+# Exposer le port
+EXPOSE 3000
+
+# Commande de développement (sera overridée par docker-compose)
+CMD ["npm", "run", "dev"]

@@ -13,7 +13,6 @@ from app.api.routes import (
     companies,
     contacts,
     custom_blocks,
-    dashboards,
     dashboards_system,
     database,
     developer_analytics,
@@ -29,6 +28,7 @@ from app.api.routes import (
     notifications,
     permissions,
     private,
+    projects,
     queue,
     report_audit,
     report_collaborators,
@@ -56,7 +56,6 @@ from app.api.routes import (
     utils,
     webhooks,
     websocket,
-    widgets,
 )
 from app.core.config import settings
 
@@ -83,6 +82,7 @@ api_router.include_router(user_invitations.router)  # User invitations managemen
 api_router.include_router(webhooks.router)  # Webhooks management
 api_router.include_router(hooks.router)  # Hooks & Triggers system
 api_router.include_router(tasks.router)  # Tasks management
+api_router.include_router(projects.router)  # Projects & Gantt management
 api_router.include_router(stay_requests.router)  # Stay Requests (POB) management
 api_router.include_router(companies.router)  # Companies (Tiers) management
 api_router.include_router(contacts.router)  # Contacts (Tiers) management
@@ -103,9 +103,7 @@ api_router.include_router(custom_blocks.router)  # Custom configurable blocks
 api_router.include_router(languages.router)  # Multilingual (i18n) system
 api_router.include_router(email_templates.router)  # Email templates management
 api_router.include_router(user_preferences.router)  # User preferences (UI + modules)
-api_router.include_router(dashboards.router)  # Dashboards & Widgets system (legacy)
-api_router.include_router(dashboards_system.router)  # Dashboards V2 - Advanced customizable system
-api_router.include_router(widgets.router)  # Widget catalog
+api_router.include_router(dashboards_system.router)  # Dashboard System - Dashboards personnalisables
 
 # CORE Services API
 api_router.include_router(storage.router)  # File storage service

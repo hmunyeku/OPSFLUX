@@ -25,6 +25,8 @@ import {
   PanelLeftClose,
   PanelLeft,
   HelpCircle,
+  ShieldCheck,
+  FolderKanban,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -53,6 +55,8 @@ export interface NavItemDef {
 const moduleNavItems: NavItemDef[] = [
   { path: '/dashboard', icon: LayoutDashboard, labelKey: 'nav.dashboard', module: 'dashboard', order: 10 },
   { path: '/tiers', icon: Building2, labelKey: 'nav.tiers', module: 'tiers', order: 30 },
+  { path: '/conformite', icon: ShieldCheck, labelKey: 'nav.conformite', module: 'conformite', order: 35 },
+  { path: '/projets', icon: FolderKanban, labelKey: 'nav.projets', module: 'projets', order: 38 },
   { path: '/workflow', icon: GitBranch, labelKey: 'nav.workflow', module: 'workflow', order: 50 },
   { path: '/paxlog', icon: Users, labelKey: 'nav.paxlog', module: 'paxlog', order: 40 },
 ]

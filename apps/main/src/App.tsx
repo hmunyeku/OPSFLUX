@@ -8,6 +8,8 @@ import { LoginPage } from '@/pages/auth/LoginPage'
 const DashboardPage = lazy(() => import('@/pages/dashboard/DashboardPage').then(m => ({ default: m.DashboardPage })))
 const AssetsPage = lazy(() => import('@/pages/assets/AssetsPage').then(m => ({ default: m.AssetsPage })))
 const TiersPage = lazy(() => import('@/pages/tiers/TiersPage').then(m => ({ default: m.TiersPage })))
+const ConformitePage = lazy(() => import('@/pages/conformite/ConformitePage').then(m => ({ default: m.ConformitePage })))
+const ProjetsPage = lazy(() => import('@/pages/projets/ProjetsPage').then(m => ({ default: m.ProjetsPage })))
 const WorkflowPage = lazy(() => import('@/pages/workflow/WorkflowPage').then(m => ({ default: m.WorkflowPage })))
 const PaxLogPage = lazy(() => import('@/pages/paxlog/PaxLogPage').then(m => ({ default: m.PaxLogPage })))
 const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage').then(m => ({ default: m.SettingsPage })))
@@ -35,6 +37,8 @@ export default function App() {
                   <Route path="/search" element={<SearchPage />} />
                   <Route path="/assets/*" element={<AssetsPage />} />
                   <Route path="/tiers/*" element={<TiersPage />} />
+                  <Route path="/conformite/*" element={<ConformitePage />} />
+                  <Route path="/projets/*" element={<ProjetsPage />} />
                   <Route path="/workflow/*" element={<WorkflowPage />} />
                   <Route path="/paxlog/*" element={<PaxLogPage />} />
                   <Route path="/settings/*" element={<SettingsPage />} />

@@ -517,3 +517,262 @@ export interface SearchResult {
 export interface SearchResponse {
   results: SearchResult[]
 }
+
+// ── Compliance / Conformite ──────────────────────────────────
+
+export interface ComplianceType {
+  id: string
+  entity_id: string
+  category: 'formation' | 'certification' | 'habilitation' | 'audit' | 'medical'
+  code: string
+  name: string
+  description: string | null
+  validity_days: number | null
+  is_mandatory: boolean
+  active: boolean
+  created_at: string
+}
+
+export interface ComplianceTypeCreate {
+  category: string
+  code: string
+  name: string
+  description?: string | null
+  validity_days?: number | null
+  is_mandatory?: boolean
+}
+
+export interface ComplianceTypeUpdate {
+  category?: string
+  code?: string
+  name?: string
+  description?: string | null
+  validity_days?: number | null
+  is_mandatory?: boolean
+  active?: boolean
+}
+
+export interface ComplianceRule {
+  id: string
+  entity_id: string
+  compliance_type_id: string
+  target_type: string
+  target_value: string | null
+  description: string | null
+  active: boolean
+  created_at: string
+}
+
+export interface ComplianceRuleCreate {
+  compliance_type_id: string
+  target_type: string
+  target_value?: string | null
+  description?: string | null
+}
+
+export interface ComplianceRecord {
+  id: string
+  entity_id: string
+  compliance_type_id: string
+  owner_type: string
+  owner_id: string
+  status: 'valid' | 'expired' | 'pending' | 'rejected'
+  issued_at: string | null
+  expires_at: string | null
+  issuer: string | null
+  reference_number: string | null
+  notes: string | null
+  verified_by: string | null
+  created_by: string
+  active: boolean
+  created_at: string
+  type_name?: string | null
+  type_category?: string | null
+}
+
+export interface ComplianceRecordCreate {
+  compliance_type_id: string
+  owner_type: string
+  owner_id: string
+  status?: string
+  issued_at?: string | null
+  expires_at?: string | null
+  issuer?: string | null
+  reference_number?: string | null
+  notes?: string | null
+}
+
+export interface ComplianceRecordUpdate {
+  status?: string
+  issued_at?: string | null
+  expires_at?: string | null
+  issuer?: string | null
+  reference_number?: string | null
+  notes?: string | null
+}
+
+export interface ComplianceCheckResult {
+  owner_type: string
+  owner_id: string
+  total_required: number
+  total_valid: number
+  total_expired: number
+  total_missing: number
+  is_compliant: boolean
+  details: Record<string, unknown>[]
+}
+
+// ── Projects / Projets ───────────────────────────────────────
+
+export interface Project {
+  id: string
+  entity_id: string
+  code: string
+  name: string
+  description: string | null
+  status: 'draft' | 'planned' | 'active' | 'on_hold' | 'completed' | 'cancelled'
+  priority: 'low' | 'medium' | 'high' | 'critical'
+  weather: 'sunny' | 'cloudy' | 'rainy' | 'stormy'
+  progress: number
+  start_date: string | null
+  end_date: string | null
+  actual_end_date: string | null
+  budget: number | null
+  manager_id: string | null
+  parent_id: string | null
+  tier_id: string | null
+  asset_id: string | null
+  active: boolean
+  archived: boolean
+  created_at: string
+  manager_name?: string | null
+  tier_name?: string | null
+  task_count?: number
+  member_count?: number
+}
+
+export interface ProjectCreate {
+  code: string
+  name: string
+  description?: string | null
+  status?: string
+  priority?: string
+  weather?: string
+  start_date?: string | null
+  end_date?: string | null
+  budget?: number | null
+  manager_id?: string | null
+  parent_id?: string | null
+  tier_id?: string | null
+  asset_id?: string | null
+}
+
+export interface ProjectUpdate {
+  code?: string
+  name?: string
+  description?: string | null
+  status?: string
+  priority?: string
+  weather?: string
+  progress?: number
+  start_date?: string | null
+  end_date?: string | null
+  actual_end_date?: string | null
+  budget?: number | null
+  manager_id?: string | null
+  tier_id?: string | null
+  asset_id?: string | null
+}
+
+export interface ProjectMember {
+  id: string
+  project_id: string
+  user_id: string | null
+  contact_id: string | null
+  role: string
+  active: boolean
+  created_at: string
+  member_name?: string | null
+}
+
+export interface ProjectMemberCreate {
+  user_id?: string | null
+  contact_id?: string | null
+  role?: string
+}
+
+export interface ProjectTask {
+  id: string
+  project_id: string
+  parent_id: string | null
+  code: string | null
+  title: string
+  description: string | null
+  status: 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled'
+  priority: string
+  assignee_id: string | null
+  progress: number
+  start_date: string | null
+  due_date: string | null
+  completed_at: string | null
+  estimated_hours: number | null
+  actual_hours: number | null
+  order: number
+  active: boolean
+  created_at: string
+  assignee_name?: string | null
+}
+
+export interface ProjectTaskCreate {
+  parent_id?: string | null
+  code?: string | null
+  title: string
+  description?: string | null
+  status?: string
+  priority?: string
+  assignee_id?: string | null
+  start_date?: string | null
+  due_date?: string | null
+  estimated_hours?: number | null
+}
+
+export interface ProjectTaskUpdate {
+  title?: string
+  description?: string | null
+  status?: string
+  priority?: string
+  assignee_id?: string | null
+  progress?: number
+  start_date?: string | null
+  due_date?: string | null
+  completed_at?: string | null
+  estimated_hours?: number | null
+  actual_hours?: number | null
+  order?: number
+}
+
+export interface ProjectMilestone {
+  id: string
+  project_id: string
+  name: string
+  description: string | null
+  due_date: string | null
+  completed_at: string | null
+  status: 'pending' | 'completed' | 'overdue'
+  active: boolean
+  created_at: string
+}
+
+export interface ProjectMilestoneCreate {
+  name: string
+  description?: string | null
+  due_date?: string | null
+}
+
+export interface ProjectMilestoneUpdate {
+  name?: string
+  description?: string | null
+  due_date?: string | null
+  completed_at?: string | null
+  status?: string
+}

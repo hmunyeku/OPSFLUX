@@ -1,0 +1,415 @@
+/**
+ * Settings page — GitLab Pajamas pattern with extensible module registry.
+ *
+ * Architecture:
+ * - Core tabs registered at import time via settingsRegistry
+ * - Any module can call registerSettingsSection() to add its own tabs
+ * - Supports collapsible groups (like GitLab's "Access" group)
+ * - Two categories: 'user' (personal) and 'general' (admin/system)
+ * - Sidebar: 240px, items 28px/8px-radius, Pajamas blue active tint
+ *   Collapsible groups with chevron, indented children
+ * - Content: sticky section headers, 25px/600 headings, full width
+ * - Deep linking: URL hash → activates tab + expands specific section
+ *   e.g. /settings#cartographie → activates general-config tab, expands Cartographie section
+ */
+import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
+import {
+  Settings, User, Users, Lock, Shield, Clock, Palette,
+  Monitor, Mail, Bell, Key, AppWindow, KeyRound,
+  ChevronRight, ChevronDown, MapPin,
+  Globe, Plug, FileText,
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { PanelHeader, PanelContent } from '@/components/layout/PanelHeader'
+import { useUIStore } from '@/stores/uiStore'
+import {
+  registerSettingsSection,
+  registerSettingsGroup,
+  useSettingsSections,
+  useSettingsGroups,
+  useGroupChildren,
+  findSettingsSection,
+  type SettingsSection,
+  type SettingsGroup,
+} from '@/lib/settingsRegistry'
+import { CollapsibleProvider } from '@/components/shared/CollapsibleSection'
+import { useSettingsBadges } from '@/hooks/useSettingsBadges'
+
+// ── Deep-link mapping: sub-section ID → parent tab ID ────────
+// When a URL hash matches a sub-section inside a tab, this maps it to the tab.
+// Each tab declares the IDs of its internal CollapsibleSections.
+const SECTION_TAB_MAP: Record<string, string> = {
+  // ProfileTab sections
+  'avatar': 'profile',
+  'main-settings': 'profile',
+  // SecurityTab sections
+  'password': 'security',
+  'mfa': 'security',
+  // AccessTokensTab
+  'access-tokens': 'tokens',
+  // ApplicationsTab
+  'oauth-apps': 'applications',
+  // SessionsTab
+  'active-sessions': 'sessions',
+  // EmailsTab sections
+  'emails-list': 'emails',
+  'add-email': 'emails',
+  // AddressesTab
+  'user-addresses': 'addresses',
+  // NotificationsTab sections
+  'notifications-global': 'notifications',
+  'notifications-groups': 'notifications',
+  // PreferencesTab sections
+  'theme': 'preferences',
+  'language-pref': 'preferences',
+  // RolesTab sections
+  'roles-list': 'roles',
+  'groups-list': 'roles',
+  'permissions-list': 'roles',
+  // RbacAdminTab sections
+  'admin-roles': 'rbac-admin',
+  'admin-groups': 'rbac-admin',
+  'admin-permissions': 'rbac-admin',
+  // GeneralConfigTab sections
+  'langue-region': 'general-config',
+  'cartographie': 'general-config',
+  'emails-config': 'general-config',
+  // IntegrationsTab sections
+  'services-connectes': 'integrations',
+  'cartographie-integration': 'integrations',
+  // EmailTemplatesTab sections
+  'email-templates-system': 'email-templates',
+  'email-templates-custom': 'email-templates',
+}
+
+// ── Import tab components ───────────────────────────────────
+import { ProfileTab } from './tabs/ProfileTab'
+import { SecurityTab } from './tabs/SecurityTab'
+import { AccessTokensTab } from './tabs/AccessTokensTab'
+import { ApplicationsTab } from './tabs/ApplicationsTab'
+import { SessionsTab } from './tabs/SessionsTab'
+import { EmailsTab } from './tabs/EmailsTab'
+import { NotificationsTab } from './tabs/NotificationsTab'
+import { RolesTab } from './tabs/RolesTab'
+import { ActivityTab } from './tabs/ActivityTab'
+import { PreferencesTab } from './tabs/PreferencesTab'
+import { AddressesTab } from './tabs/AddressesTab'
+import { GeneralConfigTab } from './tabs/GeneralConfigTab'
+import { IntegrationsTab } from './tabs/IntegrationsTab'
+import { EmailTemplatesTab } from './tabs/EmailTemplatesTab'
+import { RbacAdminTab } from './tabs/RbacAdminTab'
+import { UsersPage } from '@/pages/users/UsersPage'
+import { AssetsPage } from '@/pages/assets/AssetsPage'
+
+// ── Import dynamic panel forms ──────────────────────────────
+import { CreateTokenPanel } from './panels/CreateTokenPanel'
+import { CreateAppPanel } from './panels/CreateAppPanel'
+import { CreateAddressPanel } from './panels/CreateAddressPanel'
+import { EditEmailTemplatePanel } from './panels/EditEmailTemplatePanel'
+
+// ── Register core user settings ─────────────────────────────
+// Top-level items (no parentId)
+registerSettingsSection({ id: 'profile', label: 'Profil', icon: User, component: ProfileTab, category: 'user', order: 10 })
+
+// Collapsible group: Access (like GitLab's "Access" with chevron)
+registerSettingsGroup({ id: 'access', label: 'Accès', icon: KeyRound, category: 'user', order: 20 })
+registerSettingsSection({ id: 'security', label: 'Mot de passe', icon: Lock, component: SecurityTab, category: 'user', order: 10, parentId: 'access' })
+registerSettingsSection({ id: 'tokens', label: 'Jetons d\'accès', icon: Key, component: AccessTokensTab, category: 'user', order: 20, parentId: 'access' })
+registerSettingsSection({ id: 'applications', label: 'Applications', icon: AppWindow, component: ApplicationsTab, category: 'user', order: 30, parentId: 'access' })
+registerSettingsSection({ id: 'sessions', label: 'Sessions actives', icon: Monitor, component: SessionsTab, category: 'user', order: 40, parentId: 'access' })
+
+// More top-level items
+registerSettingsSection({ id: 'emails', label: 'Emails', icon: Mail, component: EmailsTab, category: 'user', order: 30 })
+registerSettingsSection({ id: 'addresses', label: 'Adresses', icon: MapPin, component: AddressesTab, category: 'user', order: 35 })
+registerSettingsSection({ id: 'notifications', label: 'Notifications', icon: Bell, component: NotificationsTab, category: 'user', order: 40 })
+registerSettingsSection({ id: 'preferences', label: 'Préférences', icon: Palette, component: PreferencesTab, category: 'user', order: 50 })
+registerSettingsSection({ id: 'roles', label: 'Rôles & Permissions', icon: Shield, component: RolesTab, category: 'user', order: 60 })
+registerSettingsSection({ id: 'activity', label: 'Activité', icon: Clock, component: ActivityTab, category: 'user', order: 70 })
+
+// ── Register general (admin) settings ────────────────────────
+registerSettingsSection({ id: 'users', label: 'Utilisateurs', icon: Users, component: UsersPage, category: 'general', order: 5 })
+registerSettingsSection({ id: 'assets', label: 'Assets', icon: MapPin, component: AssetsPage, category: 'general', order: 6 })
+registerSettingsSection({ id: 'rbac-admin', label: 'Rôles & Groupes', icon: Shield, component: RbacAdminTab, category: 'general', order: 7 })
+registerSettingsSection({ id: 'general-config', label: 'Configuration', icon: Globe, component: GeneralConfigTab, category: 'general', order: 10 })
+registerSettingsSection({ id: 'integrations', label: 'Intégrations', icon: Plug, component: IntegrationsTab, category: 'general', order: 20 })
+registerSettingsSection({ id: 'email-templates', label: 'Modèles d\'emails', icon: FileText, component: EmailTemplatesTab, category: 'general', order: 15 })
+
+/* ── Main Settings Page ── */
+export function SettingsPage() {
+  const { t } = useTranslation()
+  const userSections = useSettingsSections('user')
+  const generalSections = useSettingsSections('general')
+  const userGroups = useSettingsGroups('user')
+  const generalGroups = useSettingsGroups('general')
+  const [activeTab, setActiveTab] = useState<string>('profile')
+  const [focusedSection, setFocusedSection] = useState<string | null>(null)
+  const [subtitleOverride, setSubtitleOverride] = useState<string | null>(null)
+  const dynamicPanel = useUIStore((s) => s.dynamicPanel)
+  const panelMode = useUIStore((s) => s.dynamicPanelMode)
+
+  // Check if a settings-specific dynamic panel is open in full mode
+  const isSettingsPanelFull = panelMode === 'full' && dynamicPanel !== null && dynamicPanel.module.startsWith('settings-')
+
+  // Find the active section across all (including nested)
+  const activeSection = findSettingsSection(activeTab)
+  const ActiveComponent = activeSection?.component
+
+  // If active tab doesn't exist, fallback
+  useEffect(() => {
+    if (!activeSection && userSections.length > 0) {
+      setActiveTab(userSections[0].id)
+    }
+  }, [activeSection, userSections])
+
+  // ── Deep-link: read URL hash on mount + listen for hash changes ──
+  useEffect(() => {
+    const handleHash = () => {
+      const hash = window.location.hash.replace('#', '')
+      if (!hash) return
+
+      // 1. Check if hash matches a tab ID directly
+      const directSection = findSettingsSection(hash)
+      if (directSection) {
+        setActiveTab(hash)
+        setFocusedSection(null)
+        return
+      }
+
+      // 2. Check if hash matches a sub-section inside a tab
+      const parentTab = SECTION_TAB_MAP[hash]
+      if (parentTab) {
+        setActiveTab(parentTab)
+        setFocusedSection(hash)
+        return
+      }
+    }
+
+    // Run on mount
+    handleHash()
+
+    // Listen for hash changes (e.g., from internal links)
+    window.addEventListener('hashchange', handleHash)
+    return () => window.removeEventListener('hashchange', handleHash)
+  }, [])
+
+  // Callback from CollapsibleSection when a section is focused/expanded
+  const handleSectionFocus = useCallback((title: string | null) => {
+    setSubtitleOverride(title)
+  }, [])
+
+  // Clear focusedSection when switching tabs manually
+  const handleTabChange = useCallback((tabId: string) => {
+    setActiveTab(tabId)
+    setFocusedSection(null)
+    setSubtitleOverride(null)
+  }, [])
+
+  // Build ordered sidebar items: interleave top-level sections and groups by order
+  const buildSidebarItems = (
+    sections: SettingsSection[],
+    groups: SettingsGroup[],
+  ): Array<{ type: 'section'; item: SettingsSection } | { type: 'group'; item: SettingsGroup }> => {
+    const items: Array<{ type: 'section'; item: SettingsSection; order: number } | { type: 'group'; item: SettingsGroup; order: number }> = []
+    for (const s of sections) {
+      items.push({ type: 'section', item: s, order: s.order ?? 50 })
+    }
+    for (const g of groups) {
+      items.push({ type: 'group', item: g, order: g.order ?? 50 })
+    }
+    items.sort((a, b) => a.order - b.order)
+    return items
+  }
+
+  const badges = useSettingsBadges()
+  const userItems = buildSidebarItems(userSections, userGroups)
+  const generalItems = buildSidebarItems(generalSections, generalGroups)
+
+  return (
+    <div className="flex h-full">
+      {/* ── Settings sub-sidebar ── */}
+      <div className="w-[240px] shrink-0 border-r border-border bg-background overflow-y-auto">
+        {/* User settings group */}
+        <div className="px-5 pt-3 pb-2">
+          <span className="text-sm font-semibold text-foreground">{t('settings.title')}</span>
+        </div>
+        <nav className="px-2 space-y-0.5">
+          {userItems.map((entry) =>
+            entry.type === 'section' ? (
+              <SidebarItem
+                key={entry.item.id}
+                section={entry.item}
+                isActive={activeTab === entry.item.id}
+                onClick={() => handleTabChange(entry.item.id)}
+                badge={badges[entry.item.id]}
+              />
+            ) : (
+              <SidebarGroup
+                key={entry.item.id}
+                group={entry.item}
+                activeTab={activeTab}
+                onSelectTab={handleTabChange}
+                badges={badges}
+              />
+            ),
+          )}
+        </nav>
+
+        {/* General settings group (if any modules registered) */}
+        {generalItems.length > 0 && (
+          <>
+            <div className="px-5 pt-5 pb-2">
+              <span className="text-sm font-semibold text-foreground">{t('settings.general')}</span>
+            </div>
+            <nav className="px-2 pb-4 space-y-0.5">
+              {generalItems.map((entry) =>
+                entry.type === 'section' ? (
+                  <SidebarItem
+                    key={entry.item.id}
+                    section={entry.item}
+                    isActive={activeTab === entry.item.id}
+                    onClick={() => handleTabChange(entry.item.id)}
+                    badge={badges[entry.item.id]}
+                  />
+                ) : (
+                  <SidebarGroup
+                    key={entry.item.id}
+                    group={entry.item}
+                    activeTab={activeTab}
+                    onSelectTab={handleTabChange}
+                    badges={badges}
+                  />
+                ),
+              )}
+            </nav>
+          </>
+        )}
+      </div>
+
+      {/* ── Content area (static panel + optional dynamic panel) ── */}
+      <div className="flex-1 flex min-w-0 overflow-hidden">
+        {/* Static panel — settings tab content (hidden when a settings panel is in full mode) */}
+        {!isSettingsPanelFull && <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <PanelHeader
+            icon={Settings}
+            title={t('settings.title')}
+            subtitle={subtitleOverride || activeSection?.label}
+          />
+
+          <PanelContent className="px-6 py-4">
+            <CollapsibleProvider
+              key={activeTab}
+              focusedSection={focusedSection}
+              onSectionFocus={handleSectionFocus}
+            >
+              {ActiveComponent && <ActiveComponent />}
+            </CollapsibleProvider>
+          </PanelContent>
+        </div>}
+
+        {/* Dynamic panel — create/edit forms open here */}
+        {dynamicPanel?.module === 'settings-token' && dynamicPanel.type === 'create' && <CreateTokenPanel />}
+        {dynamicPanel?.module === 'settings-app' && dynamicPanel.type === 'create' && <CreateAppPanel />}
+        {dynamicPanel?.module === 'settings-address' && (dynamicPanel.type === 'create' || dynamicPanel.type === 'edit') && <CreateAddressPanel />}
+        {dynamicPanel?.module === 'settings-email-template' && <EditEmailTemplatePanel />}
+      </div>
+    </div>
+  )
+}
+
+/* ── Sidebar nav item (top-level or child) ── */
+function SidebarItem({
+  section,
+  isActive,
+  onClick,
+  indent = false,
+  badge,
+}: {
+  section: SettingsSection
+  isActive: boolean
+  onClick: () => void
+  indent?: boolean
+  badge?: number
+}) {
+  const Icon = section.icon
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'flex w-full items-center gap-2.5 rounded-lg h-7 px-1 py-0.5 text-sm transition-colors',
+        indent && 'pl-7',
+        isActive
+          ? 'bg-primary/[0.16] text-foreground font-medium'
+          : 'text-foreground hover:bg-accent',
+      )}
+    >
+      <Icon size={15} className="shrink-0" />
+      <span className="truncate flex-1 text-left">{section.label}</span>
+      {badge !== undefined && badge > 0 && (
+        <span className="text-[10px] text-muted-foreground bg-accent rounded-full px-1.5 min-w-[18px] text-center shrink-0">
+          {badge}
+        </span>
+      )}
+    </button>
+  )
+}
+
+/* ── Collapsible sidebar group (like GitLab "Access") ── */
+function SidebarGroup({
+  group,
+  activeTab,
+  onSelectTab,
+  badges,
+}: {
+  group: SettingsGroup
+  activeTab: string
+  onSelectTab: (id: string) => void
+  badges?: Record<string, number | undefined>
+}) {
+  const children = useGroupChildren(group.id)
+  const hasActiveChild = children.some((c) => c.id === activeTab)
+  const [expanded, setExpanded] = useState(hasActiveChild)
+
+  // Auto-expand when a child is active
+  useEffect(() => {
+    if (hasActiveChild && !expanded) {
+      setExpanded(true)
+    }
+  }, [hasActiveChild, expanded])
+
+  const Icon = group.icon
+  const ChevronIcon = expanded ? ChevronDown : ChevronRight
+
+  return (
+    <div>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className={cn(
+          'flex w-full items-center gap-2.5 rounded-lg h-7 px-1 py-0.5 text-sm transition-colors',
+          hasActiveChild
+            ? 'text-foreground font-medium'
+            : 'text-foreground hover:bg-accent',
+        )}
+      >
+        <Icon size={15} className="shrink-0" />
+        <span className="truncate flex-1 text-left">{group.label}</span>
+        <ChevronIcon size={14} className="shrink-0 text-muted-foreground" />
+      </button>
+
+      {expanded && (
+        <div className="space-y-0.5 mt-0.5">
+          {children.map((child) => (
+            <SidebarItem
+              key={child.id}
+              section={child}
+              isActive={activeTab === child.id}
+              onClick={() => onSelectTab(child.id)}
+              indent
+              badge={badges?.[child.id]}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}

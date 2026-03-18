@@ -1,0 +1,545 @@
+/**
+ * Assets page — Pajamas panel-based layout.
+ *
+ * Static Panel: PanelHeader + FilterBar + DataTable (list or tree).
+ * Dynamic Panel (resizable): Create/Edit form with tabbed polymorphic components.
+ *
+ * Tabs: Tags inline, then Adresses | Fichiers | Notes with badge counters.
+ */
+import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
+import {
+  MapPin, Plus, List, GitBranch, Loader2, ChevronRight, ChevronDown,
+  Trash2, Paperclip, MessageSquare,
+} from 'lucide-react'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { DataTable } from '@/components/ui/DataTable/DataTable'
+import type { ColumnDef } from '@tanstack/react-table'
+import type { DataTablePagination, DataTableFilterDef } from '@/components/ui/DataTable/types'
+import { cn } from '@/lib/utils'
+import { useDebounce } from '@/hooks/useDebounce'
+import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
+import {
+  DynamicPanelShell,
+  DynamicPanelField,
+  FormSection,
+  InlineEditableRow,
+  InlineEditableTags,
+  ReadOnlyRow,
+  PanelActionButton,
+  DangerConfirmButton,
+  TagSelector,
+  panelInputClass,
+} from '@/components/layout/DynamicPanel'
+import { TagManager } from '@/components/shared/TagManager'
+import { AddressManager } from '@/components/shared/AddressManager'
+import { AttachmentManager } from '@/components/shared/AttachmentManager'
+import { NoteManager } from '@/components/shared/NoteManager'
+import { useUIStore } from '@/stores/uiStore'
+import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
+import { useAssets, useAsset, useAssetTree, useCreateAsset, useUpdateAsset, useArchiveAsset } from '@/hooks/useAssets'
+import { useAddresses, useAttachments, useNotes } from '@/hooks/useSettings'
+import type { Asset, AssetTreeNode, AssetCreate } from '@/types/api'
+
+// ── Tree node ───────────────────────────────────────────────
+function TreeNode({ node, depth = 0 }: { node: AssetTreeNode; depth?: number }) {
+  const [expanded, setExpanded] = useState(depth < 2)
+  const hasChildren = node.children && node.children.length > 0
+
+  return (
+    <div>
+      <button
+        onClick={() => hasChildren && setExpanded(!expanded)}
+        className={cn(
+          'flex w-full items-center gap-2 h-8 text-sm hover:bg-accent transition-colors',
+          !hasChildren && 'cursor-default',
+        )}
+        style={{ paddingLeft: `${depth * 16 + 12}px` }}
+      >
+        {hasChildren ? (
+          expanded
+            ? <ChevronDown size={12} className="text-muted-foreground shrink-0" />
+            : <ChevronRight size={12} className="text-muted-foreground shrink-0" />
+        ) : (
+          <span className="w-3 shrink-0" />
+        )}
+        <MapPin size={12} className="text-primary shrink-0" />
+        <span className="font-semibold text-foreground">{node.code}</span>
+        <span className="text-muted-foreground truncate">{node.name}</span>
+        <span className="ml-auto text-xs text-muted-foreground uppercase shrink-0 pr-3">{node.type}</span>
+      </button>
+      {expanded && hasChildren && node.children.map((child) => (
+        <TreeNode key={child.id} node={child} depth={depth + 1} />
+      ))}
+    </div>
+  )
+}
+
+const ASSET_TYPE_OPTIONS = [
+  { value: 'site', label: 'Site' },
+  { value: 'platform', label: 'Plateforme' },
+  { value: 'well', label: 'Puits' },
+  { value: 'equipment', label: 'Équipement' },
+  { value: 'pipeline', label: 'Pipeline' },
+  { value: 'tank', label: 'Bac / Réservoir' },
+]
+
+// ── Detail tabs definition ──────────────────────────────────
+const DETAIL_TABS = [
+  { id: 'addresses', label: 'Adresses', icon: MapPin },
+  { id: 'files', label: 'Fichiers', icon: Paperclip },
+  { id: 'notes', label: 'Notes', icon: MessageSquare },
+] as const
+type DetailTabId = typeof DETAIL_TABS[number]['id']
+
+// ── Create Asset Panel ──────────────────────────────────────
+function CreateAssetPanel() {
+  const { t } = useTranslation()
+  const createAsset = useCreateAsset()
+  const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const { data: assetsData } = useAssets({ page: 1, page_size: 100 })
+  const [form, setForm] = useState<AssetCreate>({
+    type: 'site', code: '', name: '',
+    parent_id: undefined, allow_overlap: true, metadata: undefined,
+  })
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await createAsset.mutateAsync(form)
+    closeDynamicPanel()
+  }
+
+  // Build parent options from existing assets
+  const parentOptions = useMemo(() => {
+    if (!assetsData?.items) return []
+    return assetsData.items.map((a) => ({ value: a.id, label: `${a.code} — ${a.name}` }))
+  }, [assetsData])
+
+  return (
+    <DynamicPanelShell
+      title={t('assets.create')}
+      subtitle={t('assets.title')}
+      icon={<MapPin size={14} className="text-primary" />}
+      actions={
+        <>
+          <PanelActionButton onClick={closeDynamicPanel}>
+            {t('common.cancel')}
+          </PanelActionButton>
+          <PanelActionButton
+            variant="primary"
+            disabled={createAsset.isPending}
+            onClick={() => (document.getElementById('create-asset-form') as HTMLFormElement)?.requestSubmit()}
+          >
+            {createAsset.isPending ? <Loader2 size={12} className="animate-spin" /> : t('common.create')}
+          </PanelActionButton>
+        </>
+      }
+    >
+      <form id="create-asset-form" onSubmit={handleSubmit} className="p-4 space-y-5">
+        {/* ── Required fields ── */}
+        <FormSection title={t('common.type')}>
+          <TagSelector options={ASSET_TYPE_OPTIONS} value={form.type} onChange={(v) => setForm({ ...form, type: v })} />
+        </FormSection>
+
+        <FormSection title={t('common.details')}>
+          <DynamicPanelField label={t('common.code')} required>
+            <input type="text" required value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} className={panelInputClass} placeholder="SITE-001" />
+          </DynamicPanelField>
+
+          <DynamicPanelField label={t('common.name')} required>
+            <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={panelInputClass} placeholder="Nom de l'asset" />
+          </DynamicPanelField>
+
+          <DynamicPanelField label="Asset parent">
+            <select
+              value={form.parent_id || ''}
+              onChange={(e) => setForm({ ...form, parent_id: e.target.value || undefined })}
+              className="gl-form-select"
+            >
+              <option value="">— Aucun (niveau racine)</option>
+              {parentOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </DynamicPanelField>
+        </FormSection>
+
+        {/* ── Optional fields ── */}
+        <FormSection title="Options" collapsible defaultExpanded={false} storageKey="panel.asset.sections" id="asset-options">
+          <label className="flex items-center gap-3 cursor-pointer group">
+            <input
+              type="checkbox"
+              checked={form.allow_overlap ?? true}
+              onChange={(e) => setForm({ ...form, allow_overlap: e.target.checked })}
+              className="h-4 w-4 rounded border-border text-primary focus:ring-primary/30"
+            />
+            <span className="text-sm text-foreground group-hover:text-foreground/80">
+              Autoriser le chevauchement de plannings
+            </span>
+          </label>
+        </FormSection>
+
+        <p className="text-xs text-muted-foreground italic">
+          Les adresses, fichiers et notes pourront être ajoutés après la création.
+        </p>
+      </form>
+    </DynamicPanelShell>
+  )
+}
+
+// ── Asset Detail Panel ──────────────────────────────────────
+function AssetDetailPanel({ id }: { id: string }) {
+  const { t } = useTranslation()
+  const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const archiveAsset = useArchiveAsset()
+  const { data: asset } = useAsset(id)
+
+  const updateAsset = useUpdateAsset()
+  const handleInlineSave = useCallback((field: string, value: string | number | boolean | null) => {
+    updateAsset.mutate({ id, payload: { [field]: value } })
+  }, [id, updateAsset])
+
+  // Find parent asset name
+  const { data: parentAsset } = useAsset(asset?.parent_id ?? '')
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<DetailTabId>('addresses')
+  // When > 0, signals the active tab's component to open its add form
+  const [addTrigger, setAddTrigger] = useState(0)
+
+  // Fetch counts for tab badges
+  const { data: addresses } = useAddresses('asset', id)
+  const { data: attachments } = useAttachments('asset', id)
+  const { data: notes } = useNotes('asset', id)
+
+  const tabCounts = useMemo(() => ({
+    addresses: addresses?.length ?? 0,
+    files: attachments?.length ?? 0,
+    notes: notes?.length ?? 0,
+  }), [addresses, attachments, notes])
+
+  if (!asset) {
+    return (
+      <DynamicPanelShell title={t('common.loading')} icon={<MapPin size={14} className="text-primary" />}>
+        <div className="flex items-center justify-center py-16">
+          <Loader2 size={16} className="animate-spin text-muted-foreground" />
+        </div>
+      </DynamicPanelShell>
+    )
+  }
+
+  return (
+    <DynamicPanelShell
+      title={asset.code}
+      subtitle={asset.name}
+      icon={<MapPin size={14} className="text-primary" />}
+      actions={
+        <DangerConfirmButton
+          icon={<Trash2 size={12} />}
+          onConfirm={() => { archiveAsset.mutate(id); closeDynamicPanel() }}
+          confirmLabel="Supprimer ?"
+        >
+          {t('common.delete')}
+        </DangerConfirmButton>
+      }
+    >
+      <div className="p-4 space-y-5">
+        {/* ── Details section ── */}
+        <FormSection title={t('common.details')}>
+          <InlineEditableRow label={t('common.name')} value={asset.name} onSave={(v) => handleInlineSave('name', v)} />
+          <InlineEditableRow label={t('common.code')} value={asset.code} onSave={(v) => handleInlineSave('code', v)} />
+          <InlineEditableTags
+            label={t('common.type')}
+            value={asset.type}
+            options={ASSET_TYPE_OPTIONS}
+            onSave={(v) => handleInlineSave('type', v)}
+          />
+          <ReadOnlyRow label="Parent" value={parentAsset ? `${parentAsset.code} — ${parentAsset.name}` : '— Racine'} />
+          <ReadOnlyRow
+            label={t('common.status')}
+            value={
+              <span className={cn(
+                'gl-badge',
+                asset.active ? 'gl-badge-success' : 'gl-badge-neutral',
+              )}>
+                {asset.active ? t('common.active') : t('common.archived')}
+              </span>
+            }
+          />
+        </FormSection>
+
+        {/* ── Options section ── */}
+        <FormSection title="Options">
+          <ReadOnlyRow
+            label="Chevauchement"
+            value={
+              <span className={cn('gl-badge', asset.allow_overlap ? 'gl-badge-success' : 'gl-badge-neutral')}>
+                {asset.allow_overlap ? 'Autorisé' : 'Non autorisé'}
+              </span>
+            }
+          />
+          <ReadOnlyRow label={t('common.created_at')} value={new Date(asset.created_at).toLocaleDateString()} />
+        </FormSection>
+
+        {/* ── Tags (inline, always visible) ── */}
+        <FormSection title="Tags">
+          <TagManager ownerType="asset" ownerId={id} compact />
+        </FormSection>
+
+        {/* ── Secondary tabs: Adresses | Fichiers | Notes ── */}
+        <div className="border-t border-border pt-4">
+          <div className="flex items-center gap-1 border-b border-border mb-4">
+            {DETAIL_TABS.map((tab) => {
+              const Icon = tab.icon
+              const count = tabCounts[tab.id as keyof typeof tabCounts] ?? 0
+              const isActive = activeTab === tab.id
+
+              return (
+                <div
+                  key={tab.id}
+                  className={cn(
+                    'group/tab flex items-center gap-1.5 px-3 py-2 border-b-2 -mb-px transition-colors cursor-pointer select-none',
+                    isActive
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border',
+                  )}
+                  onClick={() => setActiveTab(tab.id)}
+                >
+                  <Icon size={13} />
+                  <span className="text-sm font-medium">{tab.label}</span>
+                  {count > 0 && (
+                    <span className={cn(
+                      'text-[10px] font-semibold px-1.5 py-0.5 rounded-full min-w-[18px] text-center',
+                      isActive
+                        ? 'bg-primary/10 text-primary'
+                        : 'bg-accent text-muted-foreground',
+                    )}>
+                      {count}
+                    </span>
+                  )}
+                  {/* + button appears on hover — click opens add form */}
+                  <button
+                    className="p-0.5 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all opacity-0 group-hover/tab:opacity-100 ml-0.5"
+                    title={`Ajouter (${tab.label})`}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setActiveTab(tab.id)
+                      setAddTrigger((v) => v + 1)
+                    }}
+                  >
+                    <Plus size={13} />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Tab content — key includes addTrigger to force re-render with form open */}
+          {activeTab === 'addresses' && (
+            <AddressManager key={`addr-${addTrigger}`} ownerType="asset" ownerId={id} compact initialShowForm={addTrigger > 0} />
+          )}
+          {activeTab === 'files' && (
+            <AttachmentManager key={`att-${addTrigger}`} ownerType="asset" ownerId={id} compact initialShowForm={addTrigger > 0} />
+          )}
+          {activeTab === 'notes' && (
+            <NoteManager key={`note-${addTrigger}`} ownerType="asset" ownerId={id} compact initialShowForm={addTrigger > 0} />
+          )}
+        </div>
+      </div>
+    </DynamicPanelShell>
+  )
+}
+
+// ── Main Page ───────────────────────────────────────────────
+export function AssetsPage() {
+  const { t } = useTranslation()
+  const [view, setView] = useState<'list' | 'tree'>('list')
+  const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
+  const debouncedSearch = useDebounce(search, 300)
+  const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>({})
+
+  const dynamicPanel = useUIStore((s) => s.dynamicPanel)
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const panelMode = useUIStore((s) => s.dynamicPanelMode)
+  const setNavItems = useUIStore((s) => s.setDynamicPanelNavItems)
+
+  const typeFilter = typeof activeFilters.type === 'string' ? activeFilters.type : undefined
+  const { data: listData, isLoading: listLoading } = useAssets({
+    page, page_size: 25,
+    search: debouncedSearch || undefined,
+    type: typeFilter,
+  })
+
+  // Reset page on search/filter change
+  useEffect(() => { setPage(1) }, [debouncedSearch, activeFilters])
+
+  const assetFilters = useMemo<DataTableFilterDef[]>(() => [
+    {
+      id: 'type',
+      label: t('common.type'),
+      type: 'select',
+      options: ASSET_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+    },
+  ], [t])
+
+  const handleFilterChange = useCallback((filterId: string, value: unknown) => {
+    setActiveFilters((prev) => {
+      const next = { ...prev }
+      if (value === undefined || value === null) delete next[filterId]
+      else next[filterId] = value
+      return next
+    })
+  }, [])
+  const { data: treeData, isLoading: treeLoading } = useAssetTree()
+  const items = listData?.items ?? []
+
+  const columns = useMemo<ColumnDef<Asset, unknown>[]>(() => [
+    {
+      accessorKey: 'code',
+      header: t('common.code'),
+      cell: ({ row }) => <span className="font-semibold text-foreground">{row.original.code}</span>,
+    },
+    {
+      accessorKey: 'name',
+      header: t('common.name'),
+      cell: ({ row }) => <span className="text-foreground">{row.original.name}</span>,
+    },
+    {
+      accessorKey: 'type',
+      header: t('common.type'),
+      cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{row.original.type}</span>,
+    },
+    {
+      accessorKey: 'active',
+      header: t('common.status'),
+      cell: ({ row }) => (
+        <span className={cn('gl-badge', row.original.active ? 'gl-badge-success' : 'gl-badge-neutral')}>
+          {row.original.active ? t('common.active') : t('common.archived')}
+        </span>
+      ),
+      size: 90,
+    },
+    {
+      accessorKey: 'created_at',
+      header: t('common.created_at'),
+      cell: ({ row }) => <span className="text-muted-foreground">{new Date(row.original.created_at).toLocaleDateString()}</span>,
+    },
+  ], [t])
+
+  const paginationState: DataTablePagination | undefined = listData ? {
+    page: listData.page,
+    pageSize: 25,
+    total: listData.total,
+    pages: listData.pages,
+  } : undefined
+
+  // Set navigation items for the dynamic panel
+  useEffect(() => {
+    if (listData?.items) {
+      setNavItems(listData.items.map((i) => i.id))
+    }
+    return () => setNavItems([])
+  }, [listData?.items, setNavItems])
+
+  const isFullPanel = panelMode === 'full' && dynamicPanel !== null && dynamicPanel.module === 'assets'
+
+  return (
+    <div className="flex h-full">
+      {/* ── Static Panel (list) — hidden when dynamic panel is in full mode ── */}
+      {!isFullPanel && <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
+        <PanelHeader icon={MapPin} title={t('assets.title')} subtitle={t('assets.subtitle')}>
+          <ToolbarButton
+            icon={Plus}
+            label={t('assets.create')}
+            variant="primary"
+            onClick={() => openDynamicPanel({ type: 'create', module: 'assets' })}
+          />
+        </PanelHeader>
+
+        {/* Toolbar bar */}
+        <div className="flex items-center gap-2 border-b border-border px-3.5 h-9 shrink-0">
+          <div className="flex gap-0.5 rounded border border-border p-0.5">
+            <button
+              onClick={() => setView('list')}
+              className={cn(
+                'gl-button-sm',
+                view === 'list' ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <List size={12} /> {t('assets.list')}
+            </button>
+            <button
+              onClick={() => setView('tree')}
+              className={cn(
+                'gl-button-sm',
+                view === 'tree' ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <GitBranch size={12} /> {t('assets.hierarchy')}
+            </button>
+          </div>
+
+          {view === 'list' && listData && (
+            <span className="text-xs text-muted-foreground ml-auto">{listData.total} {t('assets.total')}</span>
+          )}
+        </div>
+
+        <PanelContent>
+          {view === 'list' && (
+            <DataTable<Asset>
+              columns={columns}
+              data={items}
+              isLoading={listLoading}
+              pagination={paginationState}
+              onPaginationChange={(p) => setPage(p)}
+              searchValue={search}
+              onSearchChange={setSearch}
+              searchPlaceholder="Rechercher par code, nom…"
+              filters={assetFilters}
+              activeFilters={activeFilters}
+              onFilterChange={handleFilterChange}
+              onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'assets', id: row.id })}
+              emptyTitle={t('common.no_results')}
+              columnResizing
+              columnPinning
+              defaultPinnedColumns={{ left: ['code'] }}
+              storageKey="assets"
+            />
+          )}
+
+          {view === 'tree' && treeLoading && (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 size={20} className="animate-spin text-muted-foreground" />
+            </div>
+          )}
+
+          {view === 'tree' && !treeLoading && (
+            <>
+              {!treeData || treeData.length === 0 ? (
+                <EmptyState title={t('common.no_results')} variant="search" />
+              ) : (
+                <div className="py-1">
+                  {treeData.map((node) => <TreeNode key={node.id} node={node} />)}
+                </div>
+              )}
+            </>
+          )}
+        </PanelContent>
+      </div>}
+
+      {/* ── Dynamic Panel — create ── */}
+      {dynamicPanel?.module === 'assets' && dynamicPanel.type === 'create' && <CreateAssetPanel />}
+
+      {/* ── Dynamic Panel — detail ── */}
+      {dynamicPanel?.module === 'assets' && dynamicPanel.type === 'detail' && <AssetDetailPanel id={dynamicPanel.id} />}
+    </div>
+  )
+}
+
+// ── Module-level renderer registration (after component definitions) ──
+registerPanelRenderer('assets', (view) => {
+  if (view.type === 'create') return <CreateAssetPanel />
+  if (view.type === 'detail' && 'id' in view) return <AssetDetailPanel id={view.id} />
+  return null
+})

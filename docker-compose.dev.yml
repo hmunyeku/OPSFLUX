@@ -1,0 +1,72 @@
+services:
+  # ─── PostgreSQL 16 with extensions ─────────────────────────────
+  postgres:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.postgres
+    container_name: opsflux-postgres
+    environment:
+      POSTGRES_USER: opsflux
+      POSTGRES_PASSWORD: opsflux_dev
+      POSTGRES_DB: opsflux
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./docker/init-extensions.sql:/docker-entrypoint-initdb.d/init-extensions.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U opsflux"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ─── Redis 7 ───────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: opsflux-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  # ─── Backend FastAPI ───────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: opsflux-backend
+    command: >
+      uvicorn app.main:app
+      --host 0.0.0.0 --port 8000
+      --reload --reload-dir /opt/opsflux/app
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://opsflux:opsflux_dev@postgres:5432/opsflux
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/opt/opsflux/app
+      - ./alembic:/opt/opsflux/alembic
+      - ./tests:/opt/opsflux/tests
+      - ./static:/opt/opsflux/static
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ─── MailHog (dev email) ───────────────────────────────────────
+  mailhog:
+    image: mailhog/mailhog
+    container_name: opsflux-mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+volumes:
+  pg_data:

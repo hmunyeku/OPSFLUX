@@ -59,6 +59,11 @@ export function useDashboardEditor({ tabId, initialWidgets }: UseDashboardEditor
   const updateTab = useUpdateDashboardTab()
   const debouncedSave = useRef<ReturnType<typeof setTimeout>>()
 
+  // Keep refs in sync so the unmount effect can read latest values
+  const latestRef = useRef({ tabId, widgets, isDirty })
+  latestRef.current = { tabId, widgets, isDirty }
+  const saveOnUnmountRef = useRef(true)
+
   // Sync when tab changes
   useEffect(() => {
     setWidgets(initialWidgets)
@@ -76,6 +81,19 @@ export function useDashboardEditor({ tabId, initialWidgets }: UseDashboardEditor
     }, 800)
     return () => clearTimeout(debouncedSave.current)
   }, [widgets, isDirty, tabId, updateTab])
+
+  // Flush any pending save on unmount (unless cancelled)
+  useEffect(() => {
+    return () => {
+      clearTimeout(debouncedSave.current)
+      if (saveOnUnmountRef.current) {
+        const { tabId: tid, widgets: w, isDirty: dirty } = latestRef.current
+        if (dirty) {
+          updateTab.mutate({ id: tid, widgets: w })
+        }
+      }
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedWidget = widgets.find((w) => w.id === selectedWidgetId) ?? null
 
@@ -161,8 +179,18 @@ export function useDashboardEditor({ tabId, initialWidgets }: UseDashboardEditor
     if (isDirty) {
       updateTab.mutate({ id: tabId, widgets })
       setIsDirty(false)
+      // Also update ref so the unmount effect doesn't double-save
+      latestRef.current = { ...latestRef.current, isDirty: false }
     }
   }, [isDirty, tabId, widgets, updateTab])
+
+  // Discard all changes and prevent save on unmount
+  const discardChanges = useCallback(() => {
+    clearTimeout(debouncedSave.current)
+    saveOnUnmountRef.current = false
+    setWidgets(initialWidgets)
+    setIsDirty(false)
+  }, [initialWidgets])
 
   // Update a full widget (from DashboardGrid resize callback)
   const updateWidget = useCallback((updated: DashboardWidget) => {
@@ -186,6 +214,7 @@ export function useDashboardEditor({ tabId, initialWidgets }: UseDashboardEditor
     updateWidget,
     selectWidget,
     flushSave,
+    discardChanges,
     setWidgets,
   }
 }

@@ -1510,6 +1510,12 @@ export function ReportEditorPage() {
       {dynamicPanel?.module === 'report-editor' && dynamicPanel.type === 'create' && !dynamicPanel.meta?.subtype && (
         <CreateDocumentPanel />
       )}
+      {dynamicPanel?.module === 'report-editor' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'doc-type' && (
+        <CreateDocTypePanel />
+      )}
+      {dynamicPanel?.module === 'report-editor' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'template' && (
+        <CreateTemplatePanel />
+      )}
     </div>
   )
 }

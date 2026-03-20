@@ -5,7 +5,7 @@
  * Content area: CSS Grid 12-column widget layout
  * Edit mode: toggle to add/remove/rearrange widgets
  */
-import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -41,6 +41,7 @@ import {
 import { useAuditLog } from '@/hooks/useSettings'
 import { DashboardGrid } from '@/components/dashboard/DashboardGrid'
 import { DashboardEditorLayout } from '@/components/dashboard/DashboardEditorLayout'
+import type { DashboardEditorHandle } from '@/components/dashboard/DashboardEditorLayout'
 import type { DashboardWidget, DashboardTab, UserDashboardTab } from '@/services/dashboardService'
 
 // ── Relative time formatting ──────────────────────────────────
@@ -148,6 +149,9 @@ export function DashboardPage() {
   const createTab = useCreateDashboardTab()
   const updateTab = useUpdateDashboardTab()
   const deleteTab = useDeleteDashboardTab()
+
+  // Editor ref
+  const editorRef = useRef<DashboardEditorHandle>(null)
 
   // State
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
@@ -300,32 +304,33 @@ export function DashboardPage() {
 
         {/* Right side: edit mode toggle */}
         <div className="ml-auto flex items-center gap-1.5">
-          {!isBuiltin && (
+          {!isBuiltin && !editMode && (
             <button
-              onClick={() => setEditMode(!editMode)}
-              className={cn(
-                'inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs font-medium transition-colors',
-                editMode
-                  ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                  : 'hover:bg-muted text-muted-foreground',
-              )}
+              onClick={() => setEditMode(true)}
+              className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs font-medium transition-colors hover:bg-muted text-muted-foreground"
             >
-              {editMode ? (
-                <>
-                  <Check className="h-3.5 w-3.5" />
-                  {t('dashboard.save_dashboard')}
-                </>
-              ) : (
-                <>
-                  <Settings2 className="h-3.5 w-3.5" />
-                  {t('dashboard.edit_dashboard')}
-                </>
-              )}
+              <Settings2 className="h-3.5 w-3.5" />
+              {t('dashboard.edit_dashboard')}
             </button>
           )}
           {!isBuiltin && editMode && (
             <button
-              onClick={() => setEditMode(false)}
+              onClick={() => {
+                editorRef.current?.flushSave()
+                setEditMode(false)
+              }}
+              className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              <Check className="h-3.5 w-3.5" />
+              {t('dashboard.save_dashboard')}
+            </button>
+          )}
+          {!isBuiltin && editMode && (
+            <button
+              onClick={() => {
+                editorRef.current?.discardChanges()
+                setEditMode(false)
+              }}
               className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs font-medium transition-colors hover:bg-muted text-muted-foreground"
             >
               <X className="h-3.5 w-3.5" />
@@ -521,6 +526,7 @@ export function DashboardPage() {
       {/* Full-height editor layout (edit mode) — replaces PanelContent */}
       {!isBuiltin && editMode && activeTab && catalog && (
         <DashboardEditorLayout
+          ref={editorRef}
           tabId={activeTab.id}
           initialWidgets={activeTab.widgets || []}
           catalog={catalog}

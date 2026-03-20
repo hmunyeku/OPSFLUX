@@ -7,13 +7,18 @@
  *
  * Catalog items use HTML5 native drag → react-grid-layout's isDroppable / onDrop.
  */
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, forwardRef, useImperativeHandle } from 'react'
 import type ReactGridLayout from 'react-grid-layout'
 import { useDashboardEditor } from '@/hooks/useDashboardEditor'
 import { WidgetCatalogSidebar } from './WidgetCatalogSidebar'
 import { DashboardCanvas } from './DashboardCanvas'
 import { WidgetSettingsPanel } from './WidgetSettingsPanel'
 import type { DashboardWidget, WidgetCatalogEntry } from '@/services/dashboardService'
+
+export interface DashboardEditorHandle {
+  flushSave: () => void
+  discardChanges: () => void
+}
 
 interface DashboardEditorLayoutProps {
   tabId: string
@@ -22,12 +27,14 @@ interface DashboardEditorLayoutProps {
   onExitEdit: () => void
 }
 
-export function DashboardEditorLayout({
-  tabId,
-  initialWidgets,
-  catalog,
-}: DashboardEditorLayoutProps) {
+export const DashboardEditorLayout = forwardRef<DashboardEditorHandle, DashboardEditorLayoutProps>(
+  function DashboardEditorLayout({ tabId, initialWidgets, catalog, onExitEdit }, ref) {
   const editor = useDashboardEditor({ tabId, initialWidgets })
+
+  useImperativeHandle(ref, () => ({
+    flushSave: editor.flushSave,
+    discardChanges: editor.discardChanges,
+  }), [editor.flushSave, editor.discardChanges])
 
   // Track the catalog entry currently being dragged (for droppingItem)
   const [droppingItem, setDroppingItem] = useState<{ i: string; w: number; h: number } | undefined>(undefined)
@@ -95,4 +102,4 @@ export function DashboardEditorLayout({
       )}
     </div>
   )
-}
+})

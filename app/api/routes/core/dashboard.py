@@ -104,15 +104,12 @@ async def _get_user_role_codes(
 
 
 async def _get_tenant_id(entity_id: UUID, db: AsyncSession) -> UUID:
-    """Resolve tenant_id from entity_id."""
-    result = await db.execute(
-        text("SELECT tenant_id FROM entities WHERE id = :eid"),
-        {"eid": entity_id},
-    )
-    row = result.first()
-    if not row:
-        raise HTTPException(400, "Entity not found")
-    return row[0]
+    """Resolve tenant_id from entity_id.
+
+    In the current schema entities ARE the tenant boundary,
+    so tenant_id == entity_id.
+    """
+    return entity_id
 
 
 # ═══════════════════════════════════════════════════════════════════════════

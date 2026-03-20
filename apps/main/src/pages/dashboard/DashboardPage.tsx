@@ -6,6 +6,7 @@
  * Edit mode: toggle to add/remove/rearrange widgets
  */
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -212,7 +213,15 @@ export function DashboardPage() {
     })
   }, [createTab, tabsData, t])
 
-  const handleDeleteTab = useCallback((tabId: string) => {
+  const confirm = useConfirm()
+  const handleDeleteTab = useCallback(async (tabId: string) => {
+    const ok = await confirm({
+      title: 'Supprimer cet onglet ?',
+      message: 'Cette action est irréversible. Tous les widgets de cet onglet seront perdus.',
+      confirmLabel: 'Supprimer',
+      variant: 'danger',
+    })
+    if (!ok) return
     deleteTab.mutate(tabId, {
       onSuccess: () => {
         if (activeTabId === tabId) {
@@ -220,7 +229,7 @@ export function DashboardPage() {
         }
       },
     })
-  }, [deleteTab, activeTabId, displayTabs])
+  }, [confirm, deleteTab, activeTabId, displayTabs])
 
   const handleStartRenameTab = useCallback((tabId: string, currentName: string) => {
     setEditingTabName(tabId)
@@ -612,9 +621,7 @@ function TabButton({
           onClick={(e) => {
             e.stopPropagation()
             e.preventDefault()
-            if (window.confirm('Supprimer cet onglet ?')) {
-              onClose()
-            }
+            onClose()
           }}
           className="pointer-events-auto h-5 w-5 ml-0.5 inline-flex items-center justify-center rounded hover:bg-destructive/10 hover:text-destructive transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
           title="Supprimer cet onglet"

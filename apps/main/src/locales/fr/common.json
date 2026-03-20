@@ -634,7 +634,20 @@
     "sea_state": "État de mer",
     "no_passenger": "Aucun passager",
     "no_cargo": "Aucun colis",
-    "log_event": "Enregistrer l'événement"
+    "log_event": "Enregistrer l'événement",
+    "vectors": "Vecteurs",
+    "status_active": "Actif",
+    "status_idle": "En veille",
+    "status_in_transit": "En transit",
+    "status_maintenance": "Maintenance",
+    "status_planned": "Planifié",
+    "status_confirmed": "Confirmé",
+    "status_boarding": "Embarquement",
+    "status_departed": "Parti",
+    "status_arrived": "Arrivé",
+    "status_closed": "Clôturé",
+    "status_delayed": "Retardé",
+    "status_cancelled": "Annulé"
   },
   "report_editor": {
     "title": "Éditeur de rapports",

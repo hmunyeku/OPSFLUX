@@ -634,7 +634,20 @@
     "sea_state": "Sea State",
     "no_passenger": "No passenger",
     "no_cargo": "No cargo",
-    "log_event": "Log event"
+    "log_event": "Log event",
+    "vectors": "Vectors",
+    "status_active": "Active",
+    "status_idle": "Idle",
+    "status_in_transit": "In transit",
+    "status_maintenance": "Maintenance",
+    "status_planned": "Planned",
+    "status_confirmed": "Confirmed",
+    "status_boarding": "Boarding",
+    "status_departed": "Departed",
+    "status_arrived": "Arrived",
+    "status_closed": "Closed",
+    "status_delayed": "Delayed",
+    "status_cancelled": "Cancelled"
   },
   "report_editor": {
     "title": "Report Editor",

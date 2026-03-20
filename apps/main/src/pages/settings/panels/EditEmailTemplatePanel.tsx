@@ -50,6 +50,7 @@ import {
   DynamicPanelField,
   FormSection,
   PanelActionButton,
+  panelInputClass,
 } from '@/components/layout/DynamicPanel'
 import {
   useEmailTemplate,
@@ -350,7 +351,7 @@ function CreatePanel() {
           <DynamicPanelField label="Slug (identifiant technique)" required>
             <input
               type="text"
-              className="gl-form-input font-mono"
+              className={`${panelInputClass} font-mono`}
               placeholder="ex: user_invitation"
               value={slug}
               onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
@@ -363,7 +364,7 @@ function CreatePanel() {
           <DynamicPanelField label="Nom" required>
             <input
               type="text"
-              className="gl-form-input"
+              className={panelInputClass}
               placeholder="ex: Invitation utilisateur"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -372,7 +373,7 @@ function CreatePanel() {
 
           <DynamicPanelField label="Description">
             <textarea
-              className="gl-form-input min-h-[60px]"
+              className={`${panelInputClass} min-h-[60px]`}
               placeholder="Description du modèle..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -630,10 +631,10 @@ function EditPanel({ templateId }: { templateId: string }) {
           ) : (
             <div className="px-3 py-3 space-y-3">
               <DynamicPanelField label="Nom">
-                <input type="text" className="gl-form-input" value={editName} onChange={(e) => setEditName(e.target.value)} />
+                <input type="text" className={panelInputClass} value={editName} onChange={(e) => setEditName(e.target.value)} />
               </DynamicPanelField>
               <DynamicPanelField label="Description">
-                <textarea className="gl-form-input min-h-[50px]" value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
+                <textarea className={`${panelInputClass} min-h-[50px]`} value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
               </DynamicPanelField>
               <DynamicPanelField label="Type d'objet">
                 <select className="gl-form-select" value={editObjectType} onChange={(e) => setEditObjectType(e.target.value)}>
@@ -773,7 +774,7 @@ function EditPanel({ templateId }: { templateId: string }) {
               <DynamicPanelField label="Sujet" required>
                 <input
                   type="text"
-                  className="gl-form-input text-sm"
+                  className={`${panelInputClass} text-sm`}
                   placeholder="Sujet de l'email (supporte {{ variables }})"
                   value={newSubject}
                   onChange={(e) => setNewSubject(e.target.value)}
@@ -802,7 +803,7 @@ function EditPanel({ templateId }: { templateId: string }) {
                   <DynamicPanelField label="Active à partir du">
                     <input
                       type="datetime-local"
-                      className="gl-form-input text-xs"
+                      className={`${panelInputClass} text-xs`}
                       value={newValidFrom}
                       onChange={(e) => setNewValidFrom(e.target.value)}
                     />
@@ -810,7 +811,7 @@ function EditPanel({ templateId }: { templateId: string }) {
                   <DynamicPanelField label="Active jusqu'au">
                     <input
                       type="datetime-local"
-                      className="gl-form-input text-xs"
+                      className={`${panelInputClass} text-xs`}
                       value={newValidUntil}
                       onChange={(e) => setNewValidUntil(e.target.value)}
                     />
@@ -943,7 +944,7 @@ function VersionEditor({
             type="text"
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
-            className="gl-form-input text-sm"
+            className={`${panelInputClass} text-sm`}
             placeholder="Sujet de l'email..."
           />
         </div>
@@ -974,7 +975,7 @@ function VersionEditor({
             <DynamicPanelField label="Active à partir du">
               <input
                 type="datetime-local"
-                className="gl-form-input text-xs"
+                className={`${panelInputClass} text-xs`}
                 value={validFrom}
                 onChange={(e) => setValidFrom(e.target.value)}
               />
@@ -982,7 +983,7 @@ function VersionEditor({
             <DynamicPanelField label="Active jusqu'au">
               <input
                 type="datetime-local"
-                className="gl-form-input text-xs"
+                className={`${panelInputClass} text-xs`}
                 value={validUntil}
                 onChange={(e) => setValidUntil(e.target.value)}
               />

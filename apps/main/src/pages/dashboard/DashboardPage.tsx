@@ -40,8 +40,8 @@ import {
 } from '@/hooks/useDashboard'
 import { useAuditLog } from '@/hooks/useSettings'
 import { DashboardGrid } from '@/components/dashboard/DashboardGrid'
-import { WidgetCatalogPopover } from '@/components/dashboard/WidgetCatalogPopover'
-import type { DashboardWidget, DashboardTab, UserDashboardTab, WidgetCatalogEntry } from '@/services/dashboardService'
+import { DashboardEditorLayout } from '@/components/dashboard/DashboardEditorLayout'
+import type { DashboardWidget, DashboardTab, UserDashboardTab } from '@/services/dashboardService'
 
 // ── Relative time formatting ──────────────────────────────────
 
@@ -231,31 +231,7 @@ export function DashboardPage() {
     setTabNameDraft('')
   }, [editingTabName, tabNameDraft, updateTab])
 
-  const handleAddWidget = useCallback((entry: WidgetCatalogEntry) => {
-    if (!activeTab || activeTab.id.startsWith('__builtin')) return
-
-    const existingWidgets = activeTab.widgets || []
-    // Place new widget at first available position
-    const maxY = existingWidgets.reduce((max, w) => Math.max(max, (w.position?.y || 0) + (w.position?.h || 4)), 0)
-
-    const newWidget: DashboardWidget = {
-      id: `widget-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      type: entry.type,
-      title: entry.title,
-      description: entry.description,
-      config: { ...entry.default_config },
-      position: { x: 0, y: maxY, w: 4, h: 4 },
-    }
-
-    const updatedWidgets = [...existingWidgets, newWidget]
-    updateTab.mutate({ id: activeTab.id, widgets: updatedWidgets })
-  }, [activeTab, updateTab])
-
-  const handleRemoveWidget = useCallback((widgetId: string) => {
-    if (!activeTab || activeTab.id.startsWith('__builtin')) return
-    const updatedWidgets = (activeTab.widgets || []).filter((w) => w.id !== widgetId)
-    updateTab.mutate({ id: activeTab.id, widgets: updatedWidgets })
-  }, [activeTab, updateTab])
+  // Widget add/remove is now handled by DashboardEditorLayout
 
   // Quick actions (used in built-in overview)
   const quickActions = [
@@ -322,11 +298,8 @@ export function DashboardPage() {
           )}
         </button>
 
-        {/* Right side: edit mode toggle + widget catalog */}
+        {/* Right side: edit mode toggle */}
         <div className="ml-auto flex items-center gap-1.5">
-          {editMode && !isBuiltin && catalog && (
-            <WidgetCatalogPopover catalog={catalog} onAdd={handleAddWidget} />
-          )}
           {!isBuiltin && (
             <button
               onClick={() => setEditMode(!editMode)}
@@ -527,15 +500,24 @@ export function DashboardPage() {
           </div>
         )}
 
-        {/* Widget grid for API-backed tabs */}
-        {!isBuiltin && (
+        {/* Widget grid for API-backed tabs (view mode) */}
+        {!isBuiltin && !editMode && (
           <DashboardGrid
             widgets={activeTab?.widgets || []}
-            mode={editMode ? 'edit' : 'view'}
-            onRemoveWidget={editMode ? handleRemoveWidget : undefined}
+            mode="view"
           />
         )}
       </PanelContent>
+
+      {/* Full-height editor layout (edit mode) — replaces PanelContent */}
+      {!isBuiltin && editMode && activeTab && catalog && (
+        <DashboardEditorLayout
+          tabId={activeTab.id}
+          initialWidgets={activeTab.widgets || []}
+          catalog={catalog}
+          onExitEdit={() => setEditMode(false)}
+        />
+      )}
     </div>
   )
 }
@@ -613,12 +595,12 @@ function TabButton({
         </div>
       )}
 
-      {/* Close button */}
-      {onClose && !editMode && (
+      {/* Close button — visible in both view and edit mode for closable tabs */}
+      {onClose && (
         <button
           onClick={(e) => { e.stopPropagation(); onClose() }}
           className="h-5 w-5 -ml-1 inline-flex items-center justify-center rounded hover:bg-destructive/10"
-          title="Fermer"
+          title="Supprimer cet onglet"
         >
           <X size={10} className="text-muted-foreground" />
         </button>

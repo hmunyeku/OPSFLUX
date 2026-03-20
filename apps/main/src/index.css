@@ -213,6 +213,13 @@
     box-shadow: inset 0 0 0 1px hsl(var(--ring)), 0 0 0 2px hsl(var(--ring) / 0.15);
   }
 
+  /* ── Checkbox ─────────────────────────────────────────── */
+  .gl-checkbox {
+    @apply h-4 w-4 rounded border-border text-primary
+           focus:ring-primary/30 focus:ring-offset-0
+           cursor-pointer transition-colors;
+  }
+
   /* ── Labels ───────────────────────────────────────────────── */
   .gl-label {
     @apply block text-sm font-semibold text-foreground mb-2;

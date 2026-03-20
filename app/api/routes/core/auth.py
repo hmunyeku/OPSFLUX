@@ -675,6 +675,37 @@ async def reset_password(body: ResetPasswordRequest, db: AsyncSession = Depends(
     return {"detail": "Password has been reset successfully"}
 
 
+# ── Change Password (authenticated) ──────────────────────────────────────────
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+@router.post("/change-password")
+async def change_password(
+    body: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Change password for the authenticated user. Requires current password."""
+    if not current_user.hashed_password or not verify_password(body.current_password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+    if body.current_password == body.new_password:
+        raise HTTPException(status_code=400, detail="New password must be different from current password")
+
+    _validate_password_strength(body.new_password)
+
+    current_user.hashed_password = hash_password(body.new_password)
+    current_user.password_changed_at = datetime.now(UTC)
+    await db.commit()
+
+    logger.info("Password changed for user %s", current_user.email)
+    return {"detail": "Password changed successfully"}
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # SSO — OAuth2 / OpenID Connect
 # ══════════════════════════════════════════════════════════════════════════════

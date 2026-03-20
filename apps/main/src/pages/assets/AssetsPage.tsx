@@ -23,6 +23,7 @@ import {
   DynamicPanelShell,
   DynamicPanelField,
   FormSection,
+  PanelContentLayout,
   InlineEditableRow,
   InlineEditableTags,
   ReadOnlyRow,
@@ -37,6 +38,7 @@ import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { NoteManager } from '@/components/shared/NoteManager'
 import { AssetPicker } from '@/components/shared/AssetPicker'
 import { GeoEditor } from '@/components/shared/GeoEditor'
+import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import type { GeoType, GeoValue } from '@/components/shared/GeoEditor'
 import { useUIStore } from '@/stores/uiStore'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
@@ -259,7 +261,7 @@ function AssetDetailPanel({ id }: { id: string }) {
         </DangerConfirmButton>
       }
     >
-      <div className="p-4 space-y-5">
+      <PanelContentLayout>
         {/* ── Details section ── */}
         <FormSection title={t('common.details')}>
           <InlineEditableRow label={t('common.name')} value={asset.name} onSave={(v) => handleInlineSave('name', v)} />
@@ -270,7 +272,11 @@ function AssetDetailPanel({ id }: { id: string }) {
             options={ASSET_TYPE_OPTIONS}
             onSave={(v) => handleInlineSave('type', v)}
           />
-          <ReadOnlyRow label="Parent" value={parentAsset ? `${parentAsset.code} — ${parentAsset.name}` : '— Racine'} />
+          <ReadOnlyRow label="Parent" value={
+            parentAsset ? (
+              <CrossModuleLink module="assets" id={parentAsset.id} label={`${parentAsset.code} — ${parentAsset.name}`} />
+            ) : '— Racine'
+          } />
           <ReadOnlyRow
             label={t('common.status')}
             value={
@@ -373,7 +379,7 @@ function AssetDetailPanel({ id }: { id: string }) {
             <NoteManager key={`note-${addTrigger}`} ownerType="asset" ownerId={id} compact initialShowForm={addTrigger > 0} />
           )}
         </div>
-      </div>
+      </PanelContentLayout>
     </DynamicPanelShell>
   )
 }

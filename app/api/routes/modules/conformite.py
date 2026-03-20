@@ -198,6 +198,23 @@ async def list_compliance_records(
         query = query.where(ComplianceType.name.ilike(like) | ComplianceRecord.reference_number.ilike(like))
     query = query.order_by(ComplianceRecord.created_at.desc())
 
+    # Auto-expire records that are past their expiry date
+    now = datetime.now(timezone.utc)
+    expire_stmt = (
+        select(ComplianceRecord)
+        .where(
+            ComplianceRecord.entity_id == entity_id,
+            ComplianceRecord.active == True,  # noqa: E712
+            ComplianceRecord.status == "valid",
+            ComplianceRecord.expires_at != None,  # noqa: E711
+            ComplianceRecord.expires_at < now,
+        )
+    )
+    expired_result = await db.execute(expire_stmt)
+    for rec in expired_result.scalars().all():
+        rec.status = "expired"
+    await db.flush()
+
     def _transform(row):
         rec = row[0] if hasattr(row, '__getitem__') else row.ComplianceRecord
         d = {c.key: getattr(rec, c.key) for c in rec.__table__.columns}
@@ -273,6 +290,85 @@ async def delete_compliance_record(
     rec.active = False
     await db.commit()
     return {"detail": "Record archived"}
+
+
+# ── Expiring & Non-Compliant ─────────────────────────────────────────────
+
+
+from pydantic import BaseModel as _BaseModel
+from datetime import timedelta
+
+
+class ExpiringRecordRead(_BaseModel):
+    id: UUID
+    compliance_type_id: UUID
+    type_name: str | None = None
+    type_category: str | None = None
+    owner_type: str
+    owner_id: UUID
+    status: str
+    expires_at: datetime | None = None
+    days_remaining: int | None = None
+
+
+@router.get("/expiring", response_model=list[ExpiringRecordRead])
+async def list_expiring_records(
+    days: int = 30,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List compliance records expiring within N days (default 30)."""
+    now = datetime.now(timezone.utc)
+    cutoff = now + timedelta(days=days)
+
+    # First auto-expire overdue records
+    expire_stmt = (
+        select(ComplianceRecord)
+        .where(
+            ComplianceRecord.entity_id == entity_id,
+            ComplianceRecord.active == True,  # noqa: E712
+            ComplianceRecord.status == "valid",
+            ComplianceRecord.expires_at != None,  # noqa: E711
+            ComplianceRecord.expires_at < now,
+        )
+    )
+    for rec in (await db.execute(expire_stmt)).scalars().all():
+        rec.status = "expired"
+    await db.flush()
+
+    # Then fetch expiring-soon + already-expired
+    query = (
+        select(ComplianceRecord, ComplianceType.name.label("type_name"), ComplianceType.category.label("type_category"))
+        .join(ComplianceType, ComplianceRecord.compliance_type_id == ComplianceType.id)
+        .where(
+            ComplianceRecord.entity_id == entity_id,
+            ComplianceRecord.active == True,  # noqa: E712
+            ComplianceRecord.expires_at != None,  # noqa: E711
+            ComplianceRecord.expires_at <= cutoff,
+        )
+        .order_by(ComplianceRecord.expires_at)
+        .limit(100)
+    )
+    result = await db.execute(query)
+    await db.commit()
+
+    items = []
+    for row in result.all():
+        rec = row[0]
+        remaining = (rec.expires_at - now).days if rec.expires_at and rec.expires_at > now else 0
+        items.append(ExpiringRecordRead(
+            id=rec.id,
+            compliance_type_id=rec.compliance_type_id,
+            type_name=row[1],
+            type_category=row[2],
+            owner_type=rec.owner_type,
+            owner_id=rec.owner_id,
+            status=rec.status,
+            expires_at=rec.expires_at,
+            days_remaining=remaining,
+        ))
+    return items
 
 
 # ── Compliance Check ──────────────────────────────────────────────────────

@@ -37,10 +37,7 @@ import {
   ToggleRight,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
-import api from '@/lib/api'
 import { cn } from '@/lib/utils'
-import type { SettingRead } from '@/types/api'
 import 'leaflet/dist/leaflet.css'
 
 // ── Types ────────────────────────────────────────────────────
@@ -77,8 +74,9 @@ export interface GeoEditorProps {
 const DRAW_COLOR = '#3b82f6' // blue-500
 const COMPLETED_COLOR = '#22c55e' // green-500
 const VERTEX_RADIUS = 6
-const DEFAULT_CENTER: [number, number] = [3.848, 9.687] // Cameroon (Perenco default)
-const DEFAULT_ZOOM = 6
+// Fallback values if settings not loaded yet (overridden by useMapSettings)
+const FALLBACK_CENTER: [number, number] = [3.848, 9.687]
+const FALLBACK_ZOOM = 6
 
 type CoordFormat = 'dd' | 'dms'
 type DrawMode = 'draw' | 'edit' | 'idle'
@@ -92,27 +90,7 @@ L.Icon.Default.mergeOptions({
 })
 
 // ── Tile helpers (same as MapPicker) ─────────────────────────
-function getTileUrl(provider: string, apiKey: string, style: string): string {
-  switch (provider) {
-    case 'google_maps':
-      return `https://mt1.google.com/vt/lyrs=${style === 'satellite' ? 's' : style === 'terrain' ? 'p' : 'm'}&x={x}&y={y}&z={z}`
-    case 'mapbox':
-      return `https://api.mapbox.com/styles/v1/mapbox/${style || 'streets-v12'}/tiles/{z}/{x}/{y}?access_token=${apiKey}`
-    default:
-      return 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-  }
-}
-
-function getTileAttribution(provider: string): string {
-  switch (provider) {
-    case 'google_maps':
-      return '&copy; Google Maps'
-    case 'mapbox':
-      return '&copy; <a href="https://www.mapbox.com/">Mapbox</a>'
-    default:
-      return '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
-  }
-}
+import { useMapSettings, getTileUrl, getTileAttribution } from '@/hooks/useMapSettings'
 
 // ── Geocoding ────────────────────────────────────────────────
 async function geocodeAddress(
@@ -127,33 +105,6 @@ async function geocodeAddress(
     lng: parseFloat(r.lon),
     display: r.display_name,
   }))
-}
-
-// ── Map settings hook ────────────────────────────────────────
-function useMapSettings() {
-  return useQuery({
-    queryKey: ['settings', 'entity', 'map'],
-    queryFn: async () => {
-      try {
-        const { data } = await api.get<SettingRead[]>('/api/v1/settings', { params: { scope: 'entity' } })
-        const map: Record<string, string> = {}
-        for (const s of data) {
-          if (s.key.startsWith('integration.')) {
-            map[s.key] = (s.value?.v ?? s.value ?? '') as string
-          }
-        }
-        return {
-          provider: map['integration.map.provider'] || 'openstreetmap',
-          googleKey: map['integration.google_maps.api_key'] || '',
-          mapboxToken: map['integration.mapbox.access_token'] || '',
-          style: map['integration.map.style'] || 'standard',
-        }
-      } catch {
-        return { provider: 'openstreetmap', googleKey: '', mapboxToken: '', style: 'standard' }
-      }
-    },
-    staleTime: 5 * 60 * 1000,
-  })
 }
 
 // ── Geo math helpers ─────────────────────────────────────────
@@ -303,8 +254,9 @@ export function GeoEditor({
   const tileUrl = getTileUrl(provider, apiKey, style)
   const attribution = getTileAttribution(provider)
 
-  const center: [number, number] = defaultCenter ?? (coords.length > 0 ? coords[0] : DEFAULT_CENTER)
-  const zoom = defaultZoom ?? (coords.length > 0 ? 14 : DEFAULT_ZOOM)
+  const settingsCenter: [number, number] = [mapSettings?.defaultLat ?? FALLBACK_CENTER[0], mapSettings?.defaultLng ?? FALLBACK_CENTER[1]]
+  const center: [number, number] = defaultCenter ?? (coords.length > 0 ? coords[0] : settingsCenter)
+  const zoom = defaultZoom ?? (coords.length > 0 ? 14 : (mapSettings?.defaultZoom ?? FALLBACK_ZOOM))
 
   // ── Measurements ─────────────────────────────────────────
   const measurements = useMemo(() => {
@@ -444,7 +396,9 @@ export function GeoEditor({
     mapRef.current = map
 
     requestAnimationFrame(() => {
-      map.invalidateSize()
+      try {
+        if (mapRef.current && map.getContainer()?.parentNode) map.invalidateSize()
+      } catch { /* container removed before rAF fired */ }
     })
 
     return () => {

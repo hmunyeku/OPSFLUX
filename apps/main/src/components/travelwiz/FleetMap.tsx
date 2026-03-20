@@ -8,10 +8,8 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import L from 'leaflet'
-import { useQuery } from '@tanstack/react-query'
 import { Loader2, RefreshCw } from 'lucide-react'
-import api from '@/lib/api'
-import type { SettingRead, VehiclePosition } from '@/types/api'
+import type { VehiclePosition } from '@/types/api'
 import { useFleetPositions } from '@/hooks/useTravelWiz'
 import 'leaflet/dist/leaflet.css'
 
@@ -23,55 +21,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 })
 
-// ── Tile helpers (same as MapPicker) ─────────────────────────
-
-function getTileUrl(provider: string, apiKey: string, style: string): string {
-  switch (provider) {
-    case 'google_maps':
-      return `https://mt1.google.com/vt/lyrs=${style === 'satellite' ? 's' : style === 'terrain' ? 'p' : 'm'}&x={x}&y={y}&z={z}`
-    case 'mapbox':
-      return `https://api.mapbox.com/styles/v1/mapbox/${style || 'streets-v12'}/tiles/{z}/{x}/{y}?access_token=${apiKey}`
-    default:
-      return 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-  }
-}
-
-function getTileAttribution(provider: string): string {
-  switch (provider) {
-    case 'google_maps':
-      return '&copy; Google Maps'
-    case 'mapbox':
-      return '&copy; <a href="https://www.mapbox.com/">Mapbox</a>'
-    default:
-      return '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
-  }
-}
-
-function useMapSettings() {
-  return useQuery({
-    queryKey: ['settings', 'entity', 'map'],
-    queryFn: async () => {
-      try {
-        const { data } = await api.get<SettingRead[]>('/api/v1/settings', { params: { scope: 'entity' } })
-        const map: Record<string, string> = {}
-        for (const s of data) {
-          if (s.key.startsWith('integration.')) {
-            map[s.key] = (s.value?.v ?? s.value ?? '') as string
-          }
-        }
-        return {
-          provider: map['integration.map.provider'] || 'openstreetmap',
-          googleKey: map['integration.google_maps.api_key'] || '',
-          mapboxToken: map['integration.mapbox.access_token'] || '',
-          style: map['integration.map.style'] || 'standard',
-        }
-      } catch {
-        return { provider: 'openstreetmap', googleKey: '', mapboxToken: '', style: 'standard' }
-      }
-    },
-    staleTime: 5 * 60 * 1000,
-  })
-}
+import { useMapSettings, getTileUrl, getTileAttribution } from '@/hooks/useMapSettings'
 
 // ── Marker helpers ───────────────────────────────────────────
 
@@ -149,9 +99,9 @@ export function FleetMap({ height = 500, className }: FleetMapProps) {
   const tileUrl = getTileUrl(provider, apiKey, style)
   const attribution = getTileAttribution(provider)
 
-  // Default center: Gulf of Guinea / Cameroon coast
-  const defaultCenter: [number, number] = [3.848, 9.687]
-  const defaultZoom = 7
+  // Center/zoom from entity settings (Parametres > Cartographie)
+  const defaultCenter: [number, number] = [mapSettings?.defaultLat ?? 3.848, mapSettings?.defaultLng ?? 9.687]
+  const defaultZoom = mapSettings?.defaultZoom ?? 7
 
   // Init map — guarded against StrictMode double-mount and stale containers
   useEffect(() => {
@@ -176,7 +126,9 @@ export function FleetMap({ height = 500, className }: FleetMapProps) {
       mapRef.current = map
 
       requestAnimationFrame(() => {
-        if (mapRef.current) map.invalidateSize()
+        try {
+          if (mapRef.current && map.getContainer()?.parentNode) map.invalidateSize()
+        } catch { /* container removed before rAF fired */ }
       })
 
       return () => {

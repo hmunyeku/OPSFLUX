@@ -683,17 +683,30 @@ export function UsersPage() {
   }, [filteredData, setNavItems])
 
   // Batch actions
+  const updateUser = useUpdateUser()
+  const confirm = useConfirm()
   const batchActions: DataTableBatchAction<UserRead>[] = useMemo(() => [
     {
       id: 'deactivate',
       label: 'Désactiver',
       icon: <UserX size={12} className="mr-1" />,
       variant: 'danger',
-      onAction: (rows) => {
-        console.log('Batch deactivate', rows.map((r) => r.id))
+      onAction: async (rows) => {
+        const activeRows = rows.filter((r) => r.active)
+        if (activeRows.length === 0) return
+        const ok = await confirm({
+          title: `Désactiver ${activeRows.length} utilisateur${activeRows.length > 1 ? 's' : ''} ?`,
+          message: `Les utilisateurs sélectionnés seront archivés et ne pourront plus se connecter.`,
+          confirmLabel: 'Désactiver',
+          variant: 'danger',
+        })
+        if (!ok) return
+        await Promise.all(
+          activeRows.map((r) => updateUser.mutateAsync({ id: r.id, payload: { active: false } }))
+        )
       },
     },
-  ], [])
+  ], [updateUser, confirm])
 
   // Update filter definitions with counts
   const filterDefs: DataTableFilterDef[] = useMemo(() => {

@@ -14,6 +14,7 @@ import {
   DynamicPanelField,
   FormSection,
   PanelActionButton,
+  panelInputClass,
 } from '@/components/layout/DynamicPanel'
 
 const scopeOptions = [
@@ -124,7 +125,7 @@ export function CreateTokenPanel() {
           <DynamicPanelField label="Nom du jeton" required>
             <input
               type="text"
-              className="gl-form-input"
+              className={panelInputClass}
               placeholder="Ex: CI/CD Pipeline"
               value={tokenName}
               onChange={(e) => setTokenName(e.target.value)}
@@ -134,7 +135,7 @@ export function CreateTokenPanel() {
           <DynamicPanelField label="Date d'expiration">
             <input
               type="date"
-              className="gl-form-input"
+              className={panelInputClass}
               value={expiresAt}
               onChange={(e) => setExpiresAt(e.target.value)}
             />

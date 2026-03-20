@@ -14,9 +14,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import L from 'leaflet'
 import { X, MapPin, Search, Loader2, Crosshair } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
-import api from '@/lib/api'
-import type { SettingRead } from '@/types/api'
 import 'leaflet/dist/leaflet.css'
 
 // Fix Leaflet default marker icon issue with bundlers
@@ -27,28 +24,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 })
 
-// ── Tile URL builders ──────────────────────────────────────
-function getTileUrl(provider: string, apiKey: string, style: string): string {
-  switch (provider) {
-    case 'google_maps':
-      return `https://mt1.google.com/vt/lyrs=${style === 'satellite' ? 's' : style === 'terrain' ? 'p' : 'm'}&x={x}&y={y}&z={z}`
-    case 'mapbox':
-      return `https://api.mapbox.com/styles/v1/mapbox/${style || 'streets-v12'}/tiles/{z}/{x}/{y}?access_token=${apiKey}`
-    default:
-      return 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-  }
-}
-
-function getTileAttribution(provider: string): string {
-  switch (provider) {
-    case 'google_maps':
-      return '&copy; Google Maps'
-    case 'mapbox':
-      return '&copy; <a href="https://www.mapbox.com/">Mapbox</a>'
-    default:
-      return '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
-  }
-}
+import { useMapSettings, getTileUrl, getTileAttribution } from '@/hooks/useMapSettings'
 
 // ── Geocoding ─────────────────────────────────────────────
 async function geocodeAddress(
@@ -110,39 +86,7 @@ export async function forwardGeocode(
   }
 }
 
-// ── Map settings hook ──────────────────────────────────────
-function useMapSettings() {
-  return useQuery({
-    queryKey: ['settings', 'entity', 'map'],
-    queryFn: async () => {
-      try {
-        const { data } = await api.get<SettingRead[]>('/api/v1/settings', { params: { scope: 'entity' } })
-        const map: Record<string, string> = {}
-        for (const s of data) {
-          if (s.key.startsWith('integration.')) {
-            map[s.key] = (s.value?.v ?? s.value ?? '') as string
-          }
-        }
-        return {
-          provider: map['integration.map.provider'] || 'openstreetmap',
-          googleKey: map['integration.google_maps.api_key'] || '',
-          mapboxToken: map['integration.mapbox.access_token'] || '',
-          style: map['integration.map.style'] || 'standard',
-          geocodingProvider: map['integration.geocoding.provider'] || 'nominatim',
-        }
-      } catch {
-        return {
-          provider: 'openstreetmap',
-          googleKey: '',
-          mapboxToken: '',
-          style: 'standard',
-          geocodingProvider: 'nominatim',
-        }
-      }
-    },
-    staleTime: 5 * 60 * 1000,
-  })
-}
+// useMapSettings is now imported from @/hooks/useMapSettings
 
 // ── Vanilla Leaflet Map hook ──────────────────────────────
 // Encapsulates all Leaflet lifecycle (init, tile, marker, click) in a ref-based hook.
@@ -188,7 +132,9 @@ function useLeafletMap(opts: {
 
     // Force a resize after mount (fixes grey tiles in modals)
     requestAnimationFrame(() => {
-      map.invalidateSize()
+      try {
+        if (mapRef.current && map.getContainer()?.parentNode) map.invalidateSize()
+      } catch { /* container removed before rAF fired */ }
     })
 
     return () => {
@@ -283,8 +229,9 @@ export function MapPicker({
   const style = mapSettings?.style || 'standard'
   const tileUrl = getTileUrl(provider, apiKey, style)
   const attribution = getTileAttribution(provider)
-  const defaultCenter: [number, number] = markerPos || [3.848, 9.687]
-  const defaultZoom = markerPos ? 14 : 6
+  const settingsCenter: [number, number] = [mapSettings?.defaultLat ?? 3.848, mapSettings?.defaultLng ?? 9.687]
+  const defaultCenter: [number, number] = markerPos || settingsCenter
+  const defaultZoom = markerPos ? 14 : (mapSettings?.defaultZoom ?? 6)
 
   // Vanilla Leaflet hook
   useLeafletMap({

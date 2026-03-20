@@ -593,7 +593,11 @@ function MapWidget({ config, data }: MapWidgetProps) {
     L.tileLayer(tileUrl, { attribution }).addTo(map)
     mapRef.current = map
 
-    requestAnimationFrame(() => map.invalidateSize())
+    requestAnimationFrame(() => {
+      try {
+        if (mapRef.current && map.getContainer()?.parentNode) map.invalidateSize()
+      } catch { /* container removed before rAF fired */ }
+    })
 
     return () => {
       map.remove()

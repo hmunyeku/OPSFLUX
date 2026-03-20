@@ -52,6 +52,7 @@ import { PhoneManager } from '@/components/shared/PhoneManager'
 import { ContactEmailManager } from '@/components/shared/ContactEmailManager'
 import { TierIdentifierManager } from '@/components/shared/TierIdentifierManager'
 import { ComplianceRecordManager } from '@/components/shared/ComplianceRecordManager'
+import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { useUIStore } from '@/stores/uiStore'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -61,6 +62,7 @@ import {
   useDeleteTierContact, useTierIdentifiers, useAllTierContacts,
 } from '@/hooks/useTiers'
 import { useAddresses, useNotes, useAttachments, usePhones, useContactEmails } from '@/hooks/useSettings'
+import { useProjects } from '@/hooks/useProjets'
 import { useToast } from '@/components/ui/Toast'
 import type { Tier, TierCreate, TierContact, TierContactCreate, TierContactUpdate, TierContactWithTier } from '@/types/api'
 
@@ -279,6 +281,9 @@ function TierDetailPanel({ id }: { id: string }) {
   const { data: contacts, isLoading: contactsLoading } = useTierContacts(tier?.id)
   const contactList: TierContact[] = contacts ?? []
 
+  // Related projects (where this tier is contractor/client)
+  const { data: relatedProjects } = useProjects({ tier_id: tier?.id, page_size: 10 })
+
   if (!tier) {
     return (
       <DynamicPanelShell title={t('common.loading')} icon={<Building2 size={14} className="text-primary" />}>
@@ -414,6 +419,22 @@ function TierDetailPanel({ id }: { id: string }) {
         <FormSection title="Conformite" collapsible defaultExpanded={false} storageKey="tier-detail-conformite">
           <ComplianceRecordManager ownerType="tier" ownerId={tier.id} compact />
         </FormSection>
+
+        {/* Projets liés */}
+        {relatedProjects && relatedProjects.items.length > 0 && (
+          <FormSection title={`Projets lies (${relatedProjects.total})`} collapsible defaultExpanded={false} storageKey="tier-detail-projets">
+            <div className="space-y-1.5">
+              {relatedProjects.items.map((p) => (
+                <div key={p.id} className="flex items-center justify-between gap-2 px-2 py-1.5 rounded hover:bg-accent/50 transition-colors">
+                  <CrossModuleLink module="projets" id={p.id} label={`${p.code} — ${p.name}`} mode="navigate" />
+                  <span className={cn('gl-badge text-[10px]', p.status === 'active' ? 'gl-badge-success' : 'gl-badge-neutral')}>
+                    {p.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </FormSection>
+        )}
 
         {/* Full-width sections below the columns */}
         <FormSection title="Notes & Documents" collapsible defaultExpanded={false} storageKey="tier-detail-sections">

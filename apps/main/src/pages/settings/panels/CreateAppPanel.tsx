@@ -15,6 +15,7 @@ import {
   DynamicPanelField,
   FormSection,
   PanelActionButton,
+  panelInputClass,
 } from '@/components/layout/DynamicPanel'
 
 const scopeOptions = [
@@ -141,7 +142,7 @@ export function CreateAppPanel() {
           <DynamicPanelField label="Nom de l'application" required>
             <input
               type="text"
-              className="gl-form-input"
+              className={panelInputClass}
               placeholder="Mon application"
               value={appName}
               onChange={(e) => setAppName(e.target.value)}
@@ -150,7 +151,7 @@ export function CreateAppPanel() {
 
           <DynamicPanelField label="URI de redirection" required>
             <textarea
-              className="gl-form-input h-20 resize-y"
+              className={`${panelInputClass} h-20 resize-y`}
               placeholder="https://mon-app.example.com/callback"
               value={redirectUri}
               onChange={(e) => setRedirectUri(e.target.value)}

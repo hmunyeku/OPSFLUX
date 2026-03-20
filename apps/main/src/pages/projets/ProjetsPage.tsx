@@ -801,6 +801,11 @@ function ProjectDetailPanel({ id }: { id: string }) {
                   ) : (project.tier_name || '--')
                 } />
                 <ReadOnlyRow label="Budget" value={project.budget ? `${project.budget.toLocaleString('fr-FR')} XAF` : '--'} />
+                <ReadOnlyRow label="Site / Asset" value={
+                  project.asset_id ? (
+                    <CrossModuleLink module="assets" id={project.asset_id} label={project.asset_id.slice(0, 8) + '…'} mode="navigate" />
+                  ) : '--'
+                } />
               </DetailFieldGrid>
             </FormSection>
 

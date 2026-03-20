@@ -83,7 +83,364 @@ async def create_pid_document(
     )
 
 
-# IMPORTANT: literal routes MUST be before /{pid_id} to avoid UUID match conflict
+# ═══════════════════════════════════════════════════════════════════════════════
+# IMPORTANT: ALL literal-path routes MUST be placed BEFORE /{pid_id}
+# to prevent FastAPI from matching "equipment"/"tags"/"lines" as UUID.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+# ── Equipment (before /{pid_id}) ──────────────────────────────────────────────
+
+
+@router.get(
+    "/equipment",
+    dependencies=[require_permission("pid.equipment.read")],
+    summary="Search equipment",
+)
+async def list_equipment_early(
+    search: Optional[str] = None,
+    equipment_type: Optional[str] = None,
+    pid_id: Optional[str] = None,
+    project_id: Optional[str] = None,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    entity_id: UUID = Depends(get_current_entity),
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return paginated list of equipment with optional filters."""
+    from app.services.modules.pid_service import search_equipment as svc_list
+
+    return await svc_list(
+        entity_id=entity_id, search=search, equipment_type=equipment_type,
+        pid_id=pid_id, project_id=project_id, page=page, page_size=page_size, db=db,
+    )
+
+
+@router.post(
+    "/equipment",
+    dependencies=[require_permission("pid.equipment.edit")],
+    summary="Create equipment",
+)
+async def create_equipment_early(
+    body: dict,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a new equipment record."""
+    from app.schemas.pid_pfd import EquipmentCreate
+    from app.services.modules.pid_service import create_equipment as svc_create
+
+    parsed = EquipmentCreate(**body)
+    return await svc_create(body=parsed, entity_id=entity_id, created_by=current_user.id, db=db)
+
+
+@router.get(
+    "/equipment/{eq_id}",
+    dependencies=[require_permission("pid.equipment.read")],
+    summary="Get equipment detail",
+)
+async def get_equipment_early(
+    eq_id: str,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return single equipment detail."""
+    from app.services.modules.pid_service import get_equipment_detail as svc_get
+
+    return await svc_get(eq_id=eq_id, entity_id=entity_id, db=db)
+
+
+@router.patch(
+    "/equipment/{eq_id}",
+    dependencies=[require_permission("pid.equipment.edit")],
+    summary="Update equipment",
+)
+async def update_equipment_early(
+    eq_id: str, body: dict,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update equipment fields."""
+    from app.schemas.pid_pfd import EquipmentUpdate
+    from app.services.modules.pid_service import update_equipment as svc_update
+
+    parsed = EquipmentUpdate(**body)
+    return await svc_update(eq_id=eq_id, body=parsed, entity_id=entity_id, db=db)
+
+
+@router.delete(
+    "/equipment/{eq_id}",
+    dependencies=[require_permission("pid.equipment.edit")],
+    summary="Delete equipment",
+    status_code=204,
+)
+async def delete_equipment_early(
+    eq_id: str,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Soft-delete equipment."""
+    from app.services.modules.pid_service import delete_equipment as svc_delete
+
+    await svc_delete(eq_id=eq_id, entity_id=entity_id, db=db)
+
+
+@router.get(
+    "/equipment/{eq_id}/appearances",
+    dependencies=[require_permission("pid.equipment.read")],
+    summary="Equipment appearances across PIDs",
+)
+async def equipment_appearances_early(
+    eq_id: str,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """List PIDs where this equipment appears."""
+    from app.services.modules.pid_service import equipment_appearances as svc_app
+
+    return await svc_app(eq_id=eq_id, entity_id=entity_id, db=db)
+
+
+# ── Process Lines (before /{pid_id}) ─────────────────────────────────────────
+
+
+@router.get(
+    "/lines",
+    dependencies=[require_permission("pid.read")],
+    summary="List process lines",
+)
+async def list_lines_early(
+    search: Optional[str] = None,
+    pid_document_id: Optional[str] = None,
+    project_id: Optional[str] = None,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return paginated list of process lines."""
+    from app.services.modules.pid_service import list_process_lines as svc_list
+
+    return await svc_list(
+        entity_id=entity_id, search=search, pid_document_id=pid_document_id,
+        project_id=project_id, page=page, page_size=page_size, db=db,
+    )
+
+
+@router.post(
+    "/lines",
+    dependencies=[require_permission("pid.edit")],
+    summary="Create process line",
+)
+async def create_line_early(
+    body: dict,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a new process line."""
+    from app.schemas.pid_pfd import ProcessLineCreate
+    from app.services.modules.pid_service import create_process_line as svc_create
+
+    parsed = ProcessLineCreate(**body)
+    return await svc_create(body=parsed, entity_id=entity_id, created_by=current_user.id, db=db)
+
+
+@router.post(
+    "/lines/trace",
+    dependencies=[require_permission("pid.read")],
+    summary="Trace a process line across PIDs",
+)
+async def trace_line_early(
+    body: dict,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Trace a process line across multiple PID documents."""
+    from app.services.modules.pid_service import trace_line as svc_trace
+
+    return await svc_trace(line_number=body.get("line_number", ""), entity_id=entity_id, db=db)
+
+
+@router.patch(
+    "/lines/{line_id}",
+    dependencies=[require_permission("pid.edit")],
+    summary="Update process line",
+)
+async def update_line_early(
+    line_id: str, body: dict,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update process line fields."""
+    from app.schemas.pid_pfd import ProcessLineUpdate
+    from app.services.modules.pid_service import update_process_line as svc_update
+
+    parsed = ProcessLineUpdate(**body)
+    return await svc_update(line_id=line_id, body=parsed, entity_id=entity_id, db=db)
+
+
+@router.delete(
+    "/lines/{line_id}",
+    dependencies=[require_permission("pid.edit")],
+    summary="Delete process line",
+    status_code=204,
+)
+async def delete_line_early(
+    line_id: str,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Soft-delete a process line."""
+    from app.services.modules.pid_service import delete_process_line as svc_delete
+
+    await svc_delete(line_id=line_id, entity_id=entity_id, db=db)
+
+
+# ── DCS Tags (before /{pid_id}) ──────────────────────────────────────────────
+
+
+@router.get(
+    "/tags",
+    dependencies=[require_permission("pid.tags.read")],
+    summary="List DCS tags",
+)
+async def list_tags_early(
+    search: Optional[str] = None,
+    tag_type: Optional[str] = None,
+    area: Optional[str] = None,
+    pid_document_id: Optional[str] = None,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return paginated list of DCS tags."""
+    from app.services.modules.tag_service import list_tags as svc_list
+
+    return await svc_list(
+        entity_id=entity_id, search=search, tag_type=tag_type,
+        area=area, pid_document_id=pid_document_id, page=page, page_size=page_size, db=db,
+    )
+
+
+@router.post(
+    "/tags",
+    dependencies=[require_permission("pid.tags.edit")],
+    summary="Create DCS tag",
+)
+async def create_tag_early(
+    body: dict,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a new DCS tag."""
+    from app.schemas.pid_pfd import DCSTagCreate
+    from app.services.modules.tag_service import create_tag as svc_create
+
+    parsed = DCSTagCreate(**body)
+    return await svc_create(body=parsed, entity_id=entity_id, created_by=current_user.id, db=db)
+
+
+@router.patch(
+    "/tags/{tag_id}",
+    dependencies=[require_permission("pid.tags.edit")],
+    summary="Update DCS tag",
+)
+async def update_tag_early(
+    tag_id: str, body: dict,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update DCS tag fields."""
+    from app.schemas.pid_pfd import DCSTagUpdate
+    from app.services.modules.tag_service import update_tag as svc_update
+
+    parsed = DCSTagUpdate(**body)
+    return await svc_update(tag_id=tag_id, body=parsed, entity_id=entity_id, db=db)
+
+
+@router.delete(
+    "/tags/{tag_id}",
+    dependencies=[require_permission("pid.tags.edit")],
+    summary="Delete DCS tag",
+    status_code=204,
+)
+async def delete_tag_early(
+    tag_id: str,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Soft-delete a DCS tag."""
+    from app.services.modules.tag_service import delete_tag as svc_delete
+
+    await svc_delete(tag_id=tag_id, entity_id=entity_id, db=db)
+
+
+@router.post("/tags/suggest", dependencies=[require_permission("pid.tags.read")], summary="Suggest tag names")
+async def suggest_tags_early(body: dict, entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db)):
+    from app.services.modules.tag_service import suggest_tag_names as svc
+    return await svc(entity_id=entity_id, equipment_type=body.get("equipment_type"), area=body.get("area"), db=db)
+
+
+@router.post("/tags/validate", dependencies=[require_permission("pid.tags.read")], summary="Validate tag name")
+async def validate_tag_early(body: dict, entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db)):
+    from app.services.modules.tag_service import validate_tag_name as svc
+    return await svc(entity_id=entity_id, tag_name=body.get("tag_name", ""), db=db)
+
+
+@router.post("/tags/import", dependencies=[require_permission("pid.tags.edit")], summary="Import DCS tags from CSV")
+async def import_tags_early(
+    project_id: str = Query(...), file: UploadFile = File(...),
+    entity_id: UUID = Depends(get_current_entity), current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.services.modules.tag_service import import_tags_csv as svc
+    return await svc(entity_id=entity_id, project_id=project_id, file=file, created_by=current_user.id, db=db)
+
+
+@router.post("/tags/bulk-rename/preview", dependencies=[require_permission("pid.tags.edit")], summary="Preview bulk rename")
+async def bulk_rename_preview_early(body: dict, entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db)):
+    from app.services.modules.tag_service import bulk_rename_preview as svc
+    return await svc(entity_id=entity_id, find=body.get("find", ""), replace=body.get("replace", ""), db=db)
+
+
+@router.post("/tags/bulk-rename/execute", dependencies=[require_permission("pid.tags.edit")], summary="Execute bulk rename")
+async def bulk_rename_execute_early(body: dict, entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db)):
+    from app.services.modules.tag_service import bulk_rename_execute as svc
+    return await svc(entity_id=entity_id, find=body.get("find", ""), replace=body.get("replace", ""), db=db)
+
+
+# ── Naming Rules (before /{pid_id}) ──────────────────────────────────────────
+
+
+@router.get("/naming-rules", dependencies=[require_permission("pid.tags.read")], summary="List naming rules")
+async def list_naming_rules_early(entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db)):
+    from app.services.modules.tag_service import list_naming_rules as svc
+    return await svc(entity_id=entity_id, db=db)
+
+
+@router.post("/naming-rules", dependencies=[require_permission("pid.tags.edit")], summary="Create naming rule")
+async def create_naming_rule_early(body: dict, entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db)):
+    from app.schemas.pid_pfd import TagNamingRuleCreate
+    from app.services.modules.tag_service import create_naming_rule as svc
+    parsed = TagNamingRuleCreate(**body)
+    return await svc(body=parsed, entity_id=entity_id, db=db)
+
+
+@router.patch("/naming-rules/{rule_id}", dependencies=[require_permission("pid.tags.edit")], summary="Update naming rule")
+async def update_naming_rule_early(rule_id: str, body: dict, entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db)):
+    from app.schemas.pid_pfd import TagNamingRuleUpdate
+    from app.services.modules.tag_service import update_naming_rule as svc
+    parsed = TagNamingRuleUpdate(**body)
+    return await svc(rule_id=rule_id, body=parsed, entity_id=entity_id, db=db)
+
+
+# ── Library (before /{pid_id}) ───────────────────────────────────────────────
+
 
 @router.get("/library", dependencies=[require_permission("pid.library.read")], summary="List process library items")
 async def list_library_items_early(
@@ -391,544 +748,6 @@ async def diff_pid_revisions(
         rev_b_id=rev_b,
         db=db,
     )
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# Equipment
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-@router.get(
-    "/equipment",
-    dependencies=[require_permission("pid.equipment.read")],
-    summary="Search equipment",
-)
-async def list_equipment(
-    search: Optional[str] = None,
-    equipment_type: Optional[str] = None,
-    pid_id: Optional[str] = None,
-    project_id: Optional[str] = None,
-    page: int = Query(1, ge=1),
-    page_size: int = Query(25, ge=1, le=100),
-    entity_id: UUID = Depends(get_current_entity),
-    current_user=Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Return paginated list of equipment with optional filters."""
-    from app.services.modules.pid_service import search_equipment as svc_list
-
-    return await svc_list(
-        entity_id=entity_id,
-        search=search,
-        equipment_type=equipment_type,
-        pid_id=pid_id,
-        project_id=project_id,
-        page=page,
-        page_size=page_size,
-        db=db,
-    )
-
-
-@router.post(
-    "/equipment",
-    dependencies=[require_permission("pid.equipment.edit")],
-    summary="Create equipment",
-)
-async def create_equipment(
-    body: dict,
-    entity_id: UUID = Depends(get_current_entity),
-    current_user=Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Create a new equipment record."""
-    from app.schemas.pid_pfd import EquipmentCreate
-    from app.services.modules.pid_service import create_equipment as svc_create
-
-    parsed = EquipmentCreate(**body)
-    return await svc_create(
-        body=parsed,
-        entity_id=entity_id,
-        created_by=current_user.id,
-        db=db,
-    )
-
-
-@router.get(
-    "/equipment/{eq_id}",
-    dependencies=[require_permission("pid.equipment.read")],
-    summary="Get a single equipment item",
-)
-async def get_equipment(
-    eq_id: str,
-    entity_id: UUID = Depends(get_current_entity),
-    db: AsyncSession = Depends(get_db),
-):
-    """Return full detail for one equipment record."""
-    from app.services.modules.pid_service import get_equipment as svc_get
-
-    return await svc_get(eq_id, entity_id, db)
-
-
-@router.patch(
-    "/equipment/{eq_id}",
-    dependencies=[require_permission("pid.equipment.edit")],
-    summary="Update equipment properties",
-)
-async def update_equipment(
-    eq_id: str,
-    body: dict,
-    entity_id: UUID = Depends(get_current_entity),
-    current_user=Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Update properties of an equipment record."""
-    from app.schemas.pid_pfd import EquipmentUpdate
-    from app.services.modules.pid_service import update_equipment as svc_update
-
-    parsed = EquipmentUpdate(**body)
-    return await svc_update(eq_id=eq_id, body=parsed, entity_id=entity_id, user_id=current_user.id, db=db)
-
-
-@router.get(
-    "/equipment/{eq_id}/appearances",
-    dependencies=[require_permission("pid.equipment.read")],
-    summary="Trace equipment appearances across PIDs",
-)
-async def equipment_appearances(
-    eq_id: str,
-    entity_id: UUID = Depends(get_current_entity),
-    db: AsyncSession = Depends(get_db),
-):
-    """Return all PID documents where the given equipment appears."""
-    from app.services.modules.pid_service import get_equipment_appearances as svc_appearances
-
-    return await svc_appearances(eq_id=eq_id, entity_id=entity_id, db=db)
-
-
-@router.delete(
-    "/equipment/{eq_id}",
-    dependencies=[require_permission("pid.equipment.edit")],
-    summary="Delete equipment",
-    status_code=204,
-)
-async def delete_equipment(
-    eq_id: str,
-    entity_id: UUID = Depends(get_current_entity),
-    db: AsyncSession = Depends(get_db),
-):
-    """Soft-delete an equipment record (set active=False)."""
-    from app.services.modules.pid_service import delete_equipment as svc_delete
-
-    await svc_delete(eq_id=eq_id, entity_id=entity_id, db=db)
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# Process Lines
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-@router.get(
-    "/lines",
-    dependencies=[require_permission("pid.read")],
-    summary="List process lines",
-)
-async def list_process_lines(
-    project_id: Optional[str] = None,
-    search: Optional[str] = None,
-    page: int = Query(1, ge=1),
-    page_size: int = Query(25, ge=1, le=100),
-    entity_id: UUID = Depends(get_current_entity),
-    current_user=Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Return paginated list of process lines."""
-    from app.services.modules.pid_service import list_process_lines as svc_list
-
-    return await svc_list(
-        entity_id=entity_id,
-        project_id=project_id,
-        search=search,
-        page=page,
-        page_size=page_size,
-        db=db,
-    )
-
-
-@router.post(
-    "/lines",
-    dependencies=[require_permission("pid.edit")],
-    summary="Create a process line",
-)
-async def create_process_line(
-    body: dict,
-    entity_id: UUID = Depends(get_current_entity),
-    current_user=Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Create a new process line record."""
-    from app.schemas.pid_pfd import ProcessLineCreate
-    from app.services.modules.pid_service import create_process_line as svc_create
-
-    parsed = ProcessLineCreate(**body)
-    return await svc_create(
-        body=parsed,
-        entity_id=entity_id,
-        created_by=current_user.id,
-        db=db,
-    )
-
-
-@router.post(
-    "/lines/trace",
-    dependencies=[require_permission("pid.read")],
-    summary="Trace a process line across PIDs",
-)
-async def trace_process_line(
-    body: dict,
-    entity_id: UUID = Depends(get_current_entity),
-    db: AsyncSession = Depends(get_db),
-):
-    """Trace a line number across all PID documents in a project."""
-    from app.services.modules.pid_service import trace_process_line as svc_trace
-
-    line_number = body.get("line_number")
-    project_id = body.get("project_id")
-    if not line_number or not project_id:
-        raise HTTPException(400, "line_number and project_id are required")
-    return await svc_trace(
-        line_number=line_number,
-        project_id=project_id,
-        entity_id=entity_id,
-        db=db,
-    )
-
-
-@router.patch(
-    "/lines/{line_id}",
-    dependencies=[require_permission("pid.edit")],
-    summary="Update a process line",
-)
-async def update_process_line(
-    line_id: str,
-    body: dict,
-    entity_id: UUID = Depends(get_current_entity),
-    db: AsyncSession = Depends(get_db),
-):
-    """Update properties of a process line."""
-    from app.schemas.pid_pfd import ProcessLineUpdate
-    from app.services.modules.pid_service import update_process_line as svc_update
-
-    parsed = ProcessLineUpdate(**body)
-    return await svc_update(line_id=line_id, body=parsed, entity_id=entity_id, db=db)
-
-
-@router.delete(
-    "/lines/{line_id}",
-    dependencies=[require_permission("pid.edit")],
-    summary="Delete a process line",
-    status_code=204,
-)
-async def delete_process_line(
-    line_id: str,
-    entity_id: UUID = Depends(get_current_entity),
-    db: AsyncSession = Depends(get_db),
-):
-    """Soft-delete a process line (set active=False)."""
-    from app.services.modules.pid_service import delete_process_line as svc_delete
-
-    await svc_delete(line_id=line_id, entity_id=entity_id, db=db)
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# DCS Tags
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-@router.get(
-    "/tags",
-    dependencies=[require_permission("pid.tags.read")],
-    summary="List DCS tags",
-)
-async def list_tags(
-    project_id: Optional[str] = None,
-    search: Optional[str] = None,
-    tag_type: Optional[str] = None,
-    area: Optional[str] = None,
-    equipment_id: Optional[str] = None,
-    page: int = Query(1, ge=1),
-    page_size: int = Query(25, ge=1, le=100),
-    entity_id: UUID = Depends(get_current_entity),
-    current_user=Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Return paginated list of DCS tags with optional filters."""
-    from app.services.modules.tag_service import list_tags as svc_list
-
-    return await svc_list(
-        entity_id=entity_id,
-        project_id=project_id,
-        search=search,
-        tag_type=tag_type,
-        area=area,
-        equipment_id=equipment_id,
-        page=page,
-        page_size=page_size,
-        db=db,
-    )
-
-
-@router.post(
-    "/tags",
-    dependencies=[require_permission("pid.tags.edit")],
-    summary="Create a DCS tag",
-)
-async def create_tag(
-    body: dict,
-    entity_id: UUID = Depends(get_current_entity),
-    current_user=Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Create a new DCS tag record."""
-    from app.schemas.pid_pfd import DCSTagCreate
-    from app.services.modules.tag_service import create_tag as svc_create
-
-    parsed = DCSTagCreate(**body)
-    return await svc_create(
-        body=parsed,
-        entity_id=entity_id,
-        created_by=current_user.id,
-        db=db,
-    )
-
-
-@router.patch(
-    "/tags/{tag_id}",
-    dependencies=[require_permission("pid.tags.edit")],
-    summary="Update a DCS tag",
-)
-async def update_tag(
-    tag_id: str,
-    body: dict,
-    entity_id: UUID = Depends(get_current_entity),
-    db: AsyncSession = Depends(get_db),
-):
-    """Update an existing DCS tag."""
-    from app.schemas.pid_pfd import DCSTagUpdate
-    from app.services.modules.tag_service import update_tag as svc_update
-
-    parsed = DCSTagUpdate(**body)
-    return await svc_update(tag_id=tag_id, body=parsed, entity_id=entity_id, db=db)
-
-
-@router.delete(
-    "/tags/{tag_id}",
-    dependencies=[require_permission("pid.tags.edit")],
-    summary="Delete a DCS tag",
-    status_code=204,
-)
-async def delete_tag(
-    tag_id: str,
-    entity_id: UUID = Depends(get_current_entity),
-    db: AsyncSession = Depends(get_db),
-):
-    """Soft-delete a DCS tag (set active=False)."""
-    from app.services.modules.tag_service import delete_tag as svc_delete
-
-    await svc_delete(tag_id=tag_id, entity_id=entity_id, db=db)
-
-
-@router.post(
-    "/tags/suggest",
-    dependencies=[require_permission("pid.tags.read")],
-    summary="Suggest tag names based on naming rules",
-)
-async def suggest_tags(
-    body: dict,
-    entity_id: UUID = Depends(get_current_entity),
-    db: AsyncSession = Depends(get_db),
-):
-    """Return suggested tag names based on configured naming rules."""
-    from app.schemas.pid_pfd import TagSuggestRequest
-    from app.services.modules.tag_service import suggest_tag_name as svc_suggest
-
-    parsed = TagSuggestRequest(**body)
-    suggestions = await svc_suggest(
-        tag_type=parsed.tag_type,
-        area=parsed.area,
-        equipment_id=str(parsed.equipment_id) if parsed.equipment_id else None,
-        entity_id=entity_id,
-        project_id=parsed.project_id,
-        db=db,
-    )
-    return {"suggestions": suggestions}
-
-
-@router.post(
-    "/tags/validate",
-    dependencies=[require_permission("pid.tags.read")],
-    summary="Validate a tag name against naming rules",
-)
-async def validate_tag(
-    body: dict,
-    entity_id: UUID = Depends(get_current_entity),
-    db: AsyncSession = Depends(get_db),
-):
-    """Validate a proposed tag name against the configured naming rules."""
-    from app.schemas.pid_pfd import TagValidateRequest
-    from app.services.modules.tag_service import validate_tag_name as svc_validate
-
-    parsed = TagValidateRequest(**body)
-    return await svc_validate(
-        tag_name=parsed.tag_name,
-        tag_type=parsed.tag_type,
-        entity_id=entity_id,
-        project_id=parsed.project_id,
-        db=db,
-    )
-
-
-@router.post(
-    "/tags/import",
-    dependencies=[require_permission("pid.tags.import")],
-    summary="Import DCS tags from CSV",
-)
-async def import_tags_csv(
-    project_id: str = Query(..., description="Project ID for tag import"),
-    file: UploadFile = File(...),
-    entity_id: UUID = Depends(get_current_entity),
-    current_user=Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Import DCS tags from an uploaded CSV file (Rockwell DCS export)."""
-    from app.services.modules.tag_service import import_tags_from_csv as svc_import
-
-    contents = await file.read()
-    return await svc_import(
-        file_content=contents,
-        project_id=project_id,
-        entity_id=entity_id,
-        user_id=current_user.id,
-        db=db,
-    )
-
-
-@router.post(
-    "/tags/bulk-rename/preview",
-    dependencies=[require_permission("pid.tags.edit")],
-    summary="Preview bulk rename of DCS tags",
-)
-async def bulk_rename_preview(
-    body: dict,
-    entity_id: UUID = Depends(get_current_entity),
-    db: AsyncSession = Depends(get_db),
-):
-    """Preview the result of a bulk rename operation without applying it."""
-    from app.schemas.pid_pfd import BulkRenameRequest
-    from app.services.modules.tag_service import preview_bulk_rename as svc_preview
-
-    parsed = BulkRenameRequest(**body)
-    project_id = body.get("project_id")
-    if not project_id:
-        raise HTTPException(400, "project_id is required for bulk rename")
-    return await svc_preview(
-        entity_id=entity_id,
-        project_id=project_id,
-        filter_area=parsed.filter_area,
-        filter_type=parsed.filter_type,
-        filter_pattern=parsed.filter_pattern,
-        rename_pattern=parsed.rename_pattern,
-        db=db,
-    )
-
-
-@router.post(
-    "/tags/bulk-rename/execute",
-    dependencies=[require_permission("pid.tags.edit")],
-    summary="Execute bulk rename of DCS tags",
-)
-async def bulk_rename_execute(
-    body: dict,
-    entity_id: UUID = Depends(get_current_entity),
-    current_user=Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Execute a bulk rename operation on DCS tags."""
-    from app.services.modules.tag_service import execute_bulk_rename as svc_execute
-
-    renames = body.get("renames", [])
-    project_id = body.get("project_id")
-    if not project_id:
-        raise HTTPException(400, "project_id is required for bulk rename")
-    return await svc_execute(
-        entity_id=entity_id,
-        project_id=project_id,
-        renames=renames,
-        user_id=current_user.id,
-        db=db,
-    )
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# Tag Naming Rules
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-@router.get(
-    "/naming-rules",
-    dependencies=[require_permission("pid.tags.read")],
-    summary="List tag naming rules",
-)
-async def list_naming_rules(
-    entity_id: UUID = Depends(get_current_entity),
-    db: AsyncSession = Depends(get_db),
-):
-    """Return all configured tag naming rules for the entity."""
-    from app.services.modules.tag_service import list_naming_rules as svc_list
-
-    return await svc_list(entity_id=entity_id, db=db)
-
-
-@router.post(
-    "/naming-rules",
-    dependencies=[require_permission("pid.admin")],
-    summary="Create a tag naming rule",
-)
-async def create_naming_rule(
-    body: dict,
-    entity_id: UUID = Depends(get_current_entity),
-    current_user=Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Create a new tag naming rule."""
-    from app.schemas.pid_pfd import TagNamingRuleCreate
-    from app.services.modules.tag_service import create_naming_rule as svc_create
-
-    parsed = TagNamingRuleCreate(**body)
-    return await svc_create(
-        body=parsed,
-        entity_id=entity_id,
-        created_by=current_user.id,
-        db=db,
-    )
-
-
-@router.patch(
-    "/naming-rules/{rule_id}",
-    dependencies=[require_permission("pid.admin")],
-    summary="Update a tag naming rule",
-)
-async def update_naming_rule(
-    rule_id: str,
-    body: dict,
-    entity_id: UUID = Depends(get_current_entity),
-    db: AsyncSession = Depends(get_db),
-):
-    """Update an existing tag naming rule."""
-    from app.schemas.pid_pfd import TagNamingRuleUpdate
-    from app.services.modules.tag_service import update_naming_rule as svc_update
-
-    parsed = TagNamingRuleUpdate(**body)
-    return await svc_update(rule_id=rule_id, body=parsed, entity_id=entity_id, db=db)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

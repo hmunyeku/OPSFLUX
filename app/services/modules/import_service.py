@@ -306,11 +306,47 @@ class TierHandler(TargetObjectHandler):
         return errors
 
     async def find_duplicate(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> UUID | None:
+        from sqlalchemy import func as sqla_func
+
+        # 1. Check by code (exact match)
         code = row.get("code")
-        if not code:
-            return None
-        result = await db.execute(select(Tier.id).where(Tier.entity_id == entity_id, Tier.code == str(code).strip()))
-        return result.scalar_one_or_none()
+        if code:
+            result = await db.execute(select(Tier.id).where(Tier.entity_id == entity_id, Tier.code == str(code).strip()))
+            found = result.scalar_one_or_none()
+            if found:
+                return found
+
+        # 2. Check by ExternalReference (e.g., SAP code)
+        ext_code = row.get("external_code")
+        if ext_code:
+            from app.models.common import ExternalReference
+            result = await db.execute(
+                select(Tier.id)
+                .join(ExternalReference, ExternalReference.owner_id == Tier.id)
+                .where(
+                    ExternalReference.owner_type == "tier",
+                    ExternalReference.code == str(ext_code).strip(),
+                    Tier.entity_id == entity_id,
+                )
+            )
+            found = result.scalar_one_or_none()
+            if found:
+                return found
+
+        # 3. Check by name (case-insensitive) — last resort
+        name = row.get("name")
+        if name:
+            result = await db.execute(
+                select(Tier.id).where(
+                    Tier.entity_id == entity_id,
+                    sqla_func.lower(Tier.name) == str(name).strip().lower(),
+                )
+            )
+            found = result.scalar_one_or_none()
+            if found:
+                return found
+
+        return None
 
     async def create_record(self, row: dict[str, Any], entity_id: UUID, user_id: UUID, db: AsyncSession) -> UUID:
         code = row.get("code")
@@ -330,11 +366,31 @@ class TierHandler(TargetObjectHandler):
             currency=str(row.get("currency", "")).strip() or "XAF",
             industry=str(row.get("industry", "")).strip() or None,
             payment_terms=str(row.get("payment_terms", "")).strip() or None,
+            incoterm=str(row.get("incoterm", "")).strip() or None,
+            incoterm_city=str(row.get("incoterm_city", "")).strip() or None,
+            scope=str(row.get("scope", "")).strip() or "local",
+            is_blocked=_safe_bool(row.get("is_blocked")) if row.get("is_blocked") is not None else False,
             description=str(row.get("description", "")).strip() or None,
             active=_safe_bool(row.get("active")) if row.get("active") is not None else True,
         )
         db.add(obj)
         await db.flush()
+
+        # Create ExternalReference if external_code provided
+        ext_code = row.get("external_code")
+        ext_system = str(row.get("external_system", "SAP")).strip()
+        if ext_code:
+            from app.models.common import ExternalReference
+            ref = ExternalReference(
+                owner_type="tier",
+                owner_id=obj.id,
+                system=ext_system,
+                code=str(ext_code).strip(),
+                label=f"{ext_system} Code",
+                created_by=user_id,
+            )
+            db.add(ref)
+
         return obj.id
 
     async def update_record(self, record_id: UUID, row: dict[str, Any], user_id: UUID, db: AsyncSession) -> None:

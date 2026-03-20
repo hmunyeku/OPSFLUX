@@ -325,33 +325,25 @@ export function FleetMap({ height = 500, className }: FleetMapProps) {
               <span className="text-[10px] text-muted-foreground ml-1">{t('travelwiz.vectors')}</span>
             </div>
           )}
-          {/* Style switcher — Google Maps-style thumbnails */}
-          <div className="flex gap-1">
+          {/* Style switcher — compact thumbnails */}
+          <div className="flex gap-0.5">
             {STYLE_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
                 onClick={() => handleStyleChange(opt.value)}
+                title={opt.label}
                 className={cn(
-                  'group relative w-[52px] rounded-md overflow-hidden border-2 transition-all',
+                  'w-7 h-7 rounded overflow-hidden border-[1.5px] transition-all',
                   activeStyle === opt.value
-                    ? 'border-primary shadow-md'
-                    : 'border-border/60 hover:border-border opacity-80 hover:opacity-100',
+                    ? 'border-primary shadow-sm scale-110'
+                    : 'border-transparent opacity-70 hover:opacity-100',
                 )}
               >
-                {/* Mini map preview */}
-                <div className={cn('w-full h-8 relative', opt.bg)}>
-                  {/* Simulated road lines */}
-                  <div className={cn('absolute top-2 left-1 right-2 h-[1px]', opt.line)} />
-                  <div className={cn('absolute top-4 left-3 right-1 h-[1px]', opt.line)} />
-                  <div className={cn('absolute bottom-1 left-0 w-3 h-3 rounded-sm', opt.accent)} />
-                  <div className={cn('absolute top-1 right-1 w-2 h-2 rounded-sm', opt.accent)} />
-                </div>
-                {/* Label */}
-                <div className={cn(
-                  'text-[9px] font-medium text-center py-0.5 bg-card/95',
-                  activeStyle === opt.value ? 'text-primary' : 'text-muted-foreground',
-                )}>
-                  {opt.label}
+                <div className={cn('w-full h-full relative', opt.bg)}>
+                  <div className={cn('absolute top-1 left-0.5 right-1 h-[1px]', opt.line)} />
+                  <div className={cn('absolute top-2.5 left-1 right-0.5 h-[1px]', opt.line)} />
+                  <div className={cn('absolute bottom-0.5 left-0 w-1.5 h-1.5 rounded-[1px]', opt.accent)} />
+                  <div className={cn('absolute top-0.5 right-0.5 w-1 h-1 rounded-[1px]', opt.accent)} />
                 </div>
               </button>
             ))}

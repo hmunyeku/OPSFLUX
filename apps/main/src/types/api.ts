@@ -943,40 +943,49 @@ export interface TaskChangeLog {
 export interface TravelVector {
   id: string
   entity_id: string
-  code: string
+  registration: string
   name: string
   type: string
-  capacity_pax: number | null
-  capacity_cargo_kg: number | null
-  operator_tier_id: string | null
-  registration: string | null
-  description: string | null
+  mode: string
+  pax_capacity: number
+  weight_capacity_kg: number | null
+  volume_capacity_m3: number | null
+  home_base_id: string | null
+  requires_weighing: boolean
+  mmsi_number: string | null
   active: boolean
   created_at: string
-  operator_name?: string | null
+  // Enriched
+  home_base_name?: string | null
   zone_count?: number
+  voyage_count?: number
 }
 
 export interface TravelVectorCreate {
-  code: string
+  registration: string
   name: string
   type: string
-  capacity_pax?: number | null
-  capacity_cargo_kg?: number | null
-  operator_tier_id?: string | null
-  registration?: string | null
+  mode: string
+  pax_capacity?: number
+  weight_capacity_kg?: number | null
+  volume_capacity_m3?: number | null
+  home_base_id?: string | null
+  requires_weighing?: boolean
+  mmsi_number?: string | null
   description?: string | null
 }
 
 export interface TravelVectorUpdate {
-  code?: string
+  registration?: string
   name?: string
   type?: string
-  capacity_pax?: number | null
-  capacity_cargo_kg?: number | null
-  operator_tier_id?: string | null
-  registration?: string | null
-  description?: string | null
+  mode?: string
+  pax_capacity?: number | null
+  weight_capacity_kg?: number | null
+  volume_capacity_m3?: number | null
+  home_base_id?: string | null
+  requires_weighing?: boolean | null
+  mmsi_number?: string | null
   active?: boolean
 }
 

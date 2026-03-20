@@ -33,6 +33,7 @@ import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer
 import { TagManager } from '@/components/shared/TagManager'
 import { NoteManager } from '@/components/shared/NoteManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
+import { AssetPicker } from '@/components/shared/AssetPicker'
 import { useToast } from '@/components/ui/Toast'
 import {
   useVoyages,
@@ -871,7 +872,7 @@ function VecteursTab() {
   const stats = useMemo(() => {
     const byType: Record<string, number> = {}
     items.forEach((v: AnyRow) => { byType[v.type] = (byType[v.type] || 0) + 1 })
-    const totalCapacity = items.reduce((sum: number, v: AnyRow) => sum + (v.capacity_pax ?? 0), 0)
+    const totalCapacity = items.reduce((sum: number, v: AnyRow) => sum + (v.pax_capacity ?? 0), 0)
     return { byType, totalCapacity, count: items.length }
   }, [items])
 
@@ -903,13 +904,13 @@ function VecteursTab() {
       },
     },
     {
-      accessorKey: 'capacity_pax',
+      accessorKey: 'pax_capacity',
       header: 'Capacite PAX',
       size: 100,
       cell: ({ row }) => (
         <span className="inline-flex items-center gap-1 text-xs">
           <Users size={11} className="text-muted-foreground" />
-          {row.original.capacity_pax ?? '\u2014'}
+          {row.original.pax_capacity ?? '\u2014'}
         </span>
       ),
     },
@@ -917,7 +918,7 @@ function VecteursTab() {
       id: 'home_base',
       header: 'Base',
       size: 110,
-      cell: ({ row }) => <span className="text-xs text-muted-foreground truncate">{row.original.home_base || row.original.operator_name || '\u2014'}</span>,
+      cell: ({ row }) => <span className="text-xs text-muted-foreground truncate">{row.original.home_base_name || '\u2014'}</span>,
     },
     {
       id: 'actions',
@@ -1522,14 +1523,47 @@ function CreateVoyagePanel() {
   )
 }
 
+/** Derive transport mode from vector type. */
+function deriveModeFromType(type: string): string {
+  switch (type) {
+    case 'helicopter':
+    case 'commercial_flight':
+      return 'air'
+    case 'boat':
+    case 'ship':
+    case 'surfer':
+    case 'barge':
+    case 'tug':
+      return 'sea'
+    case 'bus':
+    case '4x4':
+    case 'vehicle':
+      return 'road'
+    default:
+      return 'road'
+  }
+}
+
 function CreateVectorPanel() {
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const createVector = useCreateVector()
   const { toast } = useToast()
   const [form, setForm] = useState<TravelVectorCreate>({
-    code: '', name: '', type: 'helicopter',
-    capacity_pax: null, capacity_cargo_kg: null, registration: null, description: null,
+    registration: '', name: '', type: 'helicopter', mode: 'air',
+    pax_capacity: 0, weight_capacity_kg: null, volume_capacity_m3: null,
+    home_base_id: null, requires_weighing: false, mmsi_number: null, description: null,
   })
+
+  const handleTypeChange = (type: string) => {
+    const mode = deriveModeFromType(type)
+    setForm((prev) => ({
+      ...prev,
+      type,
+      mode,
+      // Clear MMSI when mode is not sea
+      mmsi_number: mode === 'sea' ? prev.mmsi_number : null,
+    }))
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -1554,14 +1588,14 @@ function CreateVectorPanel() {
         <PanelContentLayout>
           <FormSection title="Identification">
             <FormGrid>
-              <DynamicPanelField label="Code" required>
-                <input type="text" required value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} className={panelInputClass} placeholder="VEC-001" />
+              <DynamicPanelField label="Immatriculation" required>
+                <input type="text" required value={form.registration} onChange={(e) => setForm({ ...form, registration: e.target.value })} className={panelInputClass} placeholder="TJ-ABC" />
               </DynamicPanelField>
               <DynamicPanelField label="Nom" required>
                 <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={panelInputClass} placeholder="Nom du vecteur" />
               </DynamicPanelField>
-              <DynamicPanelField label="Type">
-                <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} className={panelInputClass}>
+              <DynamicPanelField label="Type" required>
+                <select value={form.type} onChange={(e) => handleTypeChange(e.target.value)} className={panelInputClass}>
                   <option value="helicopter">Helicoptere</option>
                   <option value="boat">Bateau</option>
                   <option value="surfer">Surfer</option>
@@ -1572,24 +1606,54 @@ function CreateVectorPanel() {
                   <option value="tug">Remorqueur</option>
                 </select>
               </DynamicPanelField>
-              <DynamicPanelField label="Immatriculation">
-                <input type="text" value={form.registration ?? ''} onChange={(e) => setForm({ ...form, registration: e.target.value || null })} className={panelInputClass} placeholder="TJ-ABC" />
+              <DynamicPanelField label="Mode" required>
+                <select value={form.mode} onChange={(e) => setForm({ ...form, mode: e.target.value })} className={panelInputClass}>
+                  <option value="air">Aerien</option>
+                  <option value="sea">Maritime</option>
+                  <option value="road">Routier</option>
+                </select>
+              </DynamicPanelField>
+              <DynamicPanelField label="Base d'attache" span="full">
+                <AssetPicker
+                  value={form.home_base_id}
+                  onChange={(assetId) => setForm({ ...form, home_base_id: assetId })}
+                  placeholder="Selectionner une base..."
+                  clearable
+                />
               </DynamicPanelField>
             </FormGrid>
           </FormSection>
-          <FormSection title="Capacite">
+          <FormSection title="Capacites">
             <FormGrid>
-              <DynamicPanelField label="Capacite PAX">
-                <input type="number" min={0} value={form.capacity_pax ?? ''} onChange={(e) => setForm({ ...form, capacity_pax: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
+              <DynamicPanelField label="Capacite PAX" required>
+                <input type="number" min={0} required value={form.pax_capacity ?? 0} onChange={(e) => setForm({ ...form, pax_capacity: e.target.value ? Number(e.target.value) : 0 })} className={panelInputClass} />
               </DynamicPanelField>
-              <DynamicPanelField label="Capacite cargo (kg)">
-                <input type="number" min={0} step="any" value={form.capacity_cargo_kg ?? ''} onChange={(e) => setForm({ ...form, capacity_cargo_kg: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
+              <DynamicPanelField label="Capacite poids (kg)">
+                <input type="number" min={0} step="any" value={form.weight_capacity_kg ?? ''} onChange={(e) => setForm({ ...form, weight_capacity_kg: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
+              </DynamicPanelField>
+              <DynamicPanelField label="Volume (m3)">
+                <input type="number" min={0} step="any" value={form.volume_capacity_m3 ?? ''} onChange={(e) => setForm({ ...form, volume_capacity_m3: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
               </DynamicPanelField>
             </FormGrid>
           </FormSection>
-          <FormSection title="Description" collapsible defaultExpanded={false}>
-            <textarea value={form.description ?? ''} onChange={(e) => setForm({ ...form, description: e.target.value || null })}
-              className={`${panelInputClass} min-h-[60px] resize-y`} placeholder="Description du vecteur..." rows={3} />
+          <FormSection title="Operationnel" collapsible defaultExpanded={false}>
+            <FormGrid>
+              <DynamicPanelField label="Pesee requise">
+                <label className="inline-flex items-center gap-2 text-xs">
+                  <input type="checkbox" checked={form.requires_weighing ?? false} onChange={(e) => setForm({ ...form, requires_weighing: e.target.checked })} />
+                  Activer la pesee obligatoire
+                </label>
+              </DynamicPanelField>
+              {form.mode === 'sea' && (
+                <DynamicPanelField label="Numero MMSI">
+                  <input type="text" value={form.mmsi_number ?? ''} onChange={(e) => setForm({ ...form, mmsi_number: e.target.value || null })} className={panelInputClass} placeholder="123456789" />
+                </DynamicPanelField>
+              )}
+              <DynamicPanelField label="Description" span="full">
+                <textarea value={form.description ?? ''} onChange={(e) => setForm({ ...form, description: e.target.value || null })}
+                  className={`${panelInputClass} min-h-[60px] resize-y`} placeholder="Description du vecteur..." rows={3} />
+              </DynamicPanelField>
+            </FormGrid>
           </FormSection>
         </PanelContentLayout>
       </form>
@@ -2016,9 +2080,24 @@ function VectorDetailPanel({ id }: { id: string }) {
 
   const startEdit = useCallback(() => {
     if (!vector) return
-    setEditForm({ code: vector.code, name: vector.name, type: vector.type, capacity_pax: vector.capacity_pax, capacity_cargo_kg: vector.capacity_cargo_kg, registration: vector.registration, description: vector.description, active: vector.active })
+    setEditForm({
+      registration: vector.registration, name: vector.name, type: vector.type, mode: vector.mode,
+      pax_capacity: vector.pax_capacity, weight_capacity_kg: vector.weight_capacity_kg,
+      volume_capacity_m3: vector.volume_capacity_m3, home_base_id: vector.home_base_id,
+      requires_weighing: vector.requires_weighing, mmsi_number: vector.mmsi_number, active: vector.active,
+    })
     setEditing(true)
   }, [vector])
+
+  const handleEditTypeChange = (type: string) => {
+    const mode = deriveModeFromType(type)
+    setEditForm((prev) => ({
+      ...prev,
+      type,
+      mode,
+      mmsi_number: mode === 'sea' ? prev.mmsi_number : null,
+    }))
+  }
 
   const handleSave = async () => {
     try { await updateVector.mutateAsync({ id, payload: editForm }); toast({ title: 'Vecteur mis a jour', variant: 'success' }); setEditing(false) }
@@ -2039,9 +2118,10 @@ function VectorDetailPanel({ id }: { id: string }) {
   }
 
   const typeEntry = VECTOR_TYPE_MAP[vector.type]
+  const modeLabels: Record<string, string> = { air: 'Aerien', sea: 'Maritime', road: 'Routier' }
 
   return (
-    <DynamicPanelShell title={vector.name} subtitle={vector.code} icon={<Ship size={14} className="text-primary" />}
+    <DynamicPanelShell title={vector.name} subtitle={vector.registration} icon={<Ship size={14} className="text-primary" />}
       actions={<>
         {!editing && <PanelActionButton onClick={startEdit} icon={<Pencil size={12} />}>Modifier</PanelActionButton>}
         {editing && <>
@@ -2055,33 +2135,80 @@ function VectorDetailPanel({ id }: { id: string }) {
     >
       <PanelContentLayout>
         {editing ? (
-          <FormSection title="Informations">
-            <FormGrid>
-              <DynamicPanelField label="Code"><span className="text-sm font-mono font-medium text-foreground">{editForm.code || '—'}</span></DynamicPanelField>
-              <DynamicPanelField label="Nom"><input type="text" value={editForm.name ?? ''} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className={panelInputClass} /></DynamicPanelField>
-              <DynamicPanelField label="Type">
-                <select value={editForm.type ?? ''} onChange={(e) => setEditForm({ ...editForm, type: e.target.value })} className={panelInputClass}>
-                  {Object.entries(VECTOR_TYPE_MAP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                </select>
-              </DynamicPanelField>
-              <DynamicPanelField label="Immatriculation"><input type="text" value={editForm.registration ?? ''} onChange={(e) => setEditForm({ ...editForm, registration: e.target.value || null })} className={panelInputClass} /></DynamicPanelField>
-              <DynamicPanelField label="Capacite PAX"><input type="number" min={0} value={editForm.capacity_pax ?? ''} onChange={(e) => setEditForm({ ...editForm, capacity_pax: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
-              <DynamicPanelField label="Capacite cargo (kg)"><input type="number" min={0} step="any" value={editForm.capacity_cargo_kg ?? ''} onChange={(e) => setEditForm({ ...editForm, capacity_cargo_kg: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
-              <DynamicPanelField label="Description" span="full"><textarea value={editForm.description ?? ''} onChange={(e) => setEditForm({ ...editForm, description: e.target.value || null })} className={`${panelInputClass} min-h-[60px] resize-y`} rows={3} /></DynamicPanelField>
-            </FormGrid>
-          </FormSection>
+          <>
+            <FormSection title="Identification">
+              <FormGrid>
+                <DynamicPanelField label="Immatriculation"><input type="text" value={editForm.registration ?? ''} onChange={(e) => setEditForm({ ...editForm, registration: e.target.value })} className={panelInputClass} /></DynamicPanelField>
+                <DynamicPanelField label="Nom"><input type="text" value={editForm.name ?? ''} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className={panelInputClass} /></DynamicPanelField>
+                <DynamicPanelField label="Type">
+                  <select value={editForm.type ?? ''} onChange={(e) => handleEditTypeChange(e.target.value)} className={panelInputClass}>
+                    {Object.entries(VECTOR_TYPE_MAP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                  </select>
+                </DynamicPanelField>
+                <DynamicPanelField label="Mode">
+                  <select value={editForm.mode ?? ''} onChange={(e) => setEditForm({ ...editForm, mode: e.target.value })} className={panelInputClass}>
+                    <option value="air">Aerien</option>
+                    <option value="sea">Maritime</option>
+                    <option value="road">Routier</option>
+                  </select>
+                </DynamicPanelField>
+                <DynamicPanelField label="Base d'attache" span="full">
+                  <AssetPicker
+                    value={editForm.home_base_id}
+                    onChange={(assetId) => setEditForm({ ...editForm, home_base_id: assetId })}
+                    placeholder="Selectionner une base..."
+                    clearable
+                  />
+                </DynamicPanelField>
+              </FormGrid>
+            </FormSection>
+            <FormSection title="Capacites">
+              <FormGrid>
+                <DynamicPanelField label="Capacite PAX"><input type="number" min={0} value={editForm.pax_capacity ?? ''} onChange={(e) => setEditForm({ ...editForm, pax_capacity: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
+                <DynamicPanelField label="Capacite poids (kg)"><input type="number" min={0} step="any" value={editForm.weight_capacity_kg ?? ''} onChange={(e) => setEditForm({ ...editForm, weight_capacity_kg: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
+                <DynamicPanelField label="Volume (m3)"><input type="number" min={0} step="any" value={editForm.volume_capacity_m3 ?? ''} onChange={(e) => setEditForm({ ...editForm, volume_capacity_m3: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
+              </FormGrid>
+            </FormSection>
+            <FormSection title="Operationnel" collapsible defaultExpanded={false}>
+              <FormGrid>
+                <DynamicPanelField label="Pesee requise">
+                  <label className="inline-flex items-center gap-2 text-xs">
+                    <input type="checkbox" checked={editForm.requires_weighing ?? false} onChange={(e) => setEditForm({ ...editForm, requires_weighing: e.target.checked })} />
+                    Activer la pesee obligatoire
+                  </label>
+                </DynamicPanelField>
+                {(editForm.mode === 'sea') && (
+                  <DynamicPanelField label="Numero MMSI"><input type="text" value={editForm.mmsi_number ?? ''} onChange={(e) => setEditForm({ ...editForm, mmsi_number: e.target.value || null })} className={panelInputClass} placeholder="123456789" /></DynamicPanelField>
+                )}
+                <DynamicPanelField label="Actif">
+                  <label className="inline-flex items-center gap-2 text-xs">
+                    <input type="checkbox" checked={editForm.active ?? true} onChange={(e) => setEditForm({ ...editForm, active: e.target.checked })} />
+                    Vecteur actif
+                  </label>
+                </DynamicPanelField>
+              </FormGrid>
+            </FormSection>
+          </>
         ) : (
           <>
-            <FormSection title="Informations">
-              <DetailRow label="Code" value={vector.code} />
+            <FormSection title="Identification">
+              <DetailRow label="Immatriculation" value={<span className="font-mono">{vector.registration}</span>} />
               <DetailRow label="Nom" value={vector.name} />
               <DetailRow label="Type" value={<span className={cn('gl-badge inline-flex items-center gap-1', typeEntry?.badge || 'gl-badge-neutral')}>{typeEntry?.label || vector.type}</span>} />
-              <DetailRow label="Immatriculation" value={vector.registration ?? '\u2014'} />
-              <DetailRow label="Capacite PAX" value={vector.capacity_pax ?? '\u2014'} />
-              <DetailRow label="Capacite cargo" value={vector.capacity_cargo_kg ? `${vector.capacity_cargo_kg.toLocaleString('fr-FR')} kg` : '\u2014'} />
-              <DetailRow label="Operateur" value={vector.operator_name ?? '\u2014'} />
+              <DetailRow label="Mode" value={modeLabels[vector.mode] || vector.mode} />
+              <DetailRow label="Base d'attache" value={vector.home_base_name ?? '\u2014'} />
               <DetailRow label="Actif" value={vector.active ? 'Oui' : 'Non'} />
-              <DetailRow label="Description" value={vector.description ?? '\u2014'} />
+            </FormSection>
+
+            <FormSection title="Capacites">
+              <DetailRow label="Capacite PAX" value={vector.pax_capacity} />
+              <DetailRow label="Capacite poids" value={vector.weight_capacity_kg ? `${vector.weight_capacity_kg.toLocaleString('fr-FR')} kg` : '\u2014'} />
+              <DetailRow label="Volume" value={vector.volume_capacity_m3 ? `${vector.volume_capacity_m3.toLocaleString('fr-FR')} m\u00B3` : '\u2014'} />
+            </FormSection>
+
+            <FormSection title="Operationnel" collapsible defaultExpanded={false}>
+              <DetailRow label="Pesee requise" value={vector.requires_weighing ? 'Oui' : 'Non'} />
+              {vector.mode === 'sea' && <DetailRow label="Numero MMSI" value={vector.mmsi_number ?? '\u2014'} />}
             </FormSection>
 
             {/* Deck surfaces / Zones */}

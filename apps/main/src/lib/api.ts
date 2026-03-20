@@ -46,18 +46,13 @@ api.interceptors.response.use(
           originalRequest.headers.Authorization = `Bearer ${access_token}`
           return api(originalRequest)
         } catch {
-          // Refresh failed — clear tokens, redirect only if not already on login
+          // Refresh failed — clear tokens (authStore.fetchUser handles redirect)
           localStorage.removeItem('access_token')
           localStorage.removeItem('refresh_token')
-          if (window.location.pathname !== '/login') {
-            window.location.href = '/login'
-          }
         }
-      } else if (window.location.pathname !== '/login') {
-        // No refresh token available and got 401 — redirect to login
-        localStorage.removeItem('access_token')
-        window.location.href = '/login'
       }
+      // Don't redirect here — let authStore.fetchUser() and ProtectedRoute
+      // handle the redirect to avoid race conditions with parallel requests
     }
 
     return Promise.reject(error)

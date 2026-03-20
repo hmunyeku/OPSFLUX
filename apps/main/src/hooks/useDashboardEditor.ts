@@ -190,7 +190,9 @@ export function useDashboardEditor({ tabId, initialWidgets }: UseDashboardEditor
     saveOnUnmountRef.current = false
     setWidgets(initialWidgets)
     setIsDirty(false)
-  }, [initialWidgets])
+    // Also update ref immediately so neither auto-save nor unmount effect fires
+    latestRef.current = { tabId, widgets: initialWidgets, isDirty: false }
+  }, [initialWidgets, tabId])
 
   // Update a full widget (from DashboardGrid resize callback)
   const updateWidget = useCallback((updated: DashboardWidget) => {

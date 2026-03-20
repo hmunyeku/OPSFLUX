@@ -1,9 +1,8 @@
 # =============================================================================
 # OpsFlux — Production Docker Compose (Dokploy)
 # =============================================================================
-# Dokploy injects .env from compose environment settings.
-# Domains & SSL are managed by Dokploy's built-in Traefik.
-# Do NOT expose ports — Traefik routes by service name.
+# Dokploy creates .env from compose environment settings.
+# Domains & SSL managed by Dokploy's built-in Traefik.
 
 services:
   # ─── PostgreSQL 16 + pgvector + PostGIS ──────────────────────
@@ -12,7 +11,6 @@ services:
       context: ./docker
       dockerfile: Dockerfile.postgres
     restart: unless-stopped
-    env_file: .env
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -42,24 +40,6 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     env_file: .env
-    environment:
-      ENVIRONMENT: production
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-opsflux}
-      REDIS_URL: redis://redis:6379/0
-      SECRET_KEY: ${SECRET_KEY}
-      FRONTEND_URL: ${FRONTEND_HOST:-https://app.opsflux.io}
-      ALLOWED_ORIGINS: ${BACKEND_CORS_ORIGINS:-https://app.opsflux.io}
-      ALLOWED_HOSTS: api.opsflux.io,app.opsflux.io
-      SMTP_HOST: ${SMTP_HOST:-mail.opsflux.io}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USERNAME: ${SMTP_USER:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      SMTP_FROM_ADDRESS: ${EMAILS_FROM_EMAIL:-noreply@opsflux.io}
-      SMTP_FROM_NAME: ${EMAILS_FROM_NAME:-OPSFLUX}
-      SMTP_USE_TLS: "true"
-      SENTRY_DSN: ${SENTRY_DSN:-}
-      FIRST_SUPERUSER: ${FIRST_SUPERUSER:-admin@opsflux.io}
-      FIRST_SUPERUSER_PASSWORD: ${FIRST_SUPERUSER_PASSWORD:-}
     depends_on:
       db:
         condition: service_healthy

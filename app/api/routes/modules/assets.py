@@ -47,6 +47,7 @@ async def _check_circular_parent(db: AsyncSession, asset_id: UUID | None, new_pa
 async def list_assets(
     type: str | None = None,
     parent_id: UUID | None = None,
+    status: str | None = None,
     search: str | None = None,
     active_only: bool = True,
     pagination: PaginationParams = Depends(),
@@ -62,6 +63,8 @@ async def list_assets(
         query = query.where(Asset.type == type)
     if parent_id:
         query = query.where(Asset.parent_id == parent_id)
+    if status:
+        query = query.where(Asset.status == status)
     if search:
         like = f"%{search}%"
         query = query.where(Asset.name.ilike(like) | Asset.code.ilike(like))
@@ -71,32 +74,50 @@ async def list_assets(
 
 @router.get("/tree")
 async def get_asset_tree(
+    parent_id: UUID | None = None,
+    max_depth: int = 10,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get full asset hierarchy as a tree structure."""
-    result = await db.execute(
+    """Get asset hierarchy as a tree structure.
+
+    If parent_id is provided, only return the subtree under that parent.
+    max_depth limits recursion depth (default 10).
+    """
+    query = (
         select(Asset)
         .where(Asset.entity_id == entity_id, Asset.active == True, Asset.archived == False)
         .order_by(Asset.path)
     )
+    if parent_id:
+        # When a parent_id is given, we still load all descendants (filtered below)
+        query = query.where(Asset.path.ilike(
+            select(Asset.path).where(Asset.id == parent_id).scalar_subquery() + ".%"
+        ) | (Asset.id == parent_id))
+
+    result = await db.execute(query)
     assets = result.scalars().all()
 
-    def build_tree(items, parent_id=None):
+    def build_tree(items, pid=None, depth=0):
+        if depth >= max_depth:
+            return []
         nodes = []
         for item in items:
-            if item.parent_id == parent_id:
+            if item.parent_id == pid:
                 node = {
                     "id": str(item.id),
                     "code": item.code,
                     "name": item.name,
                     "type": item.type,
-                    "children": build_tree(items, item.id),
+                    "status": item.status,
+                    "children": build_tree(items, item.id, depth + 1),
                 }
                 nodes.append(node)
         return nodes
 
+    if parent_id:
+        return build_tree(assets, parent_id, 0)
     return build_tree(assets)
 
 
@@ -130,6 +151,7 @@ async def create_asset(
         latitude=body.latitude,
         longitude=body.longitude,
         allow_overlap=body.allow_overlap,
+        status=body.status,
         metadata_=body.metadata,
     )
     db.add(asset)

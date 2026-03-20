@@ -118,6 +118,48 @@ class EntityCreate(BaseModel):
     timezone: str = "Africa/Douala"
 
 
+# ─── Department schemas ─────────────────────────────────────────────────────
+
+class DepartmentRead(OpsFluxSchema):
+    id: UUID
+    entity_id: UUID
+    code: str
+    name: str
+    active: bool
+    created_at: datetime | None = None
+
+class DepartmentCreate(BaseModel):
+    code: str = Field(..., max_length=50)
+    name: str = Field(..., max_length=200)
+    active: bool = True
+
+class DepartmentUpdate(BaseModel):
+    code: str | None = None
+    name: str | None = None
+    active: bool | None = None
+
+class CostCenterRead(OpsFluxSchema):
+    id: UUID
+    entity_id: UUID
+    code: str
+    name: str
+    department_id: UUID | None = None
+    active: bool
+    created_at: datetime | None = None
+
+class CostCenterCreate(BaseModel):
+    code: str = Field(..., max_length=50)
+    name: str = Field(..., max_length=200)
+    department_id: UUID | None = None
+    active: bool = True
+
+class CostCenterUpdate(BaseModel):
+    code: str | None = None
+    name: str | None = None
+    department_id: UUID | None = None
+    active: bool | None = None
+
+
 # ─── Asset schemas ───────────────────────────────────────────────────────────
 
 class AssetRead(OpsFluxSchema):
@@ -134,6 +176,7 @@ class AssetRead(OpsFluxSchema):
     max_pax: int | None
     permanent_ops_quota: int
     active: bool
+    status: str
     created_at: datetime
 
 
@@ -147,6 +190,7 @@ class AssetCreate(BaseModel):
     allow_overlap: bool = True
     max_pax: int | None = None
     permanent_ops_quota: int = 0
+    status: str = "operational"
     metadata: dict[str, Any] | None = None
 
 
@@ -158,6 +202,7 @@ class AssetUpdate(BaseModel):
     max_pax: int | None = None
     permanent_ops_quota: int | None = None
     active: bool | None = None
+    status: str | None = None
     metadata: dict[str, Any] | None = None
 
 

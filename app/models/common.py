@@ -313,6 +313,7 @@ class Asset(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     max_pax: Mapped[int | None] = mapped_column(Integer)
     permanent_ops_quota: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    status: Mapped[str] = mapped_column(String(30), default="operational", nullable=False)
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB)
 
     parent: Mapped["Asset | None"] = relationship(remote_side="Asset.id")

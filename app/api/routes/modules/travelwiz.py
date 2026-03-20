@@ -1097,7 +1097,7 @@ async def add_passenger(
     _: None = require_permission("travelwiz.manifest.create"),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_voyage_or_404(db, voyage_id, entity_id)
+    voyage = await _get_voyage_or_404(db, voyage_id, entity_id)
     # Verify manifest exists and is draft
     result = await db.execute(
         select(VoyageManifest).where(
@@ -1109,6 +1109,27 @@ async def add_passenger(
         raise HTTPException(404, "Manifest not found")
     if manifest.status != "draft":
         raise HTTPException(400, "Cannot add passengers to a non-draft manifest")
+
+    # ── PAX capacity validation ──────────────────────────────────────────
+    vector = await db.get(TransportVector, voyage.vector_id)
+    if vector and vector.pax_capacity:
+        # Count active passengers across ALL pax manifests for this voyage
+        pax_count_result = await db.execute(
+            select(sqla_func.count(ManifestPassenger.id))
+            .join(VoyageManifest, ManifestPassenger.manifest_id == VoyageManifest.id)
+            .where(
+                VoyageManifest.voyage_id == voyage_id,
+                VoyageManifest.manifest_type == "pax",
+                ManifestPassenger.active == True,
+            )
+        )
+        current_pax = pax_count_result.scalar() or 0
+        if current_pax + 1 > vector.pax_capacity:
+            raise HTTPException(
+                400,
+                f"PAX capacity exceeded: vector allows {vector.pax_capacity}, "
+                f"currently {current_pax} passengers on board",
+            )
 
     pax = ManifestPassenger(manifest_id=manifest_id, **body.model_dump())
     db.add(pax)
@@ -1241,6 +1262,40 @@ async def create_cargo(
     _: None = require_permission("travelwiz.cargo.create"),
     db: AsyncSession = Depends(get_db),
 ):
+    # ── Weight capacity validation (if assigning to a manifest) ────────
+    if body.manifest_id:
+        manifest_result = await db.execute(
+            select(VoyageManifest).where(VoyageManifest.id == body.manifest_id)
+        )
+        manifest = manifest_result.scalars().first()
+        if manifest:
+            voyage_result = await db.execute(
+                select(Voyage).where(Voyage.id == manifest.voyage_id)
+            )
+            voyage = voyage_result.scalars().first()
+            if voyage:
+                vector = await db.get(TransportVector, voyage.vector_id)
+                if vector and vector.weight_capacity_kg:
+                    # Sum existing cargo weight on all cargo manifests for this voyage
+                    weight_result = await db.execute(
+                        select(sqla_func.coalesce(sqla_func.sum(CargoItem.weight_kg), 0))
+                        .join(VoyageManifest, CargoItem.manifest_id == VoyageManifest.id)
+                        .where(
+                            VoyageManifest.voyage_id == voyage.id,
+                            VoyageManifest.manifest_type == "cargo",
+                            CargoItem.active == True,
+                            CargoItem.archived == False,
+                        )
+                    )
+                    current_weight = float(weight_result.scalar() or 0)
+                    if current_weight + body.weight_kg > vector.weight_capacity_kg:
+                        raise HTTPException(
+                            400,
+                            f"Weight capacity exceeded: vector allows {vector.weight_capacity_kg} kg, "
+                            f"current load is {current_weight} kg, "
+                            f"new item weighs {body.weight_kg} kg",
+                        )
+
     tracking_code = await _generate_cargo_code(db, entity_id)
     cargo = CargoItem(
         entity_id=entity_id,

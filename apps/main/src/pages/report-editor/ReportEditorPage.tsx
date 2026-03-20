@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next'
 import {
   FileText, Plus, Loader2, Trash2, LayoutDashboard, Files, FileCode2, FolderCog,
   Send, CheckCircle2, XCircle, Globe, Download, Link2, Clock, Eye,
-  Archive, PenTool,
+  Archive, PenTool, GitCompare, ChevronDown, ChevronRight, Folder, PanelLeftClose, PanelLeft,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -65,14 +65,19 @@ import {
   useCreateRevision,
   useSaveDraft,
   useCreateDocument,
+  useRevisionDiff,
+  useArborescenceNodes,
 } from '@/hooks/useReportEditor'
 import { reportEditorService } from '@/services/reportEditorService'
 import { DocumentEditor } from '@/components/report-editor/DocumentEditor'
+import { useProjects } from '@/hooks/useProjets'
 import type {
   Document as REDocument,
   DocType,
   Template,
   RevisionSummary,
+  RevisionDiff,
+  ArborescenceNode,
 } from '@/services/reportEditorService'
 
 // -- Constants ----------------------------------------------------------------
@@ -101,6 +106,70 @@ const CLASSIFICATION_OPTIONS = [
   { value: 'REST', label: 'Restreint' },
   { value: 'PUB', label: 'Public' },
 ]
+
+// -- Arborescence Tree Node ---------------------------------------------------
+
+function ArborescenceTreeNode({
+  node,
+  allNodes,
+  depth = 0,
+  selectedId,
+  onSelect,
+}: {
+  node: ArborescenceNode
+  allNodes: ArborescenceNode[]
+  depth?: number
+  selectedId: string | null
+  onSelect: (id: string | null) => void
+}) {
+  const [expanded, setExpanded] = useState(depth < 2)
+  const children = allNodes.filter((n) => n.parent_id === node.id).sort((a, b) => a.display_order - b.display_order)
+  const hasChildren = children.length > 0
+  const isSelected = selectedId === node.id
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => {
+          onSelect(isSelected ? null : node.id)
+        }}
+        className={cn(
+          'flex w-full items-center gap-1.5 h-7 text-xs hover:bg-accent transition-colors rounded-sm',
+          isSelected && 'bg-primary/10 text-primary font-semibold',
+        )}
+        style={{ paddingLeft: `${depth * 14 + 8}px` }}
+      >
+        {hasChildren ? (
+          <span
+            role="button"
+            className="shrink-0 p-0.5"
+            onClick={(e) => { e.stopPropagation(); setExpanded(!expanded) }}
+          >
+            {expanded
+              ? <ChevronDown size={11} className="text-muted-foreground" />
+              : <ChevronRight size={11} className="text-muted-foreground" />
+            }
+          </span>
+        ) : (
+          <span className="w-4 shrink-0" />
+        )}
+        <Folder size={12} className={cn('shrink-0', isSelected ? 'text-primary' : 'text-muted-foreground')} />
+        <span className="truncate">{node.name}</span>
+      </button>
+      {expanded && hasChildren && children.map((child) => (
+        <ArborescenceTreeNode
+          key={child.id}
+          node={child}
+          allNodes={allNodes}
+          depth={depth + 1}
+          selectedId={selectedId}
+          onSelect={onSelect}
+        />
+      ))}
+    </div>
+  )
+}
 
 // -- Badges -------------------------------------------------------------------
 
@@ -381,6 +450,97 @@ function WorkflowActions({ docId }: { docId: string }) {
   )
 }
 
+// -- Revision Diff Viewer -----------------------------------------------------
+
+function RevisionDiffViewer({
+  diff,
+  isLoading,
+  revisions,
+  revAId,
+  revBId,
+}: {
+  diff: RevisionDiff | undefined
+  isLoading: boolean
+  revisions: RevisionSummary[]
+  revAId: string
+  revBId: string
+}) {
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-6 border border-border rounded-md bg-muted/10">
+        <Loader2 size={14} className="animate-spin text-muted-foreground" />
+        <span className="ml-2 text-xs text-muted-foreground">Chargement du diff...</span>
+      </div>
+    )
+  }
+
+  if (!diff) return null
+
+  const revA = revisions.find((r) => r.id === revAId)
+  const revB = revisions.find((r) => r.id === revBId)
+  const addCount = diff.additions?.length ?? 0
+  const delCount = diff.deletions?.length ?? 0
+  const modCount = diff.modifications?.length ?? 0
+
+  return (
+    <div className="mt-3 border border-border rounded-md overflow-hidden bg-background">
+      {/* Header */}
+      <div className="flex items-center justify-between px-3 py-2 bg-muted/30 border-b border-border">
+        <div className="flex items-center gap-2 text-xs">
+          <GitCompare size={12} className="text-primary" />
+          <span className="font-medium">Comparaison</span>
+        </div>
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span className="font-mono">{revA?.rev_code ?? 'Rev A'}</span>
+          <span>vs</span>
+          <span className="font-mono">{revB?.rev_code ?? 'Rev B'}</span>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="flex items-center gap-4 px-3 py-2 border-b border-border text-xs">
+        {revA && revB && (
+          <span className="text-muted-foreground">
+            Mots: {revA.word_count} &rarr; {revB.word_count}
+            {' '}
+            <span className={revB.word_count >= revA.word_count ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+              ({revB.word_count >= revA.word_count ? '+' : ''}{revB.word_count - revA.word_count})
+            </span>
+          </span>
+        )}
+        <span className="text-green-600 dark:text-green-400">+{addCount} ajout{addCount !== 1 ? 's' : ''}</span>
+        <span className="text-red-600 dark:text-red-400">-{delCount} suppression{delCount !== 1 ? 's' : ''}</span>
+        <span className="text-amber-600 dark:text-amber-400">{modCount} modification{modCount !== 1 ? 's' : ''}</span>
+      </div>
+
+      {/* Diff content */}
+      <div className="p-3 space-y-1 max-h-[300px] overflow-y-auto text-xs">
+        {addCount === 0 && delCount === 0 && modCount === 0 && (
+          <p className="text-muted-foreground py-2 text-center">Aucune difference detectee.</p>
+        )}
+        {diff.additions?.map((item, i) => (
+          <div key={`add-${i}`} className="flex gap-2 px-2 py-1 rounded bg-green-50 dark:bg-green-900/20 border-l-2 border-green-500">
+            <span className="text-green-600 dark:text-green-400 font-mono shrink-0">+</span>
+            <span className="text-green-800 dark:text-green-300">{String(item.text ?? item.content ?? JSON.stringify(item))}</span>
+          </div>
+        ))}
+        {diff.deletions?.map((item, i) => (
+          <div key={`del-${i}`} className="flex gap-2 px-2 py-1 rounded bg-red-50 dark:bg-red-900/20 border-l-2 border-red-500">
+            <span className="text-red-600 dark:text-red-400 font-mono shrink-0">-</span>
+            <span className="text-red-800 dark:text-red-300 line-through">{String(item.text ?? item.content ?? JSON.stringify(item))}</span>
+          </div>
+        ))}
+        {diff.modifications?.map((item, i) => (
+          <div key={`mod-${i}`} className="flex gap-2 px-2 py-1 rounded bg-amber-50 dark:bg-amber-900/20 border-l-2 border-amber-500">
+            <span className="text-amber-600 dark:text-amber-400 font-mono shrink-0">~</span>
+            <span className="text-amber-800 dark:text-amber-300">{String(item.text ?? item.content ?? JSON.stringify(item))}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // -- Document Detail Panel ----------------------------------------------------
 
 function DocumentDetailPanel({ id }: { id: string }) {
@@ -413,11 +573,27 @@ function DocumentDetailPanel({ id }: { id: string }) {
   const [showRejectInput, setShowRejectInput] = useState(false)
   const [showEditor, setShowEditor] = useState(false)
 
+  // Revision diff state
+  const [selectedRevisions, setSelectedRevisions] = useState<string[]>([])
+  const [showDiff, setShowDiff] = useState(false)
+  const diffRevA = selectedRevisions.length === 2 ? selectedRevisions[0] : undefined
+  const diffRevB = selectedRevisions.length === 2 ? selectedRevisions[1] : undefined
+  const { data: revisionDiff, isLoading: diffLoading } = useRevisionDiff(id, diffRevA, diffRevB)
+
+  const handleToggleRevisionSelect = useCallback((revId: string) => {
+    setSelectedRevisions((prev) => {
+      if (prev.includes(revId)) return prev.filter((r) => r !== revId)
+      if (prev.length >= 2) return [prev[1], revId] // Replace oldest
+      return [...prev, revId]
+    })
+    setShowDiff(false)
+  }, [])
+
   const handleEditorChange = useCallback(
-    (content: unknown) => {
+    (content: string) => {
       saveDraft.mutate({
         id,
-        payload: { content: content as Record<string, unknown> },
+        payload: { content: { html: content } as unknown as Record<string, unknown> },
       })
     },
     [id, saveDraft],
@@ -720,35 +896,87 @@ function DocumentDetailPanel({ id }: { id: string }) {
           ) : !revisions || revisions.length === 0 ? (
             <p className="text-xs text-muted-foreground py-2">Aucune revision enregistree.</p>
           ) : (
-            <div className="space-y-1">
-              {revisions.map((rev: RevisionSummary) => (
-                <div
-                  key={rev.id}
-                  className={cn(
-                    'flex items-center gap-3 py-2 px-2 rounded text-xs',
-                    doc.current_revision_id === rev.id ? 'bg-primary/5 border border-primary/20' : 'bg-muted/20',
-                  )}
-                >
-                  <div className="flex items-center gap-1.5 min-w-[50px]">
-                    <Clock size={10} className="text-muted-foreground" />
-                    <span className="font-mono font-medium">{rev.rev_code}</span>
-                  </div>
-                  <span className="text-muted-foreground flex-1 truncate">
-                    {rev.creator_name || 'Systeme'} — {rev.word_count} mots
-                  </span>
-                  <span className="text-muted-foreground tabular-nums shrink-0">{formatDate(rev.created_at)}</span>
-                  {rev.is_locked && (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-                      Verrouille
-                    </span>
-                  )}
-                  {doc.current_revision_id === rev.id && (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary">
-                      Courante
-                    </span>
+            <div className="space-y-2">
+              {/* Compare button */}
+              {revisions.length >= 2 && (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className={cn(
+                      'gl-button-sm',
+                      selectedRevisions.length === 2 ? 'gl-button-confirm' : 'gl-button-default opacity-50 cursor-not-allowed',
+                    )}
+                    disabled={selectedRevisions.length !== 2}
+                    onClick={() => setShowDiff(true)}
+                  >
+                    <GitCompare size={12} />
+                    <span>Comparer{selectedRevisions.length === 2 ? '' : ' (selectionnez 2)'}</span>
+                  </button>
+                  {selectedRevisions.length > 0 && (
+                    <button
+                      type="button"
+                      className="text-xs text-muted-foreground hover:text-foreground"
+                      onClick={() => { setSelectedRevisions([]); setShowDiff(false) }}
+                    >
+                      Reinitialiser
+                    </button>
                   )}
                 </div>
-              ))}
+              )}
+
+              {/* Revision list */}
+              <div className="space-y-1">
+                {revisions.map((rev: RevisionSummary) => (
+                  <div
+                    key={rev.id}
+                    className={cn(
+                      'flex items-center gap-2 py-2 px-2 rounded text-xs',
+                      doc.current_revision_id === rev.id ? 'bg-primary/5 border border-primary/20' : 'bg-muted/20',
+                      selectedRevisions.includes(rev.id) && 'ring-1 ring-primary/40',
+                    )}
+                  >
+                    {/* Checkbox for diff selection */}
+                    {revisions.length >= 2 && (
+                      <input
+                        type="checkbox"
+                        className="h-3 w-3 rounded border-border text-primary accent-primary cursor-pointer shrink-0"
+                        checked={selectedRevisions.includes(rev.id)}
+                        onChange={() => handleToggleRevisionSelect(rev.id)}
+                        title="Selectionner pour comparer"
+                      />
+                    )}
+                    <div className="flex items-center gap-1.5 min-w-[50px]">
+                      <Clock size={10} className="text-muted-foreground" />
+                      <span className="font-mono font-medium">{rev.rev_code}</span>
+                    </div>
+                    <span className="text-muted-foreground flex-1 truncate">
+                      {rev.creator_name || 'Systeme'} — {rev.word_count} mots
+                    </span>
+                    <span className="text-muted-foreground tabular-nums shrink-0">{formatDate(rev.created_at)}</span>
+                    {rev.is_locked && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                        Verrouille
+                      </span>
+                    )}
+                    {doc.current_revision_id === rev.id && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary">
+                        Courante
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Diff viewer */}
+              {showDiff && selectedRevisions.length === 2 && (
+                <RevisionDiffViewer
+                  diff={revisionDiff}
+                  isLoading={diffLoading}
+                  revisions={revisions}
+                  revAId={selectedRevisions[0]}
+                  revBId={selectedRevisions[1]}
+                />
+              )}
             </div>
           )}
         </FormSection>
@@ -775,18 +1003,21 @@ export function ReportEditorPage() {
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>({})
+  const [showTreeSidebar, setShowTreeSidebar] = useState(true)
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
 
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const panelMode = useUIStore((s) => s.dynamicPanelMode)
   const setNavItems = useUIStore((s) => s.setDynamicPanelNavItems)
 
-  useEffect(() => { setPage(1) }, [debouncedSearch, activeFilters, activeTab])
+  useEffect(() => { setPage(1) }, [debouncedSearch, activeFilters, activeTab, selectedNodeId])
 
   const handleTabChange = useCallback((tab: ReportEditorTab) => {
     setActiveTab(tab)
     setSearch('')
     setActiveFilters({})
+    setSelectedNodeId(null)
     setPage(1)
   }, [])
 
@@ -818,11 +1049,25 @@ export function ReportEditorPage() {
     status: activeTab === 'documents' ? statusFilter : undefined,
     doc_type_id: activeTab === 'documents' ? docTypeFilter : undefined,
     classification: activeTab === 'documents' ? classificationFilter : undefined,
+    arborescence_node_id: activeTab === 'documents' ? (selectedNodeId ?? undefined) : undefined,
     search: activeTab === 'documents' ? (debouncedSearch || undefined) : undefined,
   })
 
   const { data: docTypes, isLoading: docTypesLoading } = useDocTypes()
   const { data: templates, isLoading: templatesLoading } = useTemplates()
+
+  // Arborescence tree: project list + nodes
+  const [treeProjectId, setTreeProjectId] = useState<string | undefined>(undefined)
+  const { data: projectsData } = useProjects({ page: 1, page_size: 200 })
+  const { data: arborescenceNodes } = useArborescenceNodes(treeProjectId)
+
+  // Build root-level nodes for the tree
+  const rootNodes = useMemo(() => {
+    if (!arborescenceNodes) return []
+    return arborescenceNodes
+      .filter((n: ArborescenceNode) => !n.parent_id)
+      .sort((a: ArborescenceNode, b: ArborescenceNode) => a.display_order - b.display_order)
+  }, [arborescenceNodes])
 
   // Update nav items for keyboard navigation in detail panel
   useEffect(() => {
@@ -966,42 +1211,138 @@ export function ReportEditorPage() {
 
       case 'documents':
         return (
-          <DataTable<REDocument>
-            columns={documentColumns}
-            data={docsData?.items ?? []}
-            isLoading={docsLoading}
-            pagination={docsPagination}
-            onPaginationChange={(p, size) => {
-              if (size !== pageSize) { setPageSize(size); setPage(1) } else setPage(p)
-            }}
-            searchValue={search}
-            onSearchChange={setSearch}
-            searchPlaceholder="Rechercher par numero ou titre..."
-            filters={documentFilters}
-            activeFilters={activeFilters}
-            onFilterChange={handleFilterChange}
-            onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'report-editor', id: row.id })}
-            emptyIcon={Files}
-            emptyTitle="Aucun document"
-            importExport={{
-              exportFormats: ['csv', 'xlsx'],
-              advancedExport: true,
-              filenamePrefix: 'documents',
-              exportHeaders: {
-                number: 'Numero',
-                title: 'Titre',
-                doc_type_name: 'Type',
-                status: 'Statut',
-                classification: 'Classification',
-                current_rev_code: 'Revision',
-                updated_at: 'Date',
-                creator_name: 'Createur',
-              },
-            }}
-            columnResizing
-            columnVisibility
-            storageKey="report-editor-documents"
-          />
+          <div className="flex h-full">
+            {/* Arborescence tree sidebar */}
+            {showTreeSidebar && (
+              <div className="w-[200px] shrink-0 border-r border-border flex flex-col bg-muted/20 overflow-hidden">
+                {/* Sidebar header */}
+                <div className="flex items-center justify-between px-2 py-1.5 border-b border-border">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Arborescence</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowTreeSidebar(false)}
+                    className="p-0.5 rounded hover:bg-accent text-muted-foreground"
+                    title="Masquer l'arborescence"
+                  >
+                    <PanelLeftClose size={14} />
+                  </button>
+                </div>
+
+                {/* Project selector */}
+                <div className="px-2 py-1.5 border-b border-border">
+                  <select
+                    value={treeProjectId ?? ''}
+                    onChange={(e) => {
+                      setTreeProjectId(e.target.value || undefined)
+                      setSelectedNodeId(null)
+                    }}
+                    className="w-full text-xs rounded border border-border bg-background px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-primary"
+                  >
+                    <option value="">Selectionner un projet...</option>
+                    {projectsData?.items?.map((p: { id: string; name: string }) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Tree content */}
+                <div className="flex-1 overflow-y-auto py-1">
+                  {/* "All documents" root option */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedNodeId(null)}
+                    className={cn(
+                      'flex w-full items-center gap-1.5 h-7 text-xs px-2 hover:bg-accent transition-colors rounded-sm',
+                      !selectedNodeId && 'bg-primary/10 text-primary font-semibold',
+                    )}
+                  >
+                    <Files size={12} className={cn('shrink-0', !selectedNodeId ? 'text-primary' : 'text-muted-foreground')} />
+                    <span>Tous les documents</span>
+                  </button>
+
+                  {treeProjectId && rootNodes.length > 0 && (
+                    <div className="mt-1 border-t border-border pt-1">
+                      {rootNodes.map((node: ArborescenceNode) => (
+                        <ArborescenceTreeNode
+                          key={node.id}
+                          node={node}
+                          allNodes={arborescenceNodes ?? []}
+                          selectedId={selectedNodeId}
+                          onSelect={setSelectedNodeId}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {treeProjectId && rootNodes.length === 0 && (
+                    <div className="px-2 py-4 text-center text-xs text-muted-foreground">
+                      Aucun noeud d&apos;arborescence
+                    </div>
+                  )}
+
+                  {!treeProjectId && (
+                    <div className="px-2 py-4 text-center text-xs text-muted-foreground">
+                      Selectionnez un projet pour voir l&apos;arborescence
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Documents table */}
+            <div className="flex-1 min-w-0 flex flex-col">
+              {/* Toggle button when sidebar is hidden */}
+              {!showTreeSidebar && (
+                <div className="px-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowTreeSidebar(true)}
+                    className="flex items-center gap-1 px-2 py-1 rounded text-xs text-muted-foreground hover:bg-accent transition-colors"
+                    title="Afficher l'arborescence"
+                  >
+                    <PanelLeft size={14} />
+                    <span>Arborescence</span>
+                  </button>
+                </div>
+              )}
+              <DataTable<REDocument>
+                columns={documentColumns}
+                data={docsData?.items ?? []}
+                isLoading={docsLoading}
+                pagination={docsPagination}
+                onPaginationChange={(p, size) => {
+                  if (size !== pageSize) { setPageSize(size); setPage(1) } else setPage(p)
+                }}
+                searchValue={search}
+                onSearchChange={setSearch}
+                searchPlaceholder="Rechercher par numero ou titre..."
+                filters={documentFilters}
+                activeFilters={activeFilters}
+                onFilterChange={handleFilterChange}
+                onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'report-editor', id: row.id })}
+                emptyIcon={Files}
+                emptyTitle="Aucun document"
+                importExport={{
+                  exportFormats: ['csv', 'xlsx'],
+                  advancedExport: true,
+                  filenamePrefix: 'documents',
+                  exportHeaders: {
+                    number: 'Numero',
+                    title: 'Titre',
+                    doc_type_name: 'Type',
+                    status: 'Statut',
+                    classification: 'Classification',
+                    current_rev_code: 'Revision',
+                    updated_at: 'Date',
+                    creator_name: 'Createur',
+                  },
+                }}
+                columnResizing
+                columnVisibility
+                storageKey="report-editor-documents"
+              />
+            </div>
+          </div>
         )
 
       case 'templates':

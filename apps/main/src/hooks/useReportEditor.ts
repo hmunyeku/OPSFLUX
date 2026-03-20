@@ -17,6 +17,7 @@ export function useDocuments(params: PaginationParams & {
   doc_type_id?: string
   status?: string
   classification?: string
+  arborescence_node_id?: string
   search?: string
 } = {}) {
   return useQuery({

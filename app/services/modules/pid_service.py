@@ -1438,18 +1438,50 @@ async def export_pdf(
     pid_id: str | UUID,
     entity_id: UUID,
     db: AsyncSession,
-) -> bytes:
-    """Export PID as PDF (via Puppeteer rendering of SVG)."""
-    # Placeholder — in production, this would:
-    # 1. Export SVG from draw.io via API
-    # 2. Render SVG to PDF via Puppeteer at the correct sheet_format (A0/A1/A2/A3)
-    # 3. Add cartouche header/footer
-    pid = await get_pid_document(pid_id, entity_id, db)
+) -> tuple[bytes, str]:
+    """Export PID as PDF by converting SVG content to PDF via WeasyPrint.
+
+    Returns (pdf_bytes, filename).
+    """
     from fastapi import HTTPException
-    raise HTTPException(
-        501,
-        f"PDF export for PID {pid.number} — requires draw.io export service (coming soon)",
-    )
+
+    pid = await get_pid_document(pid_id, entity_id, db)
+
+    # Get SVG content (reuse the existing export_svg helper)
+    svg_bytes = await export_svg(pid_id, entity_id, db)
+    svg_content = svg_bytes.decode("utf-8")
+
+    # Map sheet_format to CSS @page size dimensions
+    sheet_sizes = {
+        "A0": "841mm 1189mm",
+        "A1": "594mm 841mm",
+        "A2": "420mm 594mm",
+        "A3": "297mm 420mm",
+    }
+    page_size = sheet_sizes.get(pid.sheet_format or "A1", "594mm 841mm")
+
+    # Build an HTML wrapper that embeds the SVG with proper page sizing
+    html_content = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<style>
+  @page {{ size: {page_size} landscape; margin: 10mm; }}
+  body {{ margin: 0; padding: 0; }}
+  svg {{ width: 100%; height: auto; }}
+</style>
+</head><body>{svg_content}</body></html>"""
+
+    try:
+        from weasyprint import HTML as WeasyprintHTML
+        pdf_bytes = WeasyprintHTML(string=html_content).write_pdf()
+    except ImportError:
+        raise HTTPException(
+            501,
+            "WeasyPrint not installed — PDF export unavailable. Install with: pip install weasyprint",
+        )
+
+    revision_label = pid.revision or "0"
+    filename = f"{pid.number}_rev{revision_label}.pdf"
+    return pdf_bytes, filename
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

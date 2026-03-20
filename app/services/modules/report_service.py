@@ -39,6 +39,7 @@ async def list_documents(
     doc_type_id: str | None = None,
     status: str | None = None,
     classification: str | None = None,
+    arborescence_node_id: str | None = None,
     search: str | None = None,
     page: int = 1,
     page_size: int = 25,
@@ -65,6 +66,8 @@ async def list_documents(
         query = query.where(Document.status == status)
     if classification:
         query = query.where(Document.classification == classification)
+    if arborescence_node_id:
+        query = query.where(Document.arborescence_node_id == UUID(arborescence_node_id))
     if search:
         query = query.where(
             or_(

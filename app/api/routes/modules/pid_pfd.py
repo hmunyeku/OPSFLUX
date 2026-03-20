@@ -12,6 +12,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile, File
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -1023,16 +1024,14 @@ async def export_pdf(
     db: AsyncSession = Depends(get_db),
 ):
     """Export the PID document as a PDF file."""
+    import io
     from app.services.modules.pid_service import export_pdf as svc_export
 
-    # export_pdf raises 501 for now — placeholder until draw.io export service
-    pdf_bytes = await svc_export(pid_id, entity_id, db)
-    from app.services.modules.pid_service import get_pid_document
-    pid = await get_pid_document(pid_id, entity_id, db)
-    return Response(
-        content=pdf_bytes,
+    pdf_bytes, filename = await svc_export(pid_id, entity_id, db)
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{pid.number}.pdf"'},
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 

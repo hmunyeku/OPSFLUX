@@ -229,6 +229,7 @@ export const reportEditorService = {
     doc_type_id?: string
     status?: string
     classification?: string
+    arborescence_node_id?: string
     search?: string
   } = {}): Promise<PaginatedResponse<Document>> => {
     const { data } = await api.get('/api/v1/documents/', { params })

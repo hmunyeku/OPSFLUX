@@ -181,17 +181,31 @@ async def import_sap_suppliers(
         try:
             first_row = code_rows[0]
 
+            # Determine scope: PER* codes are local (Perenco internal), others international
+            tier_scope = "local" if sap_code.startswith("PER") else "international"
+
             # Check if ExternalReference with system=SAP + code already exists
-            existing_ref = await db.execute(
-                select(ExternalReference).where(
-                    ExternalReference.system == "SAP",
-                    ExternalReference.code == sap_code,
-                    ExternalReference.owner_type == "tier",
-                )
+            existing_ref_query = select(ExternalReference).where(
+                ExternalReference.system == "SAP",
+                ExternalReference.code == sap_code,
+                ExternalReference.owner_type == "tier",
             )
+            if tier_scope == "international":
+                # For international tiers: check across ALL entities
+                existing_ref = await db.execute(existing_ref_query)
+            else:
+                # For local tiers: only check in current entity (via the tier's entity_id)
+                existing_ref = await db.execute(
+                    existing_ref_query.join(Tier, ExternalReference.owner_id == Tier.id)
+                    .where(Tier.entity_id == entity_id)
+                )
             ref_row = existing_ref.scalar_one_or_none()
 
             if ref_row:
+                if tier_scope == "international" and ref_row.owner_id:
+                    # International tier exists in another entity — link to it, skip creation
+                    skipped += 1
+                    continue
                 # Already imported — skip
                 skipped += 1
                 continue
@@ -238,6 +252,7 @@ async def import_sap_suppliers(
                     tier.incoterm_city = incoterm_city
                 if currency and currency != "XAF":
                     tier.currency = currency
+                tier.scope = tier_scope
                 updated += 1
             else:
                 # Create new tier
@@ -251,6 +266,7 @@ async def import_sap_suppliers(
                     incoterm=incoterm,
                     incoterm_city=incoterm_city,
                     is_blocked=purchasing_blocked,
+                    scope=tier_scope,
                 )
                 db.add(tier)
                 await db.flush()  # get tier.id

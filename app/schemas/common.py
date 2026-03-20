@@ -276,6 +276,7 @@ class TierRead(OpsFluxSchema):
     active: bool
     archived: bool
     is_blocked: bool = False
+    scope: str = "local"
     contact_count: int = 0
     created_at: datetime
 
@@ -294,6 +295,7 @@ class TierCreate(BaseModel):
     incoterm: str | None = None
     incoterm_city: str | None = None
     description: str | None = None
+    scope: str = "local"
 
 
 class TierUpdate(BaseModel):
@@ -310,6 +312,7 @@ class TierUpdate(BaseModel):
     incoterm_city: str | None = None
     description: str | None = None
     active: bool | None = None
+    scope: str | None = None
 
 
 # ─── TierContact schemas ────────────────────────────────────────────────────

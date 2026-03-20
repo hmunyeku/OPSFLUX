@@ -1464,23 +1464,7 @@ export function TiersPage() {
       {!isFullPanel && <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
         <PanelHeader icon={Building2} title={t('tiers.title')} subtitle={t('tiers.subtitle')}>
           {activeTab === 'entreprises' && (
-            <>
-              <label className="cursor-pointer">
-                <input
-                  type="file"
-                  accept=".xlsx,.xls"
-                  className="hidden"
-                  ref={sapFileRef}
-                  onChange={handleSapImport}
-                  disabled={sapImport.isPending}
-                />
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-border bg-background hover:bg-accent transition-colors">
-                  {sapImport.isPending ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
-                  Importer SAP
-                </span>
-              </label>
-              <ToolbarButton icon={Plus} label={t('tiers.create')} variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'tiers' })} />
-            </>
+            <ToolbarButton icon={Plus} label={t('tiers.create')} variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'tiers' })} />
           )}
         </PanelHeader>
 

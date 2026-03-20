@@ -359,6 +359,7 @@ class Tier(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB)
 
     is_blocked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    scope: Mapped[str] = mapped_column(String(20), default="local", nullable=False)  # 'local' or 'international'
 
     contacts: Mapped[list["TierContact"]] = relationship(back_populates="tier")
     identifiers: Mapped[list["TierIdentifier"]] = relationship(back_populates="tier")

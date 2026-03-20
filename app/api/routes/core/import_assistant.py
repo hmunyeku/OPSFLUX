@@ -67,9 +67,11 @@ async def list_available_transforms(
 ):
     """Return available transform types with descriptions."""
     return [
+        # -- Original transforms --
         {"type": "uppercase", "label": "Majuscules", "description": "Convertit en majuscules", "params": []},
         {"type": "lowercase", "label": "Minuscules", "description": "Convertit en minuscules", "params": []},
         {"type": "trim", "label": "Nettoyer espaces", "description": "Supprime les espaces en début/fin", "params": []},
+        {"type": "trim_all", "label": "Nettoyer tous les espaces", "description": "Supprime les espaces en début/fin et les doubles espaces internes", "params": []},
         {"type": "default_value", "label": "Valeur par défaut", "description": "Remplace les cellules vides", "params": [{"name": "default", "type": "string", "label": "Valeur"}]},
         {"type": "map_values", "label": "Table de correspondance", "description": "Remplace les valeurs selon une table", "params": [{"name": "mapping", "type": "object", "label": "Correspondances (clé → valeur)"}]},
         {"type": "concat", "label": "Concaténer", "description": "Combine plusieurs colonnes", "params": [{"name": "sources", "type": "string[]", "label": "Colonnes sources"}, {"name": "separator", "type": "string", "label": "Séparateur", "default": " "}]},
@@ -79,6 +81,17 @@ async def list_available_transforms(
         {"type": "flag_to_boolean", "label": "Flag → Booléen", "description": "Convertit X/Oui/1 en true", "params": [{"name": "true_values", "type": "string[]", "label": "Valeurs vraies", "default": ["X", "1", "Oui"]}]},
         {"type": "deduplicate_key", "label": "Clé de dédoublonnage", "description": "Groupe les lignes par cette colonne", "params": []},
         {"type": "split", "label": "Découper", "description": "Extrait une partie d'une valeur séparée", "params": [{"name": "separator", "type": "string", "label": "Séparateur"}, {"name": "index", "type": "number", "label": "Position (0=premier)"}]},
+        # -- Normalisation avancée --
+        {"type": "normalize_country", "label": "Normaliser pays", "description": "Convertit noms/codes pays en ISO 3166-1 alpha-2 (FR, CM, US…)", "params": []},
+        {"type": "normalize_phone", "label": "Normaliser téléphone", "description": "Nettoie le numéro et applique l'indicatif pays par défaut", "params": [{"name": "default_country_code", "type": "string", "label": "Indicatif par défaut", "default": "+237"}]},
+        {"type": "normalize_incoterm", "label": "Normaliser Incoterm", "description": "Convertit les variations d'Incoterms en codes standard (EXW, FOB, CIF…)", "params": []},
+        {"type": "normalize_date", "label": "Normaliser date", "description": "Convertit différents formats de date en ISO YYYY-MM-DD", "params": [{"name": "format", "type": "string", "label": "Format source", "default": "auto", "options": ["auto", "dd/mm/yyyy", "mm/dd/yyyy"]}]},
+        {"type": "normalize_datetime", "label": "Normaliser date/heure", "description": "Convertit différents formats date/heure en ISO 8601", "params": [{"name": "format", "type": "string", "label": "Format source", "default": "auto", "options": ["auto", "dd/mm/yyyy", "mm/dd/yyyy"]}]},
+        # -- Extraction de texte --
+        {"type": "left", "label": "Extraire gauche", "description": "Extrait les N premiers caractères", "params": [{"name": "count", "type": "number", "label": "Nombre de caractères"}]},
+        {"type": "right", "label": "Extraire droite", "description": "Extrait les N derniers caractères", "params": [{"name": "count", "type": "number", "label": "Nombre de caractères"}]},
+        {"type": "mid", "label": "Extraire milieu", "description": "Extrait une sous-chaîne à partir d'une position", "params": [{"name": "start", "type": "number", "label": "Position de début (0=premier)"}, {"name": "length", "type": "number", "label": "Longueur"}]},
+        {"type": "between", "label": "Extraire entre délimiteurs", "description": "Extrait le texte entre deux délimiteurs", "params": [{"name": "start", "type": "string", "label": "Délimiteur début"}, {"name": "end", "type": "string", "label": "Délimiteur fin"}]},
     ]
 
 

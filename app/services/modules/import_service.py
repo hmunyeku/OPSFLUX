@@ -14,6 +14,11 @@ from datetime import datetime, date, UTC
 from typing import Any
 from uuid import UUID
 
+try:
+    from dateutil import parser as dateutil_parser
+except ImportError:
+    dateutil_parser = None  # type: ignore[assignment]
+
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -694,8 +699,360 @@ _register_handler(ComplianceRecordHandler())
 
 # ── Transform engine ──────────────────────────────────────────────────────
 
+# -- Country normalisation map (lowercased keys → ISO 3166-1 alpha-2) ------
+
+COUNTRY_MAP: dict[str, str] = {
+    # ISO alpha-2 pass-through (lowercased)
+    "fr": "FR", "cm": "CM", "ga": "GA", "cg": "CG", "cd": "CD",
+    "us": "US", "gb": "GB", "de": "DE", "es": "ES", "it": "IT",
+    "be": "BE", "ch": "CH", "ca": "CA", "nl": "NL", "pt": "PT",
+    "br": "BR", "cn": "CN", "jp": "JP", "in": "IN", "za": "ZA",
+    "no": "NO", "se": "SE", "dk": "DK", "fi": "FI", "at": "AT",
+    "ie": "IE", "gr": "GR", "tr": "TR", "ru": "RU", "pl": "PL",
+    "ro": "RO", "hu": "HU", "cz": "CZ", "ma": "MA", "dz": "DZ",
+    "tn": "TN", "eg": "EG", "ke": "KE", "tz": "TZ", "gh": "GH",
+    "ml": "ML", "ne": "NE", "bf": "BF", "bj": "BJ", "tg": "TG",
+    "mg": "MG", "mu": "MU", "ly": "LY", "sd": "SD", "sn": "SN",
+    "ci": "CI", "gq": "GQ", "ng": "NG", "ao": "AO", "td": "TD",
+    "cf": "CF",
+    # ISO alpha-3
+    "fra": "FR", "cmr": "CM", "gab": "GA", "cog": "CG", "cod": "CD",
+    "usa": "US", "gbr": "GB", "deu": "DE", "esp": "ES", "ita": "IT",
+    "bel": "BE", "che": "CH", "can": "CA", "nld": "NL", "prt": "PT",
+    "bra": "BR", "chn": "CN", "jpn": "JP", "ind": "IN", "zaf": "ZA",
+    "nor": "NO", "swe": "SE", "dnk": "DK", "fin": "FI", "aut": "AT",
+    "irl": "IE", "grc": "GR", "tur": "TR", "rus": "RU", "pol": "PL",
+    "rou": "RO", "hun": "HU", "cze": "CZ", "mar": "MA", "dza": "DZ",
+    "tun": "TN", "egy": "EG", "ken": "KE", "tza": "TZ", "gha": "GH",
+    "mli": "ML", "ner": "NE", "bfa": "BF", "ben": "BJ", "tgo": "TG",
+    "mdg": "MG", "mus": "MU", "lby": "LY", "sdn": "SD", "sen": "SN",
+    "civ": "CI", "gnq": "GQ", "nga": "NG", "ago": "AO", "tcd": "TD",
+    "caf": "CF",
+    # French names
+    "france": "FR", "cameroun": "CM", "gabon": "GA", "congo": "CG",
+    "république démocratique du congo": "CD", "rdc": "CD",
+    "états-unis": "US", "etats-unis": "US",
+    "allemagne": "DE", "espagne": "ES", "italie": "IT",
+    "royaume-uni": "GB", "belgique": "BE", "suisse": "CH", "canada": "CA",
+    "pays-bas": "NL", "portugal": "PT",
+    "brésil": "BR", "chine": "CN", "japon": "JP", "inde": "IN",
+    "afrique du sud": "ZA",
+    "norvège": "NO", "suède": "SE", "danemark": "DK", "finlande": "FI",
+    "autriche": "AT", "irlande": "IE", "grèce": "GR", "turquie": "TR",
+    "russie": "RU", "pologne": "PL", "roumanie": "RO", "hongrie": "HU",
+    "république tchèque": "CZ", "republique tcheque": "CZ",
+    "maroc": "MA", "algérie": "DZ", "algerie": "DZ",
+    "tunisie": "TN", "égypte": "EG", "egypte": "EG",
+    "tanzanie": "TZ",
+    "sénégal": "SN", "senegal": "SN",
+    "côte d'ivoire": "CI", "cote d'ivoire": "CI", "cote divoire": "CI",
+    "guinée équatoriale": "GQ", "guinee equatoriale": "GQ",
+    "nigéria": "NG",
+    "tchad": "TD", "centrafrique": "CF",
+    "bénin": "BJ", "benin": "BJ",
+    "maurice": "MU", "madagascar": "MG",
+    "libye": "LY", "soudan": "SD",
+    "burkina faso": "BF", "mali": "ML", "niger": "NE", "togo": "TG",
+    "ghana": "GH",
+    # English names
+    "cameroon": "CM",
+    "united states": "US", "united states of america": "US",
+    "germany": "DE", "spain": "ES", "italy": "IT",
+    "united kingdom": "GB", "belgium": "BE", "switzerland": "CH",
+    "netherlands": "NL",
+    "brazil": "BR", "china": "CN", "japan": "JP", "india": "IN",
+    "south africa": "ZA",
+    "norway": "NO", "sweden": "SE", "denmark": "DK", "finland": "FI",
+    "austria": "AT", "ireland": "IE", "greece": "GR", "turkey": "TR",
+    "russia": "RU", "poland": "PL", "romania": "RO", "hungary": "HU",
+    "czech republic": "CZ", "czechia": "CZ",
+    "morocco": "MA", "algeria": "DZ", "tunisia": "TN", "egypt": "EG",
+    "kenya": "KE", "tanzania": "TZ",
+    "ivory coast": "CI",
+    "equatorial guinea": "GQ",
+    "nigeria": "NG", "angola": "AO", "chad": "TD",
+    "central african republic": "CF",
+    "libya": "LY", "sudan": "SD",
+    "mauritius": "MU",
+    # Additional countries
+    "mexico": "MX", "mexique": "MX", "mex": "MX",
+    "colombia": "CO", "colombie": "CO", "col": "CO",
+    "argentina": "AR", "argentine": "AR", "arg": "AR",
+    "chile": "CL", "chili": "CL", "chl": "CL",
+    "peru": "PE", "pérou": "PE", "perou": "PE", "per": "PE",
+    "venezuela": "VE", "ven": "VE",
+    "ecuador": "EC", "équateur": "EC", "equateur": "EC", "ecu": "EC",
+    "australia": "AU", "australie": "AU", "aus": "AU",
+    "new zealand": "NZ", "nouvelle-zélande": "NZ", "nzl": "NZ",
+    "saudi arabia": "SA", "arabie saoudite": "SA", "sau": "SA",
+    "united arab emirates": "AE", "émirats arabes unis": "AE", "are": "AE",
+    "qatar": "QA", "qat": "QA",
+    "singapore": "SG", "singapour": "SG", "sgp": "SG",
+    "south korea": "KR", "corée du sud": "KR", "kor": "KR",
+    "thailand": "TH", "thaïlande": "TH", "tha": "TH",
+    "indonesia": "ID", "indonésie": "ID", "idn": "ID",
+    "malaysia": "MY", "malaisie": "MY", "mys": "MY",
+    "philippines": "PH", "phl": "PH",
+    "vietnam": "VN", "viêt nam": "VN", "vnm": "VN",
+    "pakistan": "PK", "pak": "PK",
+    "bangladesh": "BD", "bgd": "BD",
+    "sri lanka": "LK", "lka": "LK",
+    "cuba": "CU", "cub": "CU",
+    "haiti": "HT", "haïti": "HT", "hti": "HT",
+    "jamaica": "JM", "jamaïque": "JM", "jam": "JM",
+    "trinidad and tobago": "TT", "trinité-et-tobago": "TT", "tto": "TT",
+    "mozambique": "MZ", "moz": "MZ",
+    "zambia": "ZM", "zambie": "ZM", "zmb": "ZM",
+    "zimbabwe": "ZW", "zwe": "ZW",
+    "uganda": "UG", "ouganda": "UG", "uga": "UG",
+    "rwanda": "RW", "rwa": "RW",
+    "ethiopia": "ET", "éthiopie": "ET", "eth": "ET",
+    "somalia": "SO", "somalie": "SO", "som": "SO",
+    "eritrea": "ER", "érythrée": "ER", "eri": "ER",
+    "djibouti": "DJ", "dji": "DJ",
+    "mauritania": "MR", "mauritanie": "MR", "mrt": "MR",
+    "gambia": "GM", "gambie": "GM", "gmb": "GM",
+    "guinea": "GN", "guinée": "GN", "gin": "GN",
+    "guinea-bissau": "GW", "guinée-bissau": "GW", "gnb": "GW",
+    "sierra leone": "SL", "sle": "SL",
+    "liberia": "LR", "libéria": "LR", "lbr": "LR",
+    "cape verde": "CV", "cap-vert": "CV", "cpv": "CV",
+    "são tomé and príncipe": "ST", "sao tomé-et-príncipe": "ST", "stp": "ST",
+    "comoros": "KM", "comores": "KM", "com": "KM",
+    "seychelles": "SC", "syc": "SC",
+}
+
+# -- Incoterm normalisation map (lowercased keys → standard code) ------
+
+INCOTERM_MAP: dict[str, str] = {
+    "exw": "EXW", "ex works": "EXW", "départ usine": "EXW", "depart usine": "EXW",
+    "fca": "FCA", "free carrier": "FCA", "franco transporteur": "FCA",
+    "fob": "FOB", "free on board": "FOB", "franco à bord": "FOB", "franco a bord": "FOB",
+    "cif": "CIF", "cost insurance freight": "CIF", "coût assurance fret": "CIF",
+    "cfr": "CFR", "cost and freight": "CFR", "coût et fret": "CFR", "cout et fret": "CFR",
+    "cpt": "CPT", "carriage paid to": "CPT", "port payé jusqu'à": "CPT", "port paye jusqu'a": "CPT",
+    "cip": "CIP", "carriage insurance paid": "CIP", "port payé assurance comprise": "CIP",
+    "dap": "DAP", "delivered at place": "DAP", "rendu au lieu": "DAP",
+    "dpu": "DPU", "delivered at place unloaded": "DPU", "rendu au lieu déchargé": "DPU",
+    "ddp": "DDP", "delivered duty paid": "DDP", "rendu droits acquittés": "DDP", "rendu droits acquittes": "DDP",
+    "fas": "FAS", "free alongside ship": "FAS", "franco le long du navire": "FAS",
+}
+
+# -- French month names for date parsing ------
+
+_FRENCH_MONTHS: dict[str, int] = {
+    "janvier": 1, "février": 2, "fevrier": 2, "mars": 3, "avril": 4,
+    "mai": 5, "juin": 6, "juillet": 7, "août": 8, "aout": 8,
+    "septembre": 9, "octobre": 10, "novembre": 11, "décembre": 12, "decembre": 12,
+    "janv": 1, "févr": 2, "fevr": 2, "avr": 4, "juil": 7,
+    "sept": 9, "oct": 10, "nov": 11, "déc": 12, "dec": 12,
+}
+
+
+def _normalize_country(value: Any, params: dict) -> str:
+    """Normalize country name/code to ISO 3166-1 alpha-2."""
+    if not value:
+        return value
+    s = str(value).strip()
+    if not s:
+        return value
+    # Already a valid alpha-2 (2 uppercase letters)?
+    if len(s) == 2 and s.isalpha():
+        return s.upper()
+    lookup = s.lower()
+    result = COUNTRY_MAP.get(lookup)
+    if result:
+        return result
+    # Try without accents
+    norm = unicodedata.normalize("NFKD", lookup)
+    norm = "".join(c for c in norm if not unicodedata.combining(c))
+    result = COUNTRY_MAP.get(norm)
+    return result if result else s
+
+
+def _normalize_phone(value: Any, params: dict) -> str:
+    """Clean phone number: remove formatting, detect/apply country code."""
+    if not value:
+        return value
+    s = str(value).strip()
+    if not s:
+        return value
+    default_code = params.get("default_country_code", "")
+    # Remove spaces, dots, dashes, parentheses
+    cleaned = re.sub(r"[\s.\-()]+", "", s)
+    # If starts with + already, normalise
+    if cleaned.startswith("+"):
+        return cleaned
+    # If starts with 00, convert to +
+    if cleaned.startswith("00") and len(cleaned) > 4:
+        return "+" + cleaned[2:]
+    # Apply default country code if provided and number looks local
+    if default_code and cleaned and not cleaned.startswith("+"):
+        # Strip leading 0 if present (local number)
+        if cleaned.startswith("0") and len(cleaned) > 1:
+            cleaned = cleaned[1:]
+        code = default_code if default_code.startswith("+") else "+" + default_code
+        return code + cleaned
+    return cleaned
+
+
+def _between(value: Any, params: dict) -> str:
+    """Extract substring between two delimiters."""
+    if not value:
+        return value
+    s = str(value)
+    start_delim = params.get("start", "")
+    end_delim = params.get("end", "")
+    start_idx = s.find(start_delim) + len(start_delim) if start_delim and start_delim in s else 0
+    end_idx = s.find(end_delim, start_idx) if end_delim and end_delim in s[start_idx:] else len(s)
+    return s[start_idx:end_idx].strip()
+
+
+def _normalize_incoterm(value: Any, params: dict) -> str:
+    """Normalize incoterm variations to standard codes."""
+    if not value:
+        return value
+    s = str(value).strip()
+    if not s:
+        return value
+    lookup = s.lower()
+    result = INCOTERM_MAP.get(lookup)
+    if result:
+        return result
+    # Try without accents
+    norm = unicodedata.normalize("NFKD", lookup)
+    norm = "".join(c for c in norm if not unicodedata.combining(c))
+    result = INCOTERM_MAP.get(norm)
+    return result if result else s.upper()  # fallback: uppercase as-is
+
+
+def _parse_date_str(s: str, fmt: str = "auto") -> str | None:
+    """Parse various date string formats to ISO YYYY-MM-DD.
+
+    fmt: "auto" | "dd/mm/yyyy" | "mm/dd/yyyy"
+    """
+    s = s.strip()
+    if not s:
+        return None
+
+    # Already ISO?
+    iso_match = re.match(r"^(\d{4})-(\d{1,2})-(\d{1,2})$", s)
+    if iso_match:
+        return s
+
+    # Try DD/MM/YYYY or MM/DD/YYYY (slash, dash, dot separators)
+    date_match = re.match(r"^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$", s)
+    if date_match:
+        a, b, year = int(date_match.group(1)), int(date_match.group(2)), int(date_match.group(3))
+        if fmt == "mm/dd/yyyy":
+            month, day = a, b
+        elif fmt == "dd/mm/yyyy":
+            day, month = a, b
+        else:
+            # Auto: if first > 12, it's day; if second > 12, second is day
+            if a > 12:
+                day, month = a, b
+            elif b > 12:
+                month, day = a, b
+            else:
+                # Ambiguous — default to DD/MM/YYYY (European convention)
+                day, month = a, b
+        try:
+            return date(year, month, day).isoformat()
+        except ValueError:
+            pass
+
+    # Try DD/MM/YY or MM/DD/YY
+    short_match = re.match(r"^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2})$", s)
+    if short_match:
+        a, b = int(short_match.group(1)), int(short_match.group(2))
+        yy = int(short_match.group(3))
+        year = 2000 + yy if yy < 70 else 1900 + yy
+        if fmt == "mm/dd/yyyy":
+            month, day = a, b
+        elif fmt == "dd/mm/yyyy":
+            day, month = a, b
+        else:
+            if a > 12:
+                day, month = a, b
+            elif b > 12:
+                month, day = a, b
+            else:
+                day, month = a, b
+        try:
+            return date(year, month, day).isoformat()
+        except ValueError:
+            pass
+
+    # Try "20 mars 2026", "mars 2026", "20 March 2026", "March 20, 2026"
+    lower = s.lower().replace(",", "")
+    for month_name, month_num in _FRENCH_MONTHS.items():
+        if month_name in lower:
+            parts = lower.replace(month_name, "").split()
+            nums = [int(p) for p in parts if p.isdigit()]
+            if len(nums) == 2:
+                day_val, year_val = (nums[0], nums[1]) if nums[1] > 31 else (nums[1], nums[0])
+                try:
+                    return date(year_val, month_num, day_val).isoformat()
+                except ValueError:
+                    pass
+            break
+
+    # Fallback: try dateutil
+    if dateutil_parser:
+        try:
+            dayfirst = fmt != "mm/dd/yyyy"
+            parsed = dateutil_parser.parse(s, dayfirst=dayfirst)
+            return parsed.date().isoformat()
+        except (ValueError, OverflowError):
+            pass
+
+    return s  # return unchanged if nothing matched
+
+
+def _normalize_date(value: Any, params: dict) -> str:
+    """Transform: parse various date formats to ISO YYYY-MM-DD."""
+    if not value:
+        return value
+    if isinstance(value, date):
+        return value.isoformat()
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    fmt = params.get("format", "auto")
+    result = _parse_date_str(str(value), fmt)
+    return result if result else value
+
+
+def _normalize_datetime(value: Any, params: dict) -> str:
+    """Transform: parse various date/time formats to ISO 8601."""
+    if not value:
+        return value
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, date):
+        return datetime(value.year, value.month, value.day).isoformat()
+
+    s = str(value).strip()
+    fmt = params.get("format", "auto")
+
+    # Try dateutil first for datetime (it handles time parts well)
+    if dateutil_parser:
+        try:
+            dayfirst = fmt != "mm/dd/yyyy"
+            parsed = dateutil_parser.parse(s, dayfirst=dayfirst)
+            return parsed.isoformat()
+        except (ValueError, OverflowError):
+            pass
+
+    # Fallback: try date-only parsing and append T00:00:00
+    date_result = _parse_date_str(s, fmt)
+    if date_result and date_result != s:
+        return date_result + "T00:00:00"
+    return s
+
 
 TRANSFORM_REGISTRY: dict[str, Any] = {
+    # -- Original transforms --
     "uppercase": lambda value, params: value.upper() if isinstance(value, str) else value,
     "lowercase": lambda value, params: value.lower() if isinstance(value, str) else value,
     "trim": lambda value, params: value.strip() if isinstance(value, str) else value,
@@ -709,6 +1066,17 @@ TRANSFORM_REGISTRY: dict[str, Any] = {
     "deduplicate_key": None,  # special handling — marks the dedup column
     "geocode": None,  # special handling — async geocoding
     "split": lambda value, params: value.split(params.get("separator", ","))[params.get("index", 0)].strip() if isinstance(value, str) and params.get("separator", ",") in value else value,
+    # -- Advanced transforms --
+    "normalize_country": _normalize_country,
+    "normalize_phone": _normalize_phone,
+    "normalize_incoterm": _normalize_incoterm,
+    "normalize_date": _normalize_date,
+    "normalize_datetime": _normalize_datetime,
+    "trim_all": lambda value, params: " ".join(str(value).split()) if value else value,
+    "left": lambda value, params: str(value)[:params.get("count", 0)] if value else value,
+    "right": lambda value, params: str(value)[-params.get("count", 0):] if value and params.get("count", 0) else value,
+    "mid": lambda value, params: str(value)[params.get("start", 0):params.get("start", 0) + params.get("length", 0)] if value else value,
+    "between": _between,
 }
 
 

@@ -212,12 +212,8 @@ async def import_sap_suppliers(
                 if r[9]:
                     org_achats_set.add(str(r[9]).strip())
 
-            incoterms = None
-            if len(first_row) > 11 and first_row[10]:
-                inco_parts = [str(first_row[10]).strip()]
-                if first_row[11]:
-                    inco_parts.append(str(first_row[11]).strip())
-                incoterms = " ".join(inco_parts)
+            incoterm = str(first_row[10]).strip() if len(first_row) > 10 and first_row[10] else None
+            incoterm_city = str(first_row[11]).strip() if len(first_row) > 11 and first_row[11] else None
 
             currency = str(first_row[13]).strip() if len(first_row) > 13 and first_row[13] else "XAF"
 
@@ -236,8 +232,10 @@ async def import_sap_suppliers(
                     tier.name = name
                 if alias:
                     tier.alias = alias
-                if incoterms:
-                    tier.payment_terms = incoterms
+                if incoterm:
+                    tier.incoterm = incoterm
+                if incoterm_city:
+                    tier.incoterm_city = incoterm_city
                 if currency and currency != "XAF":
                     tier.currency = currency
                 updated += 1
@@ -250,7 +248,8 @@ async def import_sap_suppliers(
                     alias=alias,
                     type="supplier",
                     currency=currency or "XAF",
-                    payment_terms=incoterms,
+                    incoterm=incoterm,
+                    incoterm_city=incoterm_city,
                     is_blocked=purchasing_blocked,
                 )
                 db.add(tier)

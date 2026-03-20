@@ -270,6 +270,8 @@ class TierRead(OpsFluxSchema):
     currency: str = "XAF"
     industry: str | None = None
     payment_terms: str | None = None
+    incoterm: str | None = None
+    incoterm_city: str | None = None
     description: str | None = None
     active: bool
     archived: bool
@@ -289,6 +291,8 @@ class TierCreate(BaseModel):
     currency: str = "XAF"
     industry: str | None = None
     payment_terms: str | None = None
+    incoterm: str | None = None
+    incoterm_city: str | None = None
     description: str | None = None
 
 
@@ -302,6 +306,8 @@ class TierUpdate(BaseModel):
     currency: str | None = None
     industry: str | None = None
     payment_terms: str | None = None
+    incoterm: str | None = None
+    incoterm_city: str | None = None
     description: str | None = None
     active: bool | None = None
 

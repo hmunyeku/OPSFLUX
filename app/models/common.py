@@ -351,6 +351,8 @@ class Tier(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     # Business
     industry: Mapped[str | None] = mapped_column(String(100))
     payment_terms: Mapped[str | None] = mapped_column(String(100))
+    incoterm: Mapped[str | None] = mapped_column(String(20))         # EXW, FOB, CIF, DDP, etc.
+    incoterm_city: Mapped[str | None] = mapped_column(String(100))   # Ville d'incoterm (Douala, etc.)
     description: Mapped[str | None] = mapped_column(Text)
     # Status
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

@@ -316,34 +316,47 @@ export function FleetMap({ height = 500, className }: FleetMapProps) {
           </div>
         )}
 
-        {/* Top-right controls: vehicle count + style switcher */}
-        <div className="absolute top-2 right-2 flex flex-col gap-1.5 z-[500]">
-          {/* Vehicle count */}
-          {fleetData && (
-            <div className="bg-card/90 backdrop-blur-sm border border-border rounded-md px-2 py-1">
-              <span className="text-xs font-medium text-foreground">{fleetData?.positions?.length ?? 0}</span>
-              <span className="text-[10px] text-muted-foreground ml-1">{t('travelwiz.vectors')}</span>
-            </div>
-          )}
-          {/* Style switcher — vertical column aligned with zoom */}
-          <div className="flex flex-col gap-0.5">
-            {STYLE_OPTIONS.map((opt) => (
+        {/* Top-right: vehicle count */}
+        {fleetData && (
+          <div className="absolute top-2 right-2 z-[500] bg-card/90 backdrop-blur-sm border border-border rounded-md px-2 py-1">
+            <span className="text-xs font-medium text-foreground">{fleetData?.positions?.length ?? 0}</span>
+            <span className="text-[10px] text-muted-foreground ml-1">{t('travelwiz.vectors')}</span>
+          </div>
+        )}
+
+        {/* Bottom-left: map style switcher (below Leaflet zoom controls) */}
+        <div className="absolute bottom-4 left-2.5 z-[500] group/style">
+          {/* Active style thumbnail (always visible) */}
+          {(() => {
+            const active = STYLE_OPTIONS.find((o) => o.value === activeStyle) || STYLE_OPTIONS[0]
+            return (
+              <div
+                className="w-8 h-8 rounded-md overflow-hidden border-2 border-primary shadow-md cursor-pointer"
+                title={active.label}
+              >
+                <div className={cn('w-full h-full relative', active.bg)}>
+                  <div className={cn('absolute top-1.5 left-0.5 right-1 h-[1px]', active.line)} />
+                  <div className={cn('absolute top-3 left-1 right-0.5 h-[1px]', active.line)} />
+                  <div className={cn('absolute bottom-0.5 left-0 w-2 h-2 rounded-[1px]', active.accent)} />
+                  <div className={cn('absolute top-0.5 right-0.5 w-1.5 h-1 rounded-[1px]', active.accent)} />
+                </div>
+              </div>
+            )
+          })()}
+          {/* Other styles (appear on hover, horizontal to the right) */}
+          <div className="absolute left-9 bottom-0 flex gap-0.5 opacity-0 pointer-events-none group-hover/style:opacity-100 group-hover/style:pointer-events-auto transition-opacity duration-150">
+            {STYLE_OPTIONS.filter((o) => o.value !== activeStyle).map((opt) => (
               <button
                 key={opt.value}
                 onClick={() => handleStyleChange(opt.value)}
                 title={opt.label}
-                className={cn(
-                  'w-7 h-7 rounded overflow-hidden border-[1.5px] transition-all',
-                  activeStyle === opt.value
-                    ? 'border-primary shadow-sm scale-110'
-                    : 'border-transparent opacity-70 hover:opacity-100',
-                )}
+                className="w-8 h-8 rounded-md overflow-hidden border-[1.5px] border-border/60 hover:border-border shadow-sm transition-all hover:scale-105"
               >
                 <div className={cn('w-full h-full relative', opt.bg)}>
-                  <div className={cn('absolute top-1 left-0.5 right-1 h-[1px]', opt.line)} />
-                  <div className={cn('absolute top-2.5 left-1 right-0.5 h-[1px]', opt.line)} />
-                  <div className={cn('absolute bottom-0.5 left-0 w-1.5 h-1.5 rounded-[1px]', opt.accent)} />
-                  <div className={cn('absolute top-0.5 right-0.5 w-1 h-1 rounded-[1px]', opt.accent)} />
+                  <div className={cn('absolute top-1.5 left-0.5 right-1 h-[1px]', opt.line)} />
+                  <div className={cn('absolute top-3 left-1 right-0.5 h-[1px]', opt.line)} />
+                  <div className={cn('absolute bottom-0.5 left-0 w-2 h-2 rounded-[1px]', opt.accent)} />
+                  <div className={cn('absolute top-0.5 right-0.5 w-1.5 h-1 rounded-[1px]', opt.accent)} />
                 </div>
               </button>
             ))}

@@ -98,52 +98,52 @@ const TABS: { id: TravelWizTab; label: string; icon: typeof Plane }[] = [
   { id: 'articles', label: 'Articles', icon: Boxes },
   { id: 'fleet_map', label: 'Carte flotte', icon: MapIcon },
   { id: 'pickup', label: 'Ramassage', icon: Route },
-  { id: 'weather', label: 'Meteo', icon: CloudSun },
+  { id: 'weather', label: 'Météo', icon: CloudSun },
 ]
 
 // ── Constants ─────────────────────────────────────────────────
 
 const VOYAGE_STATUS_OPTIONS = [
   { value: '', label: 'Tous' },
-  { value: 'planned', label: 'Planifie' },
-  { value: 'confirmed', label: 'Confirme' },
+  { value: 'planned', label: 'Planifié' },
+  { value: 'confirmed', label: 'Confirmé' },
   { value: 'boarding', label: 'Embarquement' },
   { value: 'departed', label: 'En route' },
-  { value: 'arrived', label: 'Arrive' },
-  { value: 'completed', label: 'Termine' },
-  { value: 'cancelled', label: 'Annule' },
-  { value: 'delayed', label: 'Retarde' },
+  { value: 'arrived', label: 'Arrivé' },
+  { value: 'completed', label: 'Terminé' },
+  { value: 'cancelled', label: 'Annulé' },
+  { value: 'delayed', label: 'Retardé' },
 ]
 
 const VOYAGE_STATUS_MAP: Record<string, { label: string; badge: string }> = {
-  planned:   { label: 'Planifie',      badge: 'gl-badge-neutral' },
-  confirmed: { label: 'Confirme',      badge: 'gl-badge-info' },
+  planned:   { label: 'Planifié',      badge: 'gl-badge-neutral' },
+  confirmed: { label: 'Confirmé',      badge: 'gl-badge-info' },
   boarding:  { label: 'Embarquement',  badge: 'gl-badge-warning' },
   departed:  { label: 'En route',      badge: 'gl-badge-warning' },
-  arrived:   { label: 'Arrive',        badge: 'gl-badge-success' },
-  completed: { label: 'Termine',       badge: 'gl-badge-success' },
-  cancelled: { label: 'Annule',        badge: 'gl-badge-danger' },
-  delayed:   { label: 'Retarde',       badge: 'gl-badge-danger' },
+  arrived:   { label: 'Arrivé',        badge: 'gl-badge-success' },
+  completed: { label: 'Terminé',       badge: 'gl-badge-success' },
+  cancelled: { label: 'Annulé',        badge: 'gl-badge-danger' },
+  delayed:   { label: 'Retardé',       badge: 'gl-badge-danger' },
 }
 
 const MANIFEST_STATUS_MAP: Record<string, { label: string; badge: string }> = {
   draft:              { label: 'Brouillon',       badge: 'gl-badge-neutral' },
   pending_validation: { label: 'En validation',   badge: 'gl-badge-warning' },
-  validated:          { label: 'Valide',           badge: 'gl-badge-success' },
-  requires_review:    { label: 'A revoir',         badge: 'gl-badge-danger' },
-  closed:             { label: 'Cloture',          badge: 'gl-badge-success' },
+  validated:          { label: 'Validé',           badge: 'gl-badge-success' },
+  requires_review:    { label: 'À revoir',        badge: 'gl-badge-danger' },
+  closed:             { label: 'Clôturé',          badge: 'gl-badge-success' },
 }
 
 const MANIFEST_STATUS_OPTIONS = [
   { value: '', label: 'Tous' },
   { value: 'draft', label: 'Brouillon' },
   { value: 'pending_validation', label: 'En validation' },
-  { value: 'validated', label: 'Valide' },
-  { value: 'closed', label: 'Cloture' },
+  { value: 'validated', label: 'Validé' },
+  { value: 'closed', label: 'Clôturé' },
 ]
 
 const VECTOR_TYPE_MAP: Record<string, { label: string; badge: string; icon: typeof Plane }> = {
-  helicopter:        { label: 'Helicoptere',   badge: 'gl-badge-info', icon: Plane },
+  helicopter:        { label: 'Hélicoptère',   badge: 'gl-badge-info', icon: Plane },
   boat:              { label: 'Bateau',        badge: 'gl-badge-success', icon: Ship },
   surfer:            { label: 'Surfer',        badge: 'gl-badge-info', icon: Ship },
   bus:               { label: 'Bus',           badge: 'gl-badge-warning', icon: Truck },
@@ -152,31 +152,31 @@ const VECTOR_TYPE_MAP: Record<string, { label: string; badge: string; icon: type
   barge:             { label: 'Barge',         badge: 'gl-badge-info', icon: Anchor },
   tug:               { label: 'Remorqueur',    badge: 'gl-badge-neutral', icon: Anchor },
   ship:              { label: 'Navire',        badge: 'gl-badge-success', icon: Ship },
-  vehicle:           { label: 'Vehicule',      badge: 'gl-badge-neutral', icon: Truck },
+  vehicle:           { label: 'Véhicule',      badge: 'gl-badge-neutral', icon: Truck },
 }
 
 const CARGO_STATUS_OPTIONS = [
   { value: '', label: 'Tous' },
-  { value: 'registered', label: 'Enregistre' },
-  { value: 'ready', label: 'Pret' },
-  { value: 'loaded', label: 'Charge' },
+  { value: 'registered', label: 'Enregistré' },
+  { value: 'ready', label: 'Prêt' },
+  { value: 'loaded', label: 'Chargé' },
   { value: 'in_transit', label: 'En transit' },
-  { value: 'delivered', label: 'Livre' },
-  { value: 'return_declared', label: 'Retour declare' },
+  { value: 'delivered', label: 'Livré' },
+  { value: 'return_declared', label: 'Retour déclaré' },
 ]
 
 const CARGO_STATUS_MAP: Record<string, { label: string; badge: string }> = {
-  registered:        { label: 'Enregistre',        badge: 'gl-badge-neutral' },
-  ready:             { label: 'Pret',              badge: 'gl-badge-info' },
-  loaded:            { label: 'Charge',            badge: 'gl-badge-warning' },
+  registered:        { label: 'Enregistré',        badge: 'gl-badge-neutral' },
+  ready:             { label: 'Prêt',              badge: 'gl-badge-info' },
+  loaded:            { label: 'Chargé',            badge: 'gl-badge-warning' },
   in_transit:        { label: 'En transit',        badge: 'gl-badge-warning' },
-  delivered:         { label: 'Livre',             badge: 'gl-badge-success' },
-  delivered_intermediate: { label: 'Livre (inter.)', badge: 'gl-badge-info' },
-  delivered_final:   { label: 'Livre (final)',     badge: 'gl-badge-success' },
-  return_declared:   { label: 'Retour declare',    badge: 'gl-badge-warning' },
+  delivered:         { label: 'Livré',             badge: 'gl-badge-success' },
+  delivered_intermediate: { label: 'Livré (inter.)', badge: 'gl-badge-info' },
+  delivered_final:   { label: 'Livré (final)',     badge: 'gl-badge-success' },
+  return_declared:   { label: 'Retour déclaré',    badge: 'gl-badge-warning' },
   return_in_transit: { label: 'Retour en transit', badge: 'gl-badge-warning' },
-  returned:          { label: 'Retourne',          badge: 'gl-badge-success' },
-  damaged:           { label: 'Endommage',         badge: 'gl-badge-danger' },
+  returned:          { label: 'Retourné',          badge: 'gl-badge-success' },
+  damaged:           { label: 'Endommagé',         badge: 'gl-badge-danger' },
   missing:           { label: 'Manquant',          badge: 'gl-badge-danger' },
 }
 

@@ -25,9 +25,6 @@ import {
   Maximize2,
   Minimize2,
 } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
-import api from '@/lib/api'
-import type { SettingRead } from '@/types/api'
 import 'leaflet/dist/leaflet.css'
 import { cn } from '@/lib/utils'
 import { useWidgetData } from '@/hooks/useDashboard'
@@ -504,50 +501,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 })
 
-function useWidgetMapSettings() {
-  return useQuery({
-    queryKey: ['settings', 'entity', 'map'],
-    queryFn: async () => {
-      try {
-        const { data } = await api.get<SettingRead[]>('/api/v1/settings', { params: { scope: 'entity' } })
-        const map: Record<string, string> = {}
-        for (const s of data) {
-          if (s.key.startsWith('integration.')) {
-            map[s.key] = (s.value?.v ?? s.value ?? '') as string
-          }
-        }
-        return {
-          provider: map['integration.map.provider'] || 'openstreetmap',
-          googleKey: map['integration.google_maps.api_key'] || '',
-          mapboxToken: map['integration.mapbox.access_token'] || '',
-          style: map['integration.map.style'] || 'standard',
-        }
-      } catch {
-        return { provider: 'openstreetmap', googleKey: '', mapboxToken: '', style: 'standard' }
-      }
-    },
-    staleTime: 5 * 60 * 1000,
-  })
-}
-
-function getWidgetTileUrl(provider: string, apiKey: string, style: string): string {
-  switch (provider) {
-    case 'google_maps':
-      return `https://mt1.google.com/vt/lyrs=${style === 'satellite' ? 's' : style === 'terrain' ? 'p' : 'm'}&x={x}&y={y}&z={z}`
-    case 'mapbox':
-      return `https://api.mapbox.com/styles/v1/mapbox/${style || 'streets-v12'}/tiles/{z}/{x}/{y}?access_token=${apiKey}`
-    default:
-      return 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-  }
-}
-
-function getWidgetTileAttribution(provider: string): string {
-  switch (provider) {
-    case 'google_maps': return '&copy; Google Maps'
-    case 'mapbox': return '&copy; Mapbox'
-    default: return '&copy; OSM'
-  }
-}
+import { useMapSettings, getTileUrl, getTileAttribution } from '@/hooks/useMapSettings'
 
 interface MapWidgetProps {
   config: Record<string, unknown>
@@ -557,16 +511,17 @@ interface MapWidgetProps {
 function MapWidget({ config, data }: MapWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
+  const tileRef = useRef<L.TileLayer | null>(null)
   const markersRef = useRef<L.Marker[]>([])
-  const { data: mapSettings } = useWidgetMapSettings()
+  const { data: mapSettings } = useMapSettings()
 
   const isFleetMap = config.fleet_map === true
 
   const provider = mapSettings?.provider || 'openstreetmap'
   const apiKey = provider === 'google_maps' ? mapSettings?.googleKey || '' : mapSettings?.mapboxToken || ''
   const style = mapSettings?.style || 'standard'
-  const tileUrl = getWidgetTileUrl(provider, apiKey, style)
-  const attribution = getWidgetTileAttribution(provider)
+  const tileUrl = getTileUrl(provider, apiKey, style)
+  const attribution = getTileAttribution(provider)
 
   // Extract positions from data
   const positions = (data as Record<string, unknown>[])
@@ -585,12 +540,14 @@ function MapWidget({ config, data }: MapWidgetProps) {
     if (!container || mapRef.current) return
 
     const map = L.map(container, {
-      center: [3.848, 9.687],
-      zoom: 6,
+      center: [mapSettings?.defaultLat ?? 3.848, mapSettings?.defaultLng ?? 9.687],
+      zoom: mapSettings?.defaultZoom ?? 6,
       zoomControl: false,
       attributionControl: false,
     })
-    L.tileLayer(tileUrl, { attribution }).addTo(map)
+    const tile = L.tileLayer(tileUrl, { attribution })
+    tile.addTo(map)
+    tileRef.current = tile
     mapRef.current = map
 
     requestAnimationFrame(() => {
@@ -606,6 +563,15 @@ function MapWidget({ config, data }: MapWidgetProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Swap tile layer when provider/style changes
+  useEffect(() => {
+    if (!mapRef.current) return
+    if (tileRef.current) tileRef.current.remove()
+    const newTile = L.tileLayer(tileUrl, { attribution })
+    newTile.addTo(mapRef.current)
+    tileRef.current = newTile
+  }, [tileUrl, attribution])
 
   // Update markers
   useEffect(() => {

@@ -438,12 +438,14 @@ export function GeoEditor({
     }
   }, [])
 
-  // ── Update tile layer ────────────────────────────────────
+  // ── Swap tile layer when provider/style changes ──────────
   useEffect(() => {
-    if (tileRef.current) {
-      tileRef.current.setUrl(tileUrl)
-    }
-  }, [tileUrl])
+    if (!mapRef.current) return
+    if (tileRef.current) tileRef.current.remove()
+    const newTile = L.tileLayer(tileUrl, { attribution })
+    newTile.addTo(mapRef.current)
+    tileRef.current = newTile
+  }, [tileUrl, attribution])
 
   // ── Render geometry on map ───────────────────────────────
   useEffect(() => {

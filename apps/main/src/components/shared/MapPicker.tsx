@@ -146,14 +146,15 @@ function useLeafletMap(opts: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // init once
 
-  // Update tile layer when provider changes
+  // Swap tile layer when provider/style changes
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
-    if (tileRef.current) {
-      tileRef.current.setUrl(opts.tileUrl)
-    }
-  }, [opts.tileUrl])
+    if (tileRef.current) tileRef.current.remove()
+    const newTile = L.tileLayer(opts.tileUrl, { attribution: opts.attribution })
+    newTile.addTo(map)
+    tileRef.current = newTile
+  }, [opts.tileUrl, opts.attribution])
 
   // Update marker position
   useEffect(() => {

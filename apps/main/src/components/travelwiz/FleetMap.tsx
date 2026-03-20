@@ -9,6 +9,7 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import L from 'leaflet'
 import { Loader2, RefreshCw } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import type { VehiclePosition } from '@/types/api'
 import { useFleetPositions } from '@/hooks/useTravelWiz'
 import 'leaflet/dist/leaflet.css'
@@ -82,6 +83,17 @@ interface FleetMapProps {
   className?: string
 }
 
+// ── Session persistence keys ────────────────────────────────
+const SESSION_KEY_ZOOM = 'opsflux:fleetmap:zoom'
+const SESSION_KEY_CENTER = 'opsflux:fleetmap:center'
+const SESSION_KEY_STYLE = 'opsflux:fleetmap:style'
+
+const STYLE_OPTIONS = [
+  { value: 'standard', label: 'Standard' },
+  { value: 'satellite', label: 'Satellite' },
+  { value: 'terrain', label: 'Terrain' },
+]
+
 export function FleetMap({ height = 500, className }: FleetMapProps) {
   const { t } = useTranslation()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -93,15 +105,31 @@ export function FleetMap({ height = 500, className }: FleetMapProps) {
   const { data: mapSettings } = useMapSettings()
   const { data: fleetData, isLoading, refetch, dataUpdatedAt } = useFleetPositions(30_000)
 
+  // Local style override (session-persisted)
+  const [localStyle, setLocalStyle] = useState<string>(() => {
+    return sessionStorage.getItem(SESSION_KEY_STYLE) || ''
+  })
+  const activeStyle = localStyle || mapSettings?.style || 'standard'
+
   const provider = mapSettings?.provider || 'openstreetmap'
   const apiKey = provider === 'google_maps' ? mapSettings?.googleKey || '' : mapSettings?.mapboxToken || ''
-  const style = mapSettings?.style || 'standard'
-  const tileUrl = getTileUrl(provider, apiKey, style)
+  const tileUrl = getTileUrl(provider, apiKey, activeStyle)
   const attribution = getTileAttribution(provider)
 
-  // Center/zoom from entity settings (Parametres > Cartographie)
-  const defaultCenter: [number, number] = [mapSettings?.defaultLat ?? 3.848, mapSettings?.defaultLng ?? 9.687]
-  const defaultZoom = mapSettings?.defaultZoom ?? 7
+  // Center/zoom from entity settings, restored from session if available
+  const [sessionCenter] = useState<[number, number] | null>(() => {
+    try { const c = sessionStorage.getItem(SESSION_KEY_CENTER); return c ? JSON.parse(c) : null } catch { return null }
+  })
+  const [sessionZoom] = useState<number | null>(() => {
+    try { const z = sessionStorage.getItem(SESSION_KEY_ZOOM); return z ? Number(z) : null } catch { return null }
+  })
+  const defaultCenter: [number, number] = sessionCenter ?? [mapSettings?.defaultLat ?? 3.848, mapSettings?.defaultLng ?? 9.687]
+  const defaultZoom = sessionZoom ?? mapSettings?.defaultZoom ?? 7
+
+  const handleStyleChange = useCallback((newStyle: string) => {
+    setLocalStyle(newStyle)
+    sessionStorage.setItem(SESSION_KEY_STYLE, newStyle)
+  }, [])
 
   // Init map — guarded against StrictMode double-mount and stale containers
   useEffect(() => {
@@ -125,6 +153,14 @@ export function FleetMap({ height = 500, className }: FleetMapProps) {
       tileRef.current = tile
       mapRef.current = map
 
+      // Persist zoom/center on move
+      map.on('moveend', () => {
+        const c = map.getCenter()
+        const z = map.getZoom()
+        sessionStorage.setItem(SESSION_KEY_CENTER, JSON.stringify([c.lat, c.lng]))
+        sessionStorage.setItem(SESSION_KEY_ZOOM, String(z))
+      })
+
       requestAnimationFrame(() => {
         try {
           if (mapRef.current && map.getContainer()?.parentNode) map.invalidateSize()
@@ -143,12 +179,16 @@ export function FleetMap({ height = 500, className }: FleetMapProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Update tile layer
+  // Swap tile layer when provider/style changes (setUrl doesn't work across providers)
   useEffect(() => {
+    if (!mapRef.current) return
     if (tileRef.current) {
-      tileRef.current.setUrl(tileUrl)
+      tileRef.current.remove()
     }
-  }, [tileUrl])
+    const newTile = L.tileLayer(tileUrl, { attribution })
+    newTile.addTo(mapRef.current)
+    tileRef.current = newTile
+  }, [tileUrl, attribution])
 
   // Update markers when fleet data changes
   const updateMarkers = useCallback((positions: VehiclePosition[]) => {
@@ -257,13 +297,33 @@ export function FleetMap({ height = 500, className }: FleetMapProps) {
           </div>
         )}
 
-        {/* Vehicle count badge */}
-        {fleetData && (
-          <div className="absolute top-2 right-2 bg-card/90 backdrop-blur-sm border border-border rounded-md px-2 py-1 z-[500]">
-            <span className="text-xs font-medium text-foreground">{fleetData?.positions?.length ?? 0}</span>
-            <span className="text-[10px] text-muted-foreground ml-1">{t('travelwiz.vectors')}</span>
+        {/* Top-right controls: vehicle count + style switcher */}
+        <div className="absolute top-2 right-2 flex flex-col gap-1.5 z-[500]">
+          {/* Vehicle count */}
+          {fleetData && (
+            <div className="bg-card/90 backdrop-blur-sm border border-border rounded-md px-2 py-1">
+              <span className="text-xs font-medium text-foreground">{fleetData?.positions?.length ?? 0}</span>
+              <span className="text-[10px] text-muted-foreground ml-1">{t('travelwiz.vectors')}</span>
+            </div>
+          )}
+          {/* Style switcher */}
+          <div className="bg-card/90 backdrop-blur-sm border border-border rounded-md overflow-hidden">
+            {STYLE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => handleStyleChange(opt.value)}
+                className={cn(
+                  'block w-full text-left px-2 py-1 text-[10px] font-medium transition-colors',
+                  activeStyle === opt.value
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
           </div>
-        )}
+        </div>
       </div>
     </div>
   )

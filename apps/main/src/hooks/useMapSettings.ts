@@ -65,7 +65,7 @@ export function useMapSettings() {
         return DEFAULTS
       }
     },
-    staleTime: 5 * 60_000, // map settings rarely change
+    staleTime: 30_000, // refetch every 30s so config changes propagate quickly
   })
 }
 

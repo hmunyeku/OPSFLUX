@@ -46,11 +46,17 @@ api.interceptors.response.use(
           originalRequest.headers.Authorization = `Bearer ${access_token}`
           return api(originalRequest)
         } catch {
-          // Refresh failed — force logout
+          // Refresh failed — clear tokens, redirect only if not already on login
           localStorage.removeItem('access_token')
           localStorage.removeItem('refresh_token')
-          window.location.href = '/login'
+          if (window.location.pathname !== '/login') {
+            window.location.href = '/login'
+          }
         }
+      } else if (window.location.pathname !== '/login') {
+        // No refresh token available and got 401 — redirect to login
+        localStorage.removeItem('access_token')
+        window.location.href = '/login'
       }
     }
 

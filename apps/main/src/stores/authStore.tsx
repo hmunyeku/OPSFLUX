@@ -128,10 +128,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         localStorage.setItem('entity_id', user.default_entity_id)
       }
       set({ user, isAuthenticated: true, currentEntityId: localStorage.getItem('entity_id') })
-    } catch {
-      set({ user: null, isAuthenticated: false, currentEntityId: null })
-      localStorage.removeItem('access_token')
-      localStorage.removeItem('refresh_token')
+    } catch (err: unknown) {
+      // Only logout on explicit 401 (unauthorized) — NOT on network errors or 500s
+      const status = (err as { response?: { status?: number } })?.response?.status
+      if (status === 401) {
+        set({ user: null, isAuthenticated: false, currentEntityId: null })
+        localStorage.removeItem('access_token')
+        localStorage.removeItem('refresh_token')
+      }
+      // For other errors (500, network), keep current auth state — don't force logout
     } finally {
       set({ isLoading: false })
     }

@@ -35,7 +35,7 @@ export interface Asset {
 export interface AssetCreate {
   parent_id?: string | null
   type: string
-  code: string
+  code?: string
   name: string
   latitude?: number | null
   longitude?: number | null
@@ -77,7 +77,7 @@ export interface Tier {
 }
 
 export interface TierCreate {
-  code: string
+  code?: string
   name: string
   alias?: string | null
   type?: string | null
@@ -535,7 +535,7 @@ export interface ComplianceType {
 
 export interface ComplianceTypeCreate {
   category: string
-  code: string
+  code?: string
   name: string
   description?: string | null
   validity_days?: number | null
@@ -622,6 +622,58 @@ export interface ComplianceCheckResult {
   details: Record<string, unknown>[]
 }
 
+// ── Job Positions / Fiches de Poste ──────────────────────────
+
+export interface JobPosition {
+  id: string
+  entity_id: string
+  code: string
+  name: string
+  description: string | null
+  department: string | null
+  active: boolean
+  created_at: string
+}
+
+export interface JobPositionCreate {
+  code?: string
+  name: string
+  description?: string | null
+  department?: string | null
+}
+
+export interface JobPositionUpdate {
+  code?: string
+  name?: string
+  description?: string | null
+  department?: string | null
+  active?: boolean
+}
+
+// ── Employee Transfers ──────────────────────────────────────
+
+export interface TierContactTransfer {
+  id: string
+  contact_id: string
+  from_tier_id: string
+  to_tier_id: string
+  transfer_date: string
+  reason: string | null
+  transferred_by: string
+  created_at: string
+  contact_name?: string | null
+  from_tier_name?: string | null
+  to_tier_name?: string | null
+}
+
+export interface TierContactTransferCreate {
+  contact_id: string
+  from_tier_id: string
+  to_tier_id: string
+  transfer_date: string
+  reason?: string | null
+}
+
 // ── Projects / Projets ───────────────────────────────────────
 
 export interface Project {
@@ -647,12 +699,14 @@ export interface Project {
   created_at: string
   manager_name?: string | null
   tier_name?: string | null
+  parent_name?: string | null
   task_count?: number
   member_count?: number
+  children_count?: number
 }
 
 export interface ProjectCreate {
-  code: string
+  code?: string
   name: string
   description?: string | null
   status?: string
@@ -723,6 +777,12 @@ export interface ProjectTask {
   assignee_name?: string | null
 }
 
+/** Task with project info — for cross-project spreadsheet view. */
+export interface ProjectTaskEnriched extends ProjectTask {
+  project_code?: string | null
+  project_name?: string | null
+}
+
 export interface ProjectTaskCreate {
   parent_id?: string | null
   code?: string | null
@@ -775,4 +835,1106 @@ export interface ProjectMilestoneUpdate {
   due_date?: string | null
   completed_at?: string | null
   status?: string
+}
+
+// ── Planning Revisions ──────────────────────────────────────
+
+export interface PlanningRevision {
+  id: string
+  project_id: string
+  revision_number: number
+  name: string
+  description: string | null
+  is_active: boolean
+  is_simulation: boolean
+  snapshot_data: Record<string, unknown> | null
+  created_by: string
+  active: boolean
+  created_at: string
+  creator_name?: string | null
+}
+
+export interface PlanningRevisionCreate {
+  name: string
+  description?: string | null
+  is_simulation?: boolean
+}
+
+export interface PlanningRevisionUpdate {
+  name?: string
+  description?: string | null
+  is_simulation?: boolean
+  is_active?: boolean
+}
+
+// ── Task Deliverables ───────────────────────────────────────
+
+export interface TaskDeliverable {
+  id: string
+  task_id: string
+  name: string
+  description: string | null
+  status: 'pending' | 'in_progress' | 'delivered' | 'accepted' | 'rejected'
+  due_date: string | null
+  delivered_at: string | null
+  accepted_by: string | null
+  active: boolean
+  created_at: string
+}
+
+export interface TaskDeliverableCreate {
+  name: string
+  description?: string | null
+  status?: string
+  due_date?: string | null
+}
+
+export interface TaskDeliverableUpdate {
+  name?: string
+  description?: string | null
+  status?: string
+  due_date?: string | null
+  delivered_at?: string | null
+  accepted_by?: string | null
+}
+
+// ── Task Actions / Checklists ───────────────────────────────
+
+export interface TaskAction {
+  id: string
+  task_id: string
+  title: string
+  completed: boolean
+  completed_at: string | null
+  completed_by: string | null
+  order: number
+  active: boolean
+  created_at: string
+}
+
+export interface TaskActionCreate {
+  title: string
+  completed?: boolean
+}
+
+export interface TaskActionUpdate {
+  title?: string
+  completed?: boolean
+  order?: number
+}
+
+// ── Task Change Log ─────────────────────────────────────────
+
+export interface TaskChangeLog {
+  id: string
+  task_id: string
+  change_type: string
+  field_name: string
+  old_value: string | null
+  new_value: string | null
+  reason: string | null
+  changed_by: string
+  created_at: string
+  author_name?: string | null
+}
+
+// ── TravelWiz — Vectors ─────────────────────────────────────
+
+export interface TravelVector {
+  id: string
+  entity_id: string
+  code: string
+  name: string
+  type: string
+  capacity_pax: number | null
+  capacity_cargo_kg: number | null
+  operator_tier_id: string | null
+  registration: string | null
+  description: string | null
+  active: boolean
+  created_at: string
+  operator_name?: string | null
+  zone_count?: number
+}
+
+export interface TravelVectorCreate {
+  code: string
+  name: string
+  type: string
+  capacity_pax?: number | null
+  capacity_cargo_kg?: number | null
+  operator_tier_id?: string | null
+  registration?: string | null
+  description?: string | null
+}
+
+export interface TravelVectorUpdate {
+  code?: string
+  name?: string
+  type?: string
+  capacity_pax?: number | null
+  capacity_cargo_kg?: number | null
+  operator_tier_id?: string | null
+  registration?: string | null
+  description?: string | null
+  active?: boolean
+}
+
+// ── TravelWiz — Vector Zones ────────────────────────────────
+
+export interface VectorZone {
+  id: string
+  vector_id: string
+  name: string
+  zone_type: string
+  capacity: number | null
+  description: string | null
+  active: boolean
+  created_at: string
+}
+
+export interface VectorZoneCreate {
+  name: string
+  zone_type: string
+  capacity?: number | null
+  description?: string | null
+}
+
+export interface VectorZoneUpdate {
+  name?: string
+  zone_type?: string
+  capacity?: number | null
+  description?: string | null
+  active?: boolean
+}
+
+// ── TravelWiz — Rotations ───────────────────────────────────
+
+export interface Rotation {
+  id: string
+  entity_id: string
+  code: string
+  name: string
+  vector_id: string | null
+  recurrence: string | null
+  description: string | null
+  active: boolean
+  created_at: string
+  vector_name?: string | null
+}
+
+export interface RotationCreate {
+  code: string
+  name: string
+  vector_id?: string | null
+  recurrence?: string | null
+  description?: string | null
+}
+
+export interface RotationUpdate {
+  code?: string
+  name?: string
+  vector_id?: string | null
+  recurrence?: string | null
+  description?: string | null
+  active?: boolean
+}
+
+// ── TravelWiz — Voyages ─────────────────────────────────────
+
+export interface Voyage {
+  id: string
+  entity_id: string
+  code: string
+  vector_id: string | null
+  rotation_id: string | null
+  status: 'draft' | 'planned' | 'in_progress' | 'completed' | 'cancelled'
+  departure_at: string | null
+  arrival_at: string | null
+  origin: string | null
+  destination: string | null
+  description: string | null
+  active: boolean
+  created_at: string
+  vector_name?: string | null
+  rotation_name?: string | null
+  stop_count?: number
+  manifest_count?: number
+  pax_count?: number
+}
+
+export interface VoyageCreate {
+  code: string
+  vector_id?: string | null
+  rotation_id?: string | null
+  status?: string
+  departure_at?: string | null
+  arrival_at?: string | null
+  origin?: string | null
+  destination?: string | null
+  description?: string | null
+}
+
+export interface VoyageUpdate {
+  code?: string
+  vector_id?: string | null
+  rotation_id?: string | null
+  departure_at?: string | null
+  arrival_at?: string | null
+  origin?: string | null
+  destination?: string | null
+  description?: string | null
+}
+
+export interface VoyageStatusUpdate {
+  status: string
+  notes?: string | null
+}
+
+// ── TravelWiz — Voyage Stops ────────────────────────────────
+
+export interface VoyageStop {
+  id: string
+  voyage_id: string
+  location: string
+  stop_order: number
+  arrival_at: string | null
+  departure_at: string | null
+  description: string | null
+  active: boolean
+  created_at: string
+}
+
+export interface VoyageStopCreate {
+  location: string
+  stop_order?: number
+  arrival_at?: string | null
+  departure_at?: string | null
+  description?: string | null
+}
+
+export interface VoyageStopUpdate {
+  location?: string
+  stop_order?: number
+  arrival_at?: string | null
+  departure_at?: string | null
+  description?: string | null
+}
+
+// ── TravelWiz — Manifests ───────────────────────────────────
+
+export interface Manifest {
+  id: string
+  voyage_id: string
+  manifest_type: string
+  reference: string | null
+  status: 'draft' | 'validated' | 'closed'
+  validated_by: string | null
+  validated_at: string | null
+  notes: string | null
+  active: boolean
+  created_at: string
+  passenger_count?: number
+}
+
+export interface ManifestCreate {
+  manifest_type?: string
+  reference?: string | null
+  notes?: string | null
+}
+
+// ── TravelWiz — Manifest Passengers ─────────────────────────
+
+export interface ManifestPassenger {
+  id: string
+  manifest_id: string
+  contact_id: string | null
+  first_name: string
+  last_name: string
+  nationality: string | null
+  document_type: string | null
+  document_number: string | null
+  seat: string | null
+  boarding_status: 'registered' | 'checked_in' | 'boarded' | 'no_show'
+  notes: string | null
+  created_at: string
+}
+
+export interface ManifestPassengerCreate {
+  contact_id?: string | null
+  first_name: string
+  last_name: string
+  nationality?: string | null
+  document_type?: string | null
+  document_number?: string | null
+  seat?: string | null
+  notes?: string | null
+}
+
+export interface ManifestPassengerUpdate {
+  first_name?: string
+  last_name?: string
+  nationality?: string | null
+  document_type?: string | null
+  document_number?: string | null
+  seat?: string | null
+  boarding_status?: string
+  notes?: string | null
+}
+
+// ── TravelWiz — Cargo ───────────────────────────────────────
+
+export interface CargoItem {
+  id: string
+  entity_id: string
+  voyage_id: string | null
+  code: string
+  description: string | null
+  weight_kg: number | null
+  volume_m3: number | null
+  cargo_type: string | null
+  hazmat_class: string | null
+  status: 'pending' | 'loaded' | 'in_transit' | 'delivered' | 'received' | 'rejected'
+  sender_tier_id: string | null
+  receiver_tier_id: string | null
+  received_by: string | null
+  received_at: string | null
+  notes: string | null
+  active: boolean
+  created_at: string
+  sender_name?: string | null
+  receiver_name?: string | null
+  voyage_code?: string | null
+}
+
+export interface CargoItemCreate {
+  voyage_id?: string | null
+  code: string
+  description?: string | null
+  weight_kg?: number | null
+  volume_m3?: number | null
+  cargo_type?: string | null
+  hazmat_class?: string | null
+  sender_tier_id?: string | null
+  receiver_tier_id?: string | null
+  notes?: string | null
+}
+
+export interface CargoItemUpdate {
+  voyage_id?: string | null
+  code?: string
+  description?: string | null
+  weight_kg?: number | null
+  volume_m3?: number | null
+  cargo_type?: string | null
+  hazmat_class?: string | null
+  sender_tier_id?: string | null
+  receiver_tier_id?: string | null
+  notes?: string | null
+}
+
+export interface CargoStatusUpdate {
+  status: string
+  notes?: string | null
+}
+
+export interface CargoReceive {
+  notes?: string | null
+}
+
+// ── TravelWiz — Captain Logs ────────────────────────────────
+
+export interface CaptainLog {
+  id: string
+  voyage_id: string
+  log_type: string
+  content: string
+  logged_at: string
+  logged_by: string
+  created_at: string
+  author_name?: string | null
+}
+
+export interface CaptainLogCreate {
+  log_type?: string
+  content: string
+  logged_at?: string | null
+}
+
+// ── TravelWiz — Voyage Capacity ─────────────────────────────
+
+export interface VoyageCapacity {
+  voyage_id: string
+  vector_capacity_pax: number | null
+  vector_capacity_cargo_kg: number | null
+  current_pax: number
+  current_cargo_kg: number
+  remaining_pax: number | null
+  remaining_cargo_kg: number | null
+  pax_utilization_pct: number | null
+  cargo_utilization_pct: number | null
+}
+
+// ── Planner — Activities ─────────────────────────────────────
+
+export interface PlannerActivity {
+  id: string
+  entity_id: string
+  asset_id: string
+  project_id: string | null
+  type: string
+  subtype: string | null
+  title: string
+  description: string | null
+  status: 'draft' | 'submitted' | 'validated' | 'rejected' | 'cancelled' | 'in_progress' | 'completed'
+  priority: 'low' | 'medium' | 'high' | 'critical'
+  pax_quota: number
+  start_date: string | null
+  end_date: string | null
+  actual_start: string | null
+  actual_end: string | null
+  // Workover
+  well_reference: string | null
+  rig_name: string | null
+  // Drilling
+  spud_date: string | null
+  target_depth: number | null
+  drilling_program_ref: string | null
+  // Regulatory / maintenance
+  regulatory_ref: string | null
+  work_order_ref: string | null
+  // Workflow
+  submitted_by: string | null
+  submitted_at: string | null
+  validated_by: string | null
+  validated_at: string | null
+  rejected_by: string | null
+  rejected_at: string | null
+  rejection_reason: string | null
+  created_by: string
+  active: boolean
+  created_at: string
+  updated_at: string
+  // Enriched
+  asset_name: string | null
+  project_name: string | null
+  created_by_name: string | null
+  submitted_by_name: string | null
+  validated_by_name: string | null
+}
+
+export interface PlannerActivityCreate {
+  asset_id: string
+  project_id?: string | null
+  type: string
+  subtype?: string | null
+  title: string
+  description?: string | null
+  priority?: string
+  pax_quota?: number
+  start_date?: string | null
+  end_date?: string | null
+  well_reference?: string | null
+  rig_name?: string | null
+  spud_date?: string | null
+  target_depth?: number | null
+  drilling_program_ref?: string | null
+  regulatory_ref?: string | null
+  work_order_ref?: string | null
+}
+
+export interface PlannerActivityUpdate {
+  asset_id?: string | null
+  project_id?: string | null
+  type?: string | null
+  subtype?: string | null
+  title?: string | null
+  description?: string | null
+  priority?: string | null
+  pax_quota?: number | null
+  start_date?: string | null
+  end_date?: string | null
+  actual_start?: string | null
+  actual_end?: string | null
+  well_reference?: string | null
+  rig_name?: string | null
+  spud_date?: string | null
+  target_depth?: number | null
+  drilling_program_ref?: string | null
+  regulatory_ref?: string | null
+  work_order_ref?: string | null
+}
+
+// ── Planner — Conflicts ──────────────────────────────────────
+
+export interface PlannerConflict {
+  id: string
+  entity_id: string
+  asset_id: string
+  conflict_date: string
+  status: 'open' | 'resolved' | 'deferred'
+  resolution: string | null
+  resolution_note: string | null
+  resolved_by: string | null
+  resolved_at: string | null
+  created_at: string
+  active: boolean
+  // Enriched
+  asset_name: string | null
+  resolved_by_name: string | null
+  activity_ids: string[]
+  activity_titles: string[]
+}
+
+export interface PlannerConflictResolve {
+  resolution: string
+  resolution_note?: string | null
+}
+
+// ── Planner — Capacity ───────────────────────────────────────
+
+export interface PlannerCapacity {
+  asset_id: string
+  asset_name: string | null
+  date: string
+  total_capacity: number
+  used_capacity: number
+  residual_capacity: number
+  saturation_pct: number
+}
+
+// ── Planner — Dependencies ───────────────────────────────────
+
+export interface PlannerDependency {
+  id: string
+  predecessor_id: string
+  successor_id: string
+  dependency_type: 'FS' | 'SS' | 'FF'
+  lag_days: number
+}
+
+export interface PlannerDependencyCreate {
+  predecessor_id: string
+  successor_id: string
+  dependency_type?: string
+  lag_days?: number
+}
+
+// ── Planner — Gantt ──────────────────────────────────────────
+
+export interface GanttActivity {
+  id: string
+  title: string
+  type: string
+  subtype: string | null
+  status: string
+  priority: string
+  pax_quota: number
+  start_date: string
+  end_date: string
+  project_id: string | null
+  created_by: string
+  well_reference: string | null
+  work_order_ref: string | null
+}
+
+export interface GanttAssetCapacity {
+  max_pax: number
+  permanent_ops_quota: number
+}
+
+export interface GanttAsset {
+  id: string
+  name: string
+  parent_id: string | null
+  capacity: GanttAssetCapacity
+  activities: GanttActivity[]
+}
+
+export interface GanttResponse {
+  assets: GanttAsset[]
+}
+
+// ── Planner — Asset Capacity (historized) ────────────────────
+
+export interface AssetCapacity {
+  id: string
+  asset_id: string
+  max_pax_total: number
+  permanent_ops_quota: number
+  max_pax_per_company: number | null
+  effective_date: string
+  reason: string
+  changed_by: string
+}
+
+export interface AssetCapacityCreate {
+  max_pax_total: number
+  permanent_ops_quota: number
+  reason: string
+  effective_date?: string
+}
+
+// ── Planner — Daily Load / Availability ──────────────────────
+
+export interface DailyLoad {
+  date: string
+  max_pax_total: number
+  permanent_ops_quota: number
+  used_by_activities: number
+  total_used: number
+  residual: number
+  saturation_pct: number
+}
+
+export interface AvailabilityResponse {
+  asset_id: string
+  asset_name: string | null
+  start_date: string
+  end_date: string
+  worst_residual: number
+  max_capacity: number
+  days: DailyLoad[]
+}
+
+// ── Planner — Capacity Heatmap ───────────────────────────────
+
+export interface CapacityHeatmapDay {
+  date: string
+  asset_id: string
+  asset_name: string | null
+  saturation_pct: number
+  used: number
+  max: number
+}
+
+export interface CapacityHeatmapResponse {
+  days: CapacityHeatmapDay[]
+}
+
+// ── Planner — Impact Preview ─────────────────────────────────
+
+export interface ImpactChange {
+  field: string
+  old_value: string | null
+  new_value: string | null
+}
+
+export interface ImpactPreview {
+  activity_id: string
+  activity_title: string
+  ads_affected: number
+  manifests_affected: number
+  potential_conflict_days: string[]
+  changes: ImpactChange[]
+}
+
+// ── Planner — Recurrence ─────────────────────────────────────
+
+export interface RecurrenceConfig {
+  frequency: string
+  interval_value: number
+  day_of_week: number | null
+  day_of_month: number | null
+  end_date: string | null
+}
+
+export interface RecurrenceCreate {
+  frequency: string
+  interval_value: number
+  day_of_week?: number
+  day_of_month?: number
+  end_date?: string
+}
+
+// ── TravelWiz — Voyage Events (Journal de bord) ─────────────
+
+export interface VoyageEvent {
+  id: string
+  voyage_id: string
+  event_code: string
+  recorded_at: string
+  latitude: number | null
+  longitude: number | null
+  asset_id: string | null
+  payload: Record<string, unknown> | null
+  notes: string | null
+  recorded_by: string | null
+  created_at: string
+  recorded_by_name?: string | null
+  asset_name?: string | null
+}
+
+export interface VoyageEventCreate {
+  event_code: string
+  recorded_at: string
+  latitude?: number | null
+  longitude?: number | null
+  asset_id?: string | null
+  payload?: Record<string, unknown> | null
+  notes?: string | null
+}
+
+// ── TravelWiz — Trip KPIs ───────────────────────────────────
+
+export interface TripKpi {
+  trip_id: string
+  total_pax: number
+  total_cargo_kg: number
+  no_shows: number
+  on_time: boolean
+  delay_minutes: number | null
+  events_count: number
+  hazmat_items: number
+}
+
+// ── TravelWiz — Deck Layouts ────────────────────────────────
+
+export interface DeckLayout {
+  id: string
+  voyage_id: string
+  deck_surface_id: string
+  items: DeckLayoutItem[]
+  suggested: boolean
+  validated: boolean
+  created_at: string
+}
+
+export interface DeckLayoutItem {
+  cargo_item_id: string
+  position_x: number
+  position_y: number
+  width: number
+  height: number
+  description?: string | null
+}
+
+export interface DeckLayoutValidation {
+  valid: boolean
+  warnings: string[]
+  errors: string[]
+}
+
+// ── TravelWiz — Package Elements ────────────────────────────
+
+export interface PackageElement {
+  id: string
+  cargo_item_id: string
+  description: string
+  quantity: number
+  weight_kg: number | null
+  sap_code: string | null
+  created_at: string
+}
+
+export interface PackageElementCreate {
+  description: string
+  quantity?: number
+  weight_kg?: number | null
+  sap_code?: string | null
+}
+
+// ── TravelWiz — Articles (SAP) ─────────────────────────────
+
+export interface TravelArticle {
+  id: string
+  entity_id: string
+  sap_code: string
+  description: string
+  management_type: string | null
+  packaging: string | null
+  is_hazmat: boolean
+  hazmat_class: string | null
+  unit: string | null
+  active: boolean
+  created_at: string
+}
+
+export interface TravelArticleCreate {
+  sap_code: string
+  description: string
+  management_type?: string | null
+  packaging?: string | null
+  is_hazmat?: boolean
+  hazmat_class?: string | null
+  unit?: string | null
+}
+
+export interface SapMatchResult {
+  article_id: string | null
+  sap_code: string | null
+  description: string
+  confidence: number
+  matched: boolean
+}
+
+// ── TravelWiz — Cargo Return ────────────────────────────────
+
+export interface CargoReturnCreate {
+  return_type: string
+  notes?: string | null
+}
+
+// ── TravelWiz — Captain Portal ──────────────────────────────
+
+export interface CaptainAuth {
+  token: string
+  voyage_id: string
+  captain_name: string
+}
+
+export interface CaptainManifest {
+  voyage: Voyage
+  manifests: Manifest[]
+  cargo_items: CargoItem[]
+  stops: VoyageStop[]
+}
+
+// ── TravelWiz — Dashboard Aggregates ────────────────────────
+
+export interface TravelDashboardTripsToday {
+  trips: Voyage[]
+  total: number
+}
+
+export interface TravelDashboardCargoPending {
+  items: CargoItem[]
+  total: number
+  total_weight_kg: number
+}
+
+export interface TravelFleetKpi {
+  total_vectors: number
+  active_voyages: number
+  pax_in_transit: number
+  cargo_in_transit: number
+  no_shows_month: number
+  utilization_by_type: Record<string, { total: number; active: number }>
+}
+
+// ── TravelWiz — Manifest (enhanced for standalone listing) ──
+
+export interface ManifestListParams extends PaginationParams {
+  status?: string
+  search?: string
+}
+
+export interface ManifestWithTrip extends Manifest {
+  voyage_code?: string | null
+  voyage_origin?: string | null
+  voyage_destination?: string | null
+  voyage_departure_at?: string | null
+  total_weight_kg?: number | null
+}
+
+// ── TravelWiz — Article List Params ─────────────────────────
+
+export interface ArticleListParams extends PaginationParams {
+  search?: string
+  sap_code?: string
+  management_type?: string
+  is_hazmat?: boolean
+}
+
+// ── TravelWiz — Fleet Tracking ──────────────────────────────
+
+export interface VehiclePosition {
+  vector_id: string
+  vector_name: string
+  transport_mode: string
+  status: 'active' | 'idle' | 'in_transit' | 'maintenance'
+  latitude: number
+  longitude: number
+  speed_knots: number | null
+  heading: number | null
+  current_trip_id: string | null
+  current_trip_code: string | null
+  last_update: string
+}
+
+export interface FleetPositionResponse {
+  positions: VehiclePosition[]
+  updated_at: string
+}
+
+export interface VehicleTrack {
+  vector_id: string
+  points: { lat: number; lng: number; ts: string }[]
+}
+
+// ── TravelWiz — Weather ─────────────────────────────────────
+
+export interface WeatherData {
+  id: string
+  site_id: string
+  site_name: string
+  recorded_at: string
+  wind_speed_knots: number | null
+  wind_direction: string | null
+  sea_state: string | null
+  visibility_nm: number | null
+  temperature_c: number | null
+  conditions: string | null
+  flight_status: 'green' | 'amber' | 'red' | null
+  notes: string | null
+}
+
+export interface WeatherReport {
+  wind_speed_knots?: number | null
+  wind_direction?: string | null
+  sea_state?: string | null
+  visibility_nm?: number | null
+  temperature_c?: number | null
+  conditions?: string | null
+  notes?: string | null
+}
+
+// ── TravelWiz — Pickup Rounds (Ramassage) ───────────────────
+
+export interface PickupRound {
+  id: string
+  code: string
+  date: string
+  vehicle_name: string | null
+  driver_name: string | null
+  status: 'planned' | 'in_progress' | 'completed' | 'cancelled'
+  stops_count: number
+  pax_collected: number
+  created_at: string
+}
+
+export interface PickupStop {
+  id: string
+  round_id: string
+  sequence: number
+  location_name: string
+  latitude: number | null
+  longitude: number | null
+  scheduled_time: string | null
+  actual_time: string | null
+  pax_names: string[]
+  status: 'pending' | 'arrived' | 'departed' | 'skipped'
+}
+
+// ── TravelWiz — Captain Weather Report ──────────────────────
+
+export interface CaptainWeatherReport {
+  wind_speed_knots?: number | null
+  wind_direction?: string | null
+  sea_state?: string | null
+  visibility_nm?: number | null
+  notes?: string | null
+}
+
+// ── Import Assistant ─────────────────────────────────────────
+
+export type ImportTargetObject = 'asset' | 'tier' | 'contact' | 'pax_profile' | 'project' | 'compliance_record' | 'user' | 'group'
+export type DuplicateStrategy = 'skip' | 'update' | 'fail'
+
+/** Column transformation applied client-side before sending to backend */
+export type TransformType =
+  | 'none'
+  | 'uppercase'
+  | 'lowercase'
+  | 'trim'
+  | 'capitalize'         // first letter upper
+  | 'date_format'        // reformat date string
+  | 'concat'             // merge multiple columns
+  | 'split'              // split column by delimiter
+  | 'arithmetic'         // +, -, *, / with another column or constant
+  | 'math_func'          // sin, cos, tan, pow, sqrt, log, ln, abs, round, ceil, floor
+  | 'replace'            // find & replace substring
+  | 'default_value'      // fill empty cells with a default
+  | 'expression'         // free-form JS-safe expression using column refs
+
+export type MathFunction =
+  | 'abs' | 'round' | 'ceil' | 'floor' | 'sqrt'
+  | 'pow' | 'nroot'
+  | 'log' | 'log10' | 'ln'
+  | 'sin' | 'cos' | 'tan' | 'asin' | 'acos' | 'atan'
+  | 'exp' | 'sign' | 'min' | 'max'
+
+export interface ColumnTransform {
+  type: TransformType
+  /** For concat: other column names; for split: unused; for arithmetic: other column or constant */
+  params?: {
+    columns?: string[]         // other columns involved (concat, arithmetic, min, max)
+    separator?: string         // delimiter for concat/split
+    splitIndex?: number        // which part to keep after split (0-based)
+    operator?: '+' | '-' | '*' | '/'
+    constant?: number | string // constant value for arithmetic or default_value
+    dateInputFormat?: string   // e.g. "DD/MM/YYYY"
+    dateOutputFormat?: string  // always "YYYY-MM-DD" (OpsFlux canonical)
+    find?: string              // for replace transform
+    replaceWith?: string       // for replace transform
+    mathFunc?: MathFunction    // for math_func transform
+    exponent?: number          // for pow / nroot
+    sourceColumn?: string      // source column name for virtual columns
+  }
+}
+
+export interface TargetFieldDef {
+  key: string
+  label: string
+  type: string
+  required: boolean
+  example?: string
+  lookup_target?: string
+}
+
+export interface TargetObjectInfo {
+  key: ImportTargetObject
+  label: string
+  fields: TargetFieldDef[]
+}
+
+export interface ImportMapping {
+  id: string
+  entity_id: string
+  name: string
+  description: string | null
+  target_object: string
+  column_mapping: Record<string, string>
+  transforms: Record<string, ColumnTransform> | null
+  file_headers: string[] | null
+  file_settings: Record<string, unknown> | null
+  last_used_at: string | null
+  use_count: number
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ImportMappingCreate {
+  name: string
+  description?: string
+  target_object: ImportTargetObject
+  column_mapping: Record<string, string>
+  transforms?: Record<string, ColumnTransform>
+  file_headers?: string[]
+  file_settings?: Record<string, unknown>
+}
+
+export interface RowValidationError {
+  row_index: number
+  field: string
+  message: string
+  severity: 'error' | 'warning'
+}
+
+export interface ImportPreviewResponse {
+  valid_count: number
+  error_count: number
+  warning_count: number
+  duplicate_count: number
+  errors: RowValidationError[]
+  preview_rows: Record<string, unknown>[]
+}
+
+export interface ImportExecuteResponse {
+  created: number
+  updated: number
+  skipped: number
+  errors: RowValidationError[]
+  total_processed: number
 }

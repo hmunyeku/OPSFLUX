@@ -1,7 +1,9 @@
 """Seed service — create initial data for development."""
 
+import hashlib
+import json
 import logging
-from uuid import uuid4
+from uuid import UUID, uuid4, uuid5
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +17,9 @@ from app.models.common import (
     UserGroupMember,
     WorkflowDefinition,
 )
+
+# Namespace UUID for deterministic seed IDs (stable across runs)
+_SEED_NS = UUID("a1b2c3d4-e5f6-7890-abcd-ef1234567890")
 
 logger = logging.getLogger(__name__)
 
@@ -165,7 +170,7 @@ async def seed_dev_data(db: AsyncSession) -> None:
                 {"from": "draft", "to": "cancelled", "label": "Annuler"},
                 # Step 0-A: initiator review (when created_by != requester_id)
                 {"from": "submitted", "to": "pending_initiator_review", "label": "Vers validation initiateur"},
-                {"from": "pending_initiator_review", "to": "pending_project_review", "label": "Valider", "required_roles": ["DEMANDEUR"]},
+                {"from": "pending_initiator_review", "to": "pending_project_review", "label": "Valider", "required_roles": ["READER"]},
                 {"from": "pending_initiator_review", "to": "rejected", "label": "Rejeter", "comment_required": True},
                 # Step 0-B: project review (when linked to a project)
                 {"from": "submitted", "to": "pending_project_review", "label": "Vers validation projet"},
@@ -173,8 +178,8 @@ async def seed_dev_data(db: AsyncSession) -> None:
                 {"from": "pending_project_review", "to": "rejected", "label": "Rejeter", "comment_required": True, "required_roles": ["CHEF_PROJET"]},
                 # Standard flow
                 {"from": "submitted", "to": "pending_compliance", "label": "Vers vérification compliance"},
-                {"from": "pending_compliance", "to": "pending_validation", "label": "Conforme", "required_roles": ["CHSE", "HSE_SITE"]},
-                {"from": "pending_compliance", "to": "rejected", "label": "Non conforme", "comment_required": True, "required_roles": ["CHSE", "HSE_SITE"]},
+                {"from": "pending_compliance", "to": "pending_validation", "label": "Conforme", "required_roles": ["HSE_ADMIN", "HSE_ADMIN"]},
+                {"from": "pending_compliance", "to": "rejected", "label": "Non conforme", "comment_required": True, "required_roles": ["HSE_ADMIN", "HSE_ADMIN"]},
                 {"from": "pending_validation", "to": "approved", "label": "Approuver", "required_roles": ["CDS", "DPROD"]},
                 {"from": "pending_validation", "to": "rejected", "label": "Rejeter", "comment_required": True, "required_roles": ["CDS", "DPROD"]},
                 {"from": "pending_validation", "to": "pending_arbitration", "label": "Escalader au DO", "required_roles": ["CDS", "DPROD"]},
@@ -232,10 +237,10 @@ async def seed_dev_data(db: AsyncSession) -> None:
     # ── Sample test users with different roles ─────────────────
     test_users = [
         ("cds@opsflux.io", "Chef", "De Site", "CDS"),
-        ("chse@opsflux.io", "Coordinateur", "HSE", "CHSE"),
+        ("hse@opsflux.io", "Coordinateur", "HSE", "HSE_ADMIN"),
         ("dprod@opsflux.io", "Directeur", "Production", "DPROD"),
         ("chef.projet@opsflux.io", "Chef", "Projet", "CHEF_PROJET"),
-        ("demandeur@opsflux.io", "Jean", "Dupont", "DEMANDEUR"),
+        ("demandeur@opsflux.io", "Jean", "Dupont", "READER"),
     ]
 
     for email, first, last, role_code in test_users:
@@ -282,5 +287,234 @@ async def seed_dev_data(db: AsyncSession) -> None:
             db.add(UserGroupMember(user_id=user.id, group_id=group.id))
             logger.info("Seed: assigned %s to group %s", email, role_code)
 
+    # ── Dashboard mandatory tabs per role (spec section 11) ─────
+    await seed_dashboard_tabs(db, entity.id)
+
     await db.commit()
     logger.info("Seed: development data seeded successfully")
+
+
+async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
+    """Seed mandatory dashboard tabs per role — raw SQL, idempotent via ON CONFLICT.
+
+    Uses uuid5 with a fixed namespace so the same entity always produces the same
+    tab IDs.  Re-running the seed is a no-op (ON CONFLICT (id) DO NOTHING).
+    """
+    entity_id_str = str(entity_id)
+
+    def _make_tab_id(tab_name: str, role: str | None, module: str | None) -> str:
+        """Deterministic UUID for a seed tab — stable across runs."""
+        key = f"tab:{entity_id_str}:{tab_name}:{role or ''}:{module or ''}"
+        return str(uuid5(_SEED_NS, key))
+
+    def _make_widget(widget_type: str, title: str, config: dict, position: dict) -> dict:
+        """Build a widget dict matching the JSONB schema."""
+        suffix = hashlib.md5(f"{entity_id_str}:{widget_type}:{title}".encode()).hexdigest()[:8]
+        return {
+            "id": f"w_{widget_type}_{suffix}",
+            "type": widget_type,
+            "title": title,
+            "config": config,
+            "position": position,
+            "options": {"refreshInterval": 60000, "showHeader": True, "showLastRefreshed": True},
+        }
+
+    # ── Tab definitions per spec section 11 ──────────────────────────
+    ROLE_TABS: list[dict] = [
+        # CDS — Chef de Site
+        {
+            "name": "Mon site",
+            "target_role": "CDS",
+            "target_module": None,
+            "tab_order": 0,
+            "widgets": [
+                _make_widget("pax_on_site", "PAX sur site",
+                             {"source": "paxlog"},
+                             {"x": 0, "y": 0, "w": 3, "h": 2}),
+                _make_widget("ads_pending", "AdS en attente",
+                             {"source": "paxlog", "status": "pending_validation"},
+                             {"x": 3, "y": 0, "w": 3, "h": 2}),
+                _make_widget("planner_gantt_mini", "Gantt compact",
+                             {"source": "planner", "chart_type": "gantt"},
+                             {"x": 6, "y": 0, "w": 6, "h": 4}),
+                _make_widget("alerts_urgent", "Alertes critiques",
+                             {"source": "core"},
+                             {"x": 0, "y": 2, "w": 6, "h": 4}),
+            ],
+        },
+        # LOG_BASE — Logistique Base
+        {
+            "name": "Opérations",
+            "target_role": "LOG_BASE",
+            "target_module": None,
+            "tab_order": 0,
+            "widgets": [
+                _make_widget("fleet_map", "Carte flotte temps réel",
+                             {"source": "travelwiz"},
+                             {"x": 0, "y": 0, "w": 6, "h": 4}),
+                _make_widget("trips_today", "Voyages du jour",
+                             {"source": "travelwiz"},
+                             {"x": 6, "y": 0, "w": 6, "h": 4}),
+                _make_widget("cargo_pending", "Cargo en attente",
+                             {"source": "travelwiz"},
+                             {"x": 0, "y": 4, "w": 6, "h": 3}),
+                _make_widget("pickup_progress", "Ramassage en cours",
+                             {"source": "travelwiz"},
+                             {"x": 6, "y": 4, "w": 6, "h": 3}),
+            ],
+        },
+        # DO — Directeur Opérations
+        {
+            "name": "Vue globale",
+            "target_role": "DO",
+            "target_module": None,
+            "tab_order": 0,
+            "widgets": [
+                _make_widget("capacity_heatmap", "Charge PAX par site",
+                             {"source": "planner", "chart_type": "heatmap"},
+                             {"x": 0, "y": 0, "w": 6, "h": 4}),
+                _make_widget("alerts_urgent", "Alertes critiques",
+                             {"source": "core"},
+                             {"x": 6, "y": 0, "w": 6, "h": 3}),
+                _make_widget("fleet_map", "Carte flotte",
+                             {"source": "travelwiz"},
+                             {"x": 0, "y": 4, "w": 6, "h": 4}),
+                _make_widget("signalements_actifs", "Signalements actifs",
+                             {"source": "paxlog"},
+                             {"x": 6, "y": 3, "w": 6, "h": 4}),
+            ],
+        },
+        # DEMANDEUR
+        {
+            "name": "Mes demandes",
+            "target_role": "DEMANDEUR",
+            "target_module": None,
+            "tab_order": 0,
+            "widgets": [
+                _make_widget("my_ads", "Mes AdS en cours",
+                             {"source": "paxlog", "scope": "my"},
+                             {"x": 0, "y": 0, "w": 8, "h": 4}),
+                _make_widget("alerts_urgent", "Alertes",
+                             {"source": "core"},
+                             {"x": 8, "y": 0, "w": 4, "h": 2}),
+            ],
+        },
+        # CHEF_PROJET
+        {
+            "name": "Mes projets",
+            "target_role": "CHEF_PROJET",
+            "target_module": None,
+            "tab_order": 0,
+            "widgets": [
+                _make_widget("project_status", "Projets actifs",
+                             {"source": "projets"},
+                             {"x": 0, "y": 0, "w": 6, "h": 4}),
+                _make_widget("planner_gantt_mini", "Gantt compact",
+                             {"source": "planner"},
+                             {"x": 6, "y": 0, "w": 6, "h": 4}),
+                _make_widget("alerts_urgent", "Alertes",
+                             {"source": "core"},
+                             {"x": 0, "y": 4, "w": 12, "h": 3}),
+            ],
+        },
+        # CHSE (Compliance HSE) — mapped to HSE_ADMIN role
+        {
+            "name": "Compliance & HSE",
+            "target_role": "HSE_ADMIN",
+            "target_module": None,
+            "tab_order": 0,
+            "widgets": [
+                _make_widget("compliance_expiry", "Certifications expirant 30j",
+                             {"source": "paxlog", "days_ahead": 30},
+                             {"x": 0, "y": 0, "w": 6, "h": 4}),
+                _make_widget("signalements_actifs", "Signalements actifs",
+                             {"source": "paxlog"},
+                             {"x": 6, "y": 0, "w": 6, "h": 4}),
+                _make_widget("alerts_urgent", "Alertes",
+                             {"source": "core"},
+                             {"x": 0, "y": 4, "w": 12, "h": 3}),
+            ],
+        },
+        # ── Module-specific dashboard tabs ────────────────────────────
+        # Planner module dashboard
+        {
+            "name": "Planner",
+            "target_role": None,
+            "target_module": "planner",
+            "tab_order": 0,
+            "widgets": [
+                _make_widget("capacity_heatmap", "Charge PAX par site",
+                             {"source": "planner"},
+                             {"x": 0, "y": 0, "w": 8, "h": 4}),
+                _make_widget("planner_gantt_mini", "Gantt compact",
+                             {"source": "planner"},
+                             {"x": 8, "y": 0, "w": 4, "h": 4}),
+            ],
+        },
+        # PaxLog module dashboard
+        {
+            "name": "PaxLog",
+            "target_role": None,
+            "target_module": "paxlog",
+            "tab_order": 0,
+            "widgets": [
+                _make_widget("pax_on_site", "PAX sur site",
+                             {"source": "paxlog"},
+                             {"x": 0, "y": 0, "w": 3, "h": 3}),
+                _make_widget("ads_pending", "AdS en attente",
+                             {"source": "paxlog"},
+                             {"x": 3, "y": 0, "w": 5, "h": 4}),
+                _make_widget("compliance_expiry", "Certifications expirant",
+                             {"source": "paxlog"},
+                             {"x": 8, "y": 0, "w": 4, "h": 4}),
+            ],
+        },
+        # TravelWiz module dashboard
+        {
+            "name": "TravelWiz",
+            "target_role": None,
+            "target_module": "travelwiz",
+            "tab_order": 0,
+            "widgets": [
+                _make_widget("trips_today", "Voyages du jour",
+                             {"source": "travelwiz"},
+                             {"x": 0, "y": 0, "w": 6, "h": 4}),
+                _make_widget("cargo_pending", "Cargo en attente",
+                             {"source": "travelwiz"},
+                             {"x": 6, "y": 0, "w": 6, "h": 4}),
+                _make_widget("kpi_fleet", "KPIs flotte",
+                             {"source": "travelwiz"},
+                             {"x": 0, "y": 4, "w": 4, "h": 3}),
+            ],
+        },
+    ]
+
+    # ── Bulk INSERT via raw SQL — ON CONFLICT (id) DO NOTHING ─────────
+    insert_sql = text("""
+        INSERT INTO dashboard_tabs (id, entity_id, name, is_mandatory, target_role,
+                                    target_module, tab_order, widgets, is_active)
+        VALUES (:id, :entity_id, :name, TRUE, :target_role,
+                :target_module, :tab_order, CAST(:widgets AS jsonb), TRUE)
+        ON CONFLICT (id) DO NOTHING
+    """)
+
+    inserted = 0
+    for tab_def in ROLE_TABS:
+        tab_id = _make_tab_id(
+            tab_def["name"], tab_def.get("target_role"), tab_def.get("target_module"),
+        )
+        result = await db.execute(insert_sql, {
+            "id": tab_id,
+            "entity_id": entity_id_str,
+            "name": tab_def["name"],
+            "target_role": tab_def.get("target_role"),
+            "target_module": tab_def.get("target_module"),
+            "tab_order": tab_def["tab_order"],
+            "widgets": json.dumps(tab_def["widgets"]),
+        })
+        inserted += result.rowcount
+
+    if inserted:
+        logger.info("Seed: inserted %d / %d mandatory dashboard tabs", inserted, len(ROLE_TABS))
+    else:
+        logger.info("Seed: all %d mandatory dashboard tabs already exist", len(ROLE_TABS))

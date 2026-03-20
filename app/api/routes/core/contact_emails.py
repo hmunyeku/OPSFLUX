@@ -17,6 +17,7 @@ from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models.common import ContactEmail, User
 from app.schemas.common import ContactEmailCreate, ContactEmailRead, ContactEmailUpdate
+from app.services.core.delete_service import delete_entity
 
 router = APIRouter(prefix="/api/v1/contact-emails", tags=["contact-emails"])
 
@@ -117,5 +118,5 @@ async def delete_contact_email(
     if not contact_email:
         raise HTTPException(status_code=404, detail="Contact email not found")
 
-    await db.delete(contact_email)
+    await delete_entity(contact_email, db, "contact_email", entity_id=email_id, user_id=current_user.id)
     await db.commit()

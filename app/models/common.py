@@ -38,7 +38,7 @@ class Entity(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 # ─── Departments ─────────────────────────────────────────────────────────────
 
-class Department(UUIDPrimaryKeyMixin, Base):
+class Department(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "departments"
     __table_args__ = (
         Index("uq_department_entity_code", "entity_id", "code", unique=True),
@@ -56,7 +56,7 @@ class Department(UUIDPrimaryKeyMixin, Base):
 
 # ─── Cost Centers ────────────────────────────────────────────────────────────
 
-class CostCenter(UUIDPrimaryKeyMixin, Base):
+class CostCenter(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "cost_centers"
     __table_args__ = (
         Index("uq_cost_center_entity_code", "entity_id", "code", unique=True),
@@ -97,6 +97,17 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     totp_secret: Mapped[str | None] = mapped_column(String(200), nullable=True)
     mfa_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     mfa_backup_codes: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+
+    # Auth security (AUTH.md §7)
+    auth_type: Mapped[str] = mapped_column(
+        String(20), default="email_password", nullable=False
+    )  # email_password | sso | both
+    sso_subject: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    failed_login_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_login_ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    account_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     group_memberships: Mapped[list["UserGroupMember"]] = relationship(back_populates="user")
     access_tokens: Mapped[list["PersonalAccessToken"]] = relationship(back_populates="user")
@@ -144,7 +155,7 @@ class RolePermission(Base):
 
 # ─── User Groups (role + asset scope) ───────────────────────────────────────
 
-class UserGroup(UUIDPrimaryKeyMixin, Base):
+class UserGroup(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "user_groups"
 
     entity_id: Mapped[PyUUID] = mapped_column(
@@ -299,6 +310,8 @@ class Asset(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     latitude: Mapped[float | None] = mapped_column()
     longitude: Mapped[float | None] = mapped_column()
     allow_overlap: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    max_pax: Mapped[int | None] = mapped_column(Integer)
+    permanent_ops_quota: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB)
 
@@ -367,12 +380,16 @@ class TierContact(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # Legacy convenience fields (kept for backwards compat; prefer polymorphic)
     email: Mapped[str | None] = mapped_column(String(255))
     phone: Mapped[str | None] = mapped_column(String(50))
-    position: Mapped[str | None] = mapped_column(String(100))  # job title
+    position: Mapped[str | None] = mapped_column(String(100))  # job title (free text, legacy)
     department: Mapped[str | None] = mapped_column(String(100))
+    job_position_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("job_positions.id"), nullable=True
+    )  # FK to referentiel fiche de poste
     is_primary: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     tier: Mapped["Tier"] = relationship(back_populates="contacts")
+    job_position: Mapped["JobPosition | None"] = relationship(foreign_keys=[job_position_id])
 
 
 class TierIdentifier(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -827,7 +844,7 @@ class EmailTemplateVersion(UUIDPrimaryKeyMixin, Base):
     template: Mapped["EmailTemplate"] = relationship(back_populates="versions")
 
 
-class EmailTemplateLink(UUIDPrimaryKeyMixin, Base):
+class EmailTemplateLink(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Link a template to a specific tier, entity, or other object.
 
     When links exist, the template is only used for matching linked objects.
@@ -852,7 +869,7 @@ class EmailTemplateLink(UUIDPrimaryKeyMixin, Base):
 
 # ─── Notification Preferences ───────────────────────────────────────────────
 
-class NotificationPreference(UUIDPrimaryKeyMixin, Base):
+class NotificationPreference(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "notification_preferences"
 
     user_id: Mapped[PyUUID] = mapped_column(
@@ -883,7 +900,7 @@ class ComplianceType(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
     entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
-    category: Mapped[str] = mapped_column(String(30), nullable=False)  # formation, certification, habilitation, audit, medical
+    category: Mapped[str] = mapped_column(String(30), nullable=False)  # formation, certification, habilitation, audit, medical, epi
     code: Mapped[str] = mapped_column(String(50), nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
@@ -901,7 +918,7 @@ class ComplianceRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
     compliance_type_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("compliance_types.id"), nullable=False)
-    target_type: Mapped[str] = mapped_column(String(30), nullable=False)  # tier_type, asset, department, all
+    target_type: Mapped[str] = mapped_column(String(30), nullable=False)  # tier_type, asset, department, job_position, all
     target_value: Mapped[str | None] = mapped_column(String(200))  # e.g. 'client', asset_id, 'Operations'
     description: Mapped[str | None] = mapped_column(Text)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
@@ -937,6 +954,50 @@ class ComplianceRecord(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     creator: Mapped["User"] = relationship(foreign_keys=[created_by])
 
 
+# ─── Job Positions / Fiches de Poste ─────────────────────────────────────────
+
+
+class JobPosition(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Referentiel des fiches de poste — chaque poste definit des exigences HSE."""
+    __tablename__ = "job_positions"
+    __table_args__ = (
+        Index("idx_job_positions_entity", "entity_id"),
+        Index("idx_job_positions_code", "code"),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
+    code: Mapped[str] = mapped_column(String(50), nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    department: Mapped[str | None] = mapped_column(String(100))
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+
+# ─── Employee Transfer Log ───────────────────────────────────────────────────
+
+
+class TierContactTransfer(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Log de transfert d'un employe d'un tier a un autre."""
+    __tablename__ = "tier_contact_transfers"
+    __table_args__ = (
+        Index("idx_tc_transfers_contact", "contact_id"),
+        Index("idx_tc_transfers_from", "from_tier_id"),
+        Index("idx_tc_transfers_to", "to_tier_id"),
+    )
+
+    contact_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tier_contacts.id"), nullable=False)
+    from_tier_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tiers.id"), nullable=False)
+    to_tier_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tiers.id"), nullable=False)
+    transfer_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    reason: Mapped[str | None] = mapped_column(Text)
+    transferred_by: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+
+    contact: Mapped["TierContact"] = relationship(foreign_keys=[contact_id])
+    from_tier: Mapped["Tier"] = relationship(foreign_keys=[from_tier_id])
+    to_tier: Mapped["Tier"] = relationship(foreign_keys=[to_tier_id])
+    actor: Mapped["User"] = relationship(foreign_keys=[transferred_by])
+
+
 # ─── Projects / Projets ─────────────────────────────────────────────────────
 
 
@@ -965,6 +1026,7 @@ class Project(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     parent_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="SET NULL"))
     tier_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("tiers.id"))
     asset_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("assets.id"))
+    external_ref: Mapped[str | None] = mapped_column(String(200), index=True)  # e.g. "gouti:<id>" for synced projects
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
@@ -1037,3 +1099,259 @@ class ProjectMilestone(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     project: Mapped["Project"] = relationship(back_populates="milestones")
+
+
+# ─── Planning Revisions ─────────────────────────────────────────────────────
+class PlanningRevision(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Snapshot of a project planning — supports simulation vs committed revisions."""
+    __tablename__ = "planning_revisions"
+    __table_args__ = (
+        Index("idx_planning_revisions_project", "project_id"),
+    )
+
+    project_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False)
+    revision_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_simulation: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    snapshot_data: Mapped[dict | None] = mapped_column(JSONB)  # Full JSON snapshot of tasks/milestones/dates
+    created_by: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    project: Mapped["Project"] = relationship(foreign_keys=[project_id])
+    creator: Mapped["User"] = relationship(foreign_keys=[created_by])
+
+
+# ─── Task Deliverables (Livrables) ──────────────────────────────────────────
+class TaskDeliverable(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Livrable associé à une tâche de projet."""
+    __tablename__ = "task_deliverables"
+    __table_args__ = (
+        Index("idx_task_deliverables_task", "task_id"),
+    )
+
+    task_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("project_tasks.id"), nullable=False)
+    name: Mapped[str] = mapped_column(String(300), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")  # pending, in_progress, delivered, accepted, rejected
+    due_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    accepted_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    task: Mapped["ProjectTask"] = relationship(foreign_keys=[task_id])
+    acceptor: Mapped["User | None"] = relationship(foreign_keys=[accepted_by])
+
+
+# ─── Task Actions / Checklists ──────────────────────────────────────────────
+class TaskAction(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Action (checklist item) within a project task."""
+    __tablename__ = "task_actions"
+    __table_args__ = (
+        Index("idx_task_actions_task", "task_id"),
+    )
+
+    task_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("project_tasks.id"), nullable=False)
+    title: Mapped[str] = mapped_column(String(300), nullable=False)
+    completed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    task: Mapped["ProjectTask"] = relationship(foreign_keys=[task_id])
+    completer: Mapped["User | None"] = relationship(foreign_keys=[completed_by])
+
+
+# ─── Task Change Log (historisation) ────────────────────────────────────────
+class TaskChangeLog(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Tracks changes to a project task (dates, scope, status) for audit/history."""
+    __tablename__ = "task_change_logs"
+    __table_args__ = (
+        Index("idx_task_change_logs_task", "task_id"),
+    )
+
+    task_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("project_tasks.id"), nullable=False)
+    change_type: Mapped[str] = mapped_column(String(50), nullable=False)  # date_change, scope_change, status_change, assignment_change, priority_change
+    field_name: Mapped[str] = mapped_column(String(50), nullable=False)
+    old_value: Mapped[str | None] = mapped_column(Text)
+    new_value: Mapped[str | None] = mapped_column(Text)
+    reason: Mapped[str | None] = mapped_column(Text)
+    changed_by: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+
+    task: Mapped["ProjectTask"] = relationship(foreign_keys=[task_id])
+    author: Mapped["User"] = relationship(foreign_keys=[changed_by])
+
+
+# ─── PDF Templates ──────────────────────────────────────────────────────────
+
+class PdfTemplate(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """PDF template definition -- one per slug per entity (or global if entity_id is NULL).
+
+    Templates are identified by a slug (e.g. 'ads.ticket').
+    Each template can have multiple versions in multiple languages.
+    """
+    __tablename__ = "pdf_templates"
+    __table_args__ = (
+        Index("uq_pdf_template_entity_slug", "entity_id", "slug", unique=True),
+    )
+
+    entity_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=True
+    )
+    slug: Mapped[str] = mapped_column(String(100), nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    object_type: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="system"
+    )  # ads, document, voyage, system, etc.
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    variables_schema: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+    # Page layout settings
+    page_size: Mapped[str] = mapped_column(String(10), nullable=False, default="A4")  # A4, A5, A6, Letter
+    orientation: Mapped[str] = mapped_column(String(10), nullable=False, default="portrait")  # portrait, landscape
+    margin_top: Mapped[int] = mapped_column(Integer, nullable=False, default=15)  # mm
+    margin_right: Mapped[int] = mapped_column(Integer, nullable=False, default=12)  # mm
+    margin_bottom: Mapped[int] = mapped_column(Integer, nullable=False, default=15)  # mm
+    margin_left: Mapped[int] = mapped_column(Integer, nullable=False, default=12)  # mm
+
+    versions: Mapped[list["PdfTemplateVersion"]] = relationship(
+        back_populates="template", cascade="all, delete-orphan"
+    )
+
+
+class PdfTemplateVersion(UUIDPrimaryKeyMixin, Base):
+    """A specific version of a PDF template in a given language.
+
+    Only one published version per language can be active at any time (per template).
+    """
+    __tablename__ = "pdf_template_versions"
+    __table_args__ = (
+        Index("idx_ptv_template_lang", "template_id", "language"),
+    )
+
+    template_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("pdf_templates.id", ondelete="CASCADE"), nullable=False
+    )
+    version_number: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    language: Mapped[str] = mapped_column(String(5), nullable=False, default="fr")
+    body_html: Mapped[str] = mapped_column(Text, nullable=False)
+    header_html: Mapped[str | None] = mapped_column(Text, nullable=True)
+    footer_html: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_published: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_by: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    template: Mapped["PdfTemplate"] = relationship(back_populates="versions")
+
+
+# ─── External References (polymorphic) ───────────────────────────────────────
+
+
+class ExternalReference(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Polymorphic external references — multiple external IDs per object.
+
+    Any OpsFlux object can have multiple external references (SAP code,
+    legacy system ID, partner reference, customs number, etc.).
+    Uses the same (owner_type, owner_id) polymorphic pattern as Address, Tag, etc.
+    """
+    __tablename__ = "external_references"
+    __table_args__ = (
+        Index("idx_ext_ref_owner", "owner_type", "owner_id"),
+        Index("idx_ext_ref_system_code", "system", "code"),
+    )
+
+    owner_type: Mapped[str] = mapped_column(
+        String(50), nullable=False
+    )  # e.g. "asset", "tier", "project", "ads", "voyage", "cargo_item", "pax_profile", "document", "pid_document"
+    owner_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    system: Mapped[str] = mapped_column(
+        String(50), nullable=False
+    )  # e.g. "sap", "legacy", "customs", "partner", "gouti", "intranet"
+    code: Mapped[str] = mapped_column(String(200), nullable=False)  # the external reference value
+    label: Mapped[str | None] = mapped_column(
+        String(200), nullable=True
+    )  # human-readable label (e.g. "SAP Material Number")
+    url: Mapped[str | None] = mapped_column(
+        String(500), nullable=True
+    )  # optional link to external system
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+# ─── Asset Type Configs ──────────────────────────────────────────────────────
+
+
+class AssetTypeConfig(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Configurable asset type definitions — icon, colour, map marker shape, etc.
+
+    Each entity can define its own asset types (platform, wellhead, helipad,
+    pipeline, etc.) with visual customisation for map display.
+    """
+    __tablename__ = "asset_type_configs"
+    __table_args__ = (
+        Index("uq_asset_type_entity", "entity_id", "asset_type", unique=True),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
+    )
+    asset_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    label: Mapped[str] = mapped_column(String(200), nullable=False)
+    icon_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    icon_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    color: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    map_marker_shape: Mapped[str] = mapped_column(
+        String(20), nullable=False, server_default="circle"
+    )
+    is_fixed_installation: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="true"
+    )
+    show_on_map: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="true"
+    )
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
+
+
+# ─── Import Mappings ─────────────────────────────────────────────────────────
+
+
+class ImportMapping(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
+    """Saved column mappings for the Excel/CSV import assistant.
+
+    Users map file columns to target object fields (asset, tier, pax_profile, etc.)
+    and save the mapping for reuse on future imports.
+    """
+    __tablename__ = "import_mappings"
+    __table_args__ = (
+        Index("idx_import_mapping_entity", "entity_id"),
+        Index("idx_import_mapping_target", "entity_id", "target_object"),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    target_object: Mapped[str] = mapped_column(String(50), nullable=False)
+    column_mapping: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    transforms: Mapped[dict | None] = mapped_column(JSONB)  # {target_field: {type, params}}
+    file_headers: Mapped[list | None] = mapped_column(JSONB)  # original file headers for auto-match
+    file_settings: Mapped[dict | None] = mapped_column(JSONB)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    use_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    created_by: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id")
+    )

@@ -16,7 +16,7 @@ import {
   Search, LayoutList, LayoutGrid, CreditCard,
   Columns3, Download, Upload,
   X, Check, FileSpreadsheet, FileText,
-  SlidersHorizontal, FileDown,
+  SlidersHorizontal, FileDown, Settings2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type {
@@ -52,6 +52,7 @@ interface ToolbarProps {
   // Import/Export
   importExport?: ImportExportConfig
   onExport?: (format: ExportFormat) => void
+  onAdvancedExport?: () => void
   onImportClick?: () => void
   onDownloadTemplate?: () => void
 
@@ -161,6 +162,7 @@ export function DataTableToolbar({
   onToggleColumn,
   importExport,
   onExport,
+  onAdvancedExport,
   onImportClick,
   onDownloadTemplate,
   selectedCount = 0,
@@ -686,26 +688,45 @@ export function DataTableToolbar({
                     </button>
                   )
                 })}
+                {onAdvancedExport && (
+                  <>
+                    <div className="border-t border-border/50 my-0.5" />
+                    <button
+                      onClick={() => { onAdvancedExport(); setDropdown({ type: 'closed' }) }}
+                      className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent text-left text-primary font-medium"
+                    >
+                      <Settings2 size={12} />
+                      <span>Export avancé…</span>
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>
         )}
 
         {/* Import */}
-        {importExport?.importCsv && (
+        {(importExport?.importCsv || importExport?.importWizardTarget) && (
           <div className="relative shrink-0">
             <button
-              onClick={() => setDropdown(
-                dropdown.type === 'action' && dropdown.id === '_import'
-                  ? { type: 'closed' }
-                  : { type: 'action', id: '_import' }
-              )}
+              onClick={() => {
+                if (importExport?.importWizardTarget) {
+                  // Directly open the wizard, no dropdown needed
+                  onImportClick?.()
+                } else {
+                  setDropdown(
+                    dropdown.type === 'action' && dropdown.id === '_import'
+                      ? { type: 'closed' }
+                      : { type: 'action', id: '_import' }
+                  )
+                }
+              }}
               className="p-1 rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-              title="Importer"
+              title={importExport?.importWizardTarget ? "Assistant d'import" : 'Importer'}
             >
               <Upload size={13} />
             </button>
-            {dropdown.type === 'action' && dropdown.id === '_import' && (
+            {!importExport?.importWizardTarget && dropdown.type === 'action' && dropdown.id === '_import' && (
               <div className="absolute right-0 top-full mt-1 z-50 min-w-[180px] rounded-md border bg-popover shadow-lg py-1">
                 <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide border-b border-border/50 mb-0.5">
                   Importer

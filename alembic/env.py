@@ -12,6 +12,7 @@ from alembic import context
 # Import all models so Alembic can detect them
 from app.models.base import Base
 from app.models import common  # noqa: F401
+from app.models import messaging  # noqa: F401
 
 config = context.config
 

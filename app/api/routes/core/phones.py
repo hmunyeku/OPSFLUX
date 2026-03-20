@@ -14,6 +14,7 @@ from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models.common import Phone, User
 from app.schemas.common import PhoneCreate, PhoneRead, PhoneUpdate
+from app.services.core.delete_service import delete_entity
 
 router = APIRouter(prefix="/api/v1/phones", tags=["phones"])
 
@@ -117,5 +118,5 @@ async def delete_phone(
     if not phone:
         raise HTTPException(status_code=404, detail="Phone not found")
 
-    await db.delete(phone)
+    await delete_entity(phone, db, "phone", entity_id=phone_id, user_id=current_user.id)
     await db.commit()

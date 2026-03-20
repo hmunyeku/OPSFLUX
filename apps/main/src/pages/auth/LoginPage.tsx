@@ -5,20 +5,67 @@
  * MFA flow:
  *   Step 1: email + password → submit
  *   Step 2: if MFA enabled, show 6-digit TOTP code input
+ *
+ * SSO flow:
+ *   Detects configured providers → shows SSO buttons
+ *   On click → redirects to OAuth2 provider
+ *   On callback → receives tokens via URL params
+ *
+ * Password reset:
+ *   "Mot de passe oublié ?" link → /forgot-password page
  */
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore, MFARequiredError } from '@/stores/authStore'
 import { cn } from '@/lib/utils'
 import { Eye, EyeOff, Loader2, ShieldCheck, ArrowLeft } from 'lucide-react'
+import api from '@/lib/api'
 
 const inputClass = 'gl-form-input h-9'
+
+// SSO provider icon components
+const SSO_ICONS: Record<string, React.ReactNode> = {
+  google: (
+    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+    </svg>
+  ),
+  microsoft: (
+    <svg viewBox="0 0 24 24" className="w-4 h-4">
+      <rect x="1" y="1" width="10" height="10" fill="#F25022"/>
+      <rect x="13" y="1" width="10" height="10" fill="#7FBA00"/>
+      <rect x="1" y="13" width="10" height="10" fill="#00A4EF"/>
+      <rect x="13" y="13" width="10" height="10" fill="#FFB900"/>
+    </svg>
+  ),
+  okta: (
+    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
+      <circle cx="12" cy="12" r="10" fill="none" stroke="#007DC1" strokeWidth="2"/>
+      <circle cx="12" cy="12" r="4" fill="#007DC1"/>
+    </svg>
+  ),
+  keycloak: (
+    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="#4D4D4D">
+      <path d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.18L19.82 8 12 11.82 4.18 8 12 4.18z"/>
+    </svg>
+  ),
+}
+
+interface SSOProvider {
+  id: string
+  name: string
+  icon: string
+}
 
 export function LoginPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const { login, verifyMfa, clearMfa, mfaPending } = useAuthStore()
+  const [searchParams] = useSearchParams()
+  const { login, verifyMfa, clearMfa, mfaPending, fetchUser } = useAuthStore()
 
   // Step 1 state
   const [email, setEmail] = useState('')
@@ -32,6 +79,51 @@ export function LoginPage() {
   const [mfaError, setMfaError] = useState('')
   const [mfaLoading, setMfaLoading] = useState(false)
   const mfaInputRef = useRef<HTMLInputElement>(null)
+
+  // SSO state
+  const [ssoProviders, setSsoProviders] = useState<SSOProvider[]>([])
+  const [ssoLoading, setSsoLoading] = useState<string | null>(null)
+
+  // ── Load SSO providers on mount ──────────────────────────
+  useEffect(() => {
+    api.get('/api/v1/auth/sso/providers')
+      .then(res => setSsoProviders(res.data))
+      .catch(() => {}) // Silently ignore if no providers
+  }, [])
+
+  // ── Handle SSO callback tokens from URL ──────────────────
+  useEffect(() => {
+    const ssoAccessToken = searchParams.get('sso_access_token')
+    const ssoRefreshToken = searchParams.get('sso_refresh_token')
+    const ssoError = searchParams.get('sso_error')
+
+    if (ssoError) {
+      const errorMessages: Record<string, string> = {
+        invalid_state: t('auth.sso_error_invalid_state'),
+        unknown_provider: t('auth.sso_error_unknown_provider'),
+        provider_config: t('auth.sso_error_config'),
+        token_exchange: t('auth.sso_error_token_exchange'),
+        userinfo: t('auth.sso_error_userinfo'),
+        no_email: t('auth.sso_error_no_email'),
+        no_access_token: t('auth.sso_error_token_exchange'),
+        account_inactive: t('auth.sso_error_inactive'),
+      }
+      setError(errorMessages[ssoError] || t('auth.sso_error_generic'))
+      // Clean URL
+      window.history.replaceState({}, '', '/login')
+      return
+    }
+
+    if (ssoAccessToken && ssoRefreshToken) {
+      // Store tokens and redirect
+      localStorage.setItem('access_token', ssoAccessToken)
+      localStorage.setItem('refresh_token', ssoRefreshToken)
+      useAuthStore.setState({ isAuthenticated: true, mfaToken: null, mfaPending: false })
+      fetchUser().then(() => navigate('/dashboard'))
+      // Clean URL
+      window.history.replaceState({}, '', '/login')
+    }
+  }, [searchParams, navigate, fetchUser])
 
   // Focus MFA input when step changes
   useEffect(() => {
@@ -92,6 +184,19 @@ export function LoginPage() {
     setMfaCode(digits)
   }
 
+  // ── SSO redirect ────────────────────────────────────────
+  const handleSsoLogin = async (providerId: string) => {
+    setSsoLoading(providerId)
+    setError('')
+    try {
+      const res = await api.get('/api/v1/auth/sso/authorize', { params: { provider: providerId } })
+      window.location.href = res.data.authorize_url
+    } catch {
+      setError(t('auth.sso_error_generic'))
+      setSsoLoading(null)
+    }
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background-subtle p-4">
       <div className="w-full max-w-sm">
@@ -127,7 +232,15 @@ export function LoginPage() {
               </div>
 
               <div>
-                <label className="mb-1 block text-xs font-medium text-foreground">{t('auth.password')}</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-medium text-foreground">{t('auth.password')}</label>
+                  <Link
+                    to="/forgot-password"
+                    className="text-[11px] text-primary hover:text-primary/80 transition-colors"
+                  >
+                    {t('auth.forgot_password', 'Mot de passe oublié ?')}
+                  </Link>
+                </div>
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'}
@@ -155,16 +268,34 @@ export function LoginPage() {
               </button>
             </form>
 
-            {/* SSO divider */}
-            <div className="my-4 flex items-center gap-3">
-              <div className="h-px flex-1 bg-border" />
-              <span className="text-[11px] text-muted-foreground">ou</span>
-              <div className="h-px flex-1 bg-border" />
-            </div>
+            {/* SSO section — only show if providers are configured */}
+            {ssoProviders.length > 0 && (
+              <>
+                <div className="my-4 flex items-center gap-3">
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="text-[11px] text-muted-foreground">{t('common.or')}</span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
 
-            <button className="gl-button gl-button-default w-full h-9">
-              {t('auth.login_sso')}
-            </button>
+                <div className="space-y-2">
+                  {ssoProviders.map((provider) => (
+                    <button
+                      key={provider.id}
+                      onClick={() => handleSsoLogin(provider.id)}
+                      disabled={ssoLoading === provider.id}
+                      className="gl-button gl-button-default w-full h-9 flex items-center justify-center gap-2"
+                    >
+                      {ssoLoading === provider.id ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        SSO_ICONS[provider.icon] || null
+                      )}
+                      {t('auth.sso_continue_with', { provider: provider.name })}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -182,14 +313,13 @@ export function LoginPage() {
               <div className="flex items-center gap-2">
                 <ShieldCheck size={16} className="text-primary" />
                 <h2 className="text-sm font-medium text-foreground">
-                  Vérification en deux étapes
+                  {t('auth.mfa_title')}
                 </h2>
               </div>
             </div>
 
             <p className="text-xs text-muted-foreground mb-4">
-              Entrez le code à 6 chiffres de votre application d'authentification,
-              ou un code de secours.
+              {t('auth.mfa_description')}
             </p>
 
             <form onSubmit={handleMfaSubmit} className="space-y-3">
@@ -201,7 +331,7 @@ export function LoginPage() {
 
               <div>
                 <label className="mb-1 block text-xs font-medium text-foreground">
-                  Code de vérification
+                  {t('auth.mfa_code_label')}
                 </label>
                 <input
                   ref={mfaInputRef}
@@ -224,13 +354,13 @@ export function LoginPage() {
                 {mfaLoading ? (
                   <Loader2 size={14} className="mx-auto animate-spin" />
                 ) : (
-                  'Vérifier'
+                  t('auth.mfa_verify')
                 )}
               </button>
             </form>
 
             <p className="mt-3 text-[11px] text-muted-foreground text-center">
-              Vous pouvez aussi utiliser un code de secours à 8 caractères.
+              {t('auth.mfa_backup_hint')}
             </p>
           </div>
         )}

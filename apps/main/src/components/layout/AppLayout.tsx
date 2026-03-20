@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/uiStore'
 import api from '@/lib/api'
 import { setToastAdminDefaults, type ToastPosition } from '@/components/ui/Toast'
+import { applyUIScale, getUIScale, setUIScaleAdminDefault } from '@/lib/uiScale'
 import type { SettingRead } from '@/types/api'
 import { Banner } from '@/components/ui/Banner'
 import { useWebSocket } from '@/hooks/useWebSocket'
@@ -59,6 +60,11 @@ export function AppLayout({ children }: AppLayoutProps) {
     staleTime: 5 * 60 * 1000, // 5 min — admin defaults rarely change
   })
 
+  // ── Apply UI scale on mount ──
+  useEffect(() => {
+    applyUIScale(getUIScale())
+  }, [])
+
   useEffect(() => {
     if (!entitySettings) return
     setToastAdminDefaults({
@@ -66,6 +72,9 @@ export function AppLayout({ children }: AppLayoutProps) {
       duration: (entitySettings['core.toast_duration'] as number) || undefined,
       opacity: (entitySettings['core.toast_opacity'] as number) || undefined,
     })
+    // ── Apply admin UI scale default ──
+    const adminScale = entitySettings['core.ui_scale']
+    if (adminScale) setUIScaleAdminDefault(parseInt(String(adminScale), 10))
   }, [entitySettings])
 
   // Close mobile sidebar on route change

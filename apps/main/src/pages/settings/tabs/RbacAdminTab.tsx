@@ -6,14 +6,14 @@
  * 2. Groupes — paginated table with InlineDetailPanel detail
  * 3. Permissions — read-only matrix with rich tooltips
  */
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import {
   ShieldCheck, Users, Lock, Plus, Loader2, Search,
   ChevronRight, ChevronDown, Check, X, UserPlus, Trash2,
-  FolderTree, ToggleLeft, ToggleRight,
+  FolderTree,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { DataTable } from '@/components/ui/DataTable/DataTable'
+import { DataTable, BadgeCell } from '@/components/ui/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useToast } from '@/components/ui/Toast'
 import { Tooltip } from '@/components/ui/Tooltip'
@@ -118,11 +118,18 @@ export function RbacAdminTab() {
 // ROLES TAB — Tree view grouped by module + InlineDetailPanel detail
 // ══════════════════════════════════════════════════════════════════════════════
 
-function RolesTab() {
-  const [search, setSearch] = useState('')
+export function RolesTab({ externalSearch, createTrigger }: { externalSearch?: string; createTrigger?: number } = {}) {
+  const [internalSearch, setInternalSearch] = useState('')
+  const search = externalSearch ?? internalSearch
   const { data: roles, isLoading } = useRoles({ search: search || undefined })
   const [selectedRole, setSelectedRole] = useState<string | null>(null)
   const [showCreate, setShowCreate] = useState(false)
+  const isControlled = externalSearch !== undefined
+
+  // Open create form when parent triggers it
+  useEffect(() => {
+    if (createTrigger && createTrigger > 0) setShowCreate(true)
+  }, [createTrigger])
 
   // Group roles by module for tree view
   const moduleTree = useMemo(() => {
@@ -143,27 +150,29 @@ function RolesTab() {
   }, [roles])
 
   return (
-    <div className="flex gap-0 min-h-[500px]">
+    <div className="flex gap-0 h-full min-h-[500px]">
       {/* Master list */}
-      <div className={cn('flex-1 min-w-0', selectedRole && 'max-w-[calc(100%-360px)]')}>
-        {/* Toolbar */}
-        <div className="flex items-center gap-2 mb-3">
-          <div className="relative flex-1">
-            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input
-              className="gl-form-input h-8 text-xs pl-8 w-full"
-              placeholder="Rechercher un rôle..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+      <div className={cn('flex-1 min-w-0 flex flex-col', selectedRole && 'max-w-[calc(100%-360px)]')}>
+        {/* Toolbar — hidden when parent provides search & create */}
+        {!isControlled && (
+          <div className="flex items-center gap-2 mb-3">
+            <div className="relative flex-1">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                className="gl-form-input h-8 text-xs pl-8 w-full"
+                placeholder="Rechercher un rôle..."
+                value={internalSearch}
+                onChange={(e) => setInternalSearch(e.target.value)}
+              />
+            </div>
+            <button
+              onClick={() => setShowCreate(!showCreate)}
+              className="gl-button-sm gl-button-confirm text-[11px] shrink-0"
+            >
+              <Plus size={12} /> Nouveau rôle
+            </button>
           </div>
-          <button
-            onClick={() => setShowCreate(!showCreate)}
-            className="gl-button-sm gl-button-confirm text-[11px] shrink-0"
-          >
-            <Plus size={12} /> Nouveau rôle
-          </button>
-        </div>
+        )}
 
         {showCreate && <CreateRoleForm onClose={() => setShowCreate(false)} />}
 
@@ -612,8 +621,13 @@ function RoleDetailPanel({ code, onClose }: { code: string; onClose: () => void 
 // GROUPS TAB — Paginated table + InlineDetailPanel detail
 // ══════════════════════════════════════════════════════════════════════════════
 
-function GroupsTab() {
-  const [search, setSearch] = useState('')
+export function GroupsTab({ externalSearch, createTrigger, onOpenPanel }: {
+  externalSearch?: string
+  createTrigger?: number
+  onOpenPanel?: (view: { type: string; module: string; id?: string }) => void
+} = {}) {
+  const [internalSearch, setInternalSearch] = useState('')
+  const search = externalSearch ?? internalSearch
   const [page, setPage] = useState(1)
   const [filterActive, setFilterActive] = useState<boolean | undefined>(undefined)
   const { data: groupsData, isLoading } = useGroups({
@@ -624,6 +638,18 @@ function GroupsTab() {
   })
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null)
   const [showCreate, setShowCreate] = useState(false)
+  const isControlled = externalSearch !== undefined
+
+  // Open create form when parent triggers it
+  useEffect(() => {
+    if (createTrigger && createTrigger > 0) {
+      if (onOpenPanel) {
+        onOpenPanel({ type: 'create', module: 'groups' })
+      } else {
+        setShowCreate(true)
+      }
+    }
+  }, [createTrigger, onOpenPanel])
 
   const groups = groupsData?.items ?? []
   const total = groupsData?.total ?? 0
@@ -639,6 +665,7 @@ function GroupsTab() {
           <span className="font-medium text-foreground truncate">{row.original.name}</span>
         </div>
       ),
+      enableHiding: false,
     },
     {
       id: 'role',
@@ -665,49 +692,97 @@ function GroupsTab() {
     {
       accessorKey: 'active',
       header: 'Statut',
-      cell: ({ row }) => row.original.active ? (
-        <span className="inline-flex h-2 w-2 rounded-full bg-green-500" title="Actif" />
-      ) : (
-        <span className="inline-flex h-2 w-2 rounded-full bg-muted-foreground/40" title="Inactif" />
-      ),
-      size: 60,
-    },
-    {
-      id: 'chevron',
-      header: '',
-      cell: () => <ChevronRight size={12} className="text-muted-foreground" />,
-      size: 30,
+      cell: ({ getValue }) => {
+        const active = getValue() as boolean
+        return <BadgeCell value={active ? 'Actif' : 'Inactif'} variant={active ? 'success' : 'neutral'} />
+      },
+      size: 90,
     },
   ], [])
+
+  const statusFilterDefs = useMemo(() => [{
+    id: 'status',
+    label: 'Statut',
+    type: 'select' as const,
+    options: [
+      { value: 'all', label: 'Tous', count: total },
+      { value: 'active', label: 'Actifs' },
+      { value: 'inactive', label: 'Inactifs' },
+    ],
+  }], [total])
+
+  const handleFilterChange = useCallback((id: string, value: unknown) => {
+    if (id === 'status') {
+      if (value === 'active') setFilterActive(true)
+      else if (value === 'inactive') setFilterActive(false)
+      else setFilterActive(undefined)
+      setPage(1)
+    }
+  }, [])
+
+  const activeFilterValue = filterActive === true ? 'active' : filterActive === false ? 'inactive' : 'all'
+
+  const handleRowClick = useCallback((row: GroupRead) => {
+    if (onOpenPanel) {
+      onOpenPanel({ type: 'detail', module: 'groups', id: row.id })
+    } else {
+      setSelectedGroup(selectedGroup === row.id ? null : row.id)
+    }
+  }, [onOpenPanel, selectedGroup])
+
+  // When controlled (inside UsersPage), render DataTable directly without extra wrappers
+  if (isControlled) {
+    return (
+      <>
+        {showCreate && <CreateGroupForm onClose={() => setShowCreate(false)} />}
+        <DataTable
+          columns={groupColumns}
+          data={groups}
+          isLoading={isLoading}
+          getRowId={(row) => row.id}
+          searchValue={search}
+          onSearchChange={() => { /* search driven by topbar */ }}
+          searchPlaceholder="Filtrer les résultats..."
+          onRowClick={handleRowClick}
+          pagination={{ page, pageSize: 50, total, pages }}
+          onPaginationChange={(newPage, _pageSize) => setPage(newPage)}
+          filters={statusFilterDefs}
+          activeFilters={{ status: activeFilterValue }}
+          onFilterChange={handleFilterChange}
+
+          sortable
+          columnVisibility
+          selectable
+          columnResizing
+          columnPinning
+          defaultPinnedColumns={{ left: ['name'] }}
+
+          importExport={{
+            exportFormats: ['csv', 'xlsx'],
+            advancedExport: true,
+            filenamePrefix: 'groupes',
+            importWizardTarget: 'group',
+            exportHeaders: {
+              name: 'Nom',
+              role: 'Rôle',
+              member_count: 'Membres',
+              scope: 'Scope',
+              active: 'Statut',
+            },
+          }}
+
+          emptyTitle={search ? 'Aucun groupe trouvé.' : 'Aucun groupe configuré.'}
+          emptyIcon={Users}
+          storageKey="rbac-groups"
+        />
+      </>
+    )
+  }
 
   return (
     <div className="flex gap-0 min-h-[500px]">
       {/* Master list */}
       <div className={cn('flex-1 min-w-0', selectedGroup && 'max-w-[calc(100%-360px)]')}>
-        {/* Toolbar */}
-        <div className="flex items-center gap-2 mb-3">
-          <button
-            onClick={() => setFilterActive(filterActive === undefined ? true : filterActive === true ? false : undefined)}
-            className={cn(
-              'gl-button-sm text-[11px] shrink-0',
-              filterActive === undefined ? 'gl-button-default' : 'gl-button-default ring-1 ring-primary/30',
-            )}
-          >
-            {filterActive === undefined ? (
-              <><ToggleLeft size={12} /> Tous</>
-            ) : filterActive ? (
-              <><ToggleRight size={12} className="text-green-500" /> Actifs</>
-            ) : (
-              <><ToggleRight size={12} className="text-muted-foreground" /> Inactifs</>
-            )}
-          </button>
-          <button
-            onClick={() => setShowCreate(!showCreate)}
-            className="gl-button-sm gl-button-confirm text-[11px] shrink-0"
-          >
-            <Plus size={12} /> Nouveau groupe
-          </button>
-        </div>
 
         {showCreate && <CreateGroupForm onClose={() => setShowCreate(false)} />}
 
@@ -717,20 +792,43 @@ function GroupsTab() {
           isLoading={isLoading}
           getRowId={(row) => row.id}
           searchValue={search}
-          onSearchChange={(v) => { setSearch(v); setPage(1) }}
-          searchPlaceholder="Rechercher un groupe…"
-          onRowClick={(row) => setSelectedGroup(selectedGroup === row.id ? null : row.id)}
+          onSearchChange={(v) => { if (isControlled) { /* search driven by topbar */ } else { setInternalSearch(v); setPage(1) } }}
+          searchPlaceholder="Filtrer les résultats..."
+          onRowClick={handleRowClick}
           pagination={{ page, pageSize: 50, total, pages }}
           onPaginationChange={(newPage, _pageSize) => setPage(newPage)}
+          filters={statusFilterDefs}
+          activeFilters={{ status: activeFilterValue }}
+          onFilterChange={handleFilterChange}
+
+          sortable
+          columnVisibility
+          selectable
+          columnResizing
+          columnPinning
+          defaultPinnedColumns={{ left: ['name'] }}
+
+          importExport={{
+            exportFormats: ['csv', 'xlsx'],
+            advancedExport: true,
+            filenamePrefix: 'groupes',
+            exportHeaders: {
+              name: 'Nom',
+              role: 'Rôle',
+              member_count: 'Membres',
+              scope: 'Scope',
+              active: 'Statut',
+            },
+          }}
+
           emptyTitle={search ? 'Aucun groupe trouvé.' : 'Aucun groupe configuré.'}
           emptyIcon={Users}
           storageKey="rbac-groups"
-          compact
         />
       </div>
 
-      {/* Detail panel */}
-      {selectedGroup && (
+      {/* Inline detail panel — only when NOT using DynamicPanel */}
+      {!onOpenPanel && selectedGroup && (
         <GroupDetailPanel groupId={selectedGroup} onClose={() => setSelectedGroup(null)} />
       )}
     </div>
@@ -739,7 +837,7 @@ function GroupsTab() {
 
 // ── Create Group Form ────────────────────────────────────────
 
-function CreateGroupForm({ onClose }: { onClose: () => void }) {
+export function CreateGroupForm({ onClose }: { onClose: () => void }) {
   const { toast } = useToast()
   const createMut = useCreateGroup()
   const { data: roles } = useRoles()
@@ -795,7 +893,7 @@ function CreateGroupForm({ onClose }: { onClose: () => void }) {
 
 // ── Group Detail Panel ───────────────────────────────────────
 
-function GroupDetailPanel({ groupId, onClose }: { groupId: string; onClose: () => void }) {
+export function GroupDetailPanel({ groupId, onClose }: { groupId: string; onClose: () => void }) {
   const { toast } = useToast()
   const { data: group, isLoading } = useGroup(groupId)
   const { data: roleDetail } = useRole(group?.role_code || '')
@@ -1000,8 +1098,10 @@ function GroupDetailPanel({ groupId, onClose }: { groupId: string; onClose: () =
 // PERMISSIONS TAB — Read-only matrix with rich tooltips
 // ══════════════════════════════════════════════════════════════════════════════
 
-function PermissionsTab() {
-  const [search, setSearch] = useState('')
+export function PermissionsTab({ externalSearch }: { externalSearch?: string } = {}) {
+  const [internalSearch, setInternalSearch] = useState('')
+  const search = externalSearch ?? internalSearch
+  const isControlled = externalSearch !== undefined
   const { data: modules, isLoading } = useModules()
 
   // Build a filtered view from modules
@@ -1027,17 +1127,19 @@ function PermissionsTab() {
 
   return (
     <div>
-      {/* Toolbar */}
+      {/* Toolbar — hidden when parent provides search */}
       <div className="flex items-center gap-2 mb-4">
-        <div className="relative flex-1">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input
-            className="gl-form-input h-8 text-xs pl-8 w-full"
-            placeholder="Rechercher une permission..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+        {!isControlled && (
+          <div className="relative flex-1">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              className="gl-form-input h-8 text-xs pl-8 w-full"
+              placeholder="Rechercher une permission..."
+              value={internalSearch}
+              onChange={(e) => setInternalSearch(e.target.value)}
+            />
+          </div>
+        )}
         <span className="text-xs text-muted-foreground shrink-0">{totalPerms} permission(s)</span>
       </div>
 

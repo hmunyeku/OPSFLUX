@@ -1,10 +1,15 @@
 """AsyncSession factory and get_db dependency for FastAPI."""
 
+import logging
 from collections.abc import AsyncGenerator
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.config import settings
+from app.core.tenant_context import get_tenant_schema
+
+logger = logging.getLogger(__name__)
 
 engine = create_async_engine(
     settings.DATABASE_URL,
@@ -22,9 +27,16 @@ async_session_factory = async_sessionmaker(
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """FastAPI dependency that yields an async DB session."""
+    """FastAPI dependency that yields a tenant-scoped async DB session.
+
+    Reads the tenant schema from the ContextVar set by TenantSchemaMiddleware
+    and executes SET search_path before yielding the session.
+    """
     async with async_session_factory() as session:
         try:
+            schema = get_tenant_schema()
+            # schema was validated by isidentifier() in the middleware
+            await session.execute(text(f"SET search_path TO {schema}, public"))
             yield session
         finally:
             await session.close()

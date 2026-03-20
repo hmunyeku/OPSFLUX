@@ -1,5 +1,7 @@
-"""Projets (project management) module routes — projects, tasks, members, milestones."""
+"""Projets (project management) module routes — projects, tasks, members, milestones,
+planning revisions, deliverables, actions, change logs."""
 
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -9,13 +11,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.database import get_db
 from app.core.pagination import PaginationParams, paginate
-from app.models.common import Project, ProjectMember, ProjectTask, ProjectMilestone, User, Tier
+from app.models.common import (
+    Project, ProjectMember, ProjectTask, ProjectMilestone,
+    PlanningRevision, TaskDeliverable, TaskAction, TaskChangeLog,
+    User, Tier,
+)
 from app.schemas.common import (
     PaginatedResponse,
     ProjectCreate, ProjectRead, ProjectUpdate,
     ProjectMemberCreate, ProjectMemberRead,
-    ProjectTaskCreate, ProjectTaskRead, ProjectTaskUpdate,
+    ProjectTaskCreate, ProjectTaskRead, ProjectTaskUpdate, ProjectTaskEnriched,
     ProjectMilestoneCreate, ProjectMilestoneRead, ProjectMilestoneUpdate,
+    PlanningRevisionCreate, PlanningRevisionRead, PlanningRevisionUpdate,
+    TaskDeliverableCreate, TaskDeliverableRead, TaskDeliverableUpdate,
+    TaskActionCreate, TaskActionRead, TaskActionUpdate,
+    TaskChangeLogRead,
 )
 
 router = APIRouter(prefix="/api/v1/projects", tags=["projects"])
@@ -64,6 +74,14 @@ async def list_projects(
         .subquery()
     )
 
+    children_count_sq = (
+        select(Project.parent_id, sqla_func.count(Project.id).label("children_count"))
+        .where(Project.archived == False, Project.parent_id.isnot(None))
+        .group_by(Project.parent_id)
+        .subquery()
+    )
+    ParentProject = Project.__table__.alias("parent_project")
+
     query = (
         select(
             Project,
@@ -72,11 +90,15 @@ async def list_projects(
             User.first_name.label("manager_first"),
             User.last_name.label("manager_last"),
             Tier.name.label("tier_name"),
+            ParentProject.c.name.label("parent_name"),
+            sqla_func.coalesce(children_count_sq.c.children_count, 0).label("children_count"),
         )
         .outerjoin(task_count_sq, Project.id == task_count_sq.c.project_id)
         .outerjoin(member_count_sq, Project.id == member_count_sq.c.project_id)
         .outerjoin(User, Project.manager_id == User.id)
         .outerjoin(Tier, Project.tier_id == Tier.id)
+        .outerjoin(ParentProject, Project.parent_id == ParentProject.c.id)
+        .outerjoin(children_count_sq, Project.id == children_count_sq.c.parent_id)
         .where(Project.entity_id == entity_id, Project.archived == False)
     )
 
@@ -102,6 +124,8 @@ async def list_projects(
         d["member_count"] = row[2]
         d["manager_name"] = f"{row[3]} {row[4]}" if row[3] else None
         d["tier_name"] = row[5]
+        d["parent_name"] = row[6]
+        d["children_count"] = row[7]
         return d
 
     return await paginate(db, query, pagination, transform=_transform)
@@ -121,9 +145,64 @@ async def create_project(
     d = {c.key: getattr(project, c.key) for c in project.__table__.columns}
     d["manager_name"] = None
     d["tier_name"] = None
+    d["parent_name"] = None
     d["task_count"] = 0
     d["member_count"] = 0
+    d["children_count"] = 0
     return d
+
+
+# ── Cross-Project Tasks (spreadsheet view) ─────────────────────────────
+# IMPORTANT: must be declared BEFORE /{project_id} to avoid UUID parsing error
+
+
+@router.get("/tasks-all", response_model=PaginatedResponse[ProjectTaskEnriched])
+async def list_all_tasks(
+    project_id: UUID | None = None,
+    status: str | None = None,
+    priority: str | None = None,
+    assignee_id: UUID | None = None,
+    search: str | None = None,
+    pagination: PaginationParams = Depends(),
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List all tasks across all projects — for MS Project-like spreadsheet view."""
+    query = (
+        select(
+            ProjectTask,
+            User.first_name.label("assignee_first"),
+            User.last_name.label("assignee_last"),
+            Project.code.label("project_code"),
+            Project.name.label("project_name"),
+        )
+        .join(Project, ProjectTask.project_id == Project.id)
+        .outerjoin(User, ProjectTask.assignee_id == User.id)
+        .where(Project.entity_id == entity_id, Project.archived == False, ProjectTask.active == True)
+    )
+    if project_id:
+        query = query.where(ProjectTask.project_id == project_id)
+    if status:
+        query = query.where(ProjectTask.status == status)
+    if priority:
+        query = query.where(ProjectTask.priority == priority)
+    if assignee_id:
+        query = query.where(ProjectTask.assignee_id == assignee_id)
+    if search:
+        like = f"%{search}%"
+        query = query.where(ProjectTask.title.ilike(like) | Project.code.ilike(like))
+    query = query.order_by(Project.code, ProjectTask.order, ProjectTask.created_at)
+
+    def _transform(row):
+        task = row[0]
+        d = {c.key: getattr(task, c.key) for c in task.__table__.columns}
+        d["assignee_name"] = f"{row[1]} {row[2]}" if row[1] else None
+        d["project_code"] = row[3]
+        d["project_name"] = row[4]
+        return d
+
+    return await paginate(db, query, pagination, transform=_transform)
 
 
 @router.get("/{project_id}", response_model=ProjectRead)
@@ -152,6 +231,15 @@ async def get_project(
         d["tier_name"] = tier.name if tier else None
     else:
         d["tier_name"] = None
+    # Parent name
+    if project.parent_id:
+        parent = await db.get(Project, project.parent_id)
+        d["parent_name"] = parent.name if parent else None
+    else:
+        d["parent_name"] = None
+    # Children count
+    cc = await db.execute(select(sqla_func.count()).select_from(Project).where(Project.parent_id == project_id, Project.archived == False))
+    d["children_count"] = cc.scalar() or 0
     return d
 
 
@@ -171,8 +259,10 @@ async def update_project(
     d = {c.key: getattr(project, c.key) for c in project.__table__.columns}
     d["manager_name"] = None
     d["tier_name"] = None
+    d["parent_name"] = None
     d["task_count"] = 0
     d["member_count"] = 0
+    d["children_count"] = 0
     return d
 
 
@@ -224,7 +314,7 @@ async def add_project_member(
     project_id: UUID,
     body: ProjectMemberCreate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("project.update"),
+    _: None = require_permission("project.member.manage"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
@@ -242,7 +332,7 @@ async def remove_project_member(
     project_id: UUID,
     member_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("project.update"),
+    _: None = require_permission("project.member.manage"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
@@ -297,7 +387,7 @@ async def create_project_task(
     project_id: UUID,
     body: ProjectTaskCreate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("project.update"),
+    _: None = require_permission("project.task.create"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
@@ -321,7 +411,8 @@ async def update_project_task(
     task_id: UUID,
     body: ProjectTaskUpdate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("project.update"),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.task.update"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
@@ -331,8 +422,28 @@ async def update_project_task(
     task = result.scalars().first()
     if not task:
         raise HTTPException(404, "Task not found")
+
+    # Track changes for historisation
+    TRACKED_FIELDS = {"status", "priority", "start_date", "due_date", "assignee_id", "title", "description", "progress", "estimated_hours", "actual_hours"}
+    CHANGE_TYPES = {
+        "start_date": "date_change", "due_date": "date_change", "status": "status_change",
+        "priority": "priority_change", "assignee_id": "assignment_change",
+        "title": "scope_change", "description": "scope_change",
+        "progress": "progress_change", "estimated_hours": "scope_change", "actual_hours": "scope_change",
+    }
     for field, value in body.model_dump(exclude_unset=True).items():
+        old_value = getattr(task, field)
+        if field in TRACKED_FIELDS and str(old_value) != str(value):
+            db.add(TaskChangeLog(
+                task_id=task_id,
+                change_type=CHANGE_TYPES.get(field, "other"),
+                field_name=field,
+                old_value=str(old_value) if old_value is not None else None,
+                new_value=str(value) if value is not None else None,
+                changed_by=current_user.id,
+            ))
         setattr(task, field, value)
+
     await db.commit()
     await db.refresh(task)
     d = {c.key: getattr(task, c.key) for c in task.__table__.columns}
@@ -345,7 +456,7 @@ async def delete_project_task(
     project_id: UUID,
     task_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("project.update"),
+    _: None = require_permission("project.task.delete"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
@@ -365,7 +476,7 @@ async def reorder_project_tasks(
     project_id: UUID,
     body: list[dict],  # [{ "id": uuid, "order": int, "status": str? }]
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("project.update"),
+    _: None = require_permission("project.task.reorder"),
     db: AsyncSession = Depends(get_db),
 ):
     """Batch reorder tasks (for kanban drag & drop)."""
@@ -407,7 +518,7 @@ async def create_project_milestone(
     project_id: UUID,
     body: ProjectMilestoneCreate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("project.update"),
+    _: None = require_permission("project.milestone.create"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
@@ -424,7 +535,7 @@ async def update_project_milestone(
     milestone_id: UUID,
     body: ProjectMilestoneUpdate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("project.update"),
+    _: None = require_permission("project.milestone.update"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
@@ -446,7 +557,7 @@ async def delete_project_milestone(
     project_id: UUID,
     milestone_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("project.update"),
+    _: None = require_permission("project.milestone.delete"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
@@ -459,3 +570,425 @@ async def delete_project_milestone(
     ms.active = False
     await db.commit()
     return {"detail": "Milestone deleted"}
+
+
+
+
+# ── Sub-projects (children of a macro-project) ─────────────────────────
+
+
+@router.get("/{project_id}/children", response_model=list[ProjectRead])
+async def list_sub_projects(
+    project_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List sub-projects of a macro-project."""
+    await _get_project_or_404(db, project_id, entity_id)
+    result = await db.execute(
+        select(Project)
+        .where(Project.parent_id == project_id, Project.archived == False)
+        .order_by(Project.code)
+    )
+    children = result.scalars().all()
+    enriched = []
+    for proj in children:
+        d = {c.key: getattr(proj, c.key) for c in proj.__table__.columns}
+        d["manager_name"] = None
+        d["tier_name"] = None
+        d["parent_name"] = None
+        d["task_count"] = 0
+        d["member_count"] = 0
+        d["children_count"] = 0
+        if proj.manager_id:
+            mgr = await db.get(User, proj.manager_id)
+            d["manager_name"] = f"{mgr.first_name} {mgr.last_name}" if mgr else None
+        # Count tasks
+        tc = await db.execute(select(sqla_func.count()).select_from(ProjectTask).where(ProjectTask.project_id == proj.id, ProjectTask.active == True))
+        d["task_count"] = tc.scalar() or 0
+        enriched.append(d)
+    return enriched
+
+
+# ── Planning Revisions ─────────────────────────────────────────────────────
+
+
+@router.get("/{project_id}/revisions", response_model=list[PlanningRevisionRead])
+async def list_revisions(
+    project_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    result = await db.execute(
+        select(PlanningRevision)
+        .where(PlanningRevision.project_id == project_id, PlanningRevision.active == True)
+        .order_by(PlanningRevision.revision_number.desc())
+    )
+    revisions = result.scalars().all()
+    enriched = []
+    for rev in revisions:
+        d = {c.key: getattr(rev, c.key) for c in rev.__table__.columns}
+        u = await db.get(User, rev.created_by)
+        d["creator_name"] = f"{u.first_name} {u.last_name}" if u else None
+        enriched.append(d)
+    return enriched
+
+
+@router.post("/{project_id}/revisions", response_model=PlanningRevisionRead, status_code=201)
+async def create_revision(
+    project_id: UUID,
+    body: PlanningRevisionCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.revision.create"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a new planning revision — snapshots current tasks/milestones."""
+    project = await _get_project_or_404(db, project_id, entity_id)
+
+    # Next revision number
+    max_rev = await db.execute(
+        select(sqla_func.coalesce(sqla_func.max(PlanningRevision.revision_number), 0))
+        .where(PlanningRevision.project_id == project_id)
+    )
+    next_num = (max_rev.scalar() or 0) + 1
+
+    # Snapshot tasks + milestones
+    tasks_result = await db.execute(
+        select(ProjectTask).where(ProjectTask.project_id == project_id, ProjectTask.active == True)
+    )
+    milestones_result = await db.execute(
+        select(ProjectMilestone).where(ProjectMilestone.project_id == project_id, ProjectMilestone.active == True)
+    )
+    snapshot = {
+        "project": {c.key: str(getattr(project, c.key)) if getattr(project, c.key) is not None else None for c in project.__table__.columns},
+        "tasks": [
+            {c.key: str(getattr(t, c.key)) if getattr(t, c.key) is not None else None for c in t.__table__.columns}
+            for t in tasks_result.scalars().all()
+        ],
+        "milestones": [
+            {c.key: str(getattr(m, c.key)) if getattr(m, c.key) is not None else None for c in m.__table__.columns}
+            for m in milestones_result.scalars().all()
+        ],
+    }
+
+    rev = PlanningRevision(
+        project_id=project_id,
+        revision_number=next_num,
+        name=body.name,
+        description=body.description,
+        is_simulation=body.is_simulation,
+        snapshot_data=snapshot,
+        created_by=current_user.id,
+    )
+    db.add(rev)
+    await db.commit()
+    await db.refresh(rev)
+    d = {c.key: getattr(rev, c.key) for c in rev.__table__.columns}
+    d["creator_name"] = f"{current_user.first_name} {current_user.last_name}"
+    return d
+
+
+@router.patch("/{project_id}/revisions/{revision_id}", response_model=PlanningRevisionRead)
+async def update_revision(
+    project_id: UUID,
+    revision_id: UUID,
+    body: PlanningRevisionUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.revision.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    result = await db.execute(
+        select(PlanningRevision).where(PlanningRevision.id == revision_id, PlanningRevision.project_id == project_id)
+    )
+    rev = result.scalars().first()
+    if not rev:
+        raise HTTPException(404, "Revision not found")
+
+    # If setting as active, deactivate others
+    if body.is_active is True:
+        others = await db.execute(
+            select(PlanningRevision)
+            .where(PlanningRevision.project_id == project_id, PlanningRevision.is_active == True, PlanningRevision.id != revision_id)
+        )
+        for other in others.scalars().all():
+            other.is_active = False
+
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(rev, field, value)
+    await db.commit()
+    await db.refresh(rev)
+    d = {c.key: getattr(rev, c.key) for c in rev.__table__.columns}
+    d["creator_name"] = None
+    return d
+
+
+@router.post("/{project_id}/revisions/{revision_id}/apply")
+async def apply_revision(
+    project_id: UUID,
+    revision_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.revision.apply"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Apply a revision snapshot — commits a simulation as active revision."""
+    await _get_project_or_404(db, project_id, entity_id)
+    result = await db.execute(
+        select(PlanningRevision).where(PlanningRevision.id == revision_id, PlanningRevision.project_id == project_id)
+    )
+    rev = result.scalars().first()
+    if not rev:
+        raise HTTPException(404, "Revision not found")
+    if not rev.snapshot_data:
+        raise HTTPException(400, "Revision has no snapshot data")
+
+    # Mark as no longer simulation, set as active
+    rev.is_simulation = False
+    rev.is_active = True
+    # Deactivate others
+    others = await db.execute(
+        select(PlanningRevision)
+        .where(PlanningRevision.project_id == project_id, PlanningRevision.is_active == True, PlanningRevision.id != revision_id)
+    )
+    for other in others.scalars().all():
+        other.is_active = False
+
+    await db.commit()
+    return {"detail": "Revision applied and set as active"}
+
+
+@router.delete("/{project_id}/revisions/{revision_id}")
+async def delete_revision(
+    project_id: UUID,
+    revision_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.revision.delete"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    result = await db.execute(
+        select(PlanningRevision).where(PlanningRevision.id == revision_id, PlanningRevision.project_id == project_id)
+    )
+    rev = result.scalars().first()
+    if not rev:
+        raise HTTPException(404, "Revision not found")
+    rev.active = False
+    await db.commit()
+    return {"detail": "Revision deleted"}
+
+
+# ── Task Deliverables ──────────────────────────────────────────────────────
+
+
+@router.get("/{project_id}/tasks/{task_id}/deliverables", response_model=list[TaskDeliverableRead])
+async def list_deliverables(
+    project_id: UUID,
+    task_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    result = await db.execute(
+        select(TaskDeliverable)
+        .where(TaskDeliverable.task_id == task_id, TaskDeliverable.active == True)
+        .order_by(TaskDeliverable.created_at)
+    )
+    return result.scalars().all()
+
+
+@router.post("/{project_id}/tasks/{task_id}/deliverables", response_model=TaskDeliverableRead, status_code=201)
+async def create_deliverable(
+    project_id: UUID,
+    task_id: UUID,
+    body: TaskDeliverableCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.deliverable.create"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    deliv = TaskDeliverable(task_id=task_id, **body.model_dump())
+    db.add(deliv)
+    await db.commit()
+    await db.refresh(deliv)
+    return deliv
+
+
+@router.patch("/{project_id}/tasks/{task_id}/deliverables/{deliverable_id}", response_model=TaskDeliverableRead)
+async def update_deliverable(
+    project_id: UUID,
+    task_id: UUID,
+    deliverable_id: UUID,
+    body: TaskDeliverableUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.deliverable.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    result = await db.execute(
+        select(TaskDeliverable).where(TaskDeliverable.id == deliverable_id, TaskDeliverable.task_id == task_id)
+    )
+    deliv = result.scalars().first()
+    if not deliv:
+        raise HTTPException(404, "Deliverable not found")
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(deliv, field, value)
+    await db.commit()
+    await db.refresh(deliv)
+    return deliv
+
+
+@router.delete("/{project_id}/tasks/{task_id}/deliverables/{deliverable_id}")
+async def delete_deliverable(
+    project_id: UUID,
+    task_id: UUID,
+    deliverable_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.deliverable.delete"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    result = await db.execute(
+        select(TaskDeliverable).where(TaskDeliverable.id == deliverable_id, TaskDeliverable.task_id == task_id)
+    )
+    deliv = result.scalars().first()
+    if not deliv:
+        raise HTTPException(404, "Deliverable not found")
+    deliv.active = False
+    await db.commit()
+    return {"detail": "Deliverable deleted"}
+
+
+# ── Task Actions / Checklists ──────────────────────────────────────────────
+
+
+@router.get("/{project_id}/tasks/{task_id}/actions", response_model=list[TaskActionRead])
+async def list_actions(
+    project_id: UUID,
+    task_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    result = await db.execute(
+        select(TaskAction)
+        .where(TaskAction.task_id == task_id, TaskAction.active == True)
+        .order_by(TaskAction.order, TaskAction.created_at)
+    )
+    return result.scalars().all()
+
+
+@router.post("/{project_id}/tasks/{task_id}/actions", response_model=TaskActionRead, status_code=201)
+async def create_action(
+    project_id: UUID,
+    task_id: UUID,
+    body: TaskActionCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.action.create"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    max_order = await db.execute(
+        select(sqla_func.coalesce(sqla_func.max(TaskAction.order), 0))
+        .where(TaskAction.task_id == task_id)
+    )
+    action = TaskAction(
+        task_id=task_id,
+        title=body.title,
+        completed=body.completed,
+        order=(max_order.scalar() or 0) + 1,
+    )
+    if body.completed:
+        action.completed_at = datetime.now(timezone.utc)
+        action.completed_by = current_user.id
+    db.add(action)
+    await db.commit()
+    await db.refresh(action)
+    return action
+
+
+@router.patch("/{project_id}/tasks/{task_id}/actions/{action_id}", response_model=TaskActionRead)
+async def update_action(
+    project_id: UUID,
+    task_id: UUID,
+    action_id: UUID,
+    body: TaskActionUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.action.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    result = await db.execute(
+        select(TaskAction).where(TaskAction.id == action_id, TaskAction.task_id == task_id)
+    )
+    action = result.scalars().first()
+    if not action:
+        raise HTTPException(404, "Action not found")
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(action, field, value)
+    if body.completed is True and not action.completed_at:
+        action.completed_at = datetime.now(timezone.utc)
+        action.completed_by = current_user.id
+    elif body.completed is False:
+        action.completed_at = None
+        action.completed_by = None
+    await db.commit()
+    await db.refresh(action)
+    return action
+
+
+@router.delete("/{project_id}/tasks/{task_id}/actions/{action_id}")
+async def delete_action(
+    project_id: UUID,
+    task_id: UUID,
+    action_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.action.delete"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    result = await db.execute(
+        select(TaskAction).where(TaskAction.id == action_id, TaskAction.task_id == task_id)
+    )
+    action = result.scalars().first()
+    if not action:
+        raise HTTPException(404, "Action not found")
+    action.active = False
+    await db.commit()
+    return {"detail": "Action deleted"}
+
+
+# ── Task Change Log ────────────────────────────────────────────────────────
+
+
+@router.get("/{project_id}/tasks/{task_id}/changelog", response_model=list[TaskChangeLogRead])
+async def list_task_changelog(
+    project_id: UUID,
+    task_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    result = await db.execute(
+        select(TaskChangeLog)
+        .where(TaskChangeLog.task_id == task_id)
+        .order_by(TaskChangeLog.created_at.desc())
+    )
+    logs = result.scalars().all()
+    enriched = []
+    for log in logs:
+        d = {c.key: getattr(log, c.key) for c in log.__table__.columns}
+        u = await db.get(User, log.changed_by)
+        d["author_name"] = f"{u.first_name} {u.last_name}" if u else None
+        enriched.append(d)
+    return enriched

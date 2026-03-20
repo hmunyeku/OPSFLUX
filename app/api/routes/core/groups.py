@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_entity, require_permission
+from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.database import get_db
 from app.core.pagination import PaginationParams
 from app.core.rbac import invalidate_rbac_cache
@@ -24,6 +24,7 @@ from app.models.common import (
     UserGroupMember,
 )
 from app.schemas.common import OpsFluxSchema, PaginatedResponse
+from app.services.core.delete_service import delete_entity
 
 router = APIRouter(prefix="/api/v1/rbac/groups", tags=["rbac-groups"])
 
@@ -391,6 +392,7 @@ async def remove_member(
     group_id: UUID,
     user_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("core.rbac.manage"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -413,7 +415,7 @@ async def remove_member(
     if not member:
         raise HTTPException(status_code=404, detail="Member not found in group")
 
-    await db.delete(member)
+    await delete_entity(member, db, "user_group_member", entity_id=member.id, user_id=current_user.id)
     await db.commit()
 
     await invalidate_rbac_cache(user_id)

@@ -5,8 +5,12 @@ import api from '@/lib/api'
 import type {
   Project, ProjectCreate, ProjectUpdate,
   ProjectMember, ProjectMemberCreate,
-  ProjectTask, ProjectTaskCreate, ProjectTaskUpdate,
+  ProjectTask, ProjectTaskCreate, ProjectTaskUpdate, ProjectTaskEnriched,
   ProjectMilestone, ProjectMilestoneCreate, ProjectMilestoneUpdate,
+  PlanningRevision, PlanningRevisionCreate, PlanningRevisionUpdate,
+  TaskDeliverable, TaskDeliverableCreate, TaskDeliverableUpdate,
+  TaskAction, TaskActionCreate, TaskActionUpdate,
+  TaskChangeLog,
   PaginatedResponse, PaginationParams,
 } from '@/types/api'
 
@@ -43,6 +47,21 @@ export const projetsService = {
 
   archive: async (id: string): Promise<void> => {
     await api.delete(`/api/v1/projects/${id}`)
+  },
+
+  // ── All Tasks (cross-project, spreadsheet view) ──
+  listAllTasks: async (params: PaginationParams & {
+    project_id?: string; status?: string; priority?: string;
+    assignee_id?: string; search?: string;
+  } = {}): Promise<PaginatedResponse<ProjectTaskEnriched>> => {
+    const { data } = await api.get('/api/v1/projects/tasks-all', { params })
+    return data
+  },
+
+  // ── Sub-projects ──
+  listChildren: async (projectId: string): Promise<Project[]> => {
+    const { data } = await api.get(`/api/v1/projects/${projectId}/children`)
+    return data
   },
 
   // ── Members ──
@@ -102,5 +121,75 @@ export const projetsService = {
 
   deleteMilestone: async (projectId: string, msId: string): Promise<void> => {
     await api.delete(`/api/v1/projects/${projectId}/milestones/${msId}`)
+  },
+
+  // ── Planning Revisions ──
+  listRevisions: async (projectId: string): Promise<PlanningRevision[]> => {
+    const { data } = await api.get(`/api/v1/projects/${projectId}/revisions`)
+    return data
+  },
+
+  createRevision: async (projectId: string, payload: PlanningRevisionCreate): Promise<PlanningRevision> => {
+    const { data } = await api.post(`/api/v1/projects/${projectId}/revisions`, payload)
+    return data
+  },
+
+  updateRevision: async (projectId: string, revisionId: string, payload: PlanningRevisionUpdate): Promise<PlanningRevision> => {
+    const { data } = await api.patch(`/api/v1/projects/${projectId}/revisions/${revisionId}`, payload)
+    return data
+  },
+
+  applyRevision: async (projectId: string, revisionId: string): Promise<void> => {
+    await api.post(`/api/v1/projects/${projectId}/revisions/${revisionId}/apply`)
+  },
+
+  deleteRevision: async (projectId: string, revisionId: string): Promise<void> => {
+    await api.delete(`/api/v1/projects/${projectId}/revisions/${revisionId}`)
+  },
+
+  // ── Task Deliverables ──
+  listDeliverables: async (projectId: string, taskId: string): Promise<TaskDeliverable[]> => {
+    const { data } = await api.get(`/api/v1/projects/${projectId}/tasks/${taskId}/deliverables`)
+    return data
+  },
+
+  createDeliverable: async (projectId: string, taskId: string, payload: TaskDeliverableCreate): Promise<TaskDeliverable> => {
+    const { data } = await api.post(`/api/v1/projects/${projectId}/tasks/${taskId}/deliverables`, payload)
+    return data
+  },
+
+  updateDeliverable: async (projectId: string, taskId: string, deliverableId: string, payload: TaskDeliverableUpdate): Promise<TaskDeliverable> => {
+    const { data } = await api.patch(`/api/v1/projects/${projectId}/tasks/${taskId}/deliverables/${deliverableId}`, payload)
+    return data
+  },
+
+  deleteDeliverable: async (projectId: string, taskId: string, deliverableId: string): Promise<void> => {
+    await api.delete(`/api/v1/projects/${projectId}/tasks/${taskId}/deliverables/${deliverableId}`)
+  },
+
+  // ── Task Actions / Checklists ──
+  listActions: async (projectId: string, taskId: string): Promise<TaskAction[]> => {
+    const { data } = await api.get(`/api/v1/projects/${projectId}/tasks/${taskId}/actions`)
+    return data
+  },
+
+  createAction: async (projectId: string, taskId: string, payload: TaskActionCreate): Promise<TaskAction> => {
+    const { data } = await api.post(`/api/v1/projects/${projectId}/tasks/${taskId}/actions`, payload)
+    return data
+  },
+
+  updateAction: async (projectId: string, taskId: string, actionId: string, payload: TaskActionUpdate): Promise<TaskAction> => {
+    const { data } = await api.patch(`/api/v1/projects/${projectId}/tasks/${taskId}/actions/${actionId}`, payload)
+    return data
+  },
+
+  deleteAction: async (projectId: string, taskId: string, actionId: string): Promise<void> => {
+    await api.delete(`/api/v1/projects/${projectId}/tasks/${taskId}/actions/${actionId}`)
+  },
+
+  // ── Task Change Log ──
+  listChangelog: async (projectId: string, taskId: string): Promise<TaskChangeLog[]> => {
+    const { data } = await api.get(`/api/v1/projects/${projectId}/tasks/${taskId}/changelog`)
+    return data
   },
 }

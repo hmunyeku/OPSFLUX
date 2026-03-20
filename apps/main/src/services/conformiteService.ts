@@ -7,6 +7,8 @@ import type {
   ComplianceRule, ComplianceRuleCreate,
   ComplianceRecord, ComplianceRecordCreate, ComplianceRecordUpdate,
   ComplianceCheckResult,
+  JobPosition, JobPositionCreate, JobPositionUpdate,
+  TierContactTransfer, TierContactTransferCreate,
   PaginatedResponse, PaginationParams,
 } from '@/types/api'
 
@@ -84,6 +86,37 @@ export const conformiteService = {
   // ── Check ──
   checkCompliance: async (ownerType: string, ownerId: string): Promise<ComplianceCheckResult> => {
     const { data } = await api.get(`/api/v1/conformite/check/${ownerType}/${ownerId}`)
+    return data
+  },
+
+  // ── Job Positions (fiches de poste) ──
+  listJobPositions: async (params: PaginationParams & { department?: string; search?: string } = {}): Promise<PaginatedResponse<JobPosition>> => {
+    const { data } = await api.get('/api/v1/conformite/job-positions', { params })
+    return data
+  },
+
+  createJobPosition: async (payload: JobPositionCreate): Promise<JobPosition> => {
+    const { data } = await api.post('/api/v1/conformite/job-positions', payload)
+    return data
+  },
+
+  updateJobPosition: async (id: string, payload: JobPositionUpdate): Promise<JobPosition> => {
+    const { data } = await api.patch(`/api/v1/conformite/job-positions/${id}`, payload)
+    return data
+  },
+
+  deleteJobPosition: async (id: string): Promise<void> => {
+    await api.delete(`/api/v1/conformite/job-positions/${id}`)
+  },
+
+  // ── Employee Transfers ──
+  listTransfers: async (params: PaginationParams & { contact_id?: string; from_tier_id?: string; to_tier_id?: string } = {}): Promise<PaginatedResponse<TierContactTransfer>> => {
+    const { data } = await api.get('/api/v1/conformite/transfers', { params })
+    return data
+  },
+
+  createTransfer: async (payload: TierContactTransferCreate): Promise<TierContactTransfer> => {
+    const { data } = await api.post('/api/v1/conformite/transfers', payload)
     return data
   },
 }

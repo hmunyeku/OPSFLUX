@@ -97,12 +97,16 @@ export interface ImportExportConfig {
   exportFormats?: ExportFormat[]
   /** Enable CSV import. */
   importCsv?: boolean
+  /** When set, enables the Import Wizard (overrides basic CSV import). */
+  importWizardTarget?: import('@/types/api').ImportTargetObject
   /** Filename prefix for exports. */
   filenamePrefix?: string
   /** Custom transform for export rows. */
   exportTransform?: (rows: Record<string, unknown>[]) => Record<string, unknown>[]
   /** Column headers mapping for export (accessorKey → human label). */
   exportHeaders?: Record<string, string>
+  /** Enable the advanced export wizard. */
+  advancedExport?: boolean
   /** Callback after successful import. */
   onImport?: (rows: Record<string, unknown>[]) => void | Promise<void>
   /**

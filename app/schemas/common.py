@@ -32,6 +32,7 @@ class PaginatedResponse(BaseModel, Generic[T]):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+    captcha_token: str | None = None
 
 
 class TokenResponse(BaseModel):
@@ -130,6 +131,8 @@ class AssetRead(OpsFluxSchema):
     latitude: float | None
     longitude: float | None
     allow_overlap: bool
+    max_pax: int | None
+    permanent_ops_quota: int
     active: bool
     created_at: datetime
 
@@ -142,6 +145,8 @@ class AssetCreate(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
     allow_overlap: bool = True
+    max_pax: int | None = None
+    permanent_ops_quota: int = 0
     metadata: dict[str, Any] | None = None
 
 
@@ -150,8 +155,55 @@ class AssetUpdate(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
     allow_overlap: bool | None = None
+    max_pax: int | None = None
+    permanent_ops_quota: int | None = None
     active: bool | None = None
     metadata: dict[str, Any] | None = None
+
+
+# ─── Asset Type Config schemas ───────────────────────────────────────────────
+
+class AssetTypeConfigRead(OpsFluxSchema):
+    id: UUID
+    entity_id: UUID
+    asset_type: str
+    label: str
+    icon_name: str | None
+    icon_url: str | None
+    color: str | None
+    map_marker_shape: str
+    is_fixed_installation: bool
+    show_on_map: bool
+    sort_order: int
+    active: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class AssetTypeConfigCreate(BaseModel):
+    asset_type: str = Field(..., min_length=1, max_length=50)
+    label: str = Field(..., min_length=1, max_length=200)
+    icon_name: str | None = None
+    icon_url: str | None = None
+    color: str | None = None
+    map_marker_shape: str = "circle"
+    is_fixed_installation: bool = True
+    show_on_map: bool = True
+    sort_order: int = 0
+    active: bool = True
+
+
+class AssetTypeConfigUpdate(BaseModel):
+    asset_type: str | None = None
+    label: str | None = None
+    icon_name: str | None = None
+    icon_url: str | None = None
+    color: str | None = None
+    map_marker_shape: str | None = None
+    is_fixed_installation: bool | None = None
+    show_on_map: bool | None = None
+    sort_order: int | None = None
+    active: bool | None = None
 
 
 # ─── Tier schemas ────────────────────────────────────────────────────────────
@@ -793,7 +845,7 @@ class ComplianceTypeRead(OpsFluxSchema):
 
 
 class ComplianceTypeCreate(BaseModel):
-    category: str = Field(..., pattern=r'^(formation|certification|habilitation|audit|medical)$')
+    category: str = Field(..., pattern=r'^(formation|certification|habilitation|audit|medical|epi)$')
     code: str = Field(..., min_length=1, max_length=50)
     name: str = Field(..., min_length=1, max_length=200)
     description: str | None = None
@@ -883,6 +935,60 @@ class ComplianceCheckResult(BaseModel):
     details: list[dict] = Field(default_factory=list)
 
 
+# ─── Job Positions / Fiches de Poste ─────────────────────────────────────────
+
+
+class JobPositionRead(OpsFluxSchema):
+    id: UUID
+    entity_id: UUID
+    code: str
+    name: str
+    description: str | None = None
+    department: str | None = None
+    active: bool
+    created_at: datetime
+
+
+class JobPositionCreate(BaseModel):
+    code: str = Field(..., min_length=1, max_length=50)
+    name: str = Field(..., min_length=1, max_length=200)
+    description: str | None = None
+    department: str | None = None
+
+
+class JobPositionUpdate(BaseModel):
+    code: str | None = None
+    name: str | None = None
+    description: str | None = None
+    department: str | None = None
+    active: bool | None = None
+
+
+# ─── Employee Transfer Log ───────────────────────────────────────────────────
+
+
+class TierContactTransferRead(OpsFluxSchema):
+    id: UUID
+    contact_id: UUID
+    from_tier_id: UUID
+    to_tier_id: UUID
+    transfer_date: datetime
+    reason: str | None = None
+    transferred_by: UUID
+    created_at: datetime
+    contact_name: str | None = None
+    from_tier_name: str | None = None
+    to_tier_name: str | None = None
+
+
+class TierContactTransferCreate(BaseModel):
+    contact_id: UUID
+    from_tier_id: UUID
+    to_tier_id: UUID
+    transfer_date: datetime
+    reason: str | None = None
+
+
 # ─── Projects / Projets ─────────────────────────────────────────────────────
 
 
@@ -910,8 +1016,10 @@ class ProjectRead(OpsFluxSchema):
     # Enriched
     manager_name: str | None = None
     tier_name: str | None = None
+    parent_name: str | None = None
     task_count: int = 0
     member_count: int = 0
+    children_count: int = 0
 
 
 class ProjectCreate(BaseModel):
@@ -990,6 +1098,12 @@ class ProjectTaskRead(OpsFluxSchema):
     assignee_name: str | None = None
 
 
+class ProjectTaskEnriched(ProjectTaskRead):
+    """Task with project info — for cross-project spreadsheet view."""
+    project_code: str | None = None
+    project_name: str | None = None
+
+
 class ProjectTaskCreate(BaseModel):
     parent_id: UUID | None = None
     code: str | None = None
@@ -1044,3 +1158,205 @@ class ProjectMilestoneUpdate(BaseModel):
     due_date: datetime | None = None
     completed_at: datetime | None = None
     status: str | None = None
+
+
+# ─── Planning Revisions ─────────────────────────────────────────────────────
+
+
+class PlanningRevisionRead(OpsFluxSchema):
+    id: UUID
+    project_id: UUID
+    revision_number: int
+    name: str
+    description: str | None = None
+    is_active: bool
+    is_simulation: bool
+    snapshot_data: dict | None = None
+    created_by: UUID
+    active: bool
+    created_at: datetime
+    creator_name: str | None = None
+
+
+class PlanningRevisionCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    description: str | None = None
+    is_simulation: bool = False
+
+
+class PlanningRevisionUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    is_simulation: bool | None = None
+    is_active: bool | None = None
+
+
+# ─── Task Deliverables ──────────────────────────────────────────────────────
+
+
+class TaskDeliverableRead(OpsFluxSchema):
+    id: UUID
+    task_id: UUID
+    name: str
+    description: str | None = None
+    status: str
+    due_date: datetime | None = None
+    delivered_at: datetime | None = None
+    accepted_by: UUID | None = None
+    active: bool
+    created_at: datetime
+
+
+class TaskDeliverableCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=300)
+    description: str | None = None
+    status: str = "pending"
+    due_date: datetime | None = None
+
+
+class TaskDeliverableUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    status: str | None = None
+    due_date: datetime | None = None
+    delivered_at: datetime | None = None
+    accepted_by: UUID | None = None
+
+
+# ─── Task Actions / Checklists ──────────────────────────────────────────────
+
+
+class TaskActionRead(OpsFluxSchema):
+    id: UUID
+    task_id: UUID
+    title: str
+    completed: bool
+    completed_at: datetime | None = None
+    completed_by: UUID | None = None
+    order: int
+    active: bool
+    created_at: datetime
+
+
+class TaskActionCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=300)
+    completed: bool = False
+
+
+class TaskActionUpdate(BaseModel):
+    title: str | None = None
+    completed: bool | None = None
+    order: int | None = None
+
+
+# ─── Task Change Log ────────────────────────────────────────────────────────
+
+
+class TaskChangeLogRead(OpsFluxSchema):
+    id: UUID
+    task_id: UUID
+    change_type: str
+    field_name: str
+    old_value: str | None = None
+    new_value: str | None = None
+    reason: str | None = None
+    changed_by: UUID
+    created_at: datetime
+    author_name: str | None = None
+
+
+# ─── PDF Templates ──────────────────────────────────────────────────────────
+
+
+class PdfTemplateCreate(BaseModel):
+    slug: str = Field(..., min_length=1, max_length=100, pattern=r"^[a-z][a-z0-9_.]*$")
+    name: str = Field(..., min_length=1, max_length=200)
+    description: str | None = None
+    object_type: str = Field(default="system", max_length=50)
+    enabled: bool = True
+    variables_schema: dict[str, Any] | None = None
+    page_size: str = Field(default="A4", pattern="^(A4|A5|A6|Letter)$")
+    orientation: str = Field(default="portrait", pattern="^(portrait|landscape)$")
+    margin_top: int = Field(default=15, ge=0, le=100)
+    margin_right: int = Field(default=12, ge=0, le=100)
+    margin_bottom: int = Field(default=15, ge=0, le=100)
+    margin_left: int = Field(default=12, ge=0, le=100)
+
+
+class PdfTemplateUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    object_type: str | None = None
+    enabled: bool | None = None
+    variables_schema: dict[str, Any] | None = None
+    page_size: str | None = Field(default=None, pattern="^(A4|A5|A6|Letter)$")
+    orientation: str | None = Field(default=None, pattern="^(portrait|landscape)$")
+    margin_top: int | None = Field(default=None, ge=0, le=100)
+    margin_right: int | None = Field(default=None, ge=0, le=100)
+    margin_bottom: int | None = Field(default=None, ge=0, le=100)
+    margin_left: int | None = Field(default=None, ge=0, le=100)
+
+
+class PdfTemplateVersionCreate(BaseModel):
+    language: str = Field(default="fr", pattern="^(fr|en)$")
+    body_html: str = Field(..., min_length=1)
+    header_html: str | None = None
+    footer_html: str | None = None
+    is_published: bool = False
+
+
+class PdfTemplateVersionRead(OpsFluxSchema):
+    id: UUID
+    template_id: UUID
+    version_number: int
+    language: str
+    body_html: str
+    header_html: str | None = None
+    footer_html: str | None = None
+    is_published: bool
+    created_by: UUID | None = None
+    created_at: datetime
+
+
+class PdfTemplateRead(OpsFluxSchema):
+    id: UUID
+    entity_id: UUID | None = None
+    slug: str
+    name: str
+    description: str | None = None
+    object_type: str
+    enabled: bool
+    variables_schema: dict[str, Any] | None = None
+    page_size: str
+    orientation: str
+    margin_top: int
+    margin_right: int
+    margin_bottom: int
+    margin_left: int
+    created_at: datetime
+    updated_at: datetime
+    versions: list[PdfTemplateVersionRead] = []
+
+
+class PdfTemplateSummaryRead(OpsFluxSchema):
+    """Lightweight read for list views (no versions)."""
+    id: UUID
+    entity_id: UUID | None = None
+    slug: str
+    name: str
+    description: str | None = None
+    object_type: str
+    enabled: bool
+    page_size: str
+    orientation: str
+    created_at: datetime
+    updated_at: datetime
+    published_languages: list[str] = []
+    version_count: int = 0
+
+
+class PdfPreviewRequest(BaseModel):
+    """Request to preview a rendered PDF template."""
+    version_id: UUID
+    variables: dict[str, Any] = Field(default_factory=dict)
+    output: str = Field(default="html", pattern="^(html|pdf)$")

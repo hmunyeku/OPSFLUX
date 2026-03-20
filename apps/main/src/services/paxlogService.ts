@@ -1,10 +1,11 @@
 /**
- * PaxLog module API service — profiles, credentials, compliance, AdS, incidents.
+ * PaxLog module API service — profiles, credentials, compliance, AdS, incidents,
+ * imputations, rotation cycles, external links, stay programs, profile types, signalements.
  */
 import api from '@/lib/api'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
 
-// ── Types ──────────────────────────────────────────────────────────────────
+// ── Types ──────────────────────────────────────────────────────
 
 // PAX Profiles
 export interface PaxProfile {
@@ -155,7 +156,30 @@ export interface ComplianceCheckResult {
   pending_credentials: string[]
 }
 
-// Avis de Séjour (AdS)
+export interface ComplianceStats {
+  total_pax: number
+  compliant_pax: number
+  non_compliant_pax: number
+  compliance_rate: number
+  expiring_soon: number
+  expired: number
+}
+
+export interface ExpiringCredential {
+  id: string
+  pax_id: string
+  pax_first_name: string
+  pax_last_name: string
+  pax_company_name: string | null
+  credential_type_id: string
+  credential_type_name: string
+  credential_type_category: string
+  expiry_date: string
+  days_remaining: number
+  status: string
+}
+
+// Avis de Sejour (AdS)
 export interface Ads {
   id: string
   entity_id: string
@@ -179,6 +203,10 @@ export interface Ads {
   archived: boolean
   created_at: string
   updated_at: string
+  // Enriched
+  requester_name?: string | null
+  site_name?: string | null
+  pax_count?: number
 }
 
 export interface AdsSummary {
@@ -194,6 +222,8 @@ export interface AdsSummary {
   end_date: string
   pax_count: number
   created_at: string
+  requester_name?: string | null
+  site_name?: string | null
 }
 
 export interface AdsCreate {
@@ -235,9 +265,58 @@ export interface AdsPax {
   booking_request_sent: boolean
   current_onboard: boolean
   priority_score: number
+  // Enriched
+  pax_first_name?: string | null
+  pax_last_name?: string | null
+  pax_badge?: string | null
+  pax_type?: string | null
+  pax_company_name?: string | null
+  compliant?: boolean | null
 }
 
-// PAX Incidents
+// AdS Imputations
+export interface AdsImputation {
+  id: string
+  ads_id: string
+  project_id: string
+  cost_center_id: string
+  percentage: number
+  wbs_id: string | null
+  project_name?: string | null
+  cost_center_name?: string | null
+  created_at: string
+}
+
+export interface AdsImputationCreate {
+  project_id: string
+  cost_center_id: string
+  percentage: number
+  wbs_id?: string | null
+}
+
+// External Links
+export interface AdsExternalLink {
+  id: string
+  ads_id: string
+  token: string
+  url: string
+  otp_required: boolean
+  otp_sent_to: string | null
+  expires_at: string
+  max_uses: number
+  use_count: number
+  active: boolean
+  created_at: string
+}
+
+export interface AdsExternalLinkCreate {
+  otp_required?: boolean
+  otp_sent_to?: string | null
+  expires_hours?: number
+  max_uses?: number
+}
+
+// PAX Incidents / Signalements
 export interface PaxIncident {
   id: string
   entity_id: string
@@ -254,6 +333,10 @@ export interface PaxIncident {
   resolved_by: string | null
   resolution_notes: string | null
   created_at: string
+  // Enriched
+  pax_first_name?: string | null
+  pax_last_name?: string | null
+  asset_name?: string | null
 }
 
 export interface PaxIncidentCreate {
@@ -271,7 +354,220 @@ export interface PaxIncidentResolve {
   resolution_notes?: string | null
 }
 
-// ── Params ─────────────────────────────────────────────────────────────────
+// Rotation Cycles
+export interface RotationCycle {
+  id: string
+  entity_id: string
+  pax_id: string
+  site_asset_id: string
+  status: 'active' | 'paused' | 'completed'
+  days_on: number
+  days_off: number
+  start_date: string
+  end_date: string | null
+  current_cycle_start: string | null
+  next_rotation_date: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+  // Enriched
+  pax_first_name?: string | null
+  pax_last_name?: string | null
+  site_name?: string | null
+}
+
+export interface RotationCycleCreate {
+  pax_id: string
+  site_asset_id: string
+  days_on: number
+  days_off: number
+  start_date: string
+  notes?: string | null
+}
+
+export interface RotationCycleUpdate {
+  days_on?: number
+  days_off?: number
+  status?: 'active' | 'paused' | 'completed'
+  notes?: string | null
+}
+
+// Stay Programs
+export interface StayProgram {
+  id: string
+  entity_id: string
+  ads_id: string | null
+  pax_id: string
+  status: 'draft' | 'submitted' | 'approved' | 'rejected'
+  title: string
+  start_date: string
+  end_date: string
+  details: Record<string, unknown> | null
+  submitted_at: string | null
+  approved_at: string | null
+  approved_by: string | null
+  created_at: string
+  // Enriched
+  pax_first_name?: string | null
+  pax_last_name?: string | null
+}
+
+export interface StayProgramCreate {
+  ads_id?: string | null
+  pax_id: string
+  title: string
+  start_date: string
+  end_date: string
+  details?: Record<string, unknown> | null
+}
+
+// Profile Types & Habilitation Matrix
+export interface ProfileType {
+  id: string
+  entity_id: string
+  code: string
+  name: string
+  description: string | null
+  active: boolean
+  created_at: string
+}
+
+export interface ProfileTypeCreate {
+  code: string
+  name: string
+  description?: string | null
+}
+
+export interface PaxProfileType {
+  id: string
+  pax_id: string
+  profile_type_id: string
+  assigned_at: string
+  profile_type_name?: string | null
+  profile_type_code?: string | null
+}
+
+export interface HabilitationMatrixEntry {
+  profile_type_id: string
+  profile_type_name: string
+  credential_type_id: string
+  credential_type_name: string
+  mandatory: boolean
+}
+
+// Avis de Mission (AVM)
+export interface MissionProgramCreate {
+  activity_description: string
+  activity_type?: 'visit' | 'meeting' | 'inspection' | 'training' | 'handover' | 'other'
+  site_asset_id?: string | null
+  planned_start_date?: string | null
+  planned_end_date?: string | null
+  project_id?: string | null
+  pax_ids?: string[]
+  notes?: string | null
+}
+
+export interface MissionProgramRead {
+  id: string
+  mission_notice_id: string
+  order_index: number
+  activity_description: string
+  activity_type: string
+  site_asset_id: string | null
+  planned_start_date: string | null
+  planned_end_date: string | null
+  project_id: string | null
+  generated_ads_id: string | null
+  notes: string | null
+  pax_ids: string[]
+  site_name: string | null
+}
+
+export interface MissionPreparationTaskRead {
+  id: string
+  mission_notice_id: string
+  title: string
+  task_type: string
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled' | 'blocked' | 'na'
+  assigned_to_user_id: string | null
+  linked_ads_id: string | null
+  due_date: string | null
+  completed_at: string | null
+  notes: string | null
+  auto_generated: boolean
+}
+
+export interface MissionNoticeCreate {
+  title: string
+  description?: string | null
+  planned_start_date?: string | null
+  planned_end_date?: string | null
+  mission_type?: 'standard' | 'vip' | 'regulatory' | 'emergency'
+  requires_badge?: boolean
+  requires_epi?: boolean
+  requires_visa?: boolean
+  eligible_displacement_allowance?: boolean
+  epi_measurements?: Record<string, unknown> | null
+  programs?: MissionProgramCreate[]
+}
+
+export interface MissionNoticeUpdate {
+  title?: string
+  description?: string | null
+  planned_start_date?: string | null
+  planned_end_date?: string | null
+  mission_type?: 'standard' | 'vip' | 'regulatory' | 'emergency'
+  requires_badge?: boolean
+  requires_epi?: boolean
+  requires_visa?: boolean
+  eligible_displacement_allowance?: boolean
+  epi_measurements?: Record<string, unknown> | null
+}
+
+export interface MissionNoticeRead {
+  id: string
+  entity_id: string
+  reference: string
+  title: string
+  description: string | null
+  created_by: string
+  status: 'draft' | 'in_preparation' | 'active' | 'ready' | 'completed' | 'cancelled'
+  planned_start_date: string | null
+  planned_end_date: string | null
+  requires_badge: boolean
+  requires_epi: boolean
+  requires_visa: boolean
+  eligible_displacement_allowance: boolean
+  epi_measurements: Record<string, unknown> | null
+  mission_type: 'standard' | 'vip' | 'regulatory' | 'emergency'
+  archived: boolean
+  cancellation_reason: string | null
+  created_at: string
+  updated_at: string
+  // Enriched
+  creator_name: string | null
+  programs: MissionProgramRead[]
+  preparation_tasks: MissionPreparationTaskRead[]
+  preparation_progress: number
+}
+
+export interface MissionNoticeSummary {
+  id: string
+  entity_id: string
+  reference: string
+  title: string
+  status: 'draft' | 'in_preparation' | 'active' | 'ready' | 'completed' | 'cancelled'
+  mission_type: string
+  planned_start_date: string | null
+  planned_end_date: string | null
+  created_by: string
+  creator_name: string | null
+  pax_count: number
+  preparation_progress: number
+  created_at: string
+}
+
+// ── Params ─────────────────────────────────────────────────────
 
 interface ProfileListParams extends PaginationParams {
   search?: string
@@ -284,14 +580,38 @@ interface AdsListParams extends PaginationParams {
   status?: string
   visit_category?: string
   site_entry_asset_id?: string
+  search?: string
+  requester_id?: string
+  date_from?: string
+  date_to?: string
 }
 
 interface IncidentListParams extends PaginationParams {
   pax_id?: string
+  asset_id?: string
+  severity?: string
   active_only?: boolean
 }
 
-// ── Service ────────────────────────────────────────────────────────────────
+interface RotationCycleListParams extends PaginationParams {
+  pax_id?: string
+  site_asset_id?: string
+  status?: string
+}
+
+interface StayProgramListParams extends PaginationParams {
+  ads_id?: string
+  pax_id?: string
+  status?: string
+}
+
+interface AvmListParams extends PaginationParams {
+  search?: string
+  status?: string
+  mission_type?: string
+}
+
+// ── Service ────────────────────────────────────────────────────
 
 export const paxlogService = {
   // ── PAX Profiles ──
@@ -366,7 +686,17 @@ export const paxlogService = {
     return data
   },
 
-  // ── Avis de Séjour (AdS) ──
+  getComplianceStats: async (): Promise<ComplianceStats> => {
+    const { data } = await api.get('/api/v1/pax/compliance/stats')
+    return data
+  },
+
+  getExpiringCredentials: async (daysAhead?: number): Promise<ExpiringCredential[]> => {
+    const { data } = await api.get('/api/v1/pax/compliance/expiring', { params: daysAhead ? { days_ahead: daysAhead } : {} })
+    return data
+  },
+
+  // ── Avis de Sejour (AdS) ──
 
   listAds: async (params: AdsListParams = {}): Promise<PaginatedResponse<AdsSummary>> => {
     const { data } = await api.get('/api/v1/pax/ads', { params })
@@ -398,6 +728,26 @@ export const paxlogService = {
     return data
   },
 
+  approveAds: async (id: string): Promise<Ads> => {
+    const { data } = await api.post(`/api/v1/pax/ads/${id}/approve`)
+    return data
+  },
+
+  rejectAds: async (id: string, reason?: string): Promise<Ads> => {
+    const { data } = await api.post(`/api/v1/pax/ads/${id}/reject`, { reason })
+    return data
+  },
+
+  getAdsByReference: async (reference: string): Promise<Ads> => {
+    const { data } = await api.get(`/api/v1/pax/ads/by-reference/${encodeURIComponent(reference)}`)
+    return data
+  },
+
+  getAdsPdf: async (id: string): Promise<Blob> => {
+    const { data } = await api.get(`/api/v1/pax/ads/${id}/pdf`, { responseType: 'blob' })
+    return data
+  },
+
   listAdsPax: async (adsId: string): Promise<AdsPax[]> => {
     const { data } = await api.get(`/api/v1/pax/ads/${adsId}/pax`)
     return data
@@ -412,7 +762,30 @@ export const paxlogService = {
     await api.delete(`/api/v1/pax/ads/${adsId}/pax/${paxId}`)
   },
 
-  // ── PAX Incidents ──
+  // ── AdS Imputations ──
+
+  getAdsImputations: async (adsId: string): Promise<AdsImputation[]> => {
+    const { data } = await api.get(`/api/v1/pax/ads/${adsId}/imputations`)
+    return data
+  },
+
+  addImputation: async (adsId: string, payload: AdsImputationCreate): Promise<AdsImputation> => {
+    const { data } = await api.post(`/api/v1/pax/ads/${adsId}/imputations`, payload)
+    return data
+  },
+
+  deleteImputation: async (adsId: string, imputationId: string): Promise<void> => {
+    await api.delete(`/api/v1/pax/ads/${adsId}/imputations/${imputationId}`)
+  },
+
+  // ── AdS External Links ──
+
+  createExternalLink: async (adsId: string, payload: AdsExternalLinkCreate): Promise<AdsExternalLink> => {
+    const { data } = await api.post(`/api/v1/pax/ads/${adsId}/external-link`, payload)
+    return data
+  },
+
+  // ── PAX Incidents / Signalements ──
 
   listIncidents: async (params: IncidentListParams = {}): Promise<PaginatedResponse<PaxIncident>> => {
     const { data } = await api.get('/api/v1/pax/incidents', { params })
@@ -426,6 +799,114 @@ export const paxlogService = {
 
   resolveIncident: async (id: string, payload: PaxIncidentResolve): Promise<PaxIncident> => {
     const { data } = await api.patch(`/api/v1/pax/incidents/${id}/resolve`, payload)
+    return data
+  },
+
+  // ── Rotation Cycles ──
+
+  listRotationCycles: async (params: RotationCycleListParams = {}): Promise<PaginatedResponse<RotationCycle>> => {
+    const { data } = await api.get('/api/v1/pax/rotation-cycles', { params })
+    return data
+  },
+
+  createRotationCycle: async (payload: RotationCycleCreate): Promise<RotationCycle> => {
+    const { data } = await api.post('/api/v1/pax/rotation-cycles', payload)
+    return data
+  },
+
+  updateRotationCycle: async (id: string, payload: RotationCycleUpdate): Promise<RotationCycle> => {
+    const { data } = await api.patch(`/api/v1/pax/rotation-cycles/${id}`, payload)
+    return data
+  },
+
+  endRotationCycle: async (id: string): Promise<RotationCycle> => {
+    const { data } = await api.post(`/api/v1/pax/rotation-cycles/${id}/end`)
+    return data
+  },
+
+  // ── Stay Programs ──
+
+  listStayPrograms: async (params: StayProgramListParams = {}): Promise<PaginatedResponse<StayProgram>> => {
+    const { data } = await api.get('/api/v1/pax/stay-programs', { params })
+    return data
+  },
+
+  createStayProgram: async (payload: StayProgramCreate): Promise<StayProgram> => {
+    const { data } = await api.post('/api/v1/pax/stay-programs', payload)
+    return data
+  },
+
+  submitStayProgram: async (id: string): Promise<StayProgram> => {
+    const { data } = await api.post(`/api/v1/pax/stay-programs/${id}/submit`)
+    return data
+  },
+
+  approveStayProgram: async (id: string): Promise<StayProgram> => {
+    const { data } = await api.post(`/api/v1/pax/stay-programs/${id}/approve`)
+    return data
+  },
+
+  // ── Profile Types ──
+
+  listProfileTypes: async (): Promise<ProfileType[]> => {
+    const { data } = await api.get('/api/v1/pax/profile-types')
+    return data
+  },
+
+  createProfileType: async (payload: ProfileTypeCreate): Promise<ProfileType> => {
+    const { data } = await api.post('/api/v1/pax/profile-types', payload)
+    return data
+  },
+
+  getPaxProfileTypes: async (paxId: string): Promise<PaxProfileType[]> => {
+    const { data } = await api.get(`/api/v1/pax/profiles/${paxId}/profile-types`)
+    return data
+  },
+
+  assignProfileType: async (paxId: string, profileTypeId: string): Promise<PaxProfileType> => {
+    const { data } = await api.post(`/api/v1/pax/profiles/${paxId}/profile-types/${profileTypeId}`)
+    return data
+  },
+
+  getHabilitationMatrix: async (profileTypeId?: string): Promise<HabilitationMatrixEntry[]> => {
+    const { data } = await api.get('/api/v1/pax/habilitation-matrix', { params: profileTypeId ? { profile_type_id: profileTypeId } : {} })
+    return data
+  },
+
+  // ── Avis de Mission (AVM) ──
+
+  listAvm: async (params: AvmListParams = {}): Promise<PaginatedResponse<MissionNoticeSummary>> => {
+    const { data } = await api.get('/api/v1/pax/avm', { params })
+    return data
+  },
+
+  getAvm: async (id: string): Promise<MissionNoticeRead> => {
+    const { data } = await api.get(`/api/v1/pax/avm/${id}`)
+    return data
+  },
+
+  createAvm: async (payload: MissionNoticeCreate): Promise<MissionNoticeRead> => {
+    const { data } = await api.post('/api/v1/pax/avm', payload)
+    return data
+  },
+
+  updateAvm: async (id: string, payload: MissionNoticeUpdate): Promise<MissionNoticeRead> => {
+    const { data } = await api.put(`/api/v1/pax/avm/${id}`, payload)
+    return data
+  },
+
+  submitAvm: async (id: string): Promise<Record<string, unknown>> => {
+    const { data } = await api.post(`/api/v1/pax/avm/${id}/submit`)
+    return data
+  },
+
+  approveAvm: async (id: string): Promise<Record<string, unknown>> => {
+    const { data } = await api.post(`/api/v1/pax/avm/${id}/approve`)
+    return data
+  },
+
+  cancelAvm: async (id: string, reason?: string): Promise<MissionNoticeRead> => {
+    const { data } = await api.post(`/api/v1/pax/avm/${id}/cancel`, null, { params: reason ? { reason } : {} })
     return data
   },
 }

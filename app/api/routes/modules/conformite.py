@@ -10,13 +10,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.database import get_db
 from app.core.pagination import PaginationParams, paginate
-from app.models.common import ComplianceType, ComplianceRule, ComplianceRecord, User
+from app.models.common import (
+    ComplianceType, ComplianceRule, ComplianceRecord,
+    JobPosition, TierContactTransfer, TierContact, Tier,
+    User,
+)
 from app.schemas.common import (
     PaginatedResponse,
     ComplianceTypeCreate, ComplianceTypeRead, ComplianceTypeUpdate,
     ComplianceRuleCreate, ComplianceRuleRead,
     ComplianceRecordCreate, ComplianceRecordRead, ComplianceRecordUpdate,
     ComplianceCheckResult,
+    JobPositionCreate, JobPositionRead, JobPositionUpdate,
+    TierContactTransferCreate, TierContactTransferRead,
 )
 
 router = APIRouter(prefix="/api/v1/conformite", tags=["conformite"])
@@ -280,17 +286,39 @@ async def check_compliance(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Check compliance status for an object — returns required, valid, expired, missing counts."""
+    """Check compliance status for an object — returns required, valid, expired, missing counts.
+
+    Resolves rules by target_type:
+    - 'all': applies to everyone
+    - 'job_position': applies to contacts with a specific job_position_id
+    """
     now = datetime.now(timezone.utc)
 
-    # Get all mandatory types via rules that apply to this owner
-    # For simplicity V1: get all rules with target_type='all' + entity-level rules
-    rules_result = await db.execute(
+    # 1) Rules with target_type='all' — applies to everyone
+    all_rules = await db.execute(
         select(ComplianceRule.compliance_type_id)
         .where(ComplianceRule.entity_id == entity_id, ComplianceRule.active == True)
         .where(ComplianceRule.target_type == "all")
     )
-    required_type_ids = set(r[0] for r in rules_result.all())
+    required_type_ids = set(r[0] for r in all_rules.all())
+
+    # 2) Rules with target_type='job_position' — resolve via contact's job_position_id
+    if owner_type == "tier_contact":
+        contact_result = await db.execute(
+            select(TierContact.job_position_id).where(TierContact.id == owner_id)
+        )
+        job_position_id = contact_result.scalar()
+        if job_position_id:
+            jp_rules = await db.execute(
+                select(ComplianceRule.compliance_type_id)
+                .where(
+                    ComplianceRule.entity_id == entity_id,
+                    ComplianceRule.active == True,
+                    ComplianceRule.target_type == "job_position",
+                    ComplianceRule.target_value == str(job_position_id),
+                )
+            )
+            required_type_ids |= set(r[0] for r in jp_rules.all())
 
     # Get existing records for this owner
     records_result = await db.execute(
@@ -306,18 +334,31 @@ async def check_compliance(
 
     valid_type_ids = set()
     expired_count = 0
-    details = []
+    details: list[dict] = []
 
     for rec in records:
         is_expired = rec.expires_at and rec.expires_at < now
         if is_expired:
             expired_count += 1
-            rec.status = "expired"  # auto-update status
+            rec.status = "expired"
         elif rec.status == "valid":
             valid_type_ids.add(rec.compliance_type_id)
 
+    # Build details for each required type
+    for type_id in required_type_ids:
+        type_obj = await db.get(ComplianceType, type_id)
+        matching = [r for r in records if r.compliance_type_id == type_id]
+        valid_match = any(r.compliance_type_id == type_id for r in records if r.status == "valid" and not (r.expires_at and r.expires_at < now))
+        details.append({
+            "compliance_type_id": str(type_id),
+            "type_name": type_obj.name if type_obj else None,
+            "type_category": type_obj.category if type_obj else None,
+            "status": "valid" if valid_match else ("expired" if any(r.expires_at and r.expires_at < now for r in matching) else "missing"),
+            "record_count": len(matching),
+        })
+
     missing_type_ids = required_type_ids - valid_type_ids
-    await db.commit()  # persist any status updates
+    await db.commit()
 
     return ComplianceCheckResult(
         owner_type=owner_type,
@@ -327,5 +368,171 @@ async def check_compliance(
         total_expired=expired_count,
         total_missing=len(missing_type_ids),
         is_compliant=len(missing_type_ids) == 0 and expired_count == 0,
-        details=[],
+        details=details,
     )
+
+
+# ── Job Positions (fiches de poste) ─────────────────────────────────────
+
+
+@router.get("/job-positions", response_model=PaginatedResponse[JobPositionRead])
+async def list_job_positions(
+    department: str | None = None,
+    search: str | None = None,
+    pagination: PaginationParams = Depends(),
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    query = select(JobPosition).where(
+        JobPosition.entity_id == entity_id,
+        JobPosition.active == True,
+    )
+    if department:
+        query = query.where(JobPosition.department == department)
+    if search:
+        like = f"%{search}%"
+        query = query.where(JobPosition.name.ilike(like) | JobPosition.code.ilike(like))
+    query = query.order_by(JobPosition.department, JobPosition.name)
+    return await paginate(db, query, pagination)
+
+
+@router.post("/job-positions", response_model=JobPositionRead, status_code=201)
+async def create_job_position(
+    body: JobPositionCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("conformite.jobposition.create"),
+    db: AsyncSession = Depends(get_db),
+):
+    jp = JobPosition(entity_id=entity_id, **body.model_dump())
+    db.add(jp)
+    await db.commit()
+    await db.refresh(jp)
+    return jp
+
+
+@router.patch("/job-positions/{jp_id}", response_model=JobPositionRead)
+async def update_job_position(
+    jp_id: UUID,
+    body: JobPositionUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("conformite.jobposition.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(JobPosition).where(JobPosition.id == jp_id, JobPosition.entity_id == entity_id)
+    )
+    jp = result.scalars().first()
+    if not jp:
+        raise HTTPException(404, "Job position not found")
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(jp, field, value)
+    await db.commit()
+    await db.refresh(jp)
+    return jp
+
+
+@router.delete("/job-positions/{jp_id}")
+async def delete_job_position(
+    jp_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("conformite.jobposition.delete"),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(JobPosition).where(JobPosition.id == jp_id, JobPosition.entity_id == entity_id)
+    )
+    jp = result.scalars().first()
+    if not jp:
+        raise HTTPException(404, "Job position not found")
+    jp.active = False
+    await db.commit()
+    return {"detail": "Job position archived"}
+
+
+# ── Employee Transfers ───────────────────────────────────────────────────
+
+
+@router.get("/transfers", response_model=PaginatedResponse[TierContactTransferRead])
+async def list_transfers(
+    contact_id: UUID | None = None,
+    from_tier_id: UUID | None = None,
+    to_tier_id: UUID | None = None,
+    pagination: PaginationParams = Depends(),
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List employee transfers with enriched names."""
+    from_tier = Tier.__table__.alias("from_tier")
+    to_tier = Tier.__table__.alias("to_tier")
+
+    query = (
+        select(
+            TierContactTransfer,
+            (TierContact.first_name + " " + TierContact.last_name).label("contact_name"),
+            from_tier.c.name.label("from_tier_name"),
+            to_tier.c.name.label("to_tier_name"),
+        )
+        .join(TierContact, TierContactTransfer.contact_id == TierContact.id)
+        .join(from_tier, TierContactTransfer.from_tier_id == from_tier.c.id)
+        .join(to_tier, TierContactTransfer.to_tier_id == to_tier.c.id)
+        # Filter by entity via the contact's tier
+        .where(TierContact.tier_id.in_(
+            select(Tier.id).where(Tier.entity_id == entity_id)
+        ))
+    )
+    if contact_id:
+        query = query.where(TierContactTransfer.contact_id == contact_id)
+    if from_tier_id:
+        query = query.where(TierContactTransfer.from_tier_id == from_tier_id)
+    if to_tier_id:
+        query = query.where(TierContactTransfer.to_tier_id == to_tier_id)
+    query = query.order_by(TierContactTransfer.transfer_date.desc())
+
+    def _transform(row):
+        transfer = row[0]
+        d = {c.key: getattr(transfer, c.key) for c in transfer.__table__.columns}
+        d["contact_name"] = row[1]
+        d["from_tier_name"] = row[2]
+        d["to_tier_name"] = row[3]
+        return d
+
+    return await paginate(db, query, pagination, transform=_transform)
+
+
+@router.post("/transfers", response_model=TierContactTransferRead, status_code=201)
+async def create_transfer(
+    body: TierContactTransferCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("conformite.transfer.create"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a transfer record and update the contact's tier_id."""
+    # Validate contact exists
+    contact = await db.get(TierContact, body.contact_id)
+    if not contact:
+        raise HTTPException(404, "Contact not found")
+
+    # Create transfer log
+    transfer = TierContactTransfer(
+        transferred_by=current_user.id,
+        **body.model_dump(),
+    )
+    db.add(transfer)
+
+    # Actually move the contact to the new tier
+    contact.tier_id = body.to_tier_id
+
+    await db.commit()
+    await db.refresh(transfer)
+
+    # Enrich response
+    from_tier = await db.get(Tier, transfer.from_tier_id)
+    to_tier = await db.get(Tier, transfer.to_tier_id)
+    d = {c.key: getattr(transfer, c.key) for c in transfer.__table__.columns}
+    d["contact_name"] = f"{contact.first_name} {contact.last_name}"
+    d["from_tier_name"] = from_tier.name if from_tier else None
+    d["to_tier_name"] = to_tier.name if to_tier else None
+    return d

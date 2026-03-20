@@ -1,27 +1,47 @@
 /**
- * Dashboard page — Pajamas Pattern: PanelHeader + tabs + stats + activity + quick actions + widgets.
+ * Dashboard page — Widget-based dashboard with tabs, grid layout, and widget catalog.
+ *
+ * Tab bar: [Mandatory tabs (locked)] [Personal tabs (closable)] [+ Add]
+ * Content area: CSS Grid 12-column widget layout
+ * Edit mode: toggle to add/remove/rearrange widgets
  */
-import { useState } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { useAuthStore } from '@/stores/authStore'
-import { useDashboardStats } from '@/hooks/useDashboard'
-import { useAuditLog } from '@/hooks/useSettings'
-import { PanelHeader, PanelContent } from '@/components/layout/PanelHeader'
-import { Banner } from '@/components/ui/Banner'
 import {
   LayoutDashboard,
+  Settings2,
+  Check,
+  Plus,
+  X,
+  Lock,
+  Pencil,
   MapPin,
   Users,
   Building2,
-  Plus,
-  ClipboardList,
-  BarChart3,
   RefreshCw,
-  GripVertical,
   Loader2,
   TrendingUp,
+  ClipboardList,
+  BarChart3,
+  GripVertical,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { PanelHeader, PanelContent } from '@/components/layout/PanelHeader'
+import { Banner } from '@/components/ui/Banner'
+import { useAuthStore } from '@/stores/authStore'
+import {
+  useDashboardTabs,
+  useDashboardStats,
+  useCreateDashboardTab,
+  useUpdateDashboardTab,
+  useDeleteDashboardTab,
+  useWidgetCatalog,
+} from '@/hooks/useDashboard'
+import { useAuditLog } from '@/hooks/useSettings'
+import { DashboardGrid } from '@/components/dashboard/DashboardGrid'
+import { WidgetCatalogPopover } from '@/components/dashboard/WidgetCatalogPopover'
+import type { DashboardWidget, DashboardTab, UserDashboardTab, WidgetCatalogEntry } from '@/services/dashboardService'
 
 // ── Relative time formatting ──────────────────────────────────
 
@@ -65,15 +85,58 @@ function formatAction(action: string, resourceType: string, resourceId: string |
   return `${verb} ${type}${id}`
 }
 
-// ── Tabs ──────────────────────────────────────────────────────
+// ── Unified Tab type ──────────────────────────────────────────
 
-type TabId = 'overview' | 'activity'
+interface UnifiedTab {
+  id: string
+  name: string
+  is_mandatory: boolean
+  is_closable: boolean
+  tab_order: number
+  widgets: DashboardWidget[]
+  icon: string | null
+}
+
+function unifyTabs(
+  mandatory: DashboardTab[],
+  personal: UserDashboardTab[],
+): UnifiedTab[] {
+  const mandatoryUnified: UnifiedTab[] = (mandatory || []).map((t) => ({
+    id: t.id,
+    name: t.name,
+    is_mandatory: true,
+    is_closable: false,
+    tab_order: t.tab_order,
+    widgets: t.widgets || [],
+    icon: t.icon || null,
+  }))
+
+  const personalUnified: UnifiedTab[] = (personal || []).map((t) => ({
+    id: t.id,
+    name: t.name,
+    is_mandatory: false,
+    is_closable: true,
+    tab_order: t.tab_order,
+    widgets: t.widgets || [],
+    icon: null,
+  }))
+
+  return [...mandatoryUnified, ...personalUnified].sort((a, b) => a.tab_order - b.tab_order)
+}
+
+
+// ── Main Page ─────────────────────────────────────────────────
 
 export function DashboardPage() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const { user } = useAuthStore()
+  const lang = i18n.language?.startsWith('fr') ? 'fr' : 'en'
+
+  // Data fetching
+  const { data: tabsData } = useDashboardTabs()
   const { data: stats, isLoading: statsLoading } = useDashboardStats()
+  const { data: catalog } = useWidgetCatalog()
   const {
     data: auditData,
     isLoading: auditLoading,
@@ -81,64 +144,138 @@ export function DashboardPage() {
     isFetching: auditFetching,
   } = useAuditLog({ page: 1, page_size: 5 })
 
-  const [activeTab, setActiveTab] = useState<TabId>('overview')
+  // Mutations
+  const createTab = useCreateDashboardTab()
+  const updateTab = useUpdateDashboardTab()
+  const deleteTab = useDeleteDashboardTab()
 
-  const lang = i18n.language?.startsWith('fr') ? 'fr' : 'en'
+  // State
+  const [activeTabId, setActiveTabId] = useState<string | null>(null)
+  const [editMode, setEditMode] = useState(false)
+  const [editingTabName, setEditingTabName] = useState<string | null>(null)
+  const [tabNameDraft, setTabNameDraft] = useState('')
 
-  // ── Stat cards ──────────────────────────────────────────────
+  // Unify tabs
+  const allTabs = useMemo(() => {
+    if (!tabsData) return []
+    return unifyTabs(tabsData.mandatory, tabsData.personal)
+  }, [tabsData])
 
-  const cards = [
-    {
-      labelKey: 'dashboard.active_assets',
-      value: stats?.assets_count,
-      icon: MapPin,
-      trendKey: 'dashboard.trend_assets',
-    },
-    {
-      labelKey: 'dashboard.users',
-      value: stats?.users_count,
-      icon: Users,
-      sublabelKey: 'dashboard.users_active',
-    },
-    {
-      labelKey: 'dashboard.companies',
-      value: stats?.tiers_count,
-      icon: Building2,
-      sublabelKey: 'dashboard.tiers_active',
-    },
-  ]
+  // If we have no tabs from the API, show built-in "Overview" + "My activity" tabs
+  const hasApiTabs = allTabs.length > 0
+  const builtinTabs: UnifiedTab[] = useMemo(() => {
+    if (hasApiTabs) return []
+    return [
+      {
+        id: '__builtin_overview',
+        name: t('dashboard.tab_overview'),
+        is_mandatory: true,
+        is_closable: false,
+        tab_order: 0,
+        widgets: [],
+        icon: null,
+      },
+      {
+        id: '__builtin_activity',
+        name: t('dashboard.tab_activity'),
+        is_mandatory: true,
+        is_closable: false,
+        tab_order: 1,
+        widgets: [],
+        icon: null,
+      },
+    ]
+  }, [hasApiTabs, t])
 
-  // ── Quick actions ───────────────────────────────────────────
+  const displayTabs = hasApiTabs ? allTabs : builtinTabs
 
+  // Auto-select first tab
+  useEffect(() => {
+    if (!activeTabId && displayTabs.length > 0) {
+      setActiveTabId(displayTabs[0].id)
+    }
+  }, [displayTabs, activeTabId])
+
+  const activeTab = displayTabs.find((tab) => tab.id === activeTabId) || displayTabs[0]
+
+  // Handlers
+  const handleAddTab = useCallback(() => {
+    const newName = `${t('dashboard.personal_tab')} ${(tabsData?.personal?.length || 0) + 1}`
+    createTab.mutate({ name: newName }, {
+      onSuccess: (newTab) => {
+        setActiveTabId(newTab.id)
+      },
+    })
+  }, [createTab, tabsData, t])
+
+  const handleDeleteTab = useCallback((tabId: string) => {
+    deleteTab.mutate(tabId, {
+      onSuccess: () => {
+        if (activeTabId === tabId) {
+          setActiveTabId(displayTabs[0]?.id || null)
+        }
+      },
+    })
+  }, [deleteTab, activeTabId, displayTabs])
+
+  const handleStartRenameTab = useCallback((tabId: string, currentName: string) => {
+    setEditingTabName(tabId)
+    setTabNameDraft(currentName)
+  }, [])
+
+  const handleFinishRenameTab = useCallback(() => {
+    if (editingTabName && tabNameDraft.trim()) {
+      updateTab.mutate({ id: editingTabName, name: tabNameDraft.trim() })
+    }
+    setEditingTabName(null)
+    setTabNameDraft('')
+  }, [editingTabName, tabNameDraft, updateTab])
+
+  const handleAddWidget = useCallback((entry: WidgetCatalogEntry) => {
+    if (!activeTab || activeTab.id.startsWith('__builtin')) return
+
+    const existingWidgets = activeTab.widgets || []
+    // Place new widget at first available position
+    const maxY = existingWidgets.reduce((max, w) => Math.max(max, (w.position?.y || 0) + (w.position?.h || 4)), 0)
+
+    const newWidget: DashboardWidget = {
+      id: `widget-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      type: entry.type,
+      title: entry.title,
+      description: entry.description,
+      config: { ...entry.default_config },
+      position: { x: 0, y: maxY, w: 4, h: 4 },
+    }
+
+    const updatedWidgets = [...existingWidgets, newWidget]
+    updateTab.mutate({ id: activeTab.id, widgets: updatedWidgets })
+  }, [activeTab, updateTab])
+
+  const handleRemoveWidget = useCallback((widgetId: string) => {
+    if (!activeTab || activeTab.id.startsWith('__builtin')) return
+    const updatedWidgets = (activeTab.widgets || []).filter((w) => w.id !== widgetId)
+    updateTab.mutate({ id: activeTab.id, widgets: updatedWidgets })
+  }, [activeTab, updateTab])
+
+  // Quick actions (used in built-in overview)
   const quickActions = [
-    {
-      labelKey: 'dashboard.qa_new_asset',
-      icon: MapPin,
-      path: '/assets',
-    },
-    {
-      labelKey: 'dashboard.qa_new_tier',
-      icon: Building2,
-      path: '/tiers',
-    },
-    {
-      labelKey: 'dashboard.qa_my_tasks',
-      icon: ClipboardList,
-      path: '/workflow',
-    },
-    {
-      labelKey: 'dashboard.qa_reports',
-      icon: BarChart3,
-      path: '/settings',
-    },
+    { labelKey: 'dashboard.qa_new_asset', icon: MapPin, path: '/assets' },
+    { labelKey: 'dashboard.qa_new_tier', icon: Building2, path: '/tiers' },
+    { labelKey: 'dashboard.qa_my_tasks', icon: ClipboardList, path: '/workflow' },
+    { labelKey: 'dashboard.qa_reports', icon: BarChart3, path: '/settings' },
   ]
 
-  // ── Tabs config ─────────────────────────────────────────────
-
-  const tabs: { id: TabId; labelKey: string }[] = [
-    { id: 'overview', labelKey: 'dashboard.tab_overview' },
-    { id: 'activity', labelKey: 'dashboard.tab_activity' },
+  // Stats cards for built-in overview
+  const statsCards = [
+    { labelKey: 'dashboard.active_assets', value: stats?.assets_count, icon: MapPin, trendKey: 'dashboard.trend_assets' },
+    { labelKey: 'dashboard.users', value: stats?.users_count, icon: Users, sublabelKey: 'dashboard.users_active' },
+    { labelKey: 'dashboard.companies', value: stats?.tiers_count, icon: Building2, sublabelKey: 'dashboard.tiers_active' },
   ]
+
+  // Determine what to render in content area
+  const isBuiltinOverview = activeTab?.id === '__builtin_overview'
+  const isBuiltinActivity = activeTab?.id === '__builtin_activity'
+  const isBuiltin = isBuiltinOverview || isBuiltinActivity
 
   return (
     <div className="flex flex-col h-full">
@@ -148,84 +285,111 @@ export function DashboardPage() {
         subtitle={`${t('dashboard.welcome')}, ${user?.first_name || 'User'}`}
       />
 
-      {/* ── Tab bar ──────────────────────────────────────────── */}
-      <div className="flex items-center gap-0 border-b border-border bg-background px-4 shrink-0">
-        {tabs.map((tab) => (
-          <button
+      {/* Tab bar */}
+      <div className="flex items-center h-10 border-b border-border bg-background px-4 gap-0 flex-shrink-0">
+        {displayTabs.map((tab) => (
+          <TabButton
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`
-              relative h-9 px-3 text-sm font-medium transition-colors
-              ${activeTab === tab.id
-                ? 'text-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-              }
-            `}
-          >
-            {t(tab.labelKey)}
-            {activeTab === tab.id && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t" />
-            )}
-          </button>
+            tab={tab}
+            active={activeTab?.id === tab.id}
+            editMode={editMode}
+            isRenaming={editingTabName === tab.id}
+            renameDraft={tabNameDraft}
+            onRenameDraftChange={setTabNameDraft}
+            onFinishRename={handleFinishRenameTab}
+            onClick={() => setActiveTabId(tab.id)}
+            onClose={tab.is_closable ? () => handleDeleteTab(tab.id) : undefined}
+            onStartRename={
+              !tab.is_mandatory && editMode
+                ? () => handleStartRenameTab(tab.id, tab.name)
+                : undefined
+            }
+          />
         ))}
+
+        {/* Add tab button */}
         <button
-          className="h-9 px-2 text-muted-foreground hover:text-foreground transition-colors"
+          type="button"
+          onClick={handleAddTab}
+          disabled={createTab.isPending}
+          className="h-9 px-2 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
           title={t('dashboard.add_tab')}
-          disabled
         >
-          <Plus size={14} />
+          {createTab.isPending ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <Plus size={14} />
+          )}
         </button>
+
+        {/* Right side: edit mode toggle + widget catalog */}
+        <div className="ml-auto flex items-center gap-1.5">
+          {editMode && !isBuiltin && catalog && (
+            <WidgetCatalogPopover catalog={catalog} onAdd={handleAddWidget} />
+          )}
+          {!isBuiltin && (
+            <button
+              onClick={() => setEditMode(!editMode)}
+              className={cn(
+                'inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs font-medium transition-colors',
+                editMode
+                  ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                  : 'hover:bg-muted text-muted-foreground',
+              )}
+            >
+              {editMode ? (
+                <>
+                  <Check className="h-3.5 w-3.5" />
+                  {t('dashboard.save_dashboard')}
+                </>
+              ) : (
+                <>
+                  <Settings2 className="h-3.5 w-3.5" />
+                  {t('dashboard.edit_dashboard')}
+                </>
+              )}
+            </button>
+          )}
+        </div>
       </div>
 
+      {/* Content area */}
       <PanelContent className="p-4">
-        <div className="space-y-3 mb-4">
-          <Banner
-            variant="promo"
-            title="Bienvenue sur OpsFlux"
-            description="Explorez les fonctionnalites de gestion d'assets, tiers et workflows. Utilisez Ctrl+K pour la recherche rapide."
-            action={{ label: 'Decouvrir', onClick: () => navigate('/search') }}
-            dismissKey="banner:welcome-v1"
-          />
-          <Banner
-            variant="info"
-            title="Recherche avancee"
-            description="Une nouvelle page de recherche est disponible. Recherchez des assets, tiers et utilisateurs depuis un seul endroit."
-            action={{ label: 'Essayer', onClick: () => navigate('/search') }}
-            dismissKey="banner:search-feature-v1"
-            compact
-          />
-        </div>
+        {/* Banners (only on built-in overview) */}
+        {isBuiltinOverview && (
+          <div className="space-y-3 mb-4">
+            <Banner
+              variant="promo"
+              title="Bienvenue sur OpsFlux"
+              description="Explorez les fonctionnalites de gestion d'assets, tiers et workflows. Utilisez Ctrl+K pour la recherche rapide."
+              action={{ label: 'Decouvrir', onClick: () => navigate('/search') }}
+              dismissKey="banner:welcome-v1"
+            />
+          </div>
+        )}
 
-        {activeTab === 'overview' && (
+        {/* Built-in Overview content */}
+        {isBuiltinOverview && (
           <div className="space-y-6">
-            {/* ── Stats cards ────────────────────────────────── */}
+            {/* Stats cards */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              {cards.map((card) => {
+              {statsCards.map((card) => {
                 const Icon = card.icon
                 return (
-                  <div
-                    key={card.labelKey}
-                    className="rounded border border-border bg-card p-4"
-                  >
+                  <div key={card.labelKey} className="rounded border border-border bg-card p-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">
-                        {t(card.labelKey)}
-                      </span>
+                      <span className="text-sm text-muted-foreground">{t(card.labelKey)}</span>
                       <Icon size={16} className="text-muted-foreground" />
                     </div>
                     <div className="mt-2">
                       {statsLoading ? (
                         <Loader2 size={16} className="animate-spin text-muted-foreground" />
                       ) : (
-                        <p className="text-3xl font-semibold text-foreground">
-                          {card.value ?? 0}
-                        </p>
+                        <p className="text-3xl font-semibold text-foreground">{card.value ?? 0}</p>
                       )}
                     </div>
                     {card.sublabelKey && !statsLoading && (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {t(card.sublabelKey)}
-                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">{t(card.sublabelKey)}</p>
                     )}
                     {card.trendKey && !statsLoading && (card.value ?? 0) > 0 && (
                       <div className="mt-1 flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
@@ -238,12 +402,10 @@ export function DashboardPage() {
               })}
             </div>
 
-            {/* ── Activité récente ───────────────────────────── */}
+            {/* Recent activity */}
             <div className="rounded border border-border bg-card">
               <div className="flex items-center justify-between border-b border-border px-4 py-3">
-                <h2 className="text-sm font-semibold text-foreground">
-                  {t('dashboard.recent_activity')}
-                </h2>
+                <h2 className="text-sm font-semibold text-foreground">{t('dashboard.recent_activity')}</h2>
                 <button
                   onClick={() => refetchAudit()}
                   disabled={auditFetching}
@@ -261,16 +423,12 @@ export function DashboardPage() {
                 ) : auditData?.items && auditData.items.length > 0 ? (
                   auditData.items.map((entry) => (
                     <div key={entry.id} className="flex items-start gap-3 px-4 py-3">
-                      <span
-                        className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${getActionDotClass(entry.action)}`}
-                      />
+                      <span className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${getActionDotClass(entry.action)}`} />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm text-foreground truncate">
                           {formatAction(entry.action, entry.resource_type, entry.resource_id, t)}
                         </p>
-                        <p className="text-xs text-muted-foreground">
-                          {getRelativeTime(entry.created_at, lang)}
-                        </p>
+                        <p className="text-xs text-muted-foreground">{getRelativeTime(entry.created_at, lang)}</p>
                       </div>
                     </div>
                   ))
@@ -282,22 +440,17 @@ export function DashboardPage() {
               </div>
               {auditData?.items && auditData.items.length > 0 && (
                 <div className="border-t border-border px-4 py-2">
-                  <button
-                    onClick={() => navigate('/settings')}
-                    className="text-xs text-primary hover:underline"
-                  >
+                  <button onClick={() => navigate('/settings')} className="text-xs text-primary hover:underline">
                     {t('dashboard.view_all')}
                   </button>
                 </div>
               )}
             </div>
 
-            {/* ── Quick actions ──────────────────────────────── */}
+            {/* Quick actions */}
             <div className="rounded border border-border bg-card">
               <div className="border-b border-border px-4 py-3">
-                <h2 className="text-sm font-semibold text-foreground">
-                  {t('dashboard.quick_actions')}
-                </h2>
+                <h2 className="text-sm font-semibold text-foreground">{t('dashboard.quick_actions')}</h2>
               </div>
               <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
                 {quickActions.map((action) => {
@@ -316,27 +469,21 @@ export function DashboardPage() {
               </div>
             </div>
 
-            {/* ── Widget zone placeholder ────────────────────── */}
+            {/* Widget zone placeholder */}
             <div className="rounded border border-dashed border-border p-8 text-center">
               <GripVertical size={32} className="mx-auto text-muted-foreground/30" />
-              <p className="mt-3 text-sm text-muted-foreground">
-                {t('dashboard.widgets_zone')}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground/70">
-                {t('dashboard.widgets_hint')}
-              </p>
+              <p className="mt-3 text-sm text-muted-foreground">{t('dashboard.widgets_zone')}</p>
+              <p className="mt-1 text-xs text-muted-foreground/70">{t('dashboard.widgets_hint')}</p>
             </div>
           </div>
         )}
 
-        {activeTab === 'activity' && (
+        {/* Built-in Activity tab */}
+        {isBuiltinActivity && (
           <div className="space-y-4">
-            {/* ── Full activity feed on the "Mon activité" tab ── */}
             <div className="rounded border border-border bg-card">
               <div className="flex items-center justify-between border-b border-border px-4 py-3">
-                <h2 className="text-sm font-semibold text-foreground">
-                  {t('dashboard.tab_activity')}
-                </h2>
+                <h2 className="text-sm font-semibold text-foreground">{t('dashboard.tab_activity')}</h2>
                 <button
                   onClick={() => refetchAudit()}
                   disabled={auditFetching}
@@ -354,16 +501,12 @@ export function DashboardPage() {
                 ) : auditData?.items && auditData.items.length > 0 ? (
                   auditData.items.map((entry) => (
                     <div key={entry.id} className="flex items-start gap-3 px-4 py-3">
-                      <span
-                        className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${getActionDotClass(entry.action)}`}
-                      />
+                      <span className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${getActionDotClass(entry.action)}`} />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm text-foreground">
                           {formatAction(entry.action, entry.resource_type, entry.resource_id, t)}
                         </p>
-                        <p className="text-xs text-muted-foreground">
-                          {getRelativeTime(entry.created_at, lang)}
-                        </p>
+                        <p className="text-xs text-muted-foreground">{getRelativeTime(entry.created_at, lang)}</p>
                       </div>
                     </div>
                   ))
@@ -375,10 +518,7 @@ export function DashboardPage() {
               </div>
               {auditData?.items && auditData.items.length > 0 && (
                 <div className="border-t border-border px-4 py-2">
-                  <button
-                    onClick={() => navigate('/settings')}
-                    className="text-xs text-primary hover:underline"
-                  >
+                  <button onClick={() => navigate('/settings')} className="text-xs text-primary hover:underline">
                     {t('dashboard.view_all')}
                   </button>
                 </div>
@@ -386,7 +526,103 @@ export function DashboardPage() {
             </div>
           </div>
         )}
+
+        {/* Widget grid for API-backed tabs */}
+        {!isBuiltin && (
+          <DashboardGrid
+            widgets={activeTab?.widgets || []}
+            mode={editMode ? 'edit' : 'view'}
+            onRemoveWidget={editMode ? handleRemoveWidget : undefined}
+          />
+        )}
       </PanelContent>
+    </div>
+  )
+}
+
+// ── Tab Button Component ──────────────────────────────────────
+
+interface TabButtonProps {
+  tab: UnifiedTab
+  active: boolean
+  editMode: boolean
+  isRenaming: boolean
+  renameDraft: string
+  onRenameDraftChange: (val: string) => void
+  onFinishRename: () => void
+  onClick: () => void
+  onClose?: () => void
+  onStartRename?: () => void
+}
+
+function TabButton({
+  tab,
+  active,
+  editMode,
+  isRenaming,
+  renameDraft,
+  onRenameDraftChange,
+  onFinishRename,
+  onClick,
+  onClose,
+  onStartRename,
+}: TabButtonProps) {
+  return (
+    <div className="relative flex items-center">
+      <button
+        onClick={onClick}
+        className={cn(
+          'relative h-9 px-3 text-sm font-medium transition-colors flex items-center gap-1.5',
+          active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
+        )}
+      >
+        {tab.is_mandatory && <Lock size={10} className="text-muted-foreground/50 shrink-0" />}
+
+        {isRenaming ? (
+          <input
+            autoFocus
+            value={renameDraft}
+            onChange={(e) => onRenameDraftChange(e.target.value)}
+            onBlur={onFinishRename}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') onFinishRename()
+              if (e.key === 'Escape') onFinishRename()
+            }}
+            className="bg-transparent border-b border-primary text-sm font-medium outline-none w-24"
+            onClick={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <span className="truncate max-w-[120px]">{tab.name}</span>
+        )}
+
+        {active && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t" />}
+      </button>
+
+      {/* Edit actions */}
+      {editMode && !tab.is_mandatory && !isRenaming && (
+        <div className="flex items-center -ml-1">
+          {onStartRename && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onStartRename() }}
+              className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-muted"
+              title="Renommer"
+            >
+              <Pencil size={9} className="text-muted-foreground" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Close button */}
+      {onClose && !editMode && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onClose() }}
+          className="h-5 w-5 -ml-1 inline-flex items-center justify-center rounded hover:bg-destructive/10"
+          title="Fermer"
+        >
+          <X size={10} className="text-muted-foreground" />
+        </button>
+      )}
     </div>
   )
 }

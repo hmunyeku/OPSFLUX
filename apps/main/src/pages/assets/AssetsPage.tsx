@@ -35,6 +35,7 @@ import { TagManager } from '@/components/shared/TagManager'
 import { AddressManager } from '@/components/shared/AddressManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { NoteManager } from '@/components/shared/NoteManager'
+import { AssetPicker } from '@/components/shared/AssetPicker'
 import { useUIStore } from '@/stores/uiStore'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
 import { useAssets, useAsset, useAssetTree, useCreateAsset, useUpdateAsset, useArchiveAsset } from '@/hooks/useAssets'
@@ -97,9 +98,8 @@ function CreateAssetPanel() {
   const { t } = useTranslation()
   const createAsset = useCreateAsset()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
-  const { data: assetsData } = useAssets({ page: 1, page_size: 100 })
   const [form, setForm] = useState<AssetCreate>({
-    type: 'site', code: '', name: '',
+    type: 'site', name: '',
     parent_id: undefined, allow_overlap: true, metadata: undefined,
   })
 
@@ -108,12 +108,6 @@ function CreateAssetPanel() {
     await createAsset.mutateAsync(form)
     closeDynamicPanel()
   }
-
-  // Build parent options from existing assets
-  const parentOptions = useMemo(() => {
-    if (!assetsData?.items) return []
-    return assetsData.items.map((a) => ({ value: a.id, label: `${a.code} — ${a.name}` }))
-  }, [assetsData])
 
   return (
     <DynamicPanelShell
@@ -142,8 +136,8 @@ function CreateAssetPanel() {
         </FormSection>
 
         <FormSection title={t('common.details')}>
-          <DynamicPanelField label={t('common.code')} required>
-            <input type="text" required value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} className={panelInputClass} placeholder="SITE-001" />
+          <DynamicPanelField label={t('common.code')}>
+            <span className="text-sm font-mono text-muted-foreground italic">Auto-généré à la création</span>
           </DynamicPanelField>
 
           <DynamicPanelField label={t('common.name')} required>
@@ -151,16 +145,12 @@ function CreateAssetPanel() {
           </DynamicPanelField>
 
           <DynamicPanelField label="Asset parent">
-            <select
-              value={form.parent_id || ''}
-              onChange={(e) => setForm({ ...form, parent_id: e.target.value || undefined })}
-              className="gl-form-select"
-            >
-              <option value="">— Aucun (niveau racine)</option>
-              {parentOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
+            <AssetPicker
+              value={form.parent_id || null}
+              onChange={(id) => setForm({ ...form, parent_id: id || undefined })}
+              label="Asset parent"
+              placeholder="Aucun (niveau racine)"
+            />
           </DynamicPanelField>
         </FormSection>
 
@@ -247,7 +237,7 @@ function AssetDetailPanel({ id }: { id: string }) {
         {/* ── Details section ── */}
         <FormSection title={t('common.details')}>
           <InlineEditableRow label={t('common.name')} value={asset.name} onSave={(v) => handleInlineSave('name', v)} />
-          <InlineEditableRow label={t('common.code')} value={asset.code} onSave={(v) => handleInlineSave('code', v)} />
+          <ReadOnlyRow label={t('common.code')} value={<span className="text-sm font-mono font-medium text-foreground">{asset.code || '—'}</span>} />
           <InlineEditableTags
             label={t('common.type')}
             value={asset.type}
@@ -501,6 +491,12 @@ export function AssetsPage() {
               onFilterChange={handleFilterChange}
               onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'assets', id: row.id })}
               emptyTitle={t('common.no_results')}
+              importExport={{
+                exportFormats: ['csv', 'xlsx'],
+                advancedExport: true,
+                importWizardTarget: 'asset',
+                filenamePrefix: 'assets',
+              }}
               columnResizing
               columnPinning
               defaultPinnedColumns={{ left: ['code'] }}

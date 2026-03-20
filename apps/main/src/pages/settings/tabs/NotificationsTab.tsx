@@ -4,11 +4,22 @@
  *
  * API-backed: GET/PATCH /api/v1/preferences/notifications
  * Uses user emails for notification email selection.
+ * Toast display settings (position, duration, opacity) are stored in localStorage.
  */
 import { useState, useEffect } from 'react'
 import { Bell, Loader2 } from 'lucide-react'
 import { useNotificationPreferences, useUpdateNotificationPreferences, useUserEmails, useUserGroups } from '@/hooks/useSettings'
-import { useToast } from '@/components/ui/Toast'
+import {
+  useToast,
+  TOAST_POSITIONS,
+  getToastPosition,
+  setToastPosition,
+  getToastDuration,
+  setToastDuration,
+  getToastOpacity,
+  setToastOpacity,
+  type ToastPosition,
+} from '@/components/ui/Toast'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 
 const notificationLevels = [
@@ -119,7 +130,7 @@ export function NotificationsTab() {
         </div>
       </CollapsibleSection>
 
-      <CollapsibleSection id="notifications-groups" title="Groupes & Actions" description="Personnalisez les notifications par groupe." storageKey="settings.notifications.collapse" showSeparator={false}>
+      <CollapsibleSection id="notifications-groups" title="Groupes & Actions" description="Personnalisez les notifications par groupe." storageKey="settings.notifications.collapse">
         {/* Per-group overrides */}
         {groups && groups.length > 0 && (
           <div className="border border-border/60 rounded-lg bg-card">
@@ -166,6 +177,127 @@ export function NotificationsTab() {
           </button>
         </div>
       </CollapsibleSection>
+
+      <CollapsibleSection
+        id="notifications-display"
+        title="Affichage des notifications"
+        description="Position, durée et opacité des notifications toast. Ces réglages sont personnels et remplacent les valeurs par défaut de l'administrateur."
+        storageKey="settings.notifications.collapse"
+        showSeparator={false}
+      >
+        <ToastSettingsSection />
+      </CollapsibleSection>
     </>
+  )
+}
+
+// ── Toast configuration section ────────────────────────────
+function ToastSettingsSection() {
+  const { toast } = useToast()
+  const [position, setPosition] = useState<ToastPosition>(getToastPosition)
+  const [duration, setDuration] = useState(getToastDuration)
+  const [opacity, setOpacity] = useState(getToastOpacity)
+
+  const handlePositionChange = (pos: ToastPosition) => {
+    setPosition(pos)
+    setToastPosition(pos)
+    toast({ title: 'Position mise à jour', description: `Les notifications s'afficheront en ${TOAST_POSITIONS.find(p => p.value === pos)?.label?.toLowerCase()}.`, variant: 'success' })
+  }
+
+  const handleDurationChange = (ms: number) => {
+    setDuration(ms)
+    setToastDuration(ms)
+  }
+
+  const handleDurationCommit = () => {
+    toast({ title: `Durée : ${(duration / 1000).toFixed(1)}s`, description: 'La durée a été mise à jour.', variant: 'success' })
+  }
+
+  const handleOpacityChange = (val: number) => {
+    setOpacity(val)
+    setToastOpacity(val)
+  }
+
+  const handleOpacityCommit = () => {
+    toast({ title: `Opacité : ${opacity}%`, description: 'L\'opacité a été mise à jour.', variant: 'success' })
+  }
+
+  return (
+    <div className="mt-2 space-y-4">
+      {/* Position grid */}
+      <div>
+        <label className="gl-label flex items-center gap-1.5">
+          <Bell size={12} className="text-muted-foreground" />
+          Position des notifications
+        </label>
+        <div className="grid grid-cols-3 gap-1.5 mt-2 max-w-xs">
+          {TOAST_POSITIONS.map((p) => (
+            <button
+              key={p.value}
+              type="button"
+              onClick={() => handlePositionChange(p.value)}
+              className={`px-2 py-1.5 rounded-md text-xs font-medium transition-all border ${
+                position === p.value
+                  ? 'bg-primary/10 border-primary/40 text-primary shadow-sm'
+                  : 'bg-background border-border text-muted-foreground hover:bg-accent hover:text-foreground'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          Cliquez pour changer. Un toast de confirmation s'affichera à la nouvelle position.
+        </p>
+      </div>
+
+      {/* Duration slider */}
+      <div>
+        <label className="gl-label">Durée d'affichage</label>
+        <div className="flex items-center gap-3 mt-2">
+          <input
+            type="range"
+            min={1000}
+            max={15000}
+            step={500}
+            value={duration}
+            onChange={(e) => handleDurationChange(parseInt(e.target.value))}
+            onMouseUp={handleDurationCommit}
+            onTouchEnd={handleDurationCommit}
+            className="flex-1 h-1.5 accent-primary cursor-pointer"
+          />
+          <span className="text-sm font-mono text-foreground w-12 text-right">
+            {(duration / 1000).toFixed(1)}s
+          </span>
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Durée avant disparition automatique (1s à 15s).
+        </p>
+      </div>
+
+      {/* Opacity slider */}
+      <div>
+        <label className="gl-label">Opacité</label>
+        <div className="flex items-center gap-3 mt-2">
+          <input
+            type="range"
+            min={10}
+            max={100}
+            step={5}
+            value={opacity}
+            onChange={(e) => handleOpacityChange(parseInt(e.target.value))}
+            onMouseUp={handleOpacityCommit}
+            onTouchEnd={handleOpacityCommit}
+            className="flex-1 h-1.5 accent-primary cursor-pointer"
+          />
+          <span className="text-sm font-mono text-foreground w-12 text-right">
+            {opacity}%
+          </span>
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Transparence des notifications (10% à 100%).
+        </p>
+      </div>
+    </div>
   )
 }

@@ -14,6 +14,7 @@ from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models.common import Address, User
 from app.schemas.common import AddressCreate, AddressRead, AddressUpdate
+from app.services.core.delete_service import delete_entity
 
 router = APIRouter(prefix="/api/v1/addresses", tags=["addresses"])
 
@@ -128,5 +129,5 @@ async def delete_address(
     if not address:
         raise HTTPException(status_code=404, detail="Address not found")
 
-    await db.delete(address)
+    await delete_entity(address, db, "address", entity_id=address_id, user_id=current_user.id)
     await db.commit()

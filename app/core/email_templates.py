@@ -184,6 +184,765 @@ DEFAULT_TEMPLATES: list[dict] = [
             },
         },
     },
+    # ── Workflow / Document templates ──────────────────────────────────────────
+    {
+        "slug": "workflow.validation_required",
+        "name": "Validation requise",
+        "description": "Envoyé aux valideurs quand un document est soumis pour approbation.",
+        "object_type": "document",
+        "variables_schema": {
+            "document_number": "Numéro du document",
+            "document_title": "Titre du document",
+            "document_id": "ID du document (pour lien)",
+            "workflow_step": "Étape du workflow",
+            "comment": "Commentaire de soumission",
+            "user.first_name": "Prénom du destinataire",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — Validation requise : {{ document_number }}",
+                "body_html": (
+                    "<p>Bonjour {{ user.first_name }},</p>"
+                    "<p>Le document <strong>{{ document_number }}</strong> «{{ document_title }}» "
+                    "a été soumis pour validation (étape : {{ workflow_step }}).</p>"
+                    "{% if comment %}<p><em>Commentaire :</em> {{ comment }}</p>{% endif %}"
+                    "<p>Merci de le consulter dans OpsFlux.</p>"
+                    "<p>Cordialement,<br/>OpsFlux</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — Validation required: {{ document_number }}",
+                "body_html": (
+                    "<p>Hello {{ user.first_name }},</p>"
+                    "<p>Document <strong>{{ document_number }}</strong> &laquo;{{ document_title }}&raquo; "
+                    "has been submitted for validation (step: {{ workflow_step }}).</p>"
+                    "{% if comment %}<p><em>Comment:</em> {{ comment }}</p>{% endif %}"
+                    "<p>Please review it in OpsFlux.</p>"
+                    "<p>Best regards,<br/>OpsFlux</p>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "workflow.approved",
+        "name": "Document approuvé",
+        "description": "Envoyé à l'auteur quand son document est approuvé.",
+        "object_type": "document",
+        "variables_schema": {
+            "document_number": "Numéro du document",
+            "document_title": "Titre du document",
+            "document_id": "ID du document",
+            "user.first_name": "Prénom du destinataire",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — Document approuvé : {{ document_number }}",
+                "body_html": (
+                    "<p>Bonjour {{ user.first_name }},</p>"
+                    "<p>Votre document <strong>{{ document_number }}</strong> «{{ document_title }}» "
+                    "a été <strong>approuvé</strong>.</p>"
+                    "<p>Cordialement,<br/>OpsFlux</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — Document approved: {{ document_number }}",
+                "body_html": (
+                    "<p>Hello {{ user.first_name }},</p>"
+                    "<p>Your document <strong>{{ document_number }}</strong> &laquo;{{ document_title }}&raquo; "
+                    "has been <strong>approved</strong>.</p>"
+                    "<p>Best regards,<br/>OpsFlux</p>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "workflow.rejected",
+        "name": "Document rejeté",
+        "description": "Envoyé à l'auteur quand son document est rejeté avec motif.",
+        "object_type": "document",
+        "variables_schema": {
+            "document_number": "Numéro du document",
+            "document_title": "Titre du document",
+            "document_id": "ID du document",
+            "rejection_reason": "Motif du rejet",
+            "user.first_name": "Prénom du destinataire",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — Document rejeté : {{ document_number }}",
+                "body_html": (
+                    "<p>Bonjour {{ user.first_name }},</p>"
+                    "<p>Votre document <strong>{{ document_number }}</strong> «{{ document_title }}» "
+                    "a été <strong>rejeté</strong>.</p>"
+                    "{% if rejection_reason %}<p><em>Motif :</em> {{ rejection_reason }}</p>{% endif %}"
+                    "<p>Veuillez effectuer les corrections nécessaires et soumettre à nouveau.</p>"
+                    "<p>Cordialement,<br/>OpsFlux</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — Document rejected: {{ document_number }}",
+                "body_html": (
+                    "<p>Hello {{ user.first_name }},</p>"
+                    "<p>Your document <strong>{{ document_number }}</strong> &laquo;{{ document_title }}&raquo; "
+                    "has been <strong>rejected</strong>.</p>"
+                    "{% if rejection_reason %}<p><em>Reason:</em> {{ rejection_reason }}</p>{% endif %}"
+                    "<p>Please make the necessary corrections and resubmit.</p>"
+                    "<p>Best regards,<br/>OpsFlux</p>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "document.published",
+        "name": "Document publié",
+        "description": "Envoyé aux destinataires des listes de distribution quand un document est publié.",
+        "object_type": "document",
+        "variables_schema": {
+            "document_number": "Numéro du document",
+            "document_title": "Titre du document",
+            "document_id": "ID du document",
+            "role": "Rôle du destinataire (to/cc/bcc)",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — Nouveau document publié : {{ document_number }}",
+                "body_html": (
+                    "<p>Bonjour,</p>"
+                    "<p>Le document <strong>{{ document_number }}</strong> «{{ document_title }}» "
+                    "vient d'être publié.</p>"
+                    "<p>Vous recevez ce message car vous êtes dans la liste de distribution "
+                    "({{ role | default('cc') }}).</p>"
+                    "<p>Cordialement,<br/>OpsFlux</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — New document published: {{ document_number }}",
+                "body_html": (
+                    "<p>Hello,</p>"
+                    "<p>Document <strong>{{ document_number }}</strong> &laquo;{{ document_title }}&raquo; "
+                    "has been published.</p>"
+                    "<p>You are receiving this because you are on the distribution list "
+                    "({{ role | default('cc') }}).</p>"
+                    "<p>Best regards,<br/>OpsFlux</p>"
+                ),
+            },
+        },
+    },
+    # ── ADS (Autorisation de Séjour) Templates ─────────────────────────────
+    {
+        "slug": "ads.submitted",
+        "name": "AdS soumise",
+        "description": "Envoyé au demandeur quand son AdS est soumise pour validation.",
+        "object_type": "ads",
+        "variables_schema": {
+            "reference": "Référence de l'AdS",
+            "ads_id": "ID de l'AdS (pour lien)",
+            "pax_count": "Nombre de PAX dans l'AdS",
+            "site_name": "Nom du site de destination",
+            "start_date": "Date de début du séjour",
+            "end_date": "Date de fin du séjour",
+            "user.first_name": "Prénom du destinataire",
+            "entity.name": "Nom de l'entité",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — Votre AdS {{ reference }} a été soumise",
+                "body_html": (
+                    "<p>Bonjour {{ user.first_name }},</p>"
+                    "<p>Votre Autorisation de Séjour <strong>{{ reference }}</strong> "
+                    "a été soumise pour validation.</p>"
+                    "<ul>"
+                    "<li>Site : {{ site_name }}</li>"
+                    "<li>Dates : {{ start_date }} — {{ end_date }}</li>"
+                    "<li>PAX : {{ pax_count }}</li>"
+                    "</ul>"
+                    "<p>Vous serez notifié(e) dès qu'elle aura été examinée.</p>"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — Your AdS {{ reference }} has been submitted",
+                "body_html": (
+                    "<p>Hello {{ user.first_name }},</p>"
+                    "<p>Your Site Access Authorization <strong>{{ reference }}</strong> "
+                    "has been submitted for validation.</p>"
+                    "<ul>"
+                    "<li>Site: {{ site_name }}</li>"
+                    "<li>Dates: {{ start_date }} &mdash; {{ end_date }}</li>"
+                    "<li>PAX: {{ pax_count }}</li>"
+                    "</ul>"
+                    "<p>You will be notified once it has been reviewed.</p>"
+                    "<p>Best regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "ads.approved",
+        "name": "AdS approuvée",
+        "description": "Envoyé au demandeur et à la liste PAX quand l'AdS est approuvée.",
+        "object_type": "ads",
+        "variables_schema": {
+            "reference": "Référence de l'AdS",
+            "ads_id": "ID de l'AdS (pour lien)",
+            "site_name": "Nom du site de destination",
+            "start_date": "Date de début du séjour",
+            "end_date": "Date de fin du séjour",
+            "pax_count": "Nombre de PAX approuvés",
+            "user.first_name": "Prénom du destinataire",
+            "entity.name": "Nom de l'entité",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — Votre AdS {{ reference }} a été approuvée",
+                "body_html": (
+                    "<p>Bonjour {{ user.first_name }},</p>"
+                    "<p>Votre Autorisation de Séjour <strong>{{ reference }}</strong> "
+                    "a été <strong>approuvée</strong>.</p>"
+                    "<ul>"
+                    "<li>Site : {{ site_name }}</li>"
+                    "<li>Dates : {{ start_date }} — {{ end_date }}</li>"
+                    "<li>PAX approuvés : {{ pax_count }}</li>"
+                    "</ul>"
+                    "<p>Le transport sera organisé prochainement.</p>"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — Your AdS {{ reference }} has been approved",
+                "body_html": (
+                    "<p>Hello {{ user.first_name }},</p>"
+                    "<p>Your Site Access Authorization <strong>{{ reference }}</strong> "
+                    "has been <strong>approved</strong>.</p>"
+                    "<ul>"
+                    "<li>Site: {{ site_name }}</li>"
+                    "<li>Dates: {{ start_date }} &mdash; {{ end_date }}</li>"
+                    "<li>Approved PAX: {{ pax_count }}</li>"
+                    "</ul>"
+                    "<p>Transport arrangements will follow shortly.</p>"
+                    "<p>Best regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "ads.rejected",
+        "name": "AdS rejetée",
+        "description": "Envoyé au demandeur quand son AdS est rejetée, avec le motif.",
+        "object_type": "ads",
+        "variables_schema": {
+            "reference": "Référence de l'AdS",
+            "ads_id": "ID de l'AdS (pour lien)",
+            "rejection_reason": "Motif du rejet",
+            "user.first_name": "Prénom du destinataire",
+            "entity.name": "Nom de l'entité",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — Votre AdS {{ reference }} a été rejetée",
+                "body_html": (
+                    "<p>Bonjour {{ user.first_name }},</p>"
+                    "<p>Votre Autorisation de Séjour <strong>{{ reference }}</strong> "
+                    "a été <strong>rejetée</strong>.</p>"
+                    "{% if rejection_reason %}"
+                    "<p><em>Motif :</em> {{ rejection_reason }}</p>"
+                    "{% endif %}"
+                    "<p>Veuillez corriger les points mentionnés et soumettre une nouvelle demande "
+                    "si nécessaire.</p>"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — Your AdS {{ reference }} has been rejected",
+                "body_html": (
+                    "<p>Hello {{ user.first_name }},</p>"
+                    "<p>Your Site Access Authorization <strong>{{ reference }}</strong> "
+                    "has been <strong>rejected</strong>.</p>"
+                    "{% if rejection_reason %}"
+                    "<p><em>Reason:</em> {{ rejection_reason }}</p>"
+                    "{% endif %}"
+                    "<p>Please correct the issues mentioned and submit a new request "
+                    "if necessary.</p>"
+                    "<p>Best regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "ads.compliance_failed",
+        "name": "AdS non-conformités détectées",
+        "description": "Envoyé au demandeur quand des non-conformités PAX sont détectées lors de la soumission.",
+        "object_type": "ads",
+        "variables_schema": {
+            "reference": "Référence de l'AdS",
+            "ads_id": "ID de l'AdS (pour lien)",
+            "issues_summary": "Résumé des non-conformités (texte)",
+            "blocked_pax_count": "Nombre de PAX bloqués",
+            "total_pax_count": "Nombre total de PAX",
+            "user.first_name": "Prénom du destinataire",
+            "entity.name": "Nom de l'entité",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — AdS {{ reference }} : non-conformités détectées",
+                "body_html": (
+                    "<p>Bonjour {{ user.first_name }},</p>"
+                    "<p>Votre Autorisation de Séjour <strong>{{ reference }}</strong> "
+                    "présente des <strong>non-conformités</strong> pour certains PAX.</p>"
+                    "<ul>"
+                    "<li>PAX bloqués : {{ blocked_pax_count }} / {{ total_pax_count }}</li>"
+                    "</ul>"
+                    "{% if issues_summary %}"
+                    "<p><em>Détail :</em> {{ issues_summary }}</p>"
+                    "{% endif %}"
+                    "<p>Veuillez régulariser les documents manquants ou expirés avant de "
+                    "soumettre à nouveau.</p>"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — AdS {{ reference }}: compliance issues detected",
+                "body_html": (
+                    "<p>Hello {{ user.first_name }},</p>"
+                    "<p>Your Site Access Authorization <strong>{{ reference }}</strong> "
+                    "has <strong>compliance issues</strong> for some PAX.</p>"
+                    "<ul>"
+                    "<li>Blocked PAX: {{ blocked_pax_count }} / {{ total_pax_count }}</li>"
+                    "</ul>"
+                    "{% if issues_summary %}"
+                    "<p><em>Details:</em> {{ issues_summary }}</p>"
+                    "{% endif %}"
+                    "<p>Please ensure all missing or expired documents are updated before "
+                    "resubmitting.</p>"
+                    "<p>Best regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "ads.cancelled",
+        "name": "AdS annulée",
+        "description": "Envoyé au demandeur et aux PAX affectés quand l'AdS est annulée.",
+        "object_type": "ads",
+        "variables_schema": {
+            "reference": "Référence de l'AdS",
+            "ads_id": "ID de l'AdS (pour lien)",
+            "site_name": "Nom du site",
+            "start_date": "Date de début prévue",
+            "end_date": "Date de fin prévue",
+            "user.first_name": "Prénom du destinataire",
+            "entity.name": "Nom de l'entité",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — L'AdS {{ reference }} a été annulée",
+                "body_html": (
+                    "<p>Bonjour {{ user.first_name }},</p>"
+                    "<p>L'Autorisation de Séjour <strong>{{ reference }}</strong> "
+                    "a été <strong>annulée</strong>.</p>"
+                    "<ul>"
+                    "<li>Site : {{ site_name }}</li>"
+                    "<li>Dates : {{ start_date }} — {{ end_date }}</li>"
+                    "</ul>"
+                    "<p>Si vous avez des questions, veuillez contacter le service logistique.</p>"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — AdS {{ reference }} has been cancelled",
+                "body_html": (
+                    "<p>Hello {{ user.first_name }},</p>"
+                    "<p>Site Access Authorization <strong>{{ reference }}</strong> "
+                    "has been <strong>cancelled</strong>.</p>"
+                    "<ul>"
+                    "<li>Site: {{ site_name }}</li>"
+                    "<li>Dates: {{ start_date }} &mdash; {{ end_date }}</li>"
+                    "</ul>"
+                    "<p>If you have any questions, please contact the logistics department.</p>"
+                    "<p>Best regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "ads.modified",
+        "name": "AdS modifiée après approbation",
+        "description": "Envoyé aux parties concernées quand une AdS approuvée est modifiée.",
+        "object_type": "ads",
+        "variables_schema": {
+            "reference": "Référence de l'AdS",
+            "ads_id": "ID de l'AdS (pour lien)",
+            "changes_summary": "Résumé des modifications",
+            "user.first_name": "Prénom du destinataire",
+            "entity.name": "Nom de l'entité",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — L'AdS {{ reference }} a été modifiée après approbation",
+                "body_html": (
+                    "<p>Bonjour {{ user.first_name }},</p>"
+                    "<p>L'Autorisation de Séjour <strong>{{ reference }}</strong> "
+                    "a été <strong>modifiée</strong> après son approbation.</p>"
+                    "{% if changes_summary %}"
+                    "<p><em>Modifications :</em> {{ changes_summary }}</p>"
+                    "{% endif %}"
+                    "<p>Veuillez vérifier les changements dans OpsFlux.</p>"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — AdS {{ reference }} modified after approval",
+                "body_html": (
+                    "<p>Hello {{ user.first_name }},</p>"
+                    "<p>Site Access Authorization <strong>{{ reference }}</strong> "
+                    "has been <strong>modified</strong> after approval.</p>"
+                    "{% if changes_summary %}"
+                    "<p><em>Changes:</em> {{ changes_summary }}</p>"
+                    "{% endif %}"
+                    "<p>Please review the changes in OpsFlux.</p>"
+                    "<p>Best regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
+    # ── Planner Templates ──────────────────────────────────────────────────
+    {
+        "slug": "planner.activity.submitted",
+        "name": "Activité soumise pour validation",
+        "description": "Envoyé aux valideurs quand une activité est soumise pour validation.",
+        "object_type": "planner_activity",
+        "variables_schema": {
+            "reference": "Référence de l'activité",
+            "activity_id": "ID de l'activité (pour lien)",
+            "title": "Titre de l'activité",
+            "asset_name": "Nom de l'actif concerné",
+            "planned_date": "Date prévue",
+            "user.first_name": "Prénom du destinataire (valideur)",
+            "submitter_name": "Nom du soumetteur",
+            "entity.name": "Nom de l'entité",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — Activité {{ reference }} soumise pour validation",
+                "body_html": (
+                    "<p>Bonjour {{ user.first_name }},</p>"
+                    "<p>L'activité <strong>{{ reference }}</strong> «{{ title }}» "
+                    "a été soumise pour validation par {{ submitter_name }}.</p>"
+                    "<ul>"
+                    "<li>Actif : {{ asset_name }}</li>"
+                    "<li>Date prévue : {{ planned_date }}</li>"
+                    "</ul>"
+                    "<p>Merci de la consulter dans OpsFlux.</p>"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — Activity {{ reference }} submitted for validation",
+                "body_html": (
+                    "<p>Hello {{ user.first_name }},</p>"
+                    "<p>Activity <strong>{{ reference }}</strong> &laquo;{{ title }}&raquo; "
+                    "has been submitted for validation by {{ submitter_name }}.</p>"
+                    "<ul>"
+                    "<li>Asset: {{ asset_name }}</li>"
+                    "<li>Planned date: {{ planned_date }}</li>"
+                    "</ul>"
+                    "<p>Please review it in OpsFlux.</p>"
+                    "<p>Best regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "planner.activity.validated",
+        "name": "Activité validée",
+        "description": "Envoyé au demandeur quand son activité est validée.",
+        "object_type": "planner_activity",
+        "variables_schema": {
+            "reference": "Référence de l'activité",
+            "activity_id": "ID de l'activité (pour lien)",
+            "title": "Titre de l'activité",
+            "user.first_name": "Prénom du destinataire (demandeur)",
+            "entity.name": "Nom de l'entité",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — Activité {{ reference }} validée",
+                "body_html": (
+                    "<p>Bonjour {{ user.first_name }},</p>"
+                    "<p>Votre activité <strong>{{ reference }}</strong> «{{ title }}» "
+                    "a été <strong>validée</strong>.</p>"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — Activity {{ reference }} validated",
+                "body_html": (
+                    "<p>Hello {{ user.first_name }},</p>"
+                    "<p>Your activity <strong>{{ reference }}</strong> &laquo;{{ title }}&raquo; "
+                    "has been <strong>validated</strong>.</p>"
+                    "<p>Best regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "planner.activity.rejected",
+        "name": "Activité rejetée",
+        "description": "Envoyé au demandeur quand son activité est rejetée, avec motif.",
+        "object_type": "planner_activity",
+        "variables_schema": {
+            "reference": "Référence de l'activité",
+            "activity_id": "ID de l'activité (pour lien)",
+            "title": "Titre de l'activité",
+            "rejection_reason": "Motif du rejet",
+            "user.first_name": "Prénom du destinataire (demandeur)",
+            "entity.name": "Nom de l'entité",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — Activité {{ reference }} rejetée",
+                "body_html": (
+                    "<p>Bonjour {{ user.first_name }},</p>"
+                    "<p>Votre activité <strong>{{ reference }}</strong> «{{ title }}» "
+                    "a été <strong>rejetée</strong>.</p>"
+                    "{% if rejection_reason %}"
+                    "<p><em>Motif :</em> {{ rejection_reason }}</p>"
+                    "{% endif %}"
+                    "<p>Veuillez corriger les points mentionnés et soumettre à nouveau "
+                    "si nécessaire.</p>"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — Activity {{ reference }} rejected",
+                "body_html": (
+                    "<p>Hello {{ user.first_name }},</p>"
+                    "<p>Your activity <strong>{{ reference }}</strong> &laquo;{{ title }}&raquo; "
+                    "has been <strong>rejected</strong>.</p>"
+                    "{% if rejection_reason %}"
+                    "<p><em>Reason:</em> {{ rejection_reason }}</p>"
+                    "{% endif %}"
+                    "<p>Please correct the issues and resubmit if necessary.</p>"
+                    "<p>Best regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "planner.activity.cancelled",
+        "name": "Activité annulée",
+        "description": "Envoyé aux parties concernées quand une activité est annulée.",
+        "object_type": "planner_activity",
+        "variables_schema": {
+            "reference": "Référence de l'activité",
+            "activity_id": "ID de l'activité (pour lien)",
+            "title": "Titre de l'activité",
+            "user.first_name": "Prénom du destinataire",
+            "entity.name": "Nom de l'entité",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — Activité {{ reference }} annulée",
+                "body_html": (
+                    "<p>Bonjour {{ user.first_name }},</p>"
+                    "<p>L'activité <strong>{{ reference }}</strong> «{{ title }}» "
+                    "a été <strong>annulée</strong>.</p>"
+                    "<p>Les demandes de séjour liées pourraient être impactées.</p>"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — Activity {{ reference }} cancelled",
+                "body_html": (
+                    "<p>Hello {{ user.first_name }},</p>"
+                    "<p>Activity <strong>{{ reference }}</strong> &laquo;{{ title }}&raquo; "
+                    "has been <strong>cancelled</strong>.</p>"
+                    "<p>Related site access requests may be affected.</p>"
+                    "<p>Best regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "planner.conflict.detected",
+        "name": "Conflit de planning détecté",
+        "description": "Envoyé aux administrateurs/DO quand un conflit de capacité est détecté.",
+        "object_type": "planner_conflict",
+        "variables_schema": {
+            "conflict_id": "ID du conflit (pour lien)",
+            "asset_name": "Nom du site/actif en conflit",
+            "conflict_date": "Date du conflit",
+            "total_pax_requested": "Total PAX demandés",
+            "max_capacity": "Capacité maximale du site",
+            "user.first_name": "Prénom du destinataire (admin/DO)",
+            "entity.name": "Nom de l'entité",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — Conflit de planning détecté sur {{ asset_name }}",
+                "body_html": (
+                    "<p>Bonjour {{ user.first_name }},</p>"
+                    "<p>Un <strong>conflit de capacité</strong> a été détecté :</p>"
+                    "<ul>"
+                    "<li>Site : {{ asset_name }}</li>"
+                    "<li>Date : {{ conflict_date }}</li>"
+                    "<li>PAX demandés : {{ total_pax_requested }}</li>"
+                    "<li>Capacité maximale : {{ max_capacity }}</li>"
+                    "</ul>"
+                    "<p>Un arbitrage est requis. Veuillez consulter le planning dans OpsFlux.</p>"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — Planning conflict detected on {{ asset_name }}",
+                "body_html": (
+                    "<p>Hello {{ user.first_name }},</p>"
+                    "<p>A <strong>capacity conflict</strong> has been detected:</p>"
+                    "<ul>"
+                    "<li>Site: {{ asset_name }}</li>"
+                    "<li>Date: {{ conflict_date }}</li>"
+                    "<li>PAX requested: {{ total_pax_requested }}</li>"
+                    "<li>Maximum capacity: {{ max_capacity }}</li>"
+                    "</ul>"
+                    "<p>Arbitration is required. Please review the schedule in OpsFlux.</p>"
+                    "<p>Best regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
+    # ── TravelWiz Templates ────────────────────────────────────────────────
+    {
+        "slug": "travelwiz.voyage.confirmed",
+        "name": "Voyage confirmé",
+        "description": "Envoyé aux PAX du manifeste quand un voyage est confirmé.",
+        "object_type": "voyage",
+        "variables_schema": {
+            "code": "Code du voyage",
+            "voyage_id": "ID du voyage (pour lien)",
+            "departure_base": "Base de départ",
+            "destination": "Destination",
+            "scheduled_departure": "Date/heure de départ prévue",
+            "transport_mode": "Mode de transport (hélicoptère, bateau, etc.)",
+            "user.first_name": "Prénom du destinataire (passager)",
+            "entity.name": "Nom de l'entité",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — Voyage {{ code }} confirmé",
+                "body_html": (
+                    "<p>Bonjour {{ user.first_name }},</p>"
+                    "<p>Le voyage <strong>{{ code }}</strong> a été <strong>confirmé</strong>.</p>"
+                    "<ul>"
+                    "<li>Départ : {{ departure_base }}</li>"
+                    "<li>Destination : {{ destination }}</li>"
+                    "<li>Date de départ : {{ scheduled_departure }}</li>"
+                    "<li>Transport : {{ transport_mode }}</li>"
+                    "</ul>"
+                    "<p>Veuillez vous présenter à l'heure indiquée avec vos documents à jour.</p>"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — Voyage {{ code }} confirmed",
+                "body_html": (
+                    "<p>Hello {{ user.first_name }},</p>"
+                    "<p>Voyage <strong>{{ code }}</strong> has been <strong>confirmed</strong>.</p>"
+                    "<ul>"
+                    "<li>Departure: {{ departure_base }}</li>"
+                    "<li>Destination: {{ destination }}</li>"
+                    "<li>Departure date: {{ scheduled_departure }}</li>"
+                    "<li>Transport: {{ transport_mode }}</li>"
+                    "</ul>"
+                    "<p>Please report at the specified time with your documents up to date.</p>"
+                    "<p>Best regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "travelwiz.manifest.validated",
+        "name": "Manifeste validé",
+        "description": "Envoyé au capitaine et aux PAX quand un manifeste est validé.",
+        "object_type": "manifest",
+        "variables_schema": {
+            "code": "Code du voyage associé",
+            "manifest_id": "ID du manifeste (pour lien)",
+            "voyage_id": "ID du voyage (pour lien)",
+            "passenger_count": "Nombre de passagers",
+            "departure_base": "Base de départ",
+            "destination": "Destination",
+            "scheduled_departure": "Date/heure de départ prévue",
+            "user.first_name": "Prénom du destinataire",
+            "entity.name": "Nom de l'entité",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — Manifeste {{ code }} validé",
+                "body_html": (
+                    "<p>Bonjour {{ user.first_name }},</p>"
+                    "<p>Le manifeste du voyage <strong>{{ code }}</strong> "
+                    "a été <strong>validé</strong>.</p>"
+                    "<ul>"
+                    "<li>Passagers : {{ passenger_count }}</li>"
+                    "<li>Départ : {{ departure_base }}</li>"
+                    "<li>Destination : {{ destination }}</li>"
+                    "<li>Date de départ : {{ scheduled_departure }}</li>"
+                    "</ul>"
+                    "<p>Le manifeste est désormais figé pour l'embarquement.</p>"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — Manifest {{ code }} validated",
+                "body_html": (
+                    "<p>Hello {{ user.first_name }},</p>"
+                    "<p>The manifest for voyage <strong>{{ code }}</strong> "
+                    "has been <strong>validated</strong>.</p>"
+                    "<ul>"
+                    "<li>Passengers: {{ passenger_count }}</li>"
+                    "<li>Departure: {{ departure_base }}</li>"
+                    "<li>Destination: {{ destination }}</li>"
+                    "<li>Departure date: {{ scheduled_departure }}</li>"
+                    "</ul>"
+                    "<p>The manifest is now frozen for boarding.</p>"
+                    "<p>Best regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "travelwiz.manifest.closed",
+        "name": "Manifeste clôturé",
+        "description": "Envoyé aux PAX quand un manifeste est clôturé (voyage terminé).",
+        "object_type": "manifest",
+        "variables_schema": {
+            "code": "Code du voyage associé",
+            "manifest_id": "ID du manifeste",
+            "voyage_id": "ID du voyage",
+            "user.first_name": "Prénom du destinataire",
+            "entity.name": "Nom de l'entité",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — Manifeste {{ code }} clôturé — voyage terminé",
+                "body_html": (
+                    "<p>Bonjour {{ user.first_name }},</p>"
+                    "<p>Le manifeste du voyage <strong>{{ code }}</strong> "
+                    "a été <strong>clôturé</strong>. Le voyage est terminé.</p>"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — Manifest {{ code }} closed &mdash; voyage completed",
+                "body_html": (
+                    "<p>Hello {{ user.first_name }},</p>"
+                    "<p>The manifest for voyage <strong>{{ code }}</strong> "
+                    "has been <strong>closed</strong>. The voyage is complete.</p>"
+                    "<p>Best regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
 ]
 
 

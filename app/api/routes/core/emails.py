@@ -21,6 +21,7 @@ from app.core.email_templates import render_and_send_email
 from app.core.notifications import send_email
 from app.models.common import User, UserEmail
 from app.schemas.common import UserEmailCreate, UserEmailRead
+from app.services.core.delete_service import delete_entity
 
 logger = logging.getLogger(__name__)
 
@@ -175,7 +176,7 @@ async def remove_email(
             detail="Cannot delete primary email address",
         )
 
-    await db.delete(user_email)
+    await delete_entity(user_email, db, "user_email", entity_id=email_id, user_id=current_user.id)
     await db.commit()
 
     await record_audit(

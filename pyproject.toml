@@ -43,6 +43,8 @@ dependencies = [
     # Utilities
     "python-dateutil>=2.9.0",
     "orjson>=3.10.0",
+    # LDAP
+    "ldap3>=2.9",
 ]
 
 [project.optional-dependencies]

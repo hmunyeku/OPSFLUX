@@ -350,6 +350,24 @@ const CONNECTORS_CATALOG: ConnectorDef[] = [
       { key: 'user_filter', label: 'User Search Filter', placeholder: '(objectClass=person)', type: 'text' },
     ],
   },
+  // ── Gouti (Project Management) ──
+  {
+    id: 'gouti',
+    name: 'Gouti',
+    category: 'other',
+    description: 'API de gestion de projets et rapports Perenco (Gouti).',
+    helpText: 'Connectez OpsFlux à l\'API Gouti pour synchroniser les projets, rapports et suivis d\'avancement.',
+    consoleUrl: 'https://apiprd.gouti.net',
+    icon: '📊',
+    settingsPrefix: 'integration.gouti',
+    enabledKey: 'integration.gouti.client_id',
+    fields: [
+      { key: 'base_url', label: 'URL de l\'API', type: 'text' as const, placeholder: 'https://apiprd.gouti.net/v1/client' },
+      { key: 'client_id', label: 'Client ID', type: 'text' as const, placeholder: 'Ex: PERDRAPI010' },
+      { key: 'client_secret', label: 'Secret client', type: 'secret' as const, placeholder: '••••••' },
+      { key: 'entity_code', label: 'Code entité', type: 'text' as const, placeholder: 'Ex: P3R3NCOD3' },
+    ],
+  },
 ]
 
 const CATEGORY_LABELS: Record<string, { label: string; icon: React.ReactNode }> = {
@@ -401,26 +419,24 @@ function ConnectorCard({
   }[connectorStatus]
 
   return (
-    <div className={`border rounded-lg transition-colors ${borderClass}`}>
-      {/* Header */}
+    <div className={`border rounded-lg transition-colors flex flex-col ${borderClass}`}>
+      {/* Card Header */}
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-accent/30 transition-colors rounded-lg"
+        className="w-full flex flex-col gap-2 px-4 py-3 text-left hover:bg-accent/30 transition-colors rounded-t-lg"
       >
-        <span className="text-lg">{connector.icon}</span>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-foreground">{connector.name}</span>
-            <ConnectorStatus
-              status={connectorStatus}
-              lastTestedAt={lastTestAt || undefined}
-              lastError={lastTestError || undefined}
-            />
-          </div>
-          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{connector.description}</p>
+        <div className="flex items-center gap-2.5 w-full">
+          <span className="text-xl shrink-0">{connector.icon}</span>
+          <span className="text-sm font-semibold text-foreground truncate flex-1">{connector.name}</span>
+          {expanded ? <ChevronDown size={14} className="text-muted-foreground shrink-0" /> : <ChevronRight size={14} className="text-muted-foreground shrink-0" />}
         </div>
-        {expanded ? <ChevronDown size={14} className="text-muted-foreground" /> : <ChevronRight size={14} className="text-muted-foreground" />}
+        <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{connector.description}</p>
+        <ConnectorStatus
+          status={connectorStatus}
+          lastTestedAt={lastTestAt || undefined}
+          lastError={lastTestError || undefined}
+        />
       </button>
 
       {/* Expanded config */}
@@ -600,8 +616,8 @@ function AddConnectorDialog({
           </div>
         </div>
 
-        {/* List */}
-        <div className="flex-1 overflow-y-auto p-2">
+        {/* Grid of available services */}
+        <div className="flex-1 overflow-y-auto p-3">
           {available.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-sm text-muted-foreground">
@@ -611,20 +627,20 @@ function AddConnectorDialog({
               </p>
             </div>
           ) : (
-            <div className="space-y-1">
+            <div className="grid grid-cols-2 gap-2">
               {available.map((c) => (
                 <button
                   key={c.id}
                   type="button"
                   onClick={() => { onAdd(c.id); onClose() }}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-accent transition-colors text-left"
+                  className="flex flex-col items-center gap-1.5 p-3 rounded-lg border border-border/50 hover:border-primary/40 hover:bg-accent/50 transition-colors text-center group"
                 >
-                  <span className="text-lg shrink-0">{c.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm font-medium text-foreground block">{c.name}</span>
-                    <span className="text-xs text-muted-foreground line-clamp-1">{c.description}</span>
-                  </div>
-                  <Plus size={14} className="text-primary shrink-0" />
+                  <span className="text-2xl">{c.icon}</span>
+                  <span className="text-xs font-semibold text-foreground">{c.name}</span>
+                  <span className="text-[10px] text-muted-foreground line-clamp-2 leading-snug">{c.description}</span>
+                  <span className="mt-auto pt-1">
+                    <Plus size={14} className="text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </span>
                 </button>
               ))}
             </div>
@@ -898,7 +914,7 @@ export function IntegrationsTab() {
             const catLabel = CATEGORY_LABELS[category]
             return (
               <div key={category}>
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-2 mb-3">
                   {catLabel?.icon}
                   <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     {catLabel?.label || category}
@@ -907,7 +923,7 @@ export function IntegrationsTab() {
                     {connectors.length}
                   </span>
                 </div>
-                <div className="space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                   {connectors.map((c) => (
                     <ConnectorCard
                       key={c.id}
@@ -926,25 +942,38 @@ export function IntegrationsTab() {
         </div>
       )}
 
-      {/* Summary bar */}
-      {activeConnectors.length > 0 && (() => {
-        const configuredCount = activeConnectors.filter((c) => !!(s[c.enabledKey] as string)).length
-        const connectedCount = activeConnectors.filter((c) => (s[`integration.${c.id}.last_test_status`] as string) === 'ok').length
-        const errorCount = activeConnectors.filter((c) => (s[`integration.${c.id}.last_test_status`] as string) === 'error').length
-        const parts: string[] = []
-        if (connectedCount > 0) parts.push(`${connectedCount} connecté(s)`)
-        if (configuredCount > connectedCount + errorCount) parts.push(`${configuredCount - connectedCount - errorCount} configuré(s)`)
-        if (errorCount > 0) parts.push(`${errorCount} en erreur`)
+      {/* Summary bar + Add button */}
+      <div className="mt-4 flex items-center justify-between px-3 py-2.5 bg-accent/50 rounded-lg">
+        <div className="flex items-center gap-2">
+          {activeConnectors.length > 0 ? (() => {
+            const configuredCount = activeConnectors.filter((c) => !!(s[c.enabledKey] as string)).length
+            const connectedCount = activeConnectors.filter((c) => (s[`integration.${c.id}.last_test_status`] as string) === 'ok').length
+            const errorCount = activeConnectors.filter((c) => (s[`integration.${c.id}.last_test_status`] as string) === 'error').length
+            const parts: string[] = []
+            if (connectedCount > 0) parts.push(`${connectedCount} connecté(s)`)
+            if (configuredCount > connectedCount + errorCount) parts.push(`${configuredCount - connectedCount - errorCount} configuré(s)`)
+            if (errorCount > 0) parts.push(`${errorCount} en erreur`)
 
-        return (
-          <div className="mt-4 flex items-center gap-3 px-3 py-2 bg-accent/50 rounded-lg">
-            <Check size={14} className="text-emerald-600" />
-            <span className="text-xs text-muted-foreground">
-              {parts.length > 0 ? `${parts.join(', ')} sur ` : ''}{activeConnectors.length} ajouté(s)
-            </span>
-          </div>
-        )
-      })()}
+            return (
+              <>
+                <Check size={14} className="text-emerald-600" />
+                <span className="text-xs text-muted-foreground">
+                  {parts.length > 0 ? `${parts.join(', ')} sur ` : ''}{activeConnectors.length} service(s)
+                </span>
+              </>
+            )
+          })() : (
+            <span className="text-xs text-muted-foreground">Aucun service configuré</span>
+          )}
+        </div>
+        <button
+          onClick={() => setShowAddDialog(true)}
+          className="gl-button-sm gl-button-confirm"
+        >
+          <Plus size={12} />
+          Ajouter un service
+        </button>
+      </div>
 
       {/* Add connector dialog */}
       {showAddDialog && (

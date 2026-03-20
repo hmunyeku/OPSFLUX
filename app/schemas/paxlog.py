@@ -186,6 +186,8 @@ class AdsCreate(BaseModel):
     start_date: date
     end_date: date
     pax_ids: list[UUID] = []
+    planner_activity_id: UUID | None = None
+    project_id: UUID | None = None
     outbound_transport_mode: str | None = None
     outbound_departure_base_id: UUID | None = None
     outbound_notes: str | None = None
@@ -226,6 +228,8 @@ class AdsRead(OpsFluxSchema):
     type: str
     status: str
     workflow_id: UUID | None
+    planner_activity_id: UUID | None = None
+    project_id: UUID | None = None
     requester_id: UUID
     site_entry_asset_id: UUID
     visit_purpose: str
@@ -293,4 +297,128 @@ class PaxIncidentRead(OpsFluxSchema):
     resolved_at: datetime | None
     resolved_by: UUID | None
     resolution_notes: str | None
+    created_at: datetime
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# AVIS DE MISSION (AVM)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class MissionProgramCreate(BaseModel):
+    activity_description: str = Field(min_length=1)
+    activity_type: str = Field(
+        default="visit",
+        pattern=r"^(visit|meeting|inspection|training|handover|other)$",
+    )
+    site_asset_id: UUID | None = None
+    planned_start_date: date | None = None
+    planned_end_date: date | None = None
+    project_id: UUID | None = None
+    pax_ids: list[UUID] = []
+    notes: str | None = None
+
+
+class MissionProgramRead(OpsFluxSchema):
+    id: UUID
+    mission_notice_id: UUID
+    order_index: int
+    activity_description: str
+    activity_type: str
+    site_asset_id: UUID | None
+    planned_start_date: date | None
+    planned_end_date: date | None
+    project_id: UUID | None
+    generated_ads_id: UUID | None
+    notes: str | None
+    pax_ids: list[UUID] = []
+    site_name: str | None = None
+
+
+class MissionPreparationTaskRead(OpsFluxSchema):
+    id: UUID
+    mission_notice_id: UUID
+    title: str
+    task_type: str
+    status: str
+    assigned_to_user_id: UUID | None
+    linked_ads_id: UUID | None
+    due_date: date | None
+    completed_at: datetime | None
+    notes: str | None
+    auto_generated: bool
+
+
+class MissionNoticeCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=300)
+    description: str | None = None
+    planned_start_date: date | None = None
+    planned_end_date: date | None = None
+    mission_type: str = Field(
+        default="standard",
+        pattern=r"^(standard|vip|regulatory|emergency)$",
+    )
+    requires_badge: bool = False
+    requires_epi: bool = False
+    requires_visa: bool = False
+    eligible_displacement_allowance: bool = False
+    epi_measurements: dict | None = None
+    programs: list[MissionProgramCreate] = []
+
+
+class MissionNoticeUpdate(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    planned_start_date: date | None = None
+    planned_end_date: date | None = None
+    mission_type: str | None = Field(
+        default=None,
+        pattern=r"^(standard|vip|regulatory|emergency)$",
+    )
+    requires_badge: bool | None = None
+    requires_epi: bool | None = None
+    requires_visa: bool | None = None
+    eligible_displacement_allowance: bool | None = None
+    epi_measurements: dict | None = None
+
+
+class MissionNoticeRead(OpsFluxSchema):
+    id: UUID
+    entity_id: UUID
+    reference: str
+    title: str
+    description: str | None
+    created_by: UUID
+    status: str
+    planned_start_date: date | None
+    planned_end_date: date | None
+    requires_badge: bool
+    requires_epi: bool
+    requires_visa: bool
+    eligible_displacement_allowance: bool
+    epi_measurements: dict | None
+    mission_type: str
+    archived: bool
+    cancellation_reason: str | None = None
+    created_at: datetime
+    updated_at: datetime
+    # Enriched
+    creator_name: str | None = None
+    programs: list[MissionProgramRead] = []
+    preparation_tasks: list[MissionPreparationTaskRead] = []
+    preparation_progress: int = 0
+
+
+class MissionNoticeSummary(OpsFluxSchema):
+    id: UUID
+    entity_id: UUID
+    reference: str
+    title: str
+    status: str
+    mission_type: str
+    planned_start_date: date | None
+    planned_end_date: date | None
+    created_by: UUID
+    creator_name: str | None = None
+    pax_count: int = 0
+    preparation_progress: int = 0
     created_at: datetime

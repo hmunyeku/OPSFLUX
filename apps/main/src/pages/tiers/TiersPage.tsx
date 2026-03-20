@@ -51,6 +51,7 @@ import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { PhoneManager } from '@/components/shared/PhoneManager'
 import { ContactEmailManager } from '@/components/shared/ContactEmailManager'
 import { TierIdentifierManager } from '@/components/shared/TierIdentifierManager'
+import { ComplianceRecordManager } from '@/components/shared/ComplianceRecordManager'
 import { useUIStore } from '@/stores/uiStore'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -113,7 +114,6 @@ function CreateTierPanel() {
   const createTier = useCreateTier()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const [form, setForm] = useState<TierCreate>({
-    code: '',
     name: '',
     type: 'client',
     alias: null,
@@ -169,8 +169,8 @@ function CreateTierPanel() {
             <div className="@container space-y-5">
               <FormSection title="Identification">
                 <FormGrid>
-                  <DynamicPanelField label={t('common.code')} required>
-                    <input type="text" required value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} className={panelInputClass} placeholder="ENT-001" />
+                  <DynamicPanelField label={t('common.code')}>
+                    <span className="text-sm font-mono text-muted-foreground italic">Auto-généré à la création</span>
                   </DynamicPanelField>
                   <DynamicPanelField label={t('common.name')} required>
                     <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={panelInputClass} placeholder="Nom de l'entreprise" />
@@ -328,7 +328,7 @@ function TierDetailPanel({ id }: { id: string }) {
             <FormSection title="Fiche entreprise" collapsible defaultExpanded storageKey="tier-detail-sections">
               <DetailFieldGrid>
                 <InlineEditableRow label={t('common.name')} value={tier.name} onSave={(v) => handleInlineSave('name', v)} />
-                <InlineEditableRow label={t('common.code')} value={tier.code} onSave={(v) => handleInlineSave('code', v)} />
+                <ReadOnlyRow label={t('common.code')} value={<span className="text-sm font-mono font-medium text-foreground">{tier.code || '—'}</span>} />
               </DetailFieldGrid>
               {tier.alias !== null && (
                 <InlineEditableRow label="Nom commercial" value={tier.alias || ''} onSave={(v) => handleInlineSave('alias', v)} />
@@ -409,6 +409,11 @@ function TierDetailPanel({ id }: { id: string }) {
             </FormSection>
           </div>
         </SectionColumns>
+
+        {/* Conformite */}
+        <FormSection title="Conformite" collapsible defaultExpanded={false} storageKey="tier-detail-conformite">
+          <ComplianceRecordManager ownerType="tier" ownerId={tier.id} compact />
+        </FormSection>
 
         {/* Full-width sections below the columns */}
         <FormSection title="Notes & Documents" collapsible defaultExpanded={false} storageKey="tier-detail-sections">
@@ -862,6 +867,11 @@ function ContactDetailPanel({
           </div>
         </SectionColumns>
 
+        {/* Conformite — HSE compliance per employee */}
+        <FormSection title="Conformite" collapsible defaultExpanded={false} storageKey="contact-detail-conformite">
+          <ComplianceRecordManager ownerType="tier_contact" ownerId={contact.id} compact />
+        </FormSection>
+
         {/* Full-width: Notes & Documents */}
         <FormSection title="Notes & Documents" collapsible defaultExpanded={false} storageKey="contact-detail-sections">
           <DetailFieldGrid>
@@ -1169,7 +1179,9 @@ export function TiersPage() {
     if (!canExport && !canImport) return undefined
     return {
       exportFormats: canExport ? ['csv', 'xlsx', 'pdf'] : undefined,
+      advancedExport: true,
       importCsv: canImport,
+      importWizardTarget: canImport ? (activeTab === 'contacts' ? 'contact' : 'tier') as import('@/types/api').ImportTargetObject : undefined,
       filenamePrefix: activeTab === 'contacts' ? 'contacts' : 'tiers',
       exportHeaders: (activeTab === 'contacts' ? {
         first_name: 'Prenom', last_name: 'Nom', tier_name: 'Entreprise',

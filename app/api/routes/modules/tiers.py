@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.database import get_db
+from app.services.core.delete_service import delete_entity
 from app.core.pagination import PaginationParams, paginate
 from app.models.common import Tier, TierContact, TierIdentifier, User
 from app.schemas.common import (
@@ -233,6 +234,43 @@ async def create_tier_contact(
     db: AsyncSession = Depends(get_db),
 ):
     tier = await _get_tier_or_404(db, tier_id, entity_id)
+
+    # ── Duplicate detection: same email or same (first+last name) at same tier ──
+    if body.email:
+        dup_email = await db.execute(
+            select(TierContact.id).where(
+                TierContact.tier_id == tier.id,
+                TierContact.email == body.email,
+                TierContact.active == True,  # noqa: E712
+            )
+        )
+        if dup_email.scalar_one_or_none():
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "DUPLICATE_CONTACT_EMAIL",
+                    "message": f"Un contact avec l'email «{body.email}» existe déjà pour ce tiers.",
+                },
+            )
+
+    if body.first_name and body.last_name:
+        dup_name = await db.execute(
+            select(TierContact.id).where(
+                TierContact.tier_id == tier.id,
+                sqla_func.lower(TierContact.first_name) == body.first_name.lower(),
+                sqla_func.lower(TierContact.last_name) == body.last_name.lower(),
+                TierContact.active == True,  # noqa: E712
+            )
+        )
+        if dup_name.scalar_one_or_none():
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "DUPLICATE_CONTACT_NAME",
+                    "message": f"Un contact «{body.first_name} {body.last_name}» existe déjà pour ce tiers.",
+                },
+            )
+
     if body.is_primary:
         await _unset_primary_contacts(db, tier.id)
     contact = TierContact(tier_id=tier.id, **body.model_dump())
@@ -333,6 +371,7 @@ async def update_tier_identifier(
 async def delete_tier_identifier(
     tier_id: UUID, ident_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("tier.update"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -343,7 +382,7 @@ async def delete_tier_identifier(
     ident = result.scalar_one_or_none()
     if not ident:
         raise HTTPException(status_code=404, detail="Identifier not found")
-    await db.delete(ident)
+    await delete_entity(ident, db, "tier_identifier", entity_id=ident_id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Identifier deleted"}
 

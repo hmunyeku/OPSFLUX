@@ -401,81 +401,92 @@ export function AddressManager({ ownerType, ownerId, compact, initialShowForm }:
         />
       )}
 
-      {/* Address list */}
-      {!isLoading && addresses.map((addr) => {
-        const badge = getLabelBadge(addr.label)
-        const isConfirming = confirmDeleteId === addr.id
-        const isEditing = editingId === addr.id
+      {/* Address grid */}
+      {!isLoading && addresses.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          {addresses.map((addr) => {
+            const badge = getLabelBadge(addr.label)
+            const isConfirming = confirmDeleteId === addr.id
+            const isEditing = editingId === addr.id
 
-        if (isEditing) {
-          return (
-            <AddressForm
-              key={addr.id}
-              ownerType={ownerType}
-              ownerId={ownerId}
-              initial={addr}
-              onClose={() => setEditingId(null)}
-            />
-          )
-        }
+            if (isEditing) {
+              return (
+                <div key={addr.id} className="col-span-full">
+                  <AddressForm
+                    ownerType={ownerType}
+                    ownerId={ownerId}
+                    initial={addr}
+                    onClose={() => setEditingId(null)}
+                  />
+                </div>
+              )
+            }
 
-        return (
-          <div key={addr.id} className="border border-border/60 rounded-lg bg-card px-4 py-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3 min-w-0">
-                <MapPin size={16} className="text-muted-foreground mt-0.5 shrink-0" />
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className={`gl-badge ${badge.className}`}>{badge.text}</span>
-                    {addr.is_default && (
-                      <span className="gl-badge gl-badge-success flex items-center gap-1">
-                        <Star size={10} />
-                        Par défaut
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm font-medium text-foreground">{formatAddress(addr)}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{formatCityLine(addr)}</p>
+            return (
+              <div
+                key={addr.id}
+                className={`border rounded-lg bg-card p-4 transition-colors ${
+                  addr.is_default
+                    ? 'border-primary/40 bg-primary/5'
+                    : 'border-border/60'
+                }`}
+              >
+                {/* Header: badges */}
+                <div className="flex items-center gap-2 mb-3">
+                  <MapPin size={16} className="text-muted-foreground shrink-0" />
+                  <span className={`gl-badge ${badge.className}`}>{badge.text}</span>
+                  {addr.is_default && (
+                    <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-primary/10 text-primary">
+                      <Star size={9} /> Par défaut
+                    </span>
+                  )}
+                </div>
+
+                {/* Address content */}
+                <div className="min-w-0 mb-3">
+                  <p className="text-sm font-medium text-foreground truncate">{formatAddress(addr)}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5 truncate">{formatCityLine(addr)}</p>
                   {(addr.latitude != null && addr.longitude != null) && (
-                    <p className="text-xs text-muted-foreground/70 mt-1 font-mono">
+                    <p className="text-xs text-muted-foreground/70 mt-1.5 font-mono">
                       {addr.latitude.toFixed(6)}, {addr.longitude.toFixed(6)}
                     </p>
                   )}
                 </div>
-              </div>
 
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  className="gl-button-sm gl-button-default"
-                  onClick={() => setEditingId(addr.id)}
-                  title="Modifier"
-                >
-                  <Pencil size={12} />
-                </button>
-
-                {isConfirming ? (
-                  <div className="flex items-center gap-1">
-                    <button className="gl-button-sm gl-button-danger" onClick={() => handleDelete(addr.id)} disabled={deleteAddress.isPending}>
-                      Oui
-                    </button>
-                    <button className="gl-button-sm gl-button-default" onClick={() => setConfirmDeleteId(null)}>
-                      Non
-                    </button>
-                  </div>
-                ) : (
+                {/* Actions */}
+                <div className="flex items-center gap-1.5 pt-2 border-t border-border/30">
                   <button
-                    className="gl-button-sm gl-button-danger"
-                    onClick={() => setConfirmDeleteId(addr.id)}
-                    title="Supprimer"
+                    className="gl-button-sm gl-button-default"
+                    onClick={() => setEditingId(addr.id)}
+                    title="Modifier"
                   >
-                    <Trash2 size={12} />
+                    <Pencil size={11} /> Modifier
                   </button>
-                )}
+
+                  {isConfirming ? (
+                    <div className="flex items-center gap-1 ml-auto">
+                      <button className="gl-button-sm gl-button-danger" onClick={() => handleDelete(addr.id)} disabled={deleteAddress.isPending}>
+                        Oui
+                      </button>
+                      <button className="gl-button-sm gl-button-default" onClick={() => setConfirmDeleteId(null)}>
+                        Non
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      className="gl-button-sm gl-button-danger ml-auto"
+                      onClick={() => setConfirmDeleteId(addr.id)}
+                      title="Supprimer"
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          </div>
-        )
-      })}
+            )
+          })}
+        </div>
+      )}
 
       {/* Empty state */}
       {!isLoading && !showForm && addresses.length === 0 && (

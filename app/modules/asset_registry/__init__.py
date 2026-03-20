@@ -13,6 +13,8 @@ MANIFEST = ModuleManifest(
         "asset.delete",
         "asset.capacity.manage",
         "asset.hse.manage",
+        "asset.import",
+        "asset.export",
     ],
     roles=[
         {"code": "ASSET_ADMIN", "name": "Asset Administrator"},

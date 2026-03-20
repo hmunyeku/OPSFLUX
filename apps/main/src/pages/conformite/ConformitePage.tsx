@@ -9,6 +9,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ShieldCheck, Plus, Loader2, Trash2, FileCheck, ClipboardList,
+  Briefcase, GitBranch, Scale,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -31,15 +32,22 @@ import {
   DetailFieldGrid,
 } from '@/components/layout/DynamicPanel'
 import { useUIStore } from '@/stores/uiStore'
+import { usePermission } from '@/hooks/usePermission'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
 import { useToast } from '@/components/ui/Toast'
 import {
   useComplianceTypes, useCreateComplianceType, useUpdateComplianceType, useDeleteComplianceType,
   useComplianceRecords,
+  useComplianceRules, useDeleteComplianceRule,
+  useJobPositions, useCreateJobPosition, useUpdateJobPosition, useDeleteJobPosition,
+  useTransfers,
 } from '@/hooks/useConformite'
 import type {
   ComplianceType, ComplianceTypeCreate,
   ComplianceRecord,
+  ComplianceRule,
+  JobPosition, JobPositionCreate,
+  TierContactTransfer,
 } from '@/types/api'
 
 // -- Constants ----------------------------------------------------------------
@@ -59,11 +67,22 @@ const STATUS_OPTIONS = [
   { value: 'rejected', label: 'Rejete' },
 ]
 
-type ConformiteTab = 'referentiel' | 'enregistrements'
+const RULE_TARGET_OPTIONS = [
+  { value: 'all', label: 'Tous' },
+  { value: 'tier_type', label: 'Type de tiers' },
+  { value: 'asset', label: 'Asset' },
+  { value: 'department', label: 'Departement' },
+  { value: 'job_position', label: 'Fiche de poste' },
+]
+
+type ConformiteTab = 'referentiel' | 'enregistrements' | 'fiches' | 'regles' | 'transferts'
 
 const TABS: { id: ConformiteTab; label: string; icon: typeof ShieldCheck }[] = [
   { id: 'referentiel', label: 'Referentiel', icon: ClipboardList },
   { id: 'enregistrements', label: 'Enregistrements', icon: FileCheck },
+  { id: 'fiches', label: 'Fiches de poste', icon: Briefcase },
+  { id: 'regles', label: 'Regles', icon: Scale },
+  { id: 'transferts', label: 'Transferts', icon: GitBranch },
 ]
 
 // -- Create Type Panel --------------------------------------------------------
@@ -75,7 +94,6 @@ function CreateTypePanel() {
   const { toast } = useToast()
   const [form, setForm] = useState<ComplianceTypeCreate>({
     category: 'formation',
-    code: '',
     name: '',
     description: null,
     validity_days: null,
@@ -123,8 +141,8 @@ function CreateTypePanel() {
 
           <FormSection title="Informations">
             <FormGrid>
-              <DynamicPanelField label="Code" required>
-                <input type="text" required value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} className={panelInputClass} placeholder="FORM-001" />
+              <DynamicPanelField label="Code">
+                <span className="text-sm font-mono text-muted-foreground italic">Auto-généré à la création</span>
               </DynamicPanelField>
               <DynamicPanelField label="Nom" required>
                 <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={panelInputClass} placeholder="Formation HSE Niveau 1" />
@@ -199,7 +217,7 @@ function TypeDetailPanel({ id }: { id: string }) {
         <FormSection title="Informations" collapsible defaultExpanded>
           <DetailFieldGrid>
             <ReadOnlyRow label="Categorie" value={<span className="gl-badge gl-badge-info">{CATEGORY_OPTIONS.find(o => o.value === ct.category)?.label ?? ct.category}</span>} />
-            <InlineEditableRow label="Code" value={ct.code} onSave={(v) => handleSave('code', v)} />
+            <ReadOnlyRow label="Code" value={<span className="text-sm font-mono font-medium text-foreground">{ct.code || '—'}</span>} />
             <InlineEditableRow label="Nom" value={ct.name} onSave={(v) => handleSave('name', v)} />
             <ReadOnlyRow label="Validite" value={ct.validity_days ? `${ct.validity_days} jours` : 'Permanent'} />
             <ReadOnlyRow label="Obligatoire" value={ct.is_mandatory ? 'Oui' : 'Non'} />
@@ -208,6 +226,156 @@ function TypeDetailPanel({ id }: { id: string }) {
 
         <FormSection title="Description" collapsible defaultExpanded={false}>
           <InlineEditableRow label="Description" value={ct.description || ''} onSave={(v) => handleSave('description', v)} />
+        </FormSection>
+      </PanelContentLayout>
+    </DynamicPanelShell>
+  )
+}
+
+// -- Create Job Position Panel ------------------------------------------------
+
+function CreateJobPositionPanel() {
+  const { t } = useTranslation()
+  const createJP = useCreateJobPosition()
+  const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const { toast } = useToast()
+  const [form, setForm] = useState<JobPositionCreate>({
+    name: '',
+    description: null,
+    department: null,
+  })
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      await createJP.mutateAsync(form)
+      closeDynamicPanel()
+      toast({ title: 'Fiche de poste creee', variant: 'success' })
+    } catch {
+      toast({ title: 'Erreur', variant: 'error' })
+    }
+  }
+
+  return (
+    <DynamicPanelShell
+      title="Nouvelle fiche de poste"
+      subtitle="Conformite HSE"
+      icon={<Briefcase size={14} className="text-primary" />}
+      actions={
+        <>
+          <PanelActionButton onClick={closeDynamicPanel}>{t('common.cancel')}</PanelActionButton>
+          <PanelActionButton
+            variant="primary"
+            disabled={createJP.isPending}
+            onClick={() => (document.getElementById('create-jp-form') as HTMLFormElement)?.requestSubmit()}
+          >
+            {createJP.isPending ? <Loader2 size={12} className="animate-spin" /> : t('common.create')}
+          </PanelActionButton>
+        </>
+      }
+    >
+      <form id="create-jp-form" onSubmit={handleSubmit}>
+        <PanelContentLayout>
+          <FormSection title="Informations">
+            <FormGrid>
+              <DynamicPanelField label="Code">
+                <span className="text-sm font-mono text-muted-foreground italic">Auto-généré à la création</span>
+              </DynamicPanelField>
+              <DynamicPanelField label="Intitule du poste" required>
+                <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={panelInputClass} placeholder="Operateur de production" />
+              </DynamicPanelField>
+              <DynamicPanelField label="Departement">
+                <input type="text" value={form.department ?? ''} onChange={(e) => setForm({ ...form, department: e.target.value || null })} className={panelInputClass} placeholder="Production, HSE, Maintenance..." />
+              </DynamicPanelField>
+            </FormGrid>
+          </FormSection>
+
+          <FormSection title="Description">
+            <textarea
+              value={form.description ?? ''}
+              onChange={(e) => setForm({ ...form, description: e.target.value || null })}
+              className={`${panelInputClass} min-h-[60px] resize-y`}
+              placeholder="Description du poste et exigences HSE..."
+              rows={3}
+            />
+          </FormSection>
+        </PanelContentLayout>
+      </form>
+    </DynamicPanelShell>
+  )
+}
+
+// -- Job Position Detail Panel ------------------------------------------------
+
+function JobPositionDetailPanel({ id }: { id: string }) {
+  const { t } = useTranslation()
+  const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const { data } = useJobPositions({ page: 1, page_size: 100 })
+  const jp = data?.items.find((j) => j.id === id)
+  const updateJP = useUpdateJobPosition()
+  const deleteJP = useDeleteJobPosition()
+  const { toast } = useToast()
+
+  // Rules linked to this job position
+  const { data: allRules } = useComplianceRules(undefined)
+
+  const handleSave = useCallback((field: string, value: string) => {
+    updateJP.mutate({ id, payload: { [field]: value } })
+  }, [id, updateJP])
+
+  const handleDelete = useCallback(async () => {
+    await deleteJP.mutateAsync(id)
+    closeDynamicPanel()
+    toast({ title: 'Fiche de poste archivee', variant: 'success' })
+  }, [id, deleteJP, closeDynamicPanel, toast])
+
+  if (!jp) {
+    return (
+      <DynamicPanelShell title={t('common.loading')} icon={<Briefcase size={14} className="text-primary" />}>
+        <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+      </DynamicPanelShell>
+    )
+  }
+
+  const linkedRules = allRules?.filter(r => r.target_type === 'job_position' && r.target_value === jp.code) ?? []
+
+  return (
+    <DynamicPanelShell
+      title={jp.code}
+      subtitle={jp.name}
+      icon={<Briefcase size={14} className="text-primary" />}
+      actions={
+        <DangerConfirmButton icon={<Trash2 size={12} />} onConfirm={handleDelete} confirmLabel="Supprimer ?">
+          {t('common.delete')}
+        </DangerConfirmButton>
+      }
+    >
+      <PanelContentLayout>
+        <FormSection title="Informations" collapsible defaultExpanded>
+          <DetailFieldGrid>
+            <ReadOnlyRow label="Code" value={<span className="text-sm font-mono font-medium text-foreground">{jp.code || '—'}</span>} />
+            <InlineEditableRow label="Intitule" value={jp.name} onSave={(v) => handleSave('name', v)} />
+            <InlineEditableRow label="Departement" value={jp.department || ''} onSave={(v) => handleSave('department', v)} />
+          </DetailFieldGrid>
+        </FormSection>
+
+        <FormSection title="Description" collapsible defaultExpanded={false}>
+          <InlineEditableRow label="Description" value={jp.description || ''} onSave={(v) => handleSave('description', v)} />
+        </FormSection>
+
+        <FormSection title={`Exigences de conformite (${linkedRules.length})`} collapsible defaultExpanded>
+          {linkedRules.length > 0 ? (
+            <div className="space-y-1">
+              {linkedRules.map(r => (
+                <div key={r.id} className="flex items-center gap-2 text-xs py-1 px-2 bg-muted/30 rounded">
+                  <Scale size={10} className="text-muted-foreground" />
+                  <span className="flex-1">{r.description || r.compliance_type_id}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">Aucune regle de conformite liee a ce poste. Ajoutez des regles dans l&apos;onglet Regles.</p>
+          )}
         </FormSection>
       </PanelContentLayout>
     </DynamicPanelShell>
@@ -224,6 +392,10 @@ export function ConformitePage() {
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>({})
+
+  const { hasPermission } = usePermission()
+  const canImport = hasPermission('conformite.import')
+  const canExport = hasPermission('conformite.export') || hasPermission('conformite.record.read')
 
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
@@ -242,6 +414,7 @@ export function ConformitePage() {
   // Data
   const categoryFilter = typeof activeFilters.category === 'string' ? activeFilters.category : undefined
   const statusFilter = typeof activeFilters.status === 'string' ? activeFilters.status : undefined
+  const departmentFilter = typeof activeFilters.department === 'string' ? activeFilters.department : undefined
 
   const { data: typesData, isLoading: typesLoading } = useComplianceTypes({
     page: activeTab === 'referentiel' ? page : 1,
@@ -258,11 +431,28 @@ export function ConformitePage() {
     search: activeTab === 'enregistrements' ? (debouncedSearch || undefined) : undefined,
   })
 
+  const { data: jpData, isLoading: jpLoading } = useJobPositions({
+    page: activeTab === 'fiches' ? page : 1,
+    page_size: activeTab === 'fiches' ? pageSize : 1,
+    department: activeTab === 'fiches' ? departmentFilter : undefined,
+    search: activeTab === 'fiches' ? (debouncedSearch || undefined) : undefined,
+  })
+
+  const { data: rulesData, isLoading: rulesLoading } = useComplianceRules(undefined)
+
+  const { data: transfersData, isLoading: transfersLoading } = useTransfers({
+    page: activeTab === 'transferts' ? page : 1,
+    page_size: activeTab === 'transferts' ? pageSize : 1,
+  })
+
+  const deleteRule = useDeleteComplianceRule()
+
   useEffect(() => {
     if (activeTab === 'referentiel' && typesData?.items) setNavItems(typesData.items.map(i => i.id))
     else if (activeTab === 'enregistrements' && recordsData?.items) setNavItems(recordsData.items.map(i => i.id))
+    else if (activeTab === 'fiches' && jpData?.items) setNavItems(jpData.items.map(i => i.id))
     return () => setNavItems([])
-  }, [activeTab, typesData?.items, recordsData?.items, setNavItems])
+  }, [activeTab, typesData?.items, recordsData?.items, jpData?.items, setNavItems])
 
   // Filters
   const typeFilters = useMemo<DataTableFilterDef[]>(() => [
@@ -305,27 +495,167 @@ export function ConformitePage() {
     { accessorKey: 'issuer', header: 'Emetteur', size: 120, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.issuer || '--'}</span> },
   ], [])
 
+  // Job Position columns
+  const jpColumns = useMemo<ColumnDef<JobPosition, unknown>[]>(() => [
+    { accessorKey: 'code', header: 'Code', size: 100, cell: ({ row }) => <span className="font-medium">{row.original.code}</span> },
+    { accessorKey: 'name', header: 'Intitule', cell: ({ row }) => <span className="text-foreground">{row.original.name}</span> },
+    { accessorKey: 'department', header: 'Departement', size: 140, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.department || '--'}</span> },
+    { accessorKey: 'created_at', header: 'Cree le', size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs">{new Date(row.original.created_at).toLocaleDateString('fr-FR')}</span> },
+  ], [])
+
+  // Rules columns (flat list — not paginated)
+  const ruleColumns = useMemo<ColumnDef<ComplianceRule, unknown>[]>(() => [
+    { accessorKey: 'compliance_type_id', header: 'Type', size: 200, cell: ({ row }) => {
+      const ct = typesData?.items.find(t => t.id === row.original.compliance_type_id)
+      return <span className="text-foreground font-medium">{ct ? `${ct.code} — ${ct.name}` : row.original.compliance_type_id.slice(0, 8)}</span>
+    }},
+    { accessorKey: 'target_type', header: 'Cible', size: 130, cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{RULE_TARGET_OPTIONS.find(o => o.value === row.original.target_type)?.label ?? row.original.target_type}</span> },
+    { accessorKey: 'target_value', header: 'Valeur', size: 150, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.target_value || 'N/A'}</span> },
+    { accessorKey: 'description', header: 'Description', cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.description || '--'}</span> },
+    { id: 'actions', header: '', size: 50, cell: ({ row }) => (
+      <button onClick={(e) => { e.stopPropagation(); deleteRule.mutate(row.original.id) }} className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+        <Trash2 size={12} />
+      </button>
+    )},
+  ], [typesData?.items, deleteRule])
+
+  // Transfer columns
+  const transferColumns = useMemo<ColumnDef<TierContactTransfer, unknown>[]>(() => [
+    { accessorKey: 'contact_name', header: 'Employe', cell: ({ row }) => <span className="text-foreground font-medium">{row.original.contact_name || '--'}</span> },
+    { accessorKey: 'from_tier_name', header: 'De', size: 180, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.from_tier_name || '--'}</span> },
+    { accessorKey: 'to_tier_name', header: 'Vers', size: 180, cell: ({ row }) => <span className="text-foreground text-xs">{row.original.to_tier_name || '--'}</span> },
+    { accessorKey: 'transfer_date', header: 'Date', size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{new Date(row.original.transfer_date).toLocaleDateString('fr-FR')}</span> },
+    { accessorKey: 'reason', header: 'Motif', cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.reason || '--'}</span> },
+  ], [])
+
   const typesPagination: DataTablePagination | undefined = typesData ? { page: typesData.page, pageSize, total: typesData.total, pages: typesData.pages } : undefined
   const recordsPagination: DataTablePagination | undefined = recordsData ? { page: recordsData.page, pageSize, total: recordsData.total, pages: recordsData.pages } : undefined
+  const jpPagination: DataTablePagination | undefined = jpData ? { page: jpData.page, pageSize, total: jpData.total, pages: jpData.pages } : undefined
+  const transfersPagination: DataTablePagination | undefined = transfersData ? { page: transfersData.page, pageSize, total: transfersData.total, pages: transfersData.pages } : undefined
 
   const isFullPanel = panelMode === 'full' && dynamicPanel !== null && dynamicPanel.module === 'conformite'
+
+  // Toolbar action button per tab
+  const toolbarAction = useMemo(() => {
+    if (activeTab === 'referentiel') return <ToolbarButton icon={Plus} label="Nouveau type" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite' })} />
+    if (activeTab === 'fiches') return <ToolbarButton icon={Plus} label="Nouvelle fiche" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite', meta: { subtype: 'job-position' } })} />
+    return null
+  }, [activeTab, openDynamicPanel])
+
+  // Render active tab content
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'referentiel':
+        return (
+          <DataTable<ComplianceType>
+            columns={typeColumns}
+            data={typesData?.items ?? []}
+            isLoading={typesLoading}
+            pagination={typesPagination}
+            onPaginationChange={(p, size) => { if (size !== pageSize) { setPageSize(size); setPage(1) } else setPage(p) }}
+            searchValue={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Rechercher par code ou nom..."
+            filters={typeFilters}
+            activeFilters={activeFilters}
+            onFilterChange={handleFilterChange}
+            onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'conformite', id: row.id })}
+            emptyIcon={ShieldCheck}
+            emptyTitle="Aucun type de conformite"
+            columnResizing
+            columnVisibility
+            storageKey="conformite-types"
+          />
+        )
+      case 'enregistrements':
+        return (
+          <DataTable<ComplianceRecord>
+            columns={recordColumns}
+            data={recordsData?.items ?? []}
+            isLoading={recordsLoading}
+            pagination={recordsPagination}
+            onPaginationChange={(p, size) => { if (size !== pageSize) { setPageSize(size); setPage(1) } else setPage(p) }}
+            searchValue={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Rechercher par type, emetteur..."
+            filters={recordFilters}
+            activeFilters={activeFilters}
+            onFilterChange={handleFilterChange}
+            importExport={(canExport || canImport) ? {
+              exportFormats: canExport ? ['csv', 'xlsx'] : undefined,
+              advancedExport: true,
+              importWizardTarget: canImport ? 'compliance_record' : undefined,
+              filenamePrefix: 'conformite',
+            } : undefined}
+            emptyIcon={FileCheck}
+            emptyTitle="Aucun enregistrement"
+            columnResizing
+            columnVisibility
+            storageKey="conformite-records"
+          />
+        )
+      case 'fiches':
+        return (
+          <DataTable<JobPosition>
+            columns={jpColumns}
+            data={jpData?.items ?? []}
+            isLoading={jpLoading}
+            pagination={jpPagination}
+            onPaginationChange={(p, size) => { if (size !== pageSize) { setPageSize(size); setPage(1) } else setPage(p) }}
+            searchValue={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Rechercher par code ou intitule..."
+            onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'conformite', id: row.id, meta: { subtype: 'job-position' } })}
+            emptyIcon={Briefcase}
+            emptyTitle="Aucune fiche de poste"
+            columnResizing
+            columnVisibility
+            storageKey="conformite-fiches"
+          />
+        )
+      case 'regles':
+        return (
+          <DataTable<ComplianceRule>
+            columns={ruleColumns}
+            data={rulesData ?? []}
+            isLoading={rulesLoading}
+            emptyIcon={Scale}
+            emptyTitle="Aucune regle de conformite"
+            columnResizing
+            storageKey="conformite-regles"
+          />
+        )
+      case 'transferts':
+        return (
+          <DataTable<TierContactTransfer>
+            columns={transferColumns}
+            data={transfersData?.items ?? []}
+            isLoading={transfersLoading}
+            pagination={transfersPagination}
+            onPaginationChange={(p, size) => { if (size !== pageSize) { setPageSize(size); setPage(1) } else setPage(p) }}
+            emptyIcon={GitBranch}
+            emptyTitle="Aucun transfert d'employe"
+            columnResizing
+            storageKey="conformite-transferts"
+          />
+        )
+    }
+  }
 
   return (
     <div className="flex h-full">
       {!isFullPanel && <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
         <PanelHeader icon={ShieldCheck} title="Conformite" subtitle="Formations, certifications, habilitations, audits">
-          {activeTab === 'referentiel' && (
-            <ToolbarButton icon={Plus} label="Nouveau type" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite' })} />
-          )}
+          {toolbarAction}
         </PanelHeader>
 
-        <div className="flex items-center gap-1 px-4 border-b border-border shrink-0">
+        <div className="flex items-center gap-1 px-4 border-b border-border shrink-0 overflow-x-auto">
           {TABS.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
             return (
               <button key={tab.id} onClick={() => handleTabChange(tab.id)} className={cn(
-                'flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+                'flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap',
                 isActive ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border',
               )}>
                 <Icon size={13} />
@@ -336,57 +666,22 @@ export function ConformitePage() {
         </div>
 
         <PanelContent>
-          {activeTab === 'referentiel' ? (
-            <DataTable<ComplianceType>
-              columns={typeColumns}
-              data={typesData?.items ?? []}
-              isLoading={typesLoading}
-              pagination={typesPagination}
-              onPaginationChange={(p, size) => { if (size !== pageSize) { setPageSize(size); setPage(1) } else setPage(p) }}
-              searchValue={search}
-              onSearchChange={setSearch}
-              searchPlaceholder="Rechercher par code ou nom..."
-              filters={typeFilters}
-              activeFilters={activeFilters}
-              onFilterChange={handleFilterChange}
-              onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'conformite', id: row.id })}
-              emptyIcon={ShieldCheck}
-              emptyTitle="Aucun type de conformite"
-              columnResizing
-              columnVisibility
-              storageKey="conformite-types"
-            />
-          ) : (
-            <DataTable<ComplianceRecord>
-              columns={recordColumns}
-              data={recordsData?.items ?? []}
-              isLoading={recordsLoading}
-              pagination={recordsPagination}
-              onPaginationChange={(p, size) => { if (size !== pageSize) { setPageSize(size); setPage(1) } else setPage(p) }}
-              searchValue={search}
-              onSearchChange={setSearch}
-              searchPlaceholder="Rechercher par type, emetteur..."
-              filters={recordFilters}
-              activeFilters={activeFilters}
-              onFilterChange={handleFilterChange}
-              emptyIcon={FileCheck}
-              emptyTitle="Aucun enregistrement"
-              columnResizing
-              columnVisibility
-              storageKey="conformite-records"
-            />
-          )}
+          {renderTabContent()}
         </PanelContent>
       </div>}
 
-      {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'create' && <CreateTypePanel />}
-      {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'detail' && <TypeDetailPanel id={dynamicPanel.id} />}
+      {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'create' && !dynamicPanel.meta?.subtype && <CreateTypePanel />}
+      {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'detail' && !dynamicPanel.meta?.subtype && <TypeDetailPanel id={dynamicPanel.id} />}
+      {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'job-position' && <CreateJobPositionPanel />}
+      {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'job-position' && <JobPositionDetailPanel id={dynamicPanel.id} />}
     </div>
   )
 }
 
 registerPanelRenderer('conformite', (view) => {
-  if (view.type === 'create') return <CreateTypePanel />
-  if (view.type === 'detail' && 'id' in view) return <TypeDetailPanel id={view.id} />
+  if (view.type === 'create' && !view.meta?.subtype) return <CreateTypePanel />
+  if (view.type === 'detail' && 'id' in view && !view.meta?.subtype) return <TypeDetailPanel id={view.id} />
+  if (view.type === 'create' && view.meta?.subtype === 'job-position') return <CreateJobPositionPanel />
+  if (view.type === 'detail' && 'id' in view && view.meta?.subtype === 'job-position') return <JobPositionDetailPanel id={view.id} />
   return null
 })

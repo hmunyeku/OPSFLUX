@@ -15,6 +15,7 @@ from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models.common import Tag, User
 from app.schemas.common import TagCreate, TagRead, TagTreeRead, TagUpdate
+from app.services.core.delete_service import delete_entity
 
 router = APIRouter(prefix="/api/v1/tags", tags=["tags"])
 
@@ -233,5 +234,5 @@ async def delete_tag(
             detail="Only the creator can delete this tag",
         )
 
-    await db.delete(tag)
+    await delete_entity(tag, db, "tag", entity_id=tag_id, user_id=current_user.id)
     await db.commit()

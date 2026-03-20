@@ -179,73 +179,36 @@ function TemplateList({
   onToggle: (t: EmailTemplateSummary) => void
 }) {
   return (
-    <div className="mt-2 divide-y divide-border/50 rounded-lg border border-border overflow-hidden">
+    <div className="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
       {templates.map((t) => (
         <div
           key={t.id}
-          className="flex items-center gap-3 px-4 py-3 hover:bg-accent/50 transition-colors cursor-pointer group"
+          className={cn(
+            'border rounded-lg p-4 transition-colors cursor-pointer hover:border-primary/40 group',
+            t.enabled ? 'border-border/60 bg-card' : 'border-border/40 bg-muted/20 opacity-75',
+          )}
           onClick={() => onEdit(t)}
         >
-          {/* Icon */}
-          <div
-            className={cn(
-              'h-8 w-8 rounded-lg flex items-center justify-center shrink-0',
-              t.enabled ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
-            )}
-          >
-            <Mail size={14} />
-          </div>
-
-          {/* Info */}
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-foreground truncate">{t.name}</span>
-              <code className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+          {/* Header: icon + name + toggle */}
+          <div className="flex items-start gap-2.5 mb-2">
+            <div
+              className={cn(
+                'h-9 w-9 rounded-lg flex items-center justify-center shrink-0',
+                t.enabled ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
+              )}
+            >
+              <Mail size={16} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-foreground truncate">{t.name}</p>
+              <code className="text-[10px] font-mono text-muted-foreground">
                 {t.slug}
               </code>
             </div>
-            <div className="flex items-center gap-3 mt-0.5">
-              {t.description && (
-                <span className="text-xs text-muted-foreground truncate max-w-[300px]">{t.description}</span>
-              )}
-            </div>
-          </div>
-
-          {/* Metadata badges */}
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Object type */}
-            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-accent text-muted-foreground">
-              {OBJECT_TYPE_LABELS[t.object_type] ?? t.object_type}
-            </span>
-
-            {/* Languages */}
-            <div className="flex items-center gap-0.5">
-              {t.active_languages.length > 0 ? (
-                t.active_languages.map((lang) => (
-                  <span
-                    key={lang}
-                    className="text-[10px] font-semibold px-1 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                  >
-                    {LANG_LABELS[lang] ?? lang}
-                  </span>
-                ))
-              ) : (
-                <span className="text-[10px] px-1 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                  Aucune version
-                </span>
-              )}
-            </div>
-
-            {/* Version count */}
-            <span className="text-xs text-muted-foreground">
-              {t.version_count}v
-            </span>
-
-            {/* Enable/disable toggle */}
             <button
               onClick={(e) => { e.stopPropagation(); onToggle(t) }}
               className={cn(
-                'p-1 rounded-md transition-colors',
+                'p-1.5 rounded-md transition-colors shrink-0',
                 t.enabled
                   ? 'text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30'
                   : 'text-muted-foreground hover:bg-accent',
@@ -254,8 +217,38 @@ function TemplateList({
             >
               {t.enabled ? <Power size={14} /> : <PowerOff size={14} />}
             </button>
+          </div>
 
-            {/* Chevron */}
+          {/* Description */}
+          {t.description && (
+            <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{t.description}</p>
+          )}
+
+          {/* Footer: badges */}
+          <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-border/30">
+            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-accent text-muted-foreground">
+              {OBJECT_TYPE_LABELS[t.object_type] ?? t.object_type}
+            </span>
+
+            {t.active_languages.length > 0 ? (
+              t.active_languages.map((lang) => (
+                <span
+                  key={lang}
+                  className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                >
+                  {LANG_LABELS[lang] ?? lang}
+                </span>
+              ))
+            ) : (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                Aucune version
+              </span>
+            )}
+
+            <span className="text-xs text-muted-foreground ml-auto">
+              {t.version_count}v
+            </span>
+
             <ChevronRight size={14} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
         </div>

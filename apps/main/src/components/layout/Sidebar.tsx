@@ -18,15 +18,22 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard,
+  Landmark,
   Building2,
+  Globe,
   Settings,
   GitBranch,
   Users,
+  UserCog,
   PanelLeftClose,
   PanelLeft,
   HelpCircle,
   ShieldCheck,
   FolderKanban,
+  CalendarClock,
+  Ship,
+  FileText,
+  Workflow,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -57,11 +64,18 @@ const moduleNavItems: NavItemDef[] = [
   { path: '/tiers', icon: Building2, labelKey: 'nav.tiers', module: 'tiers', order: 30 },
   { path: '/conformite', icon: ShieldCheck, labelKey: 'nav.conformite', module: 'conformite', order: 35 },
   { path: '/projets', icon: FolderKanban, labelKey: 'nav.projets', module: 'projets', order: 38 },
-  { path: '/workflow', icon: GitBranch, labelKey: 'nav.workflow', module: 'workflow', order: 50 },
+  { path: '/planner', icon: CalendarClock, labelKey: 'nav.planner', module: 'planner', order: 39 },
   { path: '/paxlog', icon: Users, labelKey: 'nav.paxlog', module: 'paxlog', order: 40 },
+  { path: '/travelwiz', icon: Ship, labelKey: 'nav.travelwiz', module: 'travelwiz', order: 42 },
+  { path: '/report-editor', icon: FileText, labelKey: 'nav.report_editor', module: 'report-editor', order: 55 },
+  { path: '/pid-pfd', icon: Workflow, labelKey: 'nav.pid_pfd', module: 'pid-pfd', order: 58 },
+  { path: '/workflow', icon: GitBranch, labelKey: 'nav.workflow', module: 'workflow', order: 60 },
 ]
 
 const adminNavItems: NavItemDef[] = [
+  { path: '/assets', icon: Landmark, labelKey: 'nav.assets', module: 'asset-registry', order: 85 },
+  { path: '/entities', icon: Globe, labelKey: 'nav.entities', module: 'core', order: 88, requiredPermission: 'admin.system' },
+  { path: '/users', icon: UserCog, labelKey: 'nav.accounts', module: 'core', order: 90, requiredPermission: 'admin.users.read' },
   { path: '/settings', icon: Settings, labelKey: 'nav.settings', module: 'core', order: 100 },
 ]
 
@@ -119,12 +133,12 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
       <div className="h-1.5 shrink-0" />
 
       {/* Navigation section */}
-      <nav className="flex-1 space-y-0.5 px-1.5 py-1 overflow-y-auto overflow-x-hidden" role="navigation" aria-label="Navigation principale">
+      <nav className="flex-1 space-y-0.5 px-1.5 py-1 overflow-y-auto overflow-x-hidden" role="navigation" aria-label={t('nav.section_label')}>
         {/* Section label (expanded only) */}
         {!collapsed && (
           <div className="px-1.5 pb-1">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
-              Navigation
+              {t('nav.section_label')}
             </span>
           </div>
         )}
@@ -141,10 +155,10 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
             'flex w-full items-center gap-2.5 rounded-lg h-8 text-sm text-muted-foreground hover:bg-chrome-hover hover:text-foreground transition-colors duration-150',
             collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2',
           )}
-          title={collapsed ? 'Aide' : undefined}
+          title={collapsed ? t('nav.help') : undefined}
         >
           <HelpCircle size={16} className="shrink-0" />
-          {!collapsed && <span className="truncate">Aide</span>}
+          {!collapsed && <span className="truncate">{t('nav.help')}</span>}
         </button>
 
         <button
@@ -153,13 +167,12 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
             'flex w-full items-center gap-2.5 rounded-lg h-8 text-sm text-muted-foreground hover:bg-chrome-hover hover:text-foreground transition-colors duration-150',
             collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2',
           )}
-          title={collapsed ? 'Étendre' : 'Réduire'}
+          title={collapsed ? t('nav.expand') : t('nav.collapse')}
         >
           {collapsed ? <PanelLeft size={16} /> : <PanelLeftClose size={16} />}
-          {!collapsed && <span className="truncate">Réduire</span>}
+          {!collapsed && <span className="truncate">{t('nav.collapse')}</span>}
         </button>
       </div>
     </aside>
   )
 }
-

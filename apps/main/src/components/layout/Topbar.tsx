@@ -11,19 +11,15 @@
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
-import { useThemeStore } from '@/stores/themeStore'
 import { useUIStore } from '@/stores/uiStore'
 import {
   Search,
   Menu,
-  Moon,
-  Sun,
   LogOut,
   User as UserIcon,
   Plus,
   FileText,
   GitPullRequest,
-  CheckSquare,
   Settings,
   X,
 } from 'lucide-react'
@@ -31,6 +27,8 @@ import { useState, useRef, useEffect, useSyncExternalStore, useCallback, useMemo
 import { offlineQueue } from '@/lib/offlineQueue'
 import { CommandPalette, useCommandPalette } from '@/components/ui/CommandPalette'
 import { EntitySwitcher } from '@/components/layout/EntitySwitcher'
+import { NotificationCenter } from '@/components/layout/NotificationCenter'
+import { ThemeMenu } from '@/components/layout/ThemeMenu'
 
 interface TopbarProps {
   onToggleSidebar: () => void
@@ -191,7 +189,6 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
-  const { setTheme, resolvedTheme } = useThemeStore()
   const globalSearch = useUIStore((s) => s.globalSearch)
   const setGlobalSearch = useUIStore((s) => s.setGlobalSearch)
   const [showUserMenu, setShowUserMenu] = useState(false)
@@ -204,10 +201,6 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
     const newLang = i18n.language === 'fr' ? 'en' : 'fr'
     i18n.changeLanguage(newLang)
     localStorage.setItem('language', newLang)
-  }
-
-  const toggleTheme = () => {
-    setTheme(resolvedTheme === 'light' ? 'dark' : 'light')
   }
 
   // ⌘K opens CommandPalette
@@ -309,15 +302,11 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
 
           <TopbarIconButton icon={FileText} label={t('common.actions')} badge={0} />
           <TopbarIconButton icon={GitPullRequest} label={t('workflow.title')} badge={0} />
-          <TopbarIconButton icon={CheckSquare} label={t('nav.notifications')} badge={0} />
+          <NotificationCenter />
 
           <div className="mx-1.5 h-4 w-px bg-border" />
 
-          <TopbarIconButton
-            icon={resolvedTheme === 'dark' ? Sun : Moon}
-            label={t('settings.dark_mode')}
-            onClick={toggleTheme}
-          />
+          <ThemeMenu />
 
           <button
             onClick={toggleLanguage}
@@ -363,7 +352,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
                     className="flex w-full items-center gap-2.5 px-3 py-1.5 text-sm text-popover-foreground hover:bg-accent rounded-sm mx-0 transition-colors"
                   >
                     <Settings size={14} />
-                    Préférences
+                    {t('nav.settings')}
                   </button>
                 </div>
                 <div className="my-0.5 h-px bg-border" />

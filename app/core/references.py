@@ -35,16 +35,38 @@ _PLACEHOLDER_RE = re.compile(r"\{([^}]+)\}")
 DEFAULT_TEMPLATE = "{prefix}-{YYYY}-{####}"
 
 
-def _resolve_template(template: str, prefix: str, year: int, seq_value: int) -> str:
+def _resolve_template(
+    template: str,
+    prefix: str,
+    year: int,
+    seq_value: int,
+    *,
+    context: dict[str, str] | None = None,
+) -> str:
     """Replace template placeholders with actual values.
 
-    Supported placeholders:
-      {prefix}  — the prefix string (e.g. "AST")
-      {YYYY}    — four-digit year
-      {YY}      — two-digit year
-      {####}    — zero-padded sequence (width = number of # chars, min 4)
-      {######}  — six-digit zero-padded sequence
+    Supported placeholders (like Dolibarr numbering modules):
+      {prefix}        — the prefix string (e.g. "ADS")
+      {YYYY}          — four-digit year (2026)
+      {YY}            — two-digit year (26)
+      {MM}            — two-digit month (03)
+      {DD}            — two-digit day (19)
+      {####}          — zero-padded sequence (width = number of # chars, min 4)
+      {######}        — six-digit zero-padded sequence
+      {entity_code}   — entity code (e.g. "PCR", "PCC")
+      {entity_name}   — entity full name
+      {asset_code}    — asset code (if applicable)
+      {project_code}  — project code (if applicable)
+      {type}          — object type/subtype (e.g. "pid", "maintenance")
+      {user_initials} — creator initials (e.g. "HB")
+
+    Examples:
+      "ADS-{entity_code}-{YYYY}-{#####}"  -> "ADS-PCR-2026-00042"
+      "{entity_code}/{type}/{YYYY}{MM}-{####}" -> "PCR/PID/202603-0001"
+      "{prefix}-{YYYY}-{######}"  -> "VYG-2026-000123"
     """
+    now = datetime.now(UTC)
+    ctx = context or {}
 
     def _replace(match: re.Match) -> str:
         token = match.group(1)
@@ -55,6 +77,15 @@ def _resolve_template(template: str, prefix: str, year: int, seq_value: int) -> 
             return str(year)
         if token == "YY":
             return str(year)[-2:]
+        if token == "MM":
+            return str(now.month).zfill(2)
+        if token == "DD":
+            return str(now.day).zfill(2)
+
+        # Context-based variables (entity, project, asset, type, user)
+        if token in ("entity_code", "entity_name", "asset_code",
+                      "project_code", "type", "user_initials"):
+            return ctx.get(token, "")
 
         # Sequence padding — any run of # characters
         if set(token) == {"#"}:
@@ -102,6 +133,7 @@ async def generate_reference(
     *,
     entity_id: UUID | None = None,
     template: str | None = None,
+    context: dict[str, str] | None = None,
 ) -> str:
     """Generate the next reference number for a given prefix.
 
@@ -114,29 +146,32 @@ async def generate_reference(
     Parameters
     ----------
     prefix : str
-        Business object prefix, e.g. ``"AST"``, ``"TRS"``, ``"PRJ"``.
+        Business object prefix, e.g. ``"ADS"``, ``"VYG"``, ``"ACT"``.
     db : AsyncSession
         Active database session (must be inside a transaction).
     entity_id : UUID | None
         Optional entity scope — used for looking up per-entity template
-        settings.
+        settings and auto-populating {entity_code}/{entity_name}.
     template : str | None
         Explicit template override. If not provided, the function checks the
         Settings DB, then falls back to ``DEFAULT_TEMPLATE``.
+    context : dict[str, str] | None
+        Additional substitution variables:
+        - entity_code, entity_name (auto-populated if entity_id given)
+        - asset_code, project_code, type, user_initials
 
     Returns
     -------
     str
-        The generated reference string, e.g. ``"AST-2026-0001"``.
+        The generated reference string, e.g. ``"ADS-PCR-2026-00042"``.
 
     Examples
     --------
-    >>> ref = await generate_reference("AST", db)
-    "AST-2026-0001"
-    >>> ref = await generate_reference("AST", db)
-    "AST-2026-0002"
-    >>> ref = await generate_reference("TRS", db, template="TRS-{####}")
-    "TRS-0001"
+    >>> ref = await generate_reference("ADS", db, entity_id=eid)
+    "ADS-2026-0001"
+    >>> ref = await generate_reference("ADS", db, entity_id=eid,
+    ...     context={"entity_code": "PCR"})
+    "ADS-PCR-2026-0001"  # if template is "{prefix}-{entity_code}-{YYYY}-{####}"
     """
     year = datetime.now(UTC).year
 
@@ -159,13 +194,25 @@ async def generate_reference(
     )
     seq_value = result.scalar_one()
 
+    # Auto-populate entity_code/entity_name from DB if entity_id given
+    ctx = dict(context or {})
+    if entity_id and "entity_code" not in ctx:
+        ent_result = await db.execute(
+            text("SELECT code, name FROM entities WHERE id = :eid"),
+            {"eid": str(entity_id)},
+        )
+        ent_row = ent_result.first()
+        if ent_row:
+            ctx.setdefault("entity_code", ent_row[0] or "")
+            ctx.setdefault("entity_name", ent_row[1] or "")
+
     # Resolve template (explicit > Settings DB > default)
     if template is None:
         template = await _get_template_from_settings(prefix, entity_id, db)
     if template is None:
         template = DEFAULT_TEMPLATE
 
-    reference = _resolve_template(template, prefix, year, seq_value)
+    reference = _resolve_template(template, prefix, year, seq_value, context=ctx)
     logger.debug("Generated reference: %s (prefix=%s, seq=%d)", reference, prefix, seq_value)
     return reference
 
@@ -176,6 +223,7 @@ async def preview_reference(
     *,
     entity_id: UUID | None = None,
     template: str | None = None,
+    context: dict[str, str] | None = None,
 ) -> str:
     """Preview what the next reference will look like *without consuming it*.
 
@@ -192,6 +240,9 @@ async def preview_reference(
         Optional entity scope for template lookup.
     template : str | None
         Explicit template override.
+    context : dict[str, str] | None
+        Additional substitution variables (same as ``generate_reference``):
+        entity_code, entity_name, asset_code, project_code, type, user_initials.
 
     Returns
     -------
@@ -210,10 +261,22 @@ async def preview_reference(
     current_value = result.scalar_one_or_none()
     next_value = (current_value or 0) + 1
 
+    # Auto-populate entity_code/entity_name from DB if entity_id given
+    ctx = dict(context or {})
+    if entity_id and "entity_code" not in ctx:
+        ent_result = await db.execute(
+            text("SELECT code, name FROM entities WHERE id = :eid"),
+            {"eid": str(entity_id)},
+        )
+        ent_row = ent_result.first()
+        if ent_row:
+            ctx.setdefault("entity_code", ent_row[0] or "")
+            ctx.setdefault("entity_name", ent_row[1] or "")
+
     # Resolve template
     if template is None:
         template = await _get_template_from_settings(prefix, entity_id, db)
     if template is None:
         template = DEFAULT_TEMPLATE
 
-    return _resolve_template(template, prefix, year, next_value)
+    return _resolve_template(template, prefix, year, next_value, context=ctx)

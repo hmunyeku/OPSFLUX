@@ -53,88 +53,118 @@ export function ApplicationsTab() {
         </div>
       ) : (
         <>
-          {/* Your applications */}
-          <div className="mt-6 border border-border/60 rounded-lg bg-card">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border/40 bg-muted/30 rounded-t-lg">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-foreground">Vos applications</span>
-                <AppWindow size={14} className="text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">{apps?.length || 0}</span>
-              </div>
-              <button
-                className="gl-button-sm gl-button-default"
-                onClick={() => openDynamicPanel({ type: 'create', module: 'settings-app' })}
-              >
-                Ajouter une application
-              </button>
+          {/* Your applications — header */}
+          <div className="mt-6 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-foreground">Vos applications</h3>
+              <span className="inline-flex items-center justify-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">{apps?.length || 0}</span>
             </div>
-
-            {apps && apps.length > 0 ? (
-              apps.map((app) => (
-                <div key={app.id} className="flex items-center justify-between px-4 py-3 border-b border-border/20 last:border-b-0">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{app.name}</p>
-                    <p className="text-xs text-muted-foreground font-mono">Client ID: {app.client_id}</p>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      <span className="gl-badge gl-badge-info">{app.confidential ? 'Confidentielle' : 'Publique'}</span>
-                      {app.scopes.map((s) => (
-                        <span key={s} className="gl-badge gl-badge-neutral">{s}</span>
-                      ))}
-                    </div>
-                  </div>
-                  <button
-                    className="gl-button-sm gl-button-danger shrink-0"
-                    onClick={() => handleDeactivate(app.id)}
-                    disabled={deactivateApp.isPending}
-                  >
-                    <Trash2 size={12} /> Supprimer
-                  </button>
-                </div>
-              ))
-            ) : (
-              <div className="px-4 py-4 text-sm text-muted-foreground">
-                Vous n'avez aucune application.
-              </div>
-            )}
+            <button
+              className="gl-button-sm gl-button-confirm"
+              onClick={() => openDynamicPanel({ type: 'create', module: 'settings-app' })}
+            >
+              Ajouter une application
+            </button>
           </div>
 
-          {/* Authorized applications */}
-          <div className="mt-4 border border-border/60 rounded-lg bg-card">
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-border/40 bg-muted/30 rounded-t-lg">
-              <span className="text-sm font-semibold text-foreground">Applications autorisées</span>
-              <AppWindow size={14} className="text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">{authorizations?.length || 0}</span>
-            </div>
-
-            {authorizations && authorizations.length > 0 ? (
-              authorizations.map((auth) => (
-                <div key={auth.id} className="flex items-center justify-between px-4 py-3 border-b border-border/20 last:border-b-0">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{auth.application.name}</p>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {auth.scopes.map((s) => (
-                        <span key={s} className="gl-badge gl-badge-neutral">{s}</span>
-                      ))}
+          {/* Your applications — card grid */}
+          {apps && apps.length > 0 ? (
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              {apps.map((app) => (
+                <div key={app.id} className="border border-border/60 rounded-lg bg-card p-4">
+                  {/* App header */}
+                  <div className="flex items-start gap-2.5 mb-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 shrink-0">
+                      <AppWindow size={18} className="text-primary" />
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Autorisé le {new Date(auth.created_at).toLocaleDateString('fr-FR')}
-                    </p>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground truncate">{app.name}</p>
+                      <p className="text-[10px] text-muted-foreground font-mono truncate mt-0.5">ID: {app.client_id}</p>
+                    </div>
                   </div>
-                  <button
-                    className="gl-button-sm gl-button-danger shrink-0"
-                    onClick={() => handleRevokeAuth(auth.id)}
-                    disabled={revokeAuth.isPending}
-                  >
-                    Révoquer
-                  </button>
+
+                  {/* Badges */}
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                      app.confidential
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                        : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                    }`}>
+                      {app.confidential ? 'Confidentielle' : 'Publique'}
+                    </span>
+                    {app.scopes.map((s) => (
+                      <span key={s} className="gl-badge gl-badge-neutral">{s}</span>
+                    ))}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="pt-2 border-t border-border/30">
+                    <button
+                      className="gl-button-sm gl-button-danger"
+                      onClick={() => handleDeactivate(app.id)}
+                      disabled={deactivateApp.isPending}
+                    >
+                      <Trash2 size={11} /> Supprimer
+                    </button>
+                  </div>
                 </div>
-              ))
-            ) : (
-              <div className="px-4 py-4 text-sm text-muted-foreground">
-                Vous n'avez autorisé aucune application.
-              </div>
-            )}
+              ))}
+            </div>
+          ) : (
+            <div className="mt-3 py-6 text-center text-sm text-muted-foreground border border-dashed border-border/60 rounded-lg">
+              Vous n'avez aucune application.
+            </div>
+          )}
+
+          {/* Authorized applications — header */}
+          <div className="mt-8 flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-foreground">Applications autorisées</h3>
+            <span className="inline-flex items-center justify-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">{authorizations?.length || 0}</span>
           </div>
+
+          {/* Authorized applications — card grid */}
+          {authorizations && authorizations.length > 0 ? (
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              {authorizations.map((auth) => (
+                <div key={auth.id} className="border border-border/60 rounded-lg bg-card p-4">
+                  {/* App header */}
+                  <div className="flex items-start gap-2.5 mb-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted/50 shrink-0">
+                      <AppWindow size={18} className="text-muted-foreground" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground truncate">{auth.application.name}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Autorisé le {new Date(auth.created_at).toLocaleDateString('fr-FR')}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Scopes */}
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    {auth.scopes.map((s) => (
+                      <span key={s} className="gl-badge gl-badge-neutral">{s}</span>
+                    ))}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="pt-2 border-t border-border/30">
+                    <button
+                      className="gl-button-sm gl-button-danger"
+                      onClick={() => handleRevokeAuth(auth.id)}
+                      disabled={revokeAuth.isPending}
+                    >
+                      Révoquer
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-3 py-6 text-center text-sm text-muted-foreground border border-dashed border-border/60 rounded-lg">
+              Vous n'avez autorisé aucune application.
+            </div>
+          )}
         </>
       )}
     </CollapsibleSection>

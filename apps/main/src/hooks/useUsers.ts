@@ -40,3 +40,13 @@ export function useUpdateUser() {
     },
   })
 }
+
+export function useRevokeAllSessions() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => usersService.revokeAllSessions(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sessions'] })
+    },
+  })
+}

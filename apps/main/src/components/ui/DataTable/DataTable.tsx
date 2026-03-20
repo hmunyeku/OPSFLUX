@@ -26,6 +26,8 @@ import { DataTablePaginationBar } from './Pagination'
 import { ColumnHeaderMenuPortal, useColumnHeaderMenu } from './ColumnHeaderMenu'
 import type { ColumnHeaderMenuProps } from './ColumnHeaderMenu'
 import { loadFromStorage, saveToStorage } from './utils'
+import { ImportWizard } from '@/components/shared/ImportWizard'
+import { ExportWizard } from '@/components/shared/ExportWizard'
 import type { DataTableProps, ViewMode, ExportFormat } from './types'
 
 // ── Inline Edit Cell ───────────────────────────────────────
@@ -226,6 +228,8 @@ export function DataTable<TData>({
     return { left: leftPins, right: defaultPins.right ?? [] }
   })
 
+  const [showImportWizard, setShowImportWizard] = useState(false)
+  const [exportWizardOpen, setExportWizardOpen] = useState(false)
   const importInputRef = useRef<HTMLInputElement>(null)
   const { menu: headerMenu, openMenu: openHeaderMenu, closeMenu: closeHeaderMenu } = useColumnHeaderMenu()
 
@@ -829,7 +833,14 @@ export function DataTable<TData>({
         onToggleColumn={(id) => table.getColumn(id)?.toggleVisibility()}
         importExport={importExport}
         onExport={handleExport}
-        onImportClick={() => importInputRef.current?.click()}
+        onAdvancedExport={importExport?.advancedExport ? () => setExportWizardOpen(true) : undefined}
+        onImportClick={() => {
+          if (importExport?.importWizardTarget) {
+            setShowImportWizard(true)
+          } else {
+            importInputRef.current?.click()
+          }
+        }}
         onDownloadTemplate={handleDownloadTemplate}
         selectedCount={selectedRows.length}
         totalCount={pagination?.total ?? data.length}
@@ -849,6 +860,34 @@ export function DataTable<TData>({
           position={headerMenu.position}
           props={headerMenu.props}
           onClose={closeHeaderMenu}
+        />
+      )}
+
+      {/* Import Wizard */}
+      {importExport?.importWizardTarget && (
+        <ImportWizard
+          open={showImportWizard}
+          onClose={() => setShowImportWizard(false)}
+          targetObject={importExport.importWizardTarget}
+          onImportComplete={() => {
+            // Refresh data after import by re-triggering pagination
+            if (onPaginationChange && pagination) {
+              onPaginationChange(pagination.page, pagination.pageSize)
+            }
+          }}
+        />
+      )}
+
+      {/* Export Wizard */}
+      {importExport?.advancedExport && (
+        <ExportWizard
+          open={exportWizardOpen}
+          onClose={() => setExportWizardOpen(false)}
+          data={data as unknown as Record<string, unknown>[]}
+          columns={colVisInfo.map((c) => ({ id: c.id, header: c.header }))}
+          filenamePrefix={importExport?.filenamePrefix}
+          selectedRowIds={selectable ? new Set(Object.keys(rowSelection).filter((k) => rowSelection[k])) : undefined}
+          getRowId={(row) => getRowId(row as unknown as TData)}
         />
       )}
     </div>

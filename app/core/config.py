@@ -1,8 +1,9 @@
 """Application settings via pydantic-settings (.env)."""
 
 from functools import lru_cache
-from typing import Literal
+from typing import Literal, Self
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,6 +21,8 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:5173"
     ALLOWED_HOSTS: str = "*"
     ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
+    CORS_ALLOWED_METHODS: str = "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+    CORS_ALLOWED_HEADERS: str = "Authorization,Content-Type,X-Entity-ID,X-Tenant,X-Request-Id,Accept,Accept-Language"
     LOG_LEVEL: str = "INFO"
 
     # ── PostgreSQL ───────────────────────────────────────────────
@@ -35,6 +38,35 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+    # ── Auth Security (AUTH.md §7-8) ──────────────────────────
+    AUTH_PASSWORD_MIN_LENGTH: int = 12
+    AUTH_PASSWORD_REQUIRE_SPECIAL: bool = True
+    AUTH_PASSWORD_REQUIRE_UPPERCASE: bool = True
+    AUTH_PASSWORD_REQUIRE_DIGIT: bool = True
+    AUTH_MAX_FAILED_ATTEMPTS: int = 5
+    AUTH_LOCKOUT_DURATION_MIN: int = 15
+
+    # Login bot protection
+    AUTH_LOGIN_RATE_LIMIT_PER_IP: int = 10  # max login attempts per IP per minute
+    AUTH_LOGIN_RATE_LIMIT_PER_EMAIL: int = 5  # max login attempts per email per minute
+    AUTH_CAPTCHA_ENABLED: bool = False  # enable CAPTCHA verification
+    AUTH_CAPTCHA_PROVIDER: str = "turnstile"  # turnstile | hcaptcha | recaptcha
+    AUTH_CAPTCHA_SECRET_KEY: str = ""  # server-side secret key
+    AUTH_CAPTCHA_SITE_KEY: str = ""  # client-side site key (returned in /config endpoint)
+
+    # Login security tracking
+    AUTH_GEO_BLOCKING_ENABLED: bool = False
+    AUTH_ALLOWED_COUNTRIES: str = ""  # comma-separated ISO codes, empty = all allowed
+    AUTH_SUSPICIOUS_LOGIN_NOTIFY: bool = True
+
+    # ── LDAP / Active Directory ──
+    LDAP_SERVER_URL: str = ""
+    LDAP_BIND_DN: str = ""
+    LDAP_BIND_PASSWORD: str = ""
+    LDAP_BASE_DN: str = ""
+    LDAP_USER_SEARCH_FILTER: str = "(objectClass=person)"
+    LDAP_GROUP_SEARCH_FILTER: str = "(objectClass=group)"
 
     # ── SSO ──────────────────────────────────────────────────────
     OAUTH2_ISSUER_URL: str = ""
@@ -75,9 +107,37 @@ class Settings(BaseSettings):
     API_URL: str = "http://localhost:8000"
     WEB_URL: str = "http://localhost:5174"
 
+    @model_validator(mode="after")
+    def _check_production_secrets(self) -> Self:
+        """Refuse to start in production with default secret keys."""
+        if self.ENVIRONMENT == "production":
+            insecure = []
+            if self.SECRET_KEY == "CHANGEME":
+                insecure.append("SECRET_KEY")
+            if self.JWT_SECRET_KEY == "CHANGEME":
+                insecure.append("JWT_SECRET_KEY")
+            if insecure:
+                raise ValueError(
+                    f"CRITICAL: {', '.join(insecure)} must be changed from default "
+                    f"value in production. Set secure random values in .env."
+                )
+        return self
+
     @property
     def allowed_origins_list(self) -> list[str]:
         return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]
+
+    @property
+    def cors_methods_list(self) -> list[str]:
+        if self.CORS_ALLOWED_METHODS == "*":
+            return ["*"]
+        return [m.strip() for m in self.CORS_ALLOWED_METHODS.split(",") if m.strip()]
+
+    @property
+    def cors_headers_list(self) -> list[str]:
+        if self.CORS_ALLOWED_HEADERS == "*":
+            return ["*"]
+        return [h.strip() for h in self.CORS_ALLOWED_HEADERS.split(",") if h.strip()]
 
     @property
     def is_dev(self) -> bool:

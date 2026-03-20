@@ -15,10 +15,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  Settings, User, Users, Lock, Shield, Clock, Palette,
+  Settings, User, Lock, Shield, Clock, Palette,
   Monitor, Mail, Bell, Key, AppWindow, KeyRound,
   ChevronRight, ChevronDown, MapPin,
-  Globe, Plug, FileText,
+  Globe, Plug, FileText, FileOutput, Trash2,
+  ScrollText, Activity, Hash,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PanelHeader, PanelContent } from '@/components/layout/PanelHeader'
@@ -81,6 +82,20 @@ const SECTION_TAB_MAP: Record<string, string> = {
   // EmailTemplatesTab sections
   'email-templates-system': 'email-templates',
   'email-templates-custom': 'email-templates',
+  // PdfTemplatesTab sections
+  'pdf-templates-system': 'pdf-templates',
+  'pdf-templates-modules': 'pdf-templates',
+  // NumberingTab sections
+  'numbering-patterns': 'numbering',
+  // DeletePoliciesTab sections
+  'delete-policies-main': 'delete-policies',
+  'delete-policies-child': 'delete-policies',
+  // AuditTab sections
+  'audit-log': 'audit-log',
+  // EntitiesTab sections
+  'entity-users': 'entities',
+  // SystemHealthTab sections
+  'system-health': 'system-health',
 }
 
 // ── Import tab components ───────────────────────────────────
@@ -98,9 +113,13 @@ import { AddressesTab } from './tabs/AddressesTab'
 import { GeneralConfigTab } from './tabs/GeneralConfigTab'
 import { IntegrationsTab } from './tabs/IntegrationsTab'
 import { EmailTemplatesTab } from './tabs/EmailTemplatesTab'
-import { RbacAdminTab } from './tabs/RbacAdminTab'
-import { UsersPage } from '@/pages/users/UsersPage'
-import { AssetsPage } from '@/pages/assets/AssetsPage'
+import { PdfTemplatesTab } from './tabs/PdfTemplatesTab'
+// RbacAdminTab moved to UsersPage (Comptes)
+import { AuditTab } from './tabs/AuditTab'
+import { SystemHealthTab } from './tabs/SystemHealthTab'
+import { NumberingTab } from './tabs/NumberingTab'
+import { DeletePoliciesTab } from './tabs/DeletePoliciesTab'
+// EntitiesTab moved to dedicated /entities sidebar page
 
 // ── Import dynamic panel forms ──────────────────────────────
 import { CreateTokenPanel } from './panels/CreateTokenPanel'
@@ -128,12 +147,15 @@ registerSettingsSection({ id: 'roles', label: 'Rôles & Permissions', icon: Shie
 registerSettingsSection({ id: 'activity', label: 'Activité', icon: Clock, component: ActivityTab, category: 'user', order: 70 })
 
 // ── Register general (admin) settings ────────────────────────
-registerSettingsSection({ id: 'users', label: 'Utilisateurs', icon: Users, component: UsersPage, category: 'general', order: 5 })
-registerSettingsSection({ id: 'assets', label: 'Assets', icon: MapPin, component: AssetsPage, category: 'general', order: 6 })
-registerSettingsSection({ id: 'rbac-admin', label: 'Rôles & Groupes', icon: Shield, component: RbacAdminTab, category: 'general', order: 7 })
+// Users, Assets, Roles & Groupes, Entities removed — accessible via sidebar directly
 registerSettingsSection({ id: 'general-config', label: 'Configuration', icon: Globe, component: GeneralConfigTab, category: 'general', order: 10 })
 registerSettingsSection({ id: 'integrations', label: 'Intégrations', icon: Plug, component: IntegrationsTab, category: 'general', order: 20 })
 registerSettingsSection({ id: 'email-templates', label: 'Modèles d\'emails', icon: FileText, component: EmailTemplatesTab, category: 'general', order: 15 })
+registerSettingsSection({ id: 'pdf-templates', label: 'Modèles PDF', icon: FileOutput, component: PdfTemplatesTab, category: 'general', order: 16 })
+registerSettingsSection({ id: 'numbering', label: 'Numérotation', icon: Hash, component: NumberingTab, category: 'general', order: 17 })
+registerSettingsSection({ id: 'delete-policies', label: 'Politiques de suppression', icon: Trash2, component: DeletePoliciesTab, category: 'general', order: 25 })
+registerSettingsSection({ id: 'audit-log', label: 'Journal d\'audit', icon: ScrollText, component: AuditTab, category: 'general', order: 30 })
+registerSettingsSection({ id: 'system-health', label: 'Santé système', icon: Activity, component: SystemHealthTab, category: 'general', order: 40 })
 
 /* ── Main Settings Page ── */
 export function SettingsPage() {
@@ -149,7 +171,7 @@ export function SettingsPage() {
   const panelMode = useUIStore((s) => s.dynamicPanelMode)
 
   // Check if a settings-specific dynamic panel is open in full mode
-  const isSettingsPanelFull = panelMode === 'full' && dynamicPanel !== null && dynamicPanel.module.startsWith('settings-')
+  const isSettingsPanelFull = panelMode === 'full' && dynamicPanel !== null && (dynamicPanel.module.startsWith('settings-'))
 
   // Find the active section across all (including nested)
   const activeSection = findSettingsSection(activeTab)

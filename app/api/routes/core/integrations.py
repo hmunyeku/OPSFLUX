@@ -2,6 +2,7 @@
 
 import logging
 from datetime import datetime, timezone
+from typing import Any
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -227,6 +228,63 @@ async def _test_sms_vonage(cfg: dict[str, str]) -> tuple[str, str]:
         return "error", f"Échec vérification Vonage: {str(e)}"
 
 
+async def _test_gouti(settings: dict[str, Any]) -> tuple[str, str]:
+    """Test Gouti project management API connection (OAuth2 code → token flow)."""
+    base_url = settings.get("base_url", "https://apiprd.gouti.net/v1/client")
+    client_id = settings.get("client_id", "")
+    client_secret = settings.get("client_secret", "")
+    entity_code = settings.get("entity_code", "")
+
+    if not client_id or not client_secret:
+        return "error", "Client ID ou Secret client non configuré pour Gouti"
+    if not entity_code:
+        return "error", "Code entité non configuré pour Gouti"
+
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=15) as client:
+            # Step 1: Request authorization code
+            code_resp = await client.post(
+                f"{base_url.rstrip('/')}/code",
+                json={
+                    "callback_url": f"{base_url.rstrip('/')}/callback",
+                    "client_id": client_id,
+                },
+                headers={"Content-Type": "application/json", "Accept": "application/json"},
+            )
+            code_resp.raise_for_status()
+            code_data = code_resp.json()
+            auth_code = code_data.get("code") or code_data.get("authorization_code")
+            if not auth_code:
+                return "error", "Aucun code d'autorisation retourné par l'API Gouti"
+
+            # Step 2: Exchange code for token
+            token_resp = await client.post(
+                f"{base_url.rstrip('/')}/token",
+                json={
+                    "code": auth_code,
+                    "client_id": client_id,
+                    "secret_client": client_secret,
+                },
+                headers={"Content-Type": "application/json", "Accept": "application/json"},
+            )
+            token_resp.raise_for_status()
+            token_data = token_resp.json()
+            token = token_data.get("token") or token_data.get("access_token")
+            if not token:
+                return "error", "Aucun token retourné par l'API Gouti"
+
+            return "ok", "Connexion réussie à l'API Gouti"
+    except ImportError:
+        return "error", "httpx non installé"
+    except httpx.HTTPStatusError as e:
+        return "error", f"Gouti: erreur HTTP {e.response.status_code} — {e.response.text[:200]}"
+    except httpx.ConnectError:
+        return "error", f"Impossible de se connecter à {base_url}"
+    except Exception as e:
+        return "error", f"Échec connexion Gouti: {str(e)[:300]}"
+
+
 # ── Connector test dispatcher ────────────────────────────────
 
 CONNECTOR_TESTERS = {
@@ -240,6 +298,7 @@ CONNECTOR_TESTERS = {
     "sms_twilio": ("integration.sms_twilio", _test_sms_twilio),
     "sms_vonage": ("integration.sms_vonage", _test_sms_vonage),
     "webhook": ("integration.webhook", _test_webhook),
+    "gouti": ("integration.gouti", _test_gouti),
 }
 
 

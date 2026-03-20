@@ -28,6 +28,13 @@ from app.modules.tiers import MANIFEST as TIERS_MANIFEST
 from app.modules.dashboard import MANIFEST as DASHBOARD_MANIFEST
 from app.modules.workflow import MANIFEST as WORKFLOW_MANIFEST
 from app.modules.paxlog import MANIFEST as PAXLOG_MANIFEST
+from app.modules.conformite import MANIFEST as CONFORMITE_MANIFEST
+from app.modules.projets import MANIFEST as PROJETS_MANIFEST
+from app.modules.planner import MANIFEST as PLANNER_MANIFEST
+from app.modules.travelwiz import MANIFEST as TRAVELWIZ_MANIFEST
+from app.modules.report_editor import MANIFEST as REPORT_EDITOR_MANIFEST
+from app.modules.pid_pfd import MANIFEST as PID_PFD_MANIFEST
+from app.modules.messaging import MANIFEST as MESSAGING_MANIFEST
 
 # Route imports
 from app.api.routes.core.auth import router as auth_router
@@ -52,9 +59,11 @@ from app.api.routes.core.tags import router as tags_router
 from app.api.routes.core.notes import router as notes_router
 from app.api.routes.core.attachments import router as attachments_router
 from app.api.routes.core.email_templates import router as email_templates_router
+from app.api.routes.core.pdf_templates import router as pdf_templates_router
 from app.api.routes.core.phones import router as phones_router
 from app.api.routes.core.contact_emails import router as contact_emails_router
 from app.api.routes.core.integrations import router as integrations_router
+from app.api.routes.core.gouti_sync import router as gouti_sync_router
 from app.api.routes.core.references import router as references_router
 from app.api.routes.core.mcp import router as mcp_router
 from app.api.routes.core.ws_notifications import router as ws_notifications_router
@@ -63,6 +72,15 @@ from app.api.routes.core.dashboard import router as dashboard_router
 from app.api.routes.core.roles import router as roles_router
 from app.api.routes.core.groups import router as groups_router
 from app.api.routes.modules.paxlog import router as paxlog_router
+from app.api.routes.modules.planner import router as planner_router
+from app.api.routes.modules.travelwiz import router as travelwiz_router
+from app.api.routes.modules.report_editor import router as report_editor_router
+from app.api.routes.modules.pid_pfd import router as pid_pfd_router
+from app.api.routes.modules.messaging import router as messaging_router
+from app.api.routes.core.entities import router as entities_router
+from app.api.routes.core.admin import router as admin_router
+from app.api.routes.core.import_assistant import router as import_assistant_router
+from app.api.routes.core.user_sync import router as user_sync_router
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL),
@@ -90,7 +108,7 @@ async def lifespan(app: FastAPI):
 
     # Register modules (idempotent)
     registry = ModuleRegistry()
-    for manifest in [ASSET_MANIFEST, TIERS_MANIFEST, DASHBOARD_MANIFEST, WORKFLOW_MANIFEST, PAXLOG_MANIFEST]:
+    for manifest in [ASSET_MANIFEST, TIERS_MANIFEST, DASHBOARD_MANIFEST, WORKFLOW_MANIFEST, PAXLOG_MANIFEST, CONFORMITE_MANIFEST, PROJETS_MANIFEST, PLANNER_MANIFEST, TRAVELWIZ_MANIFEST, REPORT_EDITOR_MANIFEST, PID_PFD_MANIFEST, MESSAGING_MANIFEST]:
         await registry.register(manifest)
 
     # Sync module permissions & roles to DB (idempotent upsert — D-021)
@@ -101,8 +119,19 @@ async def lifespan(app: FastAPI):
     from app.core.events import event_bus
     register_all_handlers(event_bus)
 
+    # Widget data providers (dashboard)
+    from app.services.modules.dashboard_widget_providers import register_all_widget_providers
+    register_all_widget_providers()
+
     # MCP plugins
     await register_mcp_plugins()
+
+    # Seed development data (idempotent)
+    if settings.ENVIRONMENT in ("development", "dev", "local"):
+        from app.core.database import async_session_factory as async_session
+        from app.services.core.seed_service import seed_dev_data
+        async with async_session() as session:
+            await seed_dev_data(session)
 
     # APScheduler
     await start_scheduler()
@@ -138,8 +167,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins_list,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=settings.cors_methods_list,
+    allow_headers=settings.cors_headers_list,
     expose_headers=["X-Request-Id"],
 )
 
@@ -173,9 +202,11 @@ app.include_router(tags_router)
 app.include_router(notes_router)
 app.include_router(attachments_router)
 app.include_router(email_templates_router)
+app.include_router(pdf_templates_router)
 app.include_router(phones_router)
 app.include_router(contact_emails_router)
 app.include_router(integrations_router)
+app.include_router(gouti_sync_router)
 app.include_router(ws_notifications_router)
 app.include_router(workflow_router)
 app.include_router(dashboard_router)
@@ -184,6 +215,15 @@ app.include_router(groups_router)
 app.include_router(references_router)
 app.include_router(mcp_router)
 app.include_router(paxlog_router)
+app.include_router(planner_router)
+app.include_router(travelwiz_router)
+app.include_router(report_editor_router)
+app.include_router(pid_pfd_router)
+app.include_router(messaging_router)
+app.include_router(entities_router)
+app.include_router(admin_router)
+app.include_router(import_assistant_router)
+app.include_router(user_sync_router)
 
 
 # ─── Static files (avatars, uploads) ──────────────────────────────────────

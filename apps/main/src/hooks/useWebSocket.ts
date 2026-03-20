@@ -68,8 +68,9 @@ export function useWebSocket() {
         const msg: WSNotification = JSON.parse(event.data)
 
         if (msg.type === 'notification' && msg.data) {
-          // Invalidate notification queries to refetch
+          // Invalidate notification queries to refetch (list + unread count badge)
           qc.invalidateQueries({ queryKey: ['notifications'] })
+          qc.invalidateQueries({ queryKey: ['notifications', 'unread-count'] })
           qc.invalidateQueries({ queryKey: ['settings-badge'] })
 
           // Show toast for the notification

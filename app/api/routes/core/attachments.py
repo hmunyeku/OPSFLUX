@@ -17,6 +17,7 @@ from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models.common import Attachment, User
 from app.schemas.common import AttachmentRead
+from app.services.core.delete_service import delete_entity
 
 router = APIRouter(prefix="/api/v1/attachments", tags=["attachments"])
 
@@ -133,5 +134,5 @@ async def delete_attachment(
     if os.path.exists(file_path):
         os.remove(file_path)
 
-    await db.delete(attachment)
+    await delete_entity(attachment, db, "attachment", entity_id=attachment_id, user_id=current_user.id)
     await db.commit()

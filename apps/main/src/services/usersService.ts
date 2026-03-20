@@ -28,4 +28,10 @@ export const usersService = {
     const { data } = await api.patch(`/api/v1/users/${id}`, payload)
     return data
   },
+
+  /** Revoke all sessions for the current user (except current). */
+  revokeAllSessions: async (): Promise<{ revoked_count: number }> => {
+    const { data } = await api.post('/api/v1/sessions/revoke-all')
+    return data
+  },
 }

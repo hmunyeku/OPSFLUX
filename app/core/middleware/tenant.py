@@ -1,11 +1,10 @@
-"""TenantSchemaMiddleware — SET search_path from subdomain."""
+"""TenantSchemaMiddleware — resolve tenant schema from subdomain and set context."""
 
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
-from sqlalchemy import text
 
-from app.core.database import async_session_factory
+from app.core.tenant_context import set_tenant_schema
 
 
 class TenantSchemaMiddleware(BaseHTTPMiddleware):
@@ -19,6 +18,10 @@ class TenantSchemaMiddleware(BaseHTTPMiddleware):
         "/api/openapi.json",
         "/api/v1/auth/login",
         "/api/v1/auth/refresh",
+        "/api/v1/auth/forgot-password",
+        "/api/v1/auth/reset-password",
+        "/api/v1/auth/sso/providers",
+        "/api/v1/auth/sso/authorize",
         "/api/v1/auth/sso/callback",
     }
 
@@ -28,6 +31,7 @@ class TenantSchemaMiddleware(BaseHTTPMiddleware):
         # Skip tenant resolution for exempt paths
         if any(path.startswith(p) for p in self.EXEMPT_PATHS):
             request.state.tenant_schema = "public"
+            set_tenant_schema("public")
             return await call_next(request)
 
         # Extract tenant from subdomain: perenco.app.opsflux.io -> perenco
@@ -50,4 +54,5 @@ class TenantSchemaMiddleware(BaseHTTPMiddleware):
             )
 
         request.state.tenant_schema = tenant_slug
+        set_tenant_schema(tenant_slug)
         return await call_next(request)

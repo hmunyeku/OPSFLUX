@@ -83,74 +83,84 @@ export function EmailsTab() {
               <Loader2 size={16} className="animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <>
-              {emails?.map((email) => (
-                <div key={email.id} className="px-4 py-4 border-b border-border/20 last:border-b-0">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-sm font-medium text-foreground">{email.email}</span>
-                    {email.verified ? (
-                      <span className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                        <Check size={10} /> Vérifié
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
-                        En attente
-                      </span>
-                    )}
-                  </div>
-
-                  <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground ml-1">
-                    {email.is_primary && (
-                      <li>
-                        <span className="font-medium text-foreground">Email principal</span>
-                        <span className="text-muted-foreground"> — Utilisé pour la connexion et la détection d'avatar.</span>
-                      </li>
-                    )}
-                    {email.is_notification && (
-                      <li>
-                        <span className="font-medium text-foreground">Email de notification</span>
-                        <span className="text-muted-foreground"> — Utilisé pour les notifications par défaut.</span>
-                      </li>
-                    )}
-                  </ul>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 mt-2">
-                    {!email.is_primary && email.verified && (
-                      <button
-                        className="gl-button-sm gl-button-default"
-                        onClick={() => handleSetPrimary(email.id)}
-                        disabled={setPrimary.isPending}
-                      >
-                        <Star size={12} /> Définir principal
-                      </button>
-                    )}
-                    {!email.verified && (
-                      <button
-                        className="gl-button-sm gl-button-default"
-                        onClick={() => handleResendVerification(email.id)}
-                        disabled={resendVerification.isPending}
-                      >
-                        <Send size={12} /> Renvoyer vérification
-                      </button>
-                    )}
-                    {!email.is_primary && (
-                      <button
-                        className="gl-button-sm gl-button-danger"
-                        onClick={() => handleRemove(email.id)}
-                        disabled={removeEmail.isPending}
-                      >
-                        <Trash2 size={12} /> Supprimer
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-
-              {(!emails || emails.length === 0) && (
+            <div className="p-3">
+              {(!emails || emails.length === 0) ? (
                 <EmptyState icon={Mail} title="Aucun email" description="Aucune adresse email configurée." size="compact" />
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                  {emails.map((email) => (
+                    <div
+                      key={email.id}
+                      className={`border rounded-lg p-4 transition-colors ${
+                        email.is_primary
+                          ? 'border-primary/40 bg-primary/5'
+                          : 'border-border/60 bg-card'
+                      }`}
+                    >
+                      {/* Email address + badges */}
+                      <div className="flex items-start gap-2 mb-3">
+                        <Mail size={16} className="text-muted-foreground shrink-0 mt-0.5" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-foreground truncate">{email.email}</p>
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                            {email.verified ? (
+                              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                <Check size={9} /> Vérifié
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                                En attente
+                              </span>
+                            )}
+                            {email.is_primary && (
+                              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-primary/10 text-primary">
+                                <Star size={9} /> Principal
+                              </span>
+                            )}
+                            {email.is_notification && (
+                              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                                Notifications
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-border/30">
+                        {!email.is_primary && email.verified && (
+                          <button
+                            className="gl-button-sm gl-button-default"
+                            onClick={() => handleSetPrimary(email.id)}
+                            disabled={setPrimary.isPending}
+                          >
+                            <Star size={11} /> Principal
+                          </button>
+                        )}
+                        {!email.verified && (
+                          <button
+                            className="gl-button-sm gl-button-default"
+                            onClick={() => handleResendVerification(email.id)}
+                            disabled={resendVerification.isPending}
+                          >
+                            <Send size={11} /> Vérifier
+                          </button>
+                        )}
+                        {!email.is_primary && (
+                          <button
+                            className="gl-button-sm gl-button-danger ml-auto"
+                            onClick={() => handleRemove(email.id)}
+                            disabled={removeEmail.isPending}
+                          >
+                            <Trash2 size={11} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
-            </>
+            </div>
           )}
         </div>
       </CollapsibleSection>

@@ -3,7 +3,13 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { conformiteService } from '@/services/conformiteService'
-import type { ComplianceTypeCreate, ComplianceTypeUpdate, ComplianceRuleCreate, ComplianceRecordCreate, ComplianceRecordUpdate } from '@/types/api'
+import type {
+  ComplianceTypeCreate, ComplianceTypeUpdate,
+  ComplianceRuleCreate,
+  ComplianceRecordCreate, ComplianceRecordUpdate,
+  JobPositionCreate, JobPositionUpdate,
+  TierContactTransferCreate,
+} from '@/types/api'
 
 // ── Types (referentiel) ──
 
@@ -110,5 +116,59 @@ export function useComplianceCheck(ownerType: string | undefined, ownerId: strin
     queryKey: ['compliance-check', ownerType, ownerId],
     queryFn: () => conformiteService.checkCompliance(ownerType!, ownerId!),
     enabled: !!ownerType && !!ownerId,
+  })
+}
+
+// ── Job Positions (fiches de poste) ──
+
+export function useJobPositions(params: { page?: number; page_size?: number; department?: string; search?: string } = {}) {
+  return useQuery({
+    queryKey: ['job-positions', params],
+    queryFn: () => conformiteService.listJobPositions(params),
+  })
+}
+
+export function useCreateJobPosition() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: JobPositionCreate) => conformiteService.createJobPosition(payload),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['job-positions'] }) },
+  })
+}
+
+export function useUpdateJobPosition() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: JobPositionUpdate }) =>
+      conformiteService.updateJobPosition(id, payload),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['job-positions'] }) },
+  })
+}
+
+export function useDeleteJobPosition() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => conformiteService.deleteJobPosition(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['job-positions'] }) },
+  })
+}
+
+// ── Employee Transfers ──
+
+export function useTransfers(params: { page?: number; page_size?: number; contact_id?: string; from_tier_id?: string; to_tier_id?: string } = {}) {
+  return useQuery({
+    queryKey: ['transfers', params],
+    queryFn: () => conformiteService.listTransfers(params),
+  })
+}
+
+export function useCreateTransfer() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: TierContactTransferCreate) => conformiteService.createTransfer(payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['transfers'] })
+      qc.invalidateQueries({ queryKey: ['tier-contacts'] })
+    },
   })
 }

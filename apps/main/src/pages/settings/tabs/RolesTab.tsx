@@ -26,98 +26,83 @@ export function RolesTab() {
     <>
       {/* Section: Roles */}
       <CollapsibleSection id="roles-list" title="Rôles" description="Les rôles attribués à votre compte déterminent vos permissions dans l'application." storageKey="settings.roles.collapse">
-        <div className="mt-2 space-y-2">
-          {roles && roles.length > 0 ? (
-            roles.map((role) => (
-              <div key={role.code} className="flex items-center gap-3 py-3 border-b border-border/50">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 shrink-0">
-                  <Shield size={16} className="text-primary" />
+        {roles && roles.length > 0 ? (
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {roles.map((role) => (
+              <div key={role.code} className="border border-border/60 rounded-lg bg-card p-4">
+                <div className="flex items-start gap-2.5 mb-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 shrink-0">
+                    <Shield size={18} className="text-primary" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-foreground">{role.name}</p>
+                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 mt-1">
+                      {role.module ? role.module : 'Système'}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground">{role.name}</p>
-                  {role.description && <p className="text-sm text-muted-foreground">{role.description}</p>}
-                </div>
-                <span className="gl-badge gl-badge-info shrink-0">
-                  {role.module ? role.module : 'Système'}
-                </span>
+                {role.description && (
+                  <p className="text-xs text-muted-foreground line-clamp-2">{role.description}</p>
+                )}
               </div>
-            ))
-          ) : (
-            <p className="py-4 text-sm text-muted-foreground">Aucun rôle attribué.</p>
-          )}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <p className="py-4 text-sm text-muted-foreground">Aucun rôle attribué.</p>
+        )}
       </CollapsibleSection>
 
       {/* Section: Groups */}
       <CollapsibleSection id="groups-list" title="Groupes" description="Les groupes auxquels vous appartenez et votre rôle dans chacun." storageKey="settings.roles.collapse">
-        <div className="mt-2">
-          {groups && groups.length > 0 ? (
-            <table className="w-full text-sm max-w-2xl">
-              <thead>
-                <tr className="border-b border-border text-left">
-                  <th className="py-2.5 pr-3 text-sm font-semibold text-foreground">Groupe</th>
-                  <th className="py-2.5 pr-3 text-sm font-semibold text-foreground">Membres</th>
-                  <th className="py-2.5 text-sm font-semibold text-foreground">Rôle</th>
-                </tr>
-              </thead>
-              <tbody>
-                {groups.map((group) => (
-                  <tr key={group.id} className="border-b border-border/50">
-                    <td className="py-2.5 pr-3">
-                      <div className="flex items-center gap-2">
-                        <Users size={14} className="text-muted-foreground shrink-0" />
-                        <span className="font-medium text-foreground">{group.name}</span>
-                      </div>
-                    </td>
-                    <td className="py-2.5 pr-3 text-muted-foreground">{group.member_count} membres</td>
-                    <td className="py-2.5">
+        {groups && groups.length > 0 ? (
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {groups.map((group) => (
+              <div key={group.id} className="border border-border/60 rounded-lg bg-card p-4">
+                <div className="flex items-start gap-2.5 mb-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted/50 shrink-0">
+                    <Users size={18} className="text-muted-foreground" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-foreground">{group.name}</p>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-muted text-muted-foreground">
+                        {group.member_count} membres
+                      </span>
                       <span className="gl-badge gl-badge-neutral">{group.role_code}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p className="py-4 text-sm text-muted-foreground">Vous n'appartenez à aucun groupe.</p>
-          )}
-        </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="py-4 text-sm text-muted-foreground">Vous n'appartenez à aucun groupe.</p>
+        )}
       </CollapsibleSection>
 
       {/* Section: Permissions */}
       <CollapsibleSection id="permissions-list" title="Permissions par module" description="Récapitulatif de vos permissions effectives par module." storageKey="settings.roles.collapse" showSeparator={false}>
-        <div className="mt-2">
-          {permissions && permissions.length > 0 ? (
-            <table className="w-full text-sm max-w-2xl">
-              <thead>
-                <tr className="border-b border-border text-left">
-                  <th className="py-2.5 pr-3 text-sm font-semibold text-foreground">Module</th>
-                  <th className="py-2.5 text-sm font-semibold text-foreground">Permissions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {permissions.map((perm) => (
-                  <tr key={perm.module} className="border-b border-border/50">
-                    <td className="py-2.5 pr-3">
-                      <div className="flex items-center gap-2">
-                        <Lock size={12} className="text-muted-foreground" />
-                        <span className="font-medium text-foreground">{perm.module}</span>
-                      </div>
-                    </td>
-                    <td className="py-2.5">
-                      <div className="flex flex-wrap gap-1">
-                        {perm.permissions.map((p) => (
-                          <span key={p} className="gl-badge gl-badge-neutral">{p}</span>
-                        ))}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p className="py-4 text-sm text-muted-foreground">Aucune permission effective.</p>
-          )}
-        </div>
+        {permissions && permissions.length > 0 ? (
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {permissions.map((perm) => (
+              <div key={perm.module} className="border border-border/60 rounded-lg bg-card p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted/50 shrink-0">
+                    <Lock size={14} className="text-muted-foreground" />
+                  </div>
+                  <p className="text-sm font-semibold text-foreground">{perm.module}</p>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {perm.permissions.map((p) => (
+                    <span key={p} className="gl-badge gl-badge-neutral">{p}</span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="py-4 text-sm text-muted-foreground">Aucune permission effective.</p>
+        )}
       </CollapsibleSection>
     </>
   )

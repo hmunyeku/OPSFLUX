@@ -36,6 +36,7 @@ from app.schemas.workflow import (
     WorkflowTransitionRead,
 )
 from app.schemas.common import PaginatedResponse
+from app.services.core.delete_service import delete_entity
 
 router = APIRouter(prefix="/api/v1/workflow", tags=["workflow"])
 logger = logging.getLogger(__name__)
@@ -393,7 +394,7 @@ async def delete_definition(
             detail=f"Impossible de supprimer: {inst_count} instance(s) utilisent cette définition.",
         )
 
-    await db.delete(definition)
+    await delete_entity(definition, db, "workflow_definition", entity_id=definition_id, user_id=current_user.id)
     await db.commit()
 
     await record_audit(

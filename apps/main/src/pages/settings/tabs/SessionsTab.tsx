@@ -55,47 +55,77 @@ export function SessionsTab() {
         </div>
       ) : (
         <>
-          <div className="mt-6 space-y-3">
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
             {sessions?.map((session) => {
               const Icon = deviceIcons[session.device_type] || Monitor
               return (
-                <div key={session.id} className="flex items-start gap-3 py-4 px-4 border border-border/60 rounded-lg bg-card">
-                  <Icon size={20} className="text-muted-foreground shrink-0 mt-0.5" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground">{session.ip_address || 'IP inconnue'}</p>
-                    {session.is_current ? (
-                      <p className="text-sm text-muted-foreground">Session actuelle</p>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        Dernier accès le {new Date(session.last_active_at).toLocaleString('fr-FR')}
-                      </p>
-                    )}
-                    <p className="text-sm text-muted-foreground">
+                <div
+                  key={session.id}
+                  className={`border rounded-lg p-4 transition-colors ${
+                    session.is_current
+                      ? 'border-primary/40 bg-primary/5'
+                      : 'border-border/60 bg-card'
+                  }`}
+                >
+                  {/* Header: device icon + IP + current badge */}
+                  <div className="flex items-start gap-2.5 mb-3">
+                    <div className={`flex h-9 w-9 items-center justify-center rounded-lg shrink-0 ${
+                      session.is_current ? 'bg-primary/10' : 'bg-muted/50'
+                    }`}>
+                      <Icon size={18} className={session.is_current ? 'text-primary' : 'text-muted-foreground'} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground truncate">{session.ip_address || 'IP inconnue'}</p>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                        {session.is_current && (
+                          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                            Session actuelle
+                          </span>
+                        )}
+                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-muted text-muted-foreground">
+                          {session.device_type || 'desktop'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Details */}
+                  <div className="space-y-1 mb-3">
+                    <p className="text-xs text-muted-foreground">
                       <span className="font-medium text-foreground">{session.browser || 'Navigateur inconnu'}</span>
                       {' sur '}
                       <span className="font-medium text-foreground">{session.os || 'OS inconnu'}</span>
                     </p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       Connecté le {new Date(session.created_at).toLocaleString('fr-FR')}
                     </p>
+                    {!session.is_current && session.last_active_at && (
+                      <p className="text-xs text-muted-foreground">
+                        Dernier accès le {new Date(session.last_active_at).toLocaleString('fr-FR')}
+                      </p>
+                    )}
                   </div>
+
+                  {/* Action */}
                   {!session.is_current && (
-                    <button
-                      className="gl-button gl-button-danger shrink-0"
-                      onClick={() => handleRevoke(session.id)}
-                      disabled={revokeSession.isPending}
-                    >
-                      Révoquer
-                    </button>
+                    <div className="pt-2 border-t border-border/30">
+                      <button
+                        className="gl-button-sm gl-button-danger"
+                        onClick={() => handleRevoke(session.id)}
+                        disabled={revokeSession.isPending}
+                      >
+                        Révoquer
+                      </button>
+                    </div>
                   )}
                 </div>
               )
             })}
-
-            {(!sessions || sessions.length === 0) && (
-              <p className="py-6 text-center text-sm text-muted-foreground">Aucune session active.</p>
-            )}
           </div>
+
+          {(!sessions || sessions.length === 0) && (
+            <p className="py-6 text-center text-sm text-muted-foreground">Aucune session active.</p>
+          )}
 
           {otherSessions.length > 0 && (
             <div className="mt-6">

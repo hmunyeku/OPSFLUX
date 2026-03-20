@@ -26,6 +26,8 @@ MANIFEST = ModuleManifest(
         "paxlog.incident.read",
         "paxlog.incident.create",
         "paxlog.incident.resolve",
+        "paxlog.import",
+        "paxlog.export",
     ],
     routes_prefix="/api/v1/pax",
 )

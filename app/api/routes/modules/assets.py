@@ -8,9 +8,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.database import get_db
+from app.services.core.delete_service import delete_entity
 from app.core.pagination import PaginationParams, paginate
-from app.models.common import Asset, User
-from app.schemas.common import AssetCreate, AssetRead, AssetUpdate, PaginatedResponse
+from app.models.common import Asset, AssetTypeConfig, User
+from app.schemas.common import (
+    AssetCreate,
+    AssetRead,
+    AssetTypeConfigCreate,
+    AssetTypeConfigRead,
+    AssetTypeConfigUpdate,
+    AssetUpdate,
+    PaginatedResponse,
+)
 
 router = APIRouter(prefix="/api/v1/assets", tags=["assets"])
 
@@ -168,4 +177,102 @@ async def delete_asset(
 
     asset.active = False
     asset.archived = True
+    await db.commit()
+
+
+# ─── Asset Type Configs ──────────────────────────────────────────────────────
+
+
+@router.get("/type-configs", response_model=list[AssetTypeConfigRead])
+async def list_type_configs(
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List all asset type configs for the current entity."""
+    result = await db.execute(
+        select(AssetTypeConfig)
+        .where(AssetTypeConfig.entity_id == entity_id)
+        .order_by(AssetTypeConfig.sort_order, AssetTypeConfig.label)
+    )
+    return result.scalars().all()
+
+
+@router.post("/type-configs", response_model=AssetTypeConfigRead, status_code=201)
+async def create_type_config(
+    body: AssetTypeConfigCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("asset.admin"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a new asset type config (admin only)."""
+    config = AssetTypeConfig(
+        entity_id=entity_id,
+        asset_type=body.asset_type,
+        label=body.label,
+        icon_name=body.icon_name,
+        icon_url=body.icon_url,
+        color=body.color,
+        map_marker_shape=body.map_marker_shape,
+        is_fixed_installation=body.is_fixed_installation,
+        show_on_map=body.show_on_map,
+        sort_order=body.sort_order,
+        active=body.active,
+    )
+    db.add(config)
+    await db.commit()
+    await db.refresh(config)
+    return config
+
+
+@router.put("/type-configs/{config_id}", response_model=AssetTypeConfigRead)
+async def update_type_config(
+    config_id: UUID,
+    body: AssetTypeConfigUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("asset.admin"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update an asset type config (admin only)."""
+    result = await db.execute(
+        select(AssetTypeConfig).where(
+            AssetTypeConfig.id == config_id,
+            AssetTypeConfig.entity_id == entity_id,
+        )
+    )
+    config = result.scalar_one_or_none()
+    if not config:
+        raise HTTPException(status_code=404, detail="Asset type config not found")
+
+    update_data = body.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(config, field, value)
+
+    await db.commit()
+    await db.refresh(config)
+    return config
+
+
+@router.delete("/type-configs/{config_id}", status_code=204)
+async def delete_type_config(
+    config_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("asset.admin"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete an asset type config (admin only)."""
+    result = await db.execute(
+        select(AssetTypeConfig).where(
+            AssetTypeConfig.id == config_id,
+            AssetTypeConfig.entity_id == entity_id,
+        )
+    )
+    config = result.scalar_one_or_none()
+    if not config:
+        raise HTTPException(status_code=404, detail="Asset type config not found")
+
+    await delete_entity(config, db, "asset_type_config", entity_id=config_id, user_id=current_user.id)
     await db.commit()

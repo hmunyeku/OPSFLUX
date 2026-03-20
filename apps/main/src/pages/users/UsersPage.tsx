@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next'
 import {
   Users, Plus, Loader2,
   UserCheck, UserX, Calendar, Clock,
-  CheckSquare, Square,
+  CheckSquare, Square, Shield, KeyRound, LogOut,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PanelHeader, ToolbarButton } from '@/components/layout/PanelHeader'
@@ -33,7 +33,9 @@ import {
 } from '@/components/layout/DynamicPanel'
 import { useUIStore } from '@/stores/uiStore'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
-import { useUsers, useUser, useCreateUser, useUpdateUser } from '@/hooks/useUsers'
+import { useUsers, useUser, useCreateUser, useUpdateUser, useRevokeAllSessions } from '@/hooks/useUsers'
+import { RolesTab, GroupsTab, PermissionsTab, GroupDetailPanel, CreateGroupForm } from '@/pages/settings/tabs/RbacAdminTab'
+import { useUserRoles, useUserGroups } from '@/hooks/useSettings'
 import type { UserRead, UserCreate } from '@/types/api'
 import type { ColumnDef } from '@tanstack/react-table'
 import {
@@ -250,6 +252,9 @@ function UserDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
   const { data: user } = useUser(id)
   const updateUser = useUpdateUser()
+  const revokeAllSessions = useRevokeAllSessions()
+  const { data: roles } = useUserRoles()
+  const { data: groups } = useUserGroups()
 
   const handleInlineSave = useCallback((field: string, value: string) => {
     updateUser.mutate({ id, payload: { [field]: value } })
@@ -259,6 +264,10 @@ function UserDetailPanel({ id }: { id: string }) {
     if (!user) return
     updateUser.mutate({ id, payload: { active: !user.active } })
   }, [id, user, updateUser])
+
+  const handleRevokeSessions = useCallback(() => {
+    revokeAllSessions.mutate()
+  }, [revokeAllSessions])
 
   if (!user) {
     return (
@@ -329,6 +338,41 @@ function UserDetailPanel({ id }: { id: string }) {
           <InlineEditableTags label={t('settings.language')} value={user.language} options={LANGUAGE_OPTIONS} onSave={(v) => handleInlineSave('language', v)} />
         </FormSection>
 
+        {/* Roles & Groups */}
+        <FormSection title="Rôles & Groupes" collapsible storageKey="panel.user.sections" id="user-roles-groups">
+          {/* Roles */}
+          <SectionHeader>
+            <span className="flex items-center gap-1.5"><Shield size={12} /> Rôles attribués</span>
+          </SectionHeader>
+          {roles && roles.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5 mt-1">
+              {roles.map((role) => (
+                <span key={role.code} className="gl-badge gl-badge-info text-[10px]">
+                  {role.name}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground mt-1">Aucun rôle attribué</p>
+          )}
+
+          {/* Groups */}
+          <SectionHeader>
+            <span className="flex items-center gap-1.5 mt-3"><KeyRound size={12} /> Groupes</span>
+          </SectionHeader>
+          {groups && groups.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5 mt-1">
+              {groups.map((group) => (
+                <span key={group.id} className="gl-badge gl-badge-neutral text-[10px]">
+                  {group.name} ({group.role_code})
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground mt-1">Aucun groupe</p>
+          )}
+        </FormSection>
+
         {/* Timestamps */}
         <SectionHeader>Activité</SectionHeader>
         <div className="space-y-0">
@@ -353,17 +397,41 @@ function UserDetailPanel({ id }: { id: string }) {
             }
           />
         </div>
+
+        {/* Security actions */}
+        <FormSection title="Sécurité" collapsible storageKey="panel.user.sections" id="user-security-actions">
+          <button
+            className="gl-button-sm gl-button-danger flex items-center gap-1.5"
+            onClick={handleRevokeSessions}
+            disabled={revokeAllSessions.isPending}
+          >
+            {revokeAllSessions.isPending ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              <LogOut size={12} />
+            )}
+            Révoquer toutes les sessions
+          </button>
+          <p className="text-xs text-muted-foreground mt-1.5">
+            Déconnecte l'utilisateur de tous les appareils (sauf la session courante).
+          </p>
+        </FormSection>
       </div>
     </DynamicPanelShell>
   )
 }
 
 // ── Main Page ──────────────────────────────────────────────
+type AccountsTab = 'users' | 'groups' | 'roles' | 'permissions'
+
 export function UsersPage() {
   const { t } = useTranslation()
+  const [activeTab, setActiveTab] = useState<AccountsTab>('users')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(50)
   const [statusFilterValue, setStatusFilterValue] = useState<string | undefined>(undefined)
+  // Counter to trigger create in child Roles/Groups tabs
+  const [createTrigger, setCreateTrigger] = useState(0)
 
   const search = useUIStore((s) => s.globalSearch)
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
@@ -426,20 +494,88 @@ export function UsersPage() {
     }]
   }, [data])
 
-  const isFullPanel = panelMode === 'full' && dynamicPanel !== null && dynamicPanel.module === 'users'
+  const isFullPanel = panelMode === 'full' && dynamicPanel !== null && (dynamicPanel.module === 'users' || dynamicPanel.module === 'groups')
 
   return (
     <div className="flex h-full">
       {!isFullPanel && (
         <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-          <PanelHeader icon={Users} title={t('users.title')} subtitle={t('users.subtitle')}>
-            <ToolbarButton
-              icon={Plus}
-              label={t('users.create')}
-              variant="primary"
-              onClick={() => openDynamicPanel({ type: 'create', module: 'users' })}
-            />
+          <PanelHeader
+            icon={Users}
+            title={t('nav.accounts', 'Comptes')}
+            subtitle={
+              activeTab === 'users' ? t('users.subtitle')
+              : activeTab === 'groups' ? 'Gestion des groupes utilisateurs'
+              : activeTab === 'roles' ? 'Gestion des rôles et permissions associées'
+              : 'Matrice des permissions par module'
+            }
+          >
+            {activeTab === 'users' && (
+              <ToolbarButton
+                icon={Plus}
+                label={t('users.create')}
+                variant="primary"
+                onClick={() => openDynamicPanel({ type: 'create', module: 'users' })}
+              />
+            )}
+            {activeTab === 'groups' && (
+              <ToolbarButton
+                icon={Plus}
+                label="Nouveau groupe"
+                variant="primary"
+                onClick={() => setCreateTrigger((c) => c + 1)}
+              />
+            )}
+            {activeTab === 'roles' && (
+              <ToolbarButton
+                icon={Plus}
+                label="Nouveau rôle"
+                variant="primary"
+                onClick={() => setCreateTrigger((c) => c + 1)}
+              />
+            )}
           </PanelHeader>
+
+          {/* Tab bar */}
+          <div className="flex items-center gap-1 border-b border-border px-4">
+            {([
+              { key: 'users' as const, label: t('users.title'), icon: Users },
+              { key: 'groups' as const, label: 'Groupes', icon: Users },
+              { key: 'roles' as const, label: 'Roles', icon: Shield },
+              { key: 'permissions' as const, label: 'Permissions', icon: KeyRound },
+            ]).map(({ key, label, icon: Icon }) => (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key)}
+                className={cn(
+                  'px-3 py-1.5 text-sm font-medium border-b-2 transition-colors -mb-px',
+                  activeTab === key
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <Icon size={14} className="inline mr-1.5 -mt-0.5" />
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {activeTab === 'groups' ? (
+              <GroupsTab
+                externalSearch={search || ''}
+                createTrigger={createTrigger}
+                onOpenPanel={(view) => openDynamicPanel(view as Parameters<typeof openDynamicPanel>[0])}
+              />
+          ) : activeTab === 'roles' ? (
+            <div className="flex-1 min-h-0 overflow-auto px-4 pt-3 pb-4">
+              <RolesTab externalSearch={search || ''} createTrigger={createTrigger} />
+            </div>
+          ) : activeTab === 'permissions' ? (
+            <div className="flex-1 min-h-0 overflow-auto px-4 pt-3 pb-4">
+              <PermissionsTab externalSearch={search || ''} />
+            </div>
+          ) : (
+          <>
 
           <DataTable<UserRead>
             columns={userColumns}
@@ -478,7 +614,9 @@ export function UsersPage() {
 
             importExport={{
               exportFormats: ['csv', 'xlsx', 'pdf'],
+              advancedExport: true,
               filenamePrefix: 'utilisateurs',
+              importWizardTarget: 'user',
               exportHeaders: {
                 name: 'Nom',
                 email: 'Email',
@@ -498,18 +636,43 @@ export function UsersPage() {
             emptyIcon={Users}
             emptyTitle={t('common.no_results')}
           />
+          </>
+          )}
         </div>
       )}
 
       {dynamicPanel?.module === 'users' && dynamicPanel.type === 'create' && <CreateUserPanel />}
       {dynamicPanel?.module === 'users' && dynamicPanel.type === 'detail' && <UserDetailPanel id={dynamicPanel.id} />}
+      {dynamicPanel?.module === 'groups' && dynamicPanel.type === 'create' && <GroupCreatePanelWrapper />}
+      {dynamicPanel?.module === 'groups' && dynamicPanel.type === 'detail' && <GroupDetailPanelWrapper id={dynamicPanel.id} />}
     </div>
   )
+}
+
+// ── Group DynamicPanel wrappers ───────────────────────────────
+function GroupCreatePanelWrapper() {
+  const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  return (
+    <DynamicPanelShell title="Nouveau groupe" onClose={closeDynamicPanel}>
+      <CreateGroupForm onClose={closeDynamicPanel} />
+    </DynamicPanelShell>
+  )
+}
+
+function GroupDetailPanelWrapper({ id }: { id: string }) {
+  const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  return <GroupDetailPanel groupId={id} onClose={closeDynamicPanel} />
 }
 
 // ── Module-level renderer registration ─────────────────────
 registerPanelRenderer('users', (view) => {
   if (view.type === 'create') return <CreateUserPanel />
   if (view.type === 'detail' && 'id' in view) return <UserDetailPanel id={view.id} />
+  return null
+})
+
+registerPanelRenderer('groups', (view) => {
+  if (view.type === 'create') return <GroupCreatePanelWrapper />
+  if (view.type === 'detail' && 'id' in view) return <GroupDetailPanelWrapper id={view.id} />
   return null
 })

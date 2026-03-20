@@ -1857,6 +1857,16 @@ function InstancesTable({
       onRowClick={(row) => onViewInstance(row.id)}
       emptyIcon={LayoutList}
       emptyTitle={t('workflow.no_instances')}
+      importExport={{
+        exportFormats: ['csv', 'xlsx'],
+        advancedExport: true,
+        filenamePrefix: 'workflows',
+        exportHeaders: {
+          entity_type: 'Type entite',
+          current_state: 'Etat courant',
+          created_at: 'Date',
+        },
+      }}
       storageKey="workflow-instances"
     />
   )

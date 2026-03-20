@@ -34,6 +34,7 @@ from app.schemas.common import (
     EmailTemplateVersionUpdate,
     EmailPreviewRequest,
 )
+from app.services.core.delete_service import delete_entity
 
 router = APIRouter(prefix="/api/v1/email-templates", tags=["email-templates"])
 
@@ -205,7 +206,7 @@ async def delete_template(
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
 
-    await db.delete(template)
+    await delete_entity(template, db, "email_template", entity_id=template_id, user_id=current_user.id)
     await db.commit()
 
 
@@ -368,7 +369,7 @@ async def delete_version(
     if not version:
         raise HTTPException(status_code=404, detail="Version not found")
 
-    await db.delete(version)
+    await delete_entity(version, db, "email_template", entity_id=version_id, user_id=current_user.id)
     await db.commit()
 
 
@@ -423,7 +424,7 @@ async def remove_link(
     if not link:
         raise HTTPException(status_code=404, detail="Link not found")
 
-    await db.delete(link)
+    await delete_entity(link, db, "email_template", entity_id=link_id, user_id=current_user.id)
     await db.commit()
 
 

@@ -21,6 +21,9 @@ async def cleanup_expired_sessions() -> None:
 
     try:
         async with async_session_factory() as db:
+            # Background jobs run outside request context — use public schema
+            await db.execute(text("SET search_path TO public"))
+
             # 1. Delete revoked user sessions
             # Sessions don't have an explicit expires_at, but revoked sessions
             # and sessions inactive for a long time should be cleaned up.

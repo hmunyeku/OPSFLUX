@@ -44,6 +44,8 @@ import { useUIStore } from '@/stores/uiStore'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
 import { useAssets, useAsset, useAssetTree, useCreateAsset, useUpdateAsset, useArchiveAsset } from '@/hooks/useAssets'
 import { useAddresses, useAttachments, useNotes } from '@/hooks/useSettings'
+import { useProjects } from '@/hooks/useProjets'
+import { useActivities } from '@/hooks/usePlanner'
 import type { Asset, AssetTreeNode, AssetCreate } from '@/types/api'
 
 // ── Tree node ───────────────────────────────────────────────
@@ -230,6 +232,10 @@ function AssetDetailPanel({ id }: { id: string }) {
   const { data: attachments } = useAttachments('asset', id)
   const { data: notes } = useNotes('asset', id)
 
+  // Related cross-module data
+  const { data: relatedProjects } = useProjects({ asset_id: id, page_size: 10 })
+  const { data: relatedActivities } = useActivities({ asset_id: id, page_size: 10 })
+
   const tabCounts = useMemo(() => ({
     addresses: addresses?.length ?? 0,
     files: attachments?.length ?? 0,
@@ -319,6 +325,42 @@ function AssetDetailPanel({ id }: { id: string }) {
         <FormSection title="Tags">
           <TagManager ownerType="asset" ownerId={id} compact />
         </FormSection>
+
+        {/* ── Cross-module links ── */}
+        {((relatedProjects && relatedProjects.items.length > 0) || (relatedActivities && relatedActivities.items.length > 0)) && (
+          <FormSection title="Liens" collapsible defaultExpanded={false} storageKey="panel.asset.sections" id="asset-liens">
+            {relatedProjects && relatedProjects.items.length > 0 && (
+              <div className="space-y-1">
+                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Projets ({relatedProjects.total})</span>
+                <div className="space-y-1">
+                  {relatedProjects.items.map((p) => (
+                    <div key={p.id} className="flex items-center justify-between gap-2 px-2 py-1.5 rounded hover:bg-accent/50 transition-colors">
+                      <CrossModuleLink module="projets" id={p.id} label={`${p.code} — ${p.name}`} mode="navigate" />
+                      <span className={cn('gl-badge text-[10px]', p.status === 'active' ? 'gl-badge-success' : 'gl-badge-neutral')}>
+                        {p.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {relatedActivities && relatedActivities.items.length > 0 && (
+              <div className="space-y-1 mt-2">
+                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Activites planner ({relatedActivities.total})</span>
+                <div className="space-y-1">
+                  {relatedActivities.items.map((a) => (
+                    <div key={a.id} className="flex items-center justify-between gap-2 px-2 py-1.5 rounded hover:bg-accent/50 transition-colors">
+                      <CrossModuleLink module="planner" id={a.id} label={a.title} subtype="activity" mode="navigate" />
+                      <span className={cn('gl-badge text-[10px]', a.status === 'validated' || a.status === 'completed' ? 'gl-badge-success' : 'gl-badge-neutral')}>
+                        {a.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </FormSection>
+        )}
 
         {/* ── Secondary tabs: Adresses | Fichiers | Notes ── */}
         <div className="border-t border-border pt-4">

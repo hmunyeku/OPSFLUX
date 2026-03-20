@@ -131,11 +131,27 @@ export function useEquipmentDetail(id: string | undefined) {
   })
 }
 
+export function useCreateEquipment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) => pidPfdService.createEquipment(payload),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['pid-pfd', 'equipment'] }) },
+  })
+}
+
 export function useUpdateEquipment() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: Record<string, unknown> }) =>
       pidPfdService.updateEquipment(id, payload),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['pid-pfd', 'equipment'] }) },
+  })
+}
+
+export function useDeleteEquipment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => pidPfdService.deleteEquipment(id),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['pid-pfd', 'equipment'] }) },
   })
 }
@@ -158,6 +174,31 @@ export function useProcessLines(params: PaginationParams & {
     queryKey: ['pid-pfd', 'lines', params],
     queryFn: () => pidPfdService.listProcessLines(params),
     placeholderData: keepPreviousData,
+  })
+}
+
+export function useCreateProcessLine() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) => pidPfdService.createProcessLine(payload),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['pid-pfd', 'lines'] }) },
+  })
+}
+
+export function useUpdateProcessLine() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Record<string, unknown> }) =>
+      pidPfdService.updateProcessLine(id, payload),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['pid-pfd', 'lines'] }) },
+  })
+}
+
+export function useDeleteProcessLine() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => pidPfdService.deleteProcessLine(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['pid-pfd', 'lines'] }) },
   })
 }
 
@@ -197,6 +238,14 @@ export function useUpdateDCSTag() {
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: Record<string, unknown> }) =>
       pidPfdService.updateTag(id, payload),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['pid-pfd', 'tags'] }) },
+  })
+}
+
+export function useDeleteDCSTag() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => pidPfdService.deleteTag(id),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['pid-pfd', 'tags'] }) },
   })
 }
@@ -243,6 +292,33 @@ export function useCreateLibraryItem() {
   return useMutation({
     mutationFn: (payload: Record<string, unknown>) => pidPfdService.createLibraryItem(payload),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['pid-pfd', 'library'] }) },
+  })
+}
+
+export function useUpdateLibraryItem() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Record<string, unknown> }) =>
+      pidPfdService.updateLibraryItem(id, payload),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['pid-pfd', 'library'] }) },
+  })
+}
+
+export function useDeleteLibraryItem() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => pidPfdService.deleteLibraryItem(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['pid-pfd', 'library'] }) },
+  })
+}
+
+// ── PID Document Delete ──
+
+export function useDeletePIDDocument() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => pidPfdService.deleteDocument(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['pid-pfd', 'documents'] }) },
   })
 }
 

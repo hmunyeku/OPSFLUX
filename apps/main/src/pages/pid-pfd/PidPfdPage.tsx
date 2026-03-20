@@ -15,7 +15,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  FileText, Loader2, Search, Upload,
+  FileText, Loader2, Search, Upload, Plus, Trash2,
   LayoutDashboard, Layers, GitBranch, Tag, BookOpen,
   Lock, FilePlus2, ShieldCheck,
   FileDown, Cpu, History, PenTool,
@@ -30,9 +30,12 @@ import {
   DynamicPanelShell,
   FormSection,
   ReadOnlyRow,
+  InlineEditableRow,
+  InlineEditableTags,
   PanelActionButton,
   PanelContentLayout,
   DetailFieldGrid,
+  DangerConfirmButton,
 } from '@/components/layout/DynamicPanel'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 import { TagManager } from '@/components/shared/TagManager'
@@ -45,6 +48,7 @@ import {
   usePIDDocuments,
   usePIDDocument,
   useEquipment,
+  useEquipmentDetail,
   useProcessLines,
   useDCSTags,
   useImportTagsCsv,
@@ -54,6 +58,11 @@ import {
   useAcquireLock,
   useCreatePIDRevision,
   useCreatePIDDocument,
+  useCreateEquipment,
+  useUpdateEquipment,
+  useDeleteEquipment,
+  useCreateProcessLine,
+  useCreateDCSTag,
   useSaveXml,
 } from '@/hooks/usePidPfd'
 import { DrawioEditor } from '@/components/pid-pfd/DrawioEditor'
@@ -118,25 +127,119 @@ const PID_TYPE_OPTIONS = [
 
 const EQUIPMENT_TYPE_OPTIONS = [
   { value: 'vessel', label: 'Capacite' },
+  { value: 'heat_exchanger', label: 'Echangeur' },
   { value: 'pump', label: 'Pompe' },
   { value: 'compressor', label: 'Compresseur' },
-  { value: 'heat_exchanger', label: 'Echangeur' },
-  { value: 'valve', label: 'Vanne' },
+  { value: 'turbine', label: 'Turbine' },
+  { value: 'column', label: 'Colonne' },
+  { value: 'reactor', label: 'Reacteur' },
   { value: 'tank', label: 'Bac' },
   { value: 'filter', label: 'Filtre' },
+  { value: 'valve', label: 'Vanne' },
   { value: 'instrument', label: 'Instrument' },
+  { value: 'mixer', label: 'Melangeur' },
+  { value: 'dryer', label: 'Secheur' },
+  { value: 'boiler', label: 'Chaudiere' },
+  { value: 'furnace', label: 'Four' },
+  { value: 'conveyor', label: 'Convoyeur' },
+  { value: 'centrifuge', label: 'Centrifugeuse' },
+  { value: 'ejector', label: 'Ejecteur' },
+  { value: 'flare', label: 'Torche' },
+  { value: 'separator', label: 'Separateur' },
+  { value: 'pig_launcher', label: 'Lanceur racleur' },
+  { value: 'pig_receiver', label: 'Receveur racleur' },
+  { value: 'manifold', label: 'Collecteur' },
+  { value: 'wellhead', label: 'Tete de puits' },
+  { value: 'christmas_tree', label: 'Arbre de Noel' },
+  { value: 'choke', label: 'Duse' },
+  { value: 'safety_valve', label: 'Soupape securite' },
+  { value: 'control_valve', label: 'Vanne de controle' },
   { value: 'other', label: 'Autre' },
 ]
 
+const FLUID_PHASE_OPTIONS = [
+  { value: 'liquid', label: 'Liquide' },
+  { value: 'gas', label: 'Gaz' },
+  { value: 'two_phase', label: 'Diphasique' },
+  { value: 'multiphase', label: 'Multiphasique' },
+  { value: 'solid', label: 'Solide' },
+  { value: 'slurry', label: 'Boue' },
+  { value: 'steam', label: 'Vapeur' },
+  { value: 'vapour', label: 'Vapeur (org.)' },
+]
+
+const INSULATION_TYPE_OPTIONS = [
+  { value: 'none', label: 'Aucune' },
+  { value: 'hot', label: 'Chaud' },
+  { value: 'cold', label: 'Froid' },
+  { value: 'acoustic', label: 'Acoustique' },
+  { value: 'personnel_protection', label: 'Protection personnel' },
+  { value: 'anti_condensation', label: 'Anti-condensation' },
+]
+
 const TAG_TYPE_OPTIONS = [
-  { value: 'TI', label: 'TI - Temperature' },
-  { value: 'PI', label: 'PI - Pression' },
-  { value: 'FI', label: 'FI - Debit' },
-  { value: 'LI', label: 'LI - Niveau' },
-  { value: 'AI', label: 'AI - Analyseur' },
+  // Indicators
+  { value: 'AI', label: 'AI - Analyseur (ind.)' },
+  { value: 'PI', label: 'PI - Pression (ind.)' },
+  { value: 'TI', label: 'TI - Temperature (ind.)' },
+  { value: 'FI', label: 'FI - Debit (ind.)' },
+  { value: 'LI', label: 'LI - Niveau (ind.)' },
+  { value: 'PDI', label: 'PDI - Diff. pression' },
+  // Transmitters
+  { value: 'TT', label: 'TT - Transmetteur temp.' },
+  { value: 'PT', label: 'PT - Transmetteur pression' },
+  { value: 'FT', label: 'FT - Transmetteur debit' },
+  { value: 'LT', label: 'LT - Transmetteur niveau' },
+  // Controllers
+  { value: 'PIC', label: 'PIC - Controleur pression' },
+  { value: 'TIC', label: 'TIC - Controleur temp.' },
+  { value: 'FIC', label: 'FIC - Controleur debit' },
+  { value: 'LIC', label: 'LIC - Controleur niveau' },
+  // Control valves
+  { value: 'PCV', label: 'PCV - Vanne reg. pression' },
+  { value: 'TCV', label: 'TCV - Vanne reg. temp.' },
+  { value: 'FCV', label: 'FCV - Vanne reg. debit' },
+  { value: 'LCV', label: 'LCV - Vanne reg. niveau' },
+  // Alarms
+  { value: 'PAH', label: 'PAH - Alarme haute pression' },
+  { value: 'PAL', label: 'PAL - Alarme basse pression' },
+  { value: 'PAHH', label: 'PAHH - Alarme TH pression' },
+  { value: 'PALL', label: 'PALL - Alarme TB pression' },
+  { value: 'TAH', label: 'TAH - Alarme haute temp.' },
+  { value: 'TAL', label: 'TAL - Alarme basse temp.' },
+  { value: 'TAHH', label: 'TAHH - Alarme TH temp.' },
+  { value: 'TALL', label: 'TALL - Alarme TB temp.' },
+  { value: 'FAH', label: 'FAH - Alarme haut debit' },
+  { value: 'FAL', label: 'FAL - Alarme bas debit' },
+  { value: 'FAHH', label: 'FAHH - Alarme TH debit' },
+  { value: 'FALL', label: 'FALL - Alarme TB debit' },
+  { value: 'LAH', label: 'LAH - Alarme haut niveau' },
+  { value: 'LAL', label: 'LAL - Alarme bas niveau' },
+  { value: 'LAHH', label: 'LAHH - Alarme TH niveau' },
+  { value: 'LALL', label: 'LALL - Alarme TB niveau' },
+  // Safety valves
+  { value: 'PSV', label: 'PSV - Soupape pression' },
+  { value: 'TSV', label: 'TSV - Soupape temp.' },
+  { value: 'FSV', label: 'FSV - Soupape debit' },
+  { value: 'LSV', label: 'LSV - Soupape niveau' },
+  // Actuated valves
   { value: 'XV', label: 'XV - Vanne TOR' },
-  { value: 'FCV', label: 'FCV - Vanne reglante' },
-  { value: 'PSV', label: 'PSV - Soupape' },
+  { value: 'HV', label: 'HV - Vanne manuelle' },
+  { value: 'MOV', label: 'MOV - Vanne motorisee' },
+  { value: 'SOV', label: 'SOV - Electrovanne' },
+  // Position / Logic
+  { value: 'ZSO', label: 'ZSO - Fin de course ouvert' },
+  { value: 'ZSC', label: 'ZSC - Fin de course ferme' },
+  { value: 'HS', label: 'HS - Commande manuelle' },
+  { value: 'YS', label: 'YS - Relais solenoid' },
+  // I/O
+  { value: 'AO', label: 'AO - Sortie analogique' },
+  { value: 'DI', label: 'DI - Entree TOR' },
+  { value: 'DO', label: 'DO - Sortie TOR' },
+  // Virtual / other
+  { value: 'calc', label: 'Calcule' },
+  { value: 'virtual', label: 'Virtuel' },
+  { value: 'manual', label: 'Manuel' },
   { value: 'other', label: 'Autre' },
 ]
 
@@ -671,8 +774,9 @@ export function PidPfdPage() {
   // Nav items for panel navigation
   useEffect(() => {
     if (activeTab === 'documents' && docsData?.items) setNavItems(docsData.items.map((i) => i.id))
+    else if (activeTab === 'equipements' && equipData?.items) setNavItems(equipData.items.map((i) => i.id))
     return () => setNavItems([])
-  }, [activeTab, docsData?.items, setNavItems])
+  }, [activeTab, docsData?.items, equipData?.items, setNavItems])
 
   // -- Filter definitions --
 
@@ -947,9 +1051,35 @@ export function PidPfdPage() {
         />
       )
     }
+    if (activeTab === 'equipements') {
+      return (
+        <ToolbarButton
+          icon={Plus}
+          label="Nouvel equipement"
+          variant="primary"
+          onClick={() => openDynamicPanel({ type: 'create', module: 'pid-pfd', meta: { subType: 'equipment' } })}
+        />
+      )
+    }
+    if (activeTab === 'lignes') {
+      return (
+        <ToolbarButton
+          icon={Plus}
+          label="Nouvelle ligne"
+          variant="primary"
+          onClick={() => openDynamicPanel({ type: 'create', module: 'pid-pfd', meta: { subType: 'line' } })}
+        />
+      )
+    }
     if (activeTab === 'tags') {
       return (
         <>
+          <ToolbarButton
+            icon={Plus}
+            label="Nouveau tag"
+            variant="primary"
+            onClick={() => openDynamicPanel({ type: 'create', module: 'pid-pfd', meta: { subType: 'tag' } })}
+          />
           <input
             ref={csvInputRef}
             type="file"
@@ -1032,6 +1162,7 @@ export function PidPfdPage() {
             filters={equipFilters}
             activeFilters={activeFilters}
             onFilterChange={handleFilterChange}
+            onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'pid-pfd', id: row.id, meta: { subType: 'equipment' } })}
             emptyIcon={Cpu}
             emptyTitle="Aucun equipement"
             columnResizing
@@ -1132,11 +1263,23 @@ export function PidPfdPage() {
       )}
 
       {/* Dynamic panel rendering */}
-      {dynamicPanel?.module === 'pid-pfd' && dynamicPanel.type === 'detail' && (
+      {dynamicPanel?.module === 'pid-pfd' && dynamicPanel.type === 'detail' && !dynamicPanel.meta?.subType && (
         <PIDDetailPanel id={dynamicPanel.id} />
       )}
-      {dynamicPanel?.module === 'pid-pfd' && dynamicPanel.type === 'create' && (
+      {dynamicPanel?.module === 'pid-pfd' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subType === 'equipment' && (
+        <EquipmentDetailPanel id={dynamicPanel.id} />
+      )}
+      {dynamicPanel?.module === 'pid-pfd' && dynamicPanel.type === 'create' && !dynamicPanel.meta?.subType && (
         <CreatePIDPanel />
+      )}
+      {dynamicPanel?.module === 'pid-pfd' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subType === 'equipment' && (
+        <CreateEquipmentPanel />
+      )}
+      {dynamicPanel?.module === 'pid-pfd' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subType === 'line' && (
+        <CreateProcessLinePanel />
+      )}
+      {dynamicPanel?.module === 'pid-pfd' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subType === 'tag' && (
+        <CreateDCSTagPanel />
       )}
     </div>
   )
@@ -1210,10 +1353,494 @@ function CreatePIDPanel() {
   )
 }
 
+// -- Equipment Create Panel ----------------------------------------------------
+
+function CreateEquipmentPanel() {
+  const { closeDynamicPanel } = useUIStore()
+  const { toast } = useToast()
+  const createEquipment = useCreateEquipment()
+  const { data: docsData } = usePIDDocuments({ page: 1, page_size: 200 })
+  const [form, setForm] = useState({
+    tag: '',
+    equipment_type: 'vessel',
+    description: '',
+    pid_document_id: '',
+    project_id: '',
+    design_pressure_barg: '',
+    design_temperature_c: '',
+    material_of_construction: '',
+    fluid: '',
+    fluid_phase: '',
+  })
+
+  const handleSubmit = useCallback(async () => {
+    if (!form.tag.trim()) {
+      toast({ title: 'Erreur', description: 'Le tag est requis', variant: 'error' })
+      return
+    }
+    const payload: Record<string, unknown> = {
+      tag: form.tag.trim(),
+      equipment_type: form.equipment_type,
+    }
+    if (form.description) payload.description = form.description
+    if (form.pid_document_id) payload.pid_document_id = form.pid_document_id
+    if (form.project_id) payload.project_id = form.project_id
+    if (form.design_pressure_barg) payload.design_pressure_barg = Number(form.design_pressure_barg)
+    if (form.design_temperature_c) payload.design_temperature_c = Number(form.design_temperature_c)
+    if (form.material_of_construction) payload.material_of_construction = form.material_of_construction
+    if (form.fluid) payload.fluid = form.fluid
+    if (form.fluid_phase) payload.fluid_phase = form.fluid_phase
+    try {
+      await createEquipment.mutateAsync(payload)
+      toast({ title: 'Equipement cree', variant: 'success' })
+      closeDynamicPanel()
+    } catch {
+      toast({ title: 'Erreur lors de la creation', variant: 'error' })
+    }
+  }, [form, createEquipment, toast, closeDynamicPanel])
+
+  const set = (field: string, value: string) => setForm((f) => ({ ...f, [field]: value }))
+
+  return (
+    <DynamicPanelShell title="Nouvel equipement" icon={<Plus size={14} className="text-primary" />} onClose={closeDynamicPanel}>
+      <PanelContentLayout>
+        <FormSection title="Identification">
+          <div className="space-y-3 p-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Tag *</label>
+              <input className="gl-form-input text-sm w-full font-mono" value={form.tag} onChange={(e) => set('tag', e.target.value)} placeholder="V-1001" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Type d'equipement</label>
+              <select className="gl-form-select text-sm w-full" value={form.equipment_type} onChange={(e) => set('equipment_type', e.target.value)}>
+                {EQUIPMENT_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Description</label>
+              <input className="gl-form-input text-sm w-full" value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="Description de l'equipement" />
+            </div>
+          </div>
+        </FormSection>
+
+        <FormSection title="Associations">
+          <div className="space-y-3 p-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Document PID</label>
+              <select className="gl-form-select text-sm w-full" value={form.pid_document_id} onChange={(e) => set('pid_document_id', e.target.value)}>
+                <option value="">-- Aucun --</option>
+                {docsData?.items?.map((d) => <option key={d.id} value={d.id}>{d.number} — {d.title}</option>)}
+              </select>
+            </div>
+          </div>
+        </FormSection>
+
+        <FormSection title="Conception" collapsible defaultExpanded={false}>
+          <div className="space-y-3 p-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Pression design (barg)</label>
+                <input type="number" className="gl-form-input text-sm w-full" value={form.design_pressure_barg} onChange={(e) => set('design_pressure_barg', e.target.value)} placeholder="0.0" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Temperature design (C)</label>
+                <input type="number" className="gl-form-input text-sm w-full" value={form.design_temperature_c} onChange={(e) => set('design_temperature_c', e.target.value)} placeholder="0" />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Materiau</label>
+              <input className="gl-form-input text-sm w-full" value={form.material_of_construction} onChange={(e) => set('material_of_construction', e.target.value)} placeholder="CS, SS316, etc." />
+            </div>
+          </div>
+        </FormSection>
+
+        <FormSection title="Fluide" collapsible defaultExpanded={false}>
+          <div className="space-y-3 p-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Fluide</label>
+              <input className="gl-form-input text-sm w-full" value={form.fluid} onChange={(e) => set('fluid', e.target.value)} placeholder="Petrole brut, gaz, etc." />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Phase</label>
+              <select className="gl-form-select text-sm w-full" value={form.fluid_phase} onChange={(e) => set('fluid_phase', e.target.value)}>
+                <option value="">-- Non specifie --</option>
+                {FLUID_PHASE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+          </div>
+        </FormSection>
+
+        <div className="p-3 border-t border-border">
+          <button className="gl-button gl-button-confirm w-full" onClick={handleSubmit} disabled={createEquipment.isPending}>
+            {createEquipment.isPending ? <Loader2 size={12} className="animate-spin mr-2" /> : <Plus size={12} className="mr-2" />}
+            Creer l'equipement
+          </button>
+        </div>
+      </PanelContentLayout>
+    </DynamicPanelShell>
+  )
+}
+
+// -- Equipment Detail Panel ---------------------------------------------------
+
+function EquipmentDetailPanel({ id }: { id: string }) {
+  const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const { toast } = useToast()
+  const { data: equip, isLoading } = useEquipmentDetail(id)
+  const updateEquipment = useUpdateEquipment()
+  const deleteEquipment = useDeleteEquipment()
+
+  const handleInlineSave = useCallback((field: string, value: string) => {
+    updateEquipment.mutate({ id, payload: { [field]: value } })
+  }, [id, updateEquipment])
+
+  const handleDelete = useCallback(async () => {
+    try {
+      await deleteEquipment.mutateAsync(id)
+      toast({ title: 'Equipement supprime', variant: 'success' })
+      closeDynamicPanel()
+    } catch {
+      toast({ title: 'Erreur lors de la suppression', variant: 'error' })
+    }
+  }, [id, deleteEquipment, toast, closeDynamicPanel])
+
+  if (isLoading || !equip) {
+    return (
+      <DynamicPanelShell title="Chargement..." icon={<Cpu size={14} className="text-primary" />}>
+        <div className="flex items-center justify-center py-16">
+          <Loader2 size={16} className="animate-spin text-muted-foreground" />
+        </div>
+      </DynamicPanelShell>
+    )
+  }
+
+  return (
+    <DynamicPanelShell
+      title={equip.tag}
+      subtitle={equip.description || undefined}
+      icon={<Cpu size={14} className="text-primary" />}
+      actions={
+        <DangerConfirmButton
+          icon={<Trash2 size={12} />}
+          onConfirm={handleDelete}
+          confirmLabel="Supprimer ?"
+        >
+          Supprimer
+        </DangerConfirmButton>
+      }
+    >
+      <PanelContentLayout>
+        {/* -- Identification -- */}
+        <FormSection title="Identification" collapsible defaultExpanded>
+          <DetailFieldGrid>
+            <ReadOnlyRow label="Tag" value={<span className="font-mono font-medium text-foreground">{equip.tag}</span>} />
+            <InlineEditableRow label="Description" value={equip.description || ''} onSave={(v) => handleInlineSave('description', v)} />
+            <InlineEditableTags
+              label="Type"
+              value={equip.equipment_type}
+              options={EQUIPMENT_TYPE_OPTIONS}
+              onSave={(v) => handleInlineSave('equipment_type', v)}
+            />
+            <InlineEditableRow label="Service" value={equip.service || ''} onSave={(v) => handleInlineSave('service', v)} />
+          </DetailFieldGrid>
+        </FormSection>
+
+        {/* -- Design Conditions -- */}
+        <FormSection title="Conditions de conception" collapsible defaultExpanded>
+          <DetailFieldGrid>
+            <ReadOnlyRow
+              label="Pression design"
+              value={equip.design_pressure_barg != null ? `${equip.design_pressure_barg} barg` : '--'}
+            />
+            <ReadOnlyRow
+              label="Temperature design"
+              value={equip.design_temperature_c != null ? `${equip.design_temperature_c} °C` : '--'}
+            />
+            <ReadOnlyRow
+              label="Pression service"
+              value={equip.operating_pressure_barg != null ? `${equip.operating_pressure_barg} barg` : '--'}
+            />
+            <ReadOnlyRow
+              label="Temperature service"
+              value={equip.operating_temperature_c != null ? `${equip.operating_temperature_c} °C` : '--'}
+            />
+            <InlineEditableRow label="Materiau" value={equip.material_of_construction || ''} onSave={(v) => handleInlineSave('material_of_construction', v)} />
+          </DetailFieldGrid>
+        </FormSection>
+
+        {/* -- Fluid -- */}
+        <FormSection title="Fluide" collapsible defaultExpanded={false}>
+          <DetailFieldGrid>
+            <ReadOnlyRow label="Fluide" value={equip.fluid || '--'} />
+            <ReadOnlyRow
+              label="Phase"
+              value={
+                equip.fluid_phase
+                  ? <span className="gl-badge gl-badge-neutral">{FLUID_PHASE_OPTIONS.find((o) => o.value === equip.fluid_phase)?.label || equip.fluid_phase}</span>
+                  : '--'
+              }
+            />
+            {equip.capacity_value != null && (
+              <ReadOnlyRow label="Capacite" value={`${equip.capacity_value} ${equip.capacity_unit || ''}`} />
+            )}
+          </DetailFieldGrid>
+        </FormSection>
+
+        {/* -- Associations -- */}
+        <FormSection title="Associations" collapsible defaultExpanded>
+          <DetailFieldGrid>
+            <ReadOnlyRow label="PID" value={equip.pid_number ? <span className="font-mono text-xs">{equip.pid_number}</span> : '--'} />
+            <ReadOnlyRow label="Projet" value={equip.project_name || '--'} />
+            <ReadOnlyRow label="Asset" value={equip.asset_name || '--'} />
+            <ReadOnlyRow label="Tags DCS" value={<span className="tabular-nums">{equip.dcs_tag_count}</span>} />
+          </DetailFieldGrid>
+        </FormSection>
+
+        {/* -- Tags, Notes & Attachments -- */}
+        <FormSection title="Tags, notes & fichiers" collapsible defaultExpanded={false}>
+          <div className="space-y-3">
+            <TagManager ownerType="equipment" ownerId={id} compact />
+            <AttachmentManager ownerType="equipment" ownerId={id} compact />
+            <NoteManager ownerType="equipment" ownerId={id} compact />
+          </div>
+        </FormSection>
+      </PanelContentLayout>
+    </DynamicPanelShell>
+  )
+}
+
+// -- Process Line Create Panel ------------------------------------------------
+
+function CreateProcessLinePanel() {
+  const { closeDynamicPanel } = useUIStore()
+  const { toast } = useToast()
+  const createLine = useCreateProcessLine()
+  const { data: docsData } = usePIDDocuments({ page: 1, page_size: 200 })
+  const [form, setForm] = useState({
+    line_number: '',
+    pid_document_id: '',
+    nominal_diameter_inch: '',
+    nominal_diameter_mm: '',
+    pipe_schedule: '',
+    spec_class: '',
+    fluid: '',
+    insulation_type: 'none',
+    material_of_construction: '',
+  })
+
+  const handleSubmit = useCallback(async () => {
+    if (!form.line_number.trim()) {
+      toast({ title: 'Erreur', description: 'Le numero de ligne est requis', variant: 'error' })
+      return
+    }
+    const payload: Record<string, unknown> = {
+      line_number: form.line_number.trim(),
+    }
+    if (form.pid_document_id) payload.pid_document_id = form.pid_document_id
+    if (form.nominal_diameter_inch) payload.nominal_diameter_inch = Number(form.nominal_diameter_inch)
+    if (form.nominal_diameter_mm) payload.nominal_diameter_mm = Number(form.nominal_diameter_mm)
+    if (form.pipe_schedule) payload.pipe_schedule = form.pipe_schedule
+    if (form.spec_class) payload.spec_class = form.spec_class
+    if (form.fluid) payload.fluid = form.fluid
+    if (form.insulation_type !== 'none') payload.insulation_type = form.insulation_type
+    if (form.material_of_construction) payload.material_of_construction = form.material_of_construction
+    try {
+      await createLine.mutateAsync(payload)
+      toast({ title: 'Ligne process creee', variant: 'success' })
+      closeDynamicPanel()
+    } catch {
+      toast({ title: 'Erreur lors de la creation', variant: 'error' })
+    }
+  }, [form, createLine, toast, closeDynamicPanel])
+
+  const set = (field: string, value: string) => setForm((f) => ({ ...f, [field]: value }))
+
+  return (
+    <DynamicPanelShell title="Nouvelle ligne process" icon={<Plus size={14} className="text-primary" />} onClose={closeDynamicPanel}>
+      <PanelContentLayout>
+        <FormSection title="Identification">
+          <div className="space-y-3 p-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Numero de ligne *</label>
+              <input className="gl-form-input text-sm w-full font-mono" value={form.line_number} onChange={(e) => set('line_number', e.target.value)} placeholder="6&quot;-HC-1001-A1A-HI" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Document PID</label>
+              <select className="gl-form-select text-sm w-full" value={form.pid_document_id} onChange={(e) => set('pid_document_id', e.target.value)}>
+                <option value="">-- Aucun --</option>
+                {docsData?.items?.map((d) => <option key={d.id} value={d.id}>{d.number} — {d.title}</option>)}
+              </select>
+            </div>
+          </div>
+        </FormSection>
+
+        <FormSection title="Dimensions">
+          <div className="space-y-3 p-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Diametre (pouces)</label>
+                <input type="number" className="gl-form-input text-sm w-full" value={form.nominal_diameter_inch} onChange={(e) => set('nominal_diameter_inch', e.target.value)} placeholder='6"' />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Diametre (mm)</label>
+                <input type="number" className="gl-form-input text-sm w-full" value={form.nominal_diameter_mm} onChange={(e) => set('nominal_diameter_mm', e.target.value)} placeholder="150" />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Schedule</label>
+              <input className="gl-form-input text-sm w-full" value={form.pipe_schedule} onChange={(e) => set('pipe_schedule', e.target.value)} placeholder="40, 80, STD..." />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Classe de spec</label>
+              <input className="gl-form-input text-sm w-full" value={form.spec_class} onChange={(e) => set('spec_class', e.target.value)} placeholder="A1A, B2B..." />
+            </div>
+          </div>
+        </FormSection>
+
+        <FormSection title="Fluide & Isolation">
+          <div className="space-y-3 p-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Fluide</label>
+              <input className="gl-form-input text-sm w-full" value={form.fluid} onChange={(e) => set('fluid', e.target.value)} placeholder="HC, CW, N2..." />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Type d'isolation</label>
+              <select className="gl-form-select text-sm w-full" value={form.insulation_type} onChange={(e) => set('insulation_type', e.target.value)}>
+                {INSULATION_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Materiau de construction</label>
+              <input className="gl-form-input text-sm w-full" value={form.material_of_construction} onChange={(e) => set('material_of_construction', e.target.value)} placeholder="CS, SS316L..." />
+            </div>
+          </div>
+        </FormSection>
+
+        <div className="p-3 border-t border-border">
+          <button className="gl-button gl-button-confirm w-full" onClick={handleSubmit} disabled={createLine.isPending}>
+            {createLine.isPending ? <Loader2 size={12} className="animate-spin mr-2" /> : <Plus size={12} className="mr-2" />}
+            Creer la ligne
+          </button>
+        </div>
+      </PanelContentLayout>
+    </DynamicPanelShell>
+  )
+}
+
+// -- DCS Tag Create Panel -----------------------------------------------------
+
+function CreateDCSTagPanel() {
+  const { closeDynamicPanel } = useUIStore()
+  const { toast } = useToast()
+  const createTag = useCreateDCSTag()
+  const { data: equipData } = useEquipment({ page: 1, page_size: 500 })
+  const [form, setForm] = useState({
+    tag_name: '',
+    tag_type: 'PI',
+    description: '',
+    equipment_id: '',
+    engineering_unit: '',
+    range_min: '',
+    range_max: '',
+  })
+
+  const handleSubmit = useCallback(async () => {
+    if (!form.tag_name.trim()) {
+      toast({ title: 'Erreur', description: 'Le nom du tag est requis', variant: 'error' })
+      return
+    }
+    const payload: Record<string, unknown> = {
+      tag_name: form.tag_name.trim(),
+      tag_type: form.tag_type,
+    }
+    if (form.description) payload.description = form.description
+    if (form.equipment_id) payload.equipment_id = form.equipment_id
+    if (form.engineering_unit) payload.engineering_unit = form.engineering_unit
+    if (form.range_min) payload.range_min = Number(form.range_min)
+    if (form.range_max) payload.range_max = Number(form.range_max)
+    try {
+      await createTag.mutateAsync(payload)
+      toast({ title: 'Tag DCS cree', variant: 'success' })
+      closeDynamicPanel()
+    } catch {
+      toast({ title: 'Erreur lors de la creation du tag', variant: 'error' })
+    }
+  }, [form, createTag, toast, closeDynamicPanel])
+
+  const set = (field: string, value: string) => setForm((f) => ({ ...f, [field]: value }))
+
+  return (
+    <DynamicPanelShell title="Nouveau tag DCS" icon={<Plus size={14} className="text-primary" />} onClose={closeDynamicPanel}>
+      <PanelContentLayout>
+        <FormSection title="Identification">
+          <div className="space-y-3 p-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Nom du tag *</label>
+              <input className="gl-form-input text-sm w-full font-mono" value={form.tag_name} onChange={(e) => set('tag_name', e.target.value)} placeholder="PI-1001" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Type ISA</label>
+              <select className="gl-form-select text-sm w-full" value={form.tag_type} onChange={(e) => set('tag_type', e.target.value)}>
+                {TAG_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Description</label>
+              <input className="gl-form-input text-sm w-full" value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="Description du tag" />
+            </div>
+          </div>
+        </FormSection>
+
+        <FormSection title="Association equipement">
+          <div className="space-y-3 p-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Equipement</label>
+              <select className="gl-form-select text-sm w-full" value={form.equipment_id} onChange={(e) => set('equipment_id', e.target.value)}>
+                <option value="">-- Aucun --</option>
+                {equipData?.items?.map((eq) => <option key={eq.id} value={eq.id}>{eq.tag} — {eq.description || eq.equipment_type}</option>)}
+              </select>
+            </div>
+          </div>
+        </FormSection>
+
+        <FormSection title="Mesure" collapsible defaultExpanded={false}>
+          <div className="space-y-3 p-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Unite d'ingenierie</label>
+              <input className="gl-form-input text-sm w-full" value={form.engineering_unit} onChange={(e) => set('engineering_unit', e.target.value)} placeholder="barg, °C, m3/h..." />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Range min</label>
+                <input type="number" className="gl-form-input text-sm w-full" value={form.range_min} onChange={(e) => set('range_min', e.target.value)} placeholder="0" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Range max</label>
+                <input type="number" className="gl-form-input text-sm w-full" value={form.range_max} onChange={(e) => set('range_max', e.target.value)} placeholder="100" />
+              </div>
+            </div>
+          </div>
+        </FormSection>
+
+        <div className="p-3 border-t border-border">
+          <button className="gl-button gl-button-confirm w-full" onClick={handleSubmit} disabled={createTag.isPending}>
+            {createTag.isPending ? <Loader2 size={12} className="animate-spin mr-2" /> : <Plus size={12} className="mr-2" />}
+            Creer le tag DCS
+          </button>
+        </div>
+      </PanelContentLayout>
+    </DynamicPanelShell>
+  )
+}
+
 // -- Register panel renderer for detached panels ------------------------------
 
 registerPanelRenderer('pid-pfd', (view) => {
+  if (view.type === 'detail' && 'id' in view && view.meta?.subType === 'equipment') return <EquipmentDetailPanel id={view.id} />
   if (view.type === 'detail' && 'id' in view) return <PIDDetailPanel id={view.id} />
+  if (view.type === 'create' && view.meta?.subType === 'equipment') return <CreateEquipmentPanel />
+  if (view.type === 'create' && view.meta?.subType === 'line') return <CreateProcessLinePanel />
+  if (view.type === 'create' && view.meta?.subType === 'tag') return <CreateDCSTagPanel />
   if (view.type === 'create') return <CreatePIDPanel />
   return null
 })

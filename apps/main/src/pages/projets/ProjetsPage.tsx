@@ -46,6 +46,7 @@ import { useToast } from '@/components/ui/Toast'
 import { usePermission } from '@/hooks/usePermission'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { AssetPicker } from '@/components/shared/AssetPicker'
+import { useAsset } from '@/hooks/useAssets'
 import {
   useProjects, useProject, useCreateProject, useUpdateProject, useArchiveProject,
   useProjectTasks, useCreateProjectTask, useUpdateProjectTask, useDeleteProjectTask,
@@ -740,6 +741,7 @@ function ProjectDetailPanel({ id }: { id: string }) {
   const { data: tasks } = useProjectTasks(id)
   const { data: members } = useProjectMembers(id)
   const { data: milestones } = useProjectMilestones(id)
+  const { data: linkedAsset } = useAsset(project?.asset_id ?? '')
   const { toast } = useToast()
 
   const handleSave = useCallback((field: string, value: string) => {
@@ -803,7 +805,7 @@ function ProjectDetailPanel({ id }: { id: string }) {
                 <ReadOnlyRow label="Budget" value={project.budget ? `${project.budget.toLocaleString('fr-FR')} XAF` : '--'} />
                 <ReadOnlyRow label="Site / Asset" value={
                   project.asset_id ? (
-                    <CrossModuleLink module="assets" id={project.asset_id} label={project.asset_id.slice(0, 8) + '…'} mode="navigate" />
+                    <CrossModuleLink module="assets" id={project.asset_id} label={linkedAsset ? `${linkedAsset.code} — ${linkedAsset.name}` : project.asset_id.slice(0, 8) + '…'} mode="navigate" />
                   ) : '--'
                 } />
               </DetailFieldGrid>

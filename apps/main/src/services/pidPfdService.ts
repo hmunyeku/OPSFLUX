@@ -476,4 +476,54 @@ export const pidPfdService = {
   forceReleaseLock: async (pidId: string): Promise<void> => {
     await api.post(`/api/v1/pid/${pidId}/lock/force-release`)
   },
+
+  // ── Equipment CRUD ──
+
+  createEquipment: async (payload: Record<string, unknown>): Promise<Equipment> => {
+    const { data } = await api.post('/api/v1/pid/equipment', payload)
+    return data
+  },
+
+  deleteEquipment: async (id: string): Promise<void> => {
+    await api.delete(`/api/v1/pid/equipment/${id}`)
+  },
+
+  // ── Process Lines CRUD ──
+
+  createProcessLine: async (payload: Record<string, unknown>): Promise<ProcessLine> => {
+    const { data } = await api.post('/api/v1/pid/lines', payload)
+    return data
+  },
+
+  updateProcessLine: async (id: string, payload: Record<string, unknown>): Promise<ProcessLine> => {
+    const { data } = await api.patch(`/api/v1/pid/lines/${id}`, payload)
+    return data
+  },
+
+  deleteProcessLine: async (id: string): Promise<void> => {
+    await api.delete(`/api/v1/pid/lines/${id}`)
+  },
+
+  // ── DCS Tags delete ──
+
+  deleteTag: async (id: string): Promise<void> => {
+    await api.delete(`/api/v1/pid/tags/${id}`)
+  },
+
+  // ── Process Library CRUD ──
+
+  updateLibraryItem: async (id: string, payload: Record<string, unknown>): Promise<ProcessLibItem> => {
+    const { data } = await api.patch(`/api/v1/pid/library/${id}`, payload)
+    return data
+  },
+
+  deleteLibraryItem: async (id: string): Promise<void> => {
+    await api.delete(`/api/v1/pid/library/${id}`)
+  },
+
+  // ── PID Documents delete ──
+
+  deleteDocument: async (id: string): Promise<void> => {
+    await api.delete(`/api/v1/pid/${id}`)
+  },
 }

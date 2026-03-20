@@ -150,9 +150,9 @@ export function DashboardCanvas({
         useCSSTransforms
         compactType="vertical"
       >
-        {widgets.map((widget) => (
+        {widgets.map((widget, idx) => (
           <div
-            key={widget.id}
+            key={widget.id || `widget-${idx}`}
             className={cn(
               'relative',
               selectedWidgetId === widget.id && 'ring-2 ring-primary/60 rounded-md',

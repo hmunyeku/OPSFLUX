@@ -89,9 +89,28 @@ const SESSION_KEY_CENTER = 'opsflux:fleetmap:center'
 const SESSION_KEY_STYLE = 'opsflux:fleetmap:style'
 
 const STYLE_OPTIONS = [
-  { value: 'standard', label: 'Standard' },
-  { value: 'satellite', label: 'Satellite' },
-  { value: 'terrain', label: 'Terrain' },
+  {
+    value: 'standard',
+    label: 'Standard',
+    // Light map preview colors
+    bg: 'bg-[#e8e4da]',
+    line: 'bg-white',
+    accent: 'bg-[#b8d4a0]',
+  },
+  {
+    value: 'satellite',
+    label: 'Satellite',
+    bg: 'bg-[#1a3a1a]',
+    line: 'bg-[#2a4a2a]',
+    accent: 'bg-[#0d2d0d]',
+  },
+  {
+    value: 'terrain',
+    label: 'Terrain',
+    bg: 'bg-[#d4cfc0]',
+    line: 'bg-[#c0b8a0]',
+    accent: 'bg-[#a8c090]',
+  },
 ]
 
 export function FleetMap({ height = 500, className }: FleetMapProps) {
@@ -306,20 +325,34 @@ export function FleetMap({ height = 500, className }: FleetMapProps) {
               <span className="text-[10px] text-muted-foreground ml-1">{t('travelwiz.vectors')}</span>
             </div>
           )}
-          {/* Style switcher */}
-          <div className="bg-card/90 backdrop-blur-sm border border-border rounded-md overflow-hidden">
+          {/* Style switcher — Google Maps-style thumbnails */}
+          <div className="flex gap-1">
             {STYLE_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
                 onClick={() => handleStyleChange(opt.value)}
                 className={cn(
-                  'block w-full text-left px-2 py-1 text-[10px] font-medium transition-colors',
+                  'group relative w-[52px] rounded-md overflow-hidden border-2 transition-all',
                   activeStyle === opt.value
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                    ? 'border-primary shadow-md'
+                    : 'border-border/60 hover:border-border opacity-80 hover:opacity-100',
                 )}
               >
-                {opt.label}
+                {/* Mini map preview */}
+                <div className={cn('w-full h-8 relative', opt.bg)}>
+                  {/* Simulated road lines */}
+                  <div className={cn('absolute top-2 left-1 right-2 h-[1px]', opt.line)} />
+                  <div className={cn('absolute top-4 left-3 right-1 h-[1px]', opt.line)} />
+                  <div className={cn('absolute bottom-1 left-0 w-3 h-3 rounded-sm', opt.accent)} />
+                  <div className={cn('absolute top-1 right-1 w-2 h-2 rounded-sm', opt.accent)} />
+                </div>
+                {/* Label */}
+                <div className={cn(
+                  'text-[9px] font-medium text-center py-0.5 bg-card/95',
+                  activeStyle === opt.value ? 'text-primary' : 'text-muted-foreground',
+                )}>
+                  {opt.label}
+                </div>
               </button>
             ))}
           </div>

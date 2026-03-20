@@ -769,7 +769,8 @@ async def delete_personal_tab(
             detail="Personal tab not found",
         )
 
-    await delete_entity(tab, db, "dashboard_tab", entity_id=tab_id, user_id=current_user.id)
+    # Hard delete personal tabs (they have no archived/active flags)
+    await db.delete(tab)
     await db.commit()
 
 

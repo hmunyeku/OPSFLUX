@@ -1993,3 +1993,226 @@ async def delete_doc_type(
 
     logger.info("Soft-deleted doc type %s (%s)", doc_type.code, type_id)
     return {"status": "deleted", "type_id": str(type_id), "code": doc_type.code}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MDR Import
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+# Column alias mapping (case-insensitive)
+_MDR_COL_MAP: dict[str, str] = {
+    # → code
+    "code": "code",
+    "doc_type_code": "code",
+    "type_code": "code",
+    # → name
+    "name": "name",
+    "doc_type_name": "name",
+    "type_name": "name",
+    # → discipline
+    "discipline": "discipline",
+    "disc": "discipline",
+    # → nomenclature_pattern
+    "pattern": "nomenclature_pattern",
+    "nomenclature": "nomenclature_pattern",
+    "nomenclature_pattern": "nomenclature_pattern",
+    # → revision_scheme
+    "revision_scheme": "revision_scheme",
+    "rev_scheme": "revision_scheme",
+    # → document_number (optional — creates Document placeholders)
+    "document_number": "document_number",
+    "doc_number": "document_number",
+}
+
+
+def _normalise_header(raw: str) -> str | None:
+    """Map a raw column header to canonical field name, or None if unknown."""
+    return _MDR_COL_MAP.get(raw.strip().lower().replace(" ", "_"))
+
+
+async def import_mdr(
+    *,
+    file,  # fastapi UploadFile
+    entity_id: UUID,
+    project_id: UUID | None,
+    created_by: UUID,
+    db: AsyncSession,
+) -> dict:
+    """Import a Master Document Register (CSV / XLSX).
+
+    For each row:
+      1. Upsert DocType (match on entity_id + code).
+      2. Optionally create Document placeholder when document_number column is present.
+
+    Returns {created_types, updated_types, created_documents, errors}.
+    """
+    import csv
+    import io
+
+    from app.models.report_editor import DocType, Document
+
+    filename = (file.filename or "").lower()
+    raw_bytes = await file.read()
+
+    rows: list[dict[str, str]] = []
+    errors: list[str] = []
+
+    # ── Parse file ──
+    if filename.endswith(".csv"):
+        text = raw_bytes.decode("utf-8-sig")
+        reader = csv.DictReader(io.StringIO(text))
+        for row in reader:
+            rows.append(row)
+    elif filename.endswith((".xlsx", ".xls")):
+        try:
+            import openpyxl
+        except ImportError:
+            from fastapi import HTTPException
+            raise HTTPException(501, "XLSX import requires openpyxl — pip install openpyxl")
+
+        wb = openpyxl.load_workbook(io.BytesIO(raw_bytes), read_only=True, data_only=True)
+        ws = wb.active
+        if ws is None:
+            return {"created_types": 0, "updated_types": 0, "created_documents": 0, "errors": ["Empty workbook"]}
+
+        headers: list[str] = []
+        for row_idx, row in enumerate(ws.iter_rows(values_only=True), start=1):
+            if row_idx == 1:
+                headers = [str(c or "").strip() for c in row]
+                continue
+            row_dict = {}
+            for col_idx, cell_val in enumerate(row):
+                if col_idx < len(headers):
+                    row_dict[headers[col_idx]] = str(cell_val) if cell_val is not None else ""
+            if any(v.strip() for v in row_dict.values()):
+                rows.append(row_dict)
+        wb.close()
+    else:
+        from fastapi import HTTPException
+        raise HTTPException(400, "Unsupported file format. Use .csv or .xlsx")
+
+    if not rows:
+        return {"created_types": 0, "updated_types": 0, "created_documents": 0, "errors": ["File is empty or has no data rows"]}
+
+    # ── Resolve column mapping ──
+    sample_keys = list(rows[0].keys())
+    col_map: dict[str, str] = {}
+    for raw_key in sample_keys:
+        canonical = _normalise_header(raw_key)
+        if canonical:
+            col_map[raw_key] = canonical
+
+    if "code" not in col_map.values():
+        return {
+            "created_types": 0,
+            "updated_types": 0,
+            "created_documents": 0,
+            "errors": [
+                f"No 'code' column found. Expected one of: code, doc_type_code, type_code. "
+                f"Found columns: {', '.join(sample_keys)}"
+            ],
+        }
+
+    # ── Pre-load existing doc types for this entity ──
+    existing_result = await db.execute(
+        select(DocType).where(DocType.entity_id == entity_id)
+    )
+    existing_types: dict[str, DocType] = {
+        dt.code: dt for dt in existing_result.scalars().all()
+    }
+
+    created_types = 0
+    updated_types = 0
+    created_documents = 0
+
+    for row_num, row in enumerate(rows, start=2):
+        # Build mapped values
+        mapped: dict[str, str] = {}
+        for raw_key, canonical in col_map.items():
+            mapped[canonical] = row.get(raw_key, "").strip()
+
+        code = mapped.get("code", "").strip()
+        if not code:
+            errors.append(f"Row {row_num}: empty code — skipped")
+            continue
+
+        name_str = mapped.get("name", code).strip() or code
+        discipline = mapped.get("discipline", "").strip() or None
+        nomenclature_pattern = mapped.get("nomenclature_pattern", "").strip()
+        revision_scheme = mapped.get("revision_scheme", "").strip().lower() or "alpha"
+        if revision_scheme not in ("alpha", "numeric", "semver"):
+            errors.append(f"Row {row_num}: invalid revision_scheme '{revision_scheme}' — defaulting to 'alpha'")
+            revision_scheme = "alpha"
+
+        if not nomenclature_pattern:
+            nomenclature_pattern = f"{code}-{{SEQ:4}}"
+
+        if code in existing_types:
+            # Update existing
+            dt = existing_types[code]
+            dt.name = {"fr": name_str}
+            if discipline is not None:
+                dt.discipline = discipline
+            dt.nomenclature_pattern = nomenclature_pattern
+            dt.revision_scheme = revision_scheme
+            dt.is_active = True
+            updated_types += 1
+        else:
+            # Create new
+            dt = DocType(
+                entity_id=entity_id,
+                code=code,
+                name={"fr": name_str},
+                discipline=discipline,
+                nomenclature_pattern=nomenclature_pattern,
+                revision_scheme=revision_scheme,
+                is_active=True,
+                created_by=created_by,
+            )
+            db.add(dt)
+            existing_types[code] = dt
+            created_types += 1
+
+        # Flush so dt gets an id (needed for Document FK)
+        await db.flush()
+
+        # Optionally create Document placeholder
+        doc_number = mapped.get("document_number", "").strip()
+        if doc_number:
+            # Check if document with this number already exists
+            existing_doc = await db.execute(
+                select(Document).where(
+                    Document.entity_id == entity_id,
+                    Document.number == doc_number,
+                )
+            )
+            if existing_doc.scalar_one_or_none() is None:
+                doc = Document(
+                    entity_id=entity_id,
+                    doc_type_id=dt.id,
+                    project_id=project_id,
+                    number=doc_number,
+                    title=doc_number,
+                    language="fr",
+                    status="draft",
+                    classification="INT",
+                    created_by=created_by,
+                )
+                db.add(doc)
+                created_documents += 1
+            else:
+                errors.append(f"Row {row_num}: document '{doc_number}' already exists — skipped placeholder")
+
+    await db.commit()
+
+    logger.info(
+        "MDR import: %d types created, %d updated, %d docs — %d errors",
+        created_types, updated_types, created_documents, len(errors),
+    )
+    return {
+        "created_types": created_types,
+        "updated_types": updated_types,
+        "created_documents": created_documents,
+        "errors": errors,
+    }

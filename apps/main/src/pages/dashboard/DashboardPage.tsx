@@ -565,11 +565,11 @@ function TabButton({
   onStartRename,
 }: TabButtonProps) {
   return (
-    <div className="relative flex items-center">
+    <div className="relative flex items-center group pointer-events-none">
       <button
         onClick={onClick}
         className={cn(
-          'relative h-9 px-3 text-sm font-medium transition-colors flex items-center gap-1.5',
+          'pointer-events-auto relative h-9 px-3 text-sm font-medium transition-colors flex items-center gap-1.5',
           active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
         )}
       >
@@ -585,7 +585,7 @@ function TabButton({
               if (e.key === 'Enter') onFinishRename()
               if (e.key === 'Escape') onFinishRename()
             }}
-            className="bg-transparent border-b border-primary text-sm font-medium outline-none w-24"
+            className="bg-transparent border-b border-primary text-sm font-medium outline-none w-24 pointer-events-auto"
             onClick={(e) => e.stopPropagation()}
           />
         ) : (
@@ -595,26 +595,28 @@ function TabButton({
         {active && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t" />}
       </button>
 
-      {/* Edit actions */}
-      {editMode && !tab.is_mandatory && !isRenaming && (
-        <div className="flex items-center -ml-1">
-          {onStartRename && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onStartRename() }}
-              className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-muted"
-              title="Renommer"
-            >
-              <Pencil size={9} className="text-muted-foreground" />
-            </button>
-          )}
-        </div>
+      {/* Edit actions — sibling outside tab button */}
+      {editMode && !tab.is_mandatory && !isRenaming && onStartRename && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onStartRename() }}
+          className="pointer-events-auto h-5 w-5 -ml-1 inline-flex items-center justify-center rounded hover:bg-muted"
+          title="Renommer"
+        >
+          <Pencil size={9} className="text-muted-foreground" />
+        </button>
       )}
 
-      {/* Close button — visible in both view and edit mode for closable tabs */}
+      {/* Close button — sibling outside tab button, with confirmation */}
       {onClose && (
         <button
-          onClick={(e) => { e.stopPropagation(); e.preventDefault(); onClose() }}
-          className="h-5 w-5 ml-0.5 inline-flex items-center justify-center rounded hover:bg-destructive/10 hover:text-destructive transition-colors z-10"
+          onClick={(e) => {
+            e.stopPropagation()
+            e.preventDefault()
+            if (window.confirm('Supprimer cet onglet ?')) {
+              onClose()
+            }
+          }}
+          className="pointer-events-auto h-5 w-5 ml-0.5 inline-flex items-center justify-center rounded hover:bg-destructive/10 hover:text-destructive transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
           title="Supprimer cet onglet"
         >
           <X size={11} className="text-muted-foreground hover:text-destructive" />

@@ -437,4 +437,25 @@ export const reportEditorService = {
     const { data } = await api.post('/api/v1/documents/nomenclature/validate', { pattern })
     return data
   },
+
+  // ── MDR Import ──
+
+  importMDR: async (
+    file: File,
+    projectId?: string,
+  ): Promise<{
+    created_types: number
+    updated_types: number
+    created_documents: number
+    errors: string[]
+  }> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const params = projectId ? { project_id: projectId } : undefined
+    const { data } = await api.post('/api/v1/documents/types/mdr/import', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      params,
+    })
+    return data
+  },
 }

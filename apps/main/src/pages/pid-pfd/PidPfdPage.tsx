@@ -18,7 +18,7 @@ import {
   FileText, Loader2, Search, Upload, Plus, Trash2,
   LayoutDashboard, Layers, GitBranch, Tag, BookOpen,
   Lock, FilePlus2, ShieldCheck,
-  FileDown, Cpu, History, PenTool,
+  FileDown, Cpu, History, PenTool, MoreHorizontal,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -36,6 +36,7 @@ import {
   PanelContentLayout,
   DetailFieldGrid,
   DangerConfirmButton,
+  SectionColumns,
 } from '@/components/layout/DynamicPanel'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 import { TagManager } from '@/components/shared/TagManager'
@@ -64,6 +65,7 @@ import {
   useCreateProcessLine,
   useCreateDCSTag,
   useSaveXml,
+  useUpdatePIDDocument,
 } from '@/hooks/usePidPfd'
 import { DrawioEditor } from '@/components/pid-pfd/DrawioEditor'
 import type {
@@ -283,6 +285,38 @@ function KpiCard({ label, value, icon: Icon, color }: {
   )
 }
 
+// -- Sheet Format Visual Card --------------------------------------------------
+
+const FORMAT_SIZES: Record<string, { w: number; h: number; label: string }> = {
+  A0: { w: 1189, h: 841, label: 'A0 (841×1189 mm)' },
+  A1: { w: 841, h: 594, label: 'A1 (594×841 mm)' },
+  A2: { w: 594, h: 420, label: 'A2 (420×594 mm)' },
+  A3: { w: 420, h: 297, label: 'A3 (297×420 mm)' },
+}
+
+function SheetFormatCard({ format }: { format: string }) {
+  const info = FORMAT_SIZES[format]
+  if (!info) {
+    return <span className="text-sm text-foreground">{format || '--'}</span>
+  }
+  // Scale proportionally: max width 80px
+  const maxW = 80
+  const scale = maxW / info.w
+  const scaledW = Math.round(info.w * scale)
+  const scaledH = Math.round(info.h * scale)
+  return (
+    <div className="flex items-center gap-2.5">
+      <div
+        className="border-2 border-primary/40 rounded-sm bg-primary/5 flex items-center justify-center"
+        style={{ width: scaledW, height: scaledH }}
+      >
+        <span className="text-[9px] font-bold text-primary/70">{format}</span>
+      </div>
+      <span className="text-xs text-muted-foreground">{info.label}</span>
+    </div>
+  )
+}
+
 // -- PID Detail Panel ---------------------------------------------------------
 
 function PIDDetailPanel({ id }: { id: string }) {
@@ -296,9 +330,13 @@ function PIDDetailPanel({ id }: { id: string }) {
   const acquireLock = useAcquireLock()
   const createRevision = useCreatePIDRevision()
   const saveXml = useSaveXml()
+  const updateDoc = useUpdatePIDDocument()
 
   // Draw.io editor state
   const [showEditor, setShowEditor] = useState(false)
+
+  // More actions dropdown
+  const [showMoreActions, setShowMoreActions] = useState(false)
 
   const handleSaveXml = useCallback(async (xml: string) => {
     try {
@@ -351,6 +389,13 @@ function PIDDetailPanel({ id }: { id: string }) {
     }
   }, [id, acquireLock, toast])
 
+  const handleFieldSave = useCallback((field: string) => (newValue: string) => {
+    updateDoc.mutate({ id, payload: { [field]: newValue } }, {
+      onSuccess: () => toast({ title: 'Champ mis a jour', variant: 'success' }),
+      onError: () => toast({ title: 'Erreur lors de la mise a jour', variant: 'error' }),
+    })
+  }, [id, updateDoc, toast])
+
   if (isLoading || !doc) {
     return (
       <DynamicPanelShell title={t('common.loading')} icon={<FileText size={14} className="text-primary" />}>
@@ -367,123 +412,157 @@ function PIDDetailPanel({ id }: { id: string }) {
       subtitle={doc.title}
       icon={<FileText size={14} className="text-primary" />}
       actions={
-        <PanelActionButton onClick={closeDynamicPanel}>{t('common.close')}</PanelActionButton>
+        <>
+          <PanelActionButton
+            variant="primary"
+            icon={<PenTool size={12} />}
+            onClick={() => setShowEditor(true)}
+          >
+            Editeur
+          </PanelActionButton>
+          <PanelActionButton
+            icon={createRevision.isPending ? <Loader2 size={12} className="animate-spin" /> : <FilePlus2 size={12} />}
+            onClick={handleCreateRevision}
+            disabled={createRevision.isPending}
+          >
+            Revision
+          </PanelActionButton>
+          <PanelActionButton
+            icon={validateAfc.isPending ? <Loader2 size={12} className="animate-spin" /> : <ShieldCheck size={12} />}
+            onClick={handleValidateAfc}
+            disabled={validateAfc.isPending}
+          >
+            AFC
+          </PanelActionButton>
+          {/* More actions dropdown */}
+          <div className="relative">
+            <PanelActionButton
+              icon={<MoreHorizontal size={12} />}
+              onClick={() => setShowMoreActions(!showMoreActions)}
+            >
+              {''}
+            </PanelActionButton>
+            {showMoreActions && (
+              <div className="absolute right-0 top-full mt-1 z-50 min-w-[160px] rounded-md border border-border bg-popover shadow-md py-1">
+                <button
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors"
+                  onClick={() => { handleExportSvg(); setShowMoreActions(false) }}
+                >
+                  <FileDown size={12} className="text-muted-foreground" />
+                  Exporter SVG
+                </button>
+                <button
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors"
+                  onClick={() => { handleExportPdf(); setShowMoreActions(false) }}
+                >
+                  <FileDown size={12} className="text-muted-foreground" />
+                  Exporter PDF
+                </button>
+              </div>
+            )}
+          </div>
+          <PanelActionButton onClick={closeDynamicPanel}>{t('common.close')}</PanelActionButton>
+        </>
       }
     >
       <PanelContentLayout>
-        {/* -- Document Metadata -- */}
-        <FormSection title="Informations" collapsible defaultExpanded>
-          <DetailFieldGrid>
-            <ReadOnlyRow label="Numero" value={doc.number} />
-            <ReadOnlyRow label="Titre" value={doc.title} />
-            <ReadOnlyRow
-              label="Type"
-              value={
-                <span className="gl-badge gl-badge-info">
-                  {PID_TYPE_LABELS[doc.pid_type] || doc.pid_type}
-                </span>
-              }
-            />
-            <ReadOnlyRow label="Revision" value={<span className="font-mono text-xs">{doc.revision}</span>} />
-            <ReadOnlyRow label="Statut" value={<StatusBadge status={doc.status} />} />
-            <ReadOnlyRow label="Format" value={doc.sheet_format || '--'} />
-            <ReadOnlyRow label="Echelle" value={doc.scale || '--'} />
-            <ReadOnlyRow label="Equipements" value={<span className="tabular-nums">{doc.equipment_count}</span>} />
-            <ReadOnlyRow label="Projet" value={doc.project_name || '--'} />
-            <ReadOnlyRow label="Cree par" value={doc.creator_name || '--'} />
-            <ReadOnlyRow
-              label="Cree le"
-              value={new Date(doc.created_at).toLocaleDateString('fr-FR')}
-            />
-          </DetailFieldGrid>
-        </FormSection>
+        <SectionColumns>
+          {/* ── Left Column ── */}
+          <div className="space-y-5">
+            {/* Identification */}
+            <FormSection title="Identification" collapsible defaultExpanded>
+              <DetailFieldGrid>
+                <ReadOnlyRow label="Numero" value={doc.number} />
+                <InlineEditableRow label="Titre" value={doc.title} onSave={handleFieldSave('title')} />
+                <ReadOnlyRow
+                  label="Type"
+                  value={
+                    <span className="gl-badge gl-badge-info">
+                      {PID_TYPE_LABELS[doc.pid_type] || doc.pid_type}
+                    </span>
+                  }
+                />
+                <ReadOnlyRow label="Statut" value={<StatusBadge status={doc.status} />} />
+                <ReadOnlyRow label="Revision" value={<span className="font-mono text-xs">{doc.revision}</span>} />
+              </DetailFieldGrid>
+            </FormSection>
 
-        {/* -- Lock Status -- */}
-        <FormSection title="Verrou" collapsible defaultExpanded={false}>
-          <div className="flex items-center gap-2 text-sm">
-            <Lock size={14} className="text-muted-foreground" />
-            <span className="text-muted-foreground">Statut:</span>
-            <span className="text-foreground">Non verrouille</span>
+            {/* Specifications */}
+            <FormSection title="Specifications" collapsible defaultExpanded>
+              <DetailFieldGrid>
+                <ReadOnlyRow label="Format" value={<SheetFormatCard format={doc.sheet_format} />} />
+                <InlineEditableRow label="Echelle" value={doc.scale || ''} onSave={handleFieldSave('scale')} />
+                <InlineEditableRow label="N° dessin" value={doc.drawing_number || ''} onSave={handleFieldSave('drawing_number')} />
+              </DetailFieldGrid>
+            </FormSection>
           </div>
-          <button
-            onClick={handleAcquireLock}
-            disabled={acquireLock.isPending}
-            className="gl-button-sm gl-button-default mt-2"
-          >
-            {acquireLock.isPending ? (
-              <Loader2 size={12} className="animate-spin" />
-            ) : (
-              <Lock size={12} />
-            )}
-            <span>Acquerir le verrou</span>
-          </button>
-        </FormSection>
 
-        {/* -- SVG Preview / Draw.io Editor -- */}
-        {showEditor ? (
-          <FormSection title="Editeur Draw.io" collapsible={false}>
-            <div className="h-[500px] -mx-3 -mb-1">
-              <DrawioEditor
-                xmlContent={doc.xml_content ?? undefined}
-                onSave={handleSaveXml}
-                onClose={() => setShowEditor(false)}
-                drawioUrl="http://localhost:8080"
-              />
-            </div>
-          </FormSection>
-        ) : doc.xml_content ? (
-          <FormSection title="Apercu du diagramme" collapsible defaultExpanded>
-            <div
-              className="w-full max-h-[200px] overflow-hidden rounded border border-border bg-muted/10 flex items-center justify-center cursor-pointer hover:bg-muted/20 transition-colors"
-              onClick={() => setShowEditor(true)}
-              title="Cliquer pour ouvrir l'editeur"
-            >
-              <div className="text-xs text-muted-foreground flex items-center gap-1.5 py-8">
-                <PenTool size={14} />
-                <span>Cliquer pour editer le diagramme</span>
+          {/* ── Right Column ── */}
+          <div className="space-y-5">
+            {/* Associations */}
+            <FormSection title="Associations" collapsible defaultExpanded>
+              <DetailFieldGrid>
+                <ReadOnlyRow label="Projet" value={doc.project_name || '--'} />
+                <ReadOnlyRow label="Equipements" value={<span className="tabular-nums">{doc.equipment_count}</span>} />
+                <ReadOnlyRow label="Cree par" value={doc.creator_name || '--'} />
+                <ReadOnlyRow
+                  label="Cree le"
+                  value={new Date(doc.created_at).toLocaleDateString('fr-FR')}
+                />
+              </DetailFieldGrid>
+            </FormSection>
+
+            {/* Lock Status */}
+            <FormSection title="Verrou" collapsible defaultExpanded={false}>
+              <div className="flex items-center gap-2 text-sm">
+                <Lock size={14} className="text-muted-foreground" />
+                <span className="text-muted-foreground">Statut:</span>
+                <span className="text-foreground">Non verrouille</span>
               </div>
-            </div>
-          </FormSection>
-        ) : null}
+              <button
+                onClick={handleAcquireLock}
+                disabled={acquireLock.isPending}
+                className="gl-button-sm gl-button-default mt-2"
+              >
+                {acquireLock.isPending ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <Lock size={12} />
+                )}
+                <span>Acquerir le verrou</span>
+              </button>
+            </FormSection>
 
-        {/* -- Actions -- */}
-        <FormSection title="Actions" collapsible defaultExpanded>
-          <div className="flex flex-wrap gap-2">
-            <button
-              className="gl-button-sm gl-button-confirm"
-              onClick={() => setShowEditor(true)}
-            >
-              <PenTool size={12} />
-              <span>Ouvrir l&apos;editeur</span>
-            </button>
-            <button
-              className="gl-button-sm gl-button-default"
-              onClick={handleCreateRevision}
-              disabled={createRevision.isPending}
-            >
-              {createRevision.isPending ? <Loader2 size={12} className="animate-spin" /> : <FilePlus2 size={12} />}
-              <span>Creer revision</span>
-            </button>
-            <button
-              className="gl-button-sm gl-button-default"
-              onClick={handleValidateAfc}
-              disabled={validateAfc.isPending}
-            >
-              {validateAfc.isPending ? <Loader2 size={12} className="animate-spin" /> : <ShieldCheck size={12} />}
-              <span>Valider AFC</span>
-            </button>
-            <button className="gl-button-sm gl-button-default" onClick={handleExportSvg}>
-              <FileDown size={12} />
-              <span>Exporter SVG</span>
-            </button>
-            <button className="gl-button-sm gl-button-default" onClick={handleExportPdf}>
-              <FileDown size={12} />
-              <span>Exporter PDF</span>
-            </button>
+            {/* Diagram Preview */}
+            {showEditor ? (
+              <FormSection title="Editeur Draw.io" collapsible={false}>
+                <div className="h-[500px] -mx-3 -mb-1">
+                  <DrawioEditor
+                    xmlContent={doc.xml_content ?? undefined}
+                    onSave={handleSaveXml}
+                    onClose={() => setShowEditor(false)}
+                    drawioUrl="http://localhost:8080"
+                  />
+                </div>
+              </FormSection>
+            ) : doc.xml_content ? (
+              <FormSection title="Apercu du diagramme" collapsible defaultExpanded>
+                <div
+                  className="w-full max-h-[200px] overflow-hidden rounded border border-border bg-muted/10 flex items-center justify-center cursor-pointer hover:bg-muted/20 transition-colors"
+                  onClick={() => setShowEditor(true)}
+                  title="Cliquer pour ouvrir l'editeur"
+                >
+                  <div className="text-xs text-muted-foreground flex items-center gap-1.5 py-8">
+                    <PenTool size={14} />
+                    <span>Cliquer pour editer le diagramme</span>
+                  </div>
+                </div>
+              </FormSection>
+            ) : null}
           </div>
-        </FormSection>
+        </SectionColumns>
 
-        {/* -- Revision History -- */}
+        {/* -- Revision History (full width below columns) -- */}
         <FormSection title={`Historique des revisions${revisions ? ` (${revisions.length})` : ''}`} collapsible defaultExpanded>
           {revisionsLoading ? (
             <div className="flex items-center justify-center py-4">

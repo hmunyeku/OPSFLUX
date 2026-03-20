@@ -9,13 +9,13 @@
  *
  * Detail panel: metadata, revision info, workflow actions, export, share, revision history
  */
-import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import {
   FileText, Plus, Loader2, Trash2, LayoutDashboard, Files, FileCode2, FolderCog,
   Send, CheckCircle2, XCircle, Globe, Download, Link2, Clock, Eye,
-  Archive, PenTool, GitCompare, ChevronDown, ChevronRight, Folder, PanelLeftClose, PanelLeft,
+  Archive, PenTool, GitCompare, ChevronDown, ChevronRight, Folder, PanelLeftClose, PanelLeft, Upload,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -67,6 +67,7 @@ import {
   useCreateDocument,
   useRevisionDiff,
   useArborescenceNodes,
+  useImportMDR,
 } from '@/hooks/useReportEditor'
 import { reportEditorService } from '@/services/reportEditorService'
 import { DocumentEditor } from '@/components/report-editor/DocumentEditor'
@@ -1013,6 +1014,38 @@ export function ReportEditorPage() {
 
   useEffect(() => { setPage(1) }, [debouncedSearch, activeFilters, activeTab, selectedNodeId])
 
+  // ── MDR Import ──
+  const mdrFileRef = useRef<HTMLInputElement>(null)
+  const importMDR = useImportMDR()
+  const { toast } = useToast()
+
+  const handleMDRFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0]
+      if (!file) return
+      try {
+        const result = await importMDR.mutateAsync({ file })
+        const parts: string[] = []
+        if (result.created_types > 0) parts.push(`${result.created_types} type(s) cree(s)`)
+        if (result.updated_types > 0) parts.push(`${result.updated_types} type(s) mis a jour`)
+        if (result.created_documents > 0) parts.push(`${result.created_documents} document(s) cree(s)`)
+        if (result.errors.length > 0) parts.push(`${result.errors.length} erreur(s)`)
+        toast({
+          title: 'Import MDR',
+          description: parts.join(', ') || 'Import termine',
+          variant: result.errors.length > 0 ? 'warning' : 'success',
+        })
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Erreur lors de l\'import MDR'
+        toast({ title: 'Erreur import MDR', description: msg, variant: 'error' })
+      } finally {
+        // Reset file input so same file can be re-imported
+        if (mdrFileRef.current) mdrFileRef.current.value = ''
+      }
+    },
+    [importMDR, toast],
+  )
+
   const handleTabChange = useCallback((tab: ReportEditorTab) => {
     setActiveTab(tab)
     setSearch('')
@@ -1185,16 +1218,24 @@ export function ReportEditorPage() {
     }
     if (activeTab === 'doc-types') {
       return (
-        <ToolbarButton
-          icon={Plus}
-          label="Nouveau type"
-          variant="primary"
-          onClick={() => openDynamicPanel({ type: 'create', module: 'report-editor', meta: { subtype: 'doc-type' } })}
-        />
+        <div className="flex items-center gap-2">
+          <ToolbarButton
+            icon={Upload}
+            label="Importer MDR"
+            onClick={() => mdrFileRef.current?.click()}
+            disabled={importMDR.isPending}
+          />
+          <ToolbarButton
+            icon={Plus}
+            label="Nouveau type"
+            variant="primary"
+            onClick={() => openDynamicPanel({ type: 'create', module: 'report-editor', meta: { subtype: 'doc-type' } })}
+          />
+        </div>
       )
     }
     return null
-  }, [activeTab, openDynamicPanel])
+  }, [activeTab, openDynamicPanel, importMDR.isPending])
 
   // -- Tab Content Rendering --------------------------------------------------
 
@@ -1463,6 +1504,15 @@ export function ReportEditorPage() {
 
   return (
     <div className="flex h-full">
+      {/* Hidden file input for MDR import */}
+      <input
+        ref={mdrFileRef}
+        type="file"
+        accept=".csv,.xlsx,.xls"
+        className="hidden"
+        onChange={handleMDRFileChange}
+      />
+
       {!isFullPanel && (
         <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
           <PanelHeader icon={FileText} title="Report Editor" subtitle="Gestion documentaire et workflow">

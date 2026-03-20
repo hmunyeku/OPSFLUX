@@ -192,7 +192,7 @@ function WidgetError({ onRetry }: { error?: unknown; onRetry: () => void }) {
         onClick={onRetry}
         className="text-xs text-primary hover:underline"
       >
-        R\u00e9essayer
+        Réessayer
       </button>
     </div>
   )
@@ -358,7 +358,7 @@ function TableWidget({
   if (!rows.length || !effectiveColumns.length) {
     return (
       <div className="flex items-center justify-center h-full text-xs text-muted-foreground">
-        Aucune donn\u00e9e
+        Aucune donnée
       </div>
     )
   }

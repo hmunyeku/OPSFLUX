@@ -232,6 +232,21 @@ export function useUpdateDocType() {
   })
 }
 
+// ── MDR Import ──
+
+export function useImportMDR() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ file, projectId }: { file: File; projectId?: string }) =>
+      reportEditorService.importMDR(file, projectId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['report-editor', 'doc-types'] })
+      qc.invalidateQueries({ queryKey: ['report-editor', 'documents'] })
+      qc.invalidateQueries({ queryKey: ['report-editor', 'document-counts'] })
+    },
+  })
+}
+
 // ── Templates ──
 
 export function useTemplates(docTypeId?: string) {

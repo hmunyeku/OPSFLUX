@@ -12,7 +12,7 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -210,6 +210,34 @@ async def delete_doc_type(
 ):
     from app.services.modules.report_service import delete_doc_type as svc_delete
     return await svc_delete(type_id=type_id, entity_id=entity_id, db=db)
+
+
+@router.post(
+    "/types/mdr/import",
+    dependencies=[require_permission("document.admin")],
+    summary="Import Master Document Register (CSV/XLSX)",
+)
+async def import_mdr(
+    file: UploadFile = File(...),
+    project_id: Optional[str] = Query(None),
+    entity_id: UUID = Depends(get_current_entity),
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Import a Master Document Register file (CSV or XLSX).
+
+    Creates or updates DocType records and optionally creates Document
+    placeholders when document_number column is present.
+    """
+    from app.services.modules.report_service import import_mdr as svc_import
+
+    return await svc_import(
+        file=file,
+        entity_id=entity_id,
+        project_id=UUID(project_id) if project_id else None,
+        created_by=current_user.id,
+        db=db,
+    )
 
 
 @router.get(

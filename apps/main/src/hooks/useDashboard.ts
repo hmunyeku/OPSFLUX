@@ -60,10 +60,32 @@ export function useDeleteDashboardTab() {
 
 // ── Widget Catalog ──
 
+import type { WidgetCatalogEntry } from '@/services/dashboardService'
+
+/** Built-in widget catalog entries always available client-side. */
+const BUILTIN_CATALOG_ENTRIES: WidgetCatalogEntry[] = [
+  {
+    id: 'builtin:perspective',
+    type: 'perspective',
+    title: 'Analyse dynamique',
+    description: 'Tableau croise dynamique interactif (pivot, graphiques, filtres)',
+    permissions: [],
+    default_config: { plugin: 'Datagrid' },
+    source_module: 'Analyse',
+    roles: [],
+  },
+]
+
 export function useWidgetCatalog() {
   return useQuery({
     queryKey: ['dashboard', 'widget-catalog'],
-    queryFn: () => dashboardService.getWidgetCatalog(),
+    queryFn: async () => {
+      const remote = await dashboardService.getWidgetCatalog()
+      // Merge built-in entries that don't conflict with remote types
+      const remoteTypes = new Set(remote.map((e) => e.type))
+      const builtins = BUILTIN_CATALOG_ENTRIES.filter((e) => !remoteTypes.has(e.type))
+      return [...remote, ...builtins]
+    },
     staleTime: 5 * 60_000, // catalog rarely changes
   })
 }

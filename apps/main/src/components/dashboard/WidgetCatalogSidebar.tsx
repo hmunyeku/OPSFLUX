@@ -2,10 +2,10 @@
  * WidgetCatalogSidebar — Left panel of the dashboard editor.
  *
  * Shows available widgets grouped by source_module.
- * Each widget entry is draggable (via @dnd-kit) into the canvas.
+ * Each widget entry is draggable (HTML5 native drag) into the react-grid-layout canvas,
+ * and can also be added via click.
  */
-import { useMemo, useState } from 'react'
-import { useDraggable } from '@dnd-kit/core'
+import { useMemo, useState, useCallback } from 'react'
 import { Search, GripVertical } from 'lucide-react'
 import { WidgetTypeIcon } from './WidgetCard'
 import { panelInputClass } from '@/components/layout/DynamicPanel'
@@ -14,9 +14,13 @@ import type { WidgetCatalogEntry } from '@/services/dashboardService'
 interface WidgetCatalogSidebarProps {
   catalog: WidgetCatalogEntry[]
   onAddWidget: (entry: WidgetCatalogEntry) => void
+  /** Called when a catalog item drag starts (sets the droppingItem for the grid) */
+  onDragStart?: (entry: WidgetCatalogEntry) => void
+  /** Called when a catalog item drag ends */
+  onDragEnd?: () => void
 }
 
-export function WidgetCatalogSidebar({ catalog, onAddWidget }: WidgetCatalogSidebarProps) {
+export function WidgetCatalogSidebar({ catalog, onAddWidget, onDragStart, onDragEnd }: WidgetCatalogSidebarProps) {
   const [search, setSearch] = useState('')
 
   const filtered = useMemo(() => {
@@ -68,7 +72,13 @@ export function WidgetCatalogSidebar({ catalog, onAddWidget }: WidgetCatalogSide
             </h5>
             <div className="space-y-1">
               {entries.map((entry) => (
-                <DraggableCatalogItem key={entry.id} entry={entry} onAdd={() => onAddWidget(entry)} />
+                <DraggableCatalogItem
+                  key={entry.id}
+                  entry={entry}
+                  onAdd={() => onAddWidget(entry)}
+                  onDragStart={onDragStart}
+                  onDragEnd={onDragEnd}
+                />
               ))}
             </div>
           </div>
@@ -84,19 +94,43 @@ export function WidgetCatalogSidebar({ catalog, onAddWidget }: WidgetCatalogSide
   )
 }
 
-// ── Draggable catalog item ──────────────────────────────────
+// ── Draggable catalog item (HTML5 native drag for react-grid-layout) ──
 
-function DraggableCatalogItem({ entry, onAdd }: { entry: WidgetCatalogEntry; onAdd: () => void }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `catalog:${entry.id}`,
-    data: { type: 'catalog-item', entry },
-  })
+function DraggableCatalogItem({
+  entry,
+  onAdd,
+  onDragStart,
+  onDragEnd,
+}: {
+  entry: WidgetCatalogEntry
+  onAdd: () => void
+  onDragStart?: (entry: WidgetCatalogEntry) => void
+  onDragEnd?: () => void
+}) {
+  const [isDragging, setIsDragging] = useState(false)
+
+  const handleDragStart = useCallback(
+    (e: React.DragEvent) => {
+      setIsDragging(true)
+      // Store entry data for the drop handler
+      e.dataTransfer.setData('text/plain', JSON.stringify(entry))
+      e.dataTransfer.effectAllowed = 'copy'
+      onDragStart?.(entry)
+    },
+    [entry, onDragStart],
+  )
+
+  const handleDragEnd = useCallback(() => {
+    setIsDragging(false)
+    onDragEnd?.()
+  }, [onDragEnd])
 
   return (
     <div
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
+      draggable
+      unselectable="on"
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
       onClick={onAdd}
       className={`
         flex items-center gap-2 px-2 py-2 rounded-md cursor-grab active:cursor-grabbing

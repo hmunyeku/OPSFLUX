@@ -6,7 +6,7 @@ import type { ColumnDef } from '@tanstack/react-table'
 import type { LucideIcon } from 'lucide-react'
 
 // ── View modes ─────────────────────────────────────────────
-export type ViewMode = 'table' | 'grid' | 'cards'
+export type ViewMode = 'table' | 'grid' | 'cards' | 'performance'
 
 // ── Export formats ─────────────────────────────────────────
 export type ExportFormat = 'csv' | 'xlsx' | 'pdf'

@@ -10,6 +10,7 @@ import { WidgetSettingsCommon } from './settings/WidgetSettingsCommon'
 import { WidgetSettingsKPI } from './settings/WidgetSettingsKPI'
 import { WidgetSettingsChart } from './settings/WidgetSettingsChart'
 import { WidgetSettingsOther } from './settings/WidgetSettingsOther'
+import { WidgetSettingsPerspective } from './settings/WidgetSettingsPerspective'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { DashboardWidget } from '@/services/dashboardService'
 
@@ -81,6 +82,12 @@ export function WidgetSettingsPanel({
         {(widget.type === 'table' || widget.type === 'map' || widget.type === 'text') && (
           <WidgetSettingsOther
             widgetType={widget.type}
+            config={widget.config}
+            onChange={(patch) => onUpdateConfig(widget.id, patch)}
+          />
+        )}
+        {widget.type === 'perspective' && (
+          <WidgetSettingsPerspective
             config={widget.config}
             onChange={(patch) => onUpdateConfig(widget.id, patch)}
           />

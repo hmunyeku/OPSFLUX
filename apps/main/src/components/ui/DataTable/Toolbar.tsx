@@ -13,7 +13,7 @@
  */
 import { useState, useRef, useEffect, useCallback } from 'react'
 import {
-  Search, LayoutList, LayoutGrid, CreditCard,
+  Search, LayoutList, LayoutGrid, CreditCard, Zap,
   Columns3, Download, Upload,
   X, Check, FileSpreadsheet, FileText,
   SlidersHorizontal, FileDown, Settings2,
@@ -73,12 +73,14 @@ const VIEW_MODE_ICONS: Record<ViewMode, typeof LayoutList> = {
   table: LayoutList,
   grid: LayoutGrid,
   cards: CreditCard,
+  performance: Zap,
 }
 
 const VIEW_MODE_LABELS: Record<ViewMode, string> = {
   table: 'Liste',
   grid: 'Grille',
   cards: 'Cartes',
+  performance: 'Performance',
 }
 
 const EXPORT_FORMAT_CONFIG: Record<ExportFormat, { icon: typeof Download; label: string }> = {

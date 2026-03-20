@@ -28,6 +28,7 @@ import type { ColumnHeaderMenuProps } from './ColumnHeaderMenu'
 import { loadFromStorage, saveToStorage } from './utils'
 import { ImportWizard } from '@/components/shared/ImportWizard'
 import { ExportWizard } from '@/components/shared/ExportWizard'
+import { GlideRenderer } from './GlideRenderer'
 import type { DataTableProps, ViewMode, ExportFormat } from './types'
 
 // ── Inline Edit Cell ───────────────────────────────────────
@@ -795,6 +796,27 @@ export function DataTable<TData>({
     )
   }
 
+  // ── Render: performance (GlideRenderer) ──
+  const renderPerformance = () => (
+    <>
+      <div className="flex-1 min-h-0">
+        <GlideRenderer
+          data={table.getRowModel().rows.map((r) => r.original)}
+          columns={columns}
+          onRowClick={onRowClick}
+        />
+      </div>
+
+      {pagination && onPaginationChange && (
+        <DataTablePaginationBar
+          pagination={pagination}
+          onPageChange={(p) => onPaginationChange(p, pagination.pageSize)}
+          onPageSizeChange={(size) => onPaginationChange(1, size)}
+        />
+      )}
+    </>
+  )
+
   // ── Render: empty ──
   const renderEmpty = () => (
     <div className="flex-1 flex items-center justify-center py-12">
@@ -851,6 +873,7 @@ export function DataTable<TData>({
       />
 
       {data.length === 0 && !isLoading ? renderEmpty() : (
+        viewMode === 'performance' ? renderPerformance() :
         viewMode === 'table' ? renderTable() : renderGrid()
       )}
 

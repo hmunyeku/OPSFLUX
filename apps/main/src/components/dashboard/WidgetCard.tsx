@@ -24,15 +24,15 @@ import {
   Gauge,
   Maximize2,
   Minimize2,
+  TableProperties,
 } from 'lucide-react'
 import 'leaflet/dist/leaflet.css'
 import { cn } from '@/lib/utils'
 import { useWidgetData } from '@/hooks/useDashboard'
+import { PerspectiveWidget } from './widgets/PerspectiveWidget'
+import type { PerspectiveConfig } from './widgets/PerspectiveWidget'
 import type { DashboardWidget } from '@/services/dashboardService'
-import {
-  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area,
-  XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend,
-} from 'recharts'
+import { EChartsWidget } from '@/components/charts/EChartsWidget'
 
 // ── Relative time formatting ────────────────────────────────────
 
@@ -47,18 +47,6 @@ function formatRelativeTime(timestamp: number | undefined): string {
   return `${hours}h`
 }
 
-// ── Chart color palette ─────────────────────────────────────────
-
-const CHART_COLORS = [
-  'hsl(var(--primary))',
-  'hsl(221, 83%, 53%)',     // blue
-  'hsl(142, 71%, 45%)',     // green
-  'hsl(38, 92%, 50%)',      // amber
-  'hsl(0, 84%, 60%)',       // red
-  'hsl(262, 83%, 58%)',     // purple
-  'hsl(174, 72%, 40%)',     // teal
-  'hsl(340, 82%, 52%)',     // pink
-]
 
 // ── Widget Type Icon ────────────────────────────────────────────
 
@@ -70,6 +58,7 @@ export function WidgetTypeIcon({ type, className }: { type: string; className?: 
     case 'table': return <Table2 className={cls} />
     case 'map': return <MapPin className={cls} />
     case 'text': return <Type className={cls} />
+    case 'perspective': return <TableProperties className={cls} />
     default: return <BarChart3 className={cls} />
   }
 }
@@ -81,7 +70,7 @@ interface WidgetCardProps {
   mode: 'view' | 'edit'
   onRemove?: () => void
   onUpdate?: (widget: DashboardWidget) => void
-  /** Drag handle props from @dnd-kit (listeners + attributes) */
+  /** Drag handle props (className for react-grid-layout drag handle) */
   dragHandleProps?: Record<string, unknown>
   /** Badge count for notifications (e.g., alerts, pending items) */
   badge?: number
@@ -120,7 +109,10 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge }: W
   const headerBar = (
     <div className="flex items-center h-9 px-3 border-b flex-shrink-0 gap-2">
       {mode === 'edit' && (
-        <div {...(dragHandleProps || {})} className="cursor-grab active:cursor-grabbing shrink-0">
+        <div
+          {...(dragHandleProps || {})}
+          className={cn('cursor-grab active:cursor-grabbing shrink-0', (dragHandleProps as Record<string, string>)?.className)}
+        >
           <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
         </div>
       )}
@@ -238,6 +230,13 @@ function WidgetRenderer({
       return <MapWidget config={widget.config} data={data} />
     case 'text':
       return <TextWidget config={widget.config} data={data} />
+    case 'perspective':
+      return (
+        <PerspectiveWidget
+          data={data as Record<string, unknown>[]}
+          config={widget.config as PerspectiveConfig}
+        />
+      )
     default:
       return (
         <div className="flex items-center justify-center h-full text-xs text-muted-foreground">
@@ -317,89 +316,21 @@ function ChartWidget({
   const yFields = (config.y_fields as string[]) || ['value']
   const chartData = data as Record<string, unknown>[]
 
-  if (!chartData.length) {
-    return (
-      <div className="flex items-center justify-center h-full text-xs text-muted-foreground">
-        Aucune donn\u00e9e
-      </div>
-    )
-  }
+  // Map legacy chart_type values to EChartsWidget types
+  const validTypes = ['bar', 'line', 'area', 'pie', 'scatter', 'radar', 'heatmap', 'gauge', 'treemap'] as const
+  type ChartType = typeof validTypes[number]
+  const resolvedType: ChartType = validTypes.includes(chartType as ChartType)
+    ? (chartType as ChartType)
+    : 'bar'
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      {chartType === 'line' ? (
-        <LineChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-          <XAxis dataKey={xField} tick={{ fontSize: 10 }} className="text-muted-foreground" />
-          <YAxis tick={{ fontSize: 10 }} className="text-muted-foreground" />
-          <RechartsTooltip
-            contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid hsl(var(--border))' }}
-          />
-          {yFields.map((field, i) => (
-            <Line
-              key={field}
-              type="monotone"
-              dataKey={field}
-              stroke={CHART_COLORS[i % CHART_COLORS.length]}
-              strokeWidth={2}
-              dot={false}
-            />
-          ))}
-        </LineChart>
-      ) : chartType === 'area' ? (
-        <AreaChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-          <XAxis dataKey={xField} tick={{ fontSize: 10 }} />
-          <YAxis tick={{ fontSize: 10 }} />
-          <RechartsTooltip contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid hsl(var(--border))' }} />
-          {yFields.map((field, i) => (
-            <Area
-              key={field}
-              type="monotone"
-              dataKey={field}
-              stroke={CHART_COLORS[i % CHART_COLORS.length]}
-              fill={CHART_COLORS[i % CHART_COLORS.length]}
-              fillOpacity={0.15}
-            />
-          ))}
-        </AreaChart>
-      ) : chartType === 'pie' ? (
-        <PieChart>
-          <Pie
-            data={chartData}
-            dataKey={yFields[0]}
-            nameKey={xField}
-            cx="50%"
-            cy="50%"
-            innerRadius="40%"
-            outerRadius="70%"
-            paddingAngle={2}
-          >
-            {chartData.map((_, i) => (
-              <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-            ))}
-          </Pie>
-          <RechartsTooltip contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid hsl(var(--border))' }} />
-          <Legend wrapperStyle={{ fontSize: 10 }} />
-        </PieChart>
-      ) : (
-        /* Default: bar chart */
-        <BarChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-          <XAxis dataKey={xField} tick={{ fontSize: 10 }} />
-          <YAxis tick={{ fontSize: 10 }} />
-          <RechartsTooltip contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid hsl(var(--border))' }} />
-          {yFields.map((field, i) => (
-            <Bar
-              key={field}
-              dataKey={field}
-              fill={CHART_COLORS[i % CHART_COLORS.length]}
-              radius={[2, 2, 0, 0]}
-            />
-          ))}
-        </BarChart>
-      )}
-    </ResponsiveContainer>
+    <EChartsWidget
+      chartType={resolvedType}
+      data={chartData}
+      xField={xField}
+      yFields={yFields}
+      height="100%"
+    />
   )
 }
 

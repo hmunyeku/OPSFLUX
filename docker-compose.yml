@@ -1,8 +1,9 @@
 # =============================================================================
 # OpsFlux — Production Docker Compose (Dokploy)
 # =============================================================================
-# Dokploy injecte les variables d'environnement du projet via env_file: .env
-# Les domaines sont gérés par Traefik intégré à Dokploy.
+# Dokploy injects .env from compose environment settings.
+# Domains & SSL are managed by Dokploy's built-in Traefik.
+# Do NOT expose ports — Traefik routes by service name.
 
 services:
   # ─── PostgreSQL 16 + pgvector + PostGIS ──────────────────────
@@ -18,7 +19,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-opsflux}
     volumes:
       - pg_data:/var/lib/postgresql/data
-      - ./docker/init-extensions.sql:/docker-entrypoint-initdb.d/init-extensions.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 10s
@@ -60,8 +60,6 @@ services:
       SENTRY_DSN: ${SENTRY_DSN:-}
       FIRST_SUPERUSER: ${FIRST_SUPERUSER:-admin@opsflux.io}
       FIRST_SUPERUSER_PASSWORD: ${FIRST_SUPERUSER_PASSWORD:-}
-    ports:
-      - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -81,8 +79,13 @@ services:
       args:
         VITE_API_URL: https://api.${DOMAIN:-opsflux.io}
     restart: unless-stopped
-    ports:
-      - "3000:80"
+
+  # ─── Draw.io (self-hosted — module PID/PFD) ─────────────────
+  drawio:
+    image: jgraph/drawio:latest
+    restart: unless-stopped
+    environment:
+      DRAWIO_SELF_CONTAINED: "1"
 
 volumes:
   pg_data:

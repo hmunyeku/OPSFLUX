@@ -6,3 +6,6 @@ RUN apt-get update \
        postgresql-16-postgis-3 \
        postgresql-16-postgis-3-scripts \
     && rm -rf /var/lib/apt/lists/*
+
+# Bake extension init script into image (avoids bind mount issues on Dokploy)
+COPY init-extensions.sql /docker-entrypoint-initdb.d/init-extensions.sql

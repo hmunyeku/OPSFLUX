@@ -24,6 +24,7 @@ import {
   DynamicPanelField,
   FormSection,
   PanelContentLayout,
+  SectionColumns,
   InlineEditableRow,
   InlineEditableTags,
   ReadOnlyRow,
@@ -143,61 +144,69 @@ function CreateAssetPanel() {
         </>
       }
     >
-      <form id="create-asset-form" onSubmit={handleSubmit} className="p-4 space-y-5">
-        {/* ── Required fields ── */}
-        <FormSection title={t('common.type')}>
-          <TagSelector options={ASSET_TYPE_OPTIONS} value={form.type} onChange={(v) => setForm({ ...form, type: v })} />
-        </FormSection>
+      <form id="create-asset-form" onSubmit={handleSubmit}>
+        <PanelContentLayout>
+          {/* ── Type — full width ── */}
+          <FormSection title={t('common.type')}>
+            <TagSelector options={ASSET_TYPE_OPTIONS} value={form.type} onChange={(v) => setForm({ ...form, type: v })} />
+          </FormSection>
 
-        <FormSection title={t('common.details')}>
-          <DynamicPanelField label={t('common.code')}>
-            <span className="text-sm font-mono text-muted-foreground italic">Auto-généré à la création</span>
-          </DynamicPanelField>
+          <SectionColumns>
+            {/* Column 1: Details + Options */}
+            <div className="@container space-y-5">
+              <FormSection title={t('common.details')}>
+                <DynamicPanelField label={t('common.code')}>
+                  <span className="text-sm font-mono text-muted-foreground italic">Auto-généré à la création</span>
+                </DynamicPanelField>
 
-          <DynamicPanelField label={t('common.name')} required>
-            <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={panelInputClass} placeholder="Nom de l'asset" />
-          </DynamicPanelField>
+                <DynamicPanelField label={t('common.name')} required>
+                  <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={panelInputClass} placeholder="Nom de l'asset" />
+                </DynamicPanelField>
 
-          <DynamicPanelField label="Asset parent">
-            <AssetPicker
-              value={form.parent_id || null}
-              onChange={(id) => setForm({ ...form, parent_id: id || undefined })}
-              label="Asset parent"
-              placeholder="Aucun (niveau racine)"
-            />
-          </DynamicPanelField>
-        </FormSection>
+                <DynamicPanelField label="Asset parent">
+                  <AssetPicker
+                    value={form.parent_id || null}
+                    onChange={(id) => setForm({ ...form, parent_id: id || undefined })}
+                    label="Asset parent"
+                    placeholder="Aucun (niveau racine)"
+                  />
+                </DynamicPanelField>
+              </FormSection>
 
-        {/* ── Optional fields ── */}
-        <FormSection title="Options" collapsible defaultExpanded={false} storageKey="panel.asset.sections" id="asset-options">
-          <label className="flex items-center gap-3 cursor-pointer group">
-            <input
-              type="checkbox"
-              checked={form.allow_overlap ?? true}
-              onChange={(e) => setForm({ ...form, allow_overlap: e.target.checked })}
-              className="h-4 w-4 rounded border-border text-primary focus:ring-primary/30"
-            />
-            <span className="text-sm text-foreground group-hover:text-foreground/80">
-              Autoriser le chevauchement de plannings
-            </span>
-          </label>
-        </FormSection>
+              <FormSection title="Options" collapsible defaultExpanded={false} storageKey="panel.asset.sections" id="asset-options">
+                <label className="flex items-center gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={form.allow_overlap ?? true}
+                    onChange={(e) => setForm({ ...form, allow_overlap: e.target.checked })}
+                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary/30"
+                  />
+                  <span className="text-sm text-foreground group-hover:text-foreground/80">
+                    Autoriser le chevauchement de plannings
+                  </span>
+                </label>
+              </FormSection>
+            </div>
 
-        {/* ── Localisation (GeoEditor) ── */}
-        <FormSection title="Localisation" collapsible defaultExpanded={false} storageKey="panel.asset.sections" id="asset-geo">
-          <GeoEditor
-            value={form.geometry || null}
-            onChange={(geo) => setForm({ ...form, geometry: geo })}
-            geoType={getGeoTypeForAssetType(form.type)}
-            height={300}
-            showCoordinateTable
-            showSearch
-          />
-        </FormSection>
+            {/* Column 2: Localisation */}
+            <div className="@container space-y-5">
+              <FormSection title="Localisation">
+                <GeoEditor
+                  value={form.geometry || null}
+                  onChange={(geo) => setForm({ ...form, geometry: geo })}
+                  geoType={getGeoTypeForAssetType(form.type)}
+                  height={300}
+                  showCoordinateTable
+                  showSearch
+                />
+              </FormSection>
+            </div>
+          </SectionColumns>
 
-        <p className="text-xs text-muted-foreground italic">
-          Les adresses, fichiers et notes pourront être ajoutés après la création.
-        </p>
+          <p className="text-xs text-muted-foreground italic">
+            Les adresses, fichiers et notes pourront être ajoutés après la création.
+          </p>
+        </PanelContentLayout>
       </form>
     </DynamicPanelShell>
   )

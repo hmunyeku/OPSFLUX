@@ -732,7 +732,11 @@ function ContactListSection({
   const handleCreate = useCallback(async () => {
     if (!form.first_name.trim() || !form.last_name.trim()) return
     try {
-      await createContact.mutateAsync({ tierId, payload: form })
+      await createContact.mutateAsync({ tierId, payload: {
+        ...form,
+        first_name: form.first_name.toUpperCase(),
+        last_name: form.last_name.toUpperCase(),
+      } })
       setForm(EMPTY_CONTACT_FORM)
       setShowForm(false)
       toast({ title: 'Employe ajoute', variant: 'success' })

@@ -1774,7 +1774,7 @@ function InstancesTable({
   const [search, setSearch] = useState('')
   const { data, isLoading } = useWorkflowInstances({
     definition_id: definitionFilter,
-    page_size: 50,
+    page_size: 25,
   })
 
   const instances = useMemo(() => {
@@ -1973,7 +1973,7 @@ export function WorkflowPage() {
   const { data: defsData, isLoading } = useWorkflowDefinitions({
     status: statusFilter || undefined,
     search: search || undefined,
-    page_size: 50,
+    page_size: 25,
   })
   const { data: editingDef } = useWorkflowDefinition(editingId || '')
   const { data: stats } = useWorkflowStats()

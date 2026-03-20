@@ -24,6 +24,7 @@ import {
   DynamicPanelField,
   FormGrid,
   FormSection,
+  SectionColumns,
   InlineEditableRow,
   InlineEditableTags,
   ReadOnlyRow,
@@ -182,7 +183,11 @@ function CreateUserPanel() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    await createUser.mutateAsync(form)
+    await createUser.mutateAsync({
+      ...form,
+      first_name: form.first_name.toUpperCase(),
+      last_name: form.last_name.toUpperCase(),
+    })
     closeDynamicPanel()
   }
 
@@ -207,44 +212,52 @@ function CreateUserPanel() {
       }
     >
       <form id="create-user-form" onSubmit={handleSubmit} className="p-4 space-y-5">
-        <FormSection title={t('common.details')}>
-          <FormGrid>
-            <DynamicPanelField label={t('users.first_name')} required>
-              <input type="text" required value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} className={panelInputClass} placeholder="Jean" />
-            </DynamicPanelField>
-            <DynamicPanelField label={t('users.last_name')} required>
-              <input type="text" required value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} className={panelInputClass} placeholder="Dupont" />
-            </DynamicPanelField>
-          </FormGrid>
-          <DynamicPanelField label="Email" required>
-            <input type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={panelInputClass} placeholder="jean.dupont@perenco.com" />
-          </DynamicPanelField>
-        </FormSection>
+        <SectionColumns>
+          {/* Column 1: Identity + Language */}
+          <div className="@container space-y-5">
+            <FormSection title={t('common.details')}>
+              <FormGrid>
+                <DynamicPanelField label={t('users.first_name')} required>
+                  <input type="text" required value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} className={panelInputClass} placeholder="Jean" />
+                </DynamicPanelField>
+                <DynamicPanelField label={t('users.last_name')} required>
+                  <input type="text" required value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} className={panelInputClass} placeholder="Dupont" />
+                </DynamicPanelField>
+              </FormGrid>
+              <DynamicPanelField label="Email" required>
+                <input type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={panelInputClass} placeholder="jean.dupont@perenco.com" />
+              </DynamicPanelField>
+            </FormSection>
 
-        <FormSection title={t('settings.language')}>
-          <TagSelector options={LANGUAGE_OPTIONS} value={form.language || 'fr'} onChange={(v) => setForm({ ...form, language: v })} />
-        </FormSection>
+            <FormSection title={t('settings.language')}>
+              <TagSelector options={LANGUAGE_OPTIONS} value={form.language || 'fr'} onChange={(v) => setForm({ ...form, language: v })} />
+            </FormSection>
+          </div>
 
-        <FormSection title="Invitation" collapsible storageKey="panel.user.sections" id="user-invitation">
-          <label className="flex items-center gap-2.5 cursor-pointer group">
-            <input type="checkbox" checked={sendInvite} onChange={(e) => setSendInvite(e.target.checked)} className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
-            <div>
-              <span className="text-sm text-foreground group-hover:text-primary transition-colors">Envoyer un email d'invitation</span>
-              <p className="text-xs text-muted-foreground mt-0.5">L'utilisateur recevra un lien pour définir son mot de passe.</p>
-            </div>
-          </label>
-        </FormSection>
+          {/* Column 2: Invitation + Auth + Access */}
+          <div className="@container space-y-5">
+            <FormSection title="Invitation" collapsible storageKey="panel.user.sections" id="user-invitation">
+              <label className="flex items-center gap-2.5 cursor-pointer group">
+                <input type="checkbox" checked={sendInvite} onChange={(e) => setSendInvite(e.target.checked)} className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
+                <div>
+                  <span className="text-sm text-foreground group-hover:text-primary transition-colors">Envoyer un email d'invitation</span>
+                  <p className="text-xs text-muted-foreground mt-0.5">L'utilisateur recevra un lien pour définir son mot de passe.</p>
+                </div>
+              </label>
+            </FormSection>
 
-        <FormSection title="Authentification" collapsible defaultExpanded={false} storageKey="panel.user.sections" id="user-auth">
-          <DynamicPanelField label={t('auth.password')}>
-            <input type="password" minLength={8} value={form.password || ''} onChange={(e) => setForm({ ...form, password: e.target.value })} className={panelInputClass} placeholder="Min. 8 caractères (auto-généré si vide)" />
-            <p className="text-xs text-muted-foreground mt-1">Laissez vide pour générer automatiquement un mot de passe temporaire.</p>
-          </DynamicPanelField>
-        </FormSection>
+            <FormSection title="Authentification" collapsible defaultExpanded={false} storageKey="panel.user.sections" id="user-auth">
+              <DynamicPanelField label={t('auth.password')}>
+                <input type="password" minLength={8} value={form.password || ''} onChange={(e) => setForm({ ...form, password: e.target.value })} className={panelInputClass} placeholder="Min. 8 caractères (auto-généré si vide)" />
+                <p className="text-xs text-muted-foreground mt-1">Laissez vide pour générer automatiquement un mot de passe temporaire.</p>
+              </DynamicPanelField>
+            </FormSection>
 
-        <FormSection title="Accès" collapsible defaultExpanded={false} storageKey="panel.user.sections" id="user-access">
-          <p className="text-xs text-muted-foreground">Les rôles et groupes pourront être configurés après la création de l'utilisateur.</p>
-        </FormSection>
+            <FormSection title="Accès" collapsible defaultExpanded={false} storageKey="panel.user.sections" id="user-access">
+              <p className="text-xs text-muted-foreground">Les rôles et groupes pourront être configurés après la création de l'utilisateur.</p>
+            </FormSection>
+          </div>
+        </SectionColumns>
       </form>
     </DynamicPanelShell>
   )
@@ -645,7 +658,7 @@ export function UsersPage() {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<AccountsTab>('users')
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(50)
+  const [pageSize, setPageSize] = useState(25)
   const [statusFilterValue, setStatusFilterValue] = useState<string | undefined>(undefined)
   // Counter to trigger create in child Roles/Groups tabs
   const [createTrigger, setCreateTrigger] = useState(0)

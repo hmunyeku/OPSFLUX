@@ -1183,8 +1183,8 @@ function CreateProfilePanel() {
     e.preventDefault()
     await createProfile.mutateAsync({
       type: form.type,
-      first_name: form.first_name,
-      last_name: form.last_name,
+      first_name: form.first_name.toUpperCase(),
+      last_name: form.last_name.toUpperCase(),
       birth_date: form.birth_date || undefined,
       nationality: form.nationality || undefined,
       badge_number: form.badge_number || undefined,

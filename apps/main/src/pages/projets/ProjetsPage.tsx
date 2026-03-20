@@ -897,7 +897,7 @@ function ProjectDetailPanel({ id }: { id: string }) {
 
 function SpreadsheetView() {
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(50)
+  const [pageSize, setPageSize] = useState(25)
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [filterProjectId, setFilterProjectId] = useState<string | undefined>(undefined)

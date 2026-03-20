@@ -20,6 +20,7 @@ import {
   DynamicPanelField,
   FormGrid,
   FormSection,
+  SectionColumns,
   InlineEditableRow,
   ReadOnlyRow,
   PanelActionButton,
@@ -147,34 +148,42 @@ function CreateTypePanel() {
             />
           </FormSection>
 
-          <FormSection title="Informations">
-            <FormGrid>
-              <DynamicPanelField label="Code">
-                <span className="text-sm font-mono text-muted-foreground italic">Auto-genere a la creation</span>
-              </DynamicPanelField>
-              <DynamicPanelField label="Nom" required>
-                <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={panelInputClass} placeholder="Formation HSE Niveau 1" />
-              </DynamicPanelField>
-              <DynamicPanelField label="Validite (jours)">
-                <input type="number" value={form.validity_days ?? ''} onChange={(e) => setForm({ ...form, validity_days: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} placeholder="365 (vide = permanent)" />
-              </DynamicPanelField>
-            </FormGrid>
-          </FormSection>
+          <SectionColumns>
+            {/* Column 1: Informations */}
+            <div className="@container space-y-5">
+              <FormSection title="Informations">
+                <FormGrid>
+                  <DynamicPanelField label="Code">
+                    <span className="text-sm font-mono text-muted-foreground italic">Auto-genere a la creation</span>
+                  </DynamicPanelField>
+                  <DynamicPanelField label="Nom" required>
+                    <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={panelInputClass} placeholder="Formation HSE Niveau 1" />
+                  </DynamicPanelField>
+                  <DynamicPanelField label="Validite (jours)">
+                    <input type="number" value={form.validity_days ?? ''} onChange={(e) => setForm({ ...form, validity_days: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} placeholder="365 (vide = permanent)" />
+                  </DynamicPanelField>
+                </FormGrid>
+              </FormSection>
+            </div>
 
-          <FormSection title="Description">
-            <textarea
-              value={form.description ?? ''}
-              onChange={(e) => setForm({ ...form, description: e.target.value || null })}
-              className={`${panelInputClass} min-h-[60px] resize-y`}
-              placeholder="Description du type de conformite..."
-              rows={3}
-            />
-          </FormSection>
+            {/* Column 2: Description + Options */}
+            <div className="@container space-y-5">
+              <FormSection title="Description">
+                <textarea
+                  value={form.description ?? ''}
+                  onChange={(e) => setForm({ ...form, description: e.target.value || null })}
+                  className={`${panelInputClass} min-h-[60px] resize-y`}
+                  placeholder="Description du type de conformite..."
+                  rows={3}
+                />
+              </FormSection>
 
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <input type="checkbox" checked={form.is_mandatory} onChange={(e) => setForm({ ...form, is_mandatory: e.target.checked })} className="rounded border-border" />
-            Obligatoire par defaut
-          </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" checked={form.is_mandatory} onChange={(e) => setForm({ ...form, is_mandatory: e.target.checked })} className="rounded border-border" />
+                Obligatoire par defaut
+              </label>
+            </div>
+          </SectionColumns>
         </PanelContentLayout>
       </form>
     </DynamicPanelShell>

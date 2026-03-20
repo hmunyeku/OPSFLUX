@@ -325,8 +325,8 @@ export function FleetMap({ height = 500, className }: FleetMapProps) {
               <span className="text-[10px] text-muted-foreground ml-1">{t('travelwiz.vectors')}</span>
             </div>
           )}
-          {/* Style switcher — compact thumbnails */}
-          <div className="flex gap-0.5">
+          {/* Style switcher — vertical column aligned with zoom */}
+          <div className="flex flex-col gap-0.5">
             {STYLE_OPTIONS.map((opt) => (
               <button
                 key={opt.value}

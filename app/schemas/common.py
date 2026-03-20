@@ -1310,6 +1310,24 @@ class TaskChangeLogRead(OpsFluxSchema):
     author_name: str | None = None
 
 
+# ─── Task Dependencies ──────────────────────────────────────────────────────
+
+
+class TaskDependencyRead(OpsFluxSchema):
+    id: UUID
+    from_task_id: UUID
+    to_task_id: UUID
+    dependency_type: str
+    lag_days: int
+
+
+class TaskDependencyCreate(BaseModel):
+    from_task_id: UUID
+    to_task_id: UUID
+    dependency_type: str = "finish_to_start"
+    lag_days: int = 0
+
+
 # ─── PDF Templates ──────────────────────────────────────────────────────────
 
 

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.database import get_db
+from app.core.events import emit_event
 from app.core.pagination import PaginationParams, paginate
 from app.models.common import (
     ComplianceType, ComplianceRule, ComplianceRecord,
@@ -211,9 +212,16 @@ async def list_compliance_records(
         )
     )
     expired_result = await db.execute(expire_stmt)
+    expired_ids: list[UUID] = []
     for rec in expired_result.scalars().all():
         rec.status = "expired"
+        expired_ids.append(rec.id)
     await db.flush()
+
+    # Emit events for newly expired records
+    if expired_ids:
+        for eid in expired_ids:
+            await emit_event("conformite.record.expired", {"record_id": str(eid), "entity_id": str(entity_id)})
 
     def _transform(row):
         rec = row[0] if hasattr(row, '__getitem__') else row.ComplianceRecord
@@ -368,6 +376,19 @@ async def list_expiring_records(
             expires_at=rec.expires_at,
             days_remaining=remaining,
         ))
+
+    # Emit events for records expiring within 30 days
+    for item in items:
+        if item.days_remaining is not None and 0 < item.days_remaining <= 30:
+            await emit_event("pax.credential.expiring", {
+                "record_id": str(item.id),
+                "entity_id": str(entity_id),
+                "owner_type": item.owner_type,
+                "owner_id": str(item.owner_id),
+                "days_remaining": item.days_remaining,
+                "type_name": item.type_name,
+            })
+
     return items
 
 

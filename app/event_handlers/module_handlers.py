@@ -524,6 +524,116 @@ async def on_travelwiz_manifest_closed(event: OpsFluxEvent) -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Handler: on_compliance_expired
+# Notify entity admins when a compliance record expires
+# ═══════════════════════════════════════════════════════════════════════════
+
+async def on_compliance_expired(event: OpsFluxEvent) -> None:
+    """Notify relevant users when a compliance record expires."""
+    payload = event.payload
+    record_id = payload.get("record_id")
+    entity_id = payload.get("entity_id")
+
+    if not record_id or not entity_id:
+        return
+
+    try:
+        from app.core.notifications import send_in_app
+        from app.event_handlers.core_handlers import _get_admin_user_ids
+
+        admin_ids = await _get_admin_user_ids(entity_id)
+        async with async_session_factory() as db:
+            for admin_id in admin_ids:
+                await send_in_app(
+                    db,
+                    user_id=admin_id,
+                    entity_id=UUID(str(entity_id)),
+                    title="Conformité expirée",
+                    body=f"Un enregistrement de conformité a expiré (ID: {record_id[:8]}…)",
+                    category="conformite",
+                    link="/conformite",
+                )
+            await db.commit()
+        logger.info("conformite.record.expired handled: %s", record_id)
+    except Exception:
+        logger.exception("Error in on_compliance_expired for %s", record_id)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Handler: on_project_status_changed
+# Notify entity admins when a project status changes
+# ═══════════════════════════════════════════════════════════════════════════
+
+async def on_project_status_changed(event: OpsFluxEvent) -> None:
+    """Notify project stakeholders when status changes."""
+    payload = event.payload
+    project_id = payload.get("project_id")
+    entity_id = payload.get("entity_id")
+    new_status = payload.get("new_status", "unknown")
+
+    if not project_id or not entity_id:
+        return
+
+    try:
+        from app.core.notifications import send_in_app
+        from app.event_handlers.core_handlers import _get_admin_user_ids
+
+        admin_ids = await _get_admin_user_ids(entity_id)
+        async with async_session_factory() as db:
+            for admin_id in admin_ids:
+                await send_in_app(
+                    db,
+                    user_id=admin_id,
+                    entity_id=UUID(str(entity_id)),
+                    title="Statut projet modifié",
+                    body=f"Le projet est passé au statut : {new_status}",
+                    category="projets",
+                    link="/projets",
+                )
+            await db.commit()
+        logger.info("project.status.changed handled: %s -> %s", project_id, new_status)
+    except Exception:
+        logger.exception("Error in on_project_status_changed for %s", project_id)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Handler: on_credential_expiring
+# Alert when a PAX credential is about to expire
+# ═══════════════════════════════════════════════════════════════════════════
+
+async def on_credential_expiring(event: OpsFluxEvent) -> None:
+    """Alert when a PAX credential is about to expire."""
+    payload = event.payload
+    entity_id = payload.get("entity_id")
+    days = payload.get("days_remaining", 0)
+    type_name = payload.get("type_name", "Certification")
+
+    if not entity_id:
+        return
+
+    try:
+        from app.core.notifications import send_in_app
+        from app.event_handlers.core_handlers import _get_admin_user_ids
+
+        admin_ids = await _get_admin_user_ids(entity_id)
+        async with async_session_factory() as db:
+            for admin_id in admin_ids:
+                await send_in_app(
+                    db,
+                    user_id=admin_id,
+                    entity_id=UUID(str(entity_id)),
+                    title=f"{type_name} expire dans {days}j",
+                    body=f"Un enregistrement de conformité expire dans {days} jours.",
+                    category="conformite",
+                    link="/conformite",
+                )
+            await db.commit()
+        logger.info("pax.credential.expiring handled: %s days=%d", entity_id, days)
+    except Exception:
+        logger.exception("Error in on_credential_expiring for entity %s", entity_id)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Registration
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -557,6 +667,10 @@ def register_module_handlers(event_bus: EventBus) -> None:
     event_bus.subscribe("planner.conflict.detected", on_planner_conflict_detected)
     event_bus.subscribe("ads.approved", on_ads_approved)
     event_bus.subscribe("travelwiz.manifest.closed", on_travelwiz_manifest_closed)
+    # Conformite & Projets events
+    event_bus.subscribe("conformite.record.expired", on_compliance_expired)
+    event_bus.subscribe("project.status.changed", on_project_status_changed)
+    event_bus.subscribe("pax.credential.expiring", on_credential_expiring)
     # Generic FSM transition observability
     event_bus.subscribe("workflow.transition", on_workflow_transition)
     logger.info("Inter-module event handlers registered (incl. FSM observer)")

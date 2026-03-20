@@ -82,3 +82,11 @@ class EventBus:
 
 # Singleton
 event_bus = EventBus()
+
+
+async def emit_event(event_type: str, payload: dict[str, Any]) -> None:
+    """Convenience wrapper — publish an event without passing db.
+
+    Call AFTER db.commit() in route handlers.
+    """
+    await event_bus.publish(OpsFluxEvent(event_type=event_type, payload=payload))

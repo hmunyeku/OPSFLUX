@@ -1185,6 +1185,27 @@ class TaskChangeLog(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     author: Mapped["User"] = relationship(foreign_keys=[changed_by])
 
 
+# ─── Task Dependencies ───────────────────────────────────────────────────────
+class ProjectTaskDependency(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "project_task_dependencies"
+    __table_args__ = (
+        Index("idx_task_dep_from", "from_task_id"),
+        Index("idx_task_dep_to", "to_task_id"),
+    )
+
+    from_task_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("project_tasks.id", ondelete="CASCADE"), nullable=False
+    )
+    to_task_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("project_tasks.id", ondelete="CASCADE"), nullable=False
+    )
+    dependency_type: Mapped[str] = mapped_column(
+        String(30), nullable=False, default="finish_to_start"
+    )  # finish_to_start | start_to_start | finish_to_finish | start_to_finish
+    lag_days: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+
 # ─── PDF Templates ──────────────────────────────────────────────────────────
 
 class PdfTemplate(UUIDPrimaryKeyMixin, TimestampMixin, Base):

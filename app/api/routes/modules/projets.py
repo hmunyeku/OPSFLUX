@@ -10,10 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.database import get_db
+from app.core.events import emit_event
 from app.core.pagination import PaginationParams, paginate
 from app.models.common import (
     Project, ProjectMember, ProjectTask, ProjectMilestone,
     PlanningRevision, TaskDeliverable, TaskAction, TaskChangeLog,
+    ProjectTaskDependency,
     User, Tier,
 )
 from app.schemas.common import (
@@ -26,12 +28,46 @@ from app.schemas.common import (
     TaskDeliverableCreate, TaskDeliverableRead, TaskDeliverableUpdate,
     TaskActionCreate, TaskActionRead, TaskActionUpdate,
     TaskChangeLogRead,
+    TaskDependencyCreate, TaskDependencyRead,
 )
 
 router = APIRouter(prefix="/api/v1/projects", tags=["projects"])
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────
+
+
+async def _update_project_progress(db: AsyncSession, project_id: UUID) -> None:
+    """Recalculate project progress from task completion percentages."""
+    result = await db.execute(
+        select(ProjectTask.progress)
+        .where(ProjectTask.project_id == project_id, ProjectTask.active == True)
+    )
+    tasks = result.scalars().all()
+    if not tasks:
+        return
+    avg_progress = sum(tasks) / len(tasks)
+
+    # Also derive project status from task statuses
+    task_statuses_result = await db.execute(
+        select(ProjectTask.status)
+        .where(ProjectTask.project_id == project_id, ProjectTask.active == True)
+    )
+    statuses = task_statuses_result.scalars().all()
+
+    project_result = await db.execute(select(Project).where(Project.id == project_id))
+    project = project_result.scalar_one_or_none()
+    if not project:
+        return
+
+    project.progress = round(avg_progress)
+
+    # Auto-complete project if all tasks are done
+    if all(s == "done" for s in statuses) and project.status == "active":
+        project.status = "completed"
+    # If any task moves to in_progress and project is still planned/draft
+    elif any(s in ("in_progress", "review") for s in statuses) and project.status in ("draft", "planned"):
+        project.status = "active"
 
 
 async def _get_project_or_404(db: AsyncSession, project_id: UUID, entity_id: UUID) -> Project:
@@ -252,10 +288,22 @@ async def update_project(
     db: AsyncSession = Depends(get_db),
 ):
     project = await _get_project_or_404(db, project_id, entity_id)
-    for field, value in body.model_dump(exclude_unset=True).items():
+    update_data = body.model_dump(exclude_unset=True)
+    old_status = project.status
+    for field, value in update_data.items():
         setattr(project, field, value)
     await db.commit()
     await db.refresh(project)
+
+    # Emit event if status changed
+    if "status" in update_data and old_status != project.status:
+        await emit_event("project.status.changed", {
+            "project_id": str(project.id),
+            "entity_id": str(entity_id),
+            "old_status": old_status,
+            "new_status": project.status,
+        })
+
     d = {c.key: getattr(project, c.key) for c in project.__table__.columns}
     d["manager_name"] = None
     d["tier_name"] = None
@@ -400,6 +448,8 @@ async def create_project_task(
     db.add(task)
     await db.commit()
     await db.refresh(task)
+    await _update_project_progress(db, project_id)
+    await db.commit()
     d = {c.key: getattr(task, c.key) for c in task.__table__.columns}
     d["assignee_name"] = None
     return d
@@ -446,6 +496,8 @@ async def update_project_task(
 
     await db.commit()
     await db.refresh(task)
+    await _update_project_progress(db, project_id)
+    await db.commit()
     d = {c.key: getattr(task, c.key) for c in task.__table__.columns}
     d["assignee_name"] = None
     return d
@@ -467,6 +519,8 @@ async def delete_project_task(
     if not task:
         raise HTTPException(404, "Task not found")
     task.active = False
+    await db.commit()
+    await _update_project_progress(db, project_id)
     await db.commit()
     return {"detail": "Task deleted"}
 
@@ -992,3 +1046,105 @@ async def list_task_changelog(
         d["author_name"] = f"{u.first_name} {u.last_name}" if u else None
         enriched.append(d)
     return enriched
+
+
+# ── Task Dependencies ──────────────────────────────────────────────────────
+
+
+@router.get("/{project_id}/dependencies", response_model=list[TaskDependencyRead])
+async def list_task_dependencies(
+    project_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List all task dependencies for a project."""
+    # Get all task IDs for this project
+    task_ids_result = await db.execute(
+        select(ProjectTask.id).where(ProjectTask.project_id == project_id, ProjectTask.active == True)
+    )
+    task_ids = [r[0] for r in task_ids_result.all()]
+    if not task_ids:
+        return []
+
+    result = await db.execute(
+        select(ProjectTaskDependency)
+        .where(
+            ProjectTaskDependency.from_task_id.in_(task_ids),
+            ProjectTaskDependency.active == True,
+        )
+        .order_by(ProjectTaskDependency.created_at)
+    )
+    return result.scalars().all()
+
+
+@router.post("/{project_id}/dependencies", response_model=TaskDependencyRead, status_code=201)
+async def create_task_dependency(
+    project_id: UUID,
+    body: TaskDependencyCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a dependency between two tasks."""
+    # Verify both tasks belong to this project
+    for tid in [body.from_task_id, body.to_task_id]:
+        task_result = await db.execute(
+            select(ProjectTask).where(ProjectTask.id == tid, ProjectTask.project_id == project_id)
+        )
+        if not task_result.scalar_one_or_none():
+            raise HTTPException(status_code=404, detail=f"Task {tid} not found in project")
+
+    if body.from_task_id == body.to_task_id:
+        raise HTTPException(status_code=400, detail="A task cannot depend on itself")
+
+    # Check for circular dependency
+    visited = set()
+    queue = [body.to_task_id]
+    while queue:
+        current = queue.pop(0)
+        if current == body.from_task_id:
+            raise HTTPException(status_code=400, detail="Circular dependency detected")
+        if current in visited:
+            continue
+        visited.add(current)
+        downstream = await db.execute(
+            select(ProjectTaskDependency.to_task_id)
+            .where(ProjectTaskDependency.from_task_id == current, ProjectTaskDependency.active == True)
+        )
+        queue.extend([r[0] for r in downstream.all()])
+
+    # Check duplicate
+    existing = await db.execute(
+        select(ProjectTaskDependency).where(
+            ProjectTaskDependency.from_task_id == body.from_task_id,
+            ProjectTaskDependency.to_task_id == body.to_task_id,
+            ProjectTaskDependency.active == True,
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Dependency already exists")
+
+    dep = ProjectTaskDependency(**body.model_dump())
+    db.add(dep)
+    await db.commit()
+    await db.refresh(dep)
+    return dep
+
+
+@router.delete("/{project_id}/dependencies/{dep_id}", status_code=204)
+async def delete_task_dependency(
+    project_id: UUID,
+    dep_id: UUID,
+    _: None = require_permission("project.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Remove a task dependency."""
+    result = await db.execute(
+        select(ProjectTaskDependency).where(ProjectTaskDependency.id == dep_id)
+    )
+    dep = result.scalar_one_or_none()
+    if not dep:
+        raise HTTPException(status_code=404, detail="Dependency not found")
+    dep.active = False
+    await db.commit()

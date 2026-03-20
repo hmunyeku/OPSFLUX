@@ -58,6 +58,30 @@ async def list_import_targets(
     return get_target_objects()
 
 
+# ── Available transforms ──────────────────────────────────────────────
+
+
+@router.get("/transforms")
+async def list_available_transforms(
+    current_user: User = Depends(get_current_user),
+):
+    """Return available transform types with descriptions."""
+    return [
+        {"type": "uppercase", "label": "Majuscules", "description": "Convertit en majuscules", "params": []},
+        {"type": "lowercase", "label": "Minuscules", "description": "Convertit en minuscules", "params": []},
+        {"type": "trim", "label": "Nettoyer espaces", "description": "Supprime les espaces en début/fin", "params": []},
+        {"type": "default_value", "label": "Valeur par défaut", "description": "Remplace les cellules vides", "params": [{"name": "default", "type": "string", "label": "Valeur"}]},
+        {"type": "map_values", "label": "Table de correspondance", "description": "Remplace les valeurs selon une table", "params": [{"name": "mapping", "type": "object", "label": "Correspondances (clé → valeur)"}]},
+        {"type": "concat", "label": "Concaténer", "description": "Combine plusieurs colonnes", "params": [{"name": "sources", "type": "string[]", "label": "Colonnes sources"}, {"name": "separator", "type": "string", "label": "Séparateur", "default": " "}]},
+        {"type": "prefix", "label": "Préfixe", "description": "Ajoute un préfixe", "params": [{"name": "prefix", "type": "string", "label": "Préfixe"}]},
+        {"type": "suffix", "label": "Suffixe", "description": "Ajoute un suffixe", "params": [{"name": "suffix", "type": "string", "label": "Suffixe"}]},
+        {"type": "replace", "label": "Rechercher/Remplacer", "description": "Remplace du texte", "params": [{"name": "find", "type": "string", "label": "Rechercher"}, {"name": "replace", "type": "string", "label": "Remplacer par"}]},
+        {"type": "flag_to_boolean", "label": "Flag → Booléen", "description": "Convertit X/Oui/1 en true", "params": [{"name": "true_values", "type": "string[]", "label": "Valeurs vraies", "default": ["X", "1", "Oui"]}]},
+        {"type": "deduplicate_key", "label": "Clé de dédoublonnage", "description": "Groupe les lignes par cette colonne", "params": []},
+        {"type": "split", "label": "Découper", "description": "Extrait une partie d'une valeur séparée", "params": [{"name": "separator", "type": "string", "label": "Séparateur"}, {"name": "index", "type": "number", "label": "Position (0=premier)"}]},
+    ]
+
+
 # ── Auto-detect ───────────────────────────────────────────────────────────
 
 
@@ -89,6 +113,7 @@ async def validate_import_data(
         duplicate_strategy=body.duplicate_strategy,
         entity_id=entity_id,
         db=db,
+        transforms=body.transforms,
     )
     return ImportPreviewResponse(**result)
 
@@ -116,6 +141,7 @@ async def execute_import_data(
         entity_id=entity_id,
         user_id=current_user.id,
         db=db,
+        transforms=body.transforms,
     )
 
     # Update mapping usage stats if mapping_id provided

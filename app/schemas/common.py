@@ -273,6 +273,7 @@ class TierRead(OpsFluxSchema):
     description: str | None = None
     active: bool
     archived: bool
+    is_blocked: bool = False
     contact_count: int = 0
     created_at: datetime
 
@@ -372,6 +373,53 @@ class TierIdentifierUpdate(BaseModel):
     country: str | None = None
     issued_at: str | None = None
     expires_at: str | None = None
+
+
+# ─── TierBlock schemas ────────────────────────────────────────────────────
+
+class TierBlockCreate(BaseModel):
+    reason: str = Field(..., min_length=1)
+    block_type: str = Field(default="purchasing", pattern="^(purchasing|payment|all)$")
+    start_date: date | None = None
+    end_date: date | None = None
+
+
+class TierBlockRead(OpsFluxSchema):
+    id: UUID
+    entity_id: UUID
+    tier_id: UUID
+    action: str
+    reason: str
+    block_type: str
+    start_date: date | None = None
+    end_date: date | None = None
+    performed_by: UUID
+    active: bool
+    created_at: datetime
+    performer_name: str | None = None
+
+
+# ─── ExternalReference schemas ────────────────────────────────────────────
+
+class ExternalReferenceCreate(BaseModel):
+    system: str = Field(..., min_length=1, max_length=50)
+    code: str = Field(..., min_length=1, max_length=200)
+    label: str | None = None
+    url: str | None = None
+    notes: str | None = None
+
+
+class ExternalReferenceRead(OpsFluxSchema):
+    id: UUID
+    owner_type: str
+    owner_id: UUID
+    system: str
+    code: str
+    label: str | None = None
+    url: str | None = None
+    notes: str | None = None
+    created_by: UUID | None = None
+    created_at: datetime
 
 
 # ─── Notification schemas ────────────────────────────────────────────────────

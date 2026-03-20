@@ -19,7 +19,7 @@ import { useTranslation } from 'react-i18next'
 import {
   Building2, Plus, Loader2, Trash2, MapPin, Paperclip, MessageSquare,
   Phone, Mail, Users, ArrowLeft, Star, Pencil, Globe,
-  ChevronDown, FileText, Search,
+  ChevronDown, FileText, Search, ShieldBan, ShieldCheck, Link2, Upload, X,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -60,11 +60,14 @@ import {
   useTiers, useCreateTier, useUpdateTier, useArchiveTier,
   useTierContacts, useCreateTierContact, useUpdateTierContact,
   useDeleteTierContact, useTierIdentifiers, useAllTierContacts,
+  useTierBlocks, useBlockTier, useUnblockTier,
+  useTierExternalRefs, useCreateTierExternalRef, useDeleteTierExternalRef,
+  useImportSap,
 } from '@/hooks/useTiers'
 import { useAddresses, useNotes, useAttachments, usePhones, useContactEmails } from '@/hooks/useSettings'
 import { useProjects } from '@/hooks/useProjets'
 import { useToast } from '@/components/ui/Toast'
-import type { Tier, TierCreate, TierContact, TierContactCreate, TierContactUpdate, TierContactWithTier } from '@/types/api'
+import type { Tier, TierCreate, TierContact, TierContactCreate, TierContactUpdate, TierContactWithTier, TierBlock, ExternalReference } from '@/types/api'
 
 // -- Constants ----------------------------------------------------------------
 
@@ -281,6 +284,22 @@ function TierDetailPanel({ id }: { id: string }) {
   const { data: contacts, isLoading: contactsLoading } = useTierContacts(tier?.id)
   const contactList: TierContact[] = contacts ?? []
 
+  // Blocks
+  const { data: blocks } = useTierBlocks(tier?.id)
+  const blockTier = useBlockTier()
+  const unblockTier = useUnblockTier()
+  const [showBlockForm, setShowBlockForm] = useState(false)
+  const [blockReason, setBlockReason] = useState('')
+  const [blockType, setBlockType] = useState('purchasing')
+
+  // External References
+  const { data: externalRefs } = useTierExternalRefs(tier?.id)
+  const createExternalRef = useCreateTierExternalRef()
+  const deleteExternalRef = useDeleteTierExternalRef()
+  const [showRefForm, setShowRefForm] = useState(false)
+  const [refSystem, setRefSystem] = useState('SAP')
+  const [refCode, setRefCode] = useState('')
+
   // Related projects (where this tier is contractor/client)
   const { data: relatedProjects } = useProjects({ tier_id: tier?.id, page_size: 10 })
 
@@ -414,6 +433,198 @@ function TierDetailPanel({ id }: { id: string }) {
             </FormSection>
           </div>
         </SectionColumns>
+
+        {/* Blocage */}
+        <FormSection
+          title={
+            <span className="flex items-center gap-2">
+              Blocage
+              {tier.is_blocked && (
+                <span className="gl-badge gl-badge-danger text-[10px]">
+                  <ShieldBan size={10} className="mr-0.5" />Bloque
+                </span>
+              )}
+            </span>
+          }
+          collapsible
+          defaultExpanded={tier.is_blocked}
+          storageKey="tier-detail-blocage"
+        >
+          {/* Block/Unblock actions */}
+          {canEdit && (
+            <div className="flex items-center gap-2 mb-3">
+              {tier.is_blocked ? (
+                <button
+                  onClick={() => setShowBlockForm(!showBlockForm)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 transition-colors"
+                >
+                  <ShieldCheck size={12} />Debloquer
+                </button>
+              ) : (
+                <button
+                  onClick={() => setShowBlockForm(!showBlockForm)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-300 transition-colors"
+                >
+                  <ShieldBan size={12} />Bloquer
+                </button>
+              )}
+            </div>
+          )}
+
+          {showBlockForm && (
+            <div className="border border-border rounded-md p-3 mb-3 space-y-2 bg-muted/30">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] font-medium text-muted-foreground">Type de blocage</label>
+                  <select value={blockType} onChange={(e) => setBlockType(e.target.value)} className={panelInputClass}>
+                    <option value="purchasing">Achats</option>
+                    <option value="payment">Paiements</option>
+                    <option value="all">Complet</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground">Motif *</label>
+                <textarea
+                  value={blockReason}
+                  onChange={(e) => setBlockReason(e.target.value)}
+                  className={`${panelInputClass} min-h-[50px] resize-y`}
+                  placeholder="Raison du blocage / deblocage..."
+                  rows={2}
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => { setShowBlockForm(false); setBlockReason('') }} className="text-xs text-muted-foreground hover:text-foreground">Annuler</button>
+                <button
+                  disabled={!blockReason.trim()}
+                  onClick={() => {
+                    const action = tier.is_blocked ? unblockTier : blockTier
+                    action.mutate(
+                      { tierId: tier.id, payload: { reason: blockReason, block_type: blockType } },
+                      { onSuccess: () => { setShowBlockForm(false); setBlockReason('') } }
+                    )
+                  }}
+                  className="inline-flex items-center gap-1 px-3 py-1 rounded text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {tier.is_blocked ? 'Debloquer' : 'Bloquer'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Block history */}
+          {blocks && blocks.length > 0 && (
+            <div className="space-y-1.5">
+              {blocks.map((b) => (
+                <div key={b.id} className="flex items-start gap-2 px-2 py-1.5 rounded text-xs border border-border/40 bg-background">
+                  {b.action === 'block' ? (
+                    <ShieldBan size={12} className="text-red-500 mt-0.5 shrink-0" />
+                  ) : (
+                    <ShieldCheck size={12} className="text-emerald-500 mt-0.5 shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={cn('font-medium', b.action === 'block' ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400')}>
+                        {b.action === 'block' ? 'Bloque' : 'Debloque'}
+                      </span>
+                      <span className="gl-badge gl-badge-neutral text-[9px]">{b.block_type}</span>
+                    </div>
+                    <p className="text-muted-foreground truncate">{b.reason}</p>
+                    <p className="text-[10px] text-muted-foreground/60">
+                      {b.performer_name} — {new Date(b.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {(!blocks || blocks.length === 0) && !tier.is_blocked && (
+            <p className="text-xs text-muted-foreground/60 italic">Aucun historique de blocage.</p>
+          )}
+        </FormSection>
+
+        {/* Identifiants externes */}
+        <FormSection title={`Identifiants externes (${externalRefs?.length ?? 0})`} collapsible defaultExpanded={false} storageKey="tier-detail-ext-refs">
+          {canEdit && (
+            <div className="mb-2">
+              {!showRefForm ? (
+                <button
+                  onClick={() => setShowRefForm(true)}
+                  className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80"
+                >
+                  <Plus size={11} /> Ajouter un identifiant
+                </button>
+              ) : (
+                <div className="border border-border rounded-md p-3 space-y-2 bg-muted/30">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] font-medium text-muted-foreground">Systeme *</label>
+                      <select value={refSystem} onChange={(e) => setRefSystem(e.target.value)} className={panelInputClass}>
+                        <option value="SAP">SAP</option>
+                        <option value="Gouti">Gouti</option>
+                        <option value="Intranet">Intranet</option>
+                        <option value="Legacy">Legacy</option>
+                        <option value="Other">Autre</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-medium text-muted-foreground">Code *</label>
+                      <input
+                        type="text"
+                        value={refCode}
+                        onChange={(e) => setRefCode(e.target.value)}
+                        className={panelInputClass}
+                        placeholder="Ex: 12345"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <button onClick={() => { setShowRefForm(false); setRefCode('') }} className="text-xs text-muted-foreground hover:text-foreground">Annuler</button>
+                    <button
+                      disabled={!refCode.trim() || createExternalRef.isPending}
+                      onClick={() => {
+                        createExternalRef.mutate(
+                          { tierId: tier.id, payload: { system: refSystem, code: refCode } },
+                          { onSuccess: () => { setShowRefForm(false); setRefCode('') } }
+                        )
+                      }}
+                      className="inline-flex items-center gap-1 px-3 py-1 rounded text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                    >
+                      {createExternalRef.isPending ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}
+                      Ajouter
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {externalRefs && externalRefs.length > 0 ? (
+            <div className="space-y-1">
+              {externalRefs.map((ref) => (
+                <div key={ref.id} className="flex items-center justify-between gap-2 px-2 py-1.5 rounded hover:bg-accent/50 transition-colors group">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Link2 size={11} className="text-muted-foreground shrink-0" />
+                    <span className="gl-badge gl-badge-neutral text-[10px] shrink-0">{ref.system}</span>
+                    <span className="text-sm font-mono text-foreground truncate">{ref.code}</span>
+                    {ref.label && <span className="text-[10px] text-muted-foreground truncate">({ref.label})</span>}
+                  </div>
+                  {canEdit && (
+                    <button
+                      onClick={() => deleteExternalRef.mutate({ tierId: tier.id, refId: ref.id })}
+                      className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity"
+                      title="Supprimer"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground/60 italic">Aucun identifiant externe.</p>
+          )}
+        </FormSection>
 
         {/* Conformite */}
         <FormSection title="Conformite" collapsible defaultExpanded={false} storageKey="tier-detail-conformite">
@@ -1003,6 +1214,29 @@ export function TiersPage() {
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const panelMode = useUIStore((s) => s.dynamicPanelMode)
   const setNavItems = useUIStore((s) => s.setDynamicPanelNavItems)
+  const { toast } = useToast()
+  const sapImport = useImportSap()
+  const sapFileRef = useCallback((input: HTMLInputElement | null) => {
+    if (input) input.value = ''
+  }, [])
+
+  const handleSapImport = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    sapImport.mutate(file, {
+      onSuccess: (result) => {
+        toast({
+          title: 'Import SAP termine',
+          description: `${result.created} crees, ${result.updated} mis a jour, ${result.skipped} ignores, ${result.blocked} bloques${result.errors.length ? `, ${result.errors.length} erreur(s)` : ''}`,
+          variant: result.errors.length > 0 ? 'destructive' : 'default',
+        })
+      },
+      onError: () => {
+        toast({ title: 'Erreur import SAP', description: 'Verifiez le format du fichier XLSX.', variant: 'destructive' })
+      },
+    })
+    e.target.value = ''
+  }, [sapImport, toast])
 
   // Reset page when tab/search/filters change
   useEffect(() => { setPage(1) }, [debouncedSearch, activeFilters, activeTab])
@@ -1164,11 +1398,18 @@ export function TiersPage() {
     {
       accessorKey: 'active',
       header: t('common.status'),
-      size: 90,
+      size: 110,
       cell: ({ row }) => (
-        <span className={cn('gl-badge', row.original.active ? 'gl-badge-success' : 'gl-badge-neutral')}>
-          {row.original.active ? t('common.active') : t('common.archived')}
-        </span>
+        <div className="flex items-center gap-1">
+          <span className={cn('gl-badge', row.original.active ? 'gl-badge-success' : 'gl-badge-neutral')}>
+            {row.original.active ? t('common.active') : t('common.archived')}
+          </span>
+          {row.original.is_blocked && (
+            <span className="gl-badge gl-badge-danger text-[9px]">
+              <ShieldBan size={9} className="mr-0.5" />Bloque
+            </span>
+          )}
+        </div>
       ),
     },
     {
@@ -1223,7 +1464,23 @@ export function TiersPage() {
       {!isFullPanel && <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
         <PanelHeader icon={Building2} title={t('tiers.title')} subtitle={t('tiers.subtitle')}>
           {activeTab === 'entreprises' && (
-            <ToolbarButton icon={Plus} label={t('tiers.create')} variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'tiers' })} />
+            <>
+              <label className="cursor-pointer">
+                <input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  className="hidden"
+                  ref={sapFileRef}
+                  onChange={handleSapImport}
+                  disabled={sapImport.isPending}
+                />
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-border bg-background hover:bg-accent transition-colors">
+                  {sapImport.isPending ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                  Importer SAP
+                </span>
+              </label>
+              <ToolbarButton icon={Plus} label={t('tiers.create')} variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'tiers' })} />
+            </>
           )}
         </PanelHeader>
 

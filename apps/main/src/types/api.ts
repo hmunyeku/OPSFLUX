@@ -80,6 +80,7 @@ export interface Tier {
   description: string | null
   active: boolean
   archived: boolean
+  is_blocked: boolean
   contact_count: number
   created_at: string
 }
@@ -164,6 +165,60 @@ export interface TierIdentifierUpdate {
   country?: string | null
   issued_at?: string | null
   expires_at?: string | null
+}
+
+// ── Tier Blocks (Blocking/Unblocking) ───────────────────────
+export interface TierBlock {
+  id: string
+  entity_id: string
+  tier_id: string
+  action: string
+  reason: string
+  block_type: string
+  start_date: string | null
+  end_date: string | null
+  performed_by: string
+  active: boolean
+  created_at: string
+  performer_name: string | null
+}
+
+export interface TierBlockCreate {
+  reason: string
+  block_type?: string
+  start_date?: string | null
+  end_date?: string | null
+}
+
+// ── External References ─────────────────────────────────────
+export interface ExternalReference {
+  id: string
+  owner_type: string
+  owner_id: string
+  system: string
+  code: string
+  label: string | null
+  url: string | null
+  notes: string | null
+  created_by: string | null
+  created_at: string
+}
+
+export interface ExternalReferenceCreate {
+  system: string
+  code: string
+  label?: string | null
+  url?: string | null
+  notes?: string | null
+}
+
+// ── SAP Import Result ───────────────────────────────────────
+export interface SapImportResult {
+  created: number
+  updated: number
+  skipped: number
+  blocked: number
+  errors: string[]
 }
 
 // ── Users ───────────────────────────────────────────────────

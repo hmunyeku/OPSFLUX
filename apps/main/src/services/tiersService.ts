@@ -1,11 +1,14 @@
 /**
- * Tiers (companies) API service — companies + contacts + identifiers.
+ * Tiers (companies) API service — companies + contacts + identifiers + blocks + refs + SAP import.
  */
 import api from '@/lib/api'
 import type {
   Tier, TierCreate,
   TierContact, TierContactCreate, TierContactUpdate, TierContactWithTier,
   TierIdentifier, TierIdentifierCreate, TierIdentifierUpdate,
+  TierBlock, TierBlockCreate,
+  ExternalReference, ExternalReferenceCreate,
+  SapImportResult,
   PaginatedResponse, PaginationParams,
 } from '@/types/api'
 
@@ -95,5 +98,46 @@ export const tiersService = {
 
   deleteIdentifier: async (tierId: string, identId: string): Promise<void> => {
     await api.delete(`/api/v1/tiers/${tierId}/identifiers/${identId}`)
+  },
+
+  // ── Blocks (blocking/unblocking) ──
+  listBlocks: async (tierId: string): Promise<TierBlock[]> => {
+    const { data } = await api.get(`/api/v1/tiers/${tierId}/blocks`)
+    return data
+  },
+
+  blockTier: async (tierId: string, payload: TierBlockCreate): Promise<TierBlock> => {
+    const { data } = await api.post(`/api/v1/tiers/${tierId}/block`, payload)
+    return data
+  },
+
+  unblockTier: async (tierId: string, payload: TierBlockCreate): Promise<TierBlock> => {
+    const { data } = await api.post(`/api/v1/tiers/${tierId}/unblock`, payload)
+    return data
+  },
+
+  // ── External References ──
+  listExternalRefs: async (tierId: string): Promise<ExternalReference[]> => {
+    const { data } = await api.get(`/api/v1/tiers/${tierId}/external-refs`)
+    return data
+  },
+
+  createExternalRef: async (tierId: string, payload: ExternalReferenceCreate): Promise<ExternalReference> => {
+    const { data } = await api.post(`/api/v1/tiers/${tierId}/external-refs`, payload)
+    return data
+  },
+
+  deleteExternalRef: async (tierId: string, refId: string): Promise<void> => {
+    await api.delete(`/api/v1/tiers/${tierId}/external-refs/${refId}`)
+  },
+
+  // ── SAP Import ──
+  importSap: async (file: File): Promise<SapImportResult> => {
+    const form = new FormData()
+    form.append('file', file)
+    const { data } = await api.post('/api/v1/tiers/import/sap', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return data
   },
 }

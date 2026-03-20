@@ -109,6 +109,7 @@ class ImportPreviewRequest(BaseModel):
     column_mapping: dict[str, str]
     rows: list[dict[str, Any]]
     duplicate_strategy: DuplicateStrategy = "skip"
+    transforms: list[dict[str, Any]] | None = None
 
 
 class ImportPreviewResponse(BaseModel):
@@ -127,6 +128,7 @@ class ImportExecuteRequest(BaseModel):
     column_mapping: dict[str, str]
     rows: list[dict[str, Any]]
     duplicate_strategy: DuplicateStrategy = "skip"
+    transforms: list[dict[str, Any]] | None = None
     mapping_id: UUID | None = None
 
 

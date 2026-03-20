@@ -1,8 +1,11 @@
-"""Tiers (companies) module routes — companies + contacts + identifiers."""
+"""Tiers (companies) module routes — companies + contacts + identifiers + blocks + refs + SAP import."""
 
+import io
+import logging
+from datetime import date as date_type
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import select, func as sqla_func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,13 +13,19 @@ from app.api.deps import get_current_entity, get_current_user, require_permissio
 from app.core.database import get_db
 from app.services.core.delete_service import delete_entity
 from app.core.pagination import PaginationParams, paginate
-from app.models.common import Tier, TierContact, TierIdentifier, User
+from app.models.common import (
+    Address, ExternalReference, Tag, Tier, TierBlock, TierContact, TierIdentifier, User,
+)
 from app.schemas.common import (
     PaginatedResponse,
     TierCreate, TierRead, TierUpdate,
     TierContactCreate, TierContactRead, TierContactUpdate, TierContactWithTier,
     TierIdentifierCreate, TierIdentifierRead, TierIdentifierUpdate,
+    TierBlockCreate, TierBlockRead,
+    ExternalReferenceCreate, ExternalReferenceRead,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/tiers", tags=["tiers"])
 
@@ -103,6 +112,231 @@ async def create_tier(
     await db.commit()
     await db.refresh(tier)
     return tier
+
+
+# ── SAP Supplier Import ─────────────────────────────────────────────────────
+# NOTE: Must be declared BEFORE /{tier_id} routes to avoid path conflicts.
+
+
+@router.post("/import/sap", summary="Import SAP suppliers (XLSX)")
+async def import_sap_suppliers(
+    file: UploadFile = File(...),
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("tier.create"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Import suppliers from SAP XLSX export.
+
+    Column mapping:
+      0 Fournisseur        -> ExternalReference(system=SAP, code=value)
+      1 Nom du fournisseur  -> Tier.name
+      2 Rue                 -> Address.address_line1
+      3 Pays                -> Address.country
+      4 Code postal         -> Address.postal_code
+      5 Ville               -> Address.city
+      6 Groupe de comptes   -> Tag(sap_group)
+      7 Critere recherche   -> Tier.alias
+      8 Achats bloques      -> TierBlock if 'X'
+      9 Organisation achats -> ExternalReference metadata / Tag
+     10-11 Incoterms        -> Tier.payment_terms
+     13 Devise de la cde    -> Tier.currency
+
+    Deduplicates by Fournisseur code (Col 0). Skips existing SAP refs.
+    """
+    try:
+        import openpyxl
+    except ImportError:
+        raise HTTPException(status_code=500, detail="openpyxl is not installed")
+
+    if not file.filename or not file.filename.lower().endswith(('.xlsx', '.xls')):
+        raise HTTPException(status_code=400, detail="Only XLSX files are accepted")
+
+    content = await file.read()
+    wb = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+    ws = wb.active
+    if not ws:
+        raise HTTPException(status_code=400, detail="Empty workbook")
+
+    rows = list(ws.iter_rows(min_row=2, values_only=True))  # skip header
+    if not rows:
+        return {"created": 0, "updated": 0, "skipped": 0, "blocked": 0, "errors": []}
+
+    # Group by Fournisseur code (col 0)
+    from collections import defaultdict
+    grouped: dict[str, list] = defaultdict(list)
+    for row in rows:
+        code = str(row[0]).strip() if row[0] else None
+        if not code:
+            continue
+        grouped[code].append(row)
+
+    created = 0
+    updated = 0
+    skipped = 0
+    blocked = 0
+    errors: list[str] = []
+
+    for sap_code, code_rows in grouped.items():
+        try:
+            first_row = code_rows[0]
+
+            # Check if ExternalReference with system=SAP + code already exists
+            existing_ref = await db.execute(
+                select(ExternalReference).where(
+                    ExternalReference.system == "SAP",
+                    ExternalReference.code == sap_code,
+                    ExternalReference.owner_type == "tier",
+                )
+            )
+            ref_row = existing_ref.scalar_one_or_none()
+
+            if ref_row:
+                # Already imported — skip
+                skipped += 1
+                continue
+
+            # Extract data from first row
+            name = str(first_row[1]).strip() if first_row[1] else f"SAP-{sap_code}"
+            street = str(first_row[2]).strip() if first_row[2] else None
+            country = str(first_row[3]).strip() if first_row[3] else None
+            postal_code = str(first_row[4]).strip() if first_row[4] else None
+            city = str(first_row[5]).strip() if first_row[5] else None
+            sap_group = str(first_row[6]).strip() if first_row[6] else None
+            alias = str(first_row[7]).strip() if first_row[7] else None
+            purchasing_blocked = str(first_row[8]).strip().upper() == "X" if first_row[8] else False
+
+            # Collect org achats from all duplicate rows
+            org_achats_set: set[str] = set()
+            for r in code_rows:
+                if r[9]:
+                    org_achats_set.add(str(r[9]).strip())
+
+            incoterms = None
+            if len(first_row) > 11 and first_row[10]:
+                inco_parts = [str(first_row[10]).strip()]
+                if first_row[11]:
+                    inco_parts.append(str(first_row[11]).strip())
+                incoterms = " ".join(inco_parts)
+
+            currency = str(first_row[13]).strip() if len(first_row) > 13 and first_row[13] else "XAF"
+
+            # Generate unique code
+            tier_code = f"SAP-{sap_code}"
+
+            # Check if tier with this code already exists
+            existing_tier = await db.execute(
+                select(Tier).where(Tier.entity_id == entity_id, Tier.code == tier_code)
+            )
+            tier = existing_tier.scalar_one_or_none()
+
+            if tier:
+                # Update existing tier
+                if name:
+                    tier.name = name
+                if alias:
+                    tier.alias = alias
+                if incoterms:
+                    tier.payment_terms = incoterms
+                if currency and currency != "XAF":
+                    tier.currency = currency
+                updated += 1
+            else:
+                # Create new tier
+                tier = Tier(
+                    entity_id=entity_id,
+                    code=tier_code,
+                    name=name,
+                    alias=alias,
+                    type="supplier",
+                    currency=currency or "XAF",
+                    payment_terms=incoterms,
+                    is_blocked=purchasing_blocked,
+                )
+                db.add(tier)
+                await db.flush()  # get tier.id
+                created += 1
+
+            # Create ExternalReference for SAP code
+            sap_ref = ExternalReference(
+                owner_type="tier",
+                owner_id=tier.id,
+                system="SAP",
+                code=sap_code,
+                label="SAP Fournisseur",
+                created_by=current_user.id,
+            )
+            db.add(sap_ref)
+
+            # Create address if we have street or city
+            if street or city:
+                addr = Address(
+                    owner_type="tier",
+                    owner_id=tier.id,
+                    label="principal",
+                    address_line1=street or "—",
+                    city=city or "—",
+                    postal_code=postal_code,
+                    country=country or "—",
+                    is_default=True,
+                )
+                db.add(addr)
+
+            # Create tag for SAP group
+            if sap_group:
+                tag = Tag(
+                    owner_type="tier",
+                    owner_id=tier.id,
+                    name=f"SAP: {sap_group}",
+                    color="#2563eb",
+                    visibility="public",
+                    created_by=current_user.id,
+                )
+                db.add(tag)
+
+            # Create tags for org achats
+            for org in org_achats_set:
+                org_tag = Tag(
+                    owner_type="tier",
+                    owner_id=tier.id,
+                    name=f"Org achats: {org}",
+                    color="#7c3aed",
+                    visibility="public",
+                    created_by=current_user.id,
+                )
+                db.add(org_tag)
+
+            # Create TierBlock if purchasing blocked
+            if purchasing_blocked:
+                block = TierBlock(
+                    entity_id=entity_id,
+                    tier_id=tier.id,
+                    action="block",
+                    reason="Import SAP - achats bloques",
+                    block_type="purchasing",
+                    start_date=date_type.today(),
+                    performed_by=current_user.id,
+                    active=True,
+                )
+                db.add(block)
+                blocked += 1
+
+        except Exception as exc:
+            errors.append(f"SAP {sap_code}: {str(exc)}")
+            logger.warning("SAP import error for %s: %s", sap_code, exc, exc_info=True)
+
+    await db.commit()
+
+    return {
+        "created": created,
+        "updated": updated,
+        "skipped": skipped,
+        "blocked": blocked,
+        "errors": errors,
+    }
+
+
+# ── Tier CRUD (by ID) ────────────────────────────────────────────────────────
 
 
 @router.get("/{tier_id}", response_model=TierRead)
@@ -403,6 +637,180 @@ async def delete_tier_identifier(
     await delete_entity(ident, db, "tier_identifier", entity_id=ident_id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Identifier deleted"}
+
+
+# ── Tier Blocks (blocking/unblocking) ────────────────────────────────────────
+
+
+@router.get("/{tier_id}/blocks", response_model=list[TierBlockRead])
+async def list_tier_blocks(
+    tier_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List the blocking/unblocking history for a tier."""
+    await _get_tier_or_404(db, tier_id, entity_id)
+    result = await db.execute(
+        select(TierBlock, (User.first_name + " " + User.last_name).label("performer_name"))
+        .outerjoin(User, TierBlock.performed_by == User.id)
+        .where(TierBlock.tier_id == tier_id, TierBlock.entity_id == entity_id)
+        .order_by(TierBlock.created_at.desc())
+    )
+    rows = result.all()
+    out = []
+    for row in rows:
+        block = row[0]
+        d = {c.key: getattr(block, c.key) for c in block.__table__.columns}
+        d["performer_name"] = row[1]
+        out.append(d)
+    return out
+
+
+@router.post("/{tier_id}/block", response_model=TierBlockRead, status_code=201)
+async def block_tier(
+    tier_id: UUID,
+    body: TierBlockCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("tier.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Block a tier — creates a TierBlock record and sets tier.is_blocked=True."""
+    tier = await _get_tier_or_404(db, tier_id, entity_id)
+    block = TierBlock(
+        entity_id=entity_id,
+        tier_id=tier.id,
+        action="block",
+        reason=body.reason,
+        block_type=body.block_type,
+        start_date=body.start_date or date_type.today(),
+        end_date=body.end_date,
+        performed_by=current_user.id,
+        active=True,
+    )
+    db.add(block)
+    tier.is_blocked = True
+    await db.commit()
+    await db.refresh(block)
+    d = {c.key: getattr(block, c.key) for c in block.__table__.columns}
+    d["performer_name"] = current_user.full_name
+    return d
+
+
+@router.post("/{tier_id}/unblock", response_model=TierBlockRead, status_code=201)
+async def unblock_tier(
+    tier_id: UUID,
+    body: TierBlockCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("tier.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Unblock a tier — creates a TierBlock record with action='unblock' and sets tier.is_blocked=False."""
+    tier = await _get_tier_or_404(db, tier_id, entity_id)
+    # Deactivate previous active blocks
+    prev_blocks = await db.execute(
+        select(TierBlock).where(
+            TierBlock.tier_id == tier.id,
+            TierBlock.action == "block",
+            TierBlock.active == True,
+        )
+    )
+    for prev in prev_blocks.scalars().all():
+        prev.active = False
+
+    block = TierBlock(
+        entity_id=entity_id,
+        tier_id=tier.id,
+        action="unblock",
+        reason=body.reason,
+        block_type=body.block_type,
+        start_date=body.start_date or date_type.today(),
+        end_date=None,
+        performed_by=current_user.id,
+        active=True,
+    )
+    db.add(block)
+    tier.is_blocked = False
+    await db.commit()
+    await db.refresh(block)
+    d = {c.key: getattr(block, c.key) for c in block.__table__.columns}
+    d["performer_name"] = current_user.full_name
+    return d
+
+
+# ── External References CRUD ────────────────────────────────────────────────
+
+
+@router.get("/{tier_id}/external-refs", response_model=list[ExternalReferenceRead])
+async def list_external_refs(
+    tier_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List external references (SAP, Gouti, etc.) for a tier."""
+    await _get_tier_or_404(db, tier_id, entity_id)
+    result = await db.execute(
+        select(ExternalReference)
+        .where(ExternalReference.owner_type == "tier", ExternalReference.owner_id == tier_id)
+        .order_by(ExternalReference.system, ExternalReference.code)
+    )
+    return result.scalars().all()
+
+
+@router.post("/{tier_id}/external-refs", response_model=ExternalReferenceRead, status_code=201)
+async def create_external_ref(
+    tier_id: UUID,
+    body: ExternalReferenceCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("tier.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create an external reference for a tier."""
+    await _get_tier_or_404(db, tier_id, entity_id)
+    ref = ExternalReference(
+        owner_type="tier",
+        owner_id=tier_id,
+        system=body.system,
+        code=body.code,
+        label=body.label,
+        url=body.url,
+        notes=body.notes,
+        created_by=current_user.id,
+    )
+    db.add(ref)
+    await db.commit()
+    await db.refresh(ref)
+    return ref
+
+
+@router.delete("/{tier_id}/external-refs/{ref_id}")
+async def delete_external_ref(
+    tier_id: UUID,
+    ref_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("tier.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete an external reference for a tier."""
+    await _get_tier_or_404(db, tier_id, entity_id)
+    result = await db.execute(
+        select(ExternalReference).where(
+            ExternalReference.id == ref_id,
+            ExternalReference.owner_type == "tier",
+            ExternalReference.owner_id == tier_id,
+        )
+    )
+    ref = result.scalar_one_or_none()
+    if not ref:
+        raise HTTPException(status_code=404, detail="External reference not found")
+    await db.delete(ref)
+    await db.commit()
+    return {"detail": "External reference deleted"}
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────

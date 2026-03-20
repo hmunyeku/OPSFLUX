@@ -692,6 +692,75 @@ _register_handler(ProjectHandler())
 _register_handler(ComplianceRecordHandler())
 
 
+# ── Transform engine ──────────────────────────────────────────────────────
+
+
+TRANSFORM_REGISTRY: dict[str, Any] = {
+    "uppercase": lambda value, params: value.upper() if isinstance(value, str) else value,
+    "lowercase": lambda value, params: value.lower() if isinstance(value, str) else value,
+    "trim": lambda value, params: value.strip() if isinstance(value, str) else value,
+    "default_value": lambda value, params: value if value else params.get("default", ""),
+    "map_values": lambda value, params: params.get("mapping", {}).get(str(value), value),
+    "concat": None,  # special handling — combines multiple columns
+    "prefix": lambda value, params: f"{params.get('prefix', '')}{value}" if value else value,
+    "suffix": lambda value, params: f"{value}{params.get('suffix', '')}" if value else value,
+    "replace": lambda value, params: value.replace(params.get("find", ""), params.get("replace", "")) if isinstance(value, str) else value,
+    "flag_to_boolean": lambda value, params: value in (params.get("true_values", ["X", "x", "1", "true", "True", "OUI", "oui", "Yes", "yes"])),
+    "deduplicate_key": None,  # special handling — marks the dedup column
+    "geocode": None,  # special handling — async geocoding
+    "split": lambda value, params: value.split(params.get("separator", ","))[params.get("index", 0)].strip() if isinstance(value, str) and params.get("separator", ",") in value else value,
+}
+
+
+def apply_transforms(rows: list[dict], transforms: list[dict], column_mapping: dict) -> list[dict]:
+    """Apply transform pipeline to rows before import."""
+    if not transforms:
+        return rows
+
+    result = list(rows)
+
+    # Handle deduplicate_key first (groups rows)
+    dedup_transforms = [t for t in transforms if t["type"] == "deduplicate_key"]
+    if dedup_transforms:
+        dedup_col = dedup_transforms[0]["column"]
+        # Group by dedup column, take first non-empty value for each field
+        grouped: dict[str, dict] = {}
+        for row in result:
+            key = row.get(dedup_col, "")
+            if not key:
+                continue
+            if key not in grouped:
+                grouped[key] = dict(row)
+            else:
+                # Merge: keep first non-empty value for each field
+                for field, value in row.items():
+                    if value and not grouped[key].get(field):
+                        grouped[key][field] = value
+        result = list(grouped.values())
+
+    # Handle concat transforms
+    concat_transforms = [t for t in transforms if t["type"] == "concat"]
+    for ct in concat_transforms:
+        source_cols = ct["params"].get("sources", [])
+        separator = ct["params"].get("separator", " ")
+        target = ct["column"]
+        for row in result:
+            parts = [str(row.get(s, "")) for s in source_cols if row.get(s)]
+            row[target] = separator.join(parts)
+
+    # Apply per-cell transforms
+    cell_transforms = [t for t in transforms if t["type"] not in ("deduplicate_key", "concat", "geocode")]
+    for row in result:
+        for t in cell_transforms:
+            col = t["column"]
+            if col in row:
+                fn = TRANSFORM_REGISTRY.get(t["type"])
+                if fn:
+                    row[col] = fn(row[col], t.get("params", {}))
+
+    return result
+
+
 # ── Public service functions ──────────────────────────────────────────────
 
 
@@ -792,11 +861,16 @@ async def validate_import(
     duplicate_strategy: str,
     entity_id: UUID,
     db: AsyncSession,
+    transforms: list[dict] | None = None,
 ) -> dict[str, Any]:
     """Validate rows without persisting. Returns preview response data."""
     handler = HANDLERS.get(target_object)
     if not handler:
         raise ValueError(f"Unknown target object: {target_object}")
+
+    # Apply transforms pipeline
+    if transforms:
+        rows = apply_transforms(rows, transforms, column_mapping)
 
     all_errors: list[RowValidationError] = []
     preview_rows: list[dict[str, Any]] = []
@@ -842,11 +916,16 @@ async def execute_import(
     entity_id: UUID,
     user_id: UUID,
     db: AsyncSession,
+    transforms: list[dict] | None = None,
 ) -> dict[str, Any]:
     """Execute the import: create/update/skip records."""
     handler = HANDLERS.get(target_object)
     if not handler:
         raise ValueError(f"Unknown target object: {target_object}")
+
+    # Apply transforms pipeline
+    if transforms:
+        rows = apply_transforms(rows, transforms, column_mapping)
 
     created = 0
     updated = 0

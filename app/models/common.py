@@ -356,6 +356,8 @@ class Tier(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB)
 
+    is_blocked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
     contacts: Mapped[list["TierContact"]] = relationship(back_populates="tier")
     identifiers: Mapped[list["TierIdentifier"]] = relationship(back_populates="tier")
 
@@ -414,6 +416,45 @@ class TierIdentifier(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     expires_at: Mapped[str | None] = mapped_column(String(20))
 
     tier: Mapped["Tier"] = relationship(back_populates="identifiers")
+
+
+# ─── Tier Blocks (blocking/unblocking history) ──────────────────────────────
+
+class TierBlock(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Blocking/unblocking history for a company (Tier).
+
+    Tracks when a tier is blocked (purchasing, payment, all) and unblocked,
+    with reason and date range. The latest active record determines whether
+    the tier is currently blocked.
+    """
+    __tablename__ = "tier_blocks"
+    __table_args__ = (
+        Index("idx_tier_blocks_tier", "tier_id"),
+        Index("idx_tier_blocks_entity", "entity_id"),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
+    )
+    tier_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tiers.id"), nullable=False
+    )
+    action: Mapped[str] = mapped_column(
+        String(20), nullable=False
+    )  # 'block' or 'unblock'
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    block_type: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="purchasing"
+    )  # purchasing, payment, all
+    start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    end_date: Mapped[date | None] = mapped_column(Date, nullable=True)  # null = indefinite
+    performed_by: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    tier: Mapped["Tier"] = relationship(foreign_keys=[tier_id])
+    performer: Mapped["User"] = relationship(foreign_keys=[performed_by])
 
 
 # ─── Workflow Definitions ────────────────────────────────────────────────────

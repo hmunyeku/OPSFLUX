@@ -1,11 +1,12 @@
 /**
- * React Query hooks for tiers (companies) + contacts + identifiers.
+ * React Query hooks for tiers (companies) + contacts + identifiers + blocks + refs + SAP import.
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { tiersService } from '@/services/tiersService'
 import type {
   TierCreate, TierContactCreate, TierContactUpdate,
   TierIdentifierCreate, TierIdentifierUpdate,
+  TierBlockCreate, ExternalReferenceCreate,
 } from '@/types/api'
 
 // ── Tiers ──
@@ -163,6 +164,84 @@ export function useDeleteTierIdentifier() {
       tiersService.deleteIdentifier(tierId, identId),
     onSuccess: (_, { tierId }) => {
       qc.invalidateQueries({ queryKey: ['tier-identifiers', tierId] })
+    },
+  })
+}
+
+// ── Blocks (blocking/unblocking) ──
+
+export function useTierBlocks(tierId: string | undefined) {
+  return useQuery({
+    queryKey: ['tier-blocks', tierId],
+    queryFn: () => tiersService.listBlocks(tierId!),
+    enabled: !!tierId,
+  })
+}
+
+export function useBlockTier() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ tierId, payload }: { tierId: string; payload: TierBlockCreate }) =>
+      tiersService.blockTier(tierId, payload),
+    onSuccess: (_, { tierId }) => {
+      qc.invalidateQueries({ queryKey: ['tier-blocks', tierId] })
+      qc.invalidateQueries({ queryKey: ['tiers'] })
+    },
+  })
+}
+
+export function useUnblockTier() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ tierId, payload }: { tierId: string; payload: TierBlockCreate }) =>
+      tiersService.unblockTier(tierId, payload),
+    onSuccess: (_, { tierId }) => {
+      qc.invalidateQueries({ queryKey: ['tier-blocks', tierId] })
+      qc.invalidateQueries({ queryKey: ['tiers'] })
+    },
+  })
+}
+
+// ── External References ──
+
+export function useTierExternalRefs(tierId: string | undefined) {
+  return useQuery({
+    queryKey: ['tier-external-refs', tierId],
+    queryFn: () => tiersService.listExternalRefs(tierId!),
+    enabled: !!tierId,
+  })
+}
+
+export function useCreateTierExternalRef() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ tierId, payload }: { tierId: string; payload: ExternalReferenceCreate }) =>
+      tiersService.createExternalRef(tierId, payload),
+    onSuccess: (_, { tierId }) => {
+      qc.invalidateQueries({ queryKey: ['tier-external-refs', tierId] })
+    },
+  })
+}
+
+export function useDeleteTierExternalRef() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ tierId, refId }: { tierId: string; refId: string }) =>
+      tiersService.deleteExternalRef(tierId, refId),
+    onSuccess: (_, { tierId }) => {
+      qc.invalidateQueries({ queryKey: ['tier-external-refs', tierId] })
+    },
+  })
+}
+
+// ── SAP Import ──
+
+export function useImportSap() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (file: File) => tiersService.importSap(file),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tiers'] })
     },
   })
 }

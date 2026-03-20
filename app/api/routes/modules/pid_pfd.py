@@ -224,7 +224,7 @@ async def list_lines_early(
     from app.services.modules.pid_service import list_process_lines as svc_list
 
     return await svc_list(
-        entity_id=entity_id, search=search, pid_document_id=pid_document_id,
+        entity_id=entity_id, search=search,
         project_id=project_id, page=page, page_size=page_size, db=db,
     )
 
@@ -322,7 +322,7 @@ async def list_tags_early(
 
     return await svc_list(
         entity_id=entity_id, search=search, tag_type=tag_type,
-        area=area, pid_document_id=pid_document_id, page=page, page_size=page_size, db=db,
+        area=area, page=page, page_size=page_size, db=db,
     )
 
 

@@ -45,6 +45,29 @@ export function useUpdatePIDDocument() {
   })
 }
 
+// ── Dynamic Workflow ──
+
+export function usePIDWorkflowState(pidId: string | null) {
+  return useQuery({
+    queryKey: ['pid-workflow-state', pidId],
+    queryFn: () => pidPfdService.getWorkflowState(pidId!),
+    enabled: !!pidId,
+  })
+}
+
+export function usePIDTransition() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ pidId, toState, comment }: { pidId: string; toState: string; comment?: string }) =>
+      pidPfdService.executeTransition(pidId, { to_state: toState, comment }),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ['pid-workflow-state', vars.pidId] })
+      qc.invalidateQueries({ queryKey: ['pid-pfd', 'documents'] })
+      qc.invalidateQueries({ queryKey: ['pid-pfd', 'documents', vars.pidId] })
+    },
+  })
+}
+
 // ── XML ──
 
 export function useSaveXml() {

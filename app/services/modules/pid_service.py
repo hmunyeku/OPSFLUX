@@ -17,6 +17,10 @@ from sqlalchemy.sql.expression import cast
 
 logger = logging.getLogger(__name__)
 
+# Workflow constants
+PID_WORKFLOW_SLUG = "pid-approval"
+PID_ENTITY_TYPE = "pid"
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PID Document CRUD
@@ -125,7 +129,7 @@ async def create_pid_document(
         scale=getattr(body, "scale", "1:100"),
         drawing_number=getattr(body, "drawing_number", None),
         revision="0",
-        status="ifc",
+        status="draft",
         created_by=created_by,
     )
     db.add(pid)
@@ -152,6 +156,289 @@ async def update_pid_document(
 
     await db.commit()
     return pid
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Workflow (FSM integration)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def get_pid_workflow_state(
+    *,
+    pid_id: str | UUID,
+    entity_id: UUID,
+    user_id: UUID,
+    db: AsyncSession,
+) -> dict[str, Any]:
+    """Return current workflow state, available transitions, and history for a PID."""
+    from app.services.core.fsm_service import fsm_service
+
+    pid_id_str = str(pid_id)
+
+    # 1. Find existing workflow instance
+    instance = await fsm_service.get_instance(
+        db, entity_type=PID_ENTITY_TYPE, entity_id=pid_id_str,
+    )
+
+    if not instance:
+        # Try to auto-create from published definition
+        try:
+            pid = await get_pid_document(pid_id, entity_id, db)
+            instance = await fsm_service.get_or_create_instance(
+                db,
+                workflow_slug=PID_WORKFLOW_SLUG,
+                entity_type=PID_ENTITY_TYPE,
+                entity_id=pid_id_str,
+                initial_state=pid.status or "draft",
+                entity_id_scope=entity_id,
+                created_by=user_id,
+            )
+            await db.commit()
+        except Exception:
+            return {
+                "current_state": None,
+                "instance_id": None,
+                "available_transitions": [],
+                "history": [],
+            }
+
+    # 2. Get available transitions
+    transitions_info = await fsm_service.get_allowed_transitions(
+        db,
+        workflow_slug=PID_WORKFLOW_SLUG,
+        entity_type=PID_ENTITY_TYPE,
+        entity_id=pid_id_str,
+    )
+
+    available = [
+        {
+            "to_state": t.to_state,
+            "label": t.label or t.to_state.replace("_", " ").title(),
+            "required_roles": t.required_roles or [],
+            "comment_required": t.comment_required,
+        }
+        for t in transitions_info
+    ]
+
+    # 3. Get transition history with actor names
+    from sqlalchemy import text
+
+    history_rows = await db.execute(
+        text(
+            "SELECT wt.from_state, wt.to_state, wt.comment, wt.created_at, "
+            "COALESCE(u.full_name, u.email, 'Systeme') AS actor_name "
+            "FROM workflow_transitions wt "
+            "LEFT JOIN users u ON u.id = wt.actor_id "
+            "WHERE wt.instance_id = :iid "
+            "ORDER BY wt.created_at DESC "
+            "LIMIT 50"
+        ),
+        {"iid": instance.id},
+    )
+    history = [
+        {
+            "from_state": row.from_state,
+            "to_state": row.to_state,
+            "comment": row.comment,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+            "actor_name": row.actor_name,
+        }
+        for row in history_rows.all()
+    ]
+
+    return {
+        "current_state": instance.current_state,
+        "instance_id": str(instance.id),
+        "available_transitions": available,
+        "history": history,
+    }
+
+
+async def execute_pid_transition(
+    *,
+    pid_id: str | UUID,
+    to_state: str,
+    comment: str | None = None,
+    actor_id: UUID,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> dict[str, Any]:
+    """Execute a workflow transition on a PID with side effects."""
+    from app.services.core.fsm_service import fsm_service, FSMError, FSMPermissionError
+
+    pid = await get_pid_document(pid_id, entity_id, db)
+    pid_id_str = str(pid.id)
+    from_state = pid.status
+
+    try:
+        instance = await fsm_service.transition(
+            db,
+            workflow_slug=PID_WORKFLOW_SLUG,
+            entity_type=PID_ENTITY_TYPE,
+            entity_id=pid_id_str,
+            to_state=to_state,
+            actor_id=actor_id,
+            entity_id_scope=entity_id,
+            comment=comment,
+        )
+    except FSMPermissionError as e:
+        from fastapi import HTTPException
+        raise HTTPException(403, str(e))
+    except FSMError as e:
+        from fastapi import HTTPException
+        raise HTTPException(400, str(e))
+
+    # Update PID document status
+    pid.status = instance.current_state
+
+    # Side effects based on target state
+    if to_state == "afc":
+        # Run AFC validation and create revision snapshot
+        try:
+            afc_result = await validate_for_afc(
+                pid_id=pid.id, entity_id=entity_id, db=db,
+            )
+            if not afc_result.get("is_valid", True):
+                logger.warning(
+                    "PID %s transitioned to AFC with validation warnings", pid.number,
+                )
+        except Exception:
+            logger.exception("AFC validation failed during transition for PID %s", pid.number)
+
+        # Create revision snapshot
+        try:
+            await create_pid_revision(
+                pid_id=pid.id,
+                description=f"AFC milestone — {comment or 'Approved for Construction'}",
+                change_type="milestone",
+                entity_id=entity_id,
+                user_id=actor_id,
+                db=db,
+            )
+        except Exception:
+            logger.exception("Revision snapshot failed during AFC transition for PID %s", pid.number)
+
+    elif to_state == "draft" or to_state == "in_review":
+        # Rejection: PID unlocked for editing (status handles this)
+        pass
+
+    await db.commit()
+
+    # Emit event after commit
+    try:
+        await fsm_service.emit_transition_event(
+            entity_type=PID_ENTITY_TYPE,
+            entity_id=pid_id_str,
+            from_state=from_state,
+            to_state=to_state,
+            actor_id=actor_id,
+            workflow_slug=PID_WORKFLOW_SLUG,
+            extra_payload={
+                "pid_id": pid_id_str,
+                "entity_id": str(entity_id),
+                "number": pid.number,
+                "title": pid.title,
+            },
+        )
+    except Exception:
+        logger.exception("Failed to emit PID transition event")
+
+    return await get_pid_workflow_state(
+        pid_id=pid_id, entity_id=entity_id, user_id=actor_id, db=db,
+    )
+
+
+async def seed_default_pid_workflow(
+    *,
+    entity_id: UUID,
+    created_by: UUID | None = None,
+    db: AsyncSession,
+) -> None:
+    """Create the default pid-approval workflow definition if it doesn't exist."""
+    from app.models.common import WorkflowDefinition
+
+    existing = await db.execute(
+        select(WorkflowDefinition).where(
+            WorkflowDefinition.entity_id == entity_id,
+            WorkflowDefinition.slug == PID_WORKFLOW_SLUG,
+        )
+    )
+    if existing.scalar_one_or_none():
+        return
+
+    definition = WorkflowDefinition(
+        entity_id=entity_id,
+        slug=PID_WORKFLOW_SLUG,
+        name="PID/PFD Approval Workflow",
+        description="Default approval workflow for PID/PFD: draft -> in_review -> ifd -> afc -> as_built -> obsolete",
+        entity_type=PID_ENTITY_TYPE,
+        version=1,
+        status="published",
+        active=True,
+        states={
+            "draft": {"label": "Brouillon", "color": "#6B7280"},
+            "in_review": {"label": "En revue", "color": "#3B82F6"},
+            "ifd": {"label": "IFD (Issued for Design)", "color": "#F59E0B"},
+            "afc": {"label": "AFC (Approved for Construction)", "color": "#10B981"},
+            "as_built": {"label": "As-Built", "color": "#8B5CF6"},
+            "obsolete": {"label": "Obsolete", "color": "#EF4444"},
+        },
+        transitions=[
+            {
+                "from": "draft",
+                "to": "in_review",
+                "label": "Soumettre",
+                "required_roles": ["author"],
+                "comment_required": False,
+            },
+            {
+                "from": "in_review",
+                "to": "ifd",
+                "label": "Valider IFD",
+                "required_roles": ["checker"],
+                "comment_required": False,
+            },
+            {
+                "from": "in_review",
+                "to": "draft",
+                "label": "Rejeter",
+                "required_roles": ["checker"],
+                "comment_required": True,
+            },
+            {
+                "from": "ifd",
+                "to": "afc",
+                "label": "Approuver AFC",
+                "required_roles": ["approver"],
+                "comment_required": False,
+            },
+            {
+                "from": "ifd",
+                "to": "in_review",
+                "label": "Rejeter",
+                "required_roles": ["approver"],
+                "comment_required": True,
+            },
+            {
+                "from": "afc",
+                "to": "as_built",
+                "label": "Passer As-Built",
+                "required_roles": ["admin"],
+                "comment_required": False,
+            },
+            {
+                "from": "afc",
+                "to": "obsolete",
+                "label": "Rendre obsolete",
+                "required_roles": ["admin"],
+                "comment_required": False,
+            },
+        ],
+        created_by=created_by,
+    )
+    db.add(definition)
+    await db.flush()
+    logger.info("Seeded default pid-approval workflow for entity %s", entity_id)
 
 
 async def save_xml(
@@ -960,6 +1247,191 @@ async def get_cell_data(
     # They are linked via equipment_id
 
     return None
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Lock Management (D-092)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def acquire_lock(
+    *,
+    pid_id: UUID,
+    entity_id: UUID,
+    user_id: UUID,
+    db: AsyncSession,
+) -> dict:
+    """Acquire exclusive editing lock on a PID document (D-092).
+
+    Lock expires after 5 minutes; heartbeat extends the TTL.
+    Returns 409 if another user already holds the lock.
+    """
+    from app.models.pid_pfd import PIDLock
+    from fastapi import HTTPException
+    from datetime import timedelta
+
+    # Verify PID exists and belongs to entity
+    await get_pid_document(pid_id, entity_id, db)
+
+    now = datetime.now(timezone.utc)
+    expires = now + timedelta(minutes=5)
+
+    # Check existing lock
+    result = await db.execute(
+        select(PIDLock).where(PIDLock.pid_document_id == pid_id)
+    )
+    existing = result.scalar_one_or_none()
+
+    if existing:
+        # Lock exists — check if expired
+        if existing.expires_at > now and existing.locked_by != user_id:
+            raise HTTPException(
+                409,
+                f"PID is locked by another user since {existing.locked_at.isoformat()}",
+            )
+        # Expired or same user — update the lock
+        existing.locked_by = user_id
+        existing.locked_at = now
+        existing.expires_at = expires
+        existing.heartbeat_at = now
+    else:
+        # Create new lock
+        lock = PIDLock(
+            pid_document_id=pid_id,
+            locked_by=user_id,
+            locked_at=now,
+            expires_at=expires,
+            heartbeat_at=now,
+        )
+        db.add(lock)
+
+    await db.commit()
+
+    logger.info("Lock acquired on PID %s by user %s", pid_id, user_id)
+    return {
+        "pid_id": str(pid_id),
+        "locked_by": str(user_id),
+        "locked_at": now.isoformat(),
+        "expires_at": expires.isoformat(),
+    }
+
+
+async def release_lock(
+    *,
+    pid_id: UUID,
+    entity_id: UUID,
+    user_id: UUID,
+    db: AsyncSession,
+) -> dict:
+    """Release the editing lock held by the current user.
+
+    Returns 403 if the lock is owned by someone else.
+    Returns 404 if no lock exists.
+    """
+    from app.models.pid_pfd import PIDLock
+    from fastapi import HTTPException
+
+    await get_pid_document(pid_id, entity_id, db)
+
+    result = await db.execute(
+        select(PIDLock).where(PIDLock.pid_document_id == pid_id)
+    )
+    lock = result.scalar_one_or_none()
+
+    if not lock:
+        raise HTTPException(404, "No lock found for this PID document")
+
+    if lock.locked_by != user_id:
+        raise HTTPException(403, "Lock is owned by another user")
+
+    await db.delete(lock)
+    await db.commit()
+
+    logger.info("Lock released on PID %s by user %s", pid_id, user_id)
+    return {"pid_id": str(pid_id), "released": True}
+
+
+async def lock_heartbeat(
+    *,
+    pid_id: UUID,
+    entity_id: UUID,
+    user_id: UUID,
+    db: AsyncSession,
+) -> dict:
+    """Extend the lock TTL by 5 minutes (heartbeat).
+
+    Returns 404 if no lock found, 403 if owned by someone else.
+    """
+    from app.models.pid_pfd import PIDLock
+    from fastapi import HTTPException
+    from datetime import timedelta
+
+    await get_pid_document(pid_id, entity_id, db)
+
+    result = await db.execute(
+        select(PIDLock).where(PIDLock.pid_document_id == pid_id)
+    )
+    lock = result.scalar_one_or_none()
+
+    if not lock:
+        raise HTTPException(404, "No lock found for this PID document")
+
+    if lock.locked_by != user_id:
+        raise HTTPException(403, "Lock is owned by another user")
+
+    now = datetime.now(timezone.utc)
+    lock.heartbeat_at = now
+    lock.expires_at = now + timedelta(minutes=5)
+
+    await db.commit()
+
+    logger.info("Lock heartbeat on PID %s by user %s", pid_id, user_id)
+    return {
+        "pid_id": str(pid_id),
+        "heartbeat_at": now.isoformat(),
+        "expires_at": lock.expires_at.isoformat(),
+    }
+
+
+async def force_release_lock(
+    *,
+    pid_id: UUID,
+    entity_id: UUID,
+    admin_user_id: UUID,
+    db: AsyncSession,
+) -> dict:
+    """Admin force-release of any lock regardless of owner.
+
+    Logs who performed the force release.
+    Returns 404 if no lock exists.
+    """
+    from app.models.pid_pfd import PIDLock
+    from fastapi import HTTPException
+
+    await get_pid_document(pid_id, entity_id, db)
+
+    result = await db.execute(
+        select(PIDLock).where(PIDLock.pid_document_id == pid_id)
+    )
+    lock = result.scalar_one_or_none()
+
+    if not lock:
+        raise HTTPException(404, "No lock found for this PID document")
+
+    original_owner = str(lock.locked_by)
+    await db.delete(lock)
+    await db.commit()
+
+    logger.warning(
+        "Lock FORCE-RELEASED on PID %s by admin %s (was held by %s)",
+        pid_id, admin_user_id, original_owner,
+    )
+    return {
+        "pid_id": str(pid_id),
+        "force_released": True,
+        "previous_owner": original_owner,
+        "released_by": str(admin_user_id),
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

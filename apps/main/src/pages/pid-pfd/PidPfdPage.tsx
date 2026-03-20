@@ -910,15 +910,27 @@ export function PidPfdPage() {
   const handleCsvImport = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+
+    // Resolve project_id from active filters or from a loaded document
+    const filteredProjectId = typeof activeFilters.project_id === 'string' ? activeFilters.project_id : undefined
+    const fallbackProjectId = docsData?.items?.[0]?.project_id as string | undefined
+    const projectId = filteredProjectId || fallbackProjectId
+
+    if (!projectId) {
+      toast({ title: 'Veuillez selectionner un projet avant d\'importer un CSV', variant: 'error' })
+      if (csvInputRef.current) csvInputRef.current.value = ''
+      return
+    }
+
     try {
-      await importCsv.mutateAsync({ projectId: '', file })
+      await importCsv.mutateAsync({ projectId, file })
       toast({ title: 'Import CSV reussi', variant: 'success' })
     } catch {
       toast({ title: 'Erreur lors de l\'import CSV', variant: 'error' })
     }
     // Reset input
     if (csvInputRef.current) csvInputRef.current.value = ''
-  }, [importCsv, toast])
+  }, [importCsv, toast, activeFilters, docsData])
 
   const isFullPanel = panelMode === 'full' && dynamicPanel !== null && dynamicPanel.module === 'pid-pfd'
 

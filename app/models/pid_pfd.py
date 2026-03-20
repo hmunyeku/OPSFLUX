@@ -34,12 +34,11 @@ class PIDDocument(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
         Index("idx_pid_documents_project_status", "project_id", "status"),
         Index("idx_pid_documents_entity", "entity_id"),
         CheckConstraint(
-            "pid_type IN ('process','utility','instrumentation','electrical',"
-            "'demolition','modification','as_built')",
+            "pid_type IN ('pid','pfd','uid','ufd','cause_effect','sld','layout','tie_in')",
             name="ck_pid_documents_pid_type",
         ),
         CheckConstraint(
-            "status IN ('ifc','ifd','afc','as_built','obsolete','superseded')",
+            "status IN ('draft','in_review','ifd','afc','approved','issued','as_built','obsolete','superseded','cancelled')",
             name="ck_pid_documents_status",
         ),
         CheckConstraint(
@@ -65,7 +64,7 @@ class PIDDocument(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     pid_type: Mapped[str] = mapped_column(String(30), nullable=False)
     xml_content: Mapped[str | None] = mapped_column(Text, nullable=True)  # draw.io XML, can be several MB
     revision: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default="ifd")
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
     sheet_format: Mapped[str | None] = mapped_column(String(5), nullable=True)
     scale: Mapped[str | None] = mapped_column(String(20), nullable=True)
     drawing_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
@@ -101,7 +100,7 @@ class PIDRevision(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __table_args__ = (
         Index("idx_pid_revisions_document", "pid_document_id"),
         CheckConstraint(
-            "change_type IN ('initial','modification','demolition','as_built','correction')",
+            "change_type IN ('creation','modification','correction','addition','deletion','reissue')",
             name="ck_pid_revisions_change_type",
         ),
     )
@@ -114,7 +113,7 @@ class PIDRevision(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     revision_code: Mapped[str] = mapped_column(String(20), nullable=False)
     xml_content: Mapped[str] = mapped_column(Text, nullable=False)
     change_description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    change_type: Mapped[str] = mapped_column(String(20), nullable=False, default="initial")
+    change_type: Mapped[str] = mapped_column(String(20), nullable=False, default="creation")
     created_by: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
@@ -142,12 +141,17 @@ class Equipment(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
             postgresql_where="asset_id IS NOT NULL",
         ),
         CheckConstraint(
-            "equipment_type IN ('vessel','pump','compressor','heat_exchanger','valve',"
-            "'filter','separator','column','tank','instrument','motor','generator','other')",
+            "equipment_type IN ("
+            "'vessel','heat_exchanger','pump','compressor','turbine','column','reactor',"
+            "'tank','filter','valve','instrument','mixer','dryer','boiler','furnace',"
+            "'conveyor','centrifuge','ejector','flare','separator','pig_launcher',"
+            "'pig_receiver','manifold','wellhead','christmas_tree','choke',"
+            "'safety_valve','control_valve','other')",
             name="ck_equipment_type",
         ),
         CheckConstraint(
-            "fluid_phase IS NULL OR fluid_phase IN ('liquid','gas','mixed','steam')",
+            "fluid_phase IS NULL OR fluid_phase IN ("
+            "'liquid','gas','two_phase','multiphase','solid','slurry','steam','vapour')",
             name="ck_equipment_fluid_phase",
         ),
     )
@@ -169,7 +173,7 @@ class Equipment(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     equipment_type: Mapped[str] = mapped_column(String(30), nullable=False)
     service: Mapped[str | None] = mapped_column(String(200), nullable=True)
     fluid: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    fluid_phase: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    fluid_phase: Mapped[str | None] = mapped_column(String(20), nullable=True)
     design_pressure_barg: Mapped[Decimal | None] = mapped_column(
         Numeric, nullable=True
     )
@@ -217,11 +221,12 @@ class ProcessLine(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         ),
         Index("idx_process_lines_entity", "entity_id"),
         CheckConstraint(
-            "insulation_type IS NULL OR insulation_type IN ('none','thermal','acoustic','fire_proofing')",
+            "insulation_type IS NULL OR insulation_type IN ("
+            "'none','hot','cold','acoustic','personnel_protection','anti_condensation')",
             name="ck_process_lines_insulation_type",
         ),
         CheckConstraint(
-            "heat_tracing_type IS NULL OR heat_tracing_type IN ('electric','steam','none')",
+            "heat_tracing_type IS NULL OR heat_tracing_type IN ('electric','steam','hot_water','glycol')",
             name="ck_process_lines_heat_tracing_type",
         ),
     )
@@ -240,10 +245,10 @@ class ProcessLine(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     spec_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
     fluid: Mapped[str | None] = mapped_column(String(100), nullable=True)
     fluid_full_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    insulation_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    insulation_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
     insulation_thickness_mm: Mapped[Decimal | None] = mapped_column(Numeric, nullable=True)
     heat_tracing: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
-    heat_tracing_type: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    heat_tracing_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
     design_pressure_barg: Mapped[Decimal | None] = mapped_column(Numeric, nullable=True)
     design_temperature_c: Mapped[Decimal | None] = mapped_column(Numeric, nullable=True)
     material_of_construction: Mapped[str | None] = mapped_column(String(100), nullable=True)
@@ -323,7 +328,14 @@ class DCSTag(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
         ),
         Index("idx_dcs_tags_pid_document", "pid_document_id"),
         CheckConstraint(
-            "tag_type IN ('PT','TT','FT','LT','PDT','AT','XV','FV','LV','PV','HS','ZT','other')",
+            "tag_type IN ("
+            "'AI','AO','DI','DO','PI','TI','FI','LI','PDI','TT','PT','FT','LT',"
+            "'PIC','TIC','FIC','LIC','PCV','TCV','FCV','LCV',"
+            "'PAH','PAL','PAHH','PALL','TAH','TAL','TAHH','TALL',"
+            "'FAH','FAL','FAHH','FALL','LAH','LAL','LAHH','LALL',"
+            "'PSV','TSV','FSV','LSV','XV','HV','MOV','SOV',"
+            "'ZSO','ZSC','HS','YS',"
+            "'calc','virtual','manual','other')",
             name="ck_dcs_tags_tag_type",
         ),
         CheckConstraint(
@@ -340,7 +352,7 @@ class DCSTag(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     )
     tag_name: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    tag_type: Mapped[str] = mapped_column(String(10), nullable=False)
+    tag_type: Mapped[str] = mapped_column(String(20), nullable=False)
     area: Mapped[str | None] = mapped_column(String(50), nullable=True)
     equipment_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("equipment.id"), nullable=True

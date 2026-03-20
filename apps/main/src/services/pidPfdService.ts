@@ -182,6 +182,28 @@ export interface ProcessLibItem {
   created_at: string
 }
 
+export interface PIDWorkflowTransitionDef {
+  to_state: string
+  label: string
+  required_roles: string[]
+  comment_required: boolean
+}
+
+export interface PIDWorkflowHistoryEntry {
+  from_state: string
+  to_state: string
+  comment: string | null
+  created_at: string | null
+  actor_name: string
+}
+
+export interface PIDWorkflowState {
+  current_state: string | null
+  instance_id: string | null
+  available_transitions: PIDWorkflowTransitionDef[]
+  history: PIDWorkflowHistoryEntry[]
+}
+
 export interface AFCValidationResult {
   is_valid: boolean
   errors: Array<{ code: string; severity: string; message: string; entity_type?: string; entity_tag?: string }>
@@ -214,6 +236,18 @@ export const pidPfdService = {
 
   updateDocument: async (id: string, payload: PIDDocumentUpdate): Promise<PIDDocument> => {
     const { data } = await api.patch(`/api/v1/pid/${id}`, payload)
+    return data
+  },
+
+  // ── Dynamic Workflow ──
+
+  getWorkflowState: async (pidId: string): Promise<PIDWorkflowState> => {
+    const { data } = await api.get(`/api/v1/pid/${pidId}/workflow-state`)
+    return data
+  },
+
+  executeTransition: async (pidId: string, payload: { to_state: string; comment?: string }): Promise<PIDWorkflowState> => {
+    const { data } = await api.post(`/api/v1/pid/${pidId}/transition`, payload)
     return data
   },
 

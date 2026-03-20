@@ -145,6 +145,70 @@ async def update_pid_document(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# Dynamic Workflow (FSM-driven)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@router.get(
+    "/{pid_id}/workflow-state",
+    dependencies=[require_permission("pid.read")],
+    summary="Get workflow state, available transitions, and history",
+)
+async def get_pid_workflow_state(
+    pid_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the dynamic workflow state for a PID document.
+
+    Returns current state, available transitions (with labels,
+    required roles, comment requirements), and transition history.
+    """
+    from app.services.modules.pid_service import get_pid_workflow_state as svc_get
+
+    return await svc_get(
+        pid_id=pid_id,
+        entity_id=entity_id,
+        user_id=current_user.id,
+        db=db,
+    )
+
+
+@router.post(
+    "/{pid_id}/transition",
+    dependencies=[require_permission("pid.edit")],
+    summary="Execute a workflow transition on a PID",
+)
+async def execute_pid_transition(
+    pid_id: UUID,
+    body: dict,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Execute a workflow transition with optional comment.
+
+    Body: {"to_state": "ifd", "comment": "Checked OK"}
+    Returns the updated workflow state.
+    """
+    from app.services.modules.pid_service import execute_pid_transition as svc_transition
+
+    to_state = body.get("to_state")
+    if not to_state:
+        raise HTTPException(400, "to_state is required")
+
+    return await svc_transition(
+        pid_id=pid_id,
+        to_state=to_state,
+        comment=body.get("comment"),
+        actor_id=current_user.id,
+        entity_id=entity_id,
+        db=db,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # Draw.io XML Save & Sync
 # ═══════════════════════════════════════════════════════════════════════════════
 

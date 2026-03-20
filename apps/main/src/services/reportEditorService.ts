@@ -179,6 +179,46 @@ export interface RevisionDiff {
   modifications: Array<Record<string, unknown>>
 }
 
+export interface DocumentCounts {
+  draft: number
+  in_review: number
+  approved: number
+  published: number
+  obsolete: number
+  archived: number
+  total: number
+}
+
+export interface WorkflowTransitionDef {
+  to_state: string
+  label: string
+  required_roles: string[]
+  comment_required: boolean
+}
+
+export interface WorkflowHistoryEntry {
+  from_state: string
+  to_state: string
+  comment: string | null
+  created_at: string | null
+  actor_name: string
+}
+
+export interface WorkflowState {
+  current_state: string | null
+  instance_id: string | null
+  available_transitions: WorkflowTransitionDef[]
+  history: WorkflowHistoryEntry[]
+}
+
+export interface DocTypeUpdate {
+  name?: Record<string, string>
+  discipline?: string | null
+  nomenclature_pattern?: string
+  default_language?: string
+  is_active?: boolean
+}
+
 // ── Service ────────────────────────────────────────────────────
 
 export const reportEditorService = {
@@ -192,6 +232,11 @@ export const reportEditorService = {
     search?: string
   } = {}): Promise<PaginatedResponse<Document>> => {
     const { data } = await api.get('/api/v1/documents/', { params })
+    return data
+  },
+
+  getDocumentCounts: async (): Promise<DocumentCounts> => {
+    const { data } = await api.get('/api/v1/documents/counts')
     return data
   },
 
@@ -273,6 +318,23 @@ export const reportEditorService = {
     return data
   },
 
+  obsoleteDocument: async (id: string, supersededBy?: string): Promise<Document> => {
+    const { data } = await api.post(`/api/v1/documents/${id}/obsolete`, supersededBy ? { superseded_by: supersededBy } : undefined)
+    return data
+  },
+
+  // ── Dynamic Workflow ──
+
+  getWorkflowState: async (docId: string): Promise<WorkflowState> => {
+    const { data } = await api.get(`/api/v1/documents/${docId}/workflow-state`)
+    return data
+  },
+
+  executeTransition: async (docId: string, payload: { to_state: string; comment?: string }): Promise<WorkflowState> => {
+    const { data } = await api.post(`/api/v1/documents/${docId}/transition`, payload)
+    return data
+  },
+
   // ── Export ──
 
   exportPdf: (docId: string, revisionId?: string): string =>
@@ -290,6 +352,11 @@ export const reportEditorService = {
 
   createDocType: async (payload: DocTypeCreate): Promise<DocType> => {
     const { data } = await api.post('/api/v1/documents/types', payload)
+    return data
+  },
+
+  updateDocType: async (id: string, payload: DocTypeUpdate): Promise<DocType> => {
+    const { data } = await api.patch(`/api/v1/documents/types/${id}`, payload)
     return data
   },
 

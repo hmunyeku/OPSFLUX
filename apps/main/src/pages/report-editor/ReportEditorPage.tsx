@@ -44,6 +44,7 @@ import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { useToast } from '@/components/ui/Toast'
 import {
   useDocuments,
+  useDocumentCounts,
   useDocument,
   useDeleteDocument,
   useArchiveDocument,
@@ -51,8 +52,13 @@ import {
   useApproveDocument,
   useRejectDocument,
   usePublishDocument,
+  useObsoleteDocument,
+  useDocumentWorkflowState,
+  useDocumentTransition,
   useDocTypes,
+  useUpdateDocType,
   useTemplates,
+  useUpdateTemplate,
   useCreateShareLink,
   useRevisions,
   useRevision,
@@ -165,19 +171,12 @@ function KpiCard({ label, count, color, icon: Icon, onClick }: {
 
 // -- Dashboard Tab ------------------------------------------------------------
 
-function DashboardView({ documents, onNavigateToDocuments }: {
+function DashboardView({ documents, counts, onNavigateToDocuments }: {
   documents: REDocument[]
+  counts: { draft: number; in_review: number; approved: number; published: number; obsolete: number; archived: number }
   onNavigateToDocuments: (statusFilter?: string) => void
 }) {
   const { t } = useTranslation()
-
-  const counts = useMemo(() => {
-    const c = { draft: 0, in_review: 0, approved: 0, published: 0, obsolete: 0, archived: 0 }
-    for (const doc of documents) {
-      if (doc.status in c) c[doc.status as keyof typeof c]++
-    }
-    return c
-  }, [documents])
 
   const recentDocs = useMemo(
     () => [...documents].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 10),
@@ -272,6 +271,116 @@ function DashboardView({ documents, onNavigateToDocuments }: {
   )
 }
 
+// -- Dynamic Workflow Actions (FSM-driven) ------------------------------------
+
+function WorkflowActions({ docId }: { docId: string }) {
+  const { data: wfState, isLoading } = useDocumentWorkflowState(docId)
+  const transition = useDocumentTransition()
+  const { toast } = useToast()
+  const [commentFor, setCommentFor] = useState<string | null>(null)
+  const [comment, setComment] = useState('')
+
+  if (isLoading || !wfState) return null
+
+  const handleTransition = (toState: string, commentRequired: boolean) => {
+    if (commentRequired) {
+      setCommentFor(toState)
+      return
+    }
+    transition.mutate(
+      { docId, toState },
+      {
+        onSuccess: () => toast({ title: 'Transition effectuee', variant: 'success' }),
+        onError: () => toast({ title: 'Erreur lors de la transition', variant: 'error' }),
+      },
+    )
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        {wfState.available_transitions.map((t) => (
+          <button
+            key={t.to_state}
+            onClick={() => handleTransition(t.to_state, t.comment_required)}
+            disabled={transition.isPending}
+            className={cn(
+              'gl-button-sm',
+              t.to_state.includes('reject') || t.to_state === 'draft'
+                ? 'gl-button-danger'
+                : 'gl-button-confirm',
+            )}
+          >
+            {transition.isPending ? <Loader2 size={12} className="animate-spin" /> : null}
+            <span>{t.label || t.to_state}</span>
+          </button>
+        ))}
+      </div>
+      {/* Comment dialog for transitions that require it */}
+      {commentFor && (
+        <div className="flex flex-col gap-2 p-2 border border-border rounded-md bg-muted/20">
+          <label className="text-xs font-medium text-muted-foreground">Motif (obligatoire)</label>
+          <textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder="Motif (obligatoire)..."
+            className="w-full min-h-[60px] rounded-md border border-border bg-background px-2 py-1.5 text-sm resize-y focus:outline-none focus:ring-1 focus:ring-primary"
+            rows={3}
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                transition.mutate(
+                  { docId, toState: commentFor, comment },
+                  {
+                    onSuccess: () => {
+                      setCommentFor(null)
+                      setComment('')
+                      toast({ title: 'Transition effectuee', variant: 'success' })
+                    },
+                    onError: () => toast({ title: 'Erreur lors de la transition', variant: 'error' }),
+                  },
+                )
+              }}
+              disabled={!comment.trim() || transition.isPending}
+              className="gl-button-sm gl-button-confirm"
+            >
+              {transition.isPending ? <Loader2 size={12} className="animate-spin" /> : null}
+              <span>Confirmer</span>
+            </button>
+            <button
+              onClick={() => { setCommentFor(null); setComment('') }}
+              className="gl-button-sm gl-button-default"
+            >
+              <span>Annuler</span>
+            </button>
+          </div>
+        </div>
+      )}
+      {/* Transition history */}
+      {wfState.history?.length > 0 && (
+        <div className="mt-3 border-t border-border pt-3">
+          <p className="text-xs font-medium text-muted-foreground mb-2">Historique</p>
+          <div className="space-y-1">
+            {wfState.history.map((h, i) => (
+              <div key={i} className="text-xs text-muted-foreground">
+                <span className="font-medium">{h.actor_name || 'Systeme'}</span>
+                {' '}{h.from_state} &rarr; {h.to_state}
+                {h.comment && <span className="italic ml-1">&laquo;{h.comment}&raquo;</span>}
+                {h.created_at && (
+                  <span className="ml-1 tabular-nums">
+                    {new Date(h.created_at).toLocaleDateString('fr-FR')}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // -- Document Detail Panel ----------------------------------------------------
 
 function DocumentDetailPanel({ id }: { id: string }) {
@@ -295,6 +404,10 @@ function DocumentDetailPanel({ id }: { id: string }) {
   const createShareLink = useCreateShareLink()
   const saveDraft = useSaveDraft()
   const createRevision = useCreateRevision()
+
+  // Dynamic workflow
+  const { data: wfState } = useDocumentWorkflowState(id)
+  const hasWorkflow = wfState && wfState.current_state !== null
 
   const [rejectReason, setRejectReason] = useState('')
   const [showRejectInput, setShowRejectInput] = useState(false)
@@ -489,84 +602,91 @@ function DocumentDetailPanel({ id }: { id: string }) {
         {/* Workflow Actions */}
         <FormSection title="Actions" collapsible defaultExpanded>
           <div className="space-y-2">
-            {/* Workflow buttons */}
-            <div className="flex flex-wrap gap-2">
-              {workflowActions.canSubmit && (
-                <button
-                  onClick={handleSubmit}
-                  disabled={submitDocument.isPending}
-                  className="gl-button-sm gl-button-confirm"
-                >
-                  {submitDocument.isPending ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
-                  <span>Soumettre</span>
-                </button>
-              )}
-              {workflowActions.canApprove && (
-                <button
-                  onClick={handleApprove}
-                  disabled={approveDocument.isPending}
-                  className="gl-button-sm gl-button-confirm"
-                >
-                  {approveDocument.isPending ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
-                  <span>Approuver</span>
-                </button>
-              )}
-              {workflowActions.canReject && !showRejectInput && (
-                <button
-                  onClick={() => setShowRejectInput(true)}
-                  className="gl-button-sm gl-button-danger"
-                >
-                  <XCircle size={12} />
-                  <span>Rejeter</span>
-                </button>
-              )}
-              {workflowActions.canPublish && (
-                <button
-                  onClick={handlePublish}
-                  disabled={publishDocument.isPending}
-                  className="gl-button-sm gl-button-confirm"
-                >
-                  {publishDocument.isPending ? <Loader2 size={12} className="animate-spin" /> : <Globe size={12} />}
-                  <span>Publier</span>
-                </button>
-              )}
-              {workflowActions.canArchive && (
-                <button
-                  onClick={handleArchive}
-                  disabled={archiveDocument.isPending}
-                  className="gl-button-sm gl-button-default"
-                >
-                  {archiveDocument.isPending ? <Loader2 size={12} className="animate-spin" /> : <Archive size={12} />}
-                  <span>Archiver</span>
-                </button>
-              )}
-            </div>
-
-            {/* Reject input */}
-            {showRejectInput && (
-              <div className="flex flex-col gap-2 p-2 border border-border rounded-md bg-muted/20">
-                <label className="text-xs font-medium text-muted-foreground">Motif du rejet</label>
-                <textarea
-                  value={rejectReason}
-                  onChange={(e) => setRejectReason(e.target.value)}
-                  className="w-full min-h-[60px] rounded-md border border-border bg-background px-2 py-1.5 text-sm resize-y focus:outline-none focus:ring-1 focus:ring-primary"
-                  placeholder="Indiquez le motif du rejet..."
-                  rows={2}
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleReject}
-                    disabled={rejectDocument.isPending}
-                    className="gl-button-sm gl-button-danger"
-                  >
-                    {rejectDocument.isPending ? <Loader2 size={12} className="animate-spin" /> : <XCircle size={12} />}
-                    <span>Confirmer le rejet</span>
-                  </button>
-                  <button onClick={() => { setShowRejectInput(false); setRejectReason('') }} className="gl-button-sm gl-button-default">
-                    <span>Annuler</span>
-                  </button>
+            {/* Dynamic workflow buttons (FSM-driven) — fallback to legacy when no workflow configured */}
+            {hasWorkflow && wfState.available_transitions.length > 0 ? (
+              <WorkflowActions docId={id} />
+            ) : (
+              <>
+                {/* Legacy hardcoded workflow buttons */}
+                <div className="flex flex-wrap gap-2">
+                  {workflowActions.canSubmit && (
+                    <button
+                      onClick={handleSubmit}
+                      disabled={submitDocument.isPending}
+                      className="gl-button-sm gl-button-confirm"
+                    >
+                      {submitDocument.isPending ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                      <span>Soumettre</span>
+                    </button>
+                  )}
+                  {workflowActions.canApprove && (
+                    <button
+                      onClick={handleApprove}
+                      disabled={approveDocument.isPending}
+                      className="gl-button-sm gl-button-confirm"
+                    >
+                      {approveDocument.isPending ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                      <span>Approuver</span>
+                    </button>
+                  )}
+                  {workflowActions.canReject && !showRejectInput && (
+                    <button
+                      onClick={() => setShowRejectInput(true)}
+                      className="gl-button-sm gl-button-danger"
+                    >
+                      <XCircle size={12} />
+                      <span>Rejeter</span>
+                    </button>
+                  )}
+                  {workflowActions.canPublish && (
+                    <button
+                      onClick={handlePublish}
+                      disabled={publishDocument.isPending}
+                      className="gl-button-sm gl-button-confirm"
+                    >
+                      {publishDocument.isPending ? <Loader2 size={12} className="animate-spin" /> : <Globe size={12} />}
+                      <span>Publier</span>
+                    </button>
+                  )}
+                  {workflowActions.canArchive && (
+                    <button
+                      onClick={handleArchive}
+                      disabled={archiveDocument.isPending}
+                      className="gl-button-sm gl-button-default"
+                    >
+                      {archiveDocument.isPending ? <Loader2 size={12} className="animate-spin" /> : <Archive size={12} />}
+                      <span>Archiver</span>
+                    </button>
+                  )}
                 </div>
-              </div>
+
+                {/* Legacy reject input */}
+                {showRejectInput && (
+                  <div className="flex flex-col gap-2 p-2 border border-border rounded-md bg-muted/20">
+                    <label className="text-xs font-medium text-muted-foreground">Motif du rejet</label>
+                    <textarea
+                      value={rejectReason}
+                      onChange={(e) => setRejectReason(e.target.value)}
+                      className="w-full min-h-[60px] rounded-md border border-border bg-background px-2 py-1.5 text-sm resize-y focus:outline-none focus:ring-1 focus:ring-primary"
+                      placeholder="Indiquez le motif du rejet..."
+                      rows={2}
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleReject}
+                        disabled={rejectDocument.isPending}
+                        className="gl-button-sm gl-button-danger"
+                      >
+                        {rejectDocument.isPending ? <Loader2 size={12} className="animate-spin" /> : <XCircle size={12} />}
+                        <span>Confirmer le rejet</span>
+                      </button>
+                      <button onClick={() => { setShowRejectInput(false); setRejectReason('') }} className="gl-button-sm gl-button-default">
+                        <span>Annuler</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             {/* Export & Share */}
@@ -688,8 +808,8 @@ export function ReportEditorPage() {
   const docTypeFilter = typeof activeFilters.doc_type_id === 'string' ? activeFilters.doc_type_id : undefined
   const classificationFilter = typeof activeFilters.classification === 'string' ? activeFilters.classification : undefined
 
-  // Fetch docs for dashboard counts (max 100 per backend constraint)
-  const { data: allDocsData } = useDocuments({ page: 1, page_size: 100 })
+  // Fetch accurate document status counts via dedicated endpoint
+  const { data: documentCounts } = useDocumentCounts()
 
   // Paginated fetch for the documents tab
   const { data: docsData, isLoading: docsLoading } = useDocuments({
@@ -838,7 +958,8 @@ export function ReportEditorPage() {
       case 'dashboard':
         return (
           <DashboardView
-            documents={allDocsData?.items ?? []}
+            documents={docsData?.items ?? []}
+            counts={documentCounts ?? { draft: 0, in_review: 0, approved: 0, published: 0, obsolete: 0, archived: 0 }}
             onNavigateToDocuments={navigateToDocuments}
           />
         )
@@ -1038,6 +1159,12 @@ export function ReportEditorPage() {
       {/* Dynamic Panel Rendering — detail or create */}
       {dynamicPanel?.module === 'report-editor' && dynamicPanel.type === 'detail' && !dynamicPanel.meta?.subtype && (
         <DocumentDetailPanel id={dynamicPanel.id} />
+      )}
+      {dynamicPanel?.module === 'report-editor' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'doc-type' && (
+        <DocTypeDetailPanel id={dynamicPanel.id} />
+      )}
+      {dynamicPanel?.module === 'report-editor' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'template' && (
+        <TemplateDetailPanel id={dynamicPanel.id} />
       )}
       {dynamicPanel?.module === 'report-editor' && dynamicPanel.type === 'create' && !dynamicPanel.meta?.subtype && (
         <CreateDocumentPanel />
@@ -1356,11 +1483,247 @@ function CreateTemplatePanel() {
   )
 }
 
+// -- DocType Detail Panel ------------------------------------------------------
+
+function DocTypeDetailPanel({ id }: { id: string }) {
+  const { closeDynamicPanel } = useUIStore()
+  const { toast } = useToast()
+  const { data: docTypes, isLoading } = useDocTypes()
+  const updateDocType = useUpdateDocType()
+
+  const docType = useMemo(() => docTypes?.find((dt) => dt.id === id), [docTypes, id])
+
+  const [editing, setEditing] = useState(false)
+  const [form, setForm] = useState({ name_fr: '', name_en: '', discipline: '', nomenclature_pattern: '' })
+
+  useEffect(() => {
+    if (docType) {
+      setForm({
+        name_fr: docType.name?.fr || '',
+        name_en: docType.name?.en || '',
+        discipline: docType.discipline || '',
+        nomenclature_pattern: docType.nomenclature_pattern || '',
+      })
+    }
+  }, [docType])
+
+  const handleSave = useCallback(async () => {
+    if (!docType) return
+    try {
+      await updateDocType.mutateAsync({
+        id: docType.id,
+        payload: {
+          name: { fr: form.name_fr, en: form.name_en || form.name_fr },
+          discipline: form.discipline || undefined,
+          nomenclature_pattern: form.nomenclature_pattern,
+        },
+      })
+      toast({ title: 'Type de document mis a jour', variant: 'success' })
+      setEditing(false)
+    } catch {
+      toast({ title: 'Erreur', description: 'Echec de la mise a jour', variant: 'error' })
+    }
+  }, [docType, form, updateDocType, toast])
+
+  if (isLoading) {
+    return (
+      <DynamicPanelShell title="Type de document" subtitle="Chargement..." icon={<FolderCog size={14} className="text-primary" />}>
+        <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+      </DynamicPanelShell>
+    )
+  }
+
+  if (!docType) {
+    return (
+      <DynamicPanelShell title="Type de document" subtitle="Non trouve" icon={<FolderCog size={14} className="text-primary" />}>
+        <div className="p-4 text-sm text-muted-foreground">Type de document introuvable.</div>
+      </DynamicPanelShell>
+    )
+  }
+
+  return (
+    <DynamicPanelShell
+      title={docType.code}
+      subtitle="Type de document"
+      icon={<FolderCog size={14} className="text-primary" />}
+      actions={
+        editing ? (
+          <>
+            <PanelActionButton onClick={() => setEditing(false)}>Annuler</PanelActionButton>
+            <PanelActionButton variant="primary" disabled={updateDocType.isPending} onClick={handleSave}>
+              {updateDocType.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Enregistrer'}
+            </PanelActionButton>
+          </>
+        ) : (
+          <PanelActionButton onClick={() => setEditing(true)}>Modifier</PanelActionButton>
+        )
+      }
+    >
+      <PanelContentLayout>
+        <FormSection title="Identification">
+          <FormGrid>
+            <ReadOnlyRow label="Code" value={docType.code} />
+            {editing ? (
+              <>
+                <DynamicPanelField label="Nom (FR)">
+                  <input type="text" value={form.name_fr} onChange={(e) => setForm(f => ({ ...f, name_fr: e.target.value }))} className={panelInputClass} />
+                </DynamicPanelField>
+                <DynamicPanelField label="Nom (EN)">
+                  <input type="text" value={form.name_en} onChange={(e) => setForm(f => ({ ...f, name_en: e.target.value }))} className={panelInputClass} />
+                </DynamicPanelField>
+                <DynamicPanelField label="Discipline">
+                  <input type="text" value={form.discipline} onChange={(e) => setForm(f => ({ ...f, discipline: e.target.value }))} className={panelInputClass} />
+                </DynamicPanelField>
+              </>
+            ) : (
+              <>
+                <ReadOnlyRow label="Nom (FR)" value={docType.name?.fr || '--'} />
+                <ReadOnlyRow label="Nom (EN)" value={docType.name?.en || '--'} />
+                <ReadOnlyRow label="Discipline" value={docType.discipline || '--'} />
+              </>
+            )}
+          </FormGrid>
+        </FormSection>
+        <FormSection title="Nomenclature">
+          <FormGrid>
+            {editing ? (
+              <DynamicPanelField label="Pattern" span="full">
+                <input type="text" value={form.nomenclature_pattern} onChange={(e) => setForm(f => ({ ...f, nomenclature_pattern: e.target.value }))} className={panelInputClass} />
+              </DynamicPanelField>
+            ) : (
+              <ReadOnlyRow label="Pattern" value={docType.nomenclature_pattern} />
+            )}
+            <ReadOnlyRow label="Schema de revision" value={docType.revision_scheme} />
+            <ReadOnlyRow label="Langue par defaut" value={docType.default_language} />
+            <ReadOnlyRow label="Actif" value={docType.is_active ? 'Oui' : 'Non'} />
+          </FormGrid>
+        </FormSection>
+      </PanelContentLayout>
+    </DynamicPanelShell>
+  )
+}
+
+
+// -- Template Detail Panel ----------------------------------------------------
+
+function TemplateDetailPanel({ id }: { id: string }) {
+  const { closeDynamicPanel } = useUIStore()
+  const { toast } = useToast()
+  const { data: templates, isLoading } = useTemplates()
+  const { data: docTypes } = useDocTypes()
+  const updateTemplate = useUpdateTemplate()
+
+  const template = useMemo(() => templates?.find((t) => t.id === id), [templates, id])
+  const docTypeName = useMemo(() => {
+    if (!template?.doc_type_id || !docTypes) return '--'
+    const dt = docTypes.find((d) => d.id === template.doc_type_id)
+    return dt ? `${dt.code} — ${dt.name?.fr || dt.code}` : '--'
+  }, [template, docTypes])
+
+  const [editing, setEditing] = useState(false)
+  const [form, setForm] = useState({ name: '', description: '' })
+
+  useEffect(() => {
+    if (template) {
+      setForm({
+        name: template.name || '',
+        description: template.description || '',
+      })
+    }
+  }, [template])
+
+  const handleSave = useCallback(async () => {
+    if (!template) return
+    try {
+      await updateTemplate.mutateAsync({
+        id: template.id,
+        payload: {
+          name: form.name,
+          description: form.description || undefined,
+        },
+      })
+      toast({ title: 'Template mis a jour', variant: 'success' })
+      setEditing(false)
+    } catch {
+      toast({ title: 'Erreur', description: 'Echec de la mise a jour', variant: 'error' })
+    }
+  }, [template, form, updateTemplate, toast])
+
+  if (isLoading) {
+    return (
+      <DynamicPanelShell title="Template" subtitle="Chargement..." icon={<FileCode2 size={14} className="text-primary" />}>
+        <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+      </DynamicPanelShell>
+    )
+  }
+
+  if (!template) {
+    return (
+      <DynamicPanelShell title="Template" subtitle="Non trouve" icon={<FileCode2 size={14} className="text-primary" />}>
+        <div className="p-4 text-sm text-muted-foreground">Template introuvable.</div>
+      </DynamicPanelShell>
+    )
+  }
+
+  return (
+    <DynamicPanelShell
+      title={template.name}
+      subtitle="Template"
+      icon={<FileCode2 size={14} className="text-primary" />}
+      actions={
+        editing ? (
+          <>
+            <PanelActionButton onClick={() => setEditing(false)}>Annuler</PanelActionButton>
+            <PanelActionButton variant="primary" disabled={updateTemplate.isPending} onClick={handleSave}>
+              {updateTemplate.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Enregistrer'}
+            </PanelActionButton>
+          </>
+        ) : (
+          <PanelActionButton onClick={() => setEditing(true)}>Modifier</PanelActionButton>
+        )
+      }
+    >
+      <PanelContentLayout>
+        <FormSection title="Informations">
+          <FormGrid>
+            {editing ? (
+              <>
+                <DynamicPanelField label="Nom" span="full">
+                  <input type="text" value={form.name} onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} className={panelInputClass} />
+                </DynamicPanelField>
+                <DynamicPanelField label="Description" span="full">
+                  <textarea value={form.description} onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))} className={panelInputClass + ' min-h-[60px]'} rows={3} />
+                </DynamicPanelField>
+              </>
+            ) : (
+              <>
+                <ReadOnlyRow label="Nom" value={template.name} />
+                <ReadOnlyRow label="Description" value={template.description || '--'} />
+              </>
+            )}
+            <ReadOnlyRow label="Type de document" value={docTypeName} />
+            <ReadOnlyRow label="Version" value={String(template.version)} />
+            <ReadOnlyRow label="Nombre de champs" value={String(template.field_count)} />
+            <ReadOnlyRow label="Actif" value={template.is_active ? 'Oui' : 'Non'} />
+          </FormGrid>
+        </FormSection>
+      </PanelContentLayout>
+    </DynamicPanelShell>
+  )
+}
+
+
 // -- Panel Renderer Registration ----------------------------------------------
 
 registerPanelRenderer('report-editor', (view) => {
   if (view.type === 'detail' && 'id' in view && !view.meta?.subtype) {
     return <DocumentDetailPanel id={view.id} />
+  }
+  if (view.type === 'detail' && 'id' in view && view.meta?.subtype === 'doc-type') {
+    return <DocTypeDetailPanel id={view.id} />
+  }
+  if (view.type === 'detail' && 'id' in view && view.meta?.subtype === 'template') {
+    return <TemplateDetailPanel id={view.id} />
   }
   if (view.type === 'create' && !view.meta?.subtype) {
     return <CreateDocumentPanel />

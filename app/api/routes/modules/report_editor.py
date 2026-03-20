@@ -98,6 +98,20 @@ async def create_document(
 
 # IMPORTANT: literal routes MUST be before /{doc_id} to avoid UUID match conflict
 
+
+@router.get(
+    "/counts",
+    dependencies=[require_permission("document.read")],
+    summary="Get document status counts",
+)
+async def get_document_counts(
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.services.modules.report_service import get_document_counts as svc_counts
+    return await svc_counts(entity_id=entity_id, db=db)
+
+
 @router.get("/templates", dependencies=[require_permission("document.read")], summary="List templates")
 async def list_templates_early(
     doc_type_id: Optional[str] = None, entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db),
@@ -144,6 +158,24 @@ async def create_doc_type(
 
     parsed = DocTypeCreate(**body)
     return await svc_create(body=parsed, entity_id=entity_id, created_by=current_user.id, db=db)
+
+
+@router.patch(
+    "/types/{type_id}",
+    dependencies=[require_permission("document.admin")],
+    summary="Update a document type",
+)
+async def update_doc_type(
+    type_id: str,
+    body: dict,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.schemas.report_editor import DocTypeUpdate
+    from app.services.modules.report_service import update_doc_type as svc_update
+
+    parsed = DocTypeUpdate(**body)
+    return await svc_update(type_id=type_id, body=parsed, entity_id=entity_id, db=db)
 
 
 @router.get(
@@ -285,7 +317,71 @@ async def diff_revisions(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Workflow transitions
+# Dynamic Workflow (FSM-driven)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@router.get(
+    "/{doc_id}/workflow-state",
+    dependencies=[require_permission("document.read")],
+    summary="Get workflow state, available transitions, and history",
+)
+async def get_workflow_state(
+    doc_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the dynamic workflow state for a document.
+
+    Returns current state, available transitions (with labels,
+    required roles, comment requirements), and transition history.
+    """
+    from app.services.modules.report_service import get_workflow_state as svc_get
+
+    return await svc_get(
+        doc_id=doc_id,
+        entity_id=entity_id,
+        user_id=current_user.id,
+        db=db,
+    )
+
+
+@router.post(
+    "/{doc_id}/transition",
+    dependencies=[require_permission("document.edit")],
+    summary="Execute a workflow transition",
+)
+async def execute_transition(
+    doc_id: UUID,
+    body: dict,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Execute a workflow transition with optional comment.
+
+    Body: {"to_state": "approved", "comment": "Looks good"}
+    Returns the updated workflow state.
+    """
+    from app.services.modules.report_service import execute_transition as svc_transition
+
+    to_state = body.get("to_state")
+    if not to_state:
+        raise HTTPException(400, "to_state is required")
+
+    return await svc_transition(
+        doc_id=doc_id,
+        to_state=to_state,
+        comment=body.get("comment"),
+        actor_id=current_user.id,
+        entity_id=entity_id,
+        db=db,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Workflow transitions (legacy — kept for backward compatibility)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
@@ -376,6 +472,28 @@ async def publish_document(
         distribution_list_ids=[
             UUID(dl_id) for dl_id in (body or {}).get("distribution_list_ids", [])
         ],
+        entity_id=entity_id,
+        actor_id=current_user.id,
+        db=db,
+    )
+
+
+@router.post(
+    "/{doc_id}/obsolete",
+    dependencies=[require_permission("document.publish")],
+    summary="Obsolete a published document",
+)
+async def obsolete_document(
+    doc_id: UUID,
+    body: dict | None = None,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.services.modules.report_service import obsolete_document as svc_obsolete
+    return await svc_obsolete(
+        doc_id=doc_id,
+        superseded_by=UUID((body or {})["superseded_by"]) if (body or {}).get("superseded_by") else None,
         entity_id=entity_id,
         actor_id=current_user.id,
         db=db,

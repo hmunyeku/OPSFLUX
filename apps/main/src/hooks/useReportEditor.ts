@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tansta
 import { reportEditorService } from '@/services/reportEditorService'
 import type {
   DocumentCreate, DocumentUpdate,
-  DocTypeCreate,
+  DocTypeCreate, DocTypeUpdate,
   TemplateCreate, TemplateUpdate,
 } from '@/services/reportEditorService'
 import type { PaginationParams } from '@/types/api'
@@ -23,6 +23,14 @@ export function useDocuments(params: PaginationParams & {
     queryKey: ['report-editor', 'documents', params],
     queryFn: () => reportEditorService.listDocuments(params),
     placeholderData: keepPreviousData,
+  })
+}
+
+export function useDocumentCounts() {
+  return useQuery({
+    queryKey: ['report-editor', 'document-counts'],
+    queryFn: () => reportEditorService.getDocumentCounts(),
+    staleTime: 30_000,
   })
 }
 
@@ -117,7 +125,10 @@ export function useSubmitDocument() {
   return useMutation({
     mutationFn: ({ id, comment }: { id: string; comment?: string }) =>
       reportEditorService.submitDocument(id, comment),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['report-editor', 'documents'] }) },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['report-editor', 'documents'] })
+      qc.invalidateQueries({ queryKey: ['report-editor', 'document-counts'] })
+    },
   })
 }
 
@@ -126,7 +137,10 @@ export function useApproveDocument() {
   return useMutation({
     mutationFn: ({ id, comment }: { id: string; comment?: string }) =>
       reportEditorService.approveDocument(id, comment),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['report-editor', 'documents'] }) },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['report-editor', 'documents'] })
+      qc.invalidateQueries({ queryKey: ['report-editor', 'document-counts'] })
+    },
   })
 }
 
@@ -135,7 +149,10 @@ export function useRejectDocument() {
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       reportEditorService.rejectDocument(id, reason),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['report-editor', 'documents'] }) },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['report-editor', 'documents'] })
+      qc.invalidateQueries({ queryKey: ['report-editor', 'document-counts'] })
+    },
   })
 }
 
@@ -144,7 +161,46 @@ export function usePublishDocument() {
   return useMutation({
     mutationFn: ({ id, distributionListIds }: { id: string; distributionListIds?: string[] }) =>
       reportEditorService.publishDocument(id, distributionListIds),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['report-editor', 'documents'] }) },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['report-editor', 'documents'] })
+      qc.invalidateQueries({ queryKey: ['report-editor', 'document-counts'] })
+    },
+  })
+}
+
+export function useObsoleteDocument() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, supersededBy }: { id: string; supersededBy?: string }) =>
+      reportEditorService.obsoleteDocument(id, supersededBy),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['report-editor', 'documents'] })
+      qc.invalidateQueries({ queryKey: ['report-editor', 'document-counts'] })
+    },
+  })
+}
+
+// ── Dynamic Workflow ──
+
+export function useDocumentWorkflowState(docId: string | null) {
+  return useQuery({
+    queryKey: ['document-workflow-state', docId],
+    queryFn: () => reportEditorService.getWorkflowState(docId!),
+    enabled: !!docId,
+  })
+}
+
+export function useDocumentTransition() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ docId, toState, comment }: { docId: string; toState: string; comment?: string }) =>
+      reportEditorService.executeTransition(docId, { to_state: toState, comment }),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ['document-workflow-state', vars.docId] })
+      qc.invalidateQueries({ queryKey: ['report-editor', 'documents'] })
+      qc.invalidateQueries({ queryKey: ['report-editor', 'documents', vars.docId] })
+      qc.invalidateQueries({ queryKey: ['report-editor', 'document-counts'] })
+    },
   })
 }
 
@@ -162,6 +218,15 @@ export function useCreateDocType() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (payload: DocTypeCreate) => reportEditorService.createDocType(payload),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['report-editor', 'doc-types'] }) },
+  })
+}
+
+export function useUpdateDocType() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: DocTypeUpdate }) =>
+      reportEditorService.updateDocType(id, payload),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['report-editor', 'doc-types'] }) },
   })
 }

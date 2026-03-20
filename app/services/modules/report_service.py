@@ -22,7 +22,7 @@ from app.services.modules.nomenclature_service import (
 logger = logging.getLogger(__name__)
 
 # Workflow constants
-DOCUMENT_WORKFLOW_SLUG = "document-workflow"
+DOCUMENT_WORKFLOW_SLUG = "document-approval"
 DOCUMENT_ENTITY_TYPE = "document"
 
 
@@ -95,6 +95,38 @@ async def list_documents(
         "page_size": page_size,
         "pages": max(1, (total + page_size - 1) // page_size),
     }
+
+
+async def get_document_counts(
+    *,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> dict[str, int]:
+    """Return document counts grouped by status (single GROUP BY query)."""
+    from app.models.report_editor import Document
+
+    result = await db.execute(
+        select(Document.status, func.count(Document.id))
+        .where(Document.entity_id == entity_id)
+        .group_by(Document.status)
+    )
+    rows = result.all()
+
+    counts = {
+        "draft": 0,
+        "in_review": 0,
+        "approved": 0,
+        "published": 0,
+        "obsolete": 0,
+        "archived": 0,
+        "total": 0,
+    }
+    for status, count in rows:
+        if status in counts:
+            counts[status] = count
+        counts["total"] += count
+
+    return counts
 
 
 async def get_document(
@@ -411,6 +443,323 @@ async def get_revision(
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+async def get_workflow_state(
+    *,
+    doc_id: str | UUID,
+    entity_id: UUID,
+    user_id: UUID,
+    db: AsyncSession,
+) -> dict[str, Any]:
+    """Return current workflow state, available transitions, and history for a document."""
+    from app.services.core.fsm_service import fsm_service
+    from app.models.common import (
+        WorkflowInstance,
+        WorkflowDefinition,
+        WorkflowTransition,
+    )
+
+    doc_id_str = str(doc_id)
+    entity_id_str = str(entity_id)
+
+    # 1. Find existing workflow instance
+    instance = await fsm_service.get_instance(
+        db, entity_type=DOCUMENT_ENTITY_TYPE, entity_id=doc_id_str,
+    )
+
+    if not instance:
+        # Try to auto-create from published definition
+        try:
+            # Get the document to know current status
+            doc = await get_document(doc_id, entity_id, db)
+            instance = await fsm_service.get_or_create_instance(
+                db,
+                workflow_slug=DOCUMENT_WORKFLOW_SLUG,
+                entity_type=DOCUMENT_ENTITY_TYPE,
+                entity_id=doc_id_str,
+                initial_state=doc.status or "draft",
+                entity_id_scope=entity_id,
+                created_by=user_id,
+            )
+            await db.commit()
+        except Exception:
+            # No workflow definition exists — return empty state
+            return {
+                "current_state": None,
+                "instance_id": None,
+                "available_transitions": [],
+                "history": [],
+            }
+
+    # 2. Get available transitions from current state
+    transitions_info = await fsm_service.get_allowed_transitions(
+        db,
+        workflow_slug=DOCUMENT_WORKFLOW_SLUG,
+        entity_type=DOCUMENT_ENTITY_TYPE,
+        entity_id=doc_id_str,
+    )
+
+    available = [
+        {
+            "to_state": t.to_state,
+            "label": t.label or t.to_state.replace("_", " ").title(),
+            "required_roles": t.required_roles or [],
+            "comment_required": t.comment_required,
+        }
+        for t in transitions_info
+    ]
+
+    # 3. Get transition history with actor names
+    from sqlalchemy import text
+
+    history_rows = await db.execute(
+        text(
+            "SELECT wt.from_state, wt.to_state, wt.comment, wt.created_at, "
+            "COALESCE(u.full_name, u.email, 'Systeme') AS actor_name "
+            "FROM workflow_transitions wt "
+            "LEFT JOIN users u ON u.id = wt.actor_id "
+            "WHERE wt.instance_id = :iid "
+            "ORDER BY wt.created_at DESC "
+            "LIMIT 50"
+        ),
+        {"iid": instance.id},
+    )
+    history = [
+        {
+            "from_state": row.from_state,
+            "to_state": row.to_state,
+            "comment": row.comment,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+            "actor_name": row.actor_name,
+        }
+        for row in history_rows.all()
+    ]
+
+    return {
+        "current_state": instance.current_state,
+        "instance_id": str(instance.id),
+        "available_transitions": available,
+        "history": history,
+    }
+
+
+async def execute_transition(
+    *,
+    doc_id: str | UUID,
+    to_state: str,
+    comment: str | None = None,
+    actor_id: UUID,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> dict[str, Any]:
+    """Execute a workflow transition with side effects and return updated state."""
+    from app.services.core.fsm_service import fsm_service, FSMError, FSMPermissionError
+    from app.models.report_editor import Revision
+
+    doc = await get_document(doc_id, entity_id, db)
+    doc_id_str = str(doc.id)
+    entity_id_str = str(entity_id)
+    from_state = doc.status
+
+    # Execute the FSM transition
+    try:
+        instance = await fsm_service.transition(
+            db,
+            workflow_slug=DOCUMENT_WORKFLOW_SLUG,
+            entity_type=DOCUMENT_ENTITY_TYPE,
+            entity_id=doc_id_str,
+            to_state=to_state,
+            actor_id=actor_id,
+            entity_id_scope=entity_id,
+            comment=comment,
+        )
+    except FSMPermissionError as e:
+        from fastapi import HTTPException
+        raise HTTPException(403, str(e))
+    except FSMError as e:
+        from fastapi import HTTPException
+        raise HTTPException(400, str(e))
+
+    # Update document status to match workflow
+    doc.status = instance.current_state
+
+    # Side effects based on target state
+    if to_state in ("approved",) or to_state.endswith("_approved"):
+        # Create signature, lock revision
+        await _create_signature(
+            document_id=doc.id,
+            revision_id=doc.current_revision_id,
+            signer_id=actor_id,
+            signer_role="approver",
+            db=db,
+        )
+        if doc.current_revision_id:
+            revision = await db.get(Revision, doc.current_revision_id)
+            if revision:
+                revision.is_locked = True
+
+    elif to_state == "in_review":
+        # Lock revision on submission
+        if doc.current_revision_id:
+            revision = await db.get(Revision, doc.current_revision_id)
+            if revision:
+                revision.is_locked = True
+
+    elif to_state == "draft":
+        # Rejection: unlock revision for editing
+        if doc.current_revision_id:
+            revision = await db.get(Revision, doc.current_revision_id)
+            if revision:
+                revision.is_locked = False
+
+    elif to_state == "published":
+        pass  # Distribution handled by event handler
+
+    await db.commit()
+
+    # Emit event after commit
+    try:
+        await fsm_service.emit_transition_event(
+            entity_type=DOCUMENT_ENTITY_TYPE,
+            entity_id=doc_id_str,
+            from_state=from_state,
+            to_state=to_state,
+            actor_id=actor_id,
+            workflow_slug=DOCUMENT_WORKFLOW_SLUG,
+            extra_payload={
+                "document_id": doc_id_str,
+                "entity_id": entity_id_str,
+                "number": doc.number,
+                "title": doc.title,
+            },
+        )
+    except Exception:
+        logger.exception("Failed to emit transition event")
+
+    # Return updated workflow state
+    return await get_workflow_state(
+        doc_id=doc_id, entity_id=entity_id, user_id=actor_id, db=db,
+    )
+
+
+async def seed_default_document_workflow(
+    *,
+    entity_id: UUID,
+    created_by: UUID | None = None,
+    db: AsyncSession,
+) -> None:
+    """Create the default document-approval workflow definition if it doesn't exist.
+
+    Called on app startup or first document creation. Safe to call multiple times.
+    """
+    from app.models.common import WorkflowDefinition
+    from sqlalchemy import select
+
+    # Check if definition already exists
+    existing = await db.execute(
+        select(WorkflowDefinition).where(
+            WorkflowDefinition.entity_id == entity_id,
+            WorkflowDefinition.slug == DOCUMENT_WORKFLOW_SLUG,
+        )
+    )
+    if existing.scalar_one_or_none():
+        return  # Already seeded
+
+    definition = WorkflowDefinition(
+        entity_id=entity_id,
+        slug=DOCUMENT_WORKFLOW_SLUG,
+        name="Document Approval Workflow",
+        description="Default approval workflow for Report Editor documents: draft -> in_review -> approved -> published -> obsolete -> archived",
+        entity_type=DOCUMENT_ENTITY_TYPE,
+        version=1,
+        status="published",
+        active=True,
+        states={
+            "draft": {"label": "Brouillon", "color": "#6B7280"},
+            "in_review": {"label": "En revue", "color": "#3B82F6"},
+            "approved": {"label": "Approuve", "color": "#10B981"},
+            "published": {"label": "Publie", "color": "#8B5CF6"},
+            "obsolete": {"label": "Obsolete", "color": "#F59E0B"},
+            "archived": {"label": "Archive", "color": "#9CA3AF"},
+        },
+        transitions=[
+            {
+                "from": "draft",
+                "to": "in_review",
+                "label": "Soumettre",
+                "required_roles": ["author"],
+                "comment_required": False,
+            },
+            {
+                "from": "in_review",
+                "to": "approved",
+                "label": "Approuver",
+                "required_roles": ["checker", "approver"],
+                "comment_required": False,
+            },
+            {
+                "from": "in_review",
+                "to": "draft",
+                "label": "Rejeter",
+                "required_roles": ["checker", "approver"],
+                "comment_required": True,
+            },
+            {
+                "from": "approved",
+                "to": "published",
+                "label": "Publier",
+                "required_roles": ["publisher"],
+                "comment_required": False,
+            },
+            {
+                "from": "published",
+                "to": "obsolete",
+                "label": "Rendre obsolete",
+                "required_roles": ["admin"],
+                "comment_required": False,
+            },
+            {
+                "from": "draft",
+                "to": "archived",
+                "label": "Archiver",
+                "required_roles": ["admin"],
+                "comment_required": False,
+            },
+            {
+                "from": "in_review",
+                "to": "archived",
+                "label": "Archiver",
+                "required_roles": ["admin"],
+                "comment_required": False,
+            },
+            {
+                "from": "approved",
+                "to": "archived",
+                "label": "Archiver",
+                "required_roles": ["admin"],
+                "comment_required": False,
+            },
+            {
+                "from": "published",
+                "to": "archived",
+                "label": "Archiver",
+                "required_roles": ["admin"],
+                "comment_required": False,
+            },
+            {
+                "from": "obsolete",
+                "to": "archived",
+                "label": "Archiver",
+                "required_roles": ["admin"],
+                "comment_required": False,
+            },
+        ],
+        created_by=created_by,
+    )
+    db.add(definition)
+    await db.flush()
+    logger.info("Seeded default document-approval workflow for entity %s", entity_id)
+
+
 async def _try_workflow_transition(
     db: AsyncSession,
     *,
@@ -430,8 +779,8 @@ async def _try_workflow_transition(
             entity_type=DOCUMENT_ENTITY_TYPE,
             entity_id=doc_id_str,
             to_state=to_state,
-            actor_id=str(actor_id),
-            entity_id_scope=entity_id_str,
+            actor_id=actor_id,
+            entity_id_scope=UUID(entity_id_str) if entity_id_str else None,
             comment=comment,
         )
         return instance.current_state, instance
@@ -494,6 +843,7 @@ async def submit_document(
                 "number": doc.number,
                 "title": doc.title,
                 "submitted_by": str(actor_id),
+                "created_by": str(doc.created_by),
             },
         ))
     except Exception:
@@ -549,6 +899,7 @@ async def approve_document(
                 "number": doc.number,
                 "title": doc.title,
                 "approved_by": str(actor_id),
+                "created_by": str(doc.created_by),
             },
         ))
     except Exception:
@@ -603,6 +954,7 @@ async def reject_document(
                 "title": doc.title,
                 "rejected_by": str(actor_id),
                 "reason": reason,
+                "created_by": str(doc.created_by),
             },
         ))
     except Exception:
@@ -659,6 +1011,54 @@ async def publish_document(
     except Exception:
         logger.exception("Failed to emit document.published event")
 
+    return doc
+
+
+async def obsolete_document(
+    *,
+    doc_id: str | UUID,
+    superseded_by: UUID | None = None,
+    entity_id: UUID,
+    actor_id: UUID,
+    db: AsyncSession,
+) -> Any:
+    """Obsolete a published document (published -> obsolete)."""
+    doc = await get_document(doc_id, entity_id, db)
+
+    if doc.status != "published":
+        from fastapi import HTTPException
+        raise HTTPException(400, "Only published documents can be obsoleted")
+
+    fsm_state, _ = await _try_workflow_transition(
+        db,
+        entity_id_str=str(entity_id),
+        doc_id_str=str(doc.id),
+        to_state="obsolete",
+        actor_id=actor_id,
+    )
+
+    doc.status = fsm_state or "obsolete"
+    await db.commit()
+
+    # Emit event after commit
+    try:
+        from app.core.events import event_bus, OpsFluxEvent
+        await event_bus.publish(OpsFluxEvent(
+            event_type="document.obsoleted",
+            payload={
+                "document_id": str(doc.id),
+                "entity_id": str(entity_id),
+                "number": doc.number,
+                "title": doc.title,
+                "obsoleted_by": str(actor_id),
+                "created_by": str(doc.created_by),
+                "superseded_by": str(superseded_by) if superseded_by else None,
+            },
+        ))
+    except Exception:
+        logger.exception("Failed to emit document.obsoleted event")
+
+    logger.info("Obsoleted document %s (%s) by user %s", doc.number, doc.id, actor_id)
     return doc
 
 
@@ -781,6 +1181,35 @@ async def create_doc_type(
         created_by=created_by,
     )
     db.add(doc_type)
+    await db.commit()
+    return doc_type
+
+
+async def update_doc_type(
+    *,
+    type_id: str | UUID,
+    body: Any,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> Any:
+    """Update a document type."""
+    from app.models.report_editor import DocType
+
+    result = await db.execute(
+        select(DocType).where(
+            DocType.id == UUID(str(type_id)),
+            DocType.entity_id == entity_id,
+        )
+    )
+    doc_type = result.scalar_one_or_none()
+    if not doc_type:
+        from fastapi import HTTPException
+        raise HTTPException(404, "Doc type not found")
+
+    update_data = body.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(doc_type, key, value)
+
     await db.commit()
     return doc_type
 

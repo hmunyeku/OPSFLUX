@@ -102,6 +102,7 @@ import type { AssetTreeNode } from '@/types/api'
 import { usePermission } from '@/hooks/usePermission'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { AssetPicker } from '@/components/shared/AssetPicker'
+import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import type {
   PaxProfileSummary,
   AdsSummary,
@@ -662,9 +663,11 @@ function ProfilesTab({ openDetail }: { openDetail: (id: string) => void }) {
     {
       accessorKey: 'company_name',
       header: 'Entreprise',
-      cell: ({ row }) => row.original.company_name ? (
-        <span className="flex items-center gap-1 text-muted-foreground text-xs"><Building2 size={11} /> {row.original.company_name}</span>
-      ) : <span className="text-muted-foreground">\u2014</span>,
+      cell: ({ row }) => row.original.company_id
+        ? <CrossModuleLink module="tiers" id={row.original.company_id} label={row.original.company_name || row.original.company_id} showIcon={false} className="text-xs" />
+        : row.original.company_name
+          ? <span className="flex items-center gap-1 text-muted-foreground text-xs"><Building2 size={11} /> {row.original.company_name}</span>
+          : <span className="text-muted-foreground">\u2014</span>,
     },
     {
       accessorKey: 'type',
@@ -1503,14 +1506,13 @@ function CreateAdsPanel() {
         </FormSection>
 
         <FormSection title="Dates">
-          <FormGrid>
-            <DynamicPanelField label="Date debut" required>
-              <input type="date" required value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} className={panelInputClass} />
-            </DynamicPanelField>
-            <DynamicPanelField label="Date fin" required>
-              <input type="date" required value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} className={panelInputClass} />
-            </DynamicPanelField>
-          </FormGrid>
+          <DateRangePicker
+            startDate={form.start_date || null}
+            endDate={form.end_date || null}
+            onStartChange={(v) => setForm({ ...form, start_date: v })}
+            onEndChange={(v) => setForm({ ...form, end_date: v })}
+            required
+          />
         </FormSection>
 
         <p className="text-xs text-muted-foreground italic">
@@ -1735,7 +1737,10 @@ function AdsDetailPanel({ id }: { id: string }) {
               </div>
               {imputations.map((imp: AdsImputation) => (
                 <div key={imp.id} className="grid grid-cols-4 gap-2 px-2 py-1.5 rounded hover:bg-accent/50 text-xs items-center">
-                  <span className="text-foreground truncate">{imp.project_name || imp.project_id}</span>
+                  <span className="truncate">{imp.project_id
+                    ? <CrossModuleLink module="projets" id={imp.project_id} label={imp.project_name || imp.project_id} showIcon={false} className="text-xs" />
+                    : <span className="text-foreground">{imp.project_name || '--'}</span>
+                  }</span>
                   <span className="text-muted-foreground truncate">{imp.cost_center_name || imp.cost_center_id}</span>
                   <span className="text-foreground text-right tabular-nums font-medium">{imp.percentage}%</span>
                   <div className="flex justify-end">
@@ -1897,16 +1902,20 @@ function CreateIncidentPanel() {
 
         {showBanDates && (
           <FormSection title="Periode de ban">
-            <FormGrid>
+            {form.severity === 'temp_ban' ? (
+              <DateRangePicker
+                startDate={form.ban_start_date || null}
+                endDate={form.ban_end_date || null}
+                onStartChange={(v) => setForm({ ...form, ban_start_date: v || null })}
+                onEndChange={(v) => setForm({ ...form, ban_end_date: v || null })}
+                startLabel="Debut du ban"
+                endLabel="Fin du ban"
+              />
+            ) : (
               <DynamicPanelField label="Debut du ban">
                 <input type="date" value={form.ban_start_date || ''} onChange={(e) => setForm({ ...form, ban_start_date: e.target.value || null })} className={panelInputClass} />
               </DynamicPanelField>
-              {form.severity === 'temp_ban' && (
-                <DynamicPanelField label="Fin du ban">
-                  <input type="date" value={form.ban_end_date || ''} onChange={(e) => setForm({ ...form, ban_end_date: e.target.value || null })} className={panelInputClass} />
-                </DynamicPanelField>
-              )}
-            </FormGrid>
+            )}
           </FormSection>
         )}
       </form>
@@ -2192,14 +2201,14 @@ function CreateAvmPanel() {
         </FormSection>
 
         <FormSection title="Dates prevues">
-          <FormGrid>
-            <DynamicPanelField label="Date de depart">
-              <input type="date" value={form.planned_start_date} onChange={(e) => setForm({ ...form, planned_start_date: e.target.value })} className={panelInputClass} />
-            </DynamicPanelField>
-            <DynamicPanelField label="Date de retour">
-              <input type="date" value={form.planned_end_date} onChange={(e) => setForm({ ...form, planned_end_date: e.target.value })} className={panelInputClass} />
-            </DynamicPanelField>
-          </FormGrid>
+          <DateRangePicker
+            startDate={form.planned_start_date || null}
+            endDate={form.planned_end_date || null}
+            onStartChange={(v) => setForm({ ...form, planned_start_date: v })}
+            onEndChange={(v) => setForm({ ...form, planned_end_date: v })}
+            startLabel="Depart"
+            endLabel="Retour"
+          />
         </FormSection>
 
         <FormSection title="Indicateurs de preparation">

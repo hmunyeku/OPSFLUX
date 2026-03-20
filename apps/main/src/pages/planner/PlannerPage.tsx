@@ -36,6 +36,7 @@ import { NoteManager } from '@/components/shared/NoteManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { AssetPicker } from '@/components/shared/AssetPicker'
+import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { useToast } from '@/components/ui/Toast'
 import {
   useActivities,
@@ -556,7 +557,10 @@ function ActivitiesTab() {
       cell: ({ row }) => (
         <div className="min-w-0">
           <span className="font-medium text-foreground block truncate max-w-[220px]">{row.original.title}</span>
-          {row.original.asset_name && (
+          {row.original.asset_name && row.original.asset_id && (
+            <CrossModuleLink module="assets" id={row.original.asset_id} label={row.original.asset_name} showIcon={false} className="text-[10px] block truncate" />
+          )}
+          {row.original.asset_name && !row.original.asset_id && (
             <span className="text-[10px] text-muted-foreground block truncate">{row.original.asset_name}</span>
           )}
         </div>
@@ -810,9 +814,9 @@ function ConflitsTab() {
     {
       accessorKey: 'asset_name',
       header: 'Site',
-      cell: ({ row }) => (
-        <span className="font-medium text-foreground">{row.original.asset_name || '\u2014'}</span>
-      ),
+      cell: ({ row }) => row.original.asset_id
+        ? <CrossModuleLink module="assets" id={row.original.asset_id} label={row.original.asset_name || row.original.asset_id} showIcon={false} className="font-medium" />
+        : <span className="font-medium text-foreground">{row.original.asset_name || '\u2014'}</span>,
     },
     {
       accessorKey: 'conflict_date',
@@ -1045,24 +1049,14 @@ function CapacityTab() {
             label="Site"
           />
         </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Du</label>
-          <input
-            type="date"
-            value={dateRange_.from}
-            onChange={(e) => setDateRange_((prev) => ({ ...prev, from: e.target.value }))}
-            className="h-7 px-2 text-xs border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Au</label>
-          <input
-            type="date"
-            value={dateRange_.to}
-            onChange={(e) => setDateRange_((prev) => ({ ...prev, to: e.target.value }))}
-            className="h-7 px-2 text-xs border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-        </div>
+        <DateRangePicker
+          startDate={dateRange_.from || null}
+          endDate={dateRange_.to || null}
+          onStartChange={(v) => setDateRange_((prev) => ({ ...prev, from: v }))}
+          onEndChange={(v) => setDateRange_((prev) => ({ ...prev, to: v }))}
+          startLabel="Du"
+          endLabel="Au"
+        />
         {assetId && (
           <div className="flex flex-col gap-1 ml-auto">
             <label className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">&nbsp;</label>
@@ -1660,24 +1654,12 @@ function ActivityDetailPanel({ id }: { id: string }) {
             </FormSection>
 
             <FormSection title="Planning">
-              <FormGrid>
-                <DynamicPanelField label="Date debut">
-                  <input
-                    type="date"
-                    value={editForm.start_date as string}
-                    onChange={(e) => setEditForm({ ...editForm, start_date: e.target.value || null })}
-                    className={panelInputClass}
-                  />
-                </DynamicPanelField>
-                <DynamicPanelField label="Date fin">
-                  <input
-                    type="date"
-                    value={editForm.end_date as string}
-                    onChange={(e) => setEditForm({ ...editForm, end_date: e.target.value || null })}
-                    className={panelInputClass}
-                  />
-                </DynamicPanelField>
-              </FormGrid>
+              <DateRangePicker
+                startDate={(editForm.start_date as string) || null}
+                endDate={(editForm.end_date as string) || null}
+                onStartChange={(v) => setEditForm({ ...editForm, start_date: v || null })}
+                onEndChange={(v) => setEditForm({ ...editForm, end_date: v || null })}
+              />
             </FormSection>
 
             <FormSection title="Description">
@@ -2312,24 +2294,12 @@ function CreateActivityPanel() {
           </FormSection>
 
           <FormSection title="Planning">
-            <FormGrid>
-              <DynamicPanelField label="Date debut">
-                <input
-                  type="date"
-                  value={form.start_date ?? ''}
-                  onChange={(e) => setForm({ ...form, start_date: e.target.value || null })}
-                  className={panelInputClass}
-                />
-              </DynamicPanelField>
-              <DynamicPanelField label="Date fin">
-                <input
-                  type="date"
-                  value={form.end_date ?? ''}
-                  onChange={(e) => setForm({ ...form, end_date: e.target.value || null })}
-                  className={panelInputClass}
-                />
-              </DynamicPanelField>
-            </FormGrid>
+            <DateRangePicker
+              startDate={form.start_date ?? null}
+              endDate={form.end_date ?? null}
+              onStartChange={(v) => setForm({ ...form, start_date: v || null })}
+              onEndChange={(v) => setForm({ ...form, end_date: v || null })}
+            />
           </FormSection>
 
           <FormSection title="Description">

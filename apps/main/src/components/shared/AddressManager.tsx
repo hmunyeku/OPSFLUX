@@ -25,7 +25,18 @@ import {
   panelInputClass,
 } from '@/components/layout/DynamicPanel'
 import { MapPickerModal, forwardGeocode } from '@/components/shared/MapPicker'
+import { CountrySelect, COUNTRIES } from '@/components/shared/CountrySelect'
 import type { Address, AddressCreate } from '@/types/api'
+
+function countryNameToCode(name: string): string {
+  const c = COUNTRIES.find((c) => c.name.toLowerCase() === name.toLowerCase())
+  return c?.code ?? ''
+}
+
+function countryCodeToName(code: string): string {
+  const c = COUNTRIES.find((c) => c.code === code)
+  return c?.name ?? code
+}
 
 const labelConfig: Record<string, { text: string; className: string }> = {
   domicile: { text: 'Domicile', className: 'gl-badge-success' },
@@ -84,7 +95,10 @@ function AddressForm({ ownerType, ownerId, initial, onClose }: AddressFormProps)
   const [city, setCity] = useState(initial?.city ?? '')
   const [stateProvince, setStateProvince] = useState(initial?.state_province ?? '')
   const [postalCode, setPostalCode] = useState(initial?.postal_code ?? '')
-  const [country, setCountry] = useState(initial?.country ?? 'Cameroun')
+  const [country, setCountry] = useState(() => {
+    if (initial?.country) return countryNameToCode(initial.country) || 'CM'
+    return 'CM'
+  })
   const [latitude, setLatitude] = useState(initial?.latitude != null ? String(initial.latitude) : '')
   const [longitude, setLongitude] = useState(initial?.longitude != null ? String(initial.longitude) : '')
   const [isDefault, setIsDefault] = useState(initial?.is_default ?? false)
@@ -94,7 +108,7 @@ function AddressForm({ ownerType, ownerId, initial, onClose }: AddressFormProps)
   const [showMapPicker, setShowMapPicker] = useState(false)
 
   const isPending = createAddress.isPending || updateAddress.isPending
-  const canSubmit = addressLine1.trim().length > 0 && city.trim().length > 0 && country.trim().length > 0 && !isPending
+  const canSubmit = addressLine1.trim().length > 0 && city.trim().length > 0 && country.length > 0 && !isPending
 
   // Browser geolocation (GPS device position)
   const handleGeolocate = useCallback(() => {
@@ -120,7 +134,7 @@ function AddressForm({ ownerType, ownerId, initial, onClose }: AddressFormProps)
 
   // Forward geocoding: address text → GPS coordinates
   const handleGeocode = useCallback(async () => {
-    const query = [addressLine1, city, stateProvince, postalCode, country].filter(Boolean).join(', ')
+    const query = [addressLine1, city, stateProvince, postalCode, countryCodeToName(country)].filter(Boolean).join(', ')
     if (!query.trim()) {
       toast({ title: 'Adresse vide', description: 'Remplissez l\'adresse pour géocoder.', variant: 'warning' })
       return
@@ -158,7 +172,7 @@ function AddressForm({ ownerType, ownerId, initial, onClose }: AddressFormProps)
       city: city.trim(),
       state_province: stateProvince.trim() || null,
       postal_code: postalCode.trim() || null,
-      country: country.trim(),
+      country: countryCodeToName(country),
       latitude: latitude.trim() ? parseFloat(latitude) : null,
       longitude: longitude.trim() ? parseFloat(longitude) : null,
       is_default: isDefault,
@@ -203,7 +217,7 @@ function AddressForm({ ownerType, ownerId, initial, onClose }: AddressFormProps)
           </DynamicPanelField>
 
           <DynamicPanelField label="Pays" required>
-            <input type="text" required className={panelInputClass} placeholder="Cameroun" value={country} onChange={(e) => setCountry(e.target.value)} />
+            <CountrySelect value={country} onChange={setCountry} />
           </DynamicPanelField>
         </div>
 

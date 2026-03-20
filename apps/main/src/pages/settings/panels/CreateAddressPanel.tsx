@@ -19,7 +19,18 @@ import {
   TagSelector,
   panelInputClass,
 } from '@/components/layout/DynamicPanel'
+import { CountrySelect, COUNTRIES } from '@/components/shared/CountrySelect'
 import type { AddressCreate } from '@/types/api'
+
+function countryNameToCode(name: string): string {
+  const c = COUNTRIES.find((c) => c.name.toLowerCase() === name.toLowerCase())
+  return c?.code ?? ''
+}
+
+function countryCodeToName(code: string): string {
+  const c = COUNTRIES.find((c) => c.code === code)
+  return c?.name ?? code
+}
 
 const LABEL_OPTIONS = [
   { value: 'domicile', label: 'Domicile' },
@@ -53,7 +64,7 @@ export function CreateAddressPanel() {
   const [city, setCity] = useState('')
   const [stateProvince, setStateProvince] = useState('')
   const [postalCode, setPostalCode] = useState('')
-  const [country, setCountry] = useState('Cameroun')
+  const [country, setCountry] = useState('CM')
   const [latitude, setLatitude] = useState('')
   const [longitude, setLongitude] = useState('')
   const [isDefault, setIsDefault] = useState(false)
@@ -68,7 +79,7 @@ export function CreateAddressPanel() {
       setCity(editingAddress.city)
       setStateProvince(editingAddress.state_province ?? '')
       setPostalCode(editingAddress.postal_code ?? '')
-      setCountry(editingAddress.country)
+      setCountry(countryNameToCode(editingAddress.country) || 'CM')
       setLatitude(editingAddress.latitude != null ? String(editingAddress.latitude) : '')
       setLongitude(editingAddress.longitude != null ? String(editingAddress.longitude) : '')
       setIsDefault(editingAddress.is_default)
@@ -76,7 +87,7 @@ export function CreateAddressPanel() {
   }, [editingAddress])
 
   const isPending = createAddress.isPending || updateAddress.isPending
-  const canSubmit = addressLine1.trim().length > 0 && city.trim().length > 0 && country.trim().length > 0 && !isPending
+  const canSubmit = addressLine1.trim().length > 0 && city.trim().length > 0 && country.length > 0 && !isPending
 
   const handleGeolocate = useCallback(() => {
     if (!navigator.geolocation) {
@@ -109,7 +120,7 @@ export function CreateAddressPanel() {
       city: city.trim(),
       state_province: stateProvince.trim() || null,
       postal_code: postalCode.trim() || null,
-      country: country.trim(),
+      country: countryCodeToName(country),
       latitude: latitude.trim() ? parseFloat(latitude) : null,
       longitude: longitude.trim() ? parseFloat(longitude) : null,
       is_default: isDefault,
@@ -170,7 +181,7 @@ export function CreateAddressPanel() {
           </DynamicPanelField>
 
           <DynamicPanelField label="Pays" required>
-            <input type="text" className={panelInputClass} placeholder="Cameroun" value={country} onChange={(e) => setCountry(e.target.value)} />
+            <CountrySelect value={country} onChange={setCountry} />
           </DynamicPanelField>
         </FormSection>
 

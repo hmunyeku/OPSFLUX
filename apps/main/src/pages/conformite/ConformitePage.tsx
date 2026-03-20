@@ -30,6 +30,8 @@ import {
   PanelContentLayout,
   DetailFieldGrid,
 } from '@/components/layout/DynamicPanel'
+import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
+import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { useUIStore } from '@/stores/uiStore'
 import { usePermission } from '@/hooks/usePermission'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
@@ -335,26 +337,13 @@ function CreateExemptionPanel() {
           </FormSection>
 
           <FormSection title="Periode">
-            <FormGrid>
-              <DynamicPanelField label="Date de debut" required>
-                <input
-                  type="date"
-                  required
-                  value={form.start_date}
-                  onChange={(e) => setForm({ ...form, start_date: e.target.value })}
-                  className={panelInputClass}
-                />
-              </DynamicPanelField>
-              <DynamicPanelField label="Date de fin" required>
-                <input
-                  type="date"
-                  required
-                  value={form.end_date}
-                  onChange={(e) => setForm({ ...form, end_date: e.target.value })}
-                  className={panelInputClass}
-                />
-              </DynamicPanelField>
-            </FormGrid>
+            <DateRangePicker
+              startDate={form.start_date || null}
+              endDate={form.end_date || null}
+              onStartChange={(v) => setForm({ ...form, start_date: v })}
+              onEndChange={(v) => setForm({ ...form, end_date: v })}
+              required
+            />
           </FormSection>
 
           <FormSection title="Conditions">
@@ -832,8 +821,14 @@ export function ConformitePage() {
   // Transfer columns
   const transferColumns = useMemo<ColumnDef<TierContactTransfer, unknown>[]>(() => [
     { accessorKey: 'contact_name', header: 'Employe', cell: ({ row }) => <span className="text-foreground font-medium">{row.original.contact_name || '--'}</span> },
-    { accessorKey: 'from_tier_name', header: 'De', size: 180, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.from_tier_name || '--'}</span> },
-    { accessorKey: 'to_tier_name', header: 'Vers', size: 180, cell: ({ row }) => <span className="text-foreground text-xs">{row.original.to_tier_name || '--'}</span> },
+    { accessorKey: 'from_tier_name', header: 'De', size: 180, cell: ({ row }) => row.original.from_tier_id
+        ? <CrossModuleLink module="tiers" id={row.original.from_tier_id} label={row.original.from_tier_name || row.original.from_tier_id} showIcon={false} className="text-xs" />
+        : <span className="text-muted-foreground text-xs">{row.original.from_tier_name || '--'}</span>,
+    },
+    { accessorKey: 'to_tier_name', header: 'Vers', size: 180, cell: ({ row }) => row.original.to_tier_id
+        ? <CrossModuleLink module="tiers" id={row.original.to_tier_id} label={row.original.to_tier_name || row.original.to_tier_id} showIcon={false} className="text-xs" />
+        : <span className="text-foreground text-xs">{row.original.to_tier_name || '--'}</span>,
+    },
     { accessorKey: 'transfer_date', header: 'Date', size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{new Date(row.original.transfer_date).toLocaleDateString('fr-FR')}</span> },
     { accessorKey: 'reason', header: 'Motif', cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.reason || '--'}</span> },
   ], [])

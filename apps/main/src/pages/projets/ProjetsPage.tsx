@@ -46,6 +46,7 @@ import { useToast } from '@/components/ui/Toast'
 import { usePermission } from '@/hooks/usePermission'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { AssetPicker } from '@/components/shared/AssetPicker'
+import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { useAsset } from '@/hooks/useAssets'
 import {
   useProjects, useProject, useCreateProject, useUpdateProject, useArchiveProject,
@@ -192,17 +193,15 @@ function CreateProjectPanel() {
               </FormSection>
 
               <FormSection title="Planning">
-                <FormGrid>
-                  <DynamicPanelField label="Date de debut">
-                    <input type="date" value={form.start_date?.split('T')[0] ?? ''} onChange={(e) => setForm({ ...form, start_date: e.target.value || null })} className={panelInputClass} />
-                  </DynamicPanelField>
-                  <DynamicPanelField label="Date de fin">
-                    <input type="date" value={form.end_date?.split('T')[0] ?? ''} onChange={(e) => setForm({ ...form, end_date: e.target.value || null })} className={panelInputClass} />
-                  </DynamicPanelField>
-                  <DynamicPanelField label="Budget">
-                    <input type="number" step="any" value={form.budget ?? ''} onChange={(e) => setForm({ ...form, budget: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} placeholder="0" />
-                  </DynamicPanelField>
-                </FormGrid>
+                <DateRangePicker
+                  startDate={form.start_date?.split('T')[0] ?? null}
+                  endDate={form.end_date?.split('T')[0] ?? null}
+                  onStartChange={(v) => setForm({ ...form, start_date: v || null })}
+                  onEndChange={(v) => setForm({ ...form, end_date: v || null })}
+                />
+                <DynamicPanelField label="Budget">
+                  <input type="number" step="any" value={form.budget ?? ''} onChange={(e) => setForm({ ...form, budget: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} placeholder="0" />
+                </DynamicPanelField>
               </FormSection>
             </div>
 
@@ -324,16 +323,17 @@ function TaskCreateForm({ projectId, onClose }: { projectId: string; onClose: ()
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
-        <div>
-          <label className="text-[10px] text-muted-foreground mb-0.5 block">Date debut</label>
-          <input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} className={`${panelInputClass} w-full text-xs`} />
-        </div>
-        <div>
-          <label className="text-[10px] text-muted-foreground mb-0.5 block">Date fin</label>
-          <input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} className={`${panelInputClass} w-full text-xs`} />
-        </div>
-        <div>
+      <div className="flex gap-2 items-end">
+        <DateRangePicker
+          startDate={form.start_date || null}
+          endDate={form.due_date || null}
+          onStartChange={(v) => setForm({ ...form, start_date: v })}
+          onEndChange={(v) => setForm({ ...form, due_date: v })}
+          startLabel="Debut"
+          endLabel="Fin"
+          className="flex-1"
+        />
+        <div className="w-20 shrink-0">
           <label className="text-[10px] text-muted-foreground mb-0.5 block">Heures est.</label>
           <input type="number" step="0.5" min="0" value={form.estimated_hours} onChange={(e) => setForm({ ...form, estimated_hours: e.target.value })} className={`${panelInputClass} w-full text-xs`} placeholder="0" />
         </div>
@@ -424,26 +424,14 @@ function TaskRow({ task, projectId }: { task: ProjectTask; projectId: string }) 
           </div>
 
           {/* Dates */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-[10px] text-muted-foreground block mb-0.5">Date debut</label>
-              <input
-                type="date"
-                defaultValue={task.start_date?.split('T')[0] ?? ''}
-                onBlur={(e) => handleFieldSave('start_date', e.target.value || null)}
-                className={`${panelInputClass} w-full text-xs`}
-              />
-            </div>
-            <div>
-              <label className="text-[10px] text-muted-foreground block mb-0.5">Date fin</label>
-              <input
-                type="date"
-                defaultValue={task.due_date?.split('T')[0] ?? ''}
-                onBlur={(e) => handleFieldSave('due_date', e.target.value || null)}
-                className={`${panelInputClass} w-full text-xs`}
-              />
-            </div>
-          </div>
+          <DateRangePicker
+            startDate={task.start_date?.split('T')[0] ?? null}
+            endDate={task.due_date?.split('T')[0] ?? null}
+            onStartChange={(v) => handleFieldSave('start_date', v || null)}
+            onEndChange={(v) => handleFieldSave('due_date', v || null)}
+            startLabel="Debut"
+            endLabel="Fin"
+          />
 
           {/* Progress + Hours */}
           <div className="grid grid-cols-3 gap-2">
@@ -1489,9 +1477,14 @@ function ProjectsListView() {
     { accessorKey: 'task_count', header: 'Taches', size: 70, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.task_count ?? 0}</span> },
     {
       accessorKey: 'parent_name', header: 'Macro-projet', size: 130,
-      cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.parent_name || '--'}</span>,
+      cell: ({ row }) => row.original.parent_id
+        ? <CrossModuleLink module="projets" id={row.original.parent_id} label={row.original.parent_name || row.original.parent_id} showIcon={false} className="text-xs" />
+        : <span className="text-muted-foreground/40">--</span>,
     },
-    { accessorKey: 'tier_name', header: 'Entreprise', size: 130, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.tier_name || '--'}</span> },
+    { accessorKey: 'tier_name', header: 'Entreprise', size: 130, cell: ({ row }) => row.original.tier_id
+        ? <CrossModuleLink module="tiers" id={row.original.tier_id} label={row.original.tier_name || row.original.tier_id} showIcon={false} className="text-xs" />
+        : <span className="text-muted-foreground/40">--</span>,
+    },
     {
       accessorKey: 'end_date', header: 'Echeance', size: 100,
       cell: ({ row }) => row.original.end_date

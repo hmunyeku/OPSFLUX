@@ -447,9 +447,12 @@ export function AddressManager({ ownerType, ownerId, compact, initialShowForm }:
                   <p className="text-sm font-medium text-foreground truncate">{formatAddress(addr)}</p>
                   <p className="text-xs text-muted-foreground mt-0.5 truncate">{formatCityLine(addr)}</p>
                   {(addr.latitude != null && addr.longitude != null) && (
-                    <p className="text-xs text-muted-foreground/70 mt-1.5 font-mono">
-                      {addr.latitude.toFixed(6)}, {addr.longitude.toFixed(6)}
-                    </p>
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                      <LocateFixed size={11} className="text-primary/60 shrink-0" />
+                      <span className="text-xs text-muted-foreground font-mono tabular-nums">
+                        {addr.latitude.toFixed(6)}, {addr.longitude.toFixed(6)}
+                      </span>
+                    </div>
                   )}
                 </div>
 

@@ -36,6 +36,8 @@ import { AddressManager } from '@/components/shared/AddressManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { NoteManager } from '@/components/shared/NoteManager'
 import { AssetPicker } from '@/components/shared/AssetPicker'
+import { GeoEditor } from '@/components/shared/GeoEditor'
+import type { GeoType, GeoValue } from '@/components/shared/GeoEditor'
 import { useUIStore } from '@/stores/uiStore'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
 import { useAssets, useAsset, useAssetTree, useCreateAsset, useUpdateAsset, useArchiveAsset } from '@/hooks/useAssets'
@@ -85,6 +87,13 @@ const ASSET_TYPE_OPTIONS = [
   { value: 'tank', label: 'Bac / Réservoir' },
 ]
 
+// ── Geo-type mapping per asset type ─────────────────────────
+function getGeoTypeForAssetType(assetType: string): GeoType {
+  if (['pipeline', 'cable', 'road', 'flowline'].includes(assetType)) return 'linestring'
+  if (['zone', 'area', 'field', 'concession', 'block'].includes(assetType)) return 'polygon'
+  return 'point' // default for site, platform, building, equipment, well, etc.
+}
+
 // ── Detail tabs definition ──────────────────────────────────
 const DETAIL_TABS = [
   { id: 'addresses', label: 'Adresses', icon: MapPin },
@@ -101,6 +110,7 @@ function CreateAssetPanel() {
   const [form, setForm] = useState<AssetCreate>({
     type: 'site', name: '',
     parent_id: undefined, allow_overlap: true, metadata: undefined,
+    geometry: null,
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -169,6 +179,18 @@ function CreateAssetPanel() {
           </label>
         </FormSection>
 
+        {/* ── Localisation (GeoEditor) ── */}
+        <FormSection title="Localisation" collapsible defaultExpanded={false} storageKey="panel.asset.sections" id="asset-geo">
+          <GeoEditor
+            value={form.geometry || null}
+            onChange={(geo) => setForm({ ...form, geometry: geo })}
+            geoType={getGeoTypeForAssetType(form.type)}
+            height={300}
+            showCoordinateTable
+            showSearch
+          />
+        </FormSection>
+
         <p className="text-xs text-muted-foreground italic">
           Les adresses, fichiers et notes pourront être ajoutés après la création.
         </p>
@@ -187,6 +209,10 @@ function AssetDetailPanel({ id }: { id: string }) {
   const updateAsset = useUpdateAsset()
   const handleInlineSave = useCallback((field: string, value: string | number | boolean | null) => {
     updateAsset.mutate({ id, payload: { [field]: value } })
+  }, [id, updateAsset])
+
+  const handleGeoChange = useCallback((geo: GeoValue | null) => {
+    updateAsset.mutate({ id, payload: { geometry: geo } })
   }, [id, updateAsset])
 
   // Find parent asset name
@@ -269,6 +295,18 @@ function AssetDetailPanel({ id }: { id: string }) {
             }
           />
           <ReadOnlyRow label={t('common.created_at')} value={new Date(asset.created_at).toLocaleDateString()} />
+        </FormSection>
+
+        {/* ── Localisation (GeoEditor) ── */}
+        <FormSection title="Localisation" collapsible defaultExpanded={!!asset.geometry} storageKey="panel.asset.sections" id="asset-detail-geo">
+          <GeoEditor
+            value={(asset.geometry as GeoValue | null) || null}
+            onChange={handleGeoChange}
+            geoType={getGeoTypeForAssetType(asset.type)}
+            height={300}
+            showCoordinateTable
+            showSearch
+          />
         </FormSection>
 
         {/* ── Tags (inline, always visible) ── */}

@@ -10,8 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.database import get_db
 from app.core.pagination import PaginationParams, paginate
+from app.core.rbac import invalidate_rbac_cache
 from app.core.security import hash_password
 from app.models.common import (
+    Entity,
     Permission,
     Role,
     RolePermission,
@@ -19,7 +21,7 @@ from app.models.common import (
     UserGroup,
     UserGroupMember,
 )
-from app.schemas.common import PaginatedResponse, UserCreate, UserRead, UserUpdate
+from app.schemas.common import OpsFluxSchema, PaginatedResponse, UserCreate, UserRead, UserUpdate
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
 
@@ -190,3 +192,183 @@ async def update_user(
     await db.commit()
     await db.refresh(user)
     return user
+
+
+# ── User entities with groups/roles ─────────────────────────────────────────
+
+
+class UserEntityGroupRead(OpsFluxSchema):
+    group_id: UUID
+    group_name: str
+    role_code: str
+    role_name: str | None = None
+
+
+class UserEntityRead(OpsFluxSchema):
+    entity_id: UUID
+    entity_code: str
+    entity_name: str
+    groups: list[UserEntityGroupRead] = []
+
+
+class UserEntityAssign(BaseModel):
+    entity_id: UUID
+
+
+@router.get(
+    "/{user_id}/entities",
+    response_model=list[UserEntityRead],
+    dependencies=[require_permission("user.read")],
+)
+async def get_user_entities(
+    user_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Get all entities a user belongs to, with their groups and roles per entity."""
+    # Verify user exists
+    user_result = await db.execute(select(User).where(User.id == user_id))
+    if not user_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Get all groups+entities+roles for this user in one query
+    stmt = (
+        select(
+            Entity.id.label("entity_id"),
+            Entity.code.label("entity_code"),
+            Entity.name.label("entity_name"),
+            UserGroup.id.label("group_id"),
+            UserGroup.name.label("group_name"),
+            UserGroup.role_code,
+            Role.name.label("role_name"),
+        )
+        .select_from(UserGroupMember)
+        .join(UserGroup, UserGroup.id == UserGroupMember.group_id)
+        .join(Entity, Entity.id == UserGroup.entity_id)
+        .outerjoin(Role, Role.code == UserGroup.role_code)
+        .where(
+            UserGroupMember.user_id == user_id,
+            UserGroup.active == True,  # noqa: E712
+        )
+        .order_by(Entity.name, UserGroup.name)
+    )
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    # Group by entity
+    entities_map: dict[UUID, UserEntityRead] = {}
+    for row in rows:
+        eid = row.entity_id
+        if eid not in entities_map:
+            entities_map[eid] = UserEntityRead(
+                entity_id=eid,
+                entity_code=row.entity_code,
+                entity_name=row.entity_name,
+                groups=[],
+            )
+        entities_map[eid].groups.append(
+            UserEntityGroupRead(
+                group_id=row.group_id,
+                group_name=row.group_name,
+                role_code=row.role_code,
+                role_name=row.role_name,
+            )
+        )
+
+    return list(entities_map.values())
+
+
+@router.post(
+    "/{user_id}/entities",
+    dependencies=[require_permission("user.update")],
+    status_code=201,
+)
+async def assign_user_to_entity(
+    user_id: UUID,
+    body: UserEntityAssign,
+    db: AsyncSession = Depends(get_db),
+):
+    """Add a user to an entity by creating a membership in the default group."""
+    # Verify user exists
+    user_result = await db.execute(select(User).where(User.id == user_id))
+    if not user_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Verify entity exists
+    entity_result = await db.execute(select(Entity).where(Entity.id == body.entity_id))
+    if not entity_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Entity not found")
+
+    # Check if user already belongs to any group in this entity
+    existing = await db.execute(
+        select(UserGroupMember)
+        .join(UserGroup, UserGroup.id == UserGroupMember.group_id)
+        .where(
+            UserGroupMember.user_id == user_id,
+            UserGroup.entity_id == body.entity_id,
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="User already belongs to this entity")
+
+    # Find or create a default group for this entity
+    default_group_result = await db.execute(
+        select(UserGroup).where(
+            UserGroup.entity_id == body.entity_id,
+            UserGroup.name == "Default",
+            UserGroup.active == True,  # noqa: E712
+        )
+    )
+    default_group = default_group_result.scalar_one_or_none()
+
+    if not default_group:
+        default_group = UserGroup(
+            entity_id=body.entity_id,
+            name="Default",
+            role_code="viewer",
+            active=True,
+        )
+        db.add(default_group)
+        await db.flush()
+
+    # Add user to the default group
+    membership = UserGroupMember(user_id=user_id, group_id=default_group.id)
+    db.add(membership)
+    await db.commit()
+
+    await invalidate_rbac_cache(user_id)
+
+    return {"detail": "User added to entity", "user_id": str(user_id), "entity_id": str(body.entity_id)}
+
+
+@router.delete(
+    "/{user_id}/entities/{entity_id}",
+    dependencies=[require_permission("user.update")],
+    status_code=204,
+)
+async def remove_user_from_entity(
+    user_id: UUID,
+    entity_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Remove a user from all groups in an entity."""
+    # Find all memberships for this user in groups belonging to this entity
+    memberships_stmt = (
+        select(UserGroupMember)
+        .join(UserGroup, UserGroup.id == UserGroupMember.group_id)
+        .where(
+            UserGroupMember.user_id == user_id,
+            UserGroup.entity_id == entity_id,
+        )
+    )
+    memberships_result = await db.execute(memberships_stmt)
+    memberships = memberships_result.scalars().all()
+
+    if not memberships:
+        raise HTTPException(status_code=404, detail="User not found in this entity")
+
+    for membership in memberships:
+        await db.delete(membership)
+
+    await db.commit()
+
+    await invalidate_rbac_cache(user_id)

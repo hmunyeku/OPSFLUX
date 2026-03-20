@@ -27,6 +27,10 @@ export interface Asset {
   path: string | null
   latitude: number | null
   longitude: number | null
+  geometry?: {
+    type: 'point' | 'linestring' | 'polygon' | 'multipoint'
+    coordinates: number[][]
+  } | null
   allow_overlap: boolean
   active: boolean
   created_at: string
@@ -39,6 +43,10 @@ export interface AssetCreate {
   name: string
   latitude?: number | null
   longitude?: number | null
+  geometry?: {
+    type: 'point' | 'linestring' | 'polygon' | 'multipoint'
+    coordinates: number[][]
+  } | null
   allow_overlap?: boolean
   metadata?: Record<string, unknown> | null
 }
@@ -179,6 +187,21 @@ export interface UserCreate {
   password?: string | null
   default_entity_id?: string | null
   language?: string
+}
+
+// ── User Entities ─────────────────────────────────────────
+export interface UserEntityGroup {
+  group_id: string
+  group_name: string
+  role_code: string
+  role_name: string | null
+}
+
+export interface UserEntity {
+  entity_id: string
+  entity_code: string
+  entity_name: string
+  groups: UserEntityGroup[]
 }
 
 // ── Dashboard Stats ─────────────────────────────────────────

@@ -50,3 +50,33 @@ export function useRevokeAllSessions() {
     },
   })
 }
+
+export function useUserEntities(userId: string) {
+  return useQuery({
+    queryKey: ['users', userId, 'entities'],
+    queryFn: () => usersService.getUserEntities(userId),
+    enabled: !!userId,
+  })
+}
+
+export function useAssignUserToEntity() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ userId, entityId }: { userId: string; entityId: string }) =>
+      usersService.assignUserToEntity(userId, entityId),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ['users', variables.userId, 'entities'] })
+    },
+  })
+}
+
+export function useRemoveUserFromEntity() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ userId, entityId }: { userId: string; entityId: string }) =>
+      usersService.removeUserFromEntity(userId, entityId),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ['users', variables.userId, 'entities'] })
+    },
+  })
+}

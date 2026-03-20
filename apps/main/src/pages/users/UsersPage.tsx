@@ -15,6 +15,7 @@ import {
   Users, Plus, Loader2,
   UserCheck, UserX, Calendar, Clock,
   CheckSquare, Square, Shield, KeyRound, LogOut,
+  Building2, Trash2, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PanelHeader, ToolbarButton } from '@/components/layout/PanelHeader'
@@ -33,7 +34,9 @@ import {
 } from '@/components/layout/DynamicPanel'
 import { useUIStore } from '@/stores/uiStore'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
-import { useUsers, useUser, useCreateUser, useUpdateUser, useRevokeAllSessions } from '@/hooks/useUsers'
+import { useUsers, useUser, useCreateUser, useUpdateUser, useRevokeAllSessions, useUserEntities, useAssignUserToEntity, useRemoveUserFromEntity } from '@/hooks/useUsers'
+import { useAllEntities } from '@/hooks/useEntities'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { RolesTab, GroupsTab, PermissionsTab, GroupDetailPanel, CreateGroupForm } from '@/pages/settings/tabs/RbacAdminTab'
 import { useUserRoles, useUserGroups } from '@/hooks/useSettings'
 import type { UserRead, UserCreate } from '@/types/api'
@@ -247,6 +250,176 @@ function CreateUserPanel() {
   )
 }
 
+// ── User Entities Tab ───────────────────────────────────────
+type UserDetailTab = 'infos' | 'entities'
+
+function UserEntitiesTab({ userId }: { userId: string }) {
+  const { data: entities, isLoading } = useUserEntities(userId)
+  const assignToEntity = useAssignUserToEntity()
+  const removeFromEntity = useRemoveUserFromEntity()
+  const confirm = useConfirm()
+  const [showPicker, setShowPicker] = useState(false)
+  const [pickerSearch, setPickerSearch] = useState('')
+  const { data: allEntitiesData } = useAllEntities({ page: 1, page_size: 200 })
+
+  // Filter out entities the user already belongs to
+  const availableEntities = useMemo(() => {
+    if (!allEntitiesData?.items || !entities) return []
+    const assignedIds = new Set(entities.map((e) => e.entity_id))
+    return allEntitiesData.items.filter(
+      (e) => !assignedIds.has(e.id) && e.active,
+    )
+  }, [allEntitiesData, entities])
+
+  const filteredAvailable = useMemo(() => {
+    if (!pickerSearch) return availableEntities
+    const q = pickerSearch.toLowerCase()
+    return availableEntities.filter(
+      (e) => e.name.toLowerCase().includes(q) || e.code.toLowerCase().includes(q),
+    )
+  }, [availableEntities, pickerSearch])
+
+  const handleAssign = useCallback(async (entityId: string) => {
+    await assignToEntity.mutateAsync({ userId, entityId })
+    setShowPicker(false)
+    setPickerSearch('')
+  }, [userId, assignToEntity])
+
+  const handleRemove = useCallback(async (entityId: string, entityName: string) => {
+    const ok = await confirm({
+      title: 'Retirer de l\'entité ?',
+      message: `L'utilisateur sera retiré de tous les groupes de l'entité "${entityName}". Cette action est réversible.`,
+      confirmLabel: 'Retirer',
+      variant: 'danger',
+    })
+    if (ok) {
+      removeFromEntity.mutate({ userId, entityId })
+    }
+  }, [userId, removeFromEntity, confirm])
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 size={16} className="animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Add to entity button / picker */}
+      {showPicker ? (
+        <div className="border border-border rounded-lg bg-muted/30 p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-foreground">Ajouter a une entite</span>
+            <button
+              className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => { setShowPicker(false); setPickerSearch('') }}
+            >
+              <X size={14} />
+            </button>
+          </div>
+          <input
+            type="text"
+            value={pickerSearch}
+            onChange={(e) => setPickerSearch(e.target.value)}
+            className={panelInputClass}
+            placeholder="Rechercher une entite..."
+            autoFocus
+          />
+          <div className="max-h-40 overflow-y-auto space-y-1">
+            {filteredAvailable.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-2 text-center">
+                {availableEntities.length === 0 ? 'Aucune entite disponible' : 'Aucun resultat'}
+              </p>
+            ) : (
+              filteredAvailable.map((entity) => (
+                <button
+                  key={entity.id}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-left hover:bg-accent transition-colors group"
+                  onClick={() => handleAssign(entity.id)}
+                  disabled={assignToEntity.isPending}
+                >
+                  <Building2 size={12} className="text-muted-foreground shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <span className="text-sm font-medium text-foreground block truncate">{entity.name}</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">{entity.code}</span>
+                  </div>
+                  <Plus size={12} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      ) : (
+        <button
+          className="gl-button-sm gl-button-default flex items-center gap-1.5"
+          onClick={() => setShowPicker(true)}
+        >
+          <Plus size={12} /> Ajouter a une entite
+        </button>
+      )}
+
+      {/* Entity cards */}
+      {!entities || entities.length === 0 ? (
+        <div className="text-center py-6">
+          <Building2 size={24} className="mx-auto text-muted-foreground/40 mb-2" />
+          <p className="text-sm text-muted-foreground">Aucune entite assignee</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Ajoutez cet utilisateur a une entite pour lui donner acces.
+          </p>
+        </div>
+      ) : (
+        entities.map((entity) => (
+          <div key={entity.entity_id} className="border border-border rounded-lg p-3 space-y-2">
+            {/* Entity header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 min-w-0">
+                <Building2 size={14} className="text-primary shrink-0" />
+                <div className="min-w-0">
+                  <h4 className="text-sm font-semibold text-foreground truncate">{entity.entity_name}</h4>
+                  <span className="text-[10px] text-muted-foreground font-mono">{entity.entity_code}</span>
+                </div>
+              </div>
+              <button
+                className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                title="Retirer de cette entite"
+                onClick={() => handleRemove(entity.entity_id, entity.entity_name)}
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
+
+            {/* Groups & Roles */}
+            <div className="space-y-1.5">
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Groupes & Roles</span>
+              {entity.groups.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Aucun groupe</p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {entity.groups.map((g) => (
+                    <span
+                      key={g.group_id}
+                      className="inline-flex items-center gap-1 gl-badge gl-badge-neutral text-[10px]"
+                      title={`Groupe: ${g.group_name} | Role: ${g.role_name ?? g.role_code}`}
+                    >
+                      <KeyRound size={9} className="shrink-0" />
+                      {g.group_name}
+                      <span className="text-primary/80 font-semibold">
+                        {g.role_name ?? g.role_code}
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  )
+}
+
 // ── User Detail Panel (with inline editing) ────────────────
 function UserDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
@@ -255,6 +428,8 @@ function UserDetailPanel({ id }: { id: string }) {
   const revokeAllSessions = useRevokeAllSessions()
   const { data: roles } = useUserRoles()
   const { data: groups } = useUserGroups()
+  const { data: userEntities } = useUserEntities(id)
+  const [detailTab, setDetailTab] = useState<UserDetailTab>('infos')
 
   const handleInlineSave = useCallback((field: string, value: string) => {
     updateUser.mutate({ id, payload: { [field]: value } })
@@ -278,6 +453,8 @@ function UserDetailPanel({ id }: { id: string }) {
       </DynamicPanelShell>
     )
   }
+
+  const entitiesCount = userEntities?.length ?? 0
 
   return (
     <DynamicPanelShell
@@ -330,92 +507,132 @@ function UserDetailPanel({ id }: { id: string }) {
           </div>
         </div>
 
-        {/* Editable fields */}
-        <FormSection title={t('common.details')}>
-          <InlineEditableRow label={t('users.first_name')} value={user.first_name} onSave={(v) => handleInlineSave('first_name', v)} />
-          <InlineEditableRow label={t('users.last_name')} value={user.last_name} onSave={(v) => handleInlineSave('last_name', v)} />
-          <InlineEditableRow label="Email" value={user.email} onSave={(v) => handleInlineSave('email', v)} type="email" />
-          <InlineEditableTags label={t('settings.language')} value={user.language} options={LANGUAGE_OPTIONS} onSave={(v) => handleInlineSave('language', v)} />
-        </FormSection>
-
-        {/* Roles & Groups */}
-        <FormSection title="Rôles & Groupes" collapsible storageKey="panel.user.sections" id="user-roles-groups">
-          {/* Roles */}
-          <SectionHeader>
-            <span className="flex items-center gap-1.5"><Shield size={12} /> Rôles attribués</span>
-          </SectionHeader>
-          {roles && roles.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5 mt-1">
-              {roles.map((role) => (
-                <span key={role.code} className="gl-badge gl-badge-info text-[10px]">
-                  {role.name}
-                </span>
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground mt-1">Aucun rôle attribué</p>
-          )}
-
-          {/* Groups */}
-          <SectionHeader>
-            <span className="flex items-center gap-1.5 mt-3"><KeyRound size={12} /> Groupes</span>
-          </SectionHeader>
-          {groups && groups.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5 mt-1">
-              {groups.map((group) => (
-                <span key={group.id} className="gl-badge gl-badge-neutral text-[10px]">
-                  {group.name} ({group.role_code})
-                </span>
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground mt-1">Aucun groupe</p>
-          )}
-        </FormSection>
-
-        {/* Timestamps */}
-        <SectionHeader>Activité</SectionHeader>
-        <div className="space-y-0">
-          <ReadOnlyRow
-            label="Dernière connexion"
-            value={
-              <span className="flex items-center gap-1.5 text-sm">
-                <Clock size={12} className="text-muted-foreground" />
-                {user.last_login_at ? (
-                  <span title={new Date(user.last_login_at).toLocaleString()}>{relativeTime(user.last_login_at)}</span>
-                ) : '—'}
-              </span>
-            }
-          />
-          <ReadOnlyRow
-            label="Créé le"
-            value={
-              <span className="flex items-center gap-1.5 text-sm">
-                <Calendar size={12} className="text-muted-foreground" />
-                {user.created_at ? new Date(user.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
-              </span>
-            }
-          />
+        {/* Detail tabs */}
+        <div className="border-b border-border -mx-4 px-4">
+          <div className="flex items-center gap-1">
+            {([
+              { key: 'infos' as const, label: 'Infos', icon: Users },
+              { key: 'entities' as const, label: 'Entites & Roles', icon: Building2 },
+            ]).map(({ key, label, icon: Icon }) => (
+              <button
+                key={key}
+                onClick={() => setDetailTab(key)}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+                  detailTab === key
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <Icon size={13} />
+                {label}
+                {key === 'entities' && entitiesCount > 0 && (
+                  <span className={cn(
+                    'text-[10px] font-semibold px-1.5 py-0.5 rounded-full min-w-[18px] text-center',
+                    detailTab === 'entities'
+                      ? 'bg-primary/10 text-primary'
+                      : 'bg-accent text-muted-foreground',
+                  )}>
+                    {entitiesCount}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Security actions */}
-        <FormSection title="Sécurité" collapsible storageKey="panel.user.sections" id="user-security-actions">
-          <button
-            className="gl-button-sm gl-button-danger flex items-center gap-1.5"
-            onClick={handleRevokeSessions}
-            disabled={revokeAllSessions.isPending}
-          >
-            {revokeAllSessions.isPending ? (
-              <Loader2 size={12} className="animate-spin" />
-            ) : (
-              <LogOut size={12} />
-            )}
-            Révoquer toutes les sessions
-          </button>
-          <p className="text-xs text-muted-foreground mt-1.5">
-            Déconnecte l'utilisateur de tous les appareils (sauf la session courante).
-          </p>
-        </FormSection>
+        {detailTab === 'infos' ? (
+          <>
+            {/* Editable fields */}
+            <FormSection title={t('common.details')}>
+              <InlineEditableRow label={t('users.first_name')} value={user.first_name} onSave={(v) => handleInlineSave('first_name', v)} />
+              <InlineEditableRow label={t('users.last_name')} value={user.last_name} onSave={(v) => handleInlineSave('last_name', v)} />
+              <InlineEditableRow label="Email" value={user.email} onSave={(v) => handleInlineSave('email', v)} type="email" />
+              <InlineEditableTags label={t('settings.language')} value={user.language} options={LANGUAGE_OPTIONS} onSave={(v) => handleInlineSave('language', v)} />
+            </FormSection>
+
+            {/* Roles & Groups */}
+            <FormSection title="Roles & Groupes" collapsible storageKey="panel.user.sections" id="user-roles-groups">
+              {/* Roles */}
+              <SectionHeader>
+                <span className="flex items-center gap-1.5"><Shield size={12} /> Roles attribues</span>
+              </SectionHeader>
+              {roles && roles.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {roles.map((role) => (
+                    <span key={role.code} className="gl-badge gl-badge-info text-[10px]">
+                      {role.name}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-1">Aucun role attribue</p>
+              )}
+
+              {/* Groups */}
+              <SectionHeader>
+                <span className="flex items-center gap-1.5 mt-3"><KeyRound size={12} /> Groupes</span>
+              </SectionHeader>
+              {groups && groups.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {groups.map((group) => (
+                    <span key={group.id} className="gl-badge gl-badge-neutral text-[10px]">
+                      {group.name} ({group.role_code})
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-1">Aucun groupe</p>
+              )}
+            </FormSection>
+
+            {/* Timestamps */}
+            <SectionHeader>Activite</SectionHeader>
+            <div className="space-y-0">
+              <ReadOnlyRow
+                label="Derniere connexion"
+                value={
+                  <span className="flex items-center gap-1.5 text-sm">
+                    <Clock size={12} className="text-muted-foreground" />
+                    {user.last_login_at ? (
+                      <span title={new Date(user.last_login_at).toLocaleString()}>{relativeTime(user.last_login_at)}</span>
+                    ) : '\u2014'}
+                  </span>
+                }
+              />
+              <ReadOnlyRow
+                label="Cree le"
+                value={
+                  <span className="flex items-center gap-1.5 text-sm">
+                    <Calendar size={12} className="text-muted-foreground" />
+                    {user.created_at ? new Date(user.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '\u2014'}
+                  </span>
+                }
+              />
+            </div>
+
+            {/* Security actions */}
+            <FormSection title="Securite" collapsible storageKey="panel.user.sections" id="user-security-actions">
+              <button
+                className="gl-button-sm gl-button-danger flex items-center gap-1.5"
+                onClick={handleRevokeSessions}
+                disabled={revokeAllSessions.isPending}
+              >
+                {revokeAllSessions.isPending ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <LogOut size={12} />
+                )}
+                Revoquer toutes les sessions
+              </button>
+              <p className="text-xs text-muted-foreground mt-1.5">
+                Deconnecte l'utilisateur de tous les appareils (sauf la session courante).
+              </p>
+            </FormSection>
+          </>
+        ) : (
+          <UserEntitiesTab userId={id} />
+        )}
       </div>
     </DynamicPanelShell>
   )

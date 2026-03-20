@@ -5,7 +5,7 @@
  * Each widget maps to a grid item with position { x, y, w, h }.
  */
 import { useCallback, useMemo } from 'react'
-import ReactGridLayout from 'react-grid-layout'
+import { Responsive, WidthProvider } from 'react-grid-layout'
 import { LayoutGrid } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { WidgetCard } from './WidgetCard'
@@ -13,7 +13,7 @@ import type { DashboardWidget } from '@/services/dashboardService'
 
 import 'react-grid-layout/css/styles.css'
 
-const ResponsiveReactGridLayout = ReactGridLayout.WidthProvider(ReactGridLayout.Responsive)
+const ResponsiveReactGridLayout = WidthProvider(Responsive)
 
 const BREAKPOINTS = { lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }
 const COLS = { lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }

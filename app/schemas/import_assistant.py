@@ -130,6 +130,7 @@ class ImportExecuteRequest(BaseModel):
     duplicate_strategy: DuplicateStrategy = "skip"
     transforms: list[dict[str, Any]] | None = None
     mapping_id: UUID | None = None
+    max_rows: int | None = None  # Limit import to N valid rows (null = unlimited)
 
 
 class ImportExecuteResponse(BaseModel):

@@ -1285,6 +1285,7 @@ async def execute_import(
     user_id: UUID,
     db: AsyncSession,
     transforms: list[dict] | None = None,
+    max_rows: int | None = None,
 ) -> dict[str, Any]:
     """Execute the import: create/update/skip records."""
     handler = HANDLERS.get(target_object)
@@ -1301,6 +1302,11 @@ async def execute_import(
     errors: list[RowValidationError] = []
 
     for i, raw_row in enumerate(rows):
+        # Stop if max_rows limit reached (count only successfully created/updated)
+        if max_rows is not None and (created + updated) >= max_rows:
+            skipped += len(rows) - i
+            break
+
         mapped = _apply_mapping(raw_row, column_mapping)
         mapped["__row_index"] = i
 

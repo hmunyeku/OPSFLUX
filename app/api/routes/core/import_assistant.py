@@ -155,6 +155,7 @@ async def execute_import_data(
         user_id=current_user.id,
         db=db,
         transforms=body.transforms,
+        max_rows=body.max_rows,
     )
 
     # Update mapping usage stats if mapping_id provided

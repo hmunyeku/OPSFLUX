@@ -139,8 +139,7 @@ registerSettingsSection({ id: 'applications', label: 'Applications', icon: AppWi
 registerSettingsSection({ id: 'sessions', label: 'Sessions actives', icon: Monitor, component: SessionsTab, category: 'user', order: 40, parentId: 'access' })
 
 // More top-level items
-registerSettingsSection({ id: 'emails', label: 'Emails', icon: Mail, component: EmailsTab, category: 'user', order: 30 })
-registerSettingsSection({ id: 'addresses', label: 'Adresses', icon: MapPin, component: AddressesTab, category: 'user', order: 35 })
+// Emails and Addresses are now integrated into the ProfileTab directly
 registerSettingsSection({ id: 'notifications', label: 'Notifications', icon: Bell, component: NotificationsTab, category: 'user', order: 40 })
 registerSettingsSection({ id: 'preferences', label: 'Préférences', icon: Palette, component: PreferencesTab, category: 'user', order: 50 })
 registerSettingsSection({ id: 'roles', label: 'Rôles & Permissions', icon: Shield, component: RolesTab, category: 'user', order: 60 })

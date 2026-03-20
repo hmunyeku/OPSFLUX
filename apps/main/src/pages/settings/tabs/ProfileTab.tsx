@@ -15,6 +15,8 @@ import { useToast } from '@/components/ui/Toast'
 import { Camera, Loader2 } from 'lucide-react'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 import { ImageEditor } from '@/components/shared/ImageEditor'
+import { EmailsTab } from './EmailsTab'
+import { AddressesTab } from './AddressesTab'
 
 export function ProfileTab() {
   const { t } = useTranslation()
@@ -188,6 +190,12 @@ export function ProfileTab() {
           <button className="gl-button gl-button-default" onClick={handleCancel} disabled={!isDirty}>Annuler</button>
         </div>
       </CollapsibleSection>
+
+      {/* Emails section (previously separate tab) */}
+      <EmailsTab />
+
+      {/* Addresses section (previously separate tab) */}
+      <AddressesTab />
 
       {/* Image editor modal for avatar crop/rotate */}
       <ImageEditor

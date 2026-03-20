@@ -371,6 +371,67 @@ async def list_expiring_records(
     return items
 
 
+@router.get("/non-compliant", response_model=list[ExpiringRecordRead])
+async def list_non_compliant_records(
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return all compliance records that are expired (most overdue first)."""
+    now = datetime.now(timezone.utc)
+
+    # Auto-expire overdue records
+    expire_stmt = (
+        select(ComplianceRecord)
+        .where(
+            ComplianceRecord.entity_id == entity_id,
+            ComplianceRecord.active == True,  # noqa: E712
+            ComplianceRecord.status == "valid",
+            ComplianceRecord.expires_at != None,  # noqa: E711
+            ComplianceRecord.expires_at < now,
+        )
+    )
+    for rec in (await db.execute(expire_stmt)).scalars().all():
+        rec.status = "expired"
+    await db.flush()
+
+    # Fetch expired records
+    query = (
+        select(
+            ComplianceRecord,
+            ComplianceType.name.label("type_name"),
+            ComplianceType.category.label("type_category"),
+        )
+        .join(ComplianceType, ComplianceRecord.compliance_type_id == ComplianceType.id)
+        .where(
+            ComplianceRecord.entity_id == entity_id,
+            ComplianceRecord.active == True,  # noqa: E712
+            ComplianceRecord.status == "expired",
+        )
+        .order_by(ComplianceRecord.expires_at.asc())
+        .limit(100)
+    )
+    result = await db.execute(query)
+    await db.commit()
+
+    items = []
+    for row in result.all():
+        rec = row[0]
+        remaining = (rec.expires_at - now).days if rec.expires_at and rec.expires_at > now else 0
+        items.append(ExpiringRecordRead(
+            id=rec.id,
+            compliance_type_id=rec.compliance_type_id,
+            type_name=row[1],
+            type_category=row[2],
+            owner_type=rec.owner_type,
+            owner_id=rec.owner_id,
+            status=rec.status,
+            expires_at=rec.expires_at,
+            days_remaining=remaining,
+        ))
+    return items
+
+
 # ── Compliance Check ──────────────────────────────────────────────────────
 
 

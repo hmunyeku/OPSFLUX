@@ -362,6 +362,7 @@ class MissionNoticeCreate(BaseModel):
     requires_visa: bool = False
     eligible_displacement_allowance: bool = False
     epi_measurements: dict | None = None
+    pax_quota: int = Field(default=0, ge=0)
     programs: list[MissionProgramCreate] = []
 
 
@@ -379,6 +380,7 @@ class MissionNoticeUpdate(BaseModel):
     requires_visa: bool | None = None
     eligible_displacement_allowance: bool | None = None
     epi_measurements: dict | None = None
+    pax_quota: int | None = None
 
 
 class MissionNoticeRead(OpsFluxSchema):
@@ -397,6 +399,7 @@ class MissionNoticeRead(OpsFluxSchema):
     eligible_displacement_allowance: bool
     epi_measurements: dict | None
     mission_type: str
+    pax_quota: int
     archived: bool
     cancellation_reason: str | None = None
     created_at: datetime
@@ -415,6 +418,7 @@ class MissionNoticeSummary(OpsFluxSchema):
     title: str
     status: str
     mission_type: str
+    pax_quota: int = 0
     planned_start_date: date | None
     planned_end_date: date | None
     created_by: UUID

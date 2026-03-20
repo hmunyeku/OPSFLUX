@@ -80,6 +80,24 @@ async def create_tier(
     _: None = require_permission("tier.create"),
     db: AsyncSession = Depends(get_db),
 ):
+    # ── Duplicate detection: same name (case-insensitive) in same entity ──
+    dup_result = await db.execute(
+        select(Tier.id, Tier.code).where(
+            Tier.entity_id == entity_id,
+            Tier.archived == False,  # noqa: E712
+            sqla_func.lower(Tier.name) == body.name.strip().lower(),
+        )
+    )
+    existing = dup_result.first()
+    if existing:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "DUPLICATE_TIER_NAME",
+                "message": f"Un tiers avec le nom «{body.name}» existe déjà (code: {existing.code}).",
+            },
+        )
+
     tier = Tier(entity_id=entity_id, **body.model_dump())
     db.add(tier)
     await db.commit()

@@ -416,6 +416,7 @@ class MissionNotice(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     mission_type: Mapped[str] = mapped_column(
         String(50), nullable=False, default="standard"
     )
+    pax_quota: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     cancellation_reason: Mapped[str | None] = mapped_column(Text)
 

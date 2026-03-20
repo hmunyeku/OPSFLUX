@@ -24,6 +24,25 @@ from app.schemas.common import (
 router = APIRouter(prefix="/api/v1/assets", tags=["assets"])
 
 
+async def _check_circular_parent(db: AsyncSession, asset_id: UUID | None, new_parent_id: UUID | None) -> None:
+    """Raise 400 if new_parent_id would create a circular reference."""
+    if not new_parent_id:
+        return
+    if asset_id and new_parent_id == asset_id:
+        raise HTTPException(status_code=400, detail="An asset cannot be its own parent")
+    visited = set()
+    current_id = new_parent_id
+    while current_id:
+        if current_id in visited:
+            raise HTTPException(status_code=400, detail="Circular parent reference detected")
+        if asset_id and current_id == asset_id:
+            raise HTTPException(status_code=400, detail="Circular parent reference detected")
+        visited.add(current_id)
+        result = await db.execute(select(Asset.parent_id).where(Asset.id == current_id))
+        row = result.first()
+        current_id = row[0] if row else None
+
+
 @router.get("", response_model=PaginatedResponse[AssetRead])
 async def list_assets(
     type: str | None = None,
@@ -98,6 +117,9 @@ async def create_asset(
         if parent and parent.path:
             path = f"{parent.path}.{path}"
 
+    # Prevent circular parent reference
+    await _check_circular_parent(db, asset_id=None, new_parent_id=body.parent_id)
+
     asset = Asset(
         entity_id=entity_id,
         parent_id=body.parent_id,
@@ -150,6 +172,8 @@ async def update_asset(
         raise HTTPException(status_code=404, detail="Asset not found")
 
     update_data = body.model_dump(exclude_unset=True)
+    if "parent_id" in update_data:
+        await _check_circular_parent(db, asset_id=asset_id, new_parent_id=update_data["parent_id"])
     if "metadata" in update_data:
         update_data["metadata_"] = update_data.pop("metadata")
     for field, value in update_data.items():

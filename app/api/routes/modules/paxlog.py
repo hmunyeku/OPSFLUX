@@ -121,18 +121,35 @@ def _normalize_name(name: str) -> str:
     return re.sub(r"[^a-z0-9 ]", "", ascii_str.lower()).strip()
 
 
-def _compute_completeness(profile: PaxProfile) -> int:
-    """Calculate profile completeness as a percentage (0-100)."""
-    fields = [
-        profile.first_name,
-        profile.last_name,
-        profile.birth_date,
-        profile.nationality,
-        profile.company_id,
-        profile.badge_number,
-    ]
-    filled = sum(1 for f in fields if f is not None and f != "")
-    return round(filled / len(fields) * 100)
+def _compute_completeness(profile: PaxProfile, has_credentials: bool = False) -> int:
+    """Calculate profile completeness as a percentage (0-100).
+
+    Weights: first_name 10%, last_name 10%, birth_date 10%, nationality 10%,
+    company_id 10%, badge_number 10%, photo_url 10%, group_id 5%,
+    status != 'incomplete' 15%, at least 1 credential 10%.
+    """
+    score = 0
+    if profile.first_name:
+        score += 10
+    if profile.last_name:
+        score += 10
+    if profile.birth_date:
+        score += 10
+    if profile.nationality:
+        score += 10
+    if profile.company_id:
+        score += 10
+    if profile.badge_number:
+        score += 10
+    if profile.photo_url:
+        score += 10
+    if profile.group_id:
+        score += 5
+    if profile.status and profile.status != "incomplete":
+        score += 15
+    if has_credentials:
+        score += 10
+    return min(score, 100)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -424,7 +441,12 @@ async def update_profile(
     for field_name, value in update_data.items():
         setattr(profile, field_name, value)
 
-    profile.profile_completeness = _compute_completeness(profile)
+    # Check if profile has at least one credential
+    cred_result = await db.execute(
+        select(PaxCredential.id).where(PaxCredential.pax_id == profile_id).limit(1)
+    )
+    has_creds = cred_result.scalar_one_or_none() is not None
+    profile.profile_completeness = _compute_completeness(profile, has_credentials=has_creds)
     await db.commit()
     await db.refresh(profile)
     return profile
@@ -3053,9 +3075,22 @@ async def create_avm(
         requires_visa=body.requires_visa,
         eligible_displacement_allowance=body.eligible_displacement_allowance,
         epi_measurements=body.epi_measurements,
+        pax_quota=body.pax_quota,
     )
     db.add(avm)
     await db.flush()
+
+    # ── PAX capacity validation ──────────────────────────────────────────
+    # Count total unique non-cancelled PAX across all program lines
+    if avm.pax_quota > 0:
+        total_pax_ids: set[UUID] = set()
+        for prog_data in body.programs:
+            total_pax_ids.update(prog_data.pax_ids)
+        if len(total_pax_ids) > avm.pax_quota:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Mission PAX quota exceeded ({len(total_pax_ids)}/{avm.pax_quota})",
+            )
 
     # Create program lines
     for idx, prog_data in enumerate(body.programs):
@@ -3073,8 +3108,39 @@ async def create_avm(
         db.add(prog)
         await db.flush()
 
-        # Add PAX to program line
+        # ── PAX conflict detection — same PAX on overlapping missions ────
         for pax_id in prog_data.pax_ids:
+            if prog.planned_start_date and prog.planned_end_date:
+                conflict_query = (
+                    select(
+                        MissionNotice.reference,
+                        MissionProgram.planned_start_date,
+                        MissionProgram.planned_end_date,
+                    )
+                    .select_from(MissionProgramPax)
+                    .join(MissionProgram, MissionProgram.id == MissionProgramPax.mission_program_id)
+                    .join(MissionNotice, MissionNotice.id == MissionProgram.mission_notice_id)
+                    .where(
+                        MissionProgramPax.pax_id == pax_id,
+                        MissionNotice.id != avm.id,
+                        MissionNotice.status != "cancelled",
+                        MissionProgram.planned_start_date.isnot(None),
+                        MissionProgram.planned_end_date.isnot(None),
+                        MissionProgram.planned_start_date <= prog.planned_end_date,
+                        MissionProgram.planned_end_date >= prog.planned_start_date,
+                    )
+                )
+                conflict_result = await db.execute(conflict_query)
+                conflict = conflict_result.first()
+                if conflict:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=(
+                            f"PAX already assigned to mission {conflict[0]} "
+                            f"({conflict[1]} - {conflict[2]})"
+                        ),
+                    )
+
             db.add(MissionProgramPax(
                 mission_program_id=prog.id,
                 pax_id=pax_id,

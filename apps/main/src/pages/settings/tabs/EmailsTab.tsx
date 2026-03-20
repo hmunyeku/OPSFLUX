@@ -163,18 +163,10 @@ export function EmailsTab() {
             </div>
           )}
         </div>
-      </CollapsibleSection>
-
-      <CollapsibleSection
-        id="add-email"
-        title="Ajouter une adresse email"
-        description="Ajoutez une adresse email supplémentaire à votre compte. Un email de vérification sera envoyé."
-        storageKey="settings.emails.collapse"
-        showSeparator={false}
-      >
+        {/* Add email — inline within the same section */}
         <div className="mt-4 flex items-end gap-3 max-w-lg">
           <div className="flex-1">
-            <label className="gl-label">Adresse email</label>
+            <label className="gl-label">Ajouter une adresse email</label>
             <input
               type="email"
               className="gl-form-input"

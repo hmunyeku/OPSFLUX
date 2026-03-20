@@ -1,0 +1,86 @@
+# =============================================================================
+# OpsFlux — Production Docker Compose (Dokploy)
+# =============================================================================
+# Dokploy injecte les variables d'environnement du projet via env_file: .env
+# Les domaines sont gérés par Traefik intégré à Dokploy.
+
+services:
+  # ─── PostgreSQL 16 + pgvector + PostGIS ──────────────────────
+  db:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-opsflux}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./docker/init-extensions.sql:/docker-entrypoint-initdb.d/init-extensions.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Redis 7 ─────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # ─── Backend FastAPI ─────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-opsflux}
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY}
+      FRONTEND_URL: ${FRONTEND_HOST:-https://app.opsflux.io}
+      ALLOWED_ORIGINS: ${BACKEND_CORS_ORIGINS:-https://app.opsflux.io}
+      ALLOWED_HOSTS: api.opsflux.io,app.opsflux.io
+      SMTP_HOST: ${SMTP_HOST:-mail.opsflux.io}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_ADDRESS: ${EMAILS_FROM_EMAIL:-noreply@opsflux.io}
+      SMTP_FROM_NAME: ${EMAILS_FROM_NAME:-OPSFLUX}
+      SMTP_USE_TLS: "true"
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      FIRST_SUPERUSER: ${FIRST_SUPERUSER:-admin@opsflux.io}
+      FIRST_SUPERUSER_PASSWORD: ${FIRST_SUPERUSER_PASSWORD:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "
+        alembic upgrade head &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+      "
+
+  # ─── Frontend React PWA (nginx) ─────────────────────────────
+  frontend:
+    build:
+      context: ./apps/main
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: https://api.${DOMAIN:-opsflux.io}
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+
+volumes:
+  pg_data:

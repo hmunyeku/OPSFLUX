@@ -256,6 +256,7 @@ class ProcessLine(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     mxgraph_cell_id: Mapped[str | None] = mapped_column(
         String(100), nullable=True
     )  # draw.io sync
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

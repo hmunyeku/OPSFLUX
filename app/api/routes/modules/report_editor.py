@@ -100,6 +100,24 @@ async def create_document(
 
 
 @router.get(
+    "/share/{token}",
+    summary="Consume a share link (public, no auth required)",
+)
+async def consume_share_link(
+    token: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Public endpoint for external access via share link.
+
+    Validates the token, checks expiry and access limits,
+    increments access_count, and returns document metadata + revision content.
+    Returns 401 if OTP is required.
+    """
+    from app.services.modules.report_service import consume_share_link as svc_consume
+    return await svc_consume(token=token, db=db)
+
+
+@router.get(
     "/counts",
     dependencies=[require_permission("document.read")],
     summary="Get document status counts",
@@ -176,6 +194,20 @@ async def update_doc_type(
 
     parsed = DocTypeUpdate(**body)
     return await svc_update(type_id=type_id, body=parsed, entity_id=entity_id, db=db)
+
+
+@router.delete(
+    "/types/{type_id}",
+    dependencies=[require_permission("document.admin")],
+    summary="Soft-delete a document type (only if no documents reference it)",
+)
+async def delete_doc_type(
+    type_id: str,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.services.modules.report_service import delete_doc_type as svc_delete
+    return await svc_delete(type_id=type_id, entity_id=entity_id, db=db)
 
 
 @router.get(
@@ -695,6 +727,79 @@ async def update_template(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# Template Fields CRUD
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@router.get(
+    "/templates/{template_id}/fields",
+    dependencies=[require_permission("document.read")],
+    summary="List fields for a template",
+)
+async def list_template_fields(
+    template_id: str,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.services.modules.report_service import list_template_fields as svc_list
+    return await svc_list(template_id=template_id, entity_id=entity_id, db=db)
+
+
+@router.post(
+    "/templates/{template_id}/fields",
+    dependencies=[require_permission("template.create")],
+    summary="Create a template field",
+)
+async def create_template_field(
+    template_id: str,
+    body: dict,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.schemas.report_editor import TemplateFieldCreate
+    from app.services.modules.report_service import create_template_field as svc_create
+
+    parsed = TemplateFieldCreate(**body)
+    return await svc_create(template_id=template_id, body=parsed, entity_id=entity_id, db=db)
+
+
+@router.patch(
+    "/templates/{template_id}/fields/{field_id}",
+    dependencies=[require_permission("template.edit")],
+    summary="Update a template field",
+)
+async def update_template_field(
+    template_id: str,
+    field_id: str,
+    body: dict,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.schemas.report_editor import TemplateFieldUpdate
+    from app.services.modules.report_service import update_template_field as svc_update
+
+    parsed = TemplateFieldUpdate(**body)
+    return await svc_update(
+        template_id=template_id, field_id=field_id, body=parsed, entity_id=entity_id, db=db,
+    )
+
+
+@router.delete(
+    "/templates/{template_id}/fields/{field_id}",
+    dependencies=[require_permission("template.edit")],
+    summary="Delete a template field",
+)
+async def delete_template_field(
+    template_id: str,
+    field_id: str,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.services.modules.report_service import delete_template_field as svc_delete
+    return await svc_delete(template_id=template_id, field_id=field_id, entity_id=entity_id, db=db)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # Distribution Lists
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -733,6 +838,38 @@ async def create_distribution_list(
 
     parsed = DistributionListCreate(**body)
     return await svc_create(body=parsed, entity_id=entity_id, created_by=current_user.id, db=db)
+
+
+@router.patch(
+    "/distribution-lists/{list_id}",
+    dependencies=[require_permission("document.admin")],
+    summary="Update a distribution list",
+)
+async def update_distribution_list(
+    list_id: str,
+    body: dict,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.schemas.report_editor import DistributionListUpdate
+    from app.services.modules.report_service import update_distribution_list as svc_update
+
+    parsed = DistributionListUpdate(**body)
+    return await svc_update(list_id=list_id, body=parsed, entity_id=entity_id, db=db)
+
+
+@router.delete(
+    "/distribution-lists/{list_id}",
+    dependencies=[require_permission("document.admin")],
+    summary="Soft-delete a distribution list",
+)
+async def delete_distribution_list(
+    list_id: str,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.services.modules.report_service import delete_distribution_list as svc_delete
+    return await svc_delete(list_id=list_id, entity_id=entity_id, db=db)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -799,6 +936,25 @@ async def create_share_link(
         created_by=current_user.id,
         db=db,
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Document Signatures
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@router.get(
+    "/{doc_id}/signatures",
+    dependencies=[require_permission("document.read")],
+    summary="List all signatures for a document",
+)
+async def list_document_signatures(
+    doc_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.services.modules.report_service import list_document_signatures as svc_list
+    return await svc_list(doc_id=doc_id, entity_id=entity_id, db=db)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

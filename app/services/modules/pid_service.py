@@ -158,6 +158,27 @@ async def update_pid_document(
     return pid
 
 
+async def delete_pid_document(
+    *,
+    pid_id: str | UUID,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> None:
+    """Soft-delete a PID document. Only allowed if status is 'draft'."""
+    pid = await get_pid_document(pid_id, entity_id, db)
+
+    if pid.status != "draft":
+        from fastapi import HTTPException
+        raise HTTPException(
+            409,
+            f"Cannot delete PID document in status '{pid.status}'. Only draft documents can be deleted.",
+        )
+
+    pid.is_active = False
+    await db.commit()
+    logger.info("Soft-deleted PID document %s (%s)", pid.number, pid.id)
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Workflow (FSM integration)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -745,6 +766,76 @@ async def update_equipment(
     return eq
 
 
+async def create_equipment(
+    *,
+    body: Any,
+    entity_id: UUID,
+    created_by: UUID,
+    db: AsyncSession,
+) -> Any:
+    """Create a new equipment record with tag uniqueness validation."""
+    from app.models.pid_pfd import Equipment
+
+    # Validate tag uniqueness per (entity_id, project_id, tag)
+    existing = await db.execute(
+        select(Equipment).where(
+            Equipment.entity_id == entity_id,
+            Equipment.project_id == body.project_id,
+            Equipment.tag == body.tag,
+            Equipment.is_active == True,  # noqa: E712
+        )
+    )
+    if existing.scalar_one_or_none():
+        from fastapi import HTTPException
+        raise HTTPException(
+            409,
+            f"Equipment with tag '{body.tag}' already exists in this project",
+        )
+
+    eq = Equipment(
+        entity_id=entity_id,
+        project_id=body.project_id,
+        pid_document_id=getattr(body, "pid_document_id", None),
+        asset_id=getattr(body, "asset_id", None),
+        tag=body.tag,
+        description=getattr(body, "description", None),
+        equipment_type=body.equipment_type,
+        service=getattr(body, "service", None),
+        fluid=getattr(body, "fluid", None),
+        fluid_phase=getattr(body, "fluid_phase", None),
+        design_pressure_barg=getattr(body, "design_pressure_barg", None),
+        design_temperature_c=getattr(body, "design_temperature_c", None),
+        operating_pressure_barg=getattr(body, "operating_pressure_barg", None),
+        operating_temperature_c=getattr(body, "operating_temperature_c", None),
+        material_of_construction=getattr(body, "material_of_construction", None),
+        capacity_value=getattr(body, "capacity_value", None),
+        capacity_unit=getattr(body, "capacity_unit", None),
+        lat=getattr(body, "lat", None),
+        lng=getattr(body, "lng", None),
+        mxgraph_cell_id=getattr(body, "mxgraph_cell_id", None),
+    )
+    db.add(eq)
+    await db.commit()
+
+    logger.info("Created equipment %s (%s) by user %s", eq.tag, eq.id, created_by)
+    return eq
+
+
+async def delete_equipment(
+    *,
+    eq_id: str | UUID,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> None:
+    """Soft-delete an equipment record (set is_active=False)."""
+    eq = await get_equipment(eq_id, entity_id, db)
+
+    eq.is_active = False
+    eq.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+    logger.info("Soft-deleted equipment %s (%s)", eq.tag, eq.id)
+
+
 async def get_equipment_appearances(
     *,
     eq_id: str | UUID,
@@ -929,6 +1020,114 @@ async def list_process_lines(
         "page_size": page_size,
         "pages": max(1, (total + page_size - 1) // page_size),
     }
+
+
+async def get_process_line(
+    line_id: str | UUID,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> Any:
+    """Get a single process line by ID."""
+    from app.models.pid_pfd import ProcessLine
+
+    result = await db.execute(
+        select(ProcessLine).where(
+            ProcessLine.id == UUID(str(line_id)),
+            ProcessLine.entity_id == entity_id,
+        )
+    )
+    line = result.scalar_one_or_none()
+    if not line:
+        from fastapi import HTTPException
+        raise HTTPException(404, f"Process line {line_id} not found")
+    return line
+
+
+async def create_process_line(
+    *,
+    body: Any,
+    entity_id: UUID,
+    created_by: UUID,
+    db: AsyncSession,
+) -> Any:
+    """Create a new process line with line_number uniqueness validation."""
+    from app.models.pid_pfd import ProcessLine
+
+    # Validate line_number uniqueness per (entity_id, project_id)
+    existing = await db.execute(
+        select(ProcessLine).where(
+            ProcessLine.entity_id == entity_id,
+            ProcessLine.project_id == body.project_id,
+            ProcessLine.line_number == body.line_number,
+            ProcessLine.is_active == True,  # noqa: E712
+        )
+    )
+    if existing.scalar_one_or_none():
+        from fastapi import HTTPException
+        raise HTTPException(
+            409,
+            f"Process line '{body.line_number}' already exists in this project",
+        )
+
+    line = ProcessLine(
+        entity_id=entity_id,
+        project_id=body.project_id,
+        line_number=body.line_number,
+        nominal_diameter_inch=getattr(body, "nominal_diameter_inch", None),
+        nominal_diameter_mm=getattr(body, "nominal_diameter_mm", None),
+        pipe_schedule=getattr(body, "pipe_schedule", None),
+        spec_class=getattr(body, "spec_class", None),
+        spec_code=getattr(body, "spec_code", None),
+        fluid=getattr(body, "fluid", None),
+        fluid_full_name=getattr(body, "fluid_full_name", None),
+        insulation_type=getattr(body, "insulation_type", "none"),
+        insulation_thickness_mm=getattr(body, "insulation_thickness_mm", None),
+        heat_tracing=getattr(body, "heat_tracing", False),
+        heat_tracing_type=getattr(body, "heat_tracing_type", None),
+        design_pressure_barg=getattr(body, "design_pressure_barg", None),
+        design_temperature_c=getattr(body, "design_temperature_c", None),
+        material_of_construction=getattr(body, "material_of_construction", None),
+        length_m=getattr(body, "length_m", None),
+        mxgraph_cell_id=getattr(body, "mxgraph_cell_id", None),
+    )
+    db.add(line)
+    await db.commit()
+
+    logger.info("Created process line %s (%s) by user %s", line.line_number, line.id, created_by)
+    return line
+
+
+async def update_process_line(
+    *,
+    line_id: str | UUID,
+    body: Any,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> Any:
+    """Update process line properties."""
+    line = await get_process_line(line_id, entity_id, db)
+
+    update_data = body.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        if hasattr(line, key):
+            setattr(line, key, value)
+
+    await db.commit()
+    return line
+
+
+async def delete_process_line(
+    *,
+    line_id: str | UUID,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> None:
+    """Soft-delete a process line (set is_active=False)."""
+    line = await get_process_line(line_id, entity_id, db)
+
+    line.is_active = False
+    await db.commit()
+    logger.info("Soft-deleted process line %s (%s)", line.line_number, line.id)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1117,6 +1316,61 @@ async def create_library_item(
     db.add(item)
     await db.commit()
     return item
+
+
+async def get_library_item(
+    item_id: str | UUID,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> Any:
+    """Get a single library item by ID."""
+    from app.models.pid_pfd import ProcessLibItem
+
+    result = await db.execute(
+        select(ProcessLibItem).where(
+            ProcessLibItem.id == UUID(str(item_id)),
+            ProcessLibItem.entity_id == entity_id,
+        )
+    )
+    item = result.scalar_one_or_none()
+    if not item:
+        from fastapi import HTTPException
+        raise HTTPException(404, f"Library item {item_id} not found")
+    return item
+
+
+async def update_library_item(
+    *,
+    item_id: str | UUID,
+    body: Any,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> Any:
+    """Update a library item."""
+    item = await get_library_item(item_id, entity_id, db)
+
+    update_data = body.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        if hasattr(item, key):
+            setattr(item, key, value)
+
+    item.version = (item.version or 1) + 1
+    await db.commit()
+    return item
+
+
+async def delete_library_item(
+    *,
+    item_id: str | UUID,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> None:
+    """Soft-delete a library item (set is_active=False)."""
+    item = await get_library_item(item_id, entity_id, db)
+
+    item.is_active = False
+    await db.commit()
+    logger.info("Soft-deleted library item %s (%s)", item.name, item.id)
 
 
 async def get_library_drawio_xml(

@@ -1594,3 +1594,399 @@ async def _get_bu_code(bu_id: UUID, db: AsyncSession) -> str | None:
     )
     row = result.first()
     return row[0] if row else None
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TemplateField CRUD
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def list_template_fields(
+    *,
+    template_id: str | UUID,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> list[Any]:
+    """List fields for a template, ordered by display_order."""
+    from app.models.report_editor import Template, TemplateField
+
+    # Verify the template belongs to the entity
+    tpl_result = await db.execute(
+        select(Template).where(
+            Template.id == UUID(str(template_id)),
+            Template.entity_id == entity_id,
+        )
+    )
+    template = tpl_result.scalar_one_or_none()
+    if not template:
+        from fastapi import HTTPException
+        raise HTTPException(404, "Template not found")
+
+    result = await db.execute(
+        select(TemplateField)
+        .where(TemplateField.template_id == UUID(str(template_id)))
+        .order_by(TemplateField.display_order, TemplateField.field_key)
+    )
+    return result.scalars().all()
+
+
+async def create_template_field(
+    *,
+    template_id: str | UUID,
+    body: Any,  # TemplateFieldCreate schema
+    entity_id: UUID,
+    db: AsyncSession,
+) -> Any:
+    """Create a field in a template."""
+    from app.models.report_editor import Template, TemplateField
+
+    # Verify the template belongs to the entity
+    tpl_result = await db.execute(
+        select(Template).where(
+            Template.id == UUID(str(template_id)),
+            Template.entity_id == entity_id,
+        )
+    )
+    template = tpl_result.scalar_one_or_none()
+    if not template:
+        from fastapi import HTTPException
+        raise HTTPException(404, "Template not found")
+
+    field = TemplateField(
+        template_id=template.id,
+        section_id=body.section_id,
+        field_key=body.field_key,
+        field_type=body.field_type,
+        label=body.label,
+        is_required=getattr(body, "is_required", False),
+        is_locked=getattr(body, "is_locked", False),
+        options=getattr(body, "options", {}),
+        display_order=getattr(body, "display_order", 0),
+        validation_rules=getattr(body, "validation_rules", {}),
+    )
+    db.add(field)
+    await db.commit()
+
+    logger.info("Created template field %s.%s in template %s", body.section_id, body.field_key, template_id)
+    return field
+
+
+async def update_template_field(
+    *,
+    template_id: str | UUID,
+    field_id: str | UUID,
+    body: Any,  # TemplateFieldUpdate schema
+    entity_id: UUID,
+    db: AsyncSession,
+) -> Any:
+    """Update a template field."""
+    from app.models.report_editor import Template, TemplateField
+
+    # Verify the template belongs to the entity
+    tpl_result = await db.execute(
+        select(Template).where(
+            Template.id == UUID(str(template_id)),
+            Template.entity_id == entity_id,
+        )
+    )
+    template = tpl_result.scalar_one_or_none()
+    if not template:
+        from fastapi import HTTPException
+        raise HTTPException(404, "Template not found")
+
+    result = await db.execute(
+        select(TemplateField).where(
+            TemplateField.id == UUID(str(field_id)),
+            TemplateField.template_id == UUID(str(template_id)),
+        )
+    )
+    field = result.scalar_one_or_none()
+    if not field:
+        from fastapi import HTTPException
+        raise HTTPException(404, "Template field not found")
+
+    update_data = body.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(field, key, value)
+
+    await db.commit()
+    return field
+
+
+async def delete_template_field(
+    *,
+    template_id: str | UUID,
+    field_id: str | UUID,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> dict:
+    """Delete a template field (hard delete)."""
+    from app.models.report_editor import Template, TemplateField
+
+    # Verify the template belongs to the entity
+    tpl_result = await db.execute(
+        select(Template).where(
+            Template.id == UUID(str(template_id)),
+            Template.entity_id == entity_id,
+        )
+    )
+    template = tpl_result.scalar_one_or_none()
+    if not template:
+        from fastapi import HTTPException
+        raise HTTPException(404, "Template not found")
+
+    result = await db.execute(
+        select(TemplateField).where(
+            TemplateField.id == UUID(str(field_id)),
+            TemplateField.template_id == UUID(str(template_id)),
+        )
+    )
+    field = result.scalar_one_or_none()
+    if not field:
+        from fastapi import HTTPException
+        raise HTTPException(404, "Template field not found")
+
+    await db.delete(field)
+    await db.commit()
+
+    logger.info("Deleted template field %s from template %s", field_id, template_id)
+    return {"status": "deleted", "field_id": str(field_id)}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Share link consumption (public, no auth)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def consume_share_link(
+    *,
+    token: str,
+    db: AsyncSession,
+) -> dict[str, Any]:
+    """Consume a share link — public endpoint, no auth required.
+
+    Validates token, checks expiry and access limits,
+    increments access_count, returns document metadata + revision content.
+    """
+    from app.models.report_editor import ShareLink, Document, Revision
+    from fastapi import HTTPException
+
+    result = await db.execute(
+        select(ShareLink).where(ShareLink.token == token)
+    )
+    link = result.scalar_one_or_none()
+    if not link:
+        raise HTTPException(404, "Share link not found or invalid")
+
+    # Check expiry
+    now = datetime.now(timezone.utc)
+    if link.expires_at < now:
+        raise HTTPException(410, "Share link has expired")
+
+    # Check max accesses
+    if link.max_accesses is not None and link.access_count >= link.max_accesses:
+        raise HTTPException(410, "Share link has reached its maximum number of accesses")
+
+    # Check OTP requirement
+    if link.otp_required:
+        raise HTTPException(401, "OTP verification required to access this document")
+
+    # Increment access count and update last_accessed_at
+    link.access_count += 1
+
+    # Load the document
+    doc_result = await db.execute(
+        select(Document).where(Document.id == link.document_id)
+    )
+    doc = doc_result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(404, "Document not found")
+
+    # Load current revision content
+    revision_data = None
+    if doc.current_revision_id:
+        rev_result = await db.execute(
+            select(Revision).where(Revision.id == doc.current_revision_id)
+        )
+        revision = rev_result.scalar_one_or_none()
+        if revision:
+            revision_data = {
+                "rev_code": revision.rev_code,
+                "content": revision.content,
+                "form_data": revision.form_data,
+                "word_count": revision.word_count,
+                "created_at": revision.created_at.isoformat() if revision.created_at else None,
+            }
+
+    await db.commit()
+
+    return {
+        "title": doc.title,
+        "number": doc.number,
+        "status": doc.status,
+        "language": doc.language,
+        "classification": doc.classification,
+        "current_revision": revision_data,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Distribution list UPDATE / DELETE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def update_distribution_list(
+    *,
+    list_id: str | UUID,
+    body: Any,  # DistributionListUpdate schema
+    entity_id: UUID,
+    db: AsyncSession,
+) -> Any:
+    """Update a distribution list."""
+    from app.models.report_editor import DistributionList
+
+    result = await db.execute(
+        select(DistributionList).where(
+            DistributionList.id == UUID(str(list_id)),
+            DistributionList.entity_id == entity_id,
+        )
+    )
+    dl = result.scalar_one_or_none()
+    if not dl:
+        from fastapi import HTTPException
+        raise HTTPException(404, "Distribution list not found")
+
+    update_data = body.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(dl, key, value)
+
+    await db.commit()
+    return dl
+
+
+async def delete_distribution_list(
+    *,
+    list_id: str | UUID,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> dict:
+    """Soft-delete a distribution list (set is_active=False)."""
+    from app.models.report_editor import DistributionList
+
+    result = await db.execute(
+        select(DistributionList).where(
+            DistributionList.id == UUID(str(list_id)),
+            DistributionList.entity_id == entity_id,
+        )
+    )
+    dl = result.scalar_one_or_none()
+    if not dl:
+        from fastapi import HTTPException
+        raise HTTPException(404, "Distribution list not found")
+
+    dl.is_active = False
+    await db.commit()
+
+    logger.info("Soft-deleted distribution list %s", list_id)
+    return {"status": "deleted", "list_id": str(list_id)}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Document signatures list
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def list_document_signatures(
+    *,
+    doc_id: str | UUID,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> list[dict[str, Any]]:
+    """List all signatures for a document, ordered by signed_at DESC.
+
+    Joins with users table to resolve signer_name.
+    """
+    from app.models.report_editor import DocumentSignature, Document
+    from sqlalchemy import text
+
+    # Verify the document belongs to the entity
+    doc = await get_document(doc_id, entity_id, db)
+
+    result = await db.execute(
+        text(
+            "SELECT ds.id, ds.document_id, ds.revision_id, ds.signer_id, "
+            "ds.signer_role, ds.content_hash, ds.signed_at, "
+            "COALESCE(u.full_name, u.email, 'Unknown') AS signer_name "
+            "FROM document_signatures ds "
+            "LEFT JOIN users u ON u.id = ds.signer_id "
+            "WHERE ds.document_id = :doc_id "
+            "ORDER BY ds.signed_at DESC"
+        ),
+        {"doc_id": doc.id},
+    )
+    rows = result.all()
+
+    return [
+        {
+            "id": str(row.id),
+            "document_id": str(row.document_id),
+            "revision_id": str(row.revision_id),
+            "signer_id": str(row.signer_id),
+            "signer_role": row.signer_role,
+            "content_hash": row.content_hash,
+            "signed_at": row.signed_at.isoformat() if row.signed_at else None,
+            "signer_name": row.signer_name,
+        }
+        for row in rows
+    ]
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DocType soft-delete
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def delete_doc_type(
+    *,
+    type_id: str | UUID,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> dict:
+    """Soft-delete a document type (set is_active=False).
+
+    Only allowed if no documents currently reference this type.
+    """
+    from app.models.report_editor import DocType, Document
+
+    result = await db.execute(
+        select(DocType).where(
+            DocType.id == UUID(str(type_id)),
+            DocType.entity_id == entity_id,
+        )
+    )
+    doc_type = result.scalar_one_or_none()
+    if not doc_type:
+        from fastapi import HTTPException
+        raise HTTPException(404, "Doc type not found")
+
+    # Check for referencing documents
+    doc_count = await db.execute(
+        select(func.count()).select_from(Document).where(
+            Document.doc_type_id == UUID(str(type_id)),
+            Document.entity_id == entity_id,
+        )
+    )
+    count = doc_count.scalar() or 0
+    if count > 0:
+        from fastapi import HTTPException
+        raise HTTPException(
+            409,
+            f"Cannot delete doc type: {count} document(s) reference this type. "
+            "Reassign or archive them first.",
+        )
+
+    doc_type.is_active = False
+    await db.commit()
+
+    logger.info("Soft-deleted doc type %s (%s)", doc_type.code, type_id)
+    return {"status": "deleted", "type_id": str(type_id), "code": doc_type.code}

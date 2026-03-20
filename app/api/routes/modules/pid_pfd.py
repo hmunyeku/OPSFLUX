@@ -108,6 +108,41 @@ async def get_drawio_library_early(entity_id: UUID = Depends(get_current_entity)
     xml_content = await svc_export(entity_id=entity_id, db=db)
     return Response(content=xml_content, media_type="application/xml", headers={"Content-Disposition": 'attachment; filename="pid_library.xml"'})
 
+@router.patch(
+    "/library/{item_id}",
+    dependencies=[require_permission("pid.library.edit")],
+    summary="Update a process library item",
+)
+async def update_library_item(
+    item_id: str,
+    body: dict,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update properties of a process library item."""
+    from app.schemas.pid_pfd import ProcessLibItemUpdate
+    from app.services.modules.pid_service import update_library_item as svc_update
+
+    parsed = ProcessLibItemUpdate(**body)
+    return await svc_update(item_id=item_id, body=parsed, entity_id=entity_id, db=db)
+
+
+@router.delete(
+    "/library/{item_id}",
+    dependencies=[require_permission("pid.library.edit")],
+    summary="Delete a process library item",
+    status_code=204,
+)
+async def delete_library_item(
+    item_id: str,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Soft-delete a process library item."""
+    from app.services.modules.pid_service import delete_library_item as svc_delete
+
+    await svc_delete(item_id=item_id, entity_id=entity_id, db=db)
+
 
 @router.get(
     "/{pid_id}",
@@ -142,6 +177,23 @@ async def update_pid_document(
 
     parsed = PIDDocumentUpdate(**body)
     return await svc_update(pid_id=pid_id, body=parsed, entity_id=entity_id, db=db)
+
+
+@router.delete(
+    "/{pid_id}",
+    dependencies=[require_permission("pid.edit")],
+    summary="Delete a PID document (draft only)",
+    status_code=204,
+)
+async def delete_pid_document(
+    pid_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Soft-delete a PID document. Only allowed if status is 'draft'."""
+    from app.services.modules.pid_service import delete_pid_document as svc_delete
+
+    await svc_delete(pid_id=pid_id, entity_id=entity_id, db=db)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -376,6 +428,30 @@ async def list_equipment(
     )
 
 
+@router.post(
+    "/equipment",
+    dependencies=[require_permission("pid.equipment.edit")],
+    summary="Create equipment",
+)
+async def create_equipment(
+    body: dict,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a new equipment record."""
+    from app.schemas.pid_pfd import EquipmentCreate
+    from app.services.modules.pid_service import create_equipment as svc_create
+
+    parsed = EquipmentCreate(**body)
+    return await svc_create(
+        body=parsed,
+        entity_id=entity_id,
+        created_by=current_user.id,
+        db=db,
+    )
+
+
 @router.get(
     "/equipment/{eq_id}",
     dependencies=[require_permission("pid.equipment.read")],
@@ -428,6 +504,23 @@ async def equipment_appearances(
     return await svc_appearances(eq_id=eq_id, entity_id=entity_id, db=db)
 
 
+@router.delete(
+    "/equipment/{eq_id}",
+    dependencies=[require_permission("pid.equipment.edit")],
+    summary="Delete equipment",
+    status_code=204,
+)
+async def delete_equipment(
+    eq_id: str,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Soft-delete an equipment record (set active=False)."""
+    from app.services.modules.pid_service import delete_equipment as svc_delete
+
+    await svc_delete(eq_id=eq_id, entity_id=entity_id, db=db)
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Process Lines
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -461,6 +554,30 @@ async def list_process_lines(
 
 
 @router.post(
+    "/lines",
+    dependencies=[require_permission("pid.edit")],
+    summary="Create a process line",
+)
+async def create_process_line(
+    body: dict,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a new process line record."""
+    from app.schemas.pid_pfd import ProcessLineCreate
+    from app.services.modules.pid_service import create_process_line as svc_create
+
+    parsed = ProcessLineCreate(**body)
+    return await svc_create(
+        body=parsed,
+        entity_id=entity_id,
+        created_by=current_user.id,
+        db=db,
+    )
+
+
+@router.post(
     "/lines/trace",
     dependencies=[require_permission("pid.read")],
     summary="Trace a process line across PIDs",
@@ -483,6 +600,42 @@ async def trace_process_line(
         entity_id=entity_id,
         db=db,
     )
+
+
+@router.patch(
+    "/lines/{line_id}",
+    dependencies=[require_permission("pid.edit")],
+    summary="Update a process line",
+)
+async def update_process_line(
+    line_id: str,
+    body: dict,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update properties of a process line."""
+    from app.schemas.pid_pfd import ProcessLineUpdate
+    from app.services.modules.pid_service import update_process_line as svc_update
+
+    parsed = ProcessLineUpdate(**body)
+    return await svc_update(line_id=line_id, body=parsed, entity_id=entity_id, db=db)
+
+
+@router.delete(
+    "/lines/{line_id}",
+    dependencies=[require_permission("pid.edit")],
+    summary="Delete a process line",
+    status_code=204,
+)
+async def delete_process_line(
+    line_id: str,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Soft-delete a process line (set active=False)."""
+    from app.services.modules.pid_service import delete_process_line as svc_delete
+
+    await svc_delete(line_id=line_id, entity_id=entity_id, db=db)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -564,6 +717,23 @@ async def update_tag(
 
     parsed = DCSTagUpdate(**body)
     return await svc_update(tag_id=tag_id, body=parsed, entity_id=entity_id, db=db)
+
+
+@router.delete(
+    "/tags/{tag_id}",
+    dependencies=[require_permission("pid.tags.edit")],
+    summary="Delete a DCS tag",
+    status_code=204,
+)
+async def delete_tag(
+    tag_id: str,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Soft-delete a DCS tag (set active=False)."""
+    from app.services.modules.tag_service import delete_tag as svc_delete
+
+    await svc_delete(tag_id=tag_id, entity_id=entity_id, db=db)
 
 
 @router.post(

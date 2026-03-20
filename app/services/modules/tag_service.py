@@ -149,6 +149,31 @@ async def update_tag(
     return tag
 
 
+async def delete_tag(
+    *,
+    tag_id: str | UUID,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> None:
+    """Soft-delete a DCS tag (set is_active=False)."""
+    from app.models.pid_pfd import DCSTag
+
+    result = await db.execute(
+        select(DCSTag).where(
+            DCSTag.id == UUID(str(tag_id)),
+            DCSTag.entity_id == entity_id,
+        )
+    )
+    tag = result.scalar_one_or_none()
+    if not tag:
+        from fastapi import HTTPException
+        raise HTTPException(404, f"DCS tag {tag_id} not found")
+
+    tag.is_active = False
+    tag.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Tag Naming Rules
 # ═══════════════════════════════════════════════════════════════════════════════

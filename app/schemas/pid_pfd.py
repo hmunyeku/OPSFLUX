@@ -290,6 +290,7 @@ class ProcessLineRead(OpsFluxSchema):
     material_of_construction: str | None = None
     length_m: float | None = None
     mxgraph_cell_id: str | None = None
+    is_active: bool = True
     created_at: datetime
 
 

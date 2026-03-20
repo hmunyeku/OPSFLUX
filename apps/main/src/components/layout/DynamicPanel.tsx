@@ -523,7 +523,7 @@ export function FormSection({
   storageKey,
   id,
 }: {
-  title?: string
+  title?: React.ReactNode
   children: React.ReactNode
   className?: string
   /** Enable collapse/expand toggle on the section header */
@@ -536,7 +536,7 @@ export function FormSection({
   id?: string
 }) {
   // Restore persisted state
-  const resolvedId = id || title || ''
+  const resolvedId = id || (typeof title === 'string' ? title : '') || ''
   const initial = (() => {
     if (!collapsible) return true
     if (storageKey && resolvedId) {

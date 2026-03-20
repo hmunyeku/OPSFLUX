@@ -16,8 +16,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Settings, User, Lock, Shield, Clock, Palette,
-  Monitor, Mail, Bell, Key, AppWindow, KeyRound,
-  ChevronRight, ChevronDown, MapPin,
+  Monitor, Bell, Key, AppWindow, KeyRound,
+  ChevronRight, ChevronDown,
   Globe, Plug, FileText, FileOutput, Trash2,
   ScrollText, Activity, Hash,
 } from 'lucide-react'
@@ -104,12 +104,10 @@ import { SecurityTab } from './tabs/SecurityTab'
 import { AccessTokensTab } from './tabs/AccessTokensTab'
 import { ApplicationsTab } from './tabs/ApplicationsTab'
 import { SessionsTab } from './tabs/SessionsTab'
-import { EmailsTab } from './tabs/EmailsTab'
 import { NotificationsTab } from './tabs/NotificationsTab'
 import { RolesTab } from './tabs/RolesTab'
 import { ActivityTab } from './tabs/ActivityTab'
 import { PreferencesTab } from './tabs/PreferencesTab'
-import { AddressesTab } from './tabs/AddressesTab'
 import { GeneralConfigTab } from './tabs/GeneralConfigTab'
 import { IntegrationsTab } from './tabs/IntegrationsTab'
 import { EmailTemplatesTab } from './tabs/EmailTemplatesTab'

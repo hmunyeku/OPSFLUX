@@ -19,7 +19,7 @@ import { useTranslation } from 'react-i18next'
 import {
   Building2, Plus, Loader2, Trash2, MapPin, Paperclip, MessageSquare,
   Phone, Mail, Users, ArrowLeft, Star, Pencil, Globe,
-  ChevronDown, FileText, Search, ShieldBan, ShieldCheck, Link2, Upload, X,
+  ChevronDown, FileText, Search, ShieldBan, ShieldCheck, Link2, X,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -62,12 +62,11 @@ import {
   useDeleteTierContact, useTierIdentifiers, useAllTierContacts,
   useTierBlocks, useBlockTier, useUnblockTier,
   useTierExternalRefs, useCreateTierExternalRef, useDeleteTierExternalRef,
-  useImportSap,
 } from '@/hooks/useTiers'
 import { useAddresses, useNotes, useAttachments, usePhones, useContactEmails } from '@/hooks/useSettings'
 import { useProjects } from '@/hooks/useProjets'
 import { useToast } from '@/components/ui/Toast'
-import type { Tier, TierCreate, TierContact, TierContactCreate, TierContactUpdate, TierContactWithTier, TierBlock, ExternalReference } from '@/types/api'
+import type { Tier, TierCreate, TierContact, TierContactCreate, TierContactUpdate, TierContactWithTier } from '@/types/api'
 
 // -- Constants ----------------------------------------------------------------
 
@@ -446,6 +445,7 @@ function TierDetailPanel({ id }: { id: string }) {
               )}
             </span>
           }
+          id="Blocage"
           collapsible
           defaultExpanded={tier.is_blocked}
           storageKey="tier-detail-blocage"
@@ -1218,30 +1218,6 @@ export function TiersPage() {
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const panelMode = useUIStore((s) => s.dynamicPanelMode)
   const setNavItems = useUIStore((s) => s.setDynamicPanelNavItems)
-  const { toast } = useToast()
-  const sapImport = useImportSap()
-  const sapFileRef = useCallback((input: HTMLInputElement | null) => {
-    if (input) input.value = ''
-  }, [])
-
-  const handleSapImport = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    sapImport.mutate(file, {
-      onSuccess: (result) => {
-        toast({
-          title: 'Import SAP termine',
-          description: `${result.created} crees, ${result.updated} mis a jour, ${result.skipped} ignores, ${result.blocked} bloques${result.errors.length ? `, ${result.errors.length} erreur(s)` : ''}`,
-          variant: result.errors.length > 0 ? 'destructive' : 'default',
-        })
-      },
-      onError: () => {
-        toast({ title: 'Erreur import SAP', description: 'Verifiez le format du fichier XLSX.', variant: 'destructive' })
-      },
-    })
-    e.target.value = ''
-  }, [sapImport, toast])
-
   // Reset page when tab/search/filters change
   useEffect(() => { setPage(1) }, [debouncedSearch, activeFilters, activeTab])
 

@@ -8,7 +8,7 @@
  * Catalog items use HTML5 native drag → react-grid-layout's isDroppable / onDrop.
  */
 import { useState, useCallback, useRef, forwardRef, useImperativeHandle } from 'react'
-import type ReactGridLayout from 'react-grid-layout'
+import type { Layout, LayoutItem } from 'react-grid-layout'
 import { useDashboardEditor } from '@/hooks/useDashboardEditor'
 import { WidgetCatalogSidebar } from './WidgetCatalogSidebar'
 import { DashboardCanvas } from './DashboardCanvas'
@@ -28,7 +28,7 @@ interface DashboardEditorLayoutProps {
 }
 
 export const DashboardEditorLayout = forwardRef<DashboardEditorHandle, DashboardEditorLayoutProps>(
-  function DashboardEditorLayout({ tabId, initialWidgets, catalog, onExitEdit }, ref) {
+  function DashboardEditorLayout({ tabId, initialWidgets, catalog, onExitEdit: _onExitEdit }, ref) {
   const editor = useDashboardEditor({ tabId, initialWidgets })
 
   useImperativeHandle(ref, () => ({
@@ -37,12 +37,12 @@ export const DashboardEditorLayout = forwardRef<DashboardEditorHandle, Dashboard
   }), [editor.flushSave, editor.discardChanges])
 
   // Track the catalog entry currently being dragged (for droppingItem)
-  const [droppingItem, setDroppingItem] = useState<{ i: string; w: number; h: number } | undefined>(undefined)
+  const [droppingItem, setDroppingItem] = useState<LayoutItem | undefined>(undefined)
   const dragEntryRef = useRef<WidgetCatalogEntry | null>(null)
 
   const handleCatalogDragStart = useCallback((entry: WidgetCatalogEntry) => {
     dragEntryRef.current = entry
-    setDroppingItem({ i: '__dropping__', w: 4, h: 4 })
+    setDroppingItem({ i: '__dropping__', x: 0, y: 0, w: 4, h: 4 })
   }, [])
 
   const handleCatalogDragEnd = useCallback(() => {
@@ -52,9 +52,9 @@ export const DashboardEditorLayout = forwardRef<DashboardEditorHandle, Dashboard
 
   // When an external item is dropped onto the grid
   const handleDrop = useCallback(
-    (_layout: ReactGridLayout.Layout[], item: ReactGridLayout.Layout, _e: Event) => {
+    (_layout: Layout, item: LayoutItem | undefined, _e: Event) => {
       const entry = dragEntryRef.current
-      if (!entry) return
+      if (!entry || !item) return
 
       editor.addWidget(entry, { x: item.x, y: item.y, w: item.w, h: item.h })
       dragEntryRef.current = null

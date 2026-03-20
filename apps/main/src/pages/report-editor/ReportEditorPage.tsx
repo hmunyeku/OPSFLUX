@@ -52,7 +52,6 @@ import {
   useApproveDocument,
   useRejectDocument,
   usePublishDocument,
-  useObsoleteDocument,
   useDocumentWorkflowState,
   useDocumentTransition,
   useDocTypes,
@@ -1713,7 +1712,7 @@ function CreateDocTypePanel() {
     }
     try {
       await reportEditorService.createDocType({
-        code: form.code || undefined,  // Let backend auto-generate if empty
+        code: form.code || '',  // Let backend auto-generate if empty
         name: { fr: form.name_fr, en: form.name_en || form.name_fr },
         nomenclature_pattern: form.nomenclature_pattern,
         discipline: form.discipline || undefined,
@@ -1751,7 +1750,7 @@ function CreateDocTypePanel() {
             <div className="@container space-y-5">
               <FormSection title="Identification">
                 <FormGrid>
-                  <DynamicPanelField label="Code" hint="Auto-genere si vide">
+                  <DynamicPanelField label="Code">
                     <input type="text" value={form.code} onChange={(e) => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} className={cn(panelInputClass, 'font-mono')} placeholder="Auto-genere" />
                   </DynamicPanelField>
                   <DynamicPanelField label="Nom (FR)" required>
@@ -1883,7 +1882,6 @@ function CreateTemplatePanel() {
 // -- DocType Detail Panel ------------------------------------------------------
 
 function DocTypeDetailPanel({ id }: { id: string }) {
-  const { closeDynamicPanel } = useUIStore()
   const { toast } = useToast()
   const { data: docTypes, isLoading } = useDocTypes()
   const updateDocType = useUpdateDocType()
@@ -2004,7 +2002,6 @@ function DocTypeDetailPanel({ id }: { id: string }) {
 // -- Template Detail Panel ----------------------------------------------------
 
 function TemplateDetailPanel({ id }: { id: string }) {
-  const { closeDynamicPanel } = useUIStore()
   const { toast } = useToast()
   const { data: templates, isLoading } = useTemplates()
   const { data: docTypes } = useDocTypes()

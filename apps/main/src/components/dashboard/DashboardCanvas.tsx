@@ -5,8 +5,8 @@
  * Each widget maps to a grid item with position { x, y, w, h }.
  */
 import { useCallback, useMemo, useRef, useState, useEffect } from 'react'
-import { ResponsiveGridLayout } from 'react-grid-layout'
-import type { Layout, Layouts } from 'react-grid-layout'
+import { ResponsiveGridLayout, verticalCompactor } from 'react-grid-layout'
+import type { Layout, LayoutItem, ResponsiveLayouts } from 'react-grid-layout'
 import { LayoutGrid } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { WidgetCard } from './WidgetCard'
@@ -26,9 +26,9 @@ interface DashboardCanvasProps {
   onUpdateWidget: (widget: DashboardWidget) => void
   mode?: 'view' | 'edit'
   /** Item being dragged from catalog sidebar (for external drop) */
-  droppingItem?: { i: string; w: number; h: number }
+  droppingItem?: LayoutItem
   /** Callback when an external item is dropped onto the grid */
-  onDrop?: (layout: Layout[], item: Layout, e: Event) => void
+  onDrop?: (layout: Layout, item: LayoutItem | undefined, e: Event) => void
 }
 
 export function DashboardCanvas({
@@ -60,8 +60,8 @@ export function DashboardCanvas({
   }, [])
 
   // Build layout from widget positions
-  const layouts = useMemo<Layouts>(() => {
-    const lgLayout: Layout[] = widgets.map((widget, idx) => ({
+  const layouts = useMemo<ResponsiveLayouts>(() => {
+    const lgLayout: LayoutItem[] = widgets.map((widget, idx) => ({
       i: widget.id || `w-${idx}`,
       x: widget.position?.x ?? 0,
       y: widget.position?.y ?? 0,
@@ -78,7 +78,7 @@ export function DashboardCanvas({
 
   // When layout changes (drag or resize), sync positions back to widgets
   const handleLayoutChange = useCallback(
-    (currentLayout: Layout[]) => {
+    (currentLayout: Layout, _allLayouts: ResponsiveLayouts) => {
       // Skip the initial mount layout change — react-grid-layout compacts on first render
       if (isFirstLayoutChange.current) {
         isFirstLayoutChange.current = false
@@ -146,17 +146,15 @@ export function DashboardCanvas({
         breakpoints={BREAKPOINTS}
         cols={COLS}
         rowHeight={ROW_HEIGHT}
-        margin={[8, 8]}
-        containerPadding={[0, 0]}
-        isDraggable={isEditing}
-        isResizable={isEditing}
-        isDroppable={isEditing}
+        margin={[8, 8] as const}
+        containerPadding={[0, 0] as const}
+        dragConfig={{ enabled: isEditing, bounded: false, handle: '.react-grid-drag-handle' }}
+        resizeConfig={{ enabled: isEditing, handles: ['se'] }}
+        dropConfig={{ enabled: isEditing, defaultItem: { w: 4, h: 4 } }}
         droppingItem={droppingItem}
         onDrop={onDrop}
         onLayoutChange={handleLayoutChange}
-        draggableHandle=".react-grid-drag-handle"
-        useCSSTransforms
-        compactType="vertical"
+        compactor={verticalCompactor}
       >
         {widgets.map((widget, idx) => (
           <div

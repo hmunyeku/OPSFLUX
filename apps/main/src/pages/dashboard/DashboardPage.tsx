@@ -607,11 +607,11 @@ function TabButton({
       {/* Close button — visible in both view and edit mode for closable tabs */}
       {onClose && (
         <button
-          onClick={(e) => { e.stopPropagation(); onClose() }}
-          className="h-5 w-5 -ml-1 inline-flex items-center justify-center rounded hover:bg-destructive/10"
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); onClose() }}
+          className="h-5 w-5 ml-0.5 inline-flex items-center justify-center rounded hover:bg-destructive/10 hover:text-destructive transition-colors z-10"
           title="Supprimer cet onglet"
         >
-          <X size={10} className="text-muted-foreground" />
+          <X size={11} className="text-muted-foreground hover:text-destructive" />
         </button>
       )}
     </div>

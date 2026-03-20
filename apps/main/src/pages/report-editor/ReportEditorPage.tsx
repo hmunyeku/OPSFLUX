@@ -1657,13 +1657,13 @@ function CreateDocTypePanel() {
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.code.trim() || !form.name_fr.trim() || !form.nomenclature_pattern.trim()) {
-      toast({ title: 'Erreur', description: 'Code, nom et nomenclature requis', variant: 'error' })
+    if (!form.name_fr.trim() || !form.nomenclature_pattern.trim()) {
+      toast({ title: 'Erreur', description: 'Nom et nomenclature requis', variant: 'error' })
       return
     }
     try {
       await reportEditorService.createDocType({
-        code: form.code,
+        code: form.code || undefined,  // Let backend auto-generate if empty
         name: { fr: form.name_fr, en: form.name_en || form.name_fr },
         nomenclature_pattern: form.nomenclature_pattern,
         discipline: form.discipline || undefined,
@@ -1701,8 +1701,8 @@ function CreateDocTypePanel() {
             <div className="@container space-y-5">
               <FormSection title="Identification">
                 <FormGrid>
-                  <DynamicPanelField label="Code" required>
-                    <input type="text" required value={form.code} onChange={(e) => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} className={panelInputClass} placeholder="NOTE, PROC, RPT..." />
+                  <DynamicPanelField label="Code" hint="Auto-genere si vide">
+                    <input type="text" value={form.code} onChange={(e) => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} className={cn(panelInputClass, 'font-mono')} placeholder="Auto-genere" />
                   </DynamicPanelField>
                   <DynamicPanelField label="Nom (FR)" required>
                     <input type="text" required value={form.name_fr} onChange={(e) => setForm(f => ({ ...f, name_fr: e.target.value }))} className={panelInputClass} placeholder="Note technique" />

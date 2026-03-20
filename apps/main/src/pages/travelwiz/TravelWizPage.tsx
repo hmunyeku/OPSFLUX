@@ -27,6 +27,8 @@ import {
   PanelActionButton,
   DangerConfirmButton,
   DetailRow,
+  InlineEditableRow,
+  SectionColumns,
   panelInputClass,
 } from '@/components/layout/DynamicPanel'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
@@ -1844,6 +1846,17 @@ function VoyageDetailPanel({ id }: { id: string }) {
     catch { toast({ title: 'Erreur lors de la cloture', variant: 'error' }) }
   }
 
+  // Inline field save (used by InlineEditableRow in read mode)
+  const handleInlineSave = useCallback((field: string, value: string) => {
+    updateVoyage.mutate(
+      { id, payload: { [field]: value } },
+      {
+        onSuccess: () => toast({ title: 'Champ mis a jour', variant: 'success' }),
+        onError: () => toast({ title: 'Erreur lors de la mise a jour', variant: 'error' }),
+      },
+    )
+  }, [id, updateVoyage, toast])
+
   if (isLoading || !voyage) {
     return (
       <DynamicPanelShell title="Chargement..." icon={<Plane size={14} className="text-primary" />}>
@@ -1875,25 +1888,25 @@ function VoyageDetailPanel({ id }: { id: string }) {
             {updateVoyage.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Enregistrer'}
           </PanelActionButton>
         </>}
+        {!editing && voyage.status !== 'cancelled' && voyage.status !== 'completed' && (
+          <select className="text-xs border border-border rounded px-1.5 py-0.5 bg-background text-foreground h-7" value=""
+            onChange={(e) => { if (e.target.value) updateStatus.mutate({ id, status: e.target.value }) }}>
+            <option value="">Statut...</option>
+            {Object.entries(VOYAGE_STATUS_MAP).filter(([k]) => k !== voyage.status).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+          </select>
+        )}
+        {!editing && (voyage.status as string) === 'arrived' && (
+          <PanelActionButton onClick={handleClose} disabled={closeTrip.isPending} icon={<CheckCircle2 size={12} />}>
+            Cloturer
+          </PanelActionButton>
+        )}
         {!editing && <DangerConfirmButton onConfirm={handleDelete} icon={<Trash2 size={12} />}>Supprimer</DangerConfirmButton>}
       </>}
     >
       <PanelContentLayout>
-        {/* Status + workflow actions */}
+        {/* Status badge */}
         <div className="flex items-center gap-2 flex-wrap">
           <StatusBadge status={voyage.status} map={VOYAGE_STATUS_MAP} />
-          {!editing && voyage.status !== 'cancelled' && voyage.status !== 'completed' && (
-            <select className="text-xs border border-border rounded px-1.5 py-0.5 bg-background text-foreground" value=""
-              onChange={(e) => { if (e.target.value) updateStatus.mutate({ id, status: e.target.value }) }}>
-              <option value="">Changer statut...</option>
-              {Object.entries(VOYAGE_STATUS_MAP).filter(([k]) => k !== voyage.status).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-            </select>
-          )}
-          {!editing && (voyage.status as string) === 'arrived' && (
-            <button className="gl-button-sm gl-button-default text-xs inline-flex items-center gap-1" onClick={handleClose} disabled={closeTrip.isPending}>
-              <CheckCircle2 size={10} /> Cloturer
-            </button>
-          )}
         </div>
 
         {editing ? (
@@ -1909,17 +1922,19 @@ function VoyageDetailPanel({ id }: { id: string }) {
           </FormSection>
         ) : (
           <>
-            {/* Info */}
-            <FormSection title="Informations">
-              <DetailRow label="Code" value={voyage.code} />
-              <DetailRow label="Vecteur" value={voyage.vector_name ?? '\u2014'} />
-              <DetailRow label="Rotation" value={voyage.rotation_name ?? '\u2014'} />
-              <DetailRow label="Origine" value={voyage.origin ?? '\u2014'} />
-              <DetailRow label="Destination" value={voyage.destination ?? '\u2014'} />
-              <DetailRow label="Depart" value={voyage.departure_at ? new Date(voyage.departure_at).toLocaleString('fr-FR') : '\u2014'} />
-              <DetailRow label="Arrivee" value={voyage.arrival_at ? new Date(voyage.arrival_at).toLocaleString('fr-FR') : '\u2014'} />
-              <DetailRow label="Description" value={voyage.description ?? '\u2014'} />
-            </FormSection>
+            <SectionColumns>
+              <div className="@container space-y-5">
+                {/* Info */}
+                <FormSection title="Informations">
+                  <DetailRow label="Code" value={voyage.code} />
+                  <DetailRow label="Vecteur" value={voyage.vector_name ?? '\u2014'} />
+                  <DetailRow label="Rotation" value={voyage.rotation_name ?? '\u2014'} />
+                  <DetailRow label="Origine" value={voyage.origin ?? '\u2014'} />
+                  <DetailRow label="Destination" value={voyage.destination ?? '\u2014'} />
+                  <DetailRow label="Depart" value={voyage.departure_at ? new Date(voyage.departure_at).toLocaleString('fr-FR') : '\u2014'} />
+                  <DetailRow label="Arrivee" value={voyage.arrival_at ? new Date(voyage.arrival_at).toLocaleString('fr-FR') : '\u2014'} />
+                  <InlineEditableRow label="Description" value={voyage.description ?? ''} onSave={(v) => handleInlineSave('description', v)} />
+                </FormSection>
 
             {/* Route: Stops */}
             <FormSection title={`Route (${(stops?.length ?? 0) + 2} points)`} collapsible defaultExpanded>
@@ -1943,7 +1958,9 @@ function VoyageDetailPanel({ id }: { id: string }) {
                 </div>
               </div>
             </FormSection>
+              </div>
 
+              <div className="@container space-y-5">
             {/* PAX manifest summary */}
             <FormSection title={`Manifestes PAX (${manifests?.length ?? 0})`} collapsible defaultExpanded>
               <div className="grid grid-cols-3 gap-2 mb-2">
@@ -2050,6 +2067,8 @@ function VoyageDetailPanel({ id }: { id: string }) {
                 </div>
               </FormSection>
             )}
+              </div>
+            </SectionColumns>
 
             {/* Tags, Notes & Attachments */}
             <FormSection title="Tags, notes & fichiers" collapsible defaultExpanded={false}>

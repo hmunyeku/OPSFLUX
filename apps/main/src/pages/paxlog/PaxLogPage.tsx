@@ -50,6 +50,8 @@ import {
   PanelActionButton,
   DangerConfirmButton,
   TagSelector,
+  PanelContentLayout,
+  SectionColumns,
   panelInputClass,
 } from '@/components/layout/DynamicPanel'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
@@ -1340,7 +1342,7 @@ function ProfileDetailPanel({ id }: { id: string }) {
         </DangerConfirmButton>
       }
     >
-      <div className="p-4 space-y-5">
+      <PanelContentLayout>
         <div className="flex items-center gap-2 flex-wrap">
           <StatusBadge status={profile.status} />
           <span className={cn('gl-badge', profile.type === 'internal' ? 'gl-badge-info' : 'gl-badge-neutral')}>
@@ -1368,42 +1370,48 @@ function ProfileDetailPanel({ id }: { id: string }) {
           </div>
         )}
 
-        <FormSection title="Identite">
-          <InlineEditableRow label="Prenom" value={profile.first_name} onSave={(v) => handleSave('first_name', v)} />
-          <InlineEditableRow label="Nom" value={profile.last_name} onSave={(v) => handleSave('last_name', v)} />
-          <ReadOnlyRow label="Date de naissance" value={formatDate(profile.birth_date)} />
-          <InlineEditableRow label="Nationalite" value={profile.nationality || ''} onSave={(v) => handleSave('nationality', v)} />
-          <InlineEditableRow label="N badge" value={profile.badge_number || ''} onSave={(v) => handleSave('badge_number', v)} />
-        </FormSection>
+        <SectionColumns>
+          <div className="@container space-y-5">
+            <FormSection title="Identite">
+              <InlineEditableRow label="Prenom" value={profile.first_name} onSave={(v) => handleSave('first_name', v)} />
+              <InlineEditableRow label="Nom" value={profile.last_name} onSave={(v) => handleSave('last_name', v)} />
+              <ReadOnlyRow label="Date de naissance" value={formatDate(profile.birth_date)} />
+              <InlineEditableRow label="Nationalite" value={profile.nationality || ''} onSave={(v) => handleSave('nationality', v)} />
+              <InlineEditableRow label="N badge" value={profile.badge_number || ''} onSave={(v) => handleSave('badge_number', v)} />
+            </FormSection>
 
-        {profile.synced_from_intranet && (
-          <div className="flex items-center gap-1.5 px-2 py-1.5 rounded bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 text-xs">
-            <Info size={12} /> Profil synchronise depuis l'intranet \u2014 edition limitee
+            {profile.synced_from_intranet && (
+              <div className="flex items-center gap-1.5 px-2 py-1.5 rounded bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 text-xs">
+                <Info size={12} /> Profil synchronise depuis l'intranet \u2014 edition limitee
+              </div>
+            )}
           </div>
-        )}
 
-        <FormSection title={`Certifications (${credentials?.length || 0})`}>
-          {!credentials || credentials.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-2 italic">Aucune certification enregistree.</p>
-          ) : (
-            <div className="space-y-1">
-              {credentials.map((cred: PaxCredential) => (
-                <div key={cred.id} className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-accent/50 text-xs">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium truncate">{credTypeMap[cred.credential_type_id]?.name || 'Certification'}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      Obtenu : {formatDate(cred.obtained_date)}
-                      {cred.expiry_date && ` \u2014 Expire : ${formatDate(cred.expiry_date)}`}
-                    </p>
-                  </div>
-                  <StatusBadge status={cred.status} />
+          <div className="@container space-y-5">
+            <FormSection title={`Certifications (${credentials?.length || 0})`}>
+              {!credentials || credentials.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-2 italic">Aucune certification enregistree.</p>
+              ) : (
+                <div className="space-y-1">
+                  {credentials.map((cred: PaxCredential) => (
+                    <div key={cred.id} className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-accent/50 text-xs">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium truncate">{credTypeMap[cred.credential_type_id]?.name || 'Certification'}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          Obtenu : {formatDate(cred.obtained_date)}
+                          {cred.expiry_date && ` \u2014 Expire : ${formatDate(cred.expiry_date)}`}
+                        </p>
+                      </div>
+                      <StatusBadge status={cred.status} />
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
-        </FormSection>
+              )}
+            </FormSection>
 
-        <ReadOnlyRow label="Cree le" value={formatDate(profile.created_at)} />
+            <ReadOnlyRow label="Cree le" value={formatDate(profile.created_at)} />
+          </div>
+        </SectionColumns>
 
         <CollapsibleSection id="profile-tags-notes" title="Tags, notes & fichiers">
           <div className="space-y-3 p-3">
@@ -1412,7 +1420,7 @@ function ProfileDetailPanel({ id }: { id: string }) {
             <NoteManager ownerType="pax_profile" ownerId={profile.id} compact />
           </div>
         </CollapsibleSection>
-      </div>
+      </PanelContentLayout>
     </DynamicPanelShell>
   )
 }

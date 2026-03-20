@@ -645,6 +645,44 @@ export interface ComplianceCheckResult {
   details: Record<string, unknown>[]
 }
 
+// ── Compliance Exemptions ────────────────────────────────────
+
+export interface ComplianceExemption {
+  id: string
+  entity_id: string
+  compliance_record_id: string
+  reason: string
+  approved_by: string | null
+  status: 'pending' | 'approved' | 'rejected' | 'expired'
+  start_date: string
+  end_date: string
+  conditions: string | null
+  rejection_reason: string | null
+  created_by: string
+  active: boolean
+  created_at: string
+  updated_at: string
+  record_type_name?: string | null
+  record_type_category?: string | null
+  owner_name?: string | null
+  approver_name?: string | null
+  creator_name?: string | null
+}
+
+export interface ComplianceExemptionCreate {
+  compliance_record_id: string
+  reason: string
+  start_date: string
+  end_date: string
+  conditions?: string | null
+}
+
+export interface ComplianceExemptionUpdate {
+  status?: string
+  conditions?: string | null
+  end_date?: string | null
+}
+
 // ── Job Positions / Fiches de Poste ──────────────────────────
 
 export interface JobPosition {

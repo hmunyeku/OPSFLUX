@@ -1,15 +1,13 @@
 /**
- * Conformite (Compliance) page — referentiel + enregistrements.
+ * Conformite (Compliance) page — referentiel + enregistrements + exemptions.
  *
- * Onglets: Referentiel | Enregistrements
- * - Referentiel: DataTable des ComplianceType (formations, certifications, etc.)
- * - Enregistrements: DataTable des ComplianceRecord (instances liees aux employes/tiers/assets)
+ * Onglets: Referentiel | Enregistrements | Exemptions | Fiches de poste | Regles | Transferts
  */
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ShieldCheck, Plus, Loader2, Trash2, FileCheck, ClipboardList,
-  Briefcase, GitBranch, Scale,
+  Briefcase, GitBranch, Scale, ShieldOff, Check, X,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -41,11 +39,13 @@ import {
   useComplianceRules, useDeleteComplianceRule,
   useJobPositions, useCreateJobPosition, useUpdateJobPosition, useDeleteJobPosition,
   useTransfers,
+  useExemptions, useCreateExemption, useApproveExemption, useRejectExemption, useDeleteExemption,
 } from '@/hooks/useConformite'
 import type {
   ComplianceType, ComplianceTypeCreate,
   ComplianceRecord,
   ComplianceRule,
+  ComplianceExemption, ComplianceExemptionCreate,
   JobPosition, JobPositionCreate,
   TierContactTransfer,
 } from '@/types/api'
@@ -67,6 +67,13 @@ const STATUS_OPTIONS = [
   { value: 'rejected', label: 'Rejete' },
 ]
 
+const EXEMPTION_STATUS_OPTIONS = [
+  { value: 'pending', label: 'En attente' },
+  { value: 'approved', label: 'Approuve' },
+  { value: 'rejected', label: 'Rejete' },
+  { value: 'expired', label: 'Expire' },
+]
+
 const RULE_TARGET_OPTIONS = [
   { value: 'all', label: 'Tous' },
   { value: 'tier_type', label: 'Type de tiers' },
@@ -75,11 +82,12 @@ const RULE_TARGET_OPTIONS = [
   { value: 'job_position', label: 'Fiche de poste' },
 ]
 
-type ConformiteTab = 'referentiel' | 'enregistrements' | 'fiches' | 'regles' | 'transferts'
+type ConformiteTab = 'referentiel' | 'enregistrements' | 'exemptions' | 'fiches' | 'regles' | 'transferts'
 
 const TABS: { id: ConformiteTab; label: string; icon: typeof ShieldCheck }[] = [
   { id: 'referentiel', label: 'Referentiel', icon: ClipboardList },
   { id: 'enregistrements', label: 'Enregistrements', icon: FileCheck },
+  { id: 'exemptions', label: 'Exemptions', icon: ShieldOff },
   { id: 'fiches', label: 'Fiches de poste', icon: Briefcase },
   { id: 'regles', label: 'Regles', icon: Scale },
   { id: 'transferts', label: 'Transferts', icon: GitBranch },
@@ -142,7 +150,7 @@ function CreateTypePanel() {
           <FormSection title="Informations">
             <FormGrid>
               <DynamicPanelField label="Code">
-                <span className="text-sm font-mono text-muted-foreground italic">Auto-généré à la création</span>
+                <span className="text-sm font-mono text-muted-foreground italic">Auto-genere a la creation</span>
               </DynamicPanelField>
               <DynamicPanelField label="Nom" required>
                 <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={panelInputClass} placeholder="Formation HSE Niveau 1" />
@@ -217,7 +225,7 @@ function TypeDetailPanel({ id }: { id: string }) {
         <FormSection title="Informations" collapsible defaultExpanded>
           <DetailFieldGrid>
             <ReadOnlyRow label="Categorie" value={<span className="gl-badge gl-badge-info">{CATEGORY_OPTIONS.find(o => o.value === ct.category)?.label ?? ct.category}</span>} />
-            <ReadOnlyRow label="Code" value={<span className="text-sm font-mono font-medium text-foreground">{ct.code || '—'}</span>} />
+            <ReadOnlyRow label="Code" value={<span className="text-sm font-mono font-medium text-foreground">{ct.code || '\u2014'}</span>} />
             <InlineEditableRow label="Nom" value={ct.name} onSave={(v) => handleSave('name', v)} />
             <ReadOnlyRow label="Validite" value={ct.validity_days ? `${ct.validity_days} jours` : 'Permanent'} />
             <ReadOnlyRow label="Obligatoire" value={ct.is_mandatory ? 'Oui' : 'Non'} />
@@ -227,6 +235,271 @@ function TypeDetailPanel({ id }: { id: string }) {
         <FormSection title="Description" collapsible defaultExpanded={false}>
           <InlineEditableRow label="Description" value={ct.description || ''} onSave={(v) => handleSave('description', v)} />
         </FormSection>
+      </PanelContentLayout>
+    </DynamicPanelShell>
+  )
+}
+
+// -- Create Exemption Panel ---------------------------------------------------
+
+function CreateExemptionPanel() {
+  const { t } = useTranslation()
+  const createExemption = useCreateExemption()
+  const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const { toast } = useToast()
+
+  // Load compliance records for the select dropdown
+  const { data: recordsData } = useComplianceRecords({ page: 1, page_size: 200 })
+
+  const [form, setForm] = useState<ComplianceExemptionCreate>({
+    compliance_record_id: '',
+    reason: '',
+    start_date: new Date().toISOString().split('T')[0],
+    end_date: '',
+    conditions: null,
+  })
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.compliance_record_id) {
+      toast({ title: 'Selectionnez un enregistrement de conformite', variant: 'error' })
+      return
+    }
+    try {
+      await createExemption.mutateAsync(form)
+      closeDynamicPanel()
+      toast({ title: 'Exemption creee', variant: 'success' })
+    } catch {
+      toast({ title: 'Erreur lors de la creation', variant: 'error' })
+    }
+  }
+
+  return (
+    <DynamicPanelShell
+      title="Nouvelle exemption"
+      subtitle="Derogation de conformite"
+      icon={<ShieldOff size={14} className="text-amber-500" />}
+      actions={
+        <>
+          <PanelActionButton onClick={closeDynamicPanel}>{t('common.cancel')}</PanelActionButton>
+          <PanelActionButton
+            variant="primary"
+            disabled={createExemption.isPending}
+            onClick={() => (document.getElementById('create-exemption-form') as HTMLFormElement)?.requestSubmit()}
+          >
+            {createExemption.isPending ? <Loader2 size={12} className="animate-spin" /> : t('common.create')}
+          </PanelActionButton>
+        </>
+      }
+    >
+      <form id="create-exemption-form" onSubmit={handleSubmit}>
+        <PanelContentLayout>
+          <FormSection title="Enregistrement de conformite">
+            <DynamicPanelField label="Enregistrement" required>
+              <select
+                required
+                value={form.compliance_record_id}
+                onChange={(e) => setForm({ ...form, compliance_record_id: e.target.value })}
+                className={panelInputClass}
+              >
+                <option value="">-- Selectionnez --</option>
+                {recordsData?.items.map((rec) => (
+                  <option key={rec.id} value={rec.id}>
+                    {rec.type_name || rec.compliance_type_id.slice(0, 8)} - {rec.owner_type} ({rec.status})
+                  </option>
+                ))}
+              </select>
+            </DynamicPanelField>
+          </FormSection>
+
+          <FormSection title="Motif">
+            <DynamicPanelField label="Raison de l'exemption" required>
+              <textarea
+                required
+                value={form.reason}
+                onChange={(e) => setForm({ ...form, reason: e.target.value })}
+                className={`${panelInputClass} min-h-[80px] resize-y`}
+                placeholder="Certification expiree mais mission critique en cours..."
+                rows={3}
+              />
+            </DynamicPanelField>
+          </FormSection>
+
+          <FormSection title="Periode">
+            <FormGrid>
+              <DynamicPanelField label="Date de debut" required>
+                <input
+                  type="date"
+                  required
+                  value={form.start_date}
+                  onChange={(e) => setForm({ ...form, start_date: e.target.value })}
+                  className={panelInputClass}
+                />
+              </DynamicPanelField>
+              <DynamicPanelField label="Date de fin" required>
+                <input
+                  type="date"
+                  required
+                  value={form.end_date}
+                  onChange={(e) => setForm({ ...form, end_date: e.target.value })}
+                  className={panelInputClass}
+                />
+              </DynamicPanelField>
+            </FormGrid>
+          </FormSection>
+
+          <FormSection title="Conditions">
+            <textarea
+              value={form.conditions ?? ''}
+              onChange={(e) => setForm({ ...form, conditions: e.target.value || null })}
+              className={`${panelInputClass} min-h-[60px] resize-y`}
+              placeholder="Conditions sous lesquelles l'exemption est valide (optionnel)..."
+              rows={2}
+            />
+          </FormSection>
+        </PanelContentLayout>
+      </form>
+    </DynamicPanelShell>
+  )
+}
+
+// -- Exemption Detail Panel ---------------------------------------------------
+
+function ExemptionDetailPanel({ id }: { id: string }) {
+  const { t } = useTranslation()
+  const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const { data } = useExemptions({ page: 1, page_size: 200 })
+  const exemption = data?.items.find((ex) => ex.id === id)
+  const approveExemption = useApproveExemption()
+  const rejectExemption = useRejectExemption()
+  const deleteExemption = useDeleteExemption()
+  const { toast } = useToast()
+  const [rejectReason, setRejectReason] = useState('')
+  const [showRejectForm, setShowRejectForm] = useState(false)
+
+  const handleApprove = useCallback(async () => {
+    try {
+      await approveExemption.mutateAsync(id)
+      toast({ title: 'Exemption approuvee', variant: 'success' })
+    } catch {
+      toast({ title: 'Erreur', variant: 'error' })
+    }
+  }, [id, approveExemption, toast])
+
+  const handleReject = useCallback(async () => {
+    if (!rejectReason.trim()) {
+      toast({ title: 'Veuillez saisir un motif de rejet', variant: 'error' })
+      return
+    }
+    try {
+      await rejectExemption.mutateAsync({ id, reason: rejectReason })
+      setShowRejectForm(false)
+      toast({ title: 'Exemption rejetee', variant: 'success' })
+    } catch {
+      toast({ title: 'Erreur', variant: 'error' })
+    }
+  }, [id, rejectReason, rejectExemption, toast])
+
+  const handleDelete = useCallback(async () => {
+    await deleteExemption.mutateAsync(id)
+    closeDynamicPanel()
+    toast({ title: 'Exemption archivee', variant: 'success' })
+  }, [id, deleteExemption, closeDynamicPanel, toast])
+
+  if (!exemption) {
+    return (
+      <DynamicPanelShell title={t('common.loading')} icon={<ShieldOff size={14} className="text-amber-500" />}>
+        <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+      </DynamicPanelShell>
+    )
+  }
+
+  const statusBadge = (() => {
+    const s = exemption.status
+    const cls = s === 'approved' ? 'gl-badge-success' : s === 'rejected' ? 'gl-badge-danger' : s === 'pending' ? 'gl-badge-warning' : 'gl-badge-neutral'
+    const label = EXEMPTION_STATUS_OPTIONS.find(o => o.value === s)?.label ?? s
+    return <span className={cn('gl-badge', cls)}>{label}</span>
+  })()
+
+  return (
+    <DynamicPanelShell
+      title="Exemption"
+      subtitle={exemption.record_type_name || 'Detail'}
+      icon={<ShieldOff size={14} className="text-amber-500" />}
+      actions={
+        <DangerConfirmButton icon={<Trash2 size={12} />} onConfirm={handleDelete} confirmLabel="Supprimer ?">
+          {t('common.delete')}
+        </DangerConfirmButton>
+      }
+    >
+      <PanelContentLayout>
+        <FormSection title="Informations" collapsible defaultExpanded>
+          <DetailFieldGrid>
+            <ReadOnlyRow label="Statut" value={statusBadge} />
+            <ReadOnlyRow label="Type de conformite" value={exemption.record_type_name || '--'} />
+            <ReadOnlyRow label="Categorie" value={exemption.record_type_category ? <span className="gl-badge gl-badge-neutral">{exemption.record_type_category}</span> : '--'} />
+            <ReadOnlyRow label="Proprietaire" value={exemption.owner_name || '--'} />
+            <ReadOnlyRow label="Date de debut" value={new Date(exemption.start_date).toLocaleDateString('fr-FR')} />
+            <ReadOnlyRow label="Date de fin" value={new Date(exemption.end_date).toLocaleDateString('fr-FR')} />
+            <ReadOnlyRow label="Approuve par" value={exemption.approver_name || '--'} />
+            <ReadOnlyRow label="Cree par" value={exemption.creator_name || '--'} />
+            <ReadOnlyRow label="Cree le" value={new Date(exemption.created_at).toLocaleDateString('fr-FR')} />
+          </DetailFieldGrid>
+        </FormSection>
+
+        <FormSection title="Motif" collapsible defaultExpanded>
+          <p className="text-sm text-foreground whitespace-pre-wrap">{exemption.reason}</p>
+        </FormSection>
+
+        {exemption.conditions && (
+          <FormSection title="Conditions" collapsible defaultExpanded>
+            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{exemption.conditions}</p>
+          </FormSection>
+        )}
+
+        {exemption.rejection_reason && (
+          <FormSection title="Motif du rejet" collapsible defaultExpanded>
+            <p className="text-sm text-red-600 whitespace-pre-wrap">{exemption.rejection_reason}</p>
+          </FormSection>
+        )}
+
+        {exemption.status === 'pending' && (
+          <FormSection title="Actions" collapsible defaultExpanded>
+            <div className="flex gap-2">
+              <PanelActionButton
+                variant="primary"
+                onClick={handleApprove}
+                disabled={approveExemption.isPending}
+              >
+                {approveExemption.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                <span className="ml-1">Approuver</span>
+              </PanelActionButton>
+              <PanelActionButton
+                onClick={() => setShowRejectForm(!showRejectForm)}
+              >
+                <X size={12} />
+                <span className="ml-1">Rejeter</span>
+              </PanelActionButton>
+            </div>
+            {showRejectForm && (
+              <div className="mt-3 space-y-2">
+                <textarea
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  className={`${panelInputClass} min-h-[60px] resize-y`}
+                  placeholder="Motif du rejet..."
+                  rows={2}
+                />
+                <PanelActionButton
+                  onClick={handleReject}
+                  disabled={rejectExemption.isPending || !rejectReason.trim()}
+                >
+                  {rejectExemption.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Confirmer le rejet'}
+                </PanelActionButton>
+              </div>
+            )}
+          </FormSection>
+        )}
       </PanelContentLayout>
     </DynamicPanelShell>
   )
@@ -279,7 +552,7 @@ function CreateJobPositionPanel() {
           <FormSection title="Informations">
             <FormGrid>
               <DynamicPanelField label="Code">
-                <span className="text-sm font-mono text-muted-foreground italic">Auto-généré à la création</span>
+                <span className="text-sm font-mono text-muted-foreground italic">Auto-genere a la creation</span>
               </DynamicPanelField>
               <DynamicPanelField label="Intitule du poste" required>
                 <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={panelInputClass} placeholder="Operateur de production" />
@@ -353,7 +626,7 @@ function JobPositionDetailPanel({ id }: { id: string }) {
       <PanelContentLayout>
         <FormSection title="Informations" collapsible defaultExpanded>
           <DetailFieldGrid>
-            <ReadOnlyRow label="Code" value={<span className="text-sm font-mono font-medium text-foreground">{jp.code || '—'}</span>} />
+            <ReadOnlyRow label="Code" value={<span className="text-sm font-mono font-medium text-foreground">{jp.code || '\u2014'}</span>} />
             <InlineEditableRow label="Intitule" value={jp.name} onSave={(v) => handleSave('name', v)} />
             <InlineEditableRow label="Departement" value={jp.department || ''} onSave={(v) => handleSave('department', v)} />
           </DetailFieldGrid>
@@ -431,6 +704,13 @@ export function ConformitePage() {
     search: activeTab === 'enregistrements' ? (debouncedSearch || undefined) : undefined,
   })
 
+  const { data: exemptionsData, isLoading: exemptionsLoading } = useExemptions({
+    page: activeTab === 'exemptions' ? page : 1,
+    page_size: activeTab === 'exemptions' ? pageSize : 1,
+    status: activeTab === 'exemptions' ? statusFilter : undefined,
+    search: activeTab === 'exemptions' ? (debouncedSearch || undefined) : undefined,
+  })
+
   const { data: jpData, isLoading: jpLoading } = useJobPositions({
     page: activeTab === 'fiches' ? page : 1,
     page_size: activeTab === 'fiches' ? pageSize : 1,
@@ -450,9 +730,10 @@ export function ConformitePage() {
   useEffect(() => {
     if (activeTab === 'referentiel' && typesData?.items) setNavItems(typesData.items.map(i => i.id))
     else if (activeTab === 'enregistrements' && recordsData?.items) setNavItems(recordsData.items.map(i => i.id))
+    else if (activeTab === 'exemptions' && exemptionsData?.items) setNavItems(exemptionsData.items.map(i => i.id))
     else if (activeTab === 'fiches' && jpData?.items) setNavItems(jpData.items.map(i => i.id))
     return () => setNavItems([])
-  }, [activeTab, typesData?.items, recordsData?.items, jpData?.items, setNavItems])
+  }, [activeTab, typesData?.items, recordsData?.items, exemptionsData?.items, jpData?.items, setNavItems])
 
   // Filters
   const typeFilters = useMemo<DataTableFilterDef[]>(() => [
@@ -462,6 +743,10 @@ export function ConformitePage() {
   const recordFilters = useMemo<DataTableFilterDef[]>(() => [
     { id: 'category', label: 'Categorie', type: 'select', options: CATEGORY_OPTIONS.map(o => ({ value: o.value, label: o.label })) },
     { id: 'status', label: 'Statut', type: 'select', options: STATUS_OPTIONS.map(o => ({ value: o.value, label: o.label })) },
+  ], [])
+
+  const exemptionFilters = useMemo<DataTableFilterDef[]>(() => [
+    { id: 'status', label: 'Statut', type: 'select', options: EXEMPTION_STATUS_OPTIONS.map(o => ({ value: o.value, label: o.label })) },
   ], [])
 
   const handleFilterChange = useCallback((filterId: string, value: unknown) => {
@@ -495,6 +780,22 @@ export function ConformitePage() {
     { accessorKey: 'issuer', header: 'Emetteur', size: 120, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.issuer || '--'}</span> },
   ], [])
 
+  // Exemption columns
+  const exemptionColumns = useMemo<ColumnDef<ComplianceExemption, unknown>[]>(() => [
+    { accessorKey: 'record_type_name', header: 'Type', cell: ({ row }) => <span className="text-foreground font-medium">{row.original.record_type_name || '--'}</span> },
+    { accessorKey: 'owner_name', header: 'Proprietaire', size: 150, cell: ({ row }) => <span className="text-foreground text-xs">{row.original.owner_name || '--'}</span> },
+    { accessorKey: 'status', header: 'Statut', size: 100, cell: ({ row }) => {
+      const s = row.original.status
+      const cls = s === 'approved' ? 'gl-badge-success' : s === 'rejected' ? 'gl-badge-danger' : s === 'pending' ? 'gl-badge-warning' : 'gl-badge-neutral'
+      return <span className={cn('gl-badge', cls)}>{EXEMPTION_STATUS_OPTIONS.find(o => o.value === s)?.label ?? s}</span>
+    }},
+    { accessorKey: 'reason', header: 'Motif', cell: ({ row }) => <span className="text-muted-foreground text-xs truncate max-w-[200px] block">{row.original.reason}</span> },
+    { accessorKey: 'start_date', header: 'Debut', size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{new Date(row.original.start_date).toLocaleDateString('fr-FR')}</span> },
+    { accessorKey: 'end_date', header: 'Fin', size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{new Date(row.original.end_date).toLocaleDateString('fr-FR')}</span> },
+    { accessorKey: 'approver_name', header: 'Approuve par', size: 130, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.approver_name || '--'}</span> },
+    { accessorKey: 'created_at', header: 'Cree le', size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{new Date(row.original.created_at).toLocaleDateString('fr-FR')}</span> },
+  ], [])
+
   // Job Position columns
   const jpColumns = useMemo<ColumnDef<JobPosition, unknown>[]>(() => [
     { accessorKey: 'code', header: 'Code', size: 100, cell: ({ row }) => <span className="font-medium">{row.original.code}</span> },
@@ -503,11 +804,11 @@ export function ConformitePage() {
     { accessorKey: 'created_at', header: 'Cree le', size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs">{new Date(row.original.created_at).toLocaleDateString('fr-FR')}</span> },
   ], [])
 
-  // Rules columns (flat list — not paginated)
+  // Rules columns (flat list -- not paginated)
   const ruleColumns = useMemo<ColumnDef<ComplianceRule, unknown>[]>(() => [
     { accessorKey: 'compliance_type_id', header: 'Type', size: 200, cell: ({ row }) => {
       const ct = typesData?.items.find(t => t.id === row.original.compliance_type_id)
-      return <span className="text-foreground font-medium">{ct ? `${ct.code} — ${ct.name}` : row.original.compliance_type_id.slice(0, 8)}</span>
+      return <span className="text-foreground font-medium">{ct ? `${ct.code} \u2014 ${ct.name}` : row.original.compliance_type_id.slice(0, 8)}</span>
     }},
     { accessorKey: 'target_type', header: 'Cible', size: 130, cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{RULE_TARGET_OPTIONS.find(o => o.value === row.original.target_type)?.label ?? row.original.target_type}</span> },
     { accessorKey: 'target_value', header: 'Valeur', size: 150, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.target_value || 'N/A'}</span> },
@@ -530,6 +831,7 @@ export function ConformitePage() {
 
   const typesPagination: DataTablePagination | undefined = typesData ? { page: typesData.page, pageSize, total: typesData.total, pages: typesData.pages } : undefined
   const recordsPagination: DataTablePagination | undefined = recordsData ? { page: recordsData.page, pageSize, total: recordsData.total, pages: recordsData.pages } : undefined
+  const exemptionsPagination: DataTablePagination | undefined = exemptionsData ? { page: exemptionsData.page, pageSize, total: exemptionsData.total, pages: exemptionsData.pages } : undefined
   const jpPagination: DataTablePagination | undefined = jpData ? { page: jpData.page, pageSize, total: jpData.total, pages: jpData.pages } : undefined
   const transfersPagination: DataTablePagination | undefined = transfersData ? { page: transfersData.page, pageSize, total: transfersData.total, pages: transfersData.pages } : undefined
 
@@ -539,6 +841,7 @@ export function ConformitePage() {
   const toolbarAction = useMemo(() => {
     if (activeTab === 'referentiel') return <ToolbarButton icon={Plus} label="Nouveau type" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite' })} />
     if (activeTab === 'fiches') return <ToolbarButton icon={Plus} label="Nouvelle fiche" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite', meta: { subtype: 'job-position' } })} />
+    if (activeTab === 'exemptions') return <ToolbarButton icon={Plus} label="Nouvelle exemption" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite', meta: { subtype: 'exemption' } })} />
     return null
   }, [activeTab, openDynamicPanel])
 
@@ -592,6 +895,28 @@ export function ConformitePage() {
             columnResizing
             columnVisibility
             storageKey="conformite-records"
+          />
+        )
+      case 'exemptions':
+        return (
+          <DataTable<ComplianceExemption>
+            columns={exemptionColumns}
+            data={exemptionsData?.items ?? []}
+            isLoading={exemptionsLoading}
+            pagination={exemptionsPagination}
+            onPaginationChange={(p, size) => { if (size !== pageSize) { setPageSize(size); setPage(1) } else setPage(p) }}
+            searchValue={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Rechercher par motif..."
+            filters={exemptionFilters}
+            activeFilters={activeFilters}
+            onFilterChange={handleFilterChange}
+            onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'conformite', id: row.id, meta: { subtype: 'exemption' } })}
+            emptyIcon={ShieldOff}
+            emptyTitle="Aucune exemption"
+            columnResizing
+            columnVisibility
+            storageKey="conformite-exemptions"
           />
         )
       case 'fiches':
@@ -674,6 +999,8 @@ export function ConformitePage() {
       {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'detail' && !dynamicPanel.meta?.subtype && <TypeDetailPanel id={dynamicPanel.id} />}
       {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'job-position' && <CreateJobPositionPanel />}
       {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'job-position' && <JobPositionDetailPanel id={dynamicPanel.id} />}
+      {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'exemption' && <CreateExemptionPanel />}
+      {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'exemption' && <ExemptionDetailPanel id={dynamicPanel.id} />}
     </div>
   )
 }
@@ -683,5 +1010,7 @@ registerPanelRenderer('conformite', (view) => {
   if (view.type === 'detail' && 'id' in view && !view.meta?.subtype) return <TypeDetailPanel id={view.id} />
   if (view.type === 'create' && view.meta?.subtype === 'job-position') return <CreateJobPositionPanel />
   if (view.type === 'detail' && 'id' in view && view.meta?.subtype === 'job-position') return <JobPositionDetailPanel id={view.id} />
+  if (view.type === 'create' && view.meta?.subtype === 'exemption') return <CreateExemptionPanel />
+  if (view.type === 'detail' && 'id' in view && view.meta?.subtype === 'exemption') return <ExemptionDetailPanel id={view.id} />
   return null
 })

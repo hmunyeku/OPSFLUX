@@ -1,11 +1,12 @@
 """Core ORM models — entities, users, roles, assets, tiers, departments, etc."""
 
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID as PyUUID
 
 from sqlalchemy import (
     Boolean,
     Column,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -952,6 +953,32 @@ class ComplianceRecord(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     compliance_type: Mapped["ComplianceType"] = relationship()
     verifier: Mapped["User | None"] = relationship(foreign_keys=[verified_by])
+    creator: Mapped["User"] = relationship(foreign_keys=[created_by])
+
+
+class ComplianceExemption(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Temporary exemption from a compliance requirement (e.g. expired cert waiver)."""
+    __tablename__ = "compliance_exemptions"
+    __table_args__ = (
+        Index("idx_compliance_exemptions_entity", "entity_id"),
+        Index("idx_compliance_exemptions_record", "compliance_record_id"),
+        Index("idx_compliance_exemptions_status", "status"),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
+    compliance_record_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("compliance_records.id"), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    approved_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)  # pending, approved, rejected, expired
+    start_date: Mapped[date] = mapped_column(Date, nullable=False)
+    end_date: Mapped[date] = mapped_column(Date, nullable=False)
+    conditions: Mapped[str | None] = mapped_column(Text)
+    rejection_reason: Mapped[str | None] = mapped_column(Text)
+    created_by: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    compliance_record: Mapped["ComplianceRecord"] = relationship()
+    approver: Mapped["User | None"] = relationship(foreign_keys=[approved_by])
     creator: Mapped["User"] = relationship(foreign_keys=[created_by])
 
 

@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 from sqlalchemy import select, func as sqla_func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,7 +13,7 @@ from app.core.database import get_db
 from app.core.events import emit_event
 from app.core.pagination import PaginationParams, paginate
 from app.models.common import (
-    ComplianceType, ComplianceRule, ComplianceRecord,
+    ComplianceType, ComplianceRule, ComplianceRecord, ComplianceExemption,
     JobPosition, TierContactTransfer, TierContact, Tier,
     User,
 )
@@ -22,6 +23,7 @@ from app.schemas.common import (
     ComplianceRuleCreate, ComplianceRuleRead,
     ComplianceRecordCreate, ComplianceRecordRead, ComplianceRecordUpdate,
     ComplianceCheckResult,
+    ComplianceExemptionCreate, ComplianceExemptionRead, ComplianceExemptionUpdate,
     JobPositionCreate, JobPositionRead, JobPositionUpdate,
     TierContactTransferCreate, TierContactTransferRead,
 )
@@ -303,11 +305,10 @@ async def delete_compliance_record(
 # ── Expiring & Non-Compliant ─────────────────────────────────────────────
 
 
-from pydantic import BaseModel as _BaseModel
 from datetime import timedelta
 
 
-class ExpiringRecordRead(_BaseModel):
+class ExpiringRecordRead(BaseModel):
     id: UUID
     compliance_type_id: UUID
     type_name: str | None = None
@@ -714,3 +715,261 @@ async def create_transfer(
     d["from_tier_name"] = from_tier.name if from_tier else None
     d["to_tier_name"] = to_tier.name if to_tier else None
     return d
+
+
+# ── Compliance Exemptions ────────────────────────────────────────────────
+
+
+async def _enrich_exemption(db: AsyncSession, exemption) -> dict:
+    """Build enriched dict for a ComplianceExemption row."""
+    d = {c.key: getattr(exemption, c.key) for c in exemption.__table__.columns}
+    # Record type info
+    record = await db.get(ComplianceRecord, exemption.compliance_record_id)
+    if record:
+        ct = await db.get(ComplianceType, record.compliance_type_id)
+        d["record_type_name"] = ct.name if ct else None
+        d["record_type_category"] = ct.category if ct else None
+        # Owner name
+        if record.owner_type == "tier_contact":
+            contact = await db.get(TierContact, record.owner_id)
+            d["owner_name"] = f"{contact.first_name} {contact.last_name}" if contact else None
+        elif record.owner_type == "tier":
+            tier = await db.get(Tier, record.owner_id)
+            d["owner_name"] = tier.name if tier else None
+        elif record.owner_type == "user":
+            user = await db.get(User, record.owner_id)
+            d["owner_name"] = f"{user.first_name} {user.last_name}" if user else None
+        else:
+            d["owner_name"] = None
+    else:
+        d["record_type_name"] = None
+        d["record_type_category"] = None
+        d["owner_name"] = None
+    # Approver / creator names
+    if exemption.approved_by:
+        approver = await db.get(User, exemption.approved_by)
+        d["approver_name"] = f"{approver.first_name} {approver.last_name}" if approver else None
+    else:
+        d["approver_name"] = None
+    creator = await db.get(User, exemption.created_by)
+    d["creator_name"] = f"{creator.first_name} {creator.last_name}" if creator else None
+    return d
+
+
+@router.get("/exemptions", response_model=PaginatedResponse[ComplianceExemptionRead])
+async def list_exemptions(
+    status: str | None = None,
+    compliance_type_id: UUID | None = None,
+    search: str | None = None,
+    pagination: PaginationParams = Depends(),
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List compliance exemptions with filters and pagination."""
+    from datetime import date as date_type
+
+    # Auto-expire exemptions past their end date
+    today = date_type.today()
+    expire_stmt = (
+        select(ComplianceExemption)
+        .where(
+            ComplianceExemption.entity_id == entity_id,
+            ComplianceExemption.active == True,  # noqa: E712
+            ComplianceExemption.status == "approved",
+            ComplianceExemption.end_date < today,
+        )
+    )
+    for ex in (await db.execute(expire_stmt)).scalars().all():
+        ex.status = "expired"
+    await db.flush()
+
+    query = (
+        select(ComplianceExemption)
+        .where(ComplianceExemption.entity_id == entity_id, ComplianceExemption.active == True)  # noqa: E712
+    )
+    if status:
+        query = query.where(ComplianceExemption.status == status)
+    if compliance_type_id:
+        query = query.where(
+            ComplianceExemption.compliance_record_id.in_(
+                select(ComplianceRecord.id).where(ComplianceRecord.compliance_type_id == compliance_type_id)
+            )
+        )
+    if search:
+        like = f"%{search}%"
+        query = query.where(ComplianceExemption.reason.ilike(like))
+    query = query.order_by(ComplianceExemption.created_at.desc())
+
+    # Count total
+    count_query = select(sqla_func.count()).select_from(query.subquery())
+    total = (await db.execute(count_query)).scalar() or 0
+    pages = (total + pagination.page_size - 1) // pagination.page_size if total > 0 else 0
+
+    # Fetch page
+    paginated = query.offset(pagination.offset).limit(pagination.page_size)
+    result = await db.execute(paginated)
+    exemptions = result.scalars().all()
+
+    # Enrich each item (async)
+    items = [await _enrich_exemption(db, ex) for ex in exemptions]
+
+    return {
+        "items": items,
+        "total": total,
+        "page": pagination.page,
+        "page_size": pagination.page_size,
+        "pages": pages,
+    }
+
+
+@router.post("/exemptions", response_model=ComplianceExemptionRead, status_code=201)
+async def create_exemption(
+    body: ComplianceExemptionCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("conformite.exemption.create"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a new compliance exemption (status=pending)."""
+    # Validate the compliance record exists and belongs to entity
+    rec = await db.get(ComplianceRecord, body.compliance_record_id)
+    if not rec or rec.entity_id != entity_id:
+        raise HTTPException(404, "Compliance record not found")
+
+    if body.end_date <= body.start_date:
+        raise HTTPException(400, "end_date must be after start_date")
+
+    exemption = ComplianceExemption(
+        entity_id=entity_id,
+        created_by=current_user.id,
+        status="pending",
+        **body.model_dump(),
+    )
+    db.add(exemption)
+    await db.commit()
+    await db.refresh(exemption)
+    return await _enrich_exemption(db, exemption)
+
+
+@router.patch("/exemptions/{exemption_id}", response_model=ComplianceExemptionRead)
+async def update_exemption(
+    exemption_id: UUID,
+    body: ComplianceExemptionUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("conformite.exemption.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update an exemption (change status, extend end_date, update conditions)."""
+    result = await db.execute(
+        select(ComplianceExemption).where(
+            ComplianceExemption.id == exemption_id,
+            ComplianceExemption.entity_id == entity_id,
+        )
+    )
+    exemption = result.scalars().first()
+    if not exemption:
+        raise HTTPException(404, "Exemption not found")
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(exemption, field, value)
+    await db.commit()
+    await db.refresh(exemption)
+    return await _enrich_exemption(db, exemption)
+
+
+@router.post("/exemptions/{exemption_id}/approve", response_model=ComplianceExemptionRead)
+async def approve_exemption(
+    exemption_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("conformite.exemption.approve"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Approve a pending exemption."""
+    result = await db.execute(
+        select(ComplianceExemption).where(
+            ComplianceExemption.id == exemption_id,
+            ComplianceExemption.entity_id == entity_id,
+        )
+    )
+    exemption = result.scalars().first()
+    if not exemption:
+        raise HTTPException(404, "Exemption not found")
+    if exemption.status != "pending":
+        raise HTTPException(400, f"Cannot approve exemption with status '{exemption.status}'")
+    exemption.status = "approved"
+    exemption.approved_by = current_user.id
+    await db.commit()
+    await db.refresh(exemption)
+
+    await emit_event("conformite.exemption.approved", {
+        "exemption_id": str(exemption.id),
+        "entity_id": str(entity_id),
+        "record_id": str(exemption.compliance_record_id),
+        "approved_by": str(current_user.id),
+    })
+
+    return await _enrich_exemption(db, exemption)
+
+
+class RejectExemptionBody(BaseModel):
+    reason: str = Field(..., min_length=1)
+
+
+@router.post("/exemptions/{exemption_id}/reject", response_model=ComplianceExemptionRead)
+async def reject_exemption(
+    exemption_id: UUID,
+    body: RejectExemptionBody,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("conformite.exemption.approve"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Reject a pending exemption (requires reason)."""
+    result = await db.execute(
+        select(ComplianceExemption).where(
+            ComplianceExemption.id == exemption_id,
+            ComplianceExemption.entity_id == entity_id,
+        )
+    )
+    exemption = result.scalars().first()
+    if not exemption:
+        raise HTTPException(404, "Exemption not found")
+    if exemption.status != "pending":
+        raise HTTPException(400, f"Cannot reject exemption with status '{exemption.status}'")
+    exemption.status = "rejected"
+    exemption.approved_by = current_user.id
+    exemption.rejection_reason = body.reason
+    await db.commit()
+    await db.refresh(exemption)
+
+    await emit_event("conformite.exemption.rejected", {
+        "exemption_id": str(exemption.id),
+        "entity_id": str(entity_id),
+        "record_id": str(exemption.compliance_record_id),
+        "rejected_by": str(current_user.id),
+    })
+
+    return await _enrich_exemption(db, exemption)
+
+
+@router.delete("/exemptions/{exemption_id}")
+async def delete_exemption(
+    exemption_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("conformite.exemption.delete"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Soft-delete an exemption."""
+    result = await db.execute(
+        select(ComplianceExemption).where(
+            ComplianceExemption.id == exemption_id,
+            ComplianceExemption.entity_id == entity_id,
+        )
+    )
+    exemption = result.scalars().first()
+    if not exemption:
+        raise HTTPException(404, "Exemption not found")
+    exemption.active = False
+    await db.commit()
+    return {"detail": "Exemption archived"}

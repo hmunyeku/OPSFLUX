@@ -26,6 +26,8 @@ import {
   PanelActionButton,
   DangerConfirmButton,
   DetailRow,
+  InlineEditableRow,
+  SectionColumns,
   panelInputClass,
 } from '@/components/layout/DynamicPanel'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
@@ -1341,6 +1343,17 @@ function ActivityDetailPanel({ id }: { id: string }) {
   const [showPriorityOverride, setShowPriorityOverride] = useState(false)
   const [priorityOverrideForm, setPriorityOverrideForm] = useState({ priority: 'high', reason: '' })
 
+  // Inline field save (used by InlineEditableRow in read mode)
+  const handleInlineSave = useCallback((field: string, value: string) => {
+    updateActivity.mutate(
+      { id, payload: { [field]: value } },
+      {
+        onSuccess: () => toast({ title: 'Champ mis a jour', variant: 'success' }),
+        onError: () => toast({ title: 'Erreur lors de la mise a jour', variant: 'error' }),
+      },
+    )
+  }, [id, updateActivity, toast])
+
   const startEdit = useCallback(() => {
     if (!activity) return
     setEditForm({
@@ -1758,119 +1771,123 @@ function ActivityDetailPanel({ id }: { id: string }) {
         ) : (
           /* ── READ MODE ── */
           <>
-            {/* Informations */}
-            <FormSection title="Informations">
-              <DetailRow label="Titre" value={activity.title} />
-              <DetailRow
-                label="Type"
-                value={
-                  <span className={cn('gl-badge inline-flex items-center gap-1', typeEntry?.badge || 'gl-badge-neutral')}>
-                    {typeEntry?.label || tp}
-                  </span>
-                }
-              />
-              {activity.subtype && <DetailRow label="Sous-type" value={activity.subtype} />}
-              <DetailRow
-                label="Statut"
-                value={
-                  <span className={cn('gl-badge', statusEntry?.badge || 'gl-badge-neutral')}>
-                    {statusEntry?.label || st}
-                  </span>
-                }
-              />
-              <DetailRow
-                label="Priorite"
-                value={
-                  <span className={cn('text-sm font-medium', priorityEntry?.cls || 'text-muted-foreground')}>
-                    {priorityEntry?.label || activity.priority}
-                  </span>
-                }
-              />
-            </FormSection>
+            <SectionColumns>
+              <div className="@container space-y-5">
+                {/* Informations */}
+                <FormSection title="Informations">
+                  <InlineEditableRow label="Titre" value={activity.title} onSave={(v) => handleInlineSave('title', v)} />
+                  <DetailRow
+                    label="Type"
+                    value={
+                      <span className={cn('gl-badge inline-flex items-center gap-1', typeEntry?.badge || 'gl-badge-neutral')}>
+                        {typeEntry?.label || tp}
+                      </span>
+                    }
+                  />
+                  {activity.subtype && <DetailRow label="Sous-type" value={activity.subtype} />}
+                  <DetailRow
+                    label="Statut"
+                    value={
+                      <span className={cn('gl-badge', statusEntry?.badge || 'gl-badge-neutral')}>
+                        {statusEntry?.label || st}
+                      </span>
+                    }
+                  />
+                  <DetailRow
+                    label="Priorite"
+                    value={
+                      <span className={cn('text-sm font-medium', priorityEntry?.cls || 'text-muted-foreground')}>
+                        {priorityEntry?.label || activity.priority}
+                      </span>
+                    }
+                  />
+                </FormSection>
 
-            {/* Planning */}
-            <FormSection title="Planning">
-              <DetailRow label="Date debut" value={formatDateShort(activity.start_date)} />
-              <DetailRow label="Date fin" value={formatDateShort(activity.end_date)} />
-              <DetailRow label="Debut reel" value={formatDateShort(activity.actual_start)} />
-              <DetailRow label="Fin reelle" value={formatDateShort(activity.actual_end)} />
-              <DetailRow
-                label="Quota PAX"
-                value={
-                  <span className="inline-flex items-center gap-1">
-                    <Users size={12} className="text-muted-foreground" />
-                    {activity.pax_quota}
-                  </span>
-                }
-              />
-            </FormSection>
+                {/* Planning */}
+                <FormSection title="Planning">
+                  <DetailRow label="Date debut" value={formatDateShort(activity.start_date)} />
+                  <DetailRow label="Date fin" value={formatDateShort(activity.end_date)} />
+                  <DetailRow label="Debut reel" value={formatDateShort(activity.actual_start)} />
+                  <DetailRow label="Fin reelle" value={formatDateShort(activity.actual_end)} />
+                  <DetailRow
+                    label="Quota PAX"
+                    value={
+                      <span className="inline-flex items-center gap-1">
+                        <Users size={12} className="text-muted-foreground" />
+                        {activity.pax_quota}
+                      </span>
+                    }
+                  />
+                </FormSection>
 
-            {/* Rattachement */}
-            <FormSection title="Rattachement">
-              <DetailRow label="Site" value={
-                activity.asset_id ? (
-                  <CrossModuleLink module="assets" id={activity.asset_id} label={activity.asset_name || activity.asset_id} mode="navigate" />
-                ) : (activity.asset_name || '\u2014')
-              } />
-              <DetailRow label="Projet" value={
-                activity.project_id ? (
-                  <CrossModuleLink module="projets" id={activity.project_id} label={activity.project_name || activity.project_id} mode="navigate" />
-                ) : (activity.project_name || '\u2014')
-              } />
-            </FormSection>
+                {/* Rattachement */}
+                <FormSection title="Rattachement">
+                  <DetailRow label="Site" value={
+                    activity.asset_id ? (
+                      <CrossModuleLink module="assets" id={activity.asset_id} label={activity.asset_name || activity.asset_id} mode="navigate" />
+                    ) : (activity.asset_name || '\u2014')
+                  } />
+                  <DetailRow label="Projet" value={
+                    activity.project_id ? (
+                      <CrossModuleLink module="projets" id={activity.project_id} label={activity.project_name || activity.project_id} mode="navigate" />
+                    ) : (activity.project_name || '\u2014')
+                  } />
+                </FormSection>
 
-            {/* Description */}
-            {activity.description && (
-              <FormSection title="Description">
-                <p className="text-sm text-foreground whitespace-pre-wrap">{activity.description}</p>
-              </FormSection>
-            )}
+                {/* Description */}
+                <FormSection title="Description">
+                  <InlineEditableRow label="Description" value={activity.description ?? ''} onSave={(v) => handleInlineSave('description', v)} />
+                </FormSection>
+              </div>
 
-            {/* Details specialises (conditionnel) */}
-            {tp === 'workover' && (activity.well_reference || activity.rig_name) && (
-              <FormSection title="Details specialises">
-                {activity.well_reference && <DetailRow label="Reference puits" value={activity.well_reference} />}
-                {activity.rig_name && <DetailRow label="Nom du rig" value={activity.rig_name} />}
-              </FormSection>
-            )}
+              <div className="@container space-y-5">
+                {/* Details specialises (conditionnel) */}
+                {tp === 'workover' && (activity.well_reference || activity.rig_name) && (
+                  <FormSection title="Details specialises">
+                    {activity.well_reference && <DetailRow label="Reference puits" value={activity.well_reference} />}
+                    {activity.rig_name && <DetailRow label="Nom du rig" value={activity.rig_name} />}
+                  </FormSection>
+                )}
 
-            {tp === 'drilling' && (activity.spud_date || activity.target_depth || activity.drilling_program_ref) && (
-              <FormSection title="Details specialises">
-                {activity.spud_date && <DetailRow label="Date spud" value={formatDateShort(activity.spud_date)} />}
-                {activity.target_depth != null && <DetailRow label="Profondeur cible" value={`${activity.target_depth} m`} />}
-                {activity.drilling_program_ref && <DetailRow label="Ref. programme forage" value={activity.drilling_program_ref} />}
-              </FormSection>
-            )}
+                {tp === 'drilling' && (activity.spud_date || activity.target_depth || activity.drilling_program_ref) && (
+                  <FormSection title="Details specialises">
+                    {activity.spud_date && <DetailRow label="Date spud" value={formatDateShort(activity.spud_date)} />}
+                    {activity.target_depth != null && <DetailRow label="Profondeur cible" value={`${activity.target_depth} m`} />}
+                    {activity.drilling_program_ref && <DetailRow label="Ref. programme forage" value={activity.drilling_program_ref} />}
+                  </FormSection>
+                )}
 
-            {(tp === 'maintenance' || tp === 'integrity') && (activity.regulatory_ref || activity.work_order_ref) && (
-              <FormSection title="Details specialises">
-                {activity.regulatory_ref && <DetailRow label="Reference reglementaire" value={activity.regulatory_ref} />}
-                {activity.work_order_ref && <DetailRow label="Bon de travail" value={activity.work_order_ref} />}
-              </FormSection>
-            )}
+                {(tp === 'maintenance' || tp === 'integrity') && (activity.regulatory_ref || activity.work_order_ref) && (
+                  <FormSection title="Details specialises">
+                    {activity.regulatory_ref && <DetailRow label="Reference reglementaire" value={activity.regulatory_ref} />}
+                    {activity.work_order_ref && <DetailRow label="Bon de travail" value={activity.work_order_ref} />}
+                  </FormSection>
+                )}
 
-            {/* Workflow */}
-            <FormSection title="Workflow">
-              <DetailRow label="Cree par" value={activity.created_by_name || '\u2014'} />
-              {activity.submitted_by_name && (
-                <DetailRow
-                  label="Soumis par"
-                  value={`${activity.submitted_by_name}${activity.submitted_at ? ` \u2014 ${formatDateShort(activity.submitted_at)}` : ''}`}
-                />
-              )}
-              {activity.validated_by_name && (
-                <DetailRow
-                  label="Valide par"
-                  value={`${activity.validated_by_name}${activity.validated_at ? ` \u2014 ${formatDateShort(activity.validated_at)}` : ''}`}
-                />
-              )}
-              {st === 'rejected' && activity.rejection_reason && (
-                <DetailRow
-                  label="Motif du rejet"
-                  value={<span className="text-destructive">{activity.rejection_reason}</span>}
-                />
-              )}
-            </FormSection>
+                {/* Workflow */}
+                <FormSection title="Workflow">
+                  <DetailRow label="Cree par" value={activity.created_by_name || '\u2014'} />
+                  {activity.submitted_by_name && (
+                    <DetailRow
+                      label="Soumis par"
+                      value={`${activity.submitted_by_name}${activity.submitted_at ? ` \u2014 ${formatDateShort(activity.submitted_at)}` : ''}`}
+                    />
+                  )}
+                  {activity.validated_by_name && (
+                    <DetailRow
+                      label="Valide par"
+                      value={`${activity.validated_by_name}${activity.validated_at ? ` \u2014 ${formatDateShort(activity.validated_at)}` : ''}`}
+                    />
+                  )}
+                  {st === 'rejected' && activity.rejection_reason && (
+                    <DetailRow
+                      label="Motif du rejet"
+                      value={<span className="text-destructive">{activity.rejection_reason}</span>}
+                    />
+                  )}
+                </FormSection>
+              </div>
+            </SectionColumns>
 
             {/* Dependencies */}
             <FormSection title="Dependances">

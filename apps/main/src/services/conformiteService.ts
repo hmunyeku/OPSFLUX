@@ -7,6 +7,7 @@ import type {
   ComplianceRule, ComplianceRuleCreate,
   ComplianceRecord, ComplianceRecordCreate, ComplianceRecordUpdate,
   ComplianceCheckResult,
+  ComplianceExemption, ComplianceExemptionCreate, ComplianceExemptionUpdate,
   JobPosition, JobPositionCreate, JobPositionUpdate,
   TierContactTransfer, TierContactTransferCreate,
   PaginatedResponse, PaginationParams,
@@ -107,6 +108,36 @@ export const conformiteService = {
 
   deleteJobPosition: async (id: string): Promise<void> => {
     await api.delete(`/api/v1/conformite/job-positions/${id}`)
+  },
+
+  // ── Exemptions ──
+  listExemptions: async (params: PaginationParams & { status?: string; compliance_type_id?: string; search?: string } = {}): Promise<PaginatedResponse<ComplianceExemption>> => {
+    const { data } = await api.get('/api/v1/conformite/exemptions', { params })
+    return data
+  },
+
+  createExemption: async (payload: ComplianceExemptionCreate): Promise<ComplianceExemption> => {
+    const { data } = await api.post('/api/v1/conformite/exemptions', payload)
+    return data
+  },
+
+  updateExemption: async (id: string, payload: ComplianceExemptionUpdate): Promise<ComplianceExemption> => {
+    const { data } = await api.patch(`/api/v1/conformite/exemptions/${id}`, payload)
+    return data
+  },
+
+  approveExemption: async (id: string): Promise<ComplianceExemption> => {
+    const { data } = await api.post(`/api/v1/conformite/exemptions/${id}/approve`)
+    return data
+  },
+
+  rejectExemption: async (id: string, reason: string): Promise<ComplianceExemption> => {
+    const { data } = await api.post(`/api/v1/conformite/exemptions/${id}/reject`, { reason })
+    return data
+  },
+
+  deleteExemption: async (id: string): Promise<void> => {
+    await api.delete(`/api/v1/conformite/exemptions/${id}`)
   },
 
   // ── Employee Transfers ──

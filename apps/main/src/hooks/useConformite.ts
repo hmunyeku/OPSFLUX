@@ -7,6 +7,7 @@ import type {
   ComplianceTypeCreate, ComplianceTypeUpdate,
   ComplianceRuleCreate,
   ComplianceRecordCreate, ComplianceRecordUpdate,
+  ComplianceExemptionCreate, ComplianceExemptionUpdate,
   JobPositionCreate, JobPositionUpdate,
   TierContactTransferCreate,
 } from '@/types/api'
@@ -116,6 +117,60 @@ export function useComplianceCheck(ownerType: string | undefined, ownerId: strin
     queryKey: ['compliance-check', ownerType, ownerId],
     queryFn: () => conformiteService.checkCompliance(ownerType!, ownerId!),
     enabled: !!ownerType && !!ownerId,
+  })
+}
+
+// ── Exemptions ──
+
+export function useExemptions(params: {
+  page?: number; page_size?: number;
+  status?: string; compliance_type_id?: string; search?: string;
+} = {}) {
+  return useQuery({
+    queryKey: ['compliance-exemptions', params],
+    queryFn: () => conformiteService.listExemptions(params),
+  })
+}
+
+export function useCreateExemption() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: ComplianceExemptionCreate) => conformiteService.createExemption(payload),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['compliance-exemptions'] }) },
+  })
+}
+
+export function useUpdateExemption() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: ComplianceExemptionUpdate }) =>
+      conformiteService.updateExemption(id, payload),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['compliance-exemptions'] }) },
+  })
+}
+
+export function useApproveExemption() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => conformiteService.approveExemption(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['compliance-exemptions'] }) },
+  })
+}
+
+export function useRejectExemption() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      conformiteService.rejectExemption(id, reason),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['compliance-exemptions'] }) },
+  })
+}
+
+export function useDeleteExemption() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => conformiteService.deleteExemption(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['compliance-exemptions'] }) },
   })
 }
 

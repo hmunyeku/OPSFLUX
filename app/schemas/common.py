@@ -1,6 +1,6 @@
 """Common Pydantic schemas — request/response models."""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Generic, TypeVar
 from uuid import UUID
 
@@ -978,6 +978,43 @@ class ComplianceCheckResult(BaseModel):
     total_missing: int
     is_compliant: bool
     details: list[dict] = Field(default_factory=list)
+
+
+class ComplianceExemptionCreate(BaseModel):
+    compliance_record_id: UUID
+    reason: str = Field(..., min_length=1)
+    start_date: date
+    end_date: date
+    conditions: str | None = None
+
+
+class ComplianceExemptionUpdate(BaseModel):
+    status: str | None = None
+    conditions: str | None = None
+    end_date: date | None = None
+
+
+class ComplianceExemptionRead(OpsFluxSchema):
+    id: UUID
+    entity_id: UUID
+    compliance_record_id: UUID
+    reason: str
+    approved_by: UUID | None = None
+    status: str
+    start_date: date
+    end_date: date
+    conditions: str | None = None
+    rejection_reason: str | None = None
+    created_by: UUID
+    active: bool
+    created_at: datetime
+    updated_at: datetime
+    # Enriched fields
+    record_type_name: str | None = None
+    record_type_category: str | None = None
+    owner_name: str | None = None
+    approver_name: str | None = None
+    creator_name: str | None = None
 
 
 # ─── Job Positions / Fiches de Poste ─────────────────────────────────────────

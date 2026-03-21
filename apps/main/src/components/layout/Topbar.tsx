@@ -95,7 +95,7 @@ function useSearchPlaceholder(): string {
 
 // ── Connectivity LED ────────────────────────────────────────
 
-type ConnectivityStatus = 'online' | 'syncing' | 'offline'
+type ConnectivityStatus = 'online' | 'syncing' | 'offline' | 'degraded'
 
 // Module-level flag toggled by opsflux:sync-start / opsflux:sync-end events
 let _isSyncing = false
@@ -106,6 +106,37 @@ if (typeof window !== 'undefined') {
 }
 
 function useOnlineStatus(): ConnectivityStatus {
+  const [apiReachable, setApiReachable] = useState<boolean | null>(null)
+
+  // Ping /api/health every 30s to detect backend down
+  useEffect(() => {
+    let mounted = true
+    const baseUrl = import.meta.env.VITE_API_URL || ''
+    const check = async () => {
+      try {
+        const ctrl = new AbortController()
+        const timer = setTimeout(() => ctrl.abort(), 5000)
+        const res = await fetch(`${baseUrl}/api/health`, { method: 'GET', signal: ctrl.signal })
+        clearTimeout(timer)
+        if (mounted) setApiReachable(res.ok)
+      } catch {
+        if (mounted) setApiReachable(false)
+      }
+    }
+    check()
+    const interval = setInterval(check, 30_000)
+    // Also re-check on online/offline transitions
+    const recheck = () => { check() }
+    window.addEventListener('online', recheck)
+    window.addEventListener('offline', recheck)
+    return () => {
+      mounted = false
+      clearInterval(interval)
+      window.removeEventListener('online', recheck)
+      window.removeEventListener('offline', recheck)
+    }
+  }, [])
+
   const subscribe = useCallback((cb: () => void) => {
     window.addEventListener('online', cb)
     window.addEventListener('offline', cb)
@@ -121,7 +152,7 @@ function useOnlineStatus(): ConnectivityStatus {
     }
   }, [])
 
-  return useSyncExternalStore(
+  const networkStatus = useSyncExternalStore(
     subscribe,
     () => {
       if (!navigator.onLine) return 'offline' as ConnectivityStatus
@@ -130,11 +161,18 @@ function useOnlineStatus(): ConnectivityStatus {
     },
     () => 'online' as ConnectivityStatus,
   )
+
+  // Combine: network offline → offline, network OK but API down → degraded
+  if (networkStatus === 'offline') return 'offline'
+  if (networkStatus === 'syncing') return 'syncing'
+  if (apiReachable === false) return 'degraded'
+  return 'online'
 }
 
 const statusConfig: Record<ConnectivityStatus, { color: string; pulse: boolean; title: string }> = {
   online: { color: 'bg-green-500', pulse: false, title: 'En ligne — synchronisé' },
   syncing: { color: 'bg-amber-500', pulse: true, title: 'Synchronisation en cours…' },
+  degraded: { color: 'bg-orange-500', pulse: true, title: 'Serveur inaccessible — vérifiez la connexion' },
   offline: { color: 'bg-red-500', pulse: true, title: 'Hors ligne — mode offline actif' },
 }
 

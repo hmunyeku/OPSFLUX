@@ -98,6 +98,39 @@ async def send_in_app_bulk(
         )
 
 
+async def _get_smtp_config() -> dict[str, str]:
+    """Load SMTP config: DB integration settings take priority, .env as fallback."""
+    from app.core.config import settings
+    from app.core.database import async_session_factory
+
+    # Defaults from .env
+    cfg = {
+        "host": settings.SMTP_HOST,
+        "port": str(settings.SMTP_PORT),
+        "encryption": "ssl" if settings.SMTP_USE_TLS else "none",
+        "username": settings.SMTP_USERNAME,
+        "password": settings.SMTP_PASSWORD,
+        "from_name": settings.SMTP_FROM_NAME,
+        "from_email": settings.SMTP_FROM_ADDRESS,
+    }
+
+    # Override with DB settings if present
+    try:
+        async with async_session_factory() as db:
+            result = await db.execute(
+                text("SELECT key, value FROM settings WHERE key LIKE 'integration.smtp.%'")
+            )
+            for row in result.all():
+                field = row[0].replace("integration.smtp.", "")
+                val = row[1].get("v", "") if isinstance(row[1], dict) else str(row[1])
+                if val and field in cfg:
+                    cfg[field] = str(val)
+    except Exception:
+        logger.debug("Could not load SMTP settings from DB, using .env defaults")
+
+    return cfg
+
+
 async def send_email(
     *,
     to: str,
@@ -105,27 +138,40 @@ async def send_email(
     body_html: str,
     from_name: str | None = None,
 ) -> None:
-    """Queue an email for sending via SMTP."""
-    from app.core.config import settings
-
+    """Send an email via SMTP. Uses DB integration settings if configured, .env as fallback."""
     try:
         import aiosmtplib
         from email.mime.text import MIMEText
         from email.mime.multipart import MIMEMultipart
 
+        cfg = await _get_smtp_config()
+
+        host = cfg["host"]
+        port = int(cfg["port"] or "587")
+        encryption = cfg.get("encryption", "none")
+        username = cfg.get("username", "")
+        password = cfg.get("password", "")
+
+        if not host:
+            logger.warning("SMTP not configured — skipping email to %s", to)
+            return
+
         message = MIMEMultipart("alternative")
-        message["From"] = f"{from_name or settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_ADDRESS}>"
+        message["From"] = f"{from_name or cfg.get('from_name', 'OpsFlux')} <{cfg.get('from_email', '')}>"
         message["To"] = to
         message["Subject"] = subject
         message.attach(MIMEText(body_html, "html"))
 
-        await aiosmtplib.send(
-            message,
-            hostname=settings.SMTP_HOST,
-            port=settings.SMTP_PORT,
-            username=settings.SMTP_USERNAME or None,
-            password=settings.SMTP_PASSWORD or None,
-            use_tls=settings.SMTP_USE_TLS,
-        )
+        use_tls = encryption == "ssl"
+        start_tls = encryption == "tls"
+
+        smtp = aiosmtplib.SMTP(hostname=host, port=port, timeout=30)
+        await smtp.connect(use_tls=use_tls)
+        if start_tls:
+            await smtp.starttls()
+        if username and password:
+            await smtp.login(username, password)
+        await smtp.send_message(message)
+        await smtp.quit()
     except Exception:
         logger.exception("Failed to send email to %s", to)

@@ -32,6 +32,7 @@ import { usePageSize } from '@/hooks/usePageSize'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { DangerConfirmButton } from '@/components/layout/DynamicPanel'
 import { useUIStore } from '@/stores/uiStore'
+import { usePermission } from '@/hooks/usePermission'
 import {
   useWorkflowDefinitions,
   useWorkflowDefinition,
@@ -955,6 +956,7 @@ function WorkflowEditor({
   onArchive,
   onClone,
   saving,
+  canDelete = true,
 }: {
   definition: WorkflowDefinition
   onSave: (nodes: WorkflowNodeDef[], edges: WorkflowEdgeDef[]) => void
@@ -963,6 +965,7 @@ function WorkflowEditor({
   onArchive: () => void
   onClone: () => void
   saving: boolean
+  canDelete?: boolean
 }) {
   return (
     <ReactFlowProvider>
@@ -974,6 +977,7 @@ function WorkflowEditor({
         onArchive={onArchive}
         onClone={onClone}
         saving={saving}
+        canDelete={canDelete}
       />
     </ReactFlowProvider>
   )
@@ -987,6 +991,7 @@ function WorkflowEditorInner({
   onArchive,
   onClone,
   saving,
+  canDelete = true,
 }: {
   definition: WorkflowDefinition
   onSave: (nodes: WorkflowNodeDef[], edges: WorkflowEdgeDef[]) => void
@@ -995,6 +1000,7 @@ function WorkflowEditorInner({
   onArchive: () => void
   onClone: () => void
   saving: boolean
+  canDelete?: boolean
 }) {
   const { t } = useTranslation()
   const reactFlow = useReactFlow()
@@ -1283,7 +1289,7 @@ function WorkflowEditorInner({
           )}
 
           {/* Archive (published only) */}
-          {definition.status === 'published' && (
+          {definition.status === 'published' && canDelete && (
             <button onClick={onArchive} className="gl-button-sm gl-button-default text-[10px]">
               <Archive size={11} /> {t('workflow.archive')}
             </button>
@@ -1666,6 +1672,7 @@ function DefinitionCard({
   onClone,
   onDelete,
   onViewInstances,
+  canDelete = true,
 }: {
   def: WorkflowDefinitionSummary
   stats?: { total: number; by_state: Record<string, number> }
@@ -1675,6 +1682,7 @@ function DefinitionCard({
   onClone: () => void
   onDelete: () => void
   onViewInstances: () => void
+  canDelete?: boolean
 }) {
   const { t } = useTranslation()
 
@@ -1737,16 +1745,20 @@ function DefinitionCard({
             <button onClick={onPublish} className="gl-button-sm gl-button-confirm text-[10px]">
               <Send size={9} /> {t('workflow.publish')}
             </button>
-            <button onClick={onDelete} className="gl-button-sm gl-button-danger text-[10px]">
-              <Trash2 size={9} /> Supprimer
-            </button>
+            {canDelete && (
+              <button onClick={onDelete} className="gl-button-sm gl-button-danger text-[10px]">
+                <Trash2 size={9} /> Supprimer
+              </button>
+            )}
           </>
         )}
         {def.status === 'published' && (
           <>
-            <button onClick={onArchive} className="gl-button-sm gl-button-default text-[10px]">
-              <Archive size={9} /> {t('workflow.archive')}
-            </button>
+            {canDelete && (
+              <button onClick={onArchive} className="gl-button-sm gl-button-default text-[10px]">
+                <Archive size={9} /> {t('workflow.archive')}
+              </button>
+            )}
             <button onClick={(e) => { e.stopPropagation(); onViewInstances() }} className="gl-button-sm gl-button-default text-[10px]">
               <Eye size={9} /> Instances
             </button>
@@ -1960,6 +1972,12 @@ export function WorkflowPage() {
   const { toast } = useToast()
   const confirm = useConfirm()
 
+  // ── Permissions ──
+  const { hasPermission } = usePermission()
+  const canCreate = hasPermission('workflow.definition.create')
+  // canUpdate reserved for future inline-edit gating: hasPermission('workflow.definition.update')
+  const canDelete = hasPermission('workflow.definition.read') // only admins should delete
+
   // ── Global search from topbar (no local search bar) ──
   const { pageSize } = usePageSize()
   const search = useUIStore((s) => s.globalSearch)
@@ -2112,6 +2130,7 @@ export function WorkflowPage() {
         onArchive={() => handleArchive(editingId)}
         onClone={() => handleClone(editingId)}
         saving={updateMut.isPending}
+        canDelete={canDelete}
       />
     )
   }
@@ -2120,7 +2139,7 @@ export function WorkflowPage() {
   return (
     <div className="flex flex-col h-full">
       <PanelHeader icon={GitBranch} title={t('workflow.title')} subtitle={t('workflow.subtitle')}>
-        <ToolbarButton icon={Plus} label={t('workflow.create')} variant="primary" onClick={() => setShowCreate(true)} />
+        {canCreate && <ToolbarButton icon={Plus} label={t('workflow.create')} variant="primary" onClick={() => setShowCreate(true)} />}
       </PanelHeader>
 
       <PanelContent className="p-4">
@@ -2173,7 +2192,7 @@ export function WorkflowPage() {
                 icon={GitBranch}
                 title="Aucun workflow"
                 description="Créez votre premier workflow pour automatiser vos processus métiers."
-                action={{ label: 'Nouveau workflow', onClick: () => setShowCreate(true) }}
+                action={canCreate ? { label: 'Nouveau workflow', onClick: () => setShowCreate(true) } : undefined}
               />
             )}
 
@@ -2193,6 +2212,7 @@ export function WorkflowPage() {
                       setInstanceDefinitionFilter(def.id)
                       setActiveTab('instances')
                     }}
+                    canDelete={canDelete}
                   />
                 ))}
               </div>

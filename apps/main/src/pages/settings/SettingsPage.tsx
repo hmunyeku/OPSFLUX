@@ -24,6 +24,7 @@ import {
 import { cn } from '@/lib/utils'
 import { PanelHeader, PanelContent } from '@/components/layout/PanelHeader'
 import { useUIStore } from '@/stores/uiStore'
+import { usePermission } from '@/hooks/usePermission'
 import {
   registerSettingsSection,
   registerSettingsGroup,
@@ -145,24 +146,32 @@ registerSettingsSection({ id: 'roles', label: 'Rôles & Permissions', icon: Shie
 registerSettingsSection({ id: 'activity', label: 'Activité', icon: Clock, component: ActivityTab, category: 'user', order: 70 })
 
 // ── Register general (admin) settings ────────────────────────
-// Users, Assets, Roles & Groupes, Entities removed — accessible via sidebar directly
-registerSettingsSection({ id: 'general-config', label: 'Configuration', icon: Globe, component: GeneralConfigTab, category: 'general', order: 10 })
-registerSettingsSection({ id: 'integrations', label: 'Intégrations', icon: Plug, component: IntegrationsTab, category: 'general', order: 20 })
-registerSettingsSection({ id: 'email-templates', label: 'Modèles d\'emails', icon: FileText, component: EmailTemplatesTab, category: 'general', order: 15 })
-registerSettingsSection({ id: 'pdf-templates', label: 'Modèles PDF', icon: FileOutput, component: PdfTemplatesTab, category: 'general', order: 16 })
-registerSettingsSection({ id: 'numbering', label: 'Numérotation', icon: Hash, component: NumberingTab, category: 'general', order: 17 })
-registerSettingsSection({ id: 'dictionnaire', label: 'Dictionnaire', icon: BookOpen, component: DictionaryTab, category: 'general', order: 18 })
-registerSettingsSection({ id: 'delete-policies', label: 'Politiques de suppression', icon: Trash2, component: DeletePoliciesTab, category: 'general', order: 25 })
-registerSettingsSection({ id: 'audit-log', label: 'Journal d\'audit', icon: ScrollText, component: AuditTab, category: 'general', order: 30 })
-registerSettingsSection({ id: 'system-health', label: 'Santé système', icon: Activity, component: SystemHealthTab, category: 'general', order: 40 })
+// All admin tabs require core.settings.manage permission
+registerSettingsSection({ id: 'general-config', label: 'Configuration', icon: Globe, component: GeneralConfigTab, category: 'general', order: 10, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'integrations', label: 'Intégrations', icon: Plug, component: IntegrationsTab, category: 'general', order: 20, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'email-templates', label: 'Modèles d\'emails', icon: FileText, component: EmailTemplatesTab, category: 'general', order: 15, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'pdf-templates', label: 'Modèles PDF', icon: FileOutput, component: PdfTemplatesTab, category: 'general', order: 16, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'numbering', label: 'Numérotation', icon: Hash, component: NumberingTab, category: 'general', order: 17, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'dictionnaire', label: 'Dictionnaire', icon: BookOpen, component: DictionaryTab, category: 'general', order: 18, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'delete-policies', label: 'Politiques de suppression', icon: Trash2, component: DeletePoliciesTab, category: 'general', order: 25, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'audit-log', label: 'Journal d\'audit', icon: ScrollText, component: AuditTab, category: 'general', order: 30, requiredPermission: 'core.audit.read' })
+registerSettingsSection({ id: 'system-health', label: 'Santé système', icon: Activity, component: SystemHealthTab, category: 'general', order: 40, requiredPermission: 'core.settings.manage' })
 
 /* ── Main Settings Page ── */
 export function SettingsPage() {
   const { t } = useTranslation()
-  const userSections = useSettingsSections('user')
-  const generalSections = useSettingsSections('general')
+  const { hasPermission } = usePermission()
+  const allUserSections = useSettingsSections('user')
+  const allGeneralSections = useSettingsSections('general')
   const userGroups = useSettingsGroups('user')
   const generalGroups = useSettingsGroups('general')
+
+  // Filter sections by requiredPermission — user sections are always visible,
+  // general (admin) sections require the declared permission
+  const userSections = allUserSections
+  const generalSections = allGeneralSections.filter(
+    (s) => !s.requiredPermission || hasPermission(s.requiredPermission),
+  )
   const [activeTab, setActiveTab] = useState<string>('profile')
   const [focusedSection, setFocusedSection] = useState<string | null>(null)
   const [subtitleOverride, setSubtitleOverride] = useState<string | null>(null)

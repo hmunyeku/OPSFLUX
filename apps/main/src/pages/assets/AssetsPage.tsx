@@ -43,6 +43,7 @@ import { AssetPicker } from '@/components/shared/AssetPicker'
 import { GeoEditor } from '@/components/shared/GeoEditor'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import type { GeoType, GeoValue } from '@/components/shared/GeoEditor'
+import { usePermission } from '@/hooks/usePermission'
 import { useUIStore } from '@/stores/uiStore'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
 import { useAssets, useAsset, useAssetTree, useCreateAsset, useUpdateAsset, useArchiveAsset } from '@/hooks/useAssets'
@@ -217,6 +218,9 @@ function CreateAssetPanel() {
 // ── Asset Detail Panel ──────────────────────────────────────
 function AssetDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
+  const { hasPermission } = usePermission()
+  const canUpdate = hasPermission('asset.update')
+  const canDelete = hasPermission('asset.delete')
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const archiveAsset = useArchiveAsset()
   const { data: asset } = useAsset(id)
@@ -269,26 +273,29 @@ function AssetDetailPanel({ id }: { id: string }) {
       subtitle={asset.name}
       icon={<MapPin size={14} className="text-primary" />}
       actions={
-        <DangerConfirmButton
-          icon={<Trash2 size={12} />}
-          onConfirm={() => { archiveAsset.mutate(id); closeDynamicPanel() }}
-          confirmLabel="Supprimer ?"
-        >
-          {t('common.delete')}
-        </DangerConfirmButton>
+        canDelete ? (
+          <DangerConfirmButton
+            icon={<Trash2 size={12} />}
+            onConfirm={() => { archiveAsset.mutate(id); closeDynamicPanel() }}
+            confirmLabel="Supprimer ?"
+          >
+            {t('common.delete')}
+          </DangerConfirmButton>
+        ) : undefined
       }
     >
       <PanelContentLayout>
         {/* ── Details section ── */}
         <FormSection title={t('common.details')}>
-          <InlineEditableRow label={t('common.name')} value={asset.name} onSave={(v) => handleInlineSave('name', v)} />
+          {canUpdate
+            ? <InlineEditableRow label={t('common.name')} value={asset.name} onSave={(v) => handleInlineSave('name', v)} />
+            : <ReadOnlyRow label={t('common.name')} value={asset.name} />
+          }
           <ReadOnlyRow label={t('common.code')} value={<span className="text-sm font-mono font-medium text-foreground">{asset.code || '—'}</span>} />
-          <InlineEditableTags
-            label={t('common.type')}
-            value={asset.type}
-            options={ASSET_TYPE_OPTIONS}
-            onSave={(v) => handleInlineSave('type', v)}
-          />
+          {canUpdate
+            ? <InlineEditableTags label={t('common.type')} value={asset.type} options={ASSET_TYPE_OPTIONS} onSave={(v) => handleInlineSave('type', v)} />
+            : <ReadOnlyRow label={t('common.type')} value={<span className="gl-badge gl-badge-neutral">{asset.type}</span>} />
+          }
           <ReadOnlyRow label="Parent" value={
             parentAsset ? (
               <CrossModuleLink module="assets" id={parentAsset.id} label={`${parentAsset.code} — ${parentAsset.name}`} />
@@ -324,7 +331,7 @@ function AssetDetailPanel({ id }: { id: string }) {
         <FormSection title="Localisation" collapsible defaultExpanded={!!asset.geometry} storageKey="panel.asset.sections" id="asset-detail-geo">
           <GeoEditor
             value={(asset.geometry as GeoValue | null) || null}
-            onChange={handleGeoChange}
+            onChange={canUpdate ? handleGeoChange : () => {}}
             geoType={getGeoTypeForAssetType(asset.type)}
             height={300}
             showCoordinateTable
@@ -440,6 +447,11 @@ function AssetDetailPanel({ id }: { id: string }) {
 // ── Main Page ───────────────────────────────────────────────
 export function AssetsPage() {
   const { t } = useTranslation()
+  const { hasPermission } = usePermission()
+  const canCreate = hasPermission('asset.create')
+  const canExport = hasPermission('asset.export')
+  const canImport = hasPermission('asset.import')
+
   const [view, setView] = useState<'list' | 'tree'>('list')
   const [page, setPage] = useState(1)
   const { pageSize, setPageSize } = usePageSize()
@@ -537,12 +549,14 @@ export function AssetsPage() {
       {/* ── Static Panel (list) — hidden when dynamic panel is in full mode ── */}
       {!isFullPanel && <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
         <PanelHeader icon={MapPin} title={t('assets.title')} subtitle={t('assets.subtitle')}>
-          <ToolbarButton
-            icon={Plus}
-            label={t('assets.create')}
-            variant="primary"
-            onClick={() => openDynamicPanel({ type: 'create', module: 'assets' })}
-          />
+          {canCreate && (
+            <ToolbarButton
+              icon={Plus}
+              label={t('assets.create')}
+              variant="primary"
+              onClick={() => openDynamicPanel({ type: 'create', module: 'assets' })}
+            />
+          )}
         </PanelHeader>
 
         {/* Toolbar bar */}
@@ -589,12 +603,12 @@ export function AssetsPage() {
               onFilterChange={handleFilterChange}
               onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'assets', id: row.id })}
               emptyTitle={t('common.no_results')}
-              importExport={{
-                exportFormats: ['csv', 'xlsx'],
-                advancedExport: true,
-                importWizardTarget: 'asset',
+              importExport={(canExport || canImport) ? {
+                exportFormats: canExport ? ['csv', 'xlsx'] : [],
+                advancedExport: canExport,
+                importWizardTarget: canImport ? 'asset' : undefined,
                 filenamePrefix: 'assets',
-              }}
+              } : undefined}
               columnResizing
               columnPinning
               defaultPinnedColumns={{ left: ['code'] }}

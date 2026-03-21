@@ -44,6 +44,7 @@ import { TagManager } from '@/components/shared/TagManager'
 import { NoteManager } from '@/components/shared/NoteManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { useUIStore } from '@/stores/uiStore'
+import { usePermission } from '@/hooks/usePermission'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
 import { useToast } from '@/components/ui/Toast'
 import {
@@ -322,6 +323,8 @@ function SheetFormatCard({ format }: { format: string }) {
 
 function PIDDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
+  const { hasPermission } = usePermission()
+  const canEditPid = hasPermission('pid.edit')
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { toast } = useToast()
 
@@ -414,20 +417,24 @@ function PIDDetailPanel({ id }: { id: string }) {
       icon={<FileText size={14} className="text-primary" />}
       actions={
         <>
-          <PanelActionButton
-            variant="primary"
-            icon={<PenTool size={12} />}
-            onClick={() => setShowEditor(true)}
-          >
-            Editeur
-          </PanelActionButton>
-          <PanelActionButton
-            icon={createRevision.isPending ? <Loader2 size={12} className="animate-spin" /> : <FilePlus2 size={12} />}
-            onClick={handleCreateRevision}
-            disabled={createRevision.isPending}
-          >
-            Revision
-          </PanelActionButton>
+          {canEditPid && (
+            <PanelActionButton
+              variant="primary"
+              icon={<PenTool size={12} />}
+              onClick={() => setShowEditor(true)}
+            >
+              Editeur
+            </PanelActionButton>
+          )}
+          {canEditPid && (
+            <PanelActionButton
+              icon={createRevision.isPending ? <Loader2 size={12} className="animate-spin" /> : <FilePlus2 size={12} />}
+              onClick={handleCreateRevision}
+              disabled={createRevision.isPending}
+            >
+              Revision
+            </PanelActionButton>
+          )}
           <PanelActionButton
             icon={validateAfc.isPending ? <Loader2 size={12} className="animate-spin" /> : <ShieldCheck size={12} />}
             onClick={handleValidateAfc}
@@ -790,6 +797,12 @@ function LibraryTab() {
 export function PidPfdPage() {
   useTranslation() // loaded for future i18n
   const { toast } = useToast()
+
+  // ── Permissions ──
+  const { hasPermission } = usePermission()
+  const canCreate = hasPermission('pid.create')
+  // canEdit / canDelete checked in sub-panels (PIDDetailPanel, EquipmentDetailPanel) via their own usePermission() calls
+  const canImport = hasPermission('pid.tags.import')
   const [activeTab, setActiveTab] = useState<PidPfdTab>('dashboard')
   const [page, setPage] = useState(1)
   const { pageSize, setPageSize } = usePageSize()
@@ -1122,62 +1135,68 @@ export function PidPfdPage() {
 
   const toolbarAction = useMemo(() => {
     if (activeTab === 'documents') {
-      return (
+      return canCreate ? (
         <ToolbarButton
           icon={FilePlus2}
           label="Nouveau PID"
           variant="primary"
           onClick={() => openDynamicPanel({ type: 'create', module: 'pid-pfd' })}
         />
-      )
+      ) : null
     }
     if (activeTab === 'equipements') {
-      return (
+      return canCreate ? (
         <ToolbarButton
           icon={Plus}
           label="Nouvel equipement"
           variant="primary"
           onClick={() => openDynamicPanel({ type: 'create', module: 'pid-pfd', meta: { subType: 'equipment' } })}
         />
-      )
+      ) : null
     }
     if (activeTab === 'lignes') {
-      return (
+      return canCreate ? (
         <ToolbarButton
           icon={Plus}
           label="Nouvelle ligne"
           variant="primary"
           onClick={() => openDynamicPanel({ type: 'create', module: 'pid-pfd', meta: { subType: 'line' } })}
         />
-      )
+      ) : null
     }
     if (activeTab === 'tags') {
       return (
         <>
-          <ToolbarButton
-            icon={Plus}
-            label="Nouveau tag"
-            variant="primary"
-            onClick={() => openDynamicPanel({ type: 'create', module: 'pid-pfd', meta: { subType: 'tag' } })}
-          />
-          <input
-            ref={csvInputRef}
-            type="file"
-            accept=".csv"
-            className="hidden"
-            onChange={handleCsvImport}
-          />
-          <ToolbarButton
-            icon={Upload}
-            label="Importer CSV"
-            onClick={() => csvInputRef.current?.click()}
-            disabled={importCsv.isPending}
-          />
+          {canCreate && (
+            <ToolbarButton
+              icon={Plus}
+              label="Nouveau tag"
+              variant="primary"
+              onClick={() => openDynamicPanel({ type: 'create', module: 'pid-pfd', meta: { subType: 'tag' } })}
+            />
+          )}
+          {canImport && (
+            <>
+              <input
+                ref={csvInputRef}
+                type="file"
+                accept=".csv"
+                className="hidden"
+                onChange={handleCsvImport}
+              />
+              <ToolbarButton
+                icon={Upload}
+                label="Importer CSV"
+                onClick={() => csvInputRef.current?.click()}
+                disabled={importCsv.isPending}
+              />
+            </>
+          )}
         </>
       )
     }
     return null
-  }, [activeTab, handleCsvImport, importCsv.isPending, openDynamicPanel])
+  }, [activeTab, canCreate, canImport, handleCsvImport, importCsv.isPending, openDynamicPanel])
 
   // -- Tab content renderer --
 
@@ -1564,6 +1583,8 @@ function CreateEquipmentPanel() {
 // -- Equipment Detail Panel ---------------------------------------------------
 
 function EquipmentDetailPanel({ id }: { id: string }) {
+  const { hasPermission } = usePermission()
+  const canDeleteEquip = hasPermission('pid.delete')
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { toast } = useToast()
   const { data: equip, isLoading } = useEquipmentDetail(id)
@@ -1600,13 +1621,15 @@ function EquipmentDetailPanel({ id }: { id: string }) {
       subtitle={equip.description || undefined}
       icon={<Cpu size={14} className="text-primary" />}
       actions={
-        <DangerConfirmButton
-          icon={<Trash2 size={12} />}
-          onConfirm={handleDelete}
-          confirmLabel="Supprimer ?"
-        >
-          Supprimer
-        </DangerConfirmButton>
+        canDeleteEquip ? (
+          <DangerConfirmButton
+            icon={<Trash2 size={12} />}
+            onConfirm={handleDelete}
+            confirmLabel="Supprimer ?"
+          >
+            Supprimer
+          </DangerConfirmButton>
+        ) : undefined
       }
     >
       <PanelContentLayout>

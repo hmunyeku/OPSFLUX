@@ -16,6 +16,7 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
+import { usePermission } from '@/hooks/usePermission'
 import {
   LayoutDashboard,
   Landmark,
@@ -59,23 +60,24 @@ export interface NavItemDef {
 }
 
 // Core navigation items — sourced from module manifests
+// Each item requires at least one .read permission from its module to be visible.
 const moduleNavItems: NavItemDef[] = [
-  { path: '/dashboard', icon: LayoutDashboard, labelKey: 'nav.dashboard', module: 'dashboard', order: 10 },
-  { path: '/tiers', icon: Building2, labelKey: 'nav.tiers', module: 'tiers', order: 30 },
-  { path: '/projets', icon: FolderKanban, labelKey: 'nav.projets', module: 'projets', order: 38 },
-  { path: '/planner', icon: CalendarClock, labelKey: 'nav.planner', module: 'planner', order: 39 },
-  { path: '/paxlog', icon: Users, labelKey: 'nav.paxlog', module: 'paxlog', order: 40 },
-  { path: '/travelwiz', icon: Ship, labelKey: 'nav.travelwiz', module: 'travelwiz', order: 42 },
-  { path: '/report-editor', icon: FileText, labelKey: 'nav.report_editor', module: 'report-editor', order: 55 },
-  { path: '/pid-pfd', icon: Workflow, labelKey: 'nav.pid_pfd', module: 'pid-pfd', order: 58 },
-  { path: '/workflow', icon: GitBranch, labelKey: 'nav.workflow', module: 'workflow', order: 60 },
+  { path: '/dashboard', icon: LayoutDashboard, labelKey: 'nav.dashboard', module: 'dashboard', order: 10, requiredPermission: 'dashboard.read' },
+  { path: '/tiers', icon: Building2, labelKey: 'nav.tiers', module: 'tiers', order: 30, requiredPermission: 'tier.read' },
+  { path: '/projets', icon: FolderKanban, labelKey: 'nav.projets', module: 'projets', order: 38, requiredPermission: 'project.read' },
+  { path: '/planner', icon: CalendarClock, labelKey: 'nav.planner', module: 'planner', order: 39, requiredPermission: 'planner.activity.read' },
+  { path: '/paxlog', icon: Users, labelKey: 'nav.paxlog', module: 'paxlog', order: 40, requiredPermission: 'paxlog.profile.read' },
+  { path: '/travelwiz', icon: Ship, labelKey: 'nav.travelwiz', module: 'travelwiz', order: 42, requiredPermission: 'travelwiz.voyage.read' },
+  { path: '/report-editor', icon: FileText, labelKey: 'nav.report_editor', module: 'report-editor', order: 55, requiredPermission: 'document.read' },
+  { path: '/pid-pfd', icon: Workflow, labelKey: 'nav.pid_pfd', module: 'pid-pfd', order: 58, requiredPermission: 'pid.read' },
+  { path: '/workflow', icon: GitBranch, labelKey: 'nav.workflow', module: 'workflow', order: 60, requiredPermission: 'workflow.definition.read' },
 ]
 
 const adminNavItems: NavItemDef[] = [
-  { path: '/conformite', icon: ShieldCheck, labelKey: 'nav.conformite', module: 'conformite', order: 82 },
-  { path: '/assets', icon: Landmark, labelKey: 'nav.assets', module: 'asset-registry', order: 85 },
-  { path: '/entities', icon: Globe, labelKey: 'nav.entities', module: 'core', order: 88, requiredPermission: 'admin.system' },
-  { path: '/users', icon: UserCog, labelKey: 'nav.accounts', module: 'core', order: 90, requiredPermission: 'admin.users.read' },
+  { path: '/conformite', icon: ShieldCheck, labelKey: 'nav.conformite', module: 'conformite', order: 82, requiredPermission: 'conformite.record.read' },
+  { path: '/assets', icon: Landmark, labelKey: 'nav.assets', module: 'asset-registry', order: 85, requiredPermission: 'asset.read' },
+  { path: '/entities', icon: Globe, labelKey: 'nav.entities', module: 'core', order: 88, requiredPermission: 'core.entity.read' },
+  { path: '/users', icon: UserCog, labelKey: 'nav.accounts', module: 'core', order: 90, requiredPermission: 'core.users.read' },
   { path: '/settings', icon: Settings, labelKey: 'nav.settings', module: 'core', order: 100 },
 ]
 
@@ -83,9 +85,14 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
   const { t } = useTranslation()
   const location = useLocation()
   const navigate = useNavigate()
+  const { hasPermission } = usePermission()
 
-  // Sort by order (stable for now, dynamic when registry is populated from API)
-  const sortedModuleItems = [...moduleNavItems].sort((a, b) => a.order - b.order)
+  // Filter items based on requiredPermission, then sort by order
+  const filterByPermission = (items: NavItemDef[]) =>
+    items.filter((item) => !item.requiredPermission || hasPermission(item.requiredPermission))
+
+  const sortedModuleItems = filterByPermission([...moduleNavItems]).sort((a, b) => a.order - b.order)
+  const filteredAdminItems = filterByPermission([...adminNavItems]).sort((a, b) => a.order - b.order)
 
   const renderNavItem = (item: NavItemDef) => {
     const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/')
@@ -148,7 +155,7 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
 
       {/* Bottom section: admin + help + network status + collapse toggle */}
       <div className="border-t border-border px-1.5 py-1.5 space-y-0.5 shrink-0">
-        {adminNavItems.map(renderNavItem)}
+        {filteredAdminItems.map(renderNavItem)}
 
         <button
           className={cn(

@@ -38,6 +38,7 @@ import {
   panelInputClass,
 } from '@/components/layout/DynamicPanel'
 import { useUIStore } from '@/stores/uiStore'
+import { usePermission } from '@/hooks/usePermission'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
 import { TagManager } from '@/components/shared/TagManager'
 import { NoteManager } from '@/components/shared/NoteManager'
@@ -546,6 +547,10 @@ function RevisionDiffViewer({
 
 function DocumentDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
+  const { hasPermission } = usePermission()
+  const canDeleteDoc = hasPermission('document.delete')
+  const canPublishDoc = hasPermission('document.publish')
+  const canApproveDoc = hasPermission('document.approve')
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { toast } = useToast()
 
@@ -715,9 +720,11 @@ function DocumentDetailPanel({ id }: { id: string }) {
       subtitle={doc.title}
       icon={<FileText size={14} className="text-primary" />}
       actions={
-        <DangerConfirmButton icon={<Trash2 size={12} />} onConfirm={handleDelete} confirmLabel="Supprimer ?">
-          {t('common.delete')}
-        </DangerConfirmButton>
+        canDeleteDoc ? (
+          <DangerConfirmButton icon={<Trash2 size={12} />} onConfirm={handleDelete} confirmLabel="Supprimer ?">
+            {t('common.delete')}
+          </DangerConfirmButton>
+        ) : undefined
       }
     >
       <PanelContentLayout>
@@ -796,7 +803,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                       <span>Soumettre</span>
                     </button>
                   )}
-                  {workflowActions.canApprove && (
+                  {workflowActions.canApprove && canApproveDoc && (
                     <button
                       onClick={handleApprove}
                       disabled={approveDocument.isPending}
@@ -806,7 +813,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                       <span>Approuver</span>
                     </button>
                   )}
-                  {workflowActions.canReject && !showRejectInput && (
+                  {workflowActions.canReject && canApproveDoc && !showRejectInput && (
                     <button
                       onClick={() => setShowRejectInput(true)}
                       className="gl-button-sm gl-button-danger"
@@ -815,7 +822,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                       <span>Rejeter</span>
                     </button>
                   )}
-                  {workflowActions.canPublish && (
+                  {workflowActions.canPublish && canPublishDoc && (
                     <button
                       onClick={handlePublish}
                       disabled={publishDocument.isPending}
@@ -998,6 +1005,11 @@ function DocumentDetailPanel({ id }: { id: string }) {
 // -- Main Page ----------------------------------------------------------------
 
 export function ReportEditorPage() {
+  // ── Permissions ──
+  const { hasPermission } = usePermission()
+  const canCreate = hasPermission('document.create')
+  // canEdit / canDelete / canPublish / canApprove checked in DocumentDetailPanel via its own usePermission() call
+
   const [activeTab, setActiveTab] = useState<ReportEditorTab>('dashboard')
   const [page, setPage] = useState(1)
   const { pageSize, setPageSize } = usePageSize()
@@ -1197,24 +1209,24 @@ export function ReportEditorPage() {
   // Toolbar action button per tab
   const toolbarAction = useMemo(() => {
     if (activeTab === 'documents') {
-      return (
+      return canCreate ? (
         <ToolbarButton
           icon={Plus}
           label="Nouveau document"
           variant="primary"
           onClick={() => openDynamicPanel({ type: 'create', module: 'report-editor' })}
         />
-      )
+      ) : null
     }
     if (activeTab === 'templates') {
-      return (
+      return canCreate ? (
         <ToolbarButton
           icon={Plus}
           label="Nouveau template"
           variant="primary"
           onClick={() => openDynamicPanel({ type: 'create', module: 'report-editor', meta: { subtype: 'template' } })}
         />
-      )
+      ) : null
     }
     if (activeTab === 'doc-types') {
       return (
@@ -1225,17 +1237,19 @@ export function ReportEditorPage() {
             onClick={() => mdrFileRef.current?.click()}
             disabled={importMDR.isPending}
           />
-          <ToolbarButton
-            icon={Plus}
-            label="Nouveau type"
-            variant="primary"
-            onClick={() => openDynamicPanel({ type: 'create', module: 'report-editor', meta: { subtype: 'doc-type' } })}
-          />
+          {canCreate && (
+            <ToolbarButton
+              icon={Plus}
+              label="Nouveau type"
+              variant="primary"
+              onClick={() => openDynamicPanel({ type: 'create', module: 'report-editor', meta: { subtype: 'doc-type' } })}
+            />
+          )}
         </div>
       )
     }
     return null
-  }, [activeTab, openDynamicPanel, importMDR.isPending])
+  }, [activeTab, canCreate, openDynamicPanel, importMDR.isPending])
 
   // -- Tab Content Rendering --------------------------------------------------
 

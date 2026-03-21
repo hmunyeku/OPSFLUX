@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
+import { usePermission } from '@/hooks/usePermission'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { LoginPage } from '@/pages/auth/LoginPage'
 import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage'
@@ -30,6 +31,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+/** Route-level permission guard — redirects to /dashboard if user lacks the required permission. */
+function RequirePermission({ permission, children }: { permission: string; children: React.ReactNode }) {
+  const { hasPermission, loading } = usePermission()
+  if (loading) return <div className="flex items-center justify-center h-full"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+  if (!hasPermission(permission)) return <Navigate to="/dashboard" replace />
+  return <>{children}</>
+}
+
 export default function App() {
   return (
     <Routes>
@@ -47,18 +56,18 @@ export default function App() {
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/search" element={<SearchPage />} />
-                  <Route path="/assets/*" element={<AssetsPage />} />
-                  <Route path="/entities/*" element={<EntitiesPage />} />
-                  <Route path="/users/*" element={<UsersPage />} />
-                  <Route path="/tiers/*" element={<TiersPage />} />
-                  <Route path="/conformite/*" element={<ConformitePage />} />
-                  <Route path="/projets/*" element={<ProjetsPage />} />
-                  <Route path="/workflow/*" element={<WorkflowPage />} />
-                  <Route path="/paxlog/*" element={<PaxLogPage />} />
-                  <Route path="/planner/*" element={<PlannerPage />} />
-                  <Route path="/travelwiz/*" element={<TravelWizPage />} />
-                  <Route path="/report-editor/*" element={<ReportEditorPage />} />
-                  <Route path="/pid-pfd/*" element={<PidPfdPage />} />
+                  <Route path="/assets/*" element={<RequirePermission permission="asset.read"><AssetsPage /></RequirePermission>} />
+                  <Route path="/entities/*" element={<RequirePermission permission="core.entity.read"><EntitiesPage /></RequirePermission>} />
+                  <Route path="/users/*" element={<RequirePermission permission="core.users.read"><UsersPage /></RequirePermission>} />
+                  <Route path="/tiers/*" element={<RequirePermission permission="tier.read"><TiersPage /></RequirePermission>} />
+                  <Route path="/conformite/*" element={<RequirePermission permission="conformite.record.read"><ConformitePage /></RequirePermission>} />
+                  <Route path="/projets/*" element={<RequirePermission permission="project.read"><ProjetsPage /></RequirePermission>} />
+                  <Route path="/workflow/*" element={<RequirePermission permission="workflow.definition.read"><WorkflowPage /></RequirePermission>} />
+                  <Route path="/paxlog/*" element={<RequirePermission permission="paxlog.profile.read"><PaxLogPage /></RequirePermission>} />
+                  <Route path="/planner/*" element={<RequirePermission permission="planner.activity.read"><PlannerPage /></RequirePermission>} />
+                  <Route path="/travelwiz/*" element={<RequirePermission permission="travelwiz.voyage.read"><TravelWizPage /></RequirePermission>} />
+                  <Route path="/report-editor/*" element={<RequirePermission permission="document.read"><ReportEditorPage /></RequirePermission>} />
+                  <Route path="/pid-pfd/*" element={<RequirePermission permission="pid.read"><PidPfdPage /></RequirePermission>} />
                   <Route path="/settings/*" element={<SettingsPage />} />
                 </Routes>
               </Suspense>

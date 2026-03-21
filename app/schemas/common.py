@@ -848,6 +848,32 @@ class ProfileUpdate(BaseModel):
     first_name: str | None = Field(None, min_length=1, max_length=100)
     last_name: str | None = Field(None, min_length=1, max_length=100)
     language: str | None = Field(None, pattern="^(fr|en)$")
+    # HR Identity (self-service)
+    passport_name: str | None = None
+    gender: str | None = None
+    nationality: str | None = None
+    birth_country: str | None = None
+    birth_date: date | None = None
+    birth_city: str | None = None
+    # Travel
+    contractual_airport: str | None = None
+    nearest_airport: str | None = None
+    nearest_station: str | None = None
+    loyalty_program: str | None = None
+    # Health / Medical
+    last_medical_check: date | None = None
+    last_international_medical_check: date | None = None
+    last_subsidiary_medical_check: date | None = None
+    # Body measurements / PPE
+    height: int | None = None
+    weight: float | None = None
+    ppe_clothing_size: str | None = None
+    ppe_clothing_size_bottom: str | None = None
+    ppe_shoe_size: str | None = None
+    # Misc
+    retirement_date: date | None = None
+    vantage_number: str | None = None
+    extension_number: str | None = None
 
 
 class ChangePasswordRequest(BaseModel):

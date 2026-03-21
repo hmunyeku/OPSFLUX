@@ -42,6 +42,8 @@ export interface SettingsSection {
   order?: number
   /** Parent group ID — if set, this section is nested under a collapsible group */
   parentId?: string
+  /** Permission code required to see this section. If omitted, visible to all authenticated users. */
+  requiredPermission?: string
 }
 
 export interface SettingsGroup {

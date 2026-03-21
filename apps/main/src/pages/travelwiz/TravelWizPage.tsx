@@ -79,6 +79,7 @@ import {
   // useCreateRotation,
   // useUpdateRotation,
 } from '@/hooks/useTravelWiz'
+import { usePermission } from '@/hooks/usePermission'
 import { FleetMap } from '@/components/travelwiz/FleetMap'
 import type {
   VoyageCreate, VoyageUpdate,
@@ -387,6 +388,10 @@ function VoyagesTab() {
   const [statusFilter, setStatusFilter] = useState('')
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const deleteVoyage = useDeleteVoyage()
+  const { hasPermission } = usePermission()
+  const canDelete = hasPermission('travelwiz.voyage.delete')
+  const canExport = hasPermission('travelwiz.voyage.read')
+  const canImport = hasPermission('travelwiz.voyage.create')
 
   const { data, isLoading } = useVoyages({
     page,
@@ -476,21 +481,21 @@ function VoyagesTab() {
         )
       },
     },
-    {
+    ...(canDelete ? [{
       id: 'actions',
       header: '',
       size: 40,
-      cell: ({ row }) => (
+      cell: ({ row }: { row: { original: { id: string } } }) => (
         <button
           className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-          onClick={(e) => { e.stopPropagation(); if (confirm('Supprimer ce voyage ?')) deleteVoyage.mutate(row.original.id) }}
+          onClick={(e: React.MouseEvent) => { e.stopPropagation(); if (confirm('Supprimer ce voyage ?')) deleteVoyage.mutate(row.original.id) }}
           title="Supprimer"
         >
           <span className="text-xs">&times;</span>
         </button>
       ),
-    },
-  ], [deleteVoyage])
+    }] : []),
+  ], [deleteVoyage, canDelete])
 
   return (
     <>
@@ -532,8 +537,8 @@ function VoyagesTab() {
           onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'travelwiz', id: row.id, meta: { subtype: 'voyage' } })}
           emptyIcon={Plane}
           emptyTitle="Aucun voyage"
-          importExport={{
-            exportFormats: ['csv', 'xlsx'],
+          importExport={(canExport || canImport) ? {
+            exportFormats: canExport ? ['csv', 'xlsx'] : undefined,
             advancedExport: true,
             filenamePrefix: 'voyages',
             exportHeaders: {
@@ -543,7 +548,7 @@ function VoyagesTab() {
               status: 'Statut',
               pax_count: 'PAX',
             },
-          }}
+          } : undefined}
           storageKey="travelwiz-voyages"
         />
       </PanelContent>
@@ -867,6 +872,8 @@ function VecteursTab() {
   const debouncedSearch = useDebounce(search, 300)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const deleteVector = useDeleteVector()
+  const { hasPermission } = usePermission()
+  const canDelete = hasPermission('travelwiz.voyage.delete')
 
   const { data, isLoading } = useVectors({
     page,
@@ -927,21 +934,21 @@ function VecteursTab() {
       size: 110,
       cell: ({ row }) => <span className="text-xs text-muted-foreground truncate">{row.original.home_base_name || '—'}</span>,
     },
-    {
+    ...(canDelete ? [{
       id: 'actions',
       header: '',
       size: 40,
-      cell: ({ row }) => (
+      cell: ({ row }: { row: { original: { id: string } } }) => (
         <button
           className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-          onClick={(e) => { e.stopPropagation(); if (confirm('Supprimer ce vecteur ?')) deleteVector.mutate(row.original.id) }}
+          onClick={(e: React.MouseEvent) => { e.stopPropagation(); if (confirm('Supprimer ce vecteur ?')) deleteVector.mutate(row.original.id) }}
           title="Supprimer"
         >
           <span className="text-xs">&times;</span>
         </button>
       ),
-    },
-  ], [deleteVector])
+    }] : []),
+  ], [deleteVector, canDelete])
 
   return (
     <>
@@ -1386,6 +1393,9 @@ export function TravelWizPage() {
 
   const isFullPanel = panelMode === 'full' && dynamicPanel !== null && dynamicPanel.module === 'travelwiz'
 
+  const { hasPermission } = usePermission()
+  const canCreate = hasPermission('travelwiz.voyage.create')
+
   const handleCreate = useCallback(() => {
     if (activeTab === 'voyages') openDynamicPanel({ type: 'create', module: 'travelwiz', meta: { subtype: 'voyage' } })
     else if (activeTab === 'vectors') openDynamicPanel({ type: 'create', module: 'travelwiz', meta: { subtype: 'vector' } })
@@ -1407,7 +1417,7 @@ export function TravelWizPage() {
       {!isFullPanel && (
         <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
           <PanelHeader icon={Plane} title="TravelWiz" subtitle="Transport et logistique">
-            {showCreate && <ToolbarButton icon={Plus} label={createLabel} variant="primary" onClick={handleCreate} />}
+            {showCreate && canCreate && <ToolbarButton icon={Plus} label={createLabel} variant="primary" onClick={handleCreate} />}
           </PanelHeader>
 
           {/* Tab bar */}
@@ -1822,6 +1832,9 @@ function VoyageDetailPanel({ id }: { id: string }) {
   const updateVoyage = useUpdateVoyage()
   const deleteVoyage = useDeleteVoyage()
   const updateStatus = useUpdateVoyageStatus()
+  const { hasPermission } = usePermission()
+  const canUpdate = hasPermission('travelwiz.voyage.update')
+  const canDelete = hasPermission('travelwiz.voyage.delete')
   const closeTrip = useCloseTrip()
   const { data: stops } = useVoyageStops(id)
   const { data: manifests } = useVoyageManifests(id)
@@ -1888,26 +1901,26 @@ function VoyageDetailPanel({ id }: { id: string }) {
       subtitle={`${voyage.origin ?? '?'} → ${voyage.destination ?? '?'}`}
       icon={<Plane size={14} className="text-primary" />}
       actions={<>
-        {!editing && <PanelActionButton onClick={startEdit} icon={<Pencil size={12} />}>Modifier</PanelActionButton>}
+        {!editing && canUpdate && <PanelActionButton onClick={startEdit} icon={<Pencil size={12} />}>Modifier</PanelActionButton>}
         {editing && <>
           <PanelActionButton onClick={() => setEditing(false)}>Annuler</PanelActionButton>
           <PanelActionButton variant="primary" onClick={handleSave} disabled={updateVoyage.isPending} icon={<Save size={12} />}>
             {updateVoyage.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Enregistrer'}
           </PanelActionButton>
         </>}
-        {!editing && voyage.status !== 'cancelled' && voyage.status !== 'completed' && (
+        {!editing && canUpdate && voyage.status !== 'cancelled' && voyage.status !== 'completed' && (
           <select className="text-xs border border-border rounded px-1.5 py-0.5 bg-background text-foreground h-7" value=""
             onChange={(e) => { if (e.target.value) updateStatus.mutate({ id, status: e.target.value }) }}>
             <option value="">Statut...</option>
             {Object.entries(VOYAGE_STATUS_MAP).filter(([k]) => k !== voyage.status).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
         )}
-        {!editing && (voyage.status as string) === 'arrived' && (
+        {!editing && canUpdate && (voyage.status as string) === 'arrived' && (
           <PanelActionButton onClick={handleClose} disabled={closeTrip.isPending} icon={<CheckCircle2 size={12} />}>
             Cloturer
           </PanelActionButton>
         )}
-        {!editing && <DangerConfirmButton onConfirm={handleDelete} icon={<Trash2 size={12} />}>Supprimer</DangerConfirmButton>}
+        {!editing && canDelete && <DangerConfirmButton onConfirm={handleDelete} icon={<Trash2 size={12} />}>Supprimer</DangerConfirmButton>}
       </>}
     >
       <PanelContentLayout>
@@ -2101,6 +2114,9 @@ function VectorDetailPanel({ id }: { id: string }) {
   const deleteVector = useDeleteVector()
   const { data: zones } = useVectorZones(id)
   const { toast } = useToast()
+  const { hasPermission } = usePermission()
+  const canUpdate = hasPermission('travelwiz.voyage.update')
+  const canDelete = hasPermission('travelwiz.voyage.delete')
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState<TravelVectorUpdate>({})
 
@@ -2149,14 +2165,14 @@ function VectorDetailPanel({ id }: { id: string }) {
   return (
     <DynamicPanelShell title={vector.name} subtitle={vector.registration} icon={<Ship size={14} className="text-primary" />}
       actions={<>
-        {!editing && <PanelActionButton onClick={startEdit} icon={<Pencil size={12} />}>Modifier</PanelActionButton>}
+        {!editing && canUpdate && <PanelActionButton onClick={startEdit} icon={<Pencil size={12} />}>Modifier</PanelActionButton>}
         {editing && <>
           <PanelActionButton onClick={() => setEditing(false)}>Annuler</PanelActionButton>
           <PanelActionButton variant="primary" onClick={handleSave} disabled={updateVector.isPending} icon={<Save size={12} />}>
             {updateVector.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Enregistrer'}
           </PanelActionButton>
         </>}
-        {!editing && <DangerConfirmButton onConfirm={handleDelete} icon={<Trash2 size={12} />}>Supprimer</DangerConfirmButton>}
+        {!editing && canDelete && <DangerConfirmButton onConfirm={handleDelete} icon={<Trash2 size={12} />}>Supprimer</DangerConfirmButton>}
       </>}
     >
       <PanelContentLayout>

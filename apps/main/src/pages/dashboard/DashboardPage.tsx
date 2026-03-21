@@ -30,6 +30,7 @@ import {
 import { cn } from '@/lib/utils'
 import { PanelHeader, PanelContent } from '@/components/layout/PanelHeader'
 import { Banner } from '@/components/ui/Banner'
+import { usePermission } from '@/hooks/usePermission'
 import { useAuthStore } from '@/stores/authStore'
 import {
   useDashboardTabs,
@@ -133,6 +134,10 @@ export function DashboardPage() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const { user } = useAuthStore()
+  const { hasPermission } = usePermission()
+  const canCustomize = hasPermission('dashboard.customize')
+  const canAdmin = hasPermission('dashboard.admin') // reserved for system-wide dashboard management
+  void canAdmin
   const lang = i18n.language?.startsWith('fr') ? 'fr' : 'en'
 
   // Data fetching
@@ -287,9 +292,9 @@ export function DashboardPage() {
             onRenameDraftChange={setTabNameDraft}
             onFinishRename={handleFinishRenameTab}
             onClick={() => setActiveTabId(tab.id)}
-            onClose={tab.is_closable ? () => handleDeleteTab(tab.id) : undefined}
+            onClose={canCustomize && tab.is_closable ? () => handleDeleteTab(tab.id) : undefined}
             onStartRename={
-              !tab.is_mandatory && editMode
+              canCustomize && !tab.is_mandatory && editMode
                 ? () => handleStartRenameTab(tab.id, tab.name)
                 : undefined
             }
@@ -297,23 +302,25 @@ export function DashboardPage() {
         ))}
 
         {/* Add tab button */}
-        <button
-          type="button"
-          onClick={handleAddTab}
-          disabled={createTab.isPending}
-          className="h-9 px-2 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
-          title={t('dashboard.add_tab')}
-        >
-          {createTab.isPending ? (
-            <Loader2 size={14} className="animate-spin" />
-          ) : (
-            <Plus size={14} />
-          )}
-        </button>
+        {canCustomize && (
+          <button
+            type="button"
+            onClick={handleAddTab}
+            disabled={createTab.isPending}
+            className="h-9 px-2 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
+            title={t('dashboard.add_tab')}
+          >
+            {createTab.isPending ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Plus size={14} />
+            )}
+          </button>
+        )}
 
         {/* Right side: edit mode toggle */}
         <div className="ml-auto flex items-center gap-1.5">
-          {!isBuiltin && !editMode && (
+          {canCustomize && !isBuiltin && !editMode && (
             <button
               onClick={() => setEditMode(true)}
               className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs font-medium transition-colors hover:bg-muted text-muted-foreground"
@@ -322,7 +329,7 @@ export function DashboardPage() {
               {t('dashboard.edit_dashboard')}
             </button>
           )}
-          {!isBuiltin && editMode && (
+          {canCustomize && !isBuiltin && editMode && (
             <button
               onClick={() => {
                 editorRef.current?.flushSave()
@@ -334,7 +341,7 @@ export function DashboardPage() {
               {t('dashboard.save_dashboard')}
             </button>
           )}
-          {!isBuiltin && editMode && (
+          {canCustomize && !isBuiltin && editMode && (
             <button
               onClick={() => {
                 editorRef.current?.discardChanges()
@@ -533,7 +540,7 @@ export function DashboardPage() {
       </PanelContent>
 
       {/* Full-height editor layout (edit mode) — replaces PanelContent */}
-      {!isBuiltin && editMode && activeTab && catalog && (
+      {canCustomize && !isBuiltin && editMode && activeTab && catalog && (
         <DashboardEditorLayout
           ref={editorRef}
           tabId={activeTab.id}

@@ -65,6 +65,7 @@ import {
   useSetRecurrence,
   useDeleteRecurrence,
 } from '@/hooks/usePlanner'
+import { usePermission } from '@/hooks/usePermission'
 import type {
   PlannerActivity, PlannerActivityCreate,
   PlannerConflict, PlannerDependency,
@@ -529,6 +530,9 @@ function ActivitiesTab() {
   const validateActivity = useValidateActivity()
   const rejectActivity = useRejectActivity()
   const cancelActivity = useCancelActivity()
+  const { hasPermission } = usePermission()
+  const canDelete = hasPermission('planner.activity.delete')
+  const canExport = hasPermission('planner.activity.read')
 
   const { data, isLoading } = useActivities({
     page,
@@ -684,20 +688,22 @@ function ActivitiesTab() {
                 <Ban size={12} />
               </button>
             )}
-            <button
-              className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-              onClick={(e) => handleAction(e, () => {
-                if (confirm('Supprimer cette activite ?')) deleteActivity.mutate(row.original.id)
-              })}
-              title="Supprimer"
-            >
-              <span className="text-xs">&times;</span>
-            </button>
+            {canDelete && (
+              <button
+                className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                onClick={(e) => handleAction(e, () => {
+                  if (confirm('Supprimer cette activite ?')) deleteActivity.mutate(row.original.id)
+                })}
+                title="Supprimer"
+              >
+                <span className="text-xs">&times;</span>
+              </button>
+            )}
           </div>
         )
       },
     },
-  ], [deleteActivity, submitActivity, validateActivity, rejectActivity, cancelActivity, handleAction])
+  ], [deleteActivity, submitActivity, validateActivity, rejectActivity, cancelActivity, handleAction, canDelete])
 
   return (
     <>
@@ -751,7 +757,7 @@ function ActivitiesTab() {
           onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'planner', id: row.id, meta: { subtype: 'activity' } })}
           emptyIcon={ListTodo}
           emptyTitle="Aucune activite"
-          importExport={{
+          importExport={canExport ? {
             exportFormats: ['csv', 'xlsx'],
             advancedExport: true,
             filenamePrefix: 'planning',
@@ -764,7 +770,7 @@ function ActivitiesTab() {
               end_date: 'Fin',
               status: 'Statut',
             },
-          }}
+          } : undefined}
           storageKey="planner-activities"
         />
       </PanelContent>
@@ -1231,6 +1237,9 @@ export function PlannerPage() {
 
   const isFullPanel = panelMode === 'full' && dynamicPanel !== null && dynamicPanel.module === 'planner'
 
+  const { hasPermission } = usePermission()
+  const canCreate = hasPermission('planner.activity.create')
+
   const handleCreate = useCallback(() => {
     openDynamicPanel({ type: 'create', module: 'planner', meta: { subtype: 'activity' } })
   }, [openDynamicPanel])
@@ -1240,7 +1249,7 @@ export function PlannerPage() {
       {!isFullPanel && (
         <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
           <PanelHeader icon={CalendarRange} title="Planner" subtitle="Planification des activites">
-            {(activeTab === 'activities' || activeTab === 'gantt') && (
+            {canCreate && (activeTab === 'activities' || activeTab === 'gantt') && (
               <ToolbarButton icon={Plus} label="Nouvelle activite" variant="primary" onClick={handleCreate} />
             )}
           </PanelHeader>
@@ -1323,6 +1332,9 @@ function ActivityDetailPanel({ id }: { id: string }) {
   const overridePriority = useOverridePriority()
   const setRecurrence = useSetRecurrence()
   const deleteRecurrence = useDeleteRecurrence()
+  const { hasPermission } = usePermission()
+  const canUpdate = hasPermission('planner.activity.update')
+  const canDelete = hasPermission('planner.activity.delete')
 
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState<Record<string, unknown>>({})
@@ -1551,20 +1563,22 @@ function ActivityDetailPanel({ id }: { id: string }) {
         </>
       ) : (
         <>
-          <button
-            onClick={startEdit}
-            className="gl-button-sm gl-button-default flex items-center gap-1"
-            title="Modifier"
-          >
-            <Pencil size={12} />
-            Modifier
-          </button>
-          {st === 'draft' && (
+          {canUpdate && (
+            <button
+              onClick={startEdit}
+              className="gl-button-sm gl-button-default flex items-center gap-1"
+              title="Modifier"
+            >
+              <Pencil size={12} />
+              Modifier
+            </button>
+          )}
+          {canUpdate && st === 'draft' && (
             <PanelActionButton variant="primary" onClick={handleSubmit} disabled={submitActivity.isPending}>
               <Send size={12} /> Soumettre
             </PanelActionButton>
           )}
-          {st === 'submitted' && (
+          {canUpdate && st === 'submitted' && (
             <>
               <PanelActionButton variant="primary" onClick={handleValidate} disabled={validateActivity.isPending}>
                 <CheckCircle2 size={12} /> Valider
@@ -1574,18 +1588,20 @@ function ActivityDetailPanel({ id }: { id: string }) {
               </PanelActionButton>
             </>
           )}
-          {!['completed', 'cancelled'].includes(st) && (
+          {canUpdate && !['completed', 'cancelled'].includes(st) && (
             <PanelActionButton onClick={handleCancel} disabled={cancelActivity.isPending}>
               <Ban size={12} /> Annuler
             </PanelActionButton>
           )}
-          <DangerConfirmButton
-            icon={<Trash2 size={12} />}
-            onConfirm={handleDelete}
-            confirmLabel="Confirmer ?"
-          >
-            Supprimer
-          </DangerConfirmButton>
+          {canDelete && (
+            <DangerConfirmButton
+              icon={<Trash2 size={12} />}
+              onConfirm={handleDelete}
+              confirmLabel="Confirmer ?"
+            >
+              Supprimer
+            </DangerConfirmButton>
+          )}
         </>
       )}
     </>

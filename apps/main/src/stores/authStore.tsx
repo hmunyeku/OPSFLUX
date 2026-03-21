@@ -19,6 +19,32 @@ interface User {
   language: string
   avatar_url: string | null
   default_entity_id: string | null
+  // HR Identity
+  passport_name: string | null
+  gender: string | null
+  nationality: string | null
+  birth_country: string | null
+  birth_date: string | null
+  birth_city: string | null
+  // Travel
+  contractual_airport: string | null
+  nearest_airport: string | null
+  nearest_station: string | null
+  loyalty_program: string | null
+  // Health / Medical
+  last_medical_check: string | null
+  last_international_medical_check: string | null
+  last_subsidiary_medical_check: string | null
+  // Body measurements / PPE
+  height: number | null
+  weight: number | null
+  ppe_clothing_size: string | null
+  ppe_clothing_size_bottom: string | null
+  ppe_shoe_size: string | null
+  // Misc
+  retirement_date: string | null
+  vantage_number: string | null
+  extension_number: string | null
 }
 
 /** Custom error thrown when MFA is required after password step. */

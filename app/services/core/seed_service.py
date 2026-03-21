@@ -74,7 +74,16 @@ async def seed_dev_data(db: AsyncSession) -> None:
         )
         db.add(admin_group)
         await db.flush()
+        logger.info("Seed: created SUPER_ADMIN group")
 
+    # Always ensure admin is a member (handles user recreation with new UUID)
+    result = await db.execute(
+        select(UserGroupMember).where(
+            UserGroupMember.user_id == admin.id,
+            UserGroupMember.group_id == admin_group.id,
+        )
+    )
+    if not result.scalar_one_or_none():
         db.add(UserGroupMember(user_id=admin.id, group_id=admin_group.id))
         logger.info("Seed: assigned SUPER_ADMIN to admin")
 
@@ -290,6 +299,15 @@ async def seed_dev_data(db: AsyncSession) -> None:
 
     # ── Dashboard mandatory tabs per role (spec section 11) ─────
     await seed_dashboard_tabs(db, entity.id)
+
+    # ── Email templates ────────────────────────────────────────────
+    await seed_email_templates(db, entity.id, admin.id)
+
+    # ── PDF templates ──────────────────────────────────────────────
+    await seed_pdf_templates(db, entity.id, admin.id)
+
+    # ── Reference numbering defaults ───────────────────────────────
+    await seed_reference_numbering(db, entity.id)
 
     await db.commit()
     logger.info("Seed: development data seeded successfully")
@@ -519,3 +537,159 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
         logger.info("Seed: inserted %d / %d mandatory dashboard tabs", inserted, len(ROLE_TABS))
     else:
         logger.info("Seed: all %d mandatory dashboard tabs already exist", len(ROLE_TABS))
+
+
+async def seed_email_templates(db: AsyncSession, entity_id, admin_id) -> None:
+    """Seed default email templates — idempotent."""
+    from app.core.email_templates import DEFAULT_TEMPLATES
+    from app.models.common import EmailTemplate, EmailTemplateVersion
+
+    created = 0
+    for tpl_def in DEFAULT_TEMPLATES:
+        result = await db.execute(
+            select(EmailTemplate.id).where(
+                EmailTemplate.entity_id == entity_id,
+                EmailTemplate.slug == tpl_def["slug"],
+            )
+        )
+        if result.scalar_one_or_none():
+            continue
+
+        template = EmailTemplate(
+            entity_id=entity_id,
+            slug=tpl_def["slug"],
+            name=tpl_def["name"],
+            description=tpl_def.get("description"),
+            object_type=tpl_def.get("object_type", "system"),
+            enabled=True,
+            variables_schema=tpl_def.get("variables_schema"),
+        )
+        db.add(template)
+        await db.flush()
+
+        for lang, content in tpl_def.get("default_versions", {}).items():
+            db.add(EmailTemplateVersion(
+                template_id=template.id,
+                version=1,
+                language=lang,
+                subject=content["subject"],
+                body_html=content["body_html"],
+                is_active=True,
+                created_by=admin_id,
+            ))
+        created += 1
+
+    if created:
+        logger.info("Seed: created %d email templates", created)
+    else:
+        logger.info("Seed: all email templates already exist")
+
+
+async def seed_pdf_templates(db: AsyncSession, entity_id, admin_id) -> None:
+    """Seed default PDF templates — idempotent."""
+    from app.core.pdf_templates import DEFAULT_PDF_TEMPLATES
+    from app.models.common import PdfTemplate, PdfTemplateVersion
+
+    created = 0
+    for tpl_def in DEFAULT_PDF_TEMPLATES:
+        result = await db.execute(
+            select(PdfTemplate.id).where(
+                PdfTemplate.entity_id == entity_id,
+                PdfTemplate.slug == tpl_def["slug"],
+            )
+        )
+        if result.scalar_one_or_none():
+            continue
+
+        template = PdfTemplate(
+            entity_id=entity_id,
+            slug=tpl_def["slug"],
+            name=tpl_def["name"],
+            description=tpl_def.get("description"),
+            object_type=tpl_def.get("object_type", "system"),
+            enabled=True,
+            variables_schema=tpl_def.get("variables_schema"),
+            page_size=tpl_def.get("page_size", "A4"),
+            orientation=tpl_def.get("orientation", "portrait"),
+            margin_top=tpl_def.get("margin_top", 15),
+            margin_right=tpl_def.get("margin_right", 15),
+            margin_bottom=tpl_def.get("margin_bottom", 15),
+            margin_left=tpl_def.get("margin_left", 15),
+        )
+        db.add(template)
+        await db.flush()
+
+        for lang, content in tpl_def.get("default_versions", {}).items():
+            db.add(PdfTemplateVersion(
+                template_id=template.id,
+                version_number=1,
+                language=lang,
+                body_html=content.get("body_html", ""),
+                header_html=content.get("header_html", ""),
+                footer_html=content.get("footer_html", ""),
+                is_published=True,
+                created_by=admin_id,
+            ))
+        created += 1
+
+    if created:
+        logger.info("Seed: created %d PDF templates", created)
+    else:
+        logger.info("Seed: all PDF templates already exist")
+
+
+async def seed_reference_numbering(db: AsyncSession, entity_id) -> None:
+    """Seed default reference numbering patterns via Settings — idempotent.
+
+    Creates Setting rows for reference_template:{PREFIX} with default patterns.
+    Value is JSONB: {"template": "ADS-{YYYY}-{####}"}
+    """
+    from app.models.common import Setting
+
+    entity_id_str = str(entity_id)
+
+    # Default numbering patterns per module
+    numbering_defaults = [
+        # PaxLog
+        ("ADS", "{prefix}-{YYYY}-{####}"),
+        ("PRF", "{prefix}-{YYYY}-{####}"),
+        ("INC", "{prefix}-{YYYY}-{####}"),
+        ("ROT", "{prefix}-{YYYY}-{####}"),
+        # Planner
+        ("ACT", "{prefix}-{YYYY}-{####}"),
+        # Projets
+        ("PRJ", "{prefix}-{YY}-{######}"),
+        # TravelWiz
+        ("VYG", "{prefix}-{YYYY}-{######}"),
+        ("MAN", "{prefix}-{YYYY}-{####}"),
+        # Conformité
+        ("AUD", "{prefix}-{YYYY}-{####}"),
+        ("NCR", "{prefix}-{YYYY}-{####}"),
+        # Documents
+        ("DOC", "{entity_code}-{prefix}-{YYYY}-{####}"),
+    ]
+
+    created = 0
+    for prefix, template in numbering_defaults:
+        setting_key = f"reference_template:{prefix}"
+        result = await db.execute(
+            select(Setting).where(
+                Setting.key == setting_key,
+                Setting.scope_id == entity_id_str,
+            )
+        )
+        if result.scalar_one_or_none():
+            continue
+
+        db.add(Setting(
+            key=setting_key,
+            value={"template": template},
+            scope="entity",
+            scope_id=entity_id_str,
+        ))
+        created += 1
+
+    if created:
+        logger.info("Seed: created %d reference numbering patterns", created)
+    else:
+        logger.info("Seed: all reference numbering patterns already exist")

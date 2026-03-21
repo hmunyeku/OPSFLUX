@@ -3,6 +3,7 @@
 import hashlib
 import json
 import logging
+import os
 from uuid import UUID, uuid4, uuid5
 
 from sqlalchemy import select, text
@@ -49,7 +50,7 @@ async def seed_dev_data(db: AsyncSession) -> None:
             email="admin@opsflux.io",
             first_name="Admin",
             last_name="OpsFlux",
-            hashed_password=hash_password("Admin@2026!"),
+            hashed_password=hash_password(os.environ.get("FIRST_SUPERUSER_PASSWORD", "Admin@2026!")),
             default_entity_id=entity.id,
             language="fr",
         )

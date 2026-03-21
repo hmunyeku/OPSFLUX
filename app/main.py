@@ -237,9 +237,39 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 @app.get("/api/health")
 async def health_check():
-    """Health check endpoint."""
-    return {
-        "status": "healthy",
-        "version": "1.0.0",
-        "environment": settings.ENVIRONMENT,
-    }
+    """Public health check — tests DB and Redis, returns 503 if any critical service is down."""
+    from app.core.database import async_session_factory
+    from app.core.redis_client import get_redis
+    from sqlalchemy import text
+    from starlette.responses import JSONResponse
+
+    db_ok = True
+    redis_ok = True
+
+    # ── Database ──────────────────────────────────────────────────
+    try:
+        async with async_session_factory() as session:
+            await session.execute(text("SELECT 1"))
+    except Exception:
+        db_ok = False
+
+    # ── Redis ─────────────────────────────────────────────────────
+    try:
+        redis = get_redis()
+        await redis.ping()
+    except Exception:
+        redis_ok = False
+
+    overall = "healthy" if (db_ok and redis_ok) else "degraded"
+    status_code = 200 if overall == "healthy" else 503
+
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "status": overall,
+            "version": "1.0.0",
+            "environment": settings.ENVIRONMENT,
+            "database": "ok" if db_ok else "error",
+            "redis": "ok" if redis_ok else "error",
+        },
+    )

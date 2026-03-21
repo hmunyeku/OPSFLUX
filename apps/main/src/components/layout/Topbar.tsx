@@ -97,6 +97,12 @@ function useSearchPlaceholder(): string {
 
 type ConnectivityStatus = 'online' | 'syncing' | 'offline' | 'degraded'
 
+interface HealthDetail {
+  status: ConnectivityStatus
+  /** Human-readable detail for tooltip */
+  detail: string
+}
+
 // Module-level flag toggled by opsflux:sync-start / opsflux:sync-end events
 let _isSyncing = false
 
@@ -105,10 +111,10 @@ if (typeof window !== 'undefined') {
   window.addEventListener('opsflux:sync-end', () => { _isSyncing = false })
 }
 
-function useOnlineStatus(): ConnectivityStatus {
-  const [apiReachable, setApiReachable] = useState<boolean | null>(null)
+function useOnlineStatus(): HealthDetail {
+  const [apiHealth, setApiHealth] = useState<{ ok: boolean; db?: string; redis?: string } | null>(null)
 
-  // Ping /api/health every 30s to detect backend down
+  // Ping /api/health every 30s to detect backend / DB / Redis down
   useEffect(() => {
     let mounted = true
     const baseUrl = import.meta.env.VITE_API_URL || ''
@@ -118,14 +124,24 @@ function useOnlineStatus(): ConnectivityStatus {
         const timer = setTimeout(() => ctrl.abort(), 5000)
         const res = await fetch(`${baseUrl}/api/health`, { method: 'GET', signal: ctrl.signal })
         clearTimeout(timer)
-        if (mounted) setApiReachable(res.ok)
+        if (!mounted) return
+        if (res.ok) {
+          setApiHealth({ ok: true })
+        } else {
+          // 503 — parse body for details
+          try {
+            const body = await res.json()
+            setApiHealth({ ok: false, db: body.database, redis: body.redis })
+          } catch {
+            setApiHealth({ ok: false })
+          }
+        }
       } catch {
-        if (mounted) setApiReachable(false)
+        if (mounted) setApiHealth({ ok: false })
       }
     }
     check()
     const interval = setInterval(check, 30_000)
-    // Also re-check on online/offline transitions
     const recheck = () => { check() }
     window.addEventListener('online', recheck)
     window.addEventListener('offline', recheck)
@@ -162,18 +178,31 @@ function useOnlineStatus(): ConnectivityStatus {
     () => 'online' as ConnectivityStatus,
   )
 
-  // Combine: network offline → offline, network OK but API down → degraded
-  if (networkStatus === 'offline') return 'offline'
-  if (networkStatus === 'syncing') return 'syncing'
-  if (apiReachable === false) return 'degraded'
-  return 'online'
+  // Combine network + API health into a single status with detail
+  if (networkStatus === 'offline') return { status: 'offline', detail: 'Hors ligne — mode offline actif' }
+  if (networkStatus === 'syncing') return { status: 'syncing', detail: 'Synchronisation en cours…' }
+
+  if (apiHealth === null) return { status: 'online', detail: 'Vérification en cours…' }
+
+  if (!apiHealth.ok) {
+    // Build detailed message
+    const problems: string[] = []
+    if (apiHealth.db === 'error') problems.push('Base de données')
+    if (apiHealth.redis === 'error') problems.push('Redis')
+    if (problems.length > 0) {
+      return { status: 'degraded', detail: `Service dégradé — ${problems.join(' + ')} inaccessible` }
+    }
+    return { status: 'degraded', detail: 'Serveur API inaccessible' }
+  }
+
+  return { status: 'online', detail: 'En ligne — tous les services opérationnels' }
 }
 
-const statusConfig: Record<ConnectivityStatus, { color: string; pulse: boolean; title: string }> = {
-  online: { color: 'bg-green-500', pulse: false, title: 'En ligne — synchronisé' },
-  syncing: { color: 'bg-amber-500', pulse: true, title: 'Synchronisation en cours…' },
-  degraded: { color: 'bg-orange-500', pulse: true, title: 'Serveur inaccessible — vérifiez la connexion' },
-  offline: { color: 'bg-red-500', pulse: true, title: 'Hors ligne — mode offline actif' },
+const statusConfig: Record<ConnectivityStatus, { color: string; pulse: boolean }> = {
+  online: { color: 'bg-green-500', pulse: false },
+  syncing: { color: 'bg-amber-500', pulse: true },
+  degraded: { color: 'bg-orange-500', pulse: true },
+  offline: { color: 'bg-red-500', pulse: true },
 }
 
 function useQueueSize(): number {
@@ -196,15 +225,14 @@ function useQueueSize(): number {
 }
 
 function ConnectivityLED() {
-  const status = useOnlineStatus()
+  const { status, detail } = useOnlineStatus()
   const queueSize = useQueueSize()
   const { color, pulse } = statusConfig[status]
 
   const title = useMemo(() => {
-    const base = statusConfig[status].title
-    if (queueSize > 0) return `${base} (${queueSize} mutation${queueSize > 1 ? 's' : ''} en attente)`
-    return base
-  }, [status, queueSize])
+    if (queueSize > 0) return `${detail} (${queueSize} mutation${queueSize > 1 ? 's' : ''} en attente)`
+    return detail
+  }, [detail, queueSize])
 
   return (
     <span className="relative flex items-center gap-1" title={title}>

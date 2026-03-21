@@ -1485,47 +1485,48 @@ function CreateAdsPanel() {
     >
       <form id="create-ads-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
-        <FormSection title="Type">
-          <TagSelector
-            options={[{ value: 'individual', label: 'Individuel' }, { value: 'team', label: 'Equipe' }]}
-            value={form.type}
-            onChange={(v) => setForm({ ...form, type: v as 'individual' | 'team' })}
-          />
+        <FormSection title="Type et destination">
+          <FormGrid>
+            <DynamicPanelField label="Type">
+              <TagSelector
+                options={[{ value: 'individual', label: 'Individuel' }, { value: 'team', label: 'Équipe' }]}
+                value={form.type}
+                onChange={(v) => setForm({ ...form, type: v as 'individual' | 'team' })}
+              />
+            </DynamicPanelField>
+            <DynamicPanelField label="Site d'entrée" required>
+              <AssetPicker
+                value={form.site_entry_asset_id || null}
+                onChange={(id) => setForm({ ...form, site_entry_asset_id: id || '' })}
+              />
+            </DynamicPanelField>
+          </FormGrid>
         </FormSection>
 
-        <FormSection title="Destination">
-          <DynamicPanelField label="Site d'entree" required>
-            <AssetPicker
-              value={form.site_entry_asset_id || null}
-              onChange={(id) => setForm({ ...form, site_entry_asset_id: id || '' })}
-              label="Site d'entree"
-            />
-          </DynamicPanelField>
-        </FormSection>
-
-        <FormSection title="Details de la visite">
-          <DynamicPanelField label="Categorie" required>
-            <select value={form.visit_category} onChange={(e) => setForm({ ...form, visit_category: e.target.value })} className={panelInputClass}>
-              {VISIT_CATEGORY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-          </DynamicPanelField>
+        <FormSection title="Détails de la visite">
+          <FormGrid>
+            <DynamicPanelField label="Catégorie" required>
+              <select value={form.visit_category} onChange={(e) => setForm({ ...form, visit_category: e.target.value })} className={panelInputClass}>
+                {VISIT_CATEGORY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </DynamicPanelField>
+            <DynamicPanelField label="Dates" required>
+              <DateRangePicker
+                startDate={form.start_date || null}
+                endDate={form.end_date || null}
+                onStartChange={(v) => setForm({ ...form, start_date: v })}
+                onEndChange={(v) => setForm({ ...form, end_date: v })}
+                required
+              />
+            </DynamicPanelField>
+          </FormGrid>
           <DynamicPanelField label="Objet de la visite" required>
-            <textarea required value={form.visit_purpose} onChange={(e) => setForm({ ...form, visit_purpose: e.target.value })} className={cn(panelInputClass, 'min-h-[60px] resize-y')} placeholder="Decrire l'objet de la visite..." />
+            <textarea required value={form.visit_purpose} onChange={(e) => setForm({ ...form, visit_purpose: e.target.value })} className={cn(panelInputClass, 'min-h-[60px] resize-y')} placeholder="Décrire l'objet de la visite..." />
           </DynamicPanelField>
-        </FormSection>
-
-        <FormSection title="Dates">
-          <DateRangePicker
-            startDate={form.start_date || null}
-            endDate={form.end_date || null}
-            onStartChange={(v) => setForm({ ...form, start_date: v })}
-            onEndChange={(v) => setForm({ ...form, end_date: v })}
-            required
-          />
         </FormSection>
 
         <p className="text-xs text-muted-foreground italic">
-          Les passagers et imputations peuvent etre ajoutes apres la creation, via le panneau de detail.
+          Les passagers et imputations peuvent être ajoutés après la création, via le panneau de détail.
         </p>
         </PanelContentLayout>
       </form>
@@ -2201,39 +2202,41 @@ function CreateAvmPanel() {
       <form id="create-avm-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
         <FormSection title="Mission">
-          <DynamicPanelField label="Titre" required>
-            <input type="text" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className={panelInputClass} placeholder="Ex: Mission E-LINE ESF1" />
-          </DynamicPanelField>
+          <FormGrid>
+            <DynamicPanelField label="Titre" required>
+              <input type="text" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className={panelInputClass} placeholder="Ex: Mission E-LINE ESF1" />
+            </DynamicPanelField>
+            <DynamicPanelField label="Type de mission">
+              <select value={form.mission_type} onChange={(e) => setForm({ ...form, mission_type: e.target.value as typeof form.mission_type })} className={panelInputClass}>
+                {AVM_MISSION_TYPE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </DynamicPanelField>
+          </FormGrid>
           <DynamicPanelField label="Description">
             <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className={cn(panelInputClass, 'min-h-[60px] resize-y')} placeholder="Description de la mission..." />
           </DynamicPanelField>
-          <DynamicPanelField label="Type de mission">
-            <select value={form.mission_type} onChange={(e) => setForm({ ...form, mission_type: e.target.value as typeof form.mission_type })} className={panelInputClass}>
-              {AVM_MISSION_TYPE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-          </DynamicPanelField>
         </FormSection>
 
-        <FormSection title="Dates prevues">
+        <FormSection title="Dates prévues">
           <DateRangePicker
             startDate={form.planned_start_date || null}
             endDate={form.planned_end_date || null}
             onStartChange={(v) => setForm({ ...form, planned_start_date: v })}
             onEndChange={(v) => setForm({ ...form, planned_end_date: v })}
-            startLabel="Depart"
+            startLabel="Départ"
             endLabel="Retour"
           />
         </FormSection>
 
-        <FormSection title="Indicateurs de preparation">
-          <div className="space-y-2">
+        <FormSection title="Indicateurs de préparation">
+          <FormGrid>
             {[
               { key: 'requires_visa' as const, label: 'Visa requis' },
               { key: 'requires_badge' as const, label: 'Badge site requis' },
               { key: 'requires_epi' as const, label: 'EPI requis' },
-              { key: 'eligible_displacement_allowance' as const, label: 'Indemnite de deplacement' },
+              { key: 'eligible_displacement_allowance' as const, label: 'Indemnité de déplacement' },
             ].map((opt) => (
               <label key={opt.key} className="flex items-center gap-2 text-xs cursor-pointer">
                 <input
@@ -2245,7 +2248,7 @@ function CreateAvmPanel() {
                 <span>{opt.label}</span>
               </label>
             ))}
-          </div>
+          </FormGrid>
         </FormSection>
         </PanelContentLayout>
       </form>

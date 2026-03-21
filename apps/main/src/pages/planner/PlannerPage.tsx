@@ -38,6 +38,7 @@ import { NoteManager } from '@/components/shared/NoteManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { AssetPicker } from '@/components/shared/AssetPicker'
+import { ProjectPicker } from '@/components/shared/ProjectPicker'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { useToast } from '@/components/ui/Toast'
 import {
@@ -2239,13 +2240,11 @@ function CreateActivityPanel() {
                   label="Site"
                 />
               </DynamicPanelField>
-              <DynamicPanelField label="ID du projet">
-                <input
-                  type="text"
-                  value={form.project_id ?? ''}
-                  onChange={(e) => setForm({ ...form, project_id: e.target.value || null })}
-                  className={panelInputClass}
-                  placeholder="UUID du projet (optionnel)"
+              <DynamicPanelField label="Projet">
+                <ProjectPicker
+                  value={form.project_id || null}
+                  onChange={(id) => setForm({ ...form, project_id: id })}
+                  filterStatus={['draft', 'active', 'on_hold']}
                 />
               </DynamicPanelField>
             </FormGrid>

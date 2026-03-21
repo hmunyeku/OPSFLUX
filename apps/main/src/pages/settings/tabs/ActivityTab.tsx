@@ -1,20 +1,19 @@
 /**
- * Activity log tab — GitLab Pajamas activity feed pattern.
+ * Activity log tab — compact feed with search, pagination, and filter tabs.
  *
  * API-backed: GET /api/v1/audit-log (paginated, filtered)
- * Matches gitlab.com/dashboard/activity layout.
  */
 import { useState } from 'react'
-import { useAuthStore } from '@/stores/authStore'
 import { usePageSize } from '@/hooks/usePageSize'
 import { useAuditLog } from '@/hooks/useSettings'
 import {
   LogIn, Settings, Users, Edit3, Trash2,
   Download, GitBranch, MessageSquare, Plus,
-  Loader2, RefreshCw,
+  Loader2, RefreshCw, Search, X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { panelInputClass } from '@/components/layout/DynamicPanel'
 
 // ── Action type → filter key + icon mapping ──────────────────
 const actionIconMap: Record<string, LucideIcon> = {
@@ -31,9 +30,24 @@ const actionIconMap: Record<string, LucideIcon> = {
   transition: GitBranch,
 }
 
+const ACTION_COLOR: Record<string, string> = {
+  login: 'text-blue-500',
+  logout: 'text-muted-foreground',
+  create: 'text-green-600',
+  update: 'text-amber-600',
+  delete: 'text-destructive',
+  archive: 'text-orange-500',
+  export: 'text-purple-500',
+}
+
 function getActionIcon(action: string): LucideIcon {
   const key = action.toLowerCase().split('.')[0]
   return actionIconMap[key] || Settings
+}
+
+function getActionColor(action: string): string {
+  const key = action.toLowerCase().split('.')[0]
+  return ACTION_COLOR[key] || 'text-muted-foreground'
 }
 
 // ── Filter tabs ──────────────────────────────────────────────
@@ -56,18 +70,18 @@ function formatRelativeDate(isoString: string): string {
   const diffHours = Math.floor(diffMs / 3600000)
   const diffDays = Math.floor(diffMs / 86400000)
 
-  if (diffSecs < 60) return `Il y a ${diffSecs} secondes`
-  if (diffMins < 60) return `Il y a ${diffMins} minute${diffMins > 1 ? 's' : ''}`
-  if (diffHours < 24) return `Il y a ${diffHours} heure${diffHours > 1 ? 's' : ''}`
-  if (diffDays < 7) return `Il y a ${diffDays} jour${diffDays > 1 ? 's' : ''}`
-  return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+  if (diffSecs < 60) return `${diffSecs}s`
+  if (diffMins < 60) return `${diffMins}min`
+  if (diffHours < 24) return `${diffHours}h`
+  if (diffDays < 7) return `${diffDays}j`
+  return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
 }
 
 export function ActivityTab() {
-  const { user } = useAuthStore()
   const { pageSize } = usePageSize()
   const [activeFilter, setActiveFilter] = useState('')
   const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
 
   const { data, isLoading, isFetching } = useAuditLog({
     page,
@@ -75,150 +89,158 @@ export function ActivityTab() {
     action: activeFilter || undefined,
   })
 
-  const events = data?.items || []
-  const hasMore = data ? data.page < data.pages : false
-  const initials = user ? `${user.first_name[0]}${user.last_name[0]}` : '?'
+  const allEvents = data?.items || []
+  // Client-side search filter
+  const events = search.trim()
+    ? allEvents.filter((e) => {
+      const q = search.toLowerCase()
+      return (
+        e.action.toLowerCase().includes(q) ||
+        (e.resource_type?.toLowerCase().includes(q)) ||
+        (e.resource_id?.toLowerCase().includes(q)) ||
+        (e.ip_address?.toLowerCase().includes(q))
+      )
+    })
+    : allEvents
+  const totalPages = data?.pages ?? 1
+  const hasMore = data ? data.page < totalPages : false
 
   const handleFilterChange = (key: string) => {
     setActiveFilter(key)
-    setPage(1) // Reset to first page on filter change
+    setPage(1)
   }
 
   return (
     <>
-      {/* ── Filter tabs ── */}
-      <div className="flex items-center border-b border-border -mx-6 px-6">
-        {filterTabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => handleFilterChange(tab.key)}
-            className={cn(
-              'px-3 py-3 text-sm transition-colors whitespace-nowrap',
-              activeFilter === tab.key
-                ? 'font-semibold text-foreground'
-                : 'font-normal text-muted-foreground hover:text-foreground',
-            )}
-            style={activeFilter === tab.key
-              ? { boxShadow: 'inset 0 -2px 0 0 hsl(var(--primary))' }
-              : undefined
-            }
-          >
-            {tab.label}
-          </button>
-        ))}
-        {isFetching && <Loader2 size={14} className="animate-spin text-muted-foreground ml-auto" />}
+      {/* ── Filter tabs + search ── */}
+      <div className="flex items-center gap-2 border-b border-border -mx-6 px-6">
+        <div className="flex items-center flex-1 min-w-0 overflow-x-auto">
+          {filterTabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => handleFilterChange(tab.key)}
+              className={cn(
+                'px-2.5 py-2.5 text-xs transition-colors whitespace-nowrap',
+                activeFilter === tab.key
+                  ? 'font-semibold text-foreground'
+                  : 'font-normal text-muted-foreground hover:text-foreground',
+              )}
+              style={activeFilter === tab.key
+                ? { boxShadow: 'inset 0 -2px 0 0 hsl(var(--primary))' }
+                : undefined
+              }
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <div className="relative shrink-0 w-52">
+          <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Rechercher…"
+            className={panelInputClass + ' h-7 text-xs pl-7 w-full'}
+          />
+          {search && (
+            <button onClick={() => setSearch('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <X size={11} />
+            </button>
+          )}
+        </div>
+        {isFetching && <Loader2 size={13} className="animate-spin text-muted-foreground shrink-0" />}
       </div>
 
-      {/* ── Activity feed ── */}
+      {/* ── Activity feed — compact ── */}
       {isLoading ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 size={20} className="animate-spin text-muted-foreground" />
+        <div className="flex items-center justify-center py-12">
+          <Loader2 size={18} className="animate-spin text-muted-foreground" />
         </div>
       ) : (
         <>
-          <ul className="mt-0 list-none p-0">
+          <div className="divide-y divide-border/50">
             {events.map((event) => {
               const ActionIcon = getActionIcon(event.action)
+              const color = getActionColor(event.action)
               return (
-                <li key={event.id} className="relative pl-10 pt-4 pb-2 list-none">
-                  {/* Timestamp — float right */}
-                  <div className="float-right text-xs text-muted-foreground ml-4 mt-0.5">
-                    {formatRelativeDate(event.created_at)}
+                <div key={event.id} className="flex items-center gap-3 py-2 px-1 hover:bg-accent/30 transition-colors">
+                  {/* Icon */}
+                  <div className={cn('shrink-0 flex items-center justify-center h-7 w-7 rounded-full bg-muted', color)}>
+                    <ActionIcon size={13} />
                   </div>
 
-                  {/* Avatar */}
-                  <div className="absolute left-0 top-4">
-                    {user?.avatar_url ? (
-                      <img src={user.avatar_url} alt="" className="h-8 w-8 rounded-full object-cover" />
-                    ) : (
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
-                        {initials}
-                      </div>
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 text-xs">
+                      <span className="font-medium text-foreground">{event.action}</span>
+                      {event.resource_type && (
+                        <span className="text-muted-foreground">· {event.resource_type}</span>
+                      )}
+                      {event.resource_id && (
+                        <span className="font-mono text-[10px] text-primary truncate max-w-[100px]">{event.resource_id}</span>
+                      )}
+                    </div>
+                    {event.details && Object.keys(event.details).length > 0 && (
+                      <p className="text-[10px] text-muted-foreground truncate mt-0.5">
+                        {Object.entries(event.details).slice(0, 3).map(([k, v]) => `${k}: ${String(v)}`).join(' · ')}
+                      </p>
                     )}
                   </div>
 
-                  {/* Author line */}
-                  <div className="mb-1">
-                    <span className="text-sm font-semibold text-foreground">{user?.first_name} {user?.last_name}</span>
-                    <span className="text-sm text-muted-foreground ml-1">@{user?.email?.split('@')[0]}</span>
-                  </div>
-
-                  {/* Action line */}
-                  <div className="flex items-start gap-1.5 text-sm text-muted-foreground">
-                    <ActionIcon size={14} className="shrink-0 mt-0.5" />
-                    <span>
-                      {event.action}
-                      {event.resource_type && (
-                        <>
-                          {' — '}
-                          <span className="font-medium text-foreground">{event.resource_type}</span>
-                        </>
-                      )}
-                      {event.resource_id && (
-                        <>
-                          {' '}
-                          <span className="text-primary font-mono text-xs">{event.resource_id}</span>
-                        </>
-                      )}
-                    </span>
-                  </div>
-
-                  {/* Detail line */}
-                  {event.details && Object.keys(event.details).length > 0 && (
-                    <p className="mt-1 text-sm text-muted-foreground pl-5">
-                      {JSON.stringify(event.details)}
-                    </p>
-                  )}
-
-                  {/* IP address */}
+                  {/* IP */}
                   {event.ip_address && (
-                    <p className="mt-0.5 text-xs text-muted-foreground pl-5 font-mono">
-                      IP: {event.ip_address}
-                    </p>
+                    <span className="text-[10px] font-mono text-muted-foreground/70 shrink-0 hidden sm:block">{event.ip_address}</span>
                   )}
-                </li>
+
+                  {/* Time */}
+                  <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums w-12 text-right">
+                    {formatRelativeDate(event.created_at)}
+                  </span>
+                </div>
               )
             })}
-          </ul>
+          </div>
 
           {/* Empty state */}
           {events.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted mb-4">
-                <MessageSquare size={32} className="text-muted-foreground" />
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted mb-3">
+                <MessageSquare size={24} className="text-muted-foreground" />
               </div>
-              <p className="text-lg font-semibold text-foreground">Aucune activité trouvée</p>
-              <p className="text-sm text-muted-foreground mt-1">Aucun événement ne correspond à ce filtre.</p>
+              <p className="text-sm font-semibold text-foreground">Aucune activité</p>
+              <p className="text-xs text-muted-foreground mt-1">{search ? `Aucun résultat pour « ${search} »` : 'Aucun événement ne correspond à ce filtre.'}</p>
             </div>
           )}
 
-          {/* Pagination */}
-          {events.length > 0 && (
-            <div className="flex items-center justify-center gap-3 py-6">
-              <button
-                className="gl-button gl-button-default"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                Page précédente
-              </button>
-              <span className="text-sm text-muted-foreground">
-                Page {data?.page || 1} sur {data?.pages || 1}
+          {/* Pagination — compact */}
+          {allEvents.length > 0 && (
+            <div className="flex items-center justify-between py-3 px-1 border-t border-border/50">
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Page {data?.page || 1} / {totalPages}{search && events.length < allEvents.length && ` · ${events.length} résultat${events.length > 1 ? 's' : ''}`}
               </span>
-              <button
-                className="gl-button gl-button-default"
-                disabled={!hasMore}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                Page suivante
-              </button>
-              <button
-                className="gl-button-sm gl-button-default ml-2"
-                onClick={() => setPage(1)}
-                title="Rafraîchir"
-              >
-                <RefreshCw size={14} />
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  className="gl-button-sm gl-button-default text-xs"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  ← Précédent
+                </button>
+                <button
+                  className="gl-button-sm gl-button-default text-xs"
+                  disabled={!hasMore}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Suivant →
+                </button>
+                <button
+                  className="gl-button-sm gl-button-default ml-1"
+                  onClick={() => setPage(1)}
+                  title="Rafraîchir"
+                >
+                  <RefreshCw size={12} />
+                </button>
+              </div>
             </div>
           )}
         </>

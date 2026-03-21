@@ -19,7 +19,7 @@ const TravelWizPage = lazy(() => import('@/pages/travelwiz/TravelWizPage').then(
 const ReportEditorPage = lazy(() => import('@/pages/report-editor/ReportEditorPage').then(m => ({ default: m.ReportEditorPage })))
 const PidPfdPage = lazy(() => import('@/pages/pid-pfd/PidPfdPage').then(m => ({ default: m.PidPfdPage })))
 const UsersPage = lazy(() => import('@/pages/users/UsersPage').then(m => ({ default: m.UsersPage })))
-const EntitiesPage = lazy(() => import('@/pages/settings/tabs/EntitiesTab').then(m => ({ default: m.EntitiesTab })))
+const EntitiesPage = lazy(() => import('@/pages/entities/EntitiesPage').then(m => ({ default: m.EntitiesPage })))
 const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage').then(m => ({ default: m.SettingsPage })))
 const SearchPage = lazy(() => import('@/pages/search/SearchPage').then(m => ({ default: m.SearchPage })))
 const CaptainPortalPage = lazy(() => import('@/pages/travelwiz/CaptainPortalPage').then(m => ({ default: m.CaptainPortalPage })))

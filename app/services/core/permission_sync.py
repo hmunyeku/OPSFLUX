@@ -47,6 +47,10 @@ async def sync_permissions_and_roles() -> None:
             {"code": "core.users.manage", "name": "Manage Users", "module": "core"},
             {"code": "core.audit.read", "name": "Read Audit Log", "module": "core"},
             {"code": "core.settings.manage", "name": "Manage Settings", "module": "core"},
+            {"code": "core.entity.read", "name": "Read Entities", "module": "core"},
+            {"code": "core.entity.create", "name": "Create Entity", "module": "core"},
+            {"code": "core.entity.update", "name": "Update Entity", "module": "core"},
+            {"code": "core.entity.delete", "name": "Delete Entity", "module": "core"},
             {"code": "*", "name": "All Permissions (Super Admin)", "module": "core"},
         ]
         all_permissions.extend(core_permissions)

@@ -20,9 +20,10 @@ import { useToast } from '@/components/ui/Toast'
 import { panelInputClass } from '@/components/layout/DynamicPanel'
 import { COUNTRIES } from '@/components/shared/CountrySelect'
 import type { Country } from '@/components/shared/CountrySelect'
+import { useDictionaryOptions } from '@/hooks/useDictionary'
 import type { Phone } from '@/types/api'
 
-const PHONE_LABELS = [
+const FALLBACK_PHONE_LABELS = [
   { value: 'mobile', label: 'Mobile' },
   { value: 'office', label: 'Bureau' },
   { value: 'home', label: 'Domicile' },
@@ -259,6 +260,8 @@ export function PhoneManager({ ownerType, ownerId, compact }: PhoneManagerProps)
   const createPhone = useCreatePhone()
   const updatePhone = useUpdatePhone()
   const deletePhone = useDeletePhone()
+  const dictPhoneLabels = useDictionaryOptions('phone_label')
+  const PHONE_LABELS = dictPhoneLabels.length > 0 ? dictPhoneLabels : FALLBACK_PHONE_LABELS
 
   const [showForm, setShowForm] = useState(false)
   const [number, setNumber] = useState('')
@@ -325,6 +328,7 @@ export function PhoneManager({ ownerType, ownerId, compact }: PhoneManagerProps)
                 <InlinePhoneEditor
                   key={phone.id}
                   phone={phone}
+                  labelOptions={PHONE_LABELS}
                   onSave={async (updates) => {
                     try {
                       await updatePhone.mutateAsync({ id: phone.id, payload: updates })
@@ -443,11 +447,13 @@ export function PhoneManager({ ownerType, ownerId, compact }: PhoneManagerProps)
 
 function InlinePhoneEditor({
   phone,
+  labelOptions,
   onSave,
   onCancel,
   isSaving,
 }: {
   phone: Phone
+  labelOptions: { value: string; label: string }[]
   onSave: (updates: { number?: string; label?: string; country_code?: string | null }) => Promise<void>
   onCancel: () => void
   isSaving: boolean
@@ -484,7 +490,7 @@ function InlinePhoneEditor({
         className="flex-1 px-1 py-0.5 text-xs rounded border border-border/60 bg-card focus:outline-none"
       />
       <select value={editLabel} onChange={(e) => setEditLabel(e.target.value)} className="text-[10px] px-1 py-0.5 rounded border border-border/60 bg-card">
-        {PHONE_LABELS.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
+        {labelOptions.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
       </select>
       <button onClick={handleSave} disabled={isSaving} className="p-0.5 rounded hover:bg-green-100 text-green-600">
         {isSaving ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />}

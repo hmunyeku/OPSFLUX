@@ -20,6 +20,7 @@ router = APIRouter(prefix="/api/v1/audit-log", tags=["audit"])
 async def list_audit_log(
     action: str | None = Query(None, description="Filter by action type"),
     resource_type: str | None = Query(None, description="Filter by resource type"),
+    user_id: UUID | None = Query(None, description="Filter by user ID"),
     date_from: datetime | None = Query(None, description="Start date (inclusive)"),
     date_to: datetime | None = Query(None, description="End date (inclusive)"),
     pagination: PaginationParams = Depends(),
@@ -34,6 +35,8 @@ async def list_audit_log(
         query = query.where(AuditLog.action == action)
     if resource_type:
         query = query.where(AuditLog.resource_type == resource_type)
+    if user_id:
+        query = query.where(AuditLog.user_id == user_id)
     if date_from:
         query = query.where(AuditLog.created_at >= date_from)
     if date_to:

@@ -17,7 +17,9 @@ import {
   Columns3, Download, Upload,
   X, Check, FileSpreadsheet, FileText,
   SlidersHorizontal, FileDown, Settings2,
+  CheckCheck, ChevronDown,
 } from 'lucide-react'
+import type { DataTableBatchAction } from './types'
 import { cn } from '@/lib/utils'
 import type {
   ViewMode, DataTableFilterDef, ImportExportConfig, ExportFormat,
@@ -56,13 +58,19 @@ interface ToolbarProps {
   onImportClick?: () => void
   onDownloadTemplate?: () => void
 
-  // Selection info
+  // Selection
+  selectable?: boolean
+  selectionMode?: boolean
+  onToggleSelectionMode?: () => void
   selectedCount?: number
   totalCount?: number
   onClearSelection?: () => void
 
-  // Batch actions
-  batchActionsSlot?: React.ReactNode
+  // Batch actions (as data, rendered as dropdown)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  batchActions?: DataTableBatchAction<any>[] | null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  selectedRows?: any[]
 
   // Extra slots
   toolbarLeft?: React.ReactNode
@@ -167,10 +175,14 @@ export function DataTableToolbar({
   onAdvancedExport,
   onImportClick,
   onDownloadTemplate,
+  selectable = false,
+  selectionMode = false,
+  onToggleSelectionMode,
   selectedCount = 0,
   totalCount = 0,
   onClearSelection,
-  batchActionsSlot,
+  batchActions,
+  selectedRows = [],
   toolbarLeft,
   toolbarRight,
 }: ToolbarProps) {
@@ -569,19 +581,69 @@ export function DataTableToolbar({
 
         {/* ── Right side actions ── */}
 
-        {/* Selection info + batch actions */}
-        {selectedCount > 0 && (
-          <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-[11px] text-primary font-medium whitespace-nowrap">
-              {selectedCount} sélectionné{selectedCount > 1 ? 's' : ''}
-            </span>
-            {batchActionsSlot}
+        {/* Selection mode toggle + info + batch actions dropdown */}
+        {selectable && (
+          <div className="flex items-center gap-1 shrink-0">
             <button
-              className="text-[11px] text-muted-foreground hover:text-foreground whitespace-nowrap"
-              onClick={onClearSelection}
+              onClick={onToggleSelectionMode}
+              className={cn(
+                'p-1 rounded transition-colors',
+                selectionMode
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+              )}
+              title={selectionMode ? 'Quitter la sélection' : 'Sélection multiple'}
             >
-              Effacer
+              <CheckCheck size={14} />
             </button>
+            {selectionMode && selectedCount > 0 && (
+              <>
+                <span className="text-[11px] text-primary font-medium whitespace-nowrap">
+                  {selectedCount}
+                </span>
+                {/* Batch actions dropdown */}
+                {batchActions && batchActions.length > 0 && (
+                  <div className="relative">
+                    <button
+                      onClick={() => setDropdown(
+                        dropdown.type === 'action' && dropdown.id === '_batch'
+                          ? { type: 'closed' }
+                          : { type: 'action', id: '_batch' }
+                      )}
+                      className="gl-button-sm gl-button-confirm flex items-center gap-1 text-[11px] px-2 py-0.5"
+                    >
+                      Actions <ChevronDown size={10} />
+                    </button>
+                    {dropdown.type === 'action' && dropdown.id === '_batch' && (
+                      <div className="absolute right-0 top-full mt-1 z-50 min-w-[200px] rounded-md border bg-popover shadow-lg py-1">
+                        {batchActions.map((action) => (
+                          <button
+                            key={action.id}
+                            onClick={() => {
+                              action.onAction(selectedRows)
+                              setDropdown({ type: 'closed' })
+                            }}
+                            className={cn(
+                              'flex items-center gap-2 w-full px-3 py-1.5 text-xs text-left hover:bg-accent transition-colors',
+                              action.variant === 'danger' && 'text-destructive hover:bg-destructive/10',
+                            )}
+                          >
+                            {action.icon}
+                            {action.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                <button
+                  className="text-[11px] text-muted-foreground hover:text-foreground whitespace-nowrap"
+                  onClick={onClearSelection}
+                >
+                  Effacer
+                </button>
+              </>
+            )}
             <div className="w-px h-4 bg-border" />
           </div>
         )}

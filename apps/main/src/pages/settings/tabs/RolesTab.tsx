@@ -68,7 +68,7 @@ export function RolesTab() {
                       <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-muted text-muted-foreground">
                         {group.member_count} membres
                       </span>
-                      <span className="gl-badge gl-badge-neutral">{group.role_code}</span>
+                      <span className="gl-badge gl-badge-neutral">{group.role_codes?.join(', ') || 'Aucun rôle'}</span>
                     </div>
                   </div>
                 </div>

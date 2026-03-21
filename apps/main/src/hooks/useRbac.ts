@@ -11,6 +11,7 @@ import {
   type RolesFilter,
   type GroupsFilter,
   type PermissionsFilter,
+  type PermissionOverride,
 } from '@/services/rbacService'
 
 // ── Roles ────────────────────────────────────────────────────
@@ -138,6 +139,82 @@ export function useRemoveGroupMember() {
     onSuccess: (_, { groupId }) => {
       qc.invalidateQueries({ queryKey: ['rbac', 'groups', groupId] })
       qc.invalidateQueries({ queryKey: ['rbac', 'groups'] })
+    },
+  })
+}
+
+// ── Group permission overrides ──────────────────────────────
+
+export function useSetGroupPermissionOverrides() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ groupId, overrides }: { groupId: string; overrides: PermissionOverride[] }) =>
+      rbacService.setGroupPermissionOverrides(groupId, overrides),
+    onSuccess: (_, { groupId }) => {
+      qc.invalidateQueries({ queryKey: ['rbac', 'groups', groupId] })
+      qc.invalidateQueries({ queryKey: ['rbac', 'groups'] })
+    },
+  })
+}
+
+export function useCopyGroupPermissions() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ groupId, sourceGroupId }: { groupId: string; sourceGroupId: string }) =>
+      rbacService.copyGroupPermissions(groupId, sourceGroupId),
+    onSuccess: (_, { groupId }) => {
+      qc.invalidateQueries({ queryKey: ['rbac', 'groups', groupId] })
+    },
+  })
+}
+
+// ── User permission overrides ───────────────────────────────
+
+export function useUserPermissionOverrides(userId: string) {
+  return useQuery({
+    queryKey: ['rbac', 'user-overrides', userId],
+    queryFn: () => rbacService.getUserPermissionOverrides(userId),
+    enabled: !!userId,
+  })
+}
+
+export function useSetUserPermissionOverrides() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ userId, overrides }: { userId: string; overrides: PermissionOverride[] }) =>
+      rbacService.setUserPermissionOverrides(userId, overrides),
+    onSuccess: (_, { userId }) => {
+      qc.invalidateQueries({ queryKey: ['rbac', 'user-overrides', userId] })
+      qc.invalidateQueries({ queryKey: ['rbac', 'user-effective', userId] })
+    },
+  })
+}
+
+export function useUserEffectivePermissions(userId: string) {
+  return useQuery({
+    queryKey: ['rbac', 'user-effective', userId],
+    queryFn: () => rbacService.getUserEffectivePermissions(userId),
+    enabled: !!userId,
+  })
+}
+
+// ── Permission mode ─────────────────────────────────────────
+
+export function usePermissionMode() {
+  return useQuery({
+    queryKey: ['rbac', 'permission-mode'],
+    queryFn: () => rbacService.getPermissionMode(),
+  })
+}
+
+export function useSetPermissionMode() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (mode: 'additive' | 'restrictive') =>
+      rbacService.setPermissionMode(mode),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['rbac', 'permission-mode'] })
+      qc.invalidateQueries({ queryKey: ['rbac'] })
     },
   })
 }

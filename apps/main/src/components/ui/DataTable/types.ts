@@ -132,6 +132,18 @@ export interface CardRendererProps<TData> {
   onClick: () => void
 }
 
+// ── Column filter metadata (auto-generated filters from columns) ────
+export interface ColumnFilterMeta {
+  /** Filter type for this column. If omitted, column is not auto-filterable. */
+  filterType?: 'text' | 'select' | 'multi-select' | 'boolean' | 'date-range'
+  /** Pre-defined options for select/multi-select filters. */
+  filterOptions?: DataTableFilterOption[]
+  /** Custom filter label (defaults to column header). */
+  filterLabel?: string
+  /** Whether this column filter is server-side (default: true). */
+  serverSide?: boolean
+}
+
 // ── Main DataTable props ───────────────────────────────────
 export interface DataTableProps<TData> {
   columns: ColumnDef<TData, unknown>[]
@@ -155,6 +167,11 @@ export interface DataTableProps<TData> {
   /** Logic combinators between filter tokens (AND/OR). Clickable chips toggle between them. */
   filterCombinators?: FilterCombinator[]
   onFilterCombinatorChange?: (index: number, value: FilterCombinator) => void
+  /**
+   * When true, visible columns with `meta.filterType` are auto-added as filter tokens.
+   * Hidden columns are excluded. Explicit `filters` take precedence over auto-generated ones.
+   */
+  autoColumnFilters?: boolean
 
   // Global search (integrated into filter bar)
   searchValue?: string

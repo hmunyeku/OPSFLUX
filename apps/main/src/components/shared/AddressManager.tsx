@@ -21,11 +21,11 @@ import { useToast } from '@/components/ui/Toast'
 import {
   DynamicPanelField,
   FormSection,
-  TagSelector,
   panelInputClass,
 } from '@/components/layout/DynamicPanel'
 import { MapPickerModal, forwardGeocode } from '@/components/shared/MapPicker'
 import { CountrySelect, COUNTRIES } from '@/components/shared/CountrySelect'
+import { useDictionaryOptions } from '@/hooks/useDictionary'
 import type { Address, AddressCreate } from '@/types/api'
 
 function countryNameToCode(name: string): string {
@@ -38,26 +38,32 @@ function countryCodeToName(code: string): string {
   return c?.name ?? code
 }
 
-const labelConfig: Record<string, { text: string; className: string }> = {
-  domicile: { text: 'Domicile', className: 'gl-badge-success' },
-  travail: { text: 'Travail', className: 'gl-badge-info' },
-  ramassage: { text: 'Ramassage', className: 'gl-badge-warning' },
-  site: { text: 'Site', className: 'gl-badge-info' },
-  siege: { text: 'Siège', className: 'gl-badge-success' },
-  autre: { text: 'Autre', className: 'gl-badge-neutral' },
+const LABEL_BADGE_STYLES: Record<string, string> = {
+  home: 'gl-badge-success',
+  office: 'gl-badge-info',
+  site: 'gl-badge-info',
+  headquarters: 'gl-badge-success',
+  pickup: 'gl-badge-warning',
+  postal: 'gl-badge-neutral',
+  billing: 'gl-badge-neutral',
+  delivery: 'gl-badge-warning',
+  temporary: 'gl-badge-neutral',
+  other: 'gl-badge-neutral',
 }
 
-const LABEL_OPTIONS = [
-  { value: 'domicile', label: 'Domicile' },
-  { value: 'travail', label: 'Travail' },
+const FALLBACK_LABEL_OPTIONS = [
+  { value: 'home', label: 'Domicile' },
+  { value: 'office', label: 'Bureau' },
   { value: 'site', label: 'Site' },
-  { value: 'siege', label: 'Siège' },
-  { value: 'ramassage', label: 'Ramassage' },
-  { value: 'autre', label: 'Autre' },
+  { value: 'headquarters', label: 'Siège' },
+  { value: 'pickup', label: 'Ramassage' },
+  { value: 'other', label: 'Autre' },
 ]
 
-function getLabelBadge(label: string) {
-  return labelConfig[label.toLowerCase()] ?? labelConfig.autre
+function getLabelBadge(label: string, dictLabels?: Record<string, string>) {
+  const displayText = dictLabels?.[label] ?? label
+  const badgeClass = LABEL_BADGE_STYLES[label] ?? 'gl-badge-neutral'
+  return { text: displayText, className: badgeClass }
 }
 
 function formatAddress(addr: Address) {
@@ -82,14 +88,15 @@ interface AddressFormProps {
   ownerId: string
   initial?: Address
   onClose: () => void
+  labelOptions: { value: string; label: string }[]
 }
 
-function AddressForm({ ownerType, ownerId, initial, onClose }: AddressFormProps) {
+function AddressForm({ ownerType, ownerId, initial, onClose, labelOptions }: AddressFormProps) {
   const { toast } = useToast()
   const createAddress = useCreateAddress()
   const updateAddress = useUpdateAddress()
 
-  const [label, setLabel] = useState(initial?.label ?? 'domicile')
+  const [label, setLabel] = useState(initial?.label ?? labelOptions[0]?.value ?? 'home')
   const [addressLine1, setAddressLine1] = useState(initial?.address_line1 ?? '')
   const [addressLine2, setAddressLine2] = useState(initial?.address_line2 ?? '')
   const [city, setCity] = useState(initial?.city ?? '')
@@ -200,11 +207,9 @@ function AddressForm({ ownerType, ownerId, initial, onClose }: AddressFormProps)
     <>
       <form onSubmit={handleSubmit} className="border border-border/60 rounded-lg bg-card p-4 space-y-4">
         <FormSection title="Type d'adresse">
-          <TagSelector
-            options={LABEL_OPTIONS}
-            value={label}
-            onChange={setLabel}
-          />
+          <select className="gl-form-select text-sm" value={label} onChange={(e) => setLabel(e.target.value)}>
+            {labelOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
         </FormSection>
 
         <div className="space-y-3">
@@ -334,7 +339,7 @@ interface AddressManagerProps {
   /** UUID of the owning object */
   ownerId: string | undefined
   /** Optional: restrict label options */
-  labelOptions?: typeof LABEL_OPTIONS
+  labelOptions?: typeof FALLBACK_LABEL_OPTIONS
   /** Compact mode (for detail panels) */
   compact?: boolean
   /** If true, opens the add form immediately on mount */
@@ -345,6 +350,10 @@ export function AddressManager({ ownerType, ownerId, compact, initialShowForm }:
   const { toast } = useToast()
   const { data, isLoading } = useAddresses(ownerType, ownerId)
   const deleteAddress = useDeleteAddress()
+  const dictLabelOptions = useDictionaryOptions('address_type')
+  const labelOptions = dictLabelOptions.length > 0 ? dictLabelOptions : FALLBACK_LABEL_OPTIONS
+  const dictLabels: Record<string, string> = {}
+  for (const o of labelOptions) dictLabels[o.value] = o.label
 
   const [showForm, setShowForm] = useState(initialShowForm ?? false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -412,6 +421,7 @@ export function AddressManager({ ownerType, ownerId, compact, initialShowForm }:
           ownerType={ownerType}
           ownerId={ownerId}
           onClose={() => setShowForm(false)}
+          labelOptions={labelOptions}
         />
       )}
 
@@ -419,7 +429,7 @@ export function AddressManager({ ownerType, ownerId, compact, initialShowForm }:
       {!isLoading && addresses.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {addresses.map((addr) => {
-            const badge = getLabelBadge(addr.label)
+            const badge = getLabelBadge(addr.label, dictLabels)
             const isConfirming = confirmDeleteId === addr.id
             const isEditing = editingId === addr.id
 
@@ -431,6 +441,7 @@ export function AddressManager({ ownerType, ownerId, compact, initialShowForm }:
                     ownerId={ownerId}
                     initial={addr}
                     onClose={() => setEditingId(null)}
+                    labelOptions={labelOptions}
                   />
                 </div>
               )

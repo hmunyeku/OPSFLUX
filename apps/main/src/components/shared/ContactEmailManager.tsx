@@ -14,13 +14,12 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { useContactEmails, useCreateContactEmail, useUpdateContactEmail, useDeleteContactEmail } from '@/hooks/useSettings'
 import { useToast } from '@/components/ui/Toast'
 import { panelInputClass } from '@/components/layout/DynamicPanel'
+import { useDictionaryOptions } from '@/hooks/useDictionary'
 import type { ContactEmail } from '@/types/api'
 
-const EMAIL_LABELS = [
-  { value: 'work', label: 'Professionnel' },
+const FALLBACK_EMAIL_LABELS = [
+  { value: 'professional', label: 'Professionnel' },
   { value: 'personal', label: 'Personnel' },
-  { value: 'billing', label: 'Facturation' },
-  { value: 'support', label: 'Support' },
   { value: 'other', label: 'Autre' },
 ]
 
@@ -36,10 +35,12 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
   const createEmail = useCreateContactEmail()
   const updateEmail = useUpdateContactEmail()
   const deleteEmail = useDeleteContactEmail()
+  const dictEmailLabels = useDictionaryOptions('email_label')
+  const EMAIL_LABELS = dictEmailLabels.length > 0 ? dictEmailLabels : FALLBACK_EMAIL_LABELS
 
   const [showForm, setShowForm] = useState(false)
   const [email, setEmail] = useState('')
-  const [label, setLabel] = useState('work')
+  const [label, setLabel] = useState(EMAIL_LABELS[0]?.value ?? 'professional')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
@@ -100,6 +101,7 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
                 <InlineEmailEditor
                   key={ce.id}
                   contactEmail={ce}
+                  labelOptions={EMAIL_LABELS}
                   onSave={async (updates) => {
                     try {
                       await updateEmail.mutateAsync({ id: ce.id, payload: updates })
@@ -205,11 +207,13 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
 
 function InlineEmailEditor({
   contactEmail,
+  labelOptions,
   onSave,
   onCancel,
   isSaving,
 }: {
   contactEmail: ContactEmail
+  labelOptions: { value: string; label: string }[]
   onSave: (updates: { email?: string; label?: string }) => Promise<void>
   onCancel: () => void
   isSaving: boolean
@@ -240,7 +244,7 @@ function InlineEmailEditor({
         placeholder="email@example.com"
       />
       <select value={editLabel} onChange={(e) => setEditLabel(e.target.value)} className="text-[10px] px-1 py-0.5 rounded border border-border/60 bg-card">
-        {EMAIL_LABELS.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
+        {labelOptions.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
       </select>
       <button onClick={handleSave} disabled={isSaving} className="p-0.5 rounded hover:bg-green-100 text-green-600">
         {isSaving ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />}

@@ -18,7 +18,7 @@ import {
   type ColumnPinningState,
   type ColumnSizingState,
 } from '@tanstack/react-table'
-import { ArrowUp, ArrowDown, ArrowUpDown, Loader2, CheckSquare, Square, Pencil, Check, X, Pin } from 'lucide-react'
+import { ArrowUp, ArrowDown, ArrowUpDown, Loader2, Pencil, Check, X, Pin } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { DataTableToolbar } from './Toolbar'
@@ -161,6 +161,7 @@ export function DataTable<TData>({
   onFilterChange,
   filterCombinators,
   onFilterCombinatorChange,
+  autoColumnFilters = false,
 
   searchValue,
   onSearchChange,
@@ -195,7 +196,7 @@ export function DataTable<TData>({
   defaultPinnedColumns,
 
   className,
-  compact = true,
+  compact: _compact,
   stickyHeader = true,
   storageKey,
 }: DataTableProps<TData>) {
@@ -216,6 +217,8 @@ export function DataTable<TData>({
   const sorting = externalSorting ?? internalSorting
 
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+  const [selectionMode, setSelectionMode] = useState(false)
+  const lastSelectedIndex = useRef<number | null>(null)
   const [editingCell, setEditingCell] = useState<{ rowId: string; columnId: string } | null>(null)
   const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(() => {
     if (prefix) return loadFromStorage<ColumnSizingState>(`${prefix}.colSize`, {})
@@ -224,9 +227,7 @@ export function DataTable<TData>({
   const [hasAutoSized, setHasAutoSized] = useState(false)
   const [columnPinningState, setColumnPinningState] = useState<ColumnPinningState>(() => {
     const defaultPins = defaultPinnedColumns ?? {}
-    // Always pin the select column to the left
-    const leftPins = [...(selectable ? ['_select'] : []), ...(defaultPins.left ?? [])]
-    return { left: leftPins, right: defaultPins.right ?? [] }
+    return { left: defaultPins.left ?? [], right: defaultPins.right ?? [] }
   })
 
   const [showImportWizard, setShowImportWizard] = useState(false)
@@ -247,47 +248,87 @@ export function DataTable<TData>({
     })
   }, [prefix])
 
-  // ── Select column ──
-  const selectColumn: ColumnDef<TData, unknown> | null = selectable ? {
-    id: '_select',
-    header: ({ table }) => (
-      <button
-        onClick={table.getToggleAllRowsSelectedHandler()}
-        className="text-muted-foreground hover:text-foreground"
-      >
-        {table.getIsAllRowsSelected() ? (
-          <CheckSquare size={13} className="text-primary" />
-        ) : (
-          <Square size={13} />
-        )}
-      </button>
-    ),
-    cell: ({ row }) => (
-      <button
-        onClick={(e) => { e.stopPropagation(); row.toggleSelected() }}
-        className="text-muted-foreground hover:text-foreground"
-      >
-        {row.getIsSelected() ? (
-          <CheckSquare size={13} className="text-primary" />
-        ) : (
-          <Square size={13} />
-        )}
-      </button>
-    ),
-    size: 32,
-    enableSorting: false,
-    enableHiding: false,
-  } : null
+  // ── Selection mode toggle + clear on exit ──
+  const handleToggleSelectionMode = useCallback(() => {
+    setSelectionMode((prev) => {
+      if (prev) {
+        // Exiting selection mode → clear selection
+        setRowSelection({})
+        lastSelectedIndex.current = null
+      }
+      return !prev
+    })
+  }, [])
 
-  const allColumns = useMemo(() => {
-    const cols = selectColumn ? [selectColumn, ...columns] : columns
-    return cols as ColumnDef<TData, unknown>[]
-  }, [columns, selectColumn])
+  // ── Row click handler with selection mode support ──
+  const handleRowClick = useCallback((row: TData, index: number, e: React.MouseEvent) => {
+    if (!selectionMode) {
+      onRowClick?.(row)
+      return
+    }
+    const id = getRowId(row)
+    if (e.shiftKey && lastSelectedIndex.current !== null) {
+      // Range select
+      const start = Math.min(lastSelectedIndex.current, index)
+      const end = Math.max(lastSelectedIndex.current, index)
+      const visibleRows = data.slice(start, end + 1)
+      setRowSelection((prev) => {
+        const next = { ...prev }
+        visibleRows.forEach((r) => { next[getRowId(r)] = true })
+        return next
+      })
+    } else if (e.ctrlKey || e.metaKey) {
+      // Toggle single
+      setRowSelection((prev) => {
+        const next = { ...prev }
+        if (next[id]) delete next[id]
+        else next[id] = true
+        return next
+      })
+    } else {
+      // Simple click in selection mode → toggle
+      setRowSelection((prev) => {
+        const next = { ...prev }
+        if (next[id]) delete next[id]
+        else next[id] = true
+        return next
+      })
+    }
+    lastSelectedIndex.current = index
+  }, [selectionMode, onRowClick, getRowId, data])
+
+  // ── Auto-generate column filters from visible columns ──
+  const mergedFilters = useMemo(() => {
+    if (!autoColumnFilters) return filters
+    const explicitIds = new Set((filters ?? []).map((f) => f.id))
+    const autoFilters: import('./types').DataTableFilterDef[] = []
+    for (const col of columns) {
+      const colId = (col as { accessorKey?: string }).accessorKey ?? (col as { id?: string }).id
+      if (!colId) continue
+      // Skip hidden columns
+      if (columnVisibilityState[colId] === false) continue
+      // Skip if already in explicit filters
+      if (explicitIds.has(colId)) continue
+      const meta = (col as { meta?: import('./types').ColumnFilterMeta }).meta
+      if (!meta?.filterType) continue
+      const header = typeof col.header === 'string' ? col.header : meta.filterLabel ?? colId
+      if (meta.filterType === 'text') {
+        autoFilters.push({ id: colId, label: header, type: 'select' as const, operators: ['contains', 'is'] as import('./types').FilterOperator[] })
+      } else if (meta.filterType === 'select' || meta.filterType === 'multi-select') {
+        autoFilters.push({ id: colId, label: header, type: meta.filterType, options: meta.filterOptions })
+      } else if (meta.filterType === 'boolean') {
+        autoFilters.push({ id: colId, label: header, type: 'boolean' })
+      } else if (meta.filterType === 'date-range') {
+        autoFilters.push({ id: colId, label: header, type: 'date-range' })
+      }
+    }
+    return [...(filters ?? []), ...autoFilters]
+  }, [autoColumnFilters, filters, columns, columnVisibilityState])
 
   // ── Table instance ──
   const table = useReactTable({
     data,
-    columns: allColumns,
+    columns: columns as ColumnDef<TData, unknown>[],
     state: {
       sorting,
       columnVisibility: columnVisibilityState,
@@ -517,25 +558,7 @@ export function DataTable<TData>({
     return table.getSelectedRowModel().rows.map((r) => r.original)
   }, [table, rowSelection])
 
-  const batchActionsSlot = batchActions && selectedRows.length > 0 ? (
-    <div className="flex items-center gap-0.5">
-      {batchActions.map((action) => (
-        <button
-          key={action.id}
-          onClick={() => action.onAction(selectedRows)}
-          className={cn(
-            'text-[11px] px-1.5 py-0.5 rounded font-medium transition-colors inline-flex items-center gap-0.5',
-            action.variant === 'danger'
-              ? 'text-destructive hover:bg-destructive/10'
-              : 'text-foreground hover:bg-accent',
-          )}
-        >
-          {action.icon}
-          {action.label}
-        </button>
-      ))}
-    </div>
-  ) : null
+  const batchActionsSlot = batchActions && selectedRows.length > 0 ? batchActions : null
 
   // ── Render: loading ──
   if (isLoading && data.length === 0) {
@@ -545,7 +568,7 @@ export function DataTable<TData>({
           searchValue={searchValue}
           onSearchChange={onSearchChange}
           searchPlaceholder={searchPlaceholder}
-          filters={filters}
+          filters={mergedFilters}
           activeFilters={activeFilters}
           onFilterChange={onFilterChange}
           filterCombinators={filterCombinators}
@@ -656,17 +679,18 @@ export function DataTable<TData>({
             ))}
           </thead>
           <tbody>
-            {table.getRowModel().rows.map((row) => {
+            {table.getRowModel().rows.map((row, rowIndex) => {
               const isSelected = row.getIsSelected()
               return (
                 <tr
                   key={row.id}
                   className={cn(
                     'border-b border-border/60 transition-colors',
-                    isSelected ? 'bg-primary/[0.04]' : 'hover:bg-accent/40',
-                    onRowClick && 'cursor-pointer',
+                    isSelected ? 'bg-primary/[0.06]' : 'hover:bg-accent/40',
+                    (onRowClick || selectionMode) && 'cursor-pointer',
+                    selectionMode && 'select-none',
                   )}
-                  onClick={() => onRowClick?.(row.original)}
+                  onClick={(e) => handleRowClick(row.original, rowIndex, e)}
                 >
                   {row.getVisibleCells().map((cell) => {
                     const isEditing = editingCell?.rowId === row.id && editingCell?.columnId === cell.column.id
@@ -681,10 +705,11 @@ export function DataTable<TData>({
                         key={cell.id}
                         className={cn(
                           'px-3',
-                          compact ? 'py-1' : 'py-1.5',
                           pinnedClass,
                         )}
                         style={{
+                          paddingTop: 'var(--dt-row-py)',
+                          paddingBottom: 'var(--dt-row-py)',
                           width: enableColumnResizing ? cell.column.getSize() : undefined,
                           ...pinnedStyle,
                         }}
@@ -761,7 +786,7 @@ export function DataTable<TData>({
               ? 'grid-cols-[repeat(auto-fill,minmax(200px,1fr))]'
               : 'grid-cols-[repeat(auto-fill,minmax(260px,1fr))]',
           )}>
-            {data.map((row) => {
+            {data.map((row, idx) => {
               const id = getRowId(row)
               const isSelected = !!rowSelection[id]
               return (
@@ -770,14 +795,30 @@ export function DataTable<TData>({
                     row,
                     selected: isSelected,
                     onSelect: () => {
+                      if (!selectionMode) {
+                        setSelectionMode(true)
+                      }
                       setRowSelection((prev) => {
                         const next = { ...prev }
                         if (next[id]) delete next[id]
                         else next[id] = true
                         return next
                       })
+                      lastSelectedIndex.current = idx
                     },
-                    onClick: () => onRowClick?.(row),
+                    onClick: () => {
+                      if (selectionMode) {
+                        setRowSelection((prev) => {
+                          const next = { ...prev }
+                          if (next[id]) delete next[id]
+                          else next[id] = true
+                          return next
+                        })
+                        lastSelectedIndex.current = idx
+                      } else {
+                        onRowClick?.(row)
+                      }
+                    },
                   })}
                 </div>
               )
@@ -844,7 +885,7 @@ export function DataTable<TData>({
         searchValue={searchValue}
         onSearchChange={onSearchChange}
         searchPlaceholder={searchPlaceholder}
-        filters={filters}
+        filters={mergedFilters}
         activeFilters={activeFilters}
         onFilterChange={onFilterChange}
         viewModes={viewModes}
@@ -864,10 +905,14 @@ export function DataTable<TData>({
           }
         }}
         onDownloadTemplate={handleDownloadTemplate}
+        selectable={selectable}
+        selectionMode={selectionMode}
+        onToggleSelectionMode={handleToggleSelectionMode}
         selectedCount={selectedRows.length}
         totalCount={pagination?.total ?? data.length}
-        onClearSelection={() => setRowSelection({})}
-        batchActionsSlot={batchActionsSlot}
+        onClearSelection={() => { setRowSelection({}); lastSelectedIndex.current = null }}
+        batchActions={batchActionsSlot}
+        selectedRows={selectedRows}
         toolbarLeft={toolbarLeft}
         toolbarRight={toolbarRight}
       />

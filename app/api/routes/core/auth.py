@@ -44,7 +44,7 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
-from app.models.common import Entity, RefreshToken, Setting, User, UserGroup, UserGroupMember, UserSession
+from app.models.common import Entity, RefreshToken, Setting, User, UserGroup, UserGroupMember, UserGroupRole, UserSession
 from app.schemas.common import (
     LoginRequest,
     LoginResponse,
@@ -140,11 +140,13 @@ async def _issue_tokens(
     db: AsyncSession,
 ) -> LoginResponse:
     """Issue access + refresh tokens and persist refresh hash."""
-    # Get user roles
+    # Get user roles (via junction table)
     roles_result = await db.execute(
-        select(UserGroup.role_code)
+        select(UserGroupRole.role_code)
+        .join(UserGroup, UserGroup.id == UserGroupRole.group_id)
         .join(UserGroupMember, UserGroupMember.group_id == UserGroup.id)
         .where(UserGroupMember.user_id == user.id, UserGroup.active == True)  # noqa: E712
+        .distinct()
     )
     roles = [row[0] for row in roles_result.all()]
 
@@ -420,11 +422,13 @@ async def refresh(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
     if not user or not user.active:
         raise HTTPException(status_code=401, detail="User not found or inactive")
 
-    # Get roles
+    # Get roles (via junction table)
     roles_result = await db.execute(
-        select(UserGroup.role_code)
+        select(UserGroupRole.role_code)
+        .join(UserGroup, UserGroup.id == UserGroupRole.group_id)
         .join(UserGroupMember, UserGroupMember.group_id == UserGroup.id)
         .where(UserGroupMember.user_id == user.id, UserGroup.active == True)
+        .distinct()
     )
     roles = [row[0] for row in roles_result.all()]
 

@@ -229,10 +229,49 @@ export interface UserRead {
   last_name: string
   active: boolean
   default_entity_id: string | null
+  intranet_id: string | null
   language: string
   avatar_url: string | null
+  // Auth & security
+  auth_type: string
+  mfa_enabled: boolean
+  failed_login_count: number
+  locked_until: string | null
+  last_login_ip: string | null
+  account_expires_at: string | null
+  password_changed_at: string | null
+  // HR Identity
+  passport_name: string | null
+  gender: string | null
+  nationality: string | null
+  birth_country: string | null
+  birth_date: string | null
+  birth_city: string | null
+  // Travel
+  contractual_airport: string | null
+  nearest_airport: string | null
+  nearest_station: string | null
+  loyalty_program: string | null
+  // Health / Medical
+  last_medical_check: string | null
+  last_international_medical_check: string | null
+  last_subsidiary_medical_check: string | null
+  // Body measurements / Mensurations
+  height: number | null
+  weight: number | null
+  ppe_clothing_size: string | null
+  ppe_clothing_size_bottom: string | null
+  ppe_shoe_size: string | null
+  // Misc / HR
+  retirement_date: string | null
+  vantage_number: string | null
+  extension_number: string | null
+  // Classification
+  user_type: string
+  // Timestamps
   last_login_at: string | null
   created_at: string
+  updated_at: string | null
 }
 
 export interface UserCreate {
@@ -241,15 +280,233 @@ export interface UserCreate {
   last_name: string
   password?: string | null
   default_entity_id?: string | null
+  intranet_id?: string | null
   language?: string
+  user_type?: string
+  // HR Identity (optional at creation)
+  passport_name?: string | null
+  gender?: string | null
+  nationality?: string | null
+  birth_country?: string | null
+  birth_date?: string | null
+  birth_city?: string | null
+}
+
+export interface UserUpdate extends Partial<UserCreate> {
+  active?: boolean
+  account_expires_at?: string | null
+  failed_login_count?: number
+  locked_until?: string | null
+  // Travel
+  contractual_airport?: string | null
+  nearest_airport?: string | null
+  nearest_station?: string | null
+  loyalty_program?: string | null
+  // Health / Medical
+  last_medical_check?: string | null
+  last_international_medical_check?: string | null
+  last_subsidiary_medical_check?: string | null
+  // Body measurements / Mensurations
+  height?: number | null
+  weight?: number | null
+  ppe_clothing_size?: string | null
+  ppe_clothing_size_bottom?: string | null
+  ppe_shoe_size?: string | null
+  // Misc / HR
+  retirement_date?: string | null
+  vantage_number?: string | null
+  extension_number?: string | null
+}
+
+export interface UserTierLinkRead {
+  id: string
+  tier_id: string
+  tier_code: string
+  tier_name: string
+  tier_type: string | null
+  role: string
+  created_at: string | null
+}
+
+export interface UserHealthConditionRead {
+  id: string
+  user_id: string
+  condition_code: string
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+// ── User Sub-Models ─────────────────────────────────────────
+export interface UserPassportRead {
+  id: string
+  user_id: string
+  passport_type: string | null
+  number: string
+  country: string
+  passport_name: string | null
+  issue_date: string | null
+  expiry_date: string | null
+  document_url: string | null
+  created_at: string
+  updated_at: string
+}
+export interface UserPassportCreate {
+  passport_type?: string | null
+  number: string
+  country: string
+  passport_name?: string | null
+  issue_date?: string | null
+  expiry_date?: string | null
+  document_url?: string | null
+}
+
+export interface UserVisaRead {
+  id: string
+  user_id: string
+  visa_type: string
+  number: string | null
+  country: string
+  issue_date: string | null
+  expiry_date: string | null
+  document_url: string | null
+  created_at: string
+  updated_at: string
+}
+export interface UserVisaCreate {
+  visa_type: string
+  country: string
+  number?: string | null
+  issue_date?: string | null
+  expiry_date?: string | null
+  document_url?: string | null
+}
+
+export interface EmergencyContactRead {
+  id: string
+  user_id: string
+  relationship_type: string
+  name: string
+  phone_number: string | null
+  email: string | null
+  created_at: string
+  updated_at: string
+}
+export interface EmergencyContactCreate {
+  relationship_type: string
+  name: string
+  phone_number?: string | null
+  email?: string | null
+}
+
+export interface SocialSecurityRead {
+  id: string
+  user_id: string
+  country: string
+  number: string
+  created_at: string
+  updated_at: string
+}
+export interface SocialSecurityCreate {
+  country: string
+  number: string
+}
+
+export interface UserVaccineRead {
+  id: string
+  user_id: string
+  vaccine_type: string
+  date_administered: string | null
+  expiry_date: string | null
+  batch_number: string | null
+  created_at: string
+  updated_at: string
+}
+export interface UserVaccineCreate {
+  vaccine_type: string
+  date_administered?: string | null
+  expiry_date?: string | null
+  batch_number?: string | null
+}
+
+export interface UserLanguageRead {
+  id: string
+  user_id: string
+  language_code: string
+  proficiency_level: string | null
+  created_at: string
+  updated_at: string
+}
+export interface UserLanguageCreate {
+  language_code: string
+  proficiency_level?: string | null
+}
+
+export interface DrivingLicenseRead {
+  id: string
+  user_id: string
+  license_type: string
+  country: string
+  expiry_date: string | null
+  document_url: string | null
+  created_at: string
+  updated_at: string
+}
+export interface DrivingLicenseCreate {
+  license_type: string
+  country: string
+  expiry_date?: string | null
+  document_url?: string | null
+}
+
+// ── User Medical Checks ───────────────────────────────────
+export interface UserMedicalCheckRead {
+  id: string
+  user_id: string
+  check_type: string
+  check_date: string
+  expiry_date: string | null
+  provider: string | null
+  notes: string | null
+  document_url: string | null
+  created_at: string
+  updated_at: string
+}
+export interface UserMedicalCheckCreate {
+  check_type: string
+  check_date: string
+  expiry_date?: string | null
+  provider?: string | null
+  notes?: string | null
+  document_url?: string | null
+}
+
+// ── User SSO Providers ────────────────────────────────────
+export interface UserSSOProviderRead {
+  id: string
+  user_id: string
+  provider: string
+  sso_subject: string
+  email: string | null
+  display_name: string | null
+  linked_at: string
+  last_used_at: string | null
+  created_at: string
+  updated_at: string
+}
+export interface UserSSOProviderCreate {
+  provider: string
+  sso_subject: string
+  email?: string | null
+  display_name?: string | null
 }
 
 // ── User Entities ─────────────────────────────────────────
 export interface UserEntityGroup {
   group_id: string
   group_name: string
-  role_code: string
-  role_name: string | null
+  role_codes: string[]
+  role_names: string[]
 }
 
 export interface UserEntity {
@@ -441,7 +698,7 @@ export interface RoleRead {
 export interface UserGroupRead {
   id: string
   name: string
-  role_code: string
+  role_codes: string[]
   member_count: number
 }
 
@@ -502,6 +759,8 @@ export interface Phone {
   number: string
   country_code: string | null
   is_default: boolean
+  verified: boolean
+  verified_at: string | null
   created_at: string
 }
 
@@ -524,6 +783,8 @@ export interface ContactEmail {
   label: string
   email: string
   is_default: boolean
+  verified: boolean
+  verified_at: string | null
   created_at: string
 }
 

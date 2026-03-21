@@ -62,6 +62,16 @@ from app.api.routes.core.email_templates import router as email_templates_router
 from app.api.routes.core.pdf_templates import router as pdf_templates_router
 from app.api.routes.core.phones import router as phones_router
 from app.api.routes.core.contact_emails import router as contact_emails_router
+from app.api.routes.core.user_passports import router as user_passports_router
+from app.api.routes.core.user_visas import router as user_visas_router
+from app.api.routes.core.user_emergency_contacts import router as user_emergency_contacts_router
+from app.api.routes.core.user_social_securities import router as user_social_securities_router
+from app.api.routes.core.user_vaccines import router as user_vaccines_router
+from app.api.routes.core.user_languages import router as user_languages_router
+from app.api.routes.core.user_driving_licenses import router as user_driving_licenses_router
+from app.api.routes.core.user_sso import router as user_sso_router
+from app.api.routes.core.user_health_conditions import router as user_health_conditions_router
+from app.api.routes.core.user_medical_checks import router as user_medical_checks_router
 from app.api.routes.core.integrations import router as integrations_router
 from app.api.routes.core.gouti_sync import router as gouti_sync_router
 from app.api.routes.core.references import router as references_router
@@ -83,6 +93,7 @@ from app.api.routes.core.import_assistant import router as import_assistant_rout
 from app.api.routes.core.user_sync import router as user_sync_router
 from app.api.routes.core.departments import router as departments_router
 from app.api.routes.core.preview import router as preview_router
+from app.api.routes.core.dictionary import router as dictionary_router
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL),
@@ -206,6 +217,16 @@ app.include_router(email_templates_router)
 app.include_router(pdf_templates_router)
 app.include_router(phones_router)
 app.include_router(contact_emails_router)
+app.include_router(user_passports_router)
+app.include_router(user_visas_router)
+app.include_router(user_emergency_contacts_router)
+app.include_router(user_social_securities_router)
+app.include_router(user_vaccines_router)
+app.include_router(user_languages_router)
+app.include_router(user_driving_licenses_router)
+app.include_router(user_sso_router)
+app.include_router(user_health_conditions_router)
+app.include_router(user_medical_checks_router)
 app.include_router(integrations_router)
 app.include_router(gouti_sync_router)
 app.include_router(ws_notifications_router)
@@ -227,6 +248,7 @@ app.include_router(import_assistant_router)
 app.include_router(user_sync_router)
 app.include_router(departments_router)
 app.include_router(preview_router)
+app.include_router(dictionary_router)
 
 
 # ─── Static files (avatars, uploads) ──────────────────────────────────────

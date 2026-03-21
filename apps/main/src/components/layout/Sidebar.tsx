@@ -62,7 +62,6 @@ export interface NavItemDef {
 const moduleNavItems: NavItemDef[] = [
   { path: '/dashboard', icon: LayoutDashboard, labelKey: 'nav.dashboard', module: 'dashboard', order: 10 },
   { path: '/tiers', icon: Building2, labelKey: 'nav.tiers', module: 'tiers', order: 30 },
-  { path: '/conformite', icon: ShieldCheck, labelKey: 'nav.conformite', module: 'conformite', order: 35 },
   { path: '/projets', icon: FolderKanban, labelKey: 'nav.projets', module: 'projets', order: 38 },
   { path: '/planner', icon: CalendarClock, labelKey: 'nav.planner', module: 'planner', order: 39 },
   { path: '/paxlog', icon: Users, labelKey: 'nav.paxlog', module: 'paxlog', order: 40 },
@@ -73,6 +72,7 @@ const moduleNavItems: NavItemDef[] = [
 ]
 
 const adminNavItems: NavItemDef[] = [
+  { path: '/conformite', icon: ShieldCheck, labelKey: 'nav.conformite', module: 'conformite', order: 82 },
   { path: '/assets', icon: Landmark, labelKey: 'nav.assets', module: 'asset-registry', order: 85 },
   { path: '/entities', icon: Globe, labelKey: 'nav.entities', module: 'core', order: 88, requiredPermission: 'admin.system' },
   { path: '/users', icon: UserCog, labelKey: 'nav.accounts', module: 'core', order: 90, requiredPermission: 'admin.users.read' },

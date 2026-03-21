@@ -120,3 +120,39 @@ async def delete_contact_email(
 
     await delete_entity(contact_email, db, "contact_email", entity_id=email_id, user_id=current_user.id)
     await db.commit()
+
+
+@router.post("/{email_id}/send-verification", status_code=200)
+async def send_email_verification(
+    email_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Send verification link for a contact email (stub)."""
+    result = await db.execute(select(ContactEmail).where(ContactEmail.id == email_id))
+    contact_email = result.scalar_one_or_none()
+    if not contact_email:
+        raise HTTPException(status_code=404, detail="Contact email not found")
+    # Stub: in production, send verification email
+    return {"message": "Verification email sent (stub)", "email_id": str(email_id)}
+
+
+@router.post("/{email_id}/verify", status_code=200)
+async def verify_contact_email(
+    email_id: UUID,
+    body: dict,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Verify a contact email with token (stub)."""
+    result = await db.execute(select(ContactEmail).where(ContactEmail.id == email_id))
+    contact_email = result.scalar_one_or_none()
+    if not contact_email:
+        raise HTTPException(status_code=404, detail="Contact email not found")
+    # Stub: accept any token for now
+    from datetime import datetime, timezone
+    contact_email.verified = True
+    contact_email.verified_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(contact_email)
+    return {"message": "Contact email verified", "email_id": str(email_id)}

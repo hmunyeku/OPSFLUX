@@ -14,6 +14,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -110,7 +111,44 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     account_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # HR Identity
+    passport_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    gender: Mapped[str | None] = mapped_column(String(1), nullable=True)  # M, F, X
+    nationality: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    birth_country: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    birth_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    birth_city: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    # Travel
+    contractual_airport: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    nearest_airport: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    nearest_station: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    loyalty_program: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+    # Health / Medical
+    last_medical_check: Mapped[date | None] = mapped_column(Date, nullable=True)
+    last_international_medical_check: Mapped[date | None] = mapped_column(Date, nullable=True)
+    last_subsidiary_medical_check: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    # Body measurements / Mensurations
+    height: Mapped[int | None] = mapped_column(Integer, nullable=True)  # cm
+    weight: Mapped[float | None] = mapped_column(Float, nullable=True)  # kg
+    ppe_clothing_size: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    ppe_shoe_size: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    ppe_clothing_size_bottom: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
+    # Misc / HR
+    retirement_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    vantage_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    extension_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
+    # User classification (internal = entity member, external = linked to tier/company)
+    user_type: Mapped[str] = mapped_column(
+        String(20), default="internal", nullable=False
+    )  # internal | external
+
     group_memberships: Mapped[list["UserGroupMember"]] = relationship(back_populates="user")
+    tier_links: Mapped[list["UserTierLink"]] = relationship(back_populates="user")
     access_tokens: Mapped[list["PersonalAccessToken"]] = relationship(back_populates="user")
     sessions: Mapped[list["UserSession"]] = relationship(back_populates="user")
     emails: Mapped[list["UserEmail"]] = relationship(back_populates="user")
@@ -123,7 +161,7 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 # ─── Roles ───────────────────────────────────────────────────────────────────
 
-class Role(Base):
+class Role(TimestampMixin, Base):
     __tablename__ = "roles"
 
     code: Mapped[str] = mapped_column(String(50), primary_key=True)
@@ -156,6 +194,18 @@ class RolePermission(Base):
 
 # ─── User Groups (role + asset scope) ───────────────────────────────────────
 
+class UserGroupRole(Base):
+    """Junction table: many-to-many between UserGroup and Role."""
+    __tablename__ = "user_group_roles"
+
+    group_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("user_groups.id", ondelete="CASCADE"), primary_key=True
+    )
+    role_code: Mapped[str] = mapped_column(
+        String(50), ForeignKey("roles.code", ondelete="CASCADE"), primary_key=True
+    )
+
+
 class UserGroup(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "user_groups"
 
@@ -163,15 +213,16 @@ class UserGroup(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
-    role_code: Mapped[str] = mapped_column(
-        String(50), ForeignKey("roles.code"), nullable=False
-    )
     asset_scope: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("assets.id")
     )
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     members: Mapped[list["UserGroupMember"]] = relationship(back_populates="group")
+    roles: Mapped[list["UserGroupRole"]] = relationship(cascade="all, delete-orphan")
+    permission_overrides: Mapped[list["GroupPermissionOverride"]] = relationship(
+        back_populates="group", cascade="all, delete-orphan"
+    )
 
 
 class UserGroupMember(Base):
@@ -189,6 +240,57 @@ class UserGroupMember(Base):
 
     user: Mapped["User"] = relationship(back_populates="group_memberships")
     group: Mapped["UserGroup"] = relationship(back_populates="members")
+
+
+class UserTierLink(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Link a user to a tier (company).  External users are scoped to their linked tiers."""
+    __tablename__ = "user_tier_links"
+    __table_args__ = (
+        UniqueConstraint("user_id", "tier_id", name="uq_user_tier"),
+    )
+
+    user_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+    )
+    tier_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tiers.id"), nullable=False, index=True
+    )
+    role: Mapped[str] = mapped_column(String(50), default="viewer", nullable=False)
+
+    user: Mapped["User"] = relationship(back_populates="tier_links")
+    tier: Mapped["Tier"] = relationship()
+
+
+# ─── Permission Overrides (group-level and user-level) ───────────────────────
+
+class GroupPermissionOverride(Base):
+    """Per-group permission override. Lowest priority layer."""
+    __tablename__ = "group_permission_overrides"
+
+    group_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("user_groups.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    permission_code: Mapped[str] = mapped_column(
+        String(100), ForeignKey("permissions.code"), primary_key=True
+    )
+    granted: Mapped[bool] = mapped_column(Boolean, nullable=False)
+
+    group: Mapped["UserGroup"] = relationship(back_populates="permission_overrides")
+
+
+class UserPermissionOverride(Base):
+    """Per-user permission override. Highest priority layer."""
+    __tablename__ = "user_permission_overrides"
+
+    user_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    permission_code: Mapped[str] = mapped_column(
+        String(100), ForeignKey("permissions.code"), primary_key=True
+    )
+    granted: Mapped[bool] = mapped_column(Boolean, nullable=False)
 
 
 # ─── Refresh Tokens ──────────────────────────────────────────────────────────
@@ -706,6 +808,8 @@ class Phone(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     number: Mapped[str] = mapped_column(String(50), nullable=False)
     country_code: Mapped[str | None] = mapped_column(String(10), nullable=True)
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 # ─── ContactEmails (polymorphic — linked to any object) ──────────────────────
@@ -730,6 +834,8 @@ class ContactEmail(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     label: Mapped[str] = mapped_column(String(50), nullable=False, default="work")
     email: Mapped[str] = mapped_column(String(255), nullable=False)
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 # ─── Tags (polymorphic — linked to any object) ──────────────────────────────
@@ -1448,3 +1554,192 @@ class ImportMapping(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     created_by: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id")
     )
+
+
+# ─── User Sub-Models (direct FK — exclusively user-owned) ────────────────────
+
+class UserPassport(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """User passport document."""
+    __tablename__ = "user_passports"
+    __table_args__ = (
+        Index("idx_user_passports_user", "user_id"),
+    )
+
+    user_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    passport_type: Mapped[str | None] = mapped_column(String(50), nullable=True)  # ordinary, diplomatic, service, etc.
+    number: Mapped[str] = mapped_column(String(50), nullable=False)
+    country: Mapped[str] = mapped_column(String(100), nullable=False)
+    passport_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    issue_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    expiry_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    document_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    user: Mapped["User"] = relationship()
+
+
+class UserVisa(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """User visa document."""
+    __tablename__ = "user_visas"
+    __table_args__ = (
+        Index("idx_user_visas_user", "user_id"),
+    )
+
+    user_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    visa_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    number: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    country: Mapped[str] = mapped_column(String(100), nullable=False)
+    issue_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    expiry_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    document_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    user: Mapped["User"] = relationship()
+
+
+class EmergencyContact(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """User emergency contact."""
+    __tablename__ = "emergency_contacts"
+    __table_args__ = (
+        Index("idx_emergency_contacts_user", "user_id"),
+    )
+
+    user_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    relationship_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    phone_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    user: Mapped["User"] = relationship()
+
+
+class SocialSecurity(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """User social security number per country."""
+    __tablename__ = "social_securities"
+    __table_args__ = (
+        Index("idx_social_securities_user", "user_id"),
+        Index("idx_social_securities_unique", "user_id", "country", unique=True),
+    )
+
+    user_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    country: Mapped[str] = mapped_column(String(100), nullable=False)
+    number: Mapped[str] = mapped_column(String(100), nullable=False)
+
+    user: Mapped["User"] = relationship()
+
+
+class UserVaccine(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """User vaccination record."""
+    __tablename__ = "user_vaccines"
+    __table_args__ = (
+        Index("idx_user_vaccines_user", "user_id"),
+    )
+
+    user_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    vaccine_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    date_administered: Mapped[date | None] = mapped_column(Date, nullable=True)
+    expiry_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    batch_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    user: Mapped["User"] = relationship()
+
+
+class UserMedicalCheck(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """User medical check record — replaces flat date fields on User."""
+    __tablename__ = "user_medical_checks"
+    __table_args__ = (
+        Index("idx_user_medical_checks_user", "user_id"),
+    )
+
+    user_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    check_type: Mapped[str] = mapped_column(String(50), nullable=False)  # general, international, subsidiary
+    check_date: Mapped[date] = mapped_column(Date, nullable=False)
+    expiry_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    provider: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    document_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    user: Mapped["User"] = relationship()
+
+
+class UserLanguage(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """User language proficiency."""
+    __tablename__ = "user_languages"
+    __table_args__ = (
+        Index("idx_user_languages_user", "user_id"),
+        Index("idx_user_languages_unique", "user_id", "language_code", unique=True),
+    )
+
+    user_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    language_code: Mapped[str] = mapped_column(String(10), nullable=False)
+    proficiency_level: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
+    user: Mapped["User"] = relationship()
+
+
+class DrivingLicense(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """User driving license."""
+    __tablename__ = "driving_licenses"
+    __table_args__ = (
+        Index("idx_driving_licenses_user", "user_id"),
+    )
+
+    user_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    license_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    country: Mapped[str] = mapped_column(String(100), nullable=False)
+    expiry_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    document_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    user: Mapped["User"] = relationship()
+
+
+# ─── UserSSOProvider ─────────────────────────────────────────────────────────
+
+class UserSSOProvider(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Links a user account to an external SSO identity provider."""
+    __tablename__ = "user_sso_providers"
+    __table_args__ = (
+        Index("idx_user_sso_providers_user", "user_id"),
+        Index("idx_user_sso_providers_unique", "user_id", "provider", unique=True),
+    )
+
+    user_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    provider: Mapped[str] = mapped_column(String(50), nullable=False)  # azure, google, microsoft
+    sso_subject: Mapped[str] = mapped_column(String(255), nullable=False)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    display_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    linked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    user: Mapped["User"] = relationship()
+
+
+# ─── Dictionary (configurable dropdown lists) ────────────────────────────────
+
+class DictionaryEntry(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Configurable dropdown list entry — used for visa types, vaccine types, etc."""
+    __tablename__ = "dictionary_entries"
+    __table_args__ = (
+        Index("idx_dictionary_category", "category"),
+        Index("idx_dictionary_unique", "category", "code", unique=True),
+    )
+
+    category: Mapped[str] = mapped_column(String(50), nullable=False)
+    code: Mapped[str] = mapped_column(String(100), nullable=False)
+    label: Mapped[str] = mapped_column(String(200), nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    metadata_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+
+# ─── User Health Conditions ───────────────────────────────────────────────────
+
+class UserHealthCondition(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Health condition flags for a user — references dictionary category 'health_condition'."""
+    __tablename__ = "user_health_conditions"
+    __table_args__ = (
+        Index("ix_user_health_conditions_user_id", "user_id"),
+        Index("ix_user_health_conditions_unique", "user_id", "condition_code", unique=True),
+    )
+
+    user_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    condition_code: Mapped[str] = mapped_column(String(100), nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)

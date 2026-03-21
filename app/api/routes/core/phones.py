@@ -120,3 +120,39 @@ async def delete_phone(
 
     await delete_entity(phone, db, "phone", entity_id=phone_id, user_id=current_user.id)
     await db.commit()
+
+
+@router.post("/{phone_id}/send-verification", status_code=200)
+async def send_phone_verification(
+    phone_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Send OTP verification code for a phone number (stub)."""
+    result = await db.execute(select(Phone).where(Phone.id == phone_id))
+    phone = result.scalar_one_or_none()
+    if not phone:
+        raise HTTPException(status_code=404, detail="Phone not found")
+    # Stub: in production, integrate SMS gateway
+    return {"message": "Verification code sent (stub)", "phone_id": str(phone_id)}
+
+
+@router.post("/{phone_id}/verify", status_code=200)
+async def verify_phone(
+    phone_id: UUID,
+    body: dict,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Verify a phone number with OTP code (stub)."""
+    result = await db.execute(select(Phone).where(Phone.id == phone_id))
+    phone = result.scalar_one_or_none()
+    if not phone:
+        raise HTTPException(status_code=404, detail="Phone not found")
+    # Stub: accept any code for now
+    from datetime import datetime, timezone
+    phone.verified = True
+    phone.verified_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(phone)
+    return {"message": "Phone verified", "phone_id": str(phone_id)}

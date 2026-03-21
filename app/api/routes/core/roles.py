@@ -10,10 +10,14 @@ from pydantic import BaseModel, Field
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import require_permission
+from app.api.deps import get_current_entity, require_permission
 from app.core.database import get_db
-from app.core.rbac import invalidate_rbac_cache
-from app.models.common import Asset, Permission, Role, RolePermission, UserGroup, UserGroupMember
+from app.core.rbac import (
+    get_permission_mode,
+    invalidate_permission_mode_cache,
+    invalidate_rbac_cache,
+)
+from app.models.common import Asset, Permission, Role, RolePermission, Setting, UserGroup, UserGroupMember, UserGroupRole
 from app.schemas.common import OpsFluxSchema
 
 router = APIRouter(prefix="/api/v1/rbac", tags=["rbac"])
@@ -30,6 +34,8 @@ class RoleRead(OpsFluxSchema):
     permission_count: int = 0
     group_count: int = 0
     user_count: int = 0
+    created_at: str | None = None
+    updated_at: str | None = None
 
 
 class RoleCreate(BaseModel):
@@ -93,9 +99,9 @@ async def list_roles(
     )
 
     group_count_subq = (
-        select(func.count())
-        .select_from(UserGroup)
-        .where(UserGroup.role_code == Role.code)
+        select(func.count(func.distinct(UserGroupRole.group_id)))
+        .select_from(UserGroupRole)
+        .where(UserGroupRole.role_code == Role.code)
         .correlate(Role)
         .scalar_subquery()
     )
@@ -103,8 +109,8 @@ async def list_roles(
     user_count_subq = (
         select(func.count(func.distinct(UserGroupMember.user_id)))
         .select_from(UserGroupMember)
-        .join(UserGroup, UserGroup.id == UserGroupMember.group_id)
-        .where(UserGroup.role_code == Role.code)
+        .join(UserGroupRole, UserGroupRole.group_id == UserGroupMember.group_id)
+        .where(UserGroupRole.role_code == Role.code)
         .correlate(Role)
         .scalar_subquery()
     )
@@ -114,6 +120,8 @@ async def list_roles(
         Role.name,
         Role.description,
         Role.module,
+        Role.created_at,
+        Role.updated_at,
         count_subq.label("permission_count"),
         group_count_subq.label("group_count"),
         user_count_subq.label("user_count"),
@@ -136,6 +144,8 @@ async def list_roles(
             permission_count=row.permission_count or 0,
             group_count=row.group_count or 0,
             user_count=row.user_count or 0,
+            created_at=row.created_at.isoformat() if row.created_at else None,
+            updated_at=row.updated_at.isoformat() if row.updated_at else None,
         )
         for row in result.all()
     ]
@@ -163,12 +173,15 @@ async def create_role(
     )
     db.add(role)
     await db.commit()
+    await db.refresh(role)
     return RoleRead(
         code=role.code,
         name=role.name,
         description=role.description,
         module=role.module,
         permission_count=0,
+        created_at=role.created_at.isoformat() if role.created_at else None,
+        updated_at=role.updated_at.isoformat() if role.updated_at else None,
     )
 
 
@@ -211,8 +224,9 @@ async def get_role(
             member_count_subq.label("member_count"),
             UserGroup.active,
         )
+        .join(UserGroupRole, UserGroupRole.group_id == UserGroup.id)
         .outerjoin(Asset, Asset.id == UserGroup.asset_scope)
-        .where(UserGroup.role_code == role_code)
+        .where(UserGroupRole.role_code == role_code)
         .order_by(UserGroup.name)
     )
     groups_result = await db.execute(groups_stmt)
@@ -360,3 +374,66 @@ async def list_permission_modules(
         ModulePermissionsRead(module=mod, permissions=perms)
         for mod, perms in sorted(grouped.items())
     ]
+
+
+# ── Permission mode (additive / restrictive) ─────────────────────────────
+
+
+class PermissionModeRead(BaseModel):
+    mode: str  # "additive" | "restrictive"
+
+
+class PermissionModeUpdate(BaseModel):
+    mode: str = Field(..., pattern=r"^(additive|restrictive)$")
+
+
+@router.get("/permission-mode", response_model=PermissionModeRead)
+async def get_entity_permission_mode(
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("core.rbac.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get the permission resolution mode for the current entity."""
+    mode = await get_permission_mode(entity_id, db)
+    return PermissionModeRead(mode=mode)
+
+
+@router.put("/permission-mode", response_model=PermissionModeRead)
+async def set_entity_permission_mode(
+    body: PermissionModeUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("core.rbac.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Set the permission resolution mode for the current entity.
+
+    - "additive": permissions accumulate across layers, no revocation possible.
+    - "restrictive": higher-priority layers can revoke lower-layer grants.
+    """
+    key = "rbac.permission_mode"
+    result = await db.execute(
+        select(Setting).where(
+            Setting.key == key,
+            Setting.scope == "entity",
+            Setting.scope_id == str(entity_id),
+        )
+    )
+    existing = result.scalar_one_or_none()
+
+    if existing:
+        existing.value = {"value": body.mode}
+    else:
+        db.add(Setting(
+            key=key,
+            value={"value": body.mode},
+            scope="entity",
+            scope_id=str(entity_id),
+        ))
+
+    await db.commit()
+
+    # Invalidate caches
+    await invalidate_permission_mode_cache(entity_id)
+    await invalidate_rbac_cache()
+
+    return PermissionModeRead(mode=body.mode)

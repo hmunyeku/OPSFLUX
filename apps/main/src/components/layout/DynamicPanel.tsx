@@ -17,10 +17,10 @@
  * - 8px spacing base unit
  * - Inset box-shadow for input borders
  */
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  X, Check, Pencil, ChevronRight, ChevronLeft,
+  X, Check, Pencil, ChevronRight, ChevronLeft, ChevronDown,
   ChevronsLeft, ChevronsRight,
   ExternalLink, Pin, PinOff, Maximize2, Minimize2,
   PanelLeft, PanelRight, ArrowLeft,
@@ -134,6 +134,17 @@ export function DynamicPanelShell({ title, subtitle, icon, children, actions, in
   const toggleMode = useUIStore((s) => s.toggleDynamicPanelMode)
   const toggleDock = useUIStore((s) => s.toggleDockSide)
   const setMode = useUIStore((s) => s.setDynamicPanelMode)
+
+  // Auto full-screen on mobile (< 768px)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)')
+    const handler = (e: MediaQueryListEvent | MediaQueryList) => {
+      if (e.matches && mode !== 'full') setMode('full')
+    }
+    handler(mq)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [mode, setMode])
 
   // Navigation
   const navItems = useUIStore((s) => s.dynamicPanelNavItems)
@@ -290,9 +301,11 @@ export function DynamicPanelShell({ title, subtitle, icon, children, actions, in
           </div>
         )}
 
-        {/* Content — full width, container query scope */}
+        {/* Content — constrained width in full mode for readability */}
         <div className="flex-1 overflow-y-auto @container">
-          {children}
+          <div className="max-w-6xl mx-auto">
+            {children}
+          </div>
         </div>
       </div>
     )
@@ -766,7 +779,7 @@ export function InlineEditableRow({
   label: string
   value: string
   onSave: (newValue: string) => void
-  type?: 'text' | 'email' | 'tel'
+  type?: 'text' | 'email' | 'tel' | 'date'
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
@@ -778,7 +791,7 @@ export function InlineEditableRow({
 
   const commit = useCallback(() => {
     const trimmed = draft.trim()
-    if (trimmed && trimmed !== value) {
+    if (trimmed !== value) {
       onSave(trimmed)
     }
     setEditing(false)
@@ -901,6 +914,135 @@ export function InlineEditableSelect({
     </div>
   )
 }
+
+/* ─── Inline Editable Combobox (searchable autocomplete for >5 options) ── */
+
+export function InlineEditableCombobox({
+  label,
+  value,
+  options,
+  onSave,
+  placeholder,
+}: {
+  label: string
+  value: string
+  options: { value: string; label: string }[]
+  onSave: (newValue: string) => void
+  placeholder?: string
+}) {
+  const [editing, setEditing] = useState(false)
+  const [query, setQuery] = useState('')
+  const [highlightIdx, setHighlightIdx] = useState(0)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const listRef = useRef<HTMLUListElement>(null)
+
+  const displayLabel = useMemo(() => options.find((o) => o.value === value)?.label ?? value, [options, value])
+
+  const filtered = useMemo(() => {
+    if (!query) return options
+    const q = query.toLowerCase()
+    return options.filter((o) => o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q))
+  }, [options, query])
+
+  useEffect(() => { setHighlightIdx(0) }, [filtered.length])
+
+  useEffect(() => {
+    if (!editing || !listRef.current) return
+    const el = listRef.current.children[highlightIdx] as HTMLElement | undefined
+    el?.scrollIntoView({ block: 'nearest' })
+  }, [highlightIdx, editing])
+
+  useEffect(() => {
+    if (!editing) return
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setEditing(false)
+        setQuery('')
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [editing])
+
+  const startEdit = useCallback(() => {
+    setQuery('')
+    setEditing(true)
+    setTimeout(() => inputRef.current?.focus(), 0)
+  }, [])
+
+  const handleSelect = useCallback((opt: { value: string }) => {
+    if (opt.value !== value) onSave(opt.value)
+    setEditing(false)
+    setQuery('')
+  }, [value, onSave])
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setHighlightIdx((i) => Math.min(i + 1, filtered.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setHighlightIdx((i) => Math.max(i - 1, 0))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      if (filtered[highlightIdx]) handleSelect(filtered[highlightIdx])
+    } else if (e.key === 'Escape') {
+      setEditing(false)
+      setQuery('')
+    }
+  }, [filtered, highlightIdx, handleSelect])
+
+  if (editing) {
+    return (
+      <div ref={containerRef} className="flex items-center gap-3 py-1.5 border-b border-border/50 relative">
+        <span className="text-sm text-muted-foreground w-28 shrink-0">{label}</span>
+        <div className="flex-1 relative">
+          <div className="flex items-center gap-1">
+            <input
+              ref={inputRef}
+              type="text"
+              className="gl-form-input h-7 text-sm flex-1"
+              placeholder={placeholder || 'Rechercher...'}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={handleKeyDown}
+            />
+            <ChevronDown size={14} className="shrink-0 text-muted-foreground absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+          <ul ref={listRef} className="absolute z-50 mt-1 w-full max-h-52 overflow-auto rounded-lg border border-border bg-popover shadow-md py-1">
+            {filtered.length === 0 && (
+              <li className="px-3 py-2 text-xs text-muted-foreground text-center">Aucun résultat</li>
+            )}
+            {filtered.map((o, idx) => (
+              <li
+                key={o.value}
+                className={`px-3 py-1.5 text-sm cursor-pointer transition-colors ${idx === highlightIdx ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50'} ${value === o.value ? 'font-semibold' : ''}`}
+                onMouseEnter={() => setHighlightIdx(idx)}
+                onMouseDown={(e) => { e.preventDefault(); handleSelect(o) }}
+              >
+                {o.label}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className="group flex items-baseline gap-4 py-2 border-b border-border/50 last:border-0 rounded-lg hover:bg-accent/50 -mx-2 px-2 cursor-pointer transition-colors"
+      onDoubleClick={startEdit}
+      title="Double-cliquer pour modifier"
+    >
+      <span className="text-sm text-muted-foreground w-28 shrink-0">{label}</span>
+      <span className="text-sm text-foreground flex-1 min-w-0 break-words">{displayLabel || '—'}</span>
+      <Pencil size={12} className="shrink-0 text-transparent group-hover:text-muted-foreground transition-colors" />
+    </div>
+  )
+}
+
 
 /* ─── Tag Selector (modern clickable tags instead of <select>) ──── */
 

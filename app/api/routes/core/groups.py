@@ -1,6 +1,7 @@
 """User Groups CRUD — manage groups, members, and asset scoping.
 
 Groups are the link between Users and Roles. A user gets permissions through group membership.
+A group can have multiple roles (many-to-many via user_group_roles).
 Groups are entity-scoped and can optionally be scoped to a specific asset (asset_scope).
 """
 
@@ -9,7 +10,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, require_permission
@@ -18,10 +19,14 @@ from app.core.pagination import PaginationParams
 from app.core.rbac import invalidate_rbac_cache
 from app.models.common import (
     Asset,
+    Entity,
+    GroupPermissionOverride,
+    Permission,
     Role,
     User,
     UserGroup,
     UserGroupMember,
+    UserGroupRole,
 )
 from app.schemas.common import OpsFluxSchema, PaginatedResponse
 from app.services.core.delete_service import delete_entity
@@ -40,46 +45,109 @@ class GroupMemberRead(OpsFluxSchema):
     joined_at: str | None = None
 
 
+class GroupRoleRead(OpsFluxSchema):
+    code: str
+    name: str
+
+
 class GroupRead(OpsFluxSchema):
     id: UUID
     entity_id: UUID
+    entity_name: str | None = None
     name: str
-    role_code: str
-    role_name: str | None = None
+    role_codes: list[str] = []
+    role_names: list[str] = []
     asset_scope: UUID | None
     asset_scope_name: str | None = None
     active: bool
     member_count: int = 0
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+class PermissionOverrideRead(OpsFluxSchema):
+    permission_code: str
+    granted: bool
+
+
+class PermissionOverrideSet(BaseModel):
+    """Replace all group permission overrides at once."""
+    overrides: list[PermissionOverrideRead] = Field(default_factory=list)
 
 
 class GroupDetail(OpsFluxSchema):
     id: UUID
     entity_id: UUID
+    entity_name: str | None = None
     name: str
-    role_code: str
-    role_name: str | None = None
+    role_codes: list[str] = []
+    role_names: list[str] = []
     asset_scope: UUID | None
     asset_scope_name: str | None = None
     active: bool
     member_count: int = 0
     members: list[GroupMemberRead] = []
+    permission_overrides: list[PermissionOverrideRead] = []
 
 
 class GroupCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
-    role_code: str = Field(..., min_length=1, max_length=50)
+    role_codes: list[str] = Field(..., min_length=1)
     asset_scope: UUID | None = None
 
 
 class GroupUpdate(BaseModel):
     name: str | None = None
-    role_code: str | None = None
+    role_codes: list[str] | None = None
     asset_scope: UUID | None = None
     active: bool | None = None
 
 
 class GroupMemberAdd(BaseModel):
     user_ids: list[UUID] = Field(..., min_length=1)
+
+
+# ── Helpers ────────────────────────────────────────────────────────────────
+
+
+async def _load_group_roles(group_ids: list[UUID], db: AsyncSession) -> dict[UUID, list[tuple[str, str]]]:
+    """Load (role_code, role_name) pairs for a batch of group IDs."""
+    if not group_ids:
+        return {}
+    result = await db.execute(
+        select(UserGroupRole.group_id, Role.code, Role.name)
+        .join(Role, Role.code == UserGroupRole.role_code)
+        .where(UserGroupRole.group_id.in_(group_ids))
+        .order_by(Role.name)
+    )
+    mapping: dict[UUID, list[tuple[str, str]]] = {}
+    for row in result.all():
+        mapping.setdefault(row[0], []).append((row[1], row[2]))
+    return mapping
+
+
+async def _set_group_roles(group_id: UUID, role_codes: list[str], db: AsyncSession) -> list[tuple[str, str]]:
+    """Replace all roles for a group. Returns list of (code, name) pairs."""
+    # Validate all role codes exist
+    if role_codes:
+        valid_result = await db.execute(
+            select(Role.code, Role.name).where(Role.code.in_(role_codes))
+        )
+        valid_roles = {row[0]: row[1] for row in valid_result.all()}
+        invalid = set(role_codes) - set(valid_roles.keys())
+        if invalid:
+            raise HTTPException(status_code=400, detail=f"Unknown roles: {', '.join(sorted(invalid))}")
+    else:
+        valid_roles = {}
+
+    # Replace: delete existing, insert new
+    await db.execute(
+        delete(UserGroupRole).where(UserGroupRole.group_id == group_id)
+    )
+    for code in role_codes:
+        db.add(UserGroupRole(group_id=group_id, role_code=code))
+
+    return [(code, valid_roles[code]) for code in role_codes]
 
 
 # ── Group endpoints ────────────────────────────────────────────────────────
@@ -107,12 +175,12 @@ async def list_groups(
     stmt = (
         select(
             UserGroup,
-            Role.name.label("role_name"),
             Asset.name.label("asset_scope_name"),
+            Entity.name.label("entity_name"),
             member_count_sq.label("member_count"),
         )
-        .outerjoin(Role, Role.code == UserGroup.role_code)
         .outerjoin(Asset, Asset.id == UserGroup.asset_scope)
+        .outerjoin(Entity, Entity.id == UserGroup.entity_id)
         .where(UserGroup.entity_id == entity_id)
     )
 
@@ -120,7 +188,12 @@ async def list_groups(
     if search:
         stmt = stmt.where(UserGroup.name.ilike(f"%{search}%"))
     if role_code:
-        stmt = stmt.where(UserGroup.role_code == role_code)
+        # Filter groups that have this role via junction table
+        stmt = stmt.where(
+            UserGroup.id.in_(
+                select(UserGroupRole.group_id).where(UserGroupRole.role_code == role_code)
+            )
+        )
     if active is not None:
         stmt = stmt.where(UserGroup.active == active)
 
@@ -133,21 +206,30 @@ async def list_groups(
     # Apply pagination
     stmt = stmt.offset(pagination.offset).limit(pagination.page_size)
     result = await db.execute(stmt)
+    rows = result.all()
 
-    items = [
-        GroupRead(
-            id=row.UserGroup.id,
+    # Batch-load roles for all groups
+    group_ids = [row.UserGroup.id for row in rows]
+    roles_map = await _load_group_roles(group_ids, db)
+
+    items = []
+    for row in rows:
+        gid = row.UserGroup.id
+        role_pairs = roles_map.get(gid, [])
+        items.append(GroupRead(
+            id=gid,
             entity_id=row.UserGroup.entity_id,
+            entity_name=row.entity_name,
             name=row.UserGroup.name,
-            role_code=row.UserGroup.role_code,
-            role_name=row.role_name,
+            role_codes=[r[0] for r in role_pairs],
+            role_names=[r[1] for r in role_pairs],
             asset_scope=row.UserGroup.asset_scope,
             asset_scope_name=row.asset_scope_name,
             active=row.UserGroup.active,
             member_count=row.member_count or 0,
-        )
-        for row in result.all()
-    ]
+            created_at=row.UserGroup.created_at.isoformat() if row.UserGroup.created_at else None,
+            updated_at=row.UserGroup.updated_at.isoformat() if row.UserGroup.updated_at else None,
+        ))
 
     pages = math.ceil(total / pagination.page_size) if total > 0 else 0
 
@@ -168,12 +250,6 @@ async def create_group(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new user group."""
-    # Validate role exists
-    role_result = await db.execute(select(Role).where(Role.code == body.role_code))
-    role = role_result.scalar_one_or_none()
-    if not role:
-        raise HTTPException(status_code=400, detail=f"Role '{body.role_code}' not found")
-
     # Validate asset scope if provided
     asset_name = None
     if body.asset_scope:
@@ -188,10 +264,14 @@ async def create_group(
     group = UserGroup(
         entity_id=entity_id,
         name=body.name,
-        role_code=body.role_code,
         asset_scope=body.asset_scope,
     )
     db.add(group)
+    await db.flush()  # get group.id
+
+    # Set roles via junction table
+    role_pairs = await _set_group_roles(group.id, body.role_codes, db)
+
     await db.commit()
     await db.refresh(group)
 
@@ -199,12 +279,14 @@ async def create_group(
         id=group.id,
         entity_id=group.entity_id,
         name=group.name,
-        role_code=group.role_code,
-        role_name=role.name,
+        role_codes=[r[0] for r in role_pairs],
+        role_names=[r[1] for r in role_pairs],
         asset_scope=group.asset_scope,
         asset_scope_name=asset_name,
         active=group.active,
         member_count=0,
+        created_at=group.created_at.isoformat() if group.created_at else None,
+        updated_at=group.updated_at.isoformat() if group.updated_at else None,
     )
 
 
@@ -221,11 +303,11 @@ async def get_group(
     stmt = (
         select(
             UserGroup,
-            Role.name.label("role_name"),
             Asset.name.label("asset_scope_name"),
+            Entity.name.label("entity_name"),
         )
-        .outerjoin(Role, Role.code == UserGroup.role_code)
         .outerjoin(Asset, Asset.id == UserGroup.asset_scope)
+        .outerjoin(Entity, Entity.id == UserGroup.entity_id)
         .where(UserGroup.id == group_id, UserGroup.entity_id == entity_id)
     )
     result = await db.execute(stmt)
@@ -234,6 +316,10 @@ async def get_group(
         raise HTTPException(status_code=404, detail="Group not found")
 
     group = row.UserGroup
+
+    # Load roles
+    roles_map = await _load_group_roles([group_id], db)
+    role_pairs = roles_map.get(group_id, [])
 
     # Count total members
     member_count_result = await db.execute(
@@ -262,17 +348,30 @@ async def get_group(
         for m in members_result.all()
     ]
 
+    # Load permission overrides
+    overrides_result = await db.execute(
+        select(GroupPermissionOverride)
+        .where(GroupPermissionOverride.group_id == group_id)
+        .order_by(GroupPermissionOverride.permission_code)
+    )
+    perm_overrides = [
+        PermissionOverrideRead(permission_code=o.permission_code, granted=o.granted)
+        for o in overrides_result.scalars().all()
+    ]
+
     return GroupDetail(
         id=group.id,
         entity_id=group.entity_id,
+        entity_name=row.entity_name,
         name=group.name,
-        role_code=group.role_code,
-        role_name=row.role_name,
+        role_codes=[r[0] for r in role_pairs],
+        role_names=[r[1] for r in role_pairs],
         asset_scope=group.asset_scope,
         asset_scope_name=row.asset_scope_name,
         active=group.active,
         member_count=member_count,
         members=members,
+        permission_overrides=perm_overrides,
     )
 
 
@@ -296,11 +395,8 @@ async def update_group(
 
     if body.name is not None:
         group.name = body.name
-    if body.role_code is not None:
-        role_result = await db.execute(select(Role).where(Role.code == body.role_code))
-        if not role_result.scalar_one_or_none():
-            raise HTTPException(status_code=400, detail=f"Role '{body.role_code}' not found")
-        group.role_code = body.role_code
+    if body.role_codes is not None:
+        await _set_group_roles(group_id, body.role_codes, db)
     if body.asset_scope is not None:
         group.asset_scope = body.asset_scope
     if body.active is not None:
@@ -311,17 +407,14 @@ async def update_group(
     # Invalidate cache for all group members
     await invalidate_rbac_cache()
 
-    # Fetch enriched data
-    enriched = await db.execute(
-        select(
-            Role.name.label("role_name"),
-            Asset.name.label("asset_scope_name"),
-        )
-        .outerjoin(Role, Role.code == group.role_code)
-        .outerjoin(Asset, Asset.id == group.asset_scope)
-        .where(Role.code == group.role_code)
-    )
-    row = enriched.one_or_none()
+    # Load enriched data
+    roles_map = await _load_group_roles([group_id], db)
+    role_pairs = roles_map.get(group_id, [])
+
+    asset_name = None
+    if group.asset_scope:
+        asset_result = await db.execute(select(Asset.name).where(Asset.id == group.asset_scope))
+        asset_name = asset_result.scalar_one_or_none()
 
     member_count_result = await db.execute(
         select(func.count()).where(UserGroupMember.group_id == group_id)
@@ -331,12 +424,14 @@ async def update_group(
         id=group.id,
         entity_id=group.entity_id,
         name=group.name,
-        role_code=group.role_code,
-        role_name=row.role_name if row else None,
+        role_codes=[r[0] for r in role_pairs],
+        role_names=[r[1] for r in role_pairs],
         asset_scope=group.asset_scope,
-        asset_scope_name=row.asset_scope_name if row else None,
+        asset_scope_name=asset_name,
         active=group.active,
         member_count=member_count_result.scalar() or 0,
+        created_at=group.created_at.isoformat() if group.created_at else None,
+        updated_at=group.updated_at.isoformat() if group.updated_at else None,
     )
 
 
@@ -419,3 +514,124 @@ async def remove_member(
     await db.commit()
 
     await invalidate_rbac_cache(user_id)
+
+
+# ── Group permission overrides ────────────────────────────────────────────
+
+
+@router.get("/{group_id}/permissions", response_model=list[PermissionOverrideRead])
+async def get_group_permission_overrides(
+    group_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("core.rbac.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get all permission overrides for a group."""
+    grp = await db.execute(
+        select(UserGroup).where(UserGroup.id == group_id, UserGroup.entity_id == entity_id)
+    )
+    if not grp.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    result = await db.execute(
+        select(GroupPermissionOverride)
+        .where(GroupPermissionOverride.group_id == group_id)
+        .order_by(GroupPermissionOverride.permission_code)
+    )
+    return [
+        PermissionOverrideRead(permission_code=o.permission_code, granted=o.granted)
+        for o in result.scalars().all()
+    ]
+
+
+@router.put("/{group_id}/permissions", response_model=list[PermissionOverrideRead])
+async def set_group_permission_overrides(
+    group_id: UUID,
+    body: PermissionOverrideSet,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("core.rbac.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Replace all permission overrides for a group."""
+    grp = await db.execute(
+        select(UserGroup).where(UserGroup.id == group_id, UserGroup.entity_id == entity_id)
+    )
+    if not grp.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    # Validate permission codes
+    if body.overrides:
+        codes = [o.permission_code for o in body.overrides]
+        valid_result = await db.execute(
+            select(Permission.code).where(Permission.code.in_(codes))
+        )
+        valid_codes = {row[0] for row in valid_result.all()}
+        invalid = set(codes) - valid_codes
+        if invalid:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown permissions: {', '.join(sorted(invalid))}",
+            )
+
+    # Replace: delete all existing, insert new
+    await db.execute(
+        delete(GroupPermissionOverride).where(GroupPermissionOverride.group_id == group_id)
+    )
+    for override in body.overrides:
+        db.add(GroupPermissionOverride(
+            group_id=group_id,
+            permission_code=override.permission_code,
+            granted=override.granted,
+        ))
+
+    await db.commit()
+    await invalidate_rbac_cache()
+
+    return [
+        PermissionOverrideRead(permission_code=o.permission_code, granted=o.granted)
+        for o in body.overrides
+    ]
+
+
+@router.post("/{group_id}/copy-permissions", response_model=list[PermissionOverrideRead])
+async def copy_group_permissions(
+    group_id: UUID,
+    source_group_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("core.rbac.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Copy permission overrides from another group."""
+    for gid, label in [(group_id, "Target"), (source_group_id, "Source")]:
+        result = await db.execute(
+            select(UserGroup).where(UserGroup.id == gid, UserGroup.entity_id == entity_id)
+        )
+        if not result.scalar_one_or_none():
+            raise HTTPException(status_code=404, detail=f"{label} group not found")
+
+    # Load source overrides
+    source_result = await db.execute(
+        select(GroupPermissionOverride)
+        .where(GroupPermissionOverride.group_id == source_group_id)
+    )
+    source_overrides = source_result.scalars().all()
+
+    # Replace target overrides
+    await db.execute(
+        delete(GroupPermissionOverride).where(GroupPermissionOverride.group_id == group_id)
+    )
+    new_overrides = []
+    for o in source_overrides:
+        db.add(GroupPermissionOverride(
+            group_id=group_id,
+            permission_code=o.permission_code,
+            granted=o.granted,
+        ))
+        new_overrides.append(
+            PermissionOverrideRead(permission_code=o.permission_code, granted=o.granted)
+        )
+
+    await db.commit()
+    await invalidate_rbac_cache()
+
+    return new_overrides

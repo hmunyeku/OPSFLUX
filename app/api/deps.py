@@ -16,6 +16,7 @@ from app.models.common import (
     User,
     UserGroup,
     UserGroupMember,
+    UserGroupRole,
 )
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -115,7 +116,8 @@ def require_permission(permission_code: str):
         stmt = (
             select(Permission.code)
             .join(RolePermission, RolePermission.permission_code == Permission.code)
-            .join(UserGroup, UserGroup.role_code == RolePermission.role_code)
+            .join(UserGroupRole, UserGroupRole.role_code == RolePermission.role_code)
+            .join(UserGroup, UserGroup.id == UserGroupRole.group_id)
             .join(UserGroupMember, UserGroupMember.group_id == UserGroup.id)
             .where(
                 UserGroupMember.user_id == current_user.id,
@@ -161,7 +163,8 @@ async def has_user_permission(
     stmt = (
         select(Permission.code)
         .join(RolePermission, RolePermission.permission_code == Permission.code)
-        .join(UserGroup, UserGroup.role_code == RolePermission.role_code)
+        .join(UserGroupRole, UserGroupRole.role_code == RolePermission.role_code)
+        .join(UserGroup, UserGroup.id == UserGroupRole.group_id)
         .join(UserGroupMember, UserGroupMember.group_id == UserGroup.id)
         .where(
             UserGroupMember.user_id == user.id,

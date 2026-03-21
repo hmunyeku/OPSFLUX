@@ -19,7 +19,7 @@ import {
   Monitor, Bell, Key, AppWindow, KeyRound,
   ChevronRight, ChevronDown,
   Globe, Plug, FileText, FileOutput, Trash2,
-  ScrollText, Activity, Hash,
+  ScrollText, Activity, Hash, BookOpen,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PanelHeader, PanelContent } from '@/components/layout/PanelHeader'
@@ -117,6 +117,7 @@ import { AuditTab } from './tabs/AuditTab'
 import { SystemHealthTab } from './tabs/SystemHealthTab'
 import { NumberingTab } from './tabs/NumberingTab'
 import { DeletePoliciesTab } from './tabs/DeletePoliciesTab'
+import DictionaryTab from './tabs/DictionaryTab'
 // EntitiesTab moved to dedicated /entities sidebar page
 
 // ── Import dynamic panel forms ──────────────────────────────
@@ -150,6 +151,7 @@ registerSettingsSection({ id: 'integrations', label: 'Intégrations', icon: Plug
 registerSettingsSection({ id: 'email-templates', label: 'Modèles d\'emails', icon: FileText, component: EmailTemplatesTab, category: 'general', order: 15 })
 registerSettingsSection({ id: 'pdf-templates', label: 'Modèles PDF', icon: FileOutput, component: PdfTemplatesTab, category: 'general', order: 16 })
 registerSettingsSection({ id: 'numbering', label: 'Numérotation', icon: Hash, component: NumberingTab, category: 'general', order: 17 })
+registerSettingsSection({ id: 'dictionnaire', label: 'Dictionnaire', icon: BookOpen, component: DictionaryTab, category: 'general', order: 18 })
 registerSettingsSection({ id: 'delete-policies', label: 'Politiques de suppression', icon: Trash2, component: DeletePoliciesTab, category: 'general', order: 25 })
 registerSettingsSection({ id: 'audit-log', label: 'Journal d\'audit', icon: ScrollText, component: AuditTab, category: 'general', order: 30 })
 registerSettingsSection({ id: 'system-health', label: 'Santé système', icon: Activity, component: SystemHealthTab, category: 'general', order: 40 })

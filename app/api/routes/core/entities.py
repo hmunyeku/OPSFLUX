@@ -16,6 +16,7 @@ from app.models.common import (
     User,
     UserGroup,
     UserGroupMember,
+    UserGroupRole,
 )
 from app.schemas.common import OpsFluxSchema, PaginatedResponse
 
@@ -416,7 +417,7 @@ async def add_user_to_entity(
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="User already belongs to this entity")
 
-    # Find or create a default group for this entity (role_code = 'viewer')
+    # Find or create a default group for this entity
     default_group_result = await db.execute(
         select(UserGroup).where(
             UserGroup.entity_id == entity_id,
@@ -430,11 +431,12 @@ async def add_user_to_entity(
         default_group = UserGroup(
             entity_id=entity_id,
             name="Default",
-            role_code="viewer",
             active=True,
         )
         db.add(default_group)
         await db.flush()
+        # Assign viewer role via junction table
+        db.add(UserGroupRole(group_id=default_group.id, role_code="viewer"))
 
     # Add user to the default group
     membership = UserGroupMember(

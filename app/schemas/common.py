@@ -77,10 +77,49 @@ class UserRead(OpsFluxSchema):
     last_name: str
     active: bool
     default_entity_id: UUID | None
+    intranet_id: str | None = None
     language: str
     avatar_url: str | None
+    # Auth & security
+    auth_type: str = "email_password"
+    mfa_enabled: bool = False
+    failed_login_count: int = 0
+    locked_until: datetime | None = None
+    last_login_ip: str | None = None
+    account_expires_at: datetime | None = None
+    password_changed_at: datetime | None = None
+    # HR Identity
+    passport_name: str | None = None
+    gender: str | None = None
+    nationality: str | None = None
+    birth_country: str | None = None
+    birth_date: date | None = None
+    birth_city: str | None = None
+    # Travel
+    contractual_airport: str | None = None
+    nearest_airport: str | None = None
+    nearest_station: str | None = None
+    loyalty_program: str | None = None
+    # Health / Medical
+    last_medical_check: date | None = None
+    last_international_medical_check: date | None = None
+    last_subsidiary_medical_check: date | None = None
+    # Body measurements / Mensurations
+    height: int | None = None
+    weight: float | None = None
+    ppe_clothing_size: str | None = None
+    ppe_clothing_size_bottom: str | None = None
+    ppe_shoe_size: str | None = None
+    # Misc / HR
+    retirement_date: date | None = None
+    vantage_number: str | None = None
+    extension_number: str | None = None
+    # Classification
+    user_type: str = "internal"
+    # Timestamps
     last_login_at: datetime | None
     created_at: datetime
+    updated_at: datetime | None = None
 
 
 class UserCreate(BaseModel):
@@ -89,15 +128,54 @@ class UserCreate(BaseModel):
     last_name: str = Field(..., min_length=1, max_length=100)
     password: str | None = Field(None, min_length=8)
     default_entity_id: UUID | None = None
+    intranet_id: str | None = None
     language: str = "fr"
+    user_type: str = "internal"
+    # Optional HR fields at creation
+    passport_name: str | None = None
+    gender: str | None = None
+    nationality: str | None = None
+    birth_country: str | None = None
+    birth_date: date | None = None
+    birth_city: str | None = None
 
 
 class UserUpdate(BaseModel):
+    email: EmailStr | None = None
     first_name: str | None = None
     last_name: str | None = None
     default_entity_id: UUID | None = None
+    intranet_id: str | None = None
     language: str | None = None
     active: bool | None = None
+    user_type: str | None = None
+    account_expires_at: datetime | None = None
+    # HR Identity
+    passport_name: str | None = None
+    gender: str | None = None
+    nationality: str | None = None
+    birth_country: str | None = None
+    birth_date: date | None = None
+    birth_city: str | None = None
+    # Travel
+    contractual_airport: str | None = None
+    nearest_airport: str | None = None
+    nearest_station: str | None = None
+    loyalty_program: str | None = None
+    # Health / Medical
+    last_medical_check: date | None = None
+    last_international_medical_check: date | None = None
+    last_subsidiary_medical_check: date | None = None
+    # Body measurements / Mensurations
+    height: int | None = None
+    weight: float | None = None
+    ppe_clothing_size: str | None = None
+    ppe_clothing_size_bottom: str | None = None
+    ppe_shoe_size: str | None = None
+    # Misc / HR
+    retirement_date: date | None = None
+    vantage_number: str | None = None
+    extension_number: str | None = None
 
 
 # ─── Entity schemas ──────────────────────────────────────────────────────────
@@ -671,6 +749,8 @@ class PhoneRead(OpsFluxSchema):
     number: str
     country_code: str | None
     is_default: bool
+    verified: bool = False
+    verified_at: datetime | None = None
     created_at: datetime
 
 
@@ -697,6 +777,8 @@ class ContactEmailRead(OpsFluxSchema):
     label: str
     email: str
     is_default: bool
+    verified: bool = False
+    verified_at: datetime | None = None
     created_at: datetime
 
 
@@ -1517,3 +1599,284 @@ class PdfPreviewRequest(BaseModel):
     version_id: UUID
     variables: dict[str, Any] = Field(default_factory=dict)
     output: str = Field(default="html", pattern="^(html|pdf)$")
+
+
+# ─── User Sub-Model Schemas ───────────────────────────────────────────────────
+
+# UserPassport
+class UserPassportCreate(BaseModel):
+    user_id: UUID
+    passport_type: str | None = None
+    number: str
+    country: str
+    passport_name: str | None = None
+    issue_date: date | None = None
+    expiry_date: date | None = None
+    document_url: str | None = None
+
+class UserPassportUpdate(BaseModel):
+    passport_type: str | None = None
+    number: str | None = None
+    country: str | None = None
+    passport_name: str | None = None
+    issue_date: date | None = None
+    expiry_date: date | None = None
+    document_url: str | None = None
+
+class UserPassportRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    user_id: UUID
+    passport_type: str | None = None
+    number: str
+    country: str
+    passport_name: str | None = None
+    issue_date: date | None = None
+    expiry_date: date | None = None
+    document_url: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+# UserVisa
+class UserVisaCreate(BaseModel):
+    user_id: UUID
+    visa_type: str
+    number: str | None = None
+    country: str
+    issue_date: date | None = None
+    expiry_date: date | None = None
+    document_url: str | None = None
+
+class UserVisaUpdate(BaseModel):
+    visa_type: str | None = None
+    number: str | None = None
+    country: str | None = None
+    issue_date: date | None = None
+    expiry_date: date | None = None
+    document_url: str | None = None
+
+class UserVisaRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    user_id: UUID
+    visa_type: str
+    number: str | None = None
+    country: str
+    issue_date: date | None = None
+    expiry_date: date | None = None
+    document_url: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+# EmergencyContact
+class EmergencyContactCreate(BaseModel):
+    user_id: UUID
+    relationship_type: str
+    name: str
+    phone_number: str | None = None
+    email: str | None = None
+
+class EmergencyContactUpdate(BaseModel):
+    relationship_type: str | None = None
+    name: str | None = None
+    phone_number: str | None = None
+    email: str | None = None
+
+class EmergencyContactRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    user_id: UUID
+    relationship_type: str
+    name: str
+    phone_number: str | None = None
+    email: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+# SocialSecurity
+class SocialSecurityCreate(BaseModel):
+    user_id: UUID
+    country: str
+    number: str
+
+class SocialSecurityUpdate(BaseModel):
+    country: str | None = None
+    number: str | None = None
+
+class SocialSecurityRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    user_id: UUID
+    country: str
+    number: str
+    created_at: datetime
+    updated_at: datetime
+
+# UserVaccine
+class UserVaccineCreate(BaseModel):
+    user_id: UUID
+    vaccine_type: str
+    date_administered: date | None = None
+    expiry_date: date | None = None
+    batch_number: str | None = None
+
+class UserVaccineUpdate(BaseModel):
+    vaccine_type: str | None = None
+    date_administered: date | None = None
+    expiry_date: date | None = None
+    batch_number: str | None = None
+
+class UserVaccineRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    user_id: UUID
+    vaccine_type: str
+    date_administered: date | None = None
+    expiry_date: date | None = None
+    batch_number: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+# UserLanguage
+class UserLanguageCreate(BaseModel):
+    user_id: UUID
+    language_code: str
+    proficiency_level: str | None = None
+
+class UserLanguageUpdate(BaseModel):
+    language_code: str | None = None
+    proficiency_level: str | None = None
+
+class UserLanguageRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    user_id: UUID
+    language_code: str
+    proficiency_level: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+# DrivingLicense
+class DrivingLicenseCreate(BaseModel):
+    user_id: UUID
+    license_type: str
+    country: str
+    expiry_date: date | None = None
+    document_url: str | None = None
+
+class DrivingLicenseUpdate(BaseModel):
+    license_type: str | None = None
+    country: str | None = None
+    expiry_date: date | None = None
+    document_url: str | None = None
+
+class DrivingLicenseRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    user_id: UUID
+    license_type: str
+    country: str
+    expiry_date: date | None = None
+    document_url: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+# ─── UserMedicalCheck ────────────────────────────────────────────────────
+
+class UserMedicalCheckCreate(BaseModel):
+    user_id: UUID
+    check_type: str
+    check_date: date
+    expiry_date: date | None = None
+    provider: str | None = None
+    notes: str | None = None
+    document_url: str | None = None
+
+class UserMedicalCheckUpdate(BaseModel):
+    check_type: str | None = None
+    check_date: date | None = None
+    expiry_date: date | None = None
+    provider: str | None = None
+    notes: str | None = None
+    document_url: str | None = None
+
+class UserMedicalCheckRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    user_id: UUID
+    check_type: str
+    check_date: date
+    expiry_date: date | None = None
+    provider: str | None = None
+    notes: str | None = None
+    document_url: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+# ─── UserSSOProvider ─────────────────────────────────────────────────────
+
+class UserSSOProviderCreate(BaseModel):
+    provider: str
+    sso_subject: str
+    email: str | None = None
+    display_name: str | None = None
+
+class UserSSOProviderRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    user_id: UUID
+    provider: str
+    sso_subject: str
+    email: str | None = None
+    display_name: str | None = None
+    linked_at: datetime
+    last_used_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+# ─── DictionaryEntry ─────────────────────────────────────────────────────
+
+class DictionaryEntryCreate(BaseModel):
+    category: str
+    code: str
+    label: str
+    sort_order: int = 0
+    active: bool = True
+    metadata_json: dict | None = None
+
+class DictionaryEntryUpdate(BaseModel):
+    code: str | None = None
+    label: str | None = None
+    sort_order: int | None = None
+    active: bool | None = None
+    metadata_json: dict | None = None
+
+class DictionaryEntryRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    category: str
+    code: str
+    label: str
+    sort_order: int
+    active: bool
+    metadata_json: dict | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+# ─── User Health Conditions ──────────────────────────────────────────────────
+
+class UserHealthConditionCreate(BaseModel):
+    condition_code: str
+
+class UserHealthConditionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    user_id: UUID
+    condition_code: str
+    notes: str | None = None
+    created_at: datetime
+    updated_at: datetime

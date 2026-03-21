@@ -16,6 +16,7 @@ from app.models.common import (
     User,
     UserGroup,
     UserGroupMember,
+    UserGroupRole,
     WorkflowDefinition,
 )
 
@@ -62,7 +63,7 @@ async def seed_dev_data(db: AsyncSession) -> None:
     result = await db.execute(
         select(UserGroup).where(
             UserGroup.entity_id == entity.id,
-            UserGroup.role_code == "SUPER_ADMIN",
+            UserGroup.name == "Super Administrators",
         )
     )
     admin_group = result.scalar_one_or_none()
@@ -70,10 +71,10 @@ async def seed_dev_data(db: AsyncSession) -> None:
         admin_group = UserGroup(
             entity_id=entity.id,
             name="Super Administrators",
-            role_code="SUPER_ADMIN",
         )
         db.add(admin_group)
         await db.flush()
+        db.add(UserGroupRole(group_id=admin_group.id, role_code="SUPER_ADMIN"))
         logger.info("Seed: created SUPER_ADMIN group")
 
     # Always ensure admin is a member (handles user recreation with new UUID)
@@ -273,7 +274,7 @@ async def seed_dev_data(db: AsyncSession) -> None:
         result = await db.execute(
             select(UserGroup).where(
                 UserGroup.entity_id == entity.id,
-                UserGroup.role_code == role_code,
+                UserGroup.name == f"Groupe {role_code}",
             )
         )
         group = result.scalar_one_or_none()
@@ -281,10 +282,10 @@ async def seed_dev_data(db: AsyncSession) -> None:
             group = UserGroup(
                 entity_id=entity.id,
                 name=f"Groupe {role_code}",
-                role_code=role_code,
             )
             db.add(group)
             await db.flush()
+            db.add(UserGroupRole(group_id=group.id, role_code=role_code))
 
         # Add user to group if not member
         result = await db.execute(
@@ -308,6 +309,9 @@ async def seed_dev_data(db: AsyncSession) -> None:
 
     # ── Reference numbering defaults ───────────────────────────────
     await seed_reference_numbering(db, entity.id)
+
+    # ── Dictionary entries (visa types, health conditions, etc.) ──
+    await seed_dictionary_entries(db)
 
     await db.commit()
     logger.info("Seed: development data seeded successfully")
@@ -693,3 +697,226 @@ async def seed_reference_numbering(db: AsyncSession, entity_id) -> None:
         logger.info("Seed: created %d reference numbering patterns", created)
     else:
         logger.info("Seed: all reference numbering patterns already exist")
+
+
+async def seed_dictionary_entries(db: AsyncSession) -> None:
+    """Seed default dictionary entries — idempotent via ON CONFLICT."""
+    from app.models.common import DictionaryEntry
+
+    entries = [
+        # ── Visa types ──
+        ("visa_type", "tourist", "Touriste", 1),
+        ("visa_type", "business", "Affaires", 2),
+        ("visa_type", "work", "Travail", 3),
+        ("visa_type", "transit", "Transit", 4),
+        ("visa_type", "diplomatic", "Diplomatique", 5),
+        ("visa_type", "resident", "Résident", 6),
+        ("visa_type", "student", "Étudiant", 7),
+        ("visa_type", "crew", "Équipage", 8),
+        # ── Vaccine types ──
+        ("vaccine_type", "yellow_fever", "Fièvre jaune", 1),
+        ("vaccine_type", "hepatitis_a", "Hépatite A", 2),
+        ("vaccine_type", "hepatitis_b", "Hépatite B", 3),
+        ("vaccine_type", "typhoid", "Typhoïde", 4),
+        ("vaccine_type", "meningitis", "Méningite", 5),
+        ("vaccine_type", "rabies", "Rage", 6),
+        ("vaccine_type", "cholera", "Choléra", 7),
+        ("vaccine_type", "covid_19", "COVID-19", 8),
+        ("vaccine_type", "tetanus", "Tétanos", 9),
+        ("vaccine_type", "polio", "Polio", 10),
+        ("vaccine_type", "diphtheria", "Diphtérie", 11),
+        ("vaccine_type", "measles", "Rougeole", 12),
+        # ── Passport types ──
+        ("passport_type", "ordinary", "Ordinaire", 1),
+        ("passport_type", "diplomatic", "Diplomatique", 2),
+        ("passport_type", "service", "Service", 3),
+        ("passport_type", "special", "Spécial", 4),
+        ("passport_type", "temporary", "Temporaire", 5),
+        ("passport_type", "collective", "Collectif", 6),
+        # ── Medical check types ──
+        ("medical_check_type", "standard", "Visite médicale standard", 1),
+        ("medical_check_type", "international", "Visite médicale internationale", 2),
+        ("medical_check_type", "subsidiary", "Visite médicale filiale", 3),
+        ("medical_check_type", "offshore", "Aptitude offshore", 4),
+        ("medical_check_type", "pre_employment", "Visite d'embauche", 5),
+        ("medical_check_type", "return_to_work", "Visite de reprise", 6),
+        # ── Relationship types (emergency contacts) ──
+        ("relationship", "spouse", "Conjoint(e)", 1),
+        ("relationship", "parent", "Parent", 2),
+        ("relationship", "child", "Enfant", 3),
+        ("relationship", "sibling", "Frère/Sœur", 4),
+        ("relationship", "friend", "Ami(e)", 5),
+        ("relationship", "colleague", "Collègue", 6),
+        ("relationship", "other", "Autre", 10),
+        # ── Driving license types ──
+        ("license_type", "A", "A — Moto", 1),
+        ("license_type", "B", "B — Véhicule léger", 2),
+        ("license_type", "C", "C — Poids lourd", 3),
+        ("license_type", "D", "D — Transport en commun", 4),
+        ("license_type", "E", "E — Remorque", 5),
+        ("license_type", "F", "F — Véhicule spécial", 6),
+        # ── Language proficiency ──
+        ("proficiency_level", "native", "Langue maternelle", 1),
+        ("proficiency_level", "fluent", "Courant", 2),
+        ("proficiency_level", "advanced", "Avancé", 3),
+        ("proficiency_level", "intermediate", "Intermédiaire", 4),
+        ("proficiency_level", "beginner", "Débutant", 5),
+        # ── Phone labels ──
+        ("phone_label", "mobile", "Mobile", 1),
+        ("phone_label", "office", "Bureau", 2),
+        ("phone_label", "home", "Domicile", 3),
+        ("phone_label", "fax", "Fax", 4),
+        ("phone_label", "satellite", "Satellite", 5),
+        # ── Email labels ──
+        ("email_label", "professional", "Professionnel", 1),
+        ("email_label", "personal", "Personnel", 2),
+        ("email_label", "other", "Autre", 3),
+        # ── Gender ──
+        ("gender", "M", "Masculin", 1),
+        ("gender", "F", "Féminin", 2),
+        ("gender", "X", "Non spécifié", 3),
+        # ── Clothing sizes ──
+        ("clothing_size", "XS", "XS", 1),
+        ("clothing_size", "S", "S", 2),
+        ("clothing_size", "M", "M", 3),
+        ("clothing_size", "L", "L", 4),
+        ("clothing_size", "XL", "XL", 5),
+        ("clothing_size", "XXL", "XXL", 6),
+        ("clothing_size", "3XL", "3XL", 7),
+        # ── Health conditions ──
+        ("health_condition", "diabetes", "Diabète", 1),
+        ("health_condition", "hypertension", "Hypertension", 2),
+        ("health_condition", "asthma", "Asthme", 3),
+        ("health_condition", "epilepsy", "Épilepsie", 4),
+        ("health_condition", "heart_disease", "Maladie cardiaque", 5),
+        ("health_condition", "allergy_severe", "Allergie sévère", 6),
+        ("health_condition", "color_blindness", "Daltonisme", 7),
+        ("health_condition", "vertigo", "Vertige", 8),
+        ("health_condition", "hearing_impairment", "Déficience auditive", 9),
+        ("health_condition", "vision_impairment", "Déficience visuelle", 10),
+        ("health_condition", "mobility_impairment", "Déficience motrice", 11),
+        ("health_condition", "claustrophobia", "Claustrophobie", 12),
+        # ── Address types ──
+        ("address_type", "home", "Domicile", 1),
+        ("address_type", "office", "Bureau", 2),
+        ("address_type", "site", "Site", 3),
+        ("address_type", "headquarters", "Siège", 4),
+        ("address_type", "pickup", "Ramassage", 5),
+        ("address_type", "postal", "Adresse postale", 6),
+        ("address_type", "billing", "Facturation", 7),
+        ("address_type", "delivery", "Livraison", 8),
+        ("address_type", "temporary", "Temporaire", 9),
+        ("address_type", "other", "Autre", 10),
+    ]
+
+    # ── Nationality entries with country + nationality metadata columns ──
+    # Format: (iso_code, country_name, nationality_label, sort_order, flag_emoji)
+    # metadata_json stores: {country, nationality, flag, iso_code}
+    nationality_entries = [
+        ("CM", "Cameroun", "Camerounaise", 1, "🇨🇲"),
+        ("FR", "France", "Française", 2, "🇫🇷"),
+        ("GB", "Royaume-Uni", "Britannique", 3, "🇬🇧"),
+        ("US", "États-Unis", "Américaine", 4, "🇺🇸"),
+        ("GA", "Gabon", "Gabonaise", 5, "🇬🇦"),
+        ("CG", "Congo (RC)", "Congolaise (RC)", 6, "🇨🇬"),
+        ("CD", "Congo (RDC)", "Congolaise (RDC)", 7, "🇨🇩"),
+        ("GQ", "Guinée équatoriale", "Équato-guinéenne", 8, "🇬🇶"),
+        ("TD", "Tchad", "Tchadienne", 9, "🇹🇩"),
+        ("NG", "Nigéria", "Nigériane", 10, "🇳🇬"),
+        ("SN", "Sénégal", "Sénégalaise", 11, "🇸🇳"),
+        ("CI", "Côte d'Ivoire", "Ivoirienne", 12, "🇨🇮"),
+        ("MA", "Maroc", "Marocaine", 13, "🇲🇦"),
+        ("DZ", "Algérie", "Algérienne", 14, "🇩🇿"),
+        ("TN", "Tunisie", "Tunisienne", 15, "🇹🇳"),
+        ("BE", "Belgique", "Belge", 16, "🇧🇪"),
+        ("CH", "Suisse", "Suisse", 17, "🇨🇭"),
+        ("DE", "Allemagne", "Allemande", 18, "🇩🇪"),
+        ("IT", "Italie", "Italienne", 19, "🇮🇹"),
+        ("ES", "Espagne", "Espagnole", 20, "🇪🇸"),
+        ("PT", "Portugal", "Portugaise", 21, "🇵🇹"),
+        ("NL", "Pays-Bas", "Néerlandaise", 22, "🇳🇱"),
+        ("BR", "Brésil", "Brésilienne", 23, "🇧🇷"),
+        ("CA", "Canada", "Canadienne", 24, "🇨🇦"),
+        ("CN", "Chine", "Chinoise", 25, "🇨🇳"),
+        ("IN", "Inde", "Indienne", 26, "🇮🇳"),
+        ("JP", "Japon", "Japonaise", 27, "🇯🇵"),
+        ("RU", "Russie", "Russe", 28, "🇷🇺"),
+        ("AU", "Australie", "Australienne", 29, "🇦🇺"),
+        ("ZA", "Afrique du Sud", "Sud-africaine", 30, "🇿🇦"),
+        ("EG", "Égypte", "Égyptienne", 31, "🇪🇬"),
+        ("GH", "Ghana", "Ghanéenne", 32, "🇬🇭"),
+        ("ML", "Mali", "Malienne", 33, "🇲🇱"),
+        ("BF", "Burkina Faso", "Burkinabè", 34, "🇧🇫"),
+        ("NE", "Niger", "Nigérienne", 35, "🇳🇪"),
+        ("BJ", "Bénin", "Béninoise", 36, "🇧🇯"),
+        ("TG", "Togo", "Togolaise", 37, "🇹🇬"),
+        ("MG", "Madagascar", "Malgache", 38, "🇲🇬"),
+        ("LB", "Liban", "Libanaise", 39, "🇱🇧"),
+        ("TR", "Turquie", "Turque", 40, "🇹🇷"),
+        ("AO", "Angola", "Angolaise", 41, "🇦🇴"),
+        ("MZ", "Mozambique", "Mozambicaine", 42, "🇲🇿"),
+        ("KE", "Kenya", "Kényane", 43, "🇰🇪"),
+        ("TZ", "Tanzanie", "Tanzanienne", 44, "🇹🇿"),
+        ("UG", "Ouganda", "Ougandaise", 45, "🇺🇬"),
+        ("ET", "Éthiopie", "Éthiopienne", 46, "🇪🇹"),
+        ("PH", "Philippines", "Philippine", 47, "🇵🇭"),
+        ("ID", "Indonésie", "Indonésienne", 48, "🇮🇩"),
+        ("MY", "Malaisie", "Malaisienne", 49, "🇲🇾"),
+        ("TH", "Thaïlande", "Thaïlandaise", 50, "🇹🇭"),
+    ]
+
+    created = 0
+    for category, code, label, sort_order in entries:
+        existing = await db.execute(
+            select(DictionaryEntry).where(
+                DictionaryEntry.category == category,
+                DictionaryEntry.code == code,
+            )
+        )
+        if existing.scalar_one_or_none():
+            continue
+
+        db.add(DictionaryEntry(
+            category=category,
+            code=code,
+            label=label,
+            sort_order=sort_order,
+            active=True,
+        ))
+        created += 1
+
+    # Nationality entries with country + nationality metadata columns
+    updated = 0
+    for iso_code, country, nationality, sort_order, flag in nationality_entries:
+        expected_meta = {"flag": flag, "iso_code": iso_code, "country": country, "nationality": nationality}
+        result = await db.execute(
+            select(DictionaryEntry).where(
+                DictionaryEntry.category == "nationality",
+                DictionaryEntry.code == iso_code,
+            )
+        )
+        existing = result.scalar_one_or_none()
+        if existing:
+            # Update metadata if missing country/nationality columns (migration from old format)
+            meta = existing.metadata_json or {}
+            if "country" not in meta or "nationality" not in meta:
+                existing.metadata_json = expected_meta
+                updated += 1
+            continue
+
+        db.add(DictionaryEntry(
+            category="nationality",
+            code=iso_code,
+            label=nationality,
+            sort_order=sort_order,
+            active=True,
+            metadata_json=expected_meta,
+        ))
+        created += 1
+
+    if created:
+        logger.info("Seed: created %d dictionary entries", created)
+    if updated:
+        logger.info("Seed: updated %d nationality entries with country/nationality metadata", updated)
+    if not created and not updated:
+        logger.info("Seed: all dictionary entries already up to date")

@@ -228,6 +228,71 @@ async def _test_sms_vonage(cfg: dict[str, str]) -> tuple[str, str]:
         return "error", f"Échec vérification Vonage: {str(e)}"
 
 
+async def _test_ai(cfg: dict[str, str]) -> tuple[str, str]:
+    """Test AI provider connection (Claude, OpenAI, Ollama, etc.)."""
+    provider = cfg.get("provider", "anthropic")
+    api_key = cfg.get("api_key", "")
+    model = cfg.get("model", "")
+    base_url = cfg.get("base_url", "")
+
+    if provider in ("anthropic", "openai") and not api_key:
+        return "error", "Clé API non configurée"
+
+    if provider == "ollama" and not base_url:
+        return "error", "URL Ollama non configurée"
+
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=15) as client:
+            if provider == "anthropic":
+                resp = await client.get(
+                    "https://api.anthropic.com/v1/models",
+                    headers={
+                        "x-api-key": api_key,
+                        "anthropic-version": "2023-06-01",
+                    },
+                )
+                if resp.status_code == 200:
+                    return "ok", f"Anthropic connecté (modèle: {model or 'claude-sonnet-4-6'})"
+                return "error", f"Anthropic: HTTP {resp.status_code} — {resp.text[:200]}"
+
+            elif provider == "openai":
+                url = (base_url.rstrip("/") if base_url else "https://api.openai.com/v1") + "/models"
+                resp = await client.get(url, headers={"Authorization": f"Bearer {api_key}"})
+                if resp.status_code == 200:
+                    return "ok", f"OpenAI connecté (modèle: {model or 'gpt-4o'})"
+                return "error", f"OpenAI: HTTP {resp.status_code} — {resp.text[:200]}"
+
+            elif provider == "ollama":
+                url = base_url.rstrip("/") + "/api/tags"
+                resp = await client.get(url)
+                if resp.status_code == 200:
+                    models = resp.json().get("models", [])
+                    names = [m.get("name", "") for m in models[:5]]
+                    return "ok", f"Ollama connecté — {len(models)} modèle(s): {', '.join(names)}"
+                return "error", f"Ollama: HTTP {resp.status_code}"
+
+            elif provider == "mistral":
+                resp = await client.get(
+                    "https://api.mistral.ai/v1/models",
+                    headers={"Authorization": f"Bearer {api_key}"},
+                )
+                if resp.status_code == 200:
+                    return "ok", f"Mistral connecté (modèle: {model or 'mistral-large-latest'})"
+                return "error", f"Mistral: HTTP {resp.status_code} — {resp.text[:200]}"
+
+            else:
+                return "error", f"Fournisseur IA inconnu: {provider}"
+
+    except ImportError:
+        return "error", "httpx non installé"
+    except httpx.ConnectError:
+        target = base_url or f"{provider} API"
+        return "error", f"Impossible de se connecter à {target}"
+    except Exception as e:
+        return "error", f"Échec connexion IA: {str(e)[:300]}"
+
+
 async def _test_gouti(settings: dict[str, Any]) -> tuple[str, str]:
     """Test Gouti project management API connection (OAuth2 code → token flow)."""
     base_url = settings.get("base_url", "https://apiprd.gouti.net/v1/client")
@@ -299,6 +364,7 @@ CONNECTOR_TESTERS = {
     "sms_vonage": ("integration.sms_vonage", _test_sms_vonage),
     "webhook": ("integration.webhook", _test_webhook),
     "gouti": ("integration.gouti", _test_gouti),
+    "ai": ("integration.ai", _test_ai),
 }
 
 

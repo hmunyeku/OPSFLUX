@@ -312,6 +312,32 @@ const CONNECTORS_CATALOG: ConnectorDef[] = [
       { key: 'from_name', label: 'Nom expéditeur', placeholder: 'OpsFlux', type: 'text' },
     ],
   },
+  // ── Intelligence Artificielle ──
+  {
+    id: 'ai',
+    name: 'Intelligence Artificielle',
+    category: 'other',
+    description: 'Moteur IA pour l\'assistant, l\'analyse de documents, la génération de rapports et les suggestions intelligentes.',
+    helpText: 'Choisissez votre fournisseur IA. Claude (Anthropic) est recommandé. Vous pouvez aussi utiliser OpenAI, Mistral, ou Ollama pour un déploiement local sans dépendance cloud.',
+    consoleUrl: 'https://console.anthropic.com/settings/keys',
+    consoleName: 'Anthropic Console',
+    icon: '🤖',
+    settingsPrefix: 'integration.ai',
+    enabledKey: 'integration.ai.provider',
+    fields: [
+      { key: 'provider', label: 'Fournisseur', placeholder: '', type: 'select', options: [
+        { value: 'anthropic', label: 'Anthropic (Claude)' },
+        { value: 'openai', label: 'OpenAI (GPT)' },
+        { value: 'mistral', label: 'Mistral AI' },
+        { value: 'ollama', label: 'Ollama (local)' },
+      ]},
+      { key: 'api_key', label: 'Clé API', placeholder: 'sk-ant-... / sk-... ', type: 'secret', helpText: 'Non requis pour Ollama (local)' },
+      { key: 'model', label: 'Modèle', placeholder: 'claude-sonnet-4-6', type: 'text', helpText: 'Ex: claude-sonnet-4-6, gpt-4o, mistral-large-latest, llama3' },
+      { key: 'base_url', label: 'URL de base (optionnel)', placeholder: 'http://localhost:11434', type: 'text', helpText: 'Requis pour Ollama. Optionnel pour OpenAI-compatible (Azure, etc.)' },
+      { key: 'max_tokens', label: 'Max tokens', placeholder: '4096', type: 'text', helpText: 'Limite de tokens par requête' },
+      { key: 'temperature', label: 'Température', placeholder: '0.3', type: 'text', helpText: '0 = déterministe, 1 = créatif' },
+    ],
+  },
   // ── Webhooks ──
   {
     id: 'webhook',

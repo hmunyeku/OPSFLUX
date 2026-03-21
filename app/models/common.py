@@ -28,12 +28,57 @@ from app.models.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKe
 class Entity(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "entities"
 
+    # ── Identity ──
     code: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
+    trade_name: Mapped[str | None] = mapped_column(String(200))
+    logo_url: Mapped[str | None] = mapped_column(String(500))
+    parent_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("entities.id")
+    )
+
+    # ── Legal ──
+    legal_form: Mapped[str | None] = mapped_column(String(100))
+    registration_number: Mapped[str | None] = mapped_column(String(100))
+    tax_id: Mapped[str | None] = mapped_column(String(100))
+    vat_number: Mapped[str | None] = mapped_column(String(100))
+    capital: Mapped[float | None] = mapped_column(Float)
+    currency: Mapped[str] = mapped_column(String(10), nullable=False, default="XAF")
+    fiscal_year_start: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    industry: Mapped[str | None] = mapped_column(String(200))
+    founded_date: Mapped[date | None] = mapped_column(Date)
+
+    # ── Address ──
+    address_line1: Mapped[str | None] = mapped_column(String(300))
+    address_line2: Mapped[str | None] = mapped_column(String(300))
+    city: Mapped[str | None] = mapped_column(String(100))
+    state: Mapped[str | None] = mapped_column(String(100))
+    zip_code: Mapped[str | None] = mapped_column(String(20))
     country: Mapped[str | None] = mapped_column(String(100))
+
+    # ── Contact ──
+    phone: Mapped[str | None] = mapped_column(String(50))
+    fax: Mapped[str | None] = mapped_column(String(50))
+    email: Mapped[str | None] = mapped_column(String(200))
+    website: Mapped[str | None] = mapped_column(String(300))
+
+    # ── Region / Config ──
     timezone: Mapped[str] = mapped_column(String(50), nullable=False, default="Africa/Douala")
+    language: Mapped[str] = mapped_column(String(10), nullable=False, default="fr")
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
+    # ── Extended (JSONB) ──
+    social_networks: Mapped[dict | None] = mapped_column(JSONB)
+    opening_hours: Mapped[dict | None] = mapped_column(JSONB)
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    # ── Relationships ──
+    parent: Mapped["Entity | None"] = relationship(
+        "Entity", remote_side="Entity.id", back_populates="children"
+    )
+    children: Mapped[list["Entity"]] = relationship(
+        "Entity", back_populates="parent"
+    )
     departments: Mapped[list["Department"]] = relationship(back_populates="entity")
     cost_centers: Mapped[list["CostCenter"]] = relationship(back_populates="entity")
 

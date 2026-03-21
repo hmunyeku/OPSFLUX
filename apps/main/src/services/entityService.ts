@@ -16,28 +16,89 @@ export interface EntityRead {
   id: string
   code: string
   name: string
+  trade_name: string | null
+  logo_url: string | null
+  parent_id: string | null
+  // Legal
+  legal_form: string | null
+  registration_number: string | null
+  tax_id: string | null
+  vat_number: string | null
+  capital: number | null
+  currency: string
+  fiscal_year_start: number
+  industry: string | null
+  founded_date: string | null
+  // Address
+  address_line1: string | null
+  address_line2: string | null
+  city: string | null
+  state: string | null
+  zip_code: string | null
   country: string | null
+  // Contact
+  phone: string | null
+  fax: string | null
+  email: string | null
+  website: string | null
+  // Config
   timezone: string
+  language: string
   active: boolean
+  // Extended
+  social_networks: Record<string, string> | null
+  opening_hours: Record<string, { open: string; close: string }> | null
+  notes: string | null
+  // Computed
   created_at: string | null
   updated_at: string | null
   user_count: number
 }
 
+export interface EntityDetail extends EntityRead {
+  parent_name: string | null
+  children_count: number
+}
+
 export interface EntityCreate {
   code: string
   name: string
+  trade_name?: string | null
+  parent_id?: string | null
+  // Legal
+  legal_form?: string | null
+  registration_number?: string | null
+  tax_id?: string | null
+  vat_number?: string | null
+  capital?: number | null
+  currency?: string
+  fiscal_year_start?: number
+  industry?: string | null
+  founded_date?: string | null
+  // Address
+  address_line1?: string | null
+  address_line2?: string | null
+  city?: string | null
+  state?: string | null
+  zip_code?: string | null
   country?: string | null
+  // Contact
+  phone?: string | null
+  fax?: string | null
+  email?: string | null
+  website?: string | null
+  // Config
   timezone?: string
+  language?: string
   active?: boolean
+  // Extended
+  social_networks?: Record<string, string> | null
+  opening_hours?: Record<string, { open: string; close: string }> | null
+  notes?: string | null
 }
 
-export interface EntityUpdate {
-  code?: string
-  name?: string
-  country?: string | null
-  timezone?: string
-  active?: boolean
+export interface EntityUpdate extends Partial<EntityCreate> {
+  logo_url?: string | null
 }
 
 export interface EntityUser {
@@ -75,7 +136,7 @@ export const entityService = {
     return data
   },
 
-  getEntity: async (id: string): Promise<EntityRead> => {
+  getEntity: async (id: string): Promise<EntityDetail> => {
     const { data } = await api.get(`/api/v1/entities/${id}`)
     return data
   },

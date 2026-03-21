@@ -775,19 +775,22 @@ export function InlineEditableRow({
   value,
   onSave,
   type = 'text',
+  disabled,
 }: {
   label: string
   value: string
   onSave: (newValue: string) => void
   type?: 'text' | 'email' | 'tel' | 'date'
+  disabled?: boolean
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
 
   const startEdit = useCallback(() => {
+    if (disabled) return
     setDraft(value)
     setEditing(true)
-  }, [value])
+  }, [value, disabled])
 
   const commit = useCallback(() => {
     const trimmed = draft.trim()
@@ -840,13 +843,16 @@ export function InlineEditableRow({
 
   return (
     <div
-      className="group flex items-baseline gap-4 py-2 border-b border-border/50 last:border-0 rounded-lg hover:bg-accent/50 -mx-2 px-2 cursor-pointer transition-colors"
+      className={cn(
+        "group flex items-baseline gap-4 py-2 border-b border-border/50 last:border-0 rounded-lg -mx-2 px-2 transition-colors",
+        !disabled && "hover:bg-accent/50 cursor-pointer",
+      )}
       onDoubleClick={startEdit}
-      title="Double-cliquer pour modifier"
+      title={disabled ? undefined : "Double-cliquer pour modifier"}
     >
       <span className="text-sm text-muted-foreground w-28 shrink-0">{label}</span>
       <span className="text-sm text-foreground flex-1 min-w-0 break-words">{value || '—'}</span>
-      <Pencil size={12} className="shrink-0 text-transparent group-hover:text-muted-foreground transition-colors" />
+      {!disabled && <Pencil size={12} className="shrink-0 text-transparent group-hover:text-muted-foreground transition-colors" />}
     </div>
   )
 }
@@ -1080,16 +1086,18 @@ export function InlineEditableTags({
   value,
   options,
   onSave,
+  disabled,
 }: {
   label: string
   value: string
   options: { value: string; label: string }[]
   onSave: (newValue: string) => void
+  disabled?: boolean
 }) {
   const [editing, setEditing] = useState(false)
   const displayLabel = options.find((o) => o.value === value)?.label || value || '—'
 
-  if (editing) {
+  if (editing && !disabled) {
     return (
       <div className="flex items-start gap-3 py-1.5 border-b border-border/50">
         <span className="text-sm text-muted-foreground w-28 shrink-0 pt-1.5">{label}</span>
@@ -1123,15 +1131,18 @@ export function InlineEditableTags({
 
   return (
     <div
-      className="group flex items-baseline gap-4 py-2 border-b border-border/50 last:border-0 rounded-lg hover:bg-accent/50 -mx-2 px-2 cursor-pointer transition-colors"
-      onDoubleClick={() => setEditing(true)}
-      title="Double-cliquer pour modifier"
+      className={cn(
+        "group flex items-baseline gap-4 py-2 border-b border-border/50 last:border-0 rounded-lg -mx-2 px-2 transition-colors",
+        !disabled && "hover:bg-accent/50 cursor-pointer",
+      )}
+      onDoubleClick={() => !disabled && setEditing(true)}
+      title={disabled ? undefined : "Double-cliquer pour modifier"}
     >
       <span className="text-sm text-muted-foreground w-28 shrink-0">{label}</span>
       <span className="text-sm text-foreground flex-1 min-w-0">
         <span className="gl-badge gl-badge-neutral">{displayLabel}</span>
       </span>
-      <Pencil size={12} className="shrink-0 text-transparent group-hover:text-muted-foreground transition-colors" />
+      {!disabled && <Pencil size={12} className="shrink-0 text-transparent group-hover:text-muted-foreground transition-colors" />}
     </div>
   )
 }

@@ -30,33 +30,124 @@ class EntityRead(OpsFluxSchema):
     id: UUID
     code: str
     name: str
+    trade_name: str | None = None
+    logo_url: str | None = None
+    parent_id: UUID | None = None
+    # Legal
+    legal_form: str | None = None
+    registration_number: str | None = None
+    tax_id: str | None = None
+    vat_number: str | None = None
+    capital: float | None = None
+    currency: str = "XAF"
+    fiscal_year_start: int = 1
+    industry: str | None = None
+    founded_date: str | None = None
+    # Address
+    address_line1: str | None = None
+    address_line2: str | None = None
+    city: str | None = None
+    state: str | None = None
+    zip_code: str | None = None
     country: str | None = None
-    timezone: str
-    active: bool
+    # Contact
+    phone: str | None = None
+    fax: str | None = None
+    email: str | None = None
+    website: str | None = None
+    # Config
+    timezone: str = "Africa/Douala"
+    language: str = "fr"
+    active: bool = True
+    # Extended
+    social_networks: dict | None = None
+    opening_hours: dict | None = None
+    notes: str | None = None
+    # Computed
     created_at: str | None = None
     updated_at: str | None = None
     user_count: int = 0
 
 
 class EntityDetail(EntityRead):
-    """Entity detail with additional statistics."""
-    pass
+    """Entity detail with children count and parent info."""
+    parent_name: str | None = None
+    children_count: int = 0
 
 
 class EntityCreate(BaseModel):
     code: str = Field(..., min_length=1, max_length=50)
     name: str = Field(..., min_length=1, max_length=200)
+    trade_name: str | None = None
+    parent_id: UUID | None = None
+    # Legal
+    legal_form: str | None = None
+    registration_number: str | None = None
+    tax_id: str | None = None
+    vat_number: str | None = None
+    capital: float | None = None
+    currency: str = "XAF"
+    fiscal_year_start: int = Field(default=1, ge=1, le=12)
+    industry: str | None = None
+    founded_date: str | None = None
+    # Address
+    address_line1: str | None = None
+    address_line2: str | None = None
+    city: str | None = None
+    state: str | None = None
+    zip_code: str | None = None
     country: str | None = None
+    # Contact
+    phone: str | None = None
+    fax: str | None = None
+    email: str | None = None
+    website: str | None = None
+    # Config
     timezone: str = Field(default="Africa/Douala", max_length=50)
+    language: str = Field(default="fr", max_length=10)
     active: bool = True
+    # Extended
+    social_networks: dict | None = None
+    opening_hours: dict | None = None
+    notes: str | None = None
 
 
 class EntityUpdate(BaseModel):
     code: str | None = None
     name: str | None = None
+    trade_name: str | None = None
+    parent_id: UUID | None = None
+    logo_url: str | None = None
+    # Legal
+    legal_form: str | None = None
+    registration_number: str | None = None
+    tax_id: str | None = None
+    vat_number: str | None = None
+    capital: float | None = None
+    currency: str | None = None
+    fiscal_year_start: int | None = None
+    industry: str | None = None
+    founded_date: str | None = None
+    # Address
+    address_line1: str | None = None
+    address_line2: str | None = None
+    city: str | None = None
+    state: str | None = None
+    zip_code: str | None = None
     country: str | None = None
+    # Contact
+    phone: str | None = None
+    fax: str | None = None
+    email: str | None = None
+    website: str | None = None
+    # Config
     timezone: str | None = None
+    language: str | None = None
     active: bool | None = None
+    # Extended
+    social_networks: dict | None = None
+    opening_hours: dict | None = None
+    notes: str | None = None
 
 
 class EntityUserRead(OpsFluxSchema):
@@ -73,13 +164,63 @@ class EntityUserAdd(BaseModel):
     user_id: UUID
 
 
+# ── Helpers ───────────────────────────────────────────────────────────────
+
+
+def _entity_to_read(entity: Entity, user_count: int = 0) -> EntityRead:
+    """Serialize an Entity ORM model to EntityRead schema."""
+    return EntityRead(
+        id=entity.id,
+        code=entity.code,
+        name=entity.name,
+        trade_name=entity.trade_name,
+        logo_url=entity.logo_url,
+        parent_id=entity.parent_id,
+        legal_form=entity.legal_form,
+        registration_number=entity.registration_number,
+        tax_id=entity.tax_id,
+        vat_number=entity.vat_number,
+        capital=entity.capital,
+        currency=entity.currency,
+        fiscal_year_start=entity.fiscal_year_start,
+        industry=entity.industry,
+        founded_date=entity.founded_date.isoformat() if entity.founded_date else None,
+        address_line1=entity.address_line1,
+        address_line2=entity.address_line2,
+        city=entity.city,
+        state=entity.state,
+        zip_code=entity.zip_code,
+        country=entity.country,
+        phone=entity.phone,
+        fax=entity.fax,
+        email=entity.email,
+        website=entity.website,
+        timezone=entity.timezone,
+        language=entity.language,
+        active=entity.active,
+        social_networks=entity.social_networks,
+        opening_hours=entity.opening_hours,
+        notes=entity.notes,
+        created_at=entity.created_at.isoformat() if entity.created_at else None,
+        updated_at=entity.updated_at.isoformat() if entity.updated_at else None,
+        user_count=user_count,
+    )
+
+
+def _apply_create_or_update(entity: Entity, data: dict) -> None:
+    """Apply non-None fields from a dict to an Entity model."""
+    for field, value in data.items():
+        if value is not None and hasattr(entity, field):
+            setattr(entity, field, value)
+
+
 # ── List all entities (admin) ──────────────────────────────────────────────
 
 
 @router.get(
     "",
     response_model=PaginatedResponse[EntityRead],
-    dependencies=[require_permission("admin.system")],
+    dependencies=[require_permission("core.entity.read")],
 )
 async def list_entities(
     search: str | None = None,
@@ -120,17 +261,7 @@ async def list_entities(
     result = await db.execute(stmt)
 
     items = [
-        EntityRead(
-            id=row.Entity.id,
-            code=row.Entity.code,
-            name=row.Entity.name,
-            country=row.Entity.country,
-            timezone=row.Entity.timezone,
-            active=row.Entity.active,
-            created_at=row.Entity.created_at.isoformat() if row.Entity.created_at else None,
-            updated_at=row.Entity.updated_at.isoformat() if row.Entity.updated_at else None,
-            user_count=row.user_count or 0,
-        )
+        _entity_to_read(row.Entity, user_count=row.user_count or 0)
         for row in result.all()
     ]
 
@@ -152,7 +283,7 @@ async def list_entities(
     "",
     response_model=EntityRead,
     status_code=201,
-    dependencies=[require_permission("admin.system")],
+    dependencies=[require_permission("core.entity.create")],
 )
 async def create_entity(
     body: EntityCreate,
@@ -165,28 +296,13 @@ async def create_entity(
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail=f"Entity code '{body.code}' already exists")
 
-    entity = Entity(
-        code=body.code,
-        name=body.name,
-        country=body.country,
-        timezone=body.timezone,
-        active=body.active,
-    )
+    entity = Entity(code=body.code, name=body.name)
+    _apply_create_or_update(entity, body.model_dump(exclude_unset=True, exclude={"code", "name"}))
     db.add(entity)
     await db.commit()
     await db.refresh(entity)
 
-    return EntityRead(
-        id=entity.id,
-        code=entity.code,
-        name=entity.name,
-        country=entity.country,
-        timezone=entity.timezone,
-        active=entity.active,
-        created_at=entity.created_at.isoformat() if entity.created_at else None,
-        updated_at=entity.updated_at.isoformat() if entity.updated_at else None,
-        user_count=0,
-    )
+    return _entity_to_read(entity, user_count=0)
 
 
 # ── Get entity detail ─────────────────────────────────────────────────────
@@ -195,14 +311,14 @@ async def create_entity(
 @router.get(
     "/{entity_id}",
     response_model=EntityDetail,
-    dependencies=[require_permission("admin.system")],
+    dependencies=[require_permission("core.entity.read")],
 )
 async def get_entity(
     entity_id: UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get entity detail."""
+    """Get entity detail with parent info and children count."""
     user_count_sq = (
         select(func.count(func.distinct(UserGroupMember.user_id)))
         .select_from(UserGroupMember)
@@ -212,23 +328,38 @@ async def get_entity(
         .scalar_subquery()
     )
 
-    stmt = select(Entity, user_count_sq.label("user_count")).where(Entity.id == entity_id)
+    children_count_sq = (
+        select(func.count())
+        .select_from(Entity)
+        .where(Entity.parent_id == entity_id)
+        .correlate()
+        .scalar_subquery()
+    )
+
+    stmt = select(
+        Entity,
+        user_count_sq.label("user_count"),
+        children_count_sq.label("children_count"),
+    ).where(Entity.id == entity_id)
     result = await db.execute(stmt)
     row = result.one_or_none()
 
     if not row:
         raise HTTPException(status_code=404, detail="Entity not found")
 
+    # Get parent name if parent_id is set
+    parent_name = None
+    if row.Entity.parent_id:
+        parent_result = await db.execute(
+            select(Entity.name).where(Entity.id == row.Entity.parent_id)
+        )
+        parent_name = parent_result.scalar_one_or_none()
+
+    base = _entity_to_read(row.Entity, user_count=row.user_count or 0)
     return EntityDetail(
-        id=row.Entity.id,
-        code=row.Entity.code,
-        name=row.Entity.name,
-        country=row.Entity.country,
-        timezone=row.Entity.timezone,
-        active=row.Entity.active,
-        created_at=row.Entity.created_at.isoformat() if row.Entity.created_at else None,
-        updated_at=row.Entity.updated_at.isoformat() if row.Entity.updated_at else None,
-        user_count=row.user_count or 0,
+        **base.model_dump(),
+        parent_name=parent_name,
+        children_count=row.children_count or 0,
     )
 
 
@@ -238,7 +369,7 @@ async def get_entity(
 @router.patch(
     "/{entity_id}",
     response_model=EntityRead,
-    dependencies=[require_permission("admin.system")],
+    dependencies=[require_permission("core.entity.update")],
 )
 async def update_entity(
     entity_id: UUID,
@@ -246,33 +377,26 @@ async def update_entity(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Update an entity (admin only)."""
+    """Update an entity."""
     result = await db.execute(select(Entity).where(Entity.id == entity_id))
     entity = result.scalar_one_or_none()
     if not entity:
         raise HTTPException(status_code=404, detail="Entity not found")
 
-    if body.code is not None:
-        # Check code uniqueness (excluding self)
+    update_data = body.model_dump(exclude_unset=True)
+
+    if "code" in update_data and update_data["code"] is not None:
         existing = await db.execute(
-            select(Entity).where(Entity.code == body.code, Entity.id != entity_id)
+            select(Entity).where(Entity.code == update_data["code"], Entity.id != entity_id)
         )
         if existing.scalar_one_or_none():
-            raise HTTPException(status_code=400, detail=f"Entity code '{body.code}' already exists")
-        entity.code = body.code
-    if body.name is not None:
-        entity.name = body.name
-    if body.country is not None:
-        entity.country = body.country
-    if body.timezone is not None:
-        entity.timezone = body.timezone
-    if body.active is not None:
-        entity.active = body.active
+            raise HTTPException(status_code=400, detail=f"Entity code '{update_data['code']}' already exists")
+
+    _apply_create_or_update(entity, update_data)
 
     await db.commit()
     await db.refresh(entity)
 
-    # Get user count
     user_count_result = await db.execute(
         select(func.count(func.distinct(UserGroupMember.user_id)))
         .select_from(UserGroupMember)
@@ -281,17 +405,7 @@ async def update_entity(
     )
     user_count = user_count_result.scalar() or 0
 
-    return EntityRead(
-        id=entity.id,
-        code=entity.code,
-        name=entity.name,
-        country=entity.country,
-        timezone=entity.timezone,
-        active=entity.active,
-        created_at=entity.created_at.isoformat() if entity.created_at else None,
-        updated_at=entity.updated_at.isoformat() if entity.updated_at else None,
-        user_count=user_count,
-    )
+    return _entity_to_read(entity, user_count=user_count)
 
 
 # ── Delete (archive) entity ───────────────────────────────────────────────
@@ -299,7 +413,7 @@ async def update_entity(
 
 @router.delete(
     "/{entity_id}",
-    dependencies=[require_permission("admin.system")],
+    dependencies=[require_permission("core.entity.delete")],
 )
 async def delete_entity_endpoint(
     entity_id: UUID,
@@ -324,7 +438,7 @@ async def delete_entity_endpoint(
 @router.get(
     "/{entity_id}/users",
     response_model=list[EntityUserRead],
-    dependencies=[require_permission("admin.system")],
+    dependencies=[require_permission("core.entity.read")],
 )
 async def list_entity_users(
     entity_id: UUID,
@@ -383,7 +497,7 @@ async def list_entity_users(
 
 @router.post(
     "/{entity_id}/users",
-    dependencies=[require_permission("admin.system")],
+    dependencies=[require_permission("core.entity.update")],
     status_code=201,
 )
 async def add_user_to_entity(
@@ -454,7 +568,7 @@ async def add_user_to_entity(
 
 @router.delete(
     "/{entity_id}/users/{user_id}",
-    dependencies=[require_permission("admin.system")],
+    dependencies=[require_permission("core.entity.update")],
     status_code=204,
 )
 async def remove_user_from_entity(

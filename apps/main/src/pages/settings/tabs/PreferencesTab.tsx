@@ -155,7 +155,7 @@ function PageSizeSection() {
           ))}
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          Nombre de lignes affichees par defaut dans tous les tableaux de donnees.
+          Nombre de lignes affichées par défaut dans tous les tableaux de données.
         </p>
       </div>
     </div>
@@ -193,6 +193,9 @@ function UIScaleSection() {
 
   const isDefault = scale === DEFAULT_SCALE
 
+  // Preset buttons for quick selection
+  const presets = [80, 90, 100, 110, 120, 130]
+
   return (
     <div className="mt-2 space-y-4">
       <div>
@@ -200,7 +203,27 @@ function UIScaleSection() {
           <ZoomIn size={12} className="text-muted-foreground" />
           {t('settings.ui_scale')}
         </label>
-        <div className="flex items-center gap-3 mt-2">
+
+        {/* Preset buttons */}
+        <div className="flex items-center gap-2 mt-2">
+          {presets.map((val) => (
+            <button
+              key={val}
+              type="button"
+              onClick={() => { handleScaleChange(val); handleScaleCommit() }}
+              className={`inline-flex items-center px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all border ${
+                scale === val
+                  ? 'bg-primary/10 border-primary/40 text-primary shadow-sm'
+                  : 'bg-background border-border text-muted-foreground hover:bg-accent hover:text-foreground'
+              }`}
+            >
+              {val}%{val === DEFAULT_SCALE ? ` (${t('common.default')})` : ''}
+            </button>
+          ))}
+        </div>
+
+        {/* Slider for fine-tuning */}
+        <div className="flex items-center gap-3 mt-3">
           <span className="text-xs text-muted-foreground w-8 text-right">{MIN_SCALE}%</span>
           <input
             type="range"
@@ -213,12 +236,11 @@ function UIScaleSection() {
             onTouchEnd={handleScaleCommit}
             className="flex-1 h-1.5 accent-primary cursor-pointer"
           />
-          <span className="text-sm font-mono text-foreground w-12 text-right">
-            {t('settings.ui_scale_value', { value: scale })}
-          </span>
+          <span className="text-xs text-muted-foreground w-8">{MAX_SCALE}%</span>
         </div>
+
         <p className="mt-1 text-xs text-muted-foreground">
-          {t('settings.ui_scale_description')}
+          {t('settings.ui_scale_description')} — {t('settings.ui_scale_value', { value: scale })}
         </p>
       </div>
 
@@ -228,7 +250,7 @@ function UIScaleSection() {
           onClick={handleReset}
           className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-all border bg-background border-border text-muted-foreground hover:bg-accent hover:text-foreground"
         >
-          {t('settings.ui_scale_reset')}
+          {t('settings.ui_scale_reset')} ({DEFAULT_SCALE}%)
         </button>
       )}
     </div>

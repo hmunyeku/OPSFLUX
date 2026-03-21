@@ -25,7 +25,9 @@ import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTablePagination, DataTableFilterDef, ImportExportConfig } from '@/components/ui/DataTable/types'
 import { cn } from '@/lib/utils'
+import { normalizeNames } from '@/lib/normalize'
 import { useDebounce } from '@/hooks/useDebounce'
+import { usePageSize } from '@/hooks/usePageSize'
 import { usePermission } from '@/hooks/usePermission'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
 import {
@@ -132,7 +134,7 @@ function CreateTierPanel() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    await createTier.mutateAsync(form)
+    await createTier.mutateAsync(normalizeNames(form))
     closeDynamicPanel()
   }
 
@@ -268,7 +270,7 @@ function TierDetailPanel({ id }: { id: string }) {
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null)
 
   const handleInlineSave = useCallback((field: string, value: string) => {
-    updateTier.mutate({ id, payload: { [field]: value } })
+    updateTier.mutate({ id, payload: normalizeNames({ [field]: value }) })
   }, [id, updateTier])
 
   // Fetch counts for company-level data
@@ -732,11 +734,7 @@ function ContactListSection({
   const handleCreate = useCallback(async () => {
     if (!form.first_name.trim() || !form.last_name.trim()) return
     try {
-      await createContact.mutateAsync({ tierId, payload: {
-        ...form,
-        first_name: form.first_name.toUpperCase(),
-        last_name: form.last_name.toUpperCase(),
-      } })
+      await createContact.mutateAsync({ tierId, payload: normalizeNames(form) })
       setForm(EMPTY_CONTACT_FORM)
       setShowForm(false)
       toast({ title: 'Employe ajoute', variant: 'success' })
@@ -938,7 +936,7 @@ function ContactDetailPanel({
 
   const handleSave = useCallback(async () => {
     try {
-      await updateContact.mutateAsync({ tierId, contactId, payload: editForm })
+      await updateContact.mutateAsync({ tierId, contactId, payload: normalizeNames(editForm) })
       setEditMode(false)
       toast({ title: 'Employe mis a jour', variant: 'success' })
     } catch {
@@ -1208,7 +1206,7 @@ export function TiersPage() {
 
   // ── Shared state ──
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(25)
+  const { pageSize, setPageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>({})

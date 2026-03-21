@@ -17,6 +17,7 @@ import {
   useComplianceCheck, useComplianceTypes,
 } from '@/hooks/useConformite'
 import { cn } from '@/lib/utils'
+import { DateRangePicker } from '@/components/shared/DateRangePicker'
 
 interface ComplianceRecordManagerProps {
   ownerType: string
@@ -172,16 +173,14 @@ export function ComplianceRecordManager({ ownerType, ownerId, compact }: Complia
               <input type="text" value={form.issuer} onChange={(e) => setForm({ ...form, issuer: e.target.value })} className="w-full text-xs border border-border rounded px-2 py-1 bg-background" placeholder="Organisme..." />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-[9px] text-muted-foreground block mb-0.5">Date emission</label>
-              <input type="date" value={form.issued_at} onChange={(e) => setForm({ ...form, issued_at: e.target.value })} className="w-full text-xs border border-border rounded px-2 py-1 bg-background" />
-            </div>
-            <div>
-              <label className="text-[9px] text-muted-foreground block mb-0.5">Date expiration</label>
-              <input type="date" value={form.expires_at} onChange={(e) => setForm({ ...form, expires_at: e.target.value })} className="w-full text-xs border border-border rounded px-2 py-1 bg-background" />
-            </div>
-          </div>
+          <DateRangePicker
+            startDate={form.issued_at || null}
+            endDate={form.expires_at || null}
+            onStartChange={(v) => setForm({ ...form, issued_at: v })}
+            onEndChange={(v) => setForm({ ...form, expires_at: v })}
+            startLabel="Date emission"
+            endLabel="Date expiration"
+          />
           <input type="text" value={form.reference_number} onChange={(e) => setForm({ ...form, reference_number: e.target.value })} className="w-full text-xs border border-border rounded px-2 py-1 bg-background" placeholder="N° reference..." />
           <div className="flex justify-end gap-1.5">
             <button onClick={() => setShowForm(false)} className="px-2 py-0.5 text-[10px] rounded border border-border hover:bg-muted text-muted-foreground">Annuler</button>

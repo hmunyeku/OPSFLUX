@@ -16,7 +16,7 @@ export function DataTablePaginationBar({
   pagination,
   onPageChange,
   onPageSizeChange,
-  pageSizeOptions = [20, 50, 100],
+  pageSizeOptions = [25, 50, 100],
 }: PaginationProps) {
   const { page, pageSize, total, pages } = pagination
   const start = (page - 1) * pageSize + 1

@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
+import { DateRangePicker } from '@/components/shared/DateRangePicker'
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -988,21 +989,14 @@ export function ExportWizard({
                         ))}
                       </select>
                       {dateFilterField && (
-                        <>
-                          <input
-                            type="date"
-                            value={dateFilterFrom}
-                            onChange={(e) => setDateFilterFrom(e.target.value)}
-                            className="gl-form-input text-xs"
-                          />
-                          <span className="text-xs text-muted-foreground">&rarr;</span>
-                          <input
-                            type="date"
-                            value={dateFilterTo}
-                            onChange={(e) => setDateFilterTo(e.target.value)}
-                            className="gl-form-input text-xs"
-                          />
-                        </>
+                        <DateRangePicker
+                          startDate={dateFilterFrom || null}
+                          endDate={dateFilterTo || null}
+                          onStartChange={setDateFilterFrom}
+                          onEndChange={setDateFilterTo}
+                          startLabel="Du"
+                          endLabel="Au"
+                        />
                       )}
                     </div>
                   </div>

@@ -5,15 +5,21 @@
  * Supports multiple phones with labels, country code, default flag.
  * Double-click to edit inline.
  *
+ * Features:
+ *   - Country combobox with emoji flags + auto-detection from phone prefix
+ *   - Flag display next to each phone number in the list
+ *
  * Usage:
  *   <PhoneManager ownerType="tier" ownerId={tier.id} />
  */
-import { useState, useCallback, useRef, useEffect } from 'react'
-import { Plus, X, Loader2, Phone as PhoneIcon, Star, Check } from 'lucide-react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { Plus, X, Loader2, Phone as PhoneIcon, Star, Check, ChevronDown } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { usePhones, useCreatePhone, useUpdatePhone, useDeletePhone } from '@/hooks/useSettings'
 import { useToast } from '@/components/ui/Toast'
 import { panelInputClass } from '@/components/layout/DynamicPanel'
+import { COUNTRIES } from '@/components/shared/CountrySelect'
+import type { Country } from '@/components/shared/CountrySelect'
 import type { Phone } from '@/types/api'
 
 const PHONE_LABELS = [
@@ -23,6 +29,223 @@ const PHONE_LABELS = [
   { value: 'fax', label: 'Fax' },
   { value: 'other', label: 'Autre' },
 ]
+
+/** Look up flag emoji from a phone prefix like "+33" */
+function getFlagForCode(countryCode: string | null): string | null {
+  if (!countryCode) return null
+  const c = COUNTRIES.find((c) => c.phone === countryCode)
+  return c?.flag ?? null
+}
+
+/** Find the best matching country for a phone prefix (longest match wins). */
+function detectCountryByPrefix(prefix: string): Country | null {
+  if (!prefix.startsWith('+')) return null
+  // Try exact match first, then progressively shorter prefixes
+  let best: Country | null = null
+  let bestLen = 0
+  for (const c of COUNTRIES) {
+    if (prefix.startsWith(c.phone) && c.phone.length > bestLen) {
+      best = c
+      bestLen = c.phone.length
+    }
+  }
+  return best
+}
+
+// ── PhoneCountryCombobox ──────────────────────────────────────
+
+interface PhoneCountryComboboxProps {
+  value: string // phone prefix like "+33"
+  onChange: (prefix: string) => void
+  compact?: boolean
+}
+
+function PhoneCountryCombobox({ value, onChange, compact }: PhoneCountryComboboxProps) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [highlightIndex, setHighlightIndex] = useState(0)
+
+  const containerRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const listRef = useRef<HTMLUListElement>(null)
+
+  // Selected country from current value
+  const selected = useMemo(
+    () => (value ? COUNTRIES.find((c) => c.phone === value) ?? null : null),
+    [value],
+  )
+
+  // Filtered list — match by name, ISO code, or phone prefix
+  const filtered = useMemo(() => {
+    if (!query) return COUNTRIES
+    const q = query.toLowerCase()
+    return COUNTRIES.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.code.toLowerCase().includes(q) ||
+        c.phone.includes(q),
+    )
+  }, [query])
+
+  // Reset highlight when filtered list changes
+  useEffect(() => {
+    setHighlightIndex(0)
+  }, [filtered.length])
+
+  // Scroll highlighted item into view
+  useEffect(() => {
+    if (!open || !listRef.current) return
+    const el = listRef.current.children[highlightIndex] as HTMLElement | undefined
+    el?.scrollIntoView({ block: 'nearest' })
+  }, [highlightIndex, open])
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false)
+        setQuery('')
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  // Auto-detect: when user types a prefix like "+33", detect country
+  const handleInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const val = e.target.value
+      setQuery(val)
+      if (!open) setOpen(true)
+
+      // If user is typing a phone prefix, try to auto-detect
+      if (val.startsWith('+')) {
+        const match = detectCountryByPrefix(val)
+        if (match && match.phone === val) {
+          // Exact match — select it
+          onChange(match.phone)
+          setOpen(false)
+          setQuery('')
+          return
+        }
+      }
+    },
+    [open, onChange],
+  )
+
+  const handleSelect = useCallback(
+    (country: Country) => {
+      onChange(country.phone)
+      setOpen(false)
+      setQuery('')
+    },
+    [onChange],
+  )
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        if (!open) {
+          setOpen(true)
+        } else {
+          setHighlightIndex((i) => Math.min(i + 1, filtered.length - 1))
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setHighlightIndex((i) => Math.max(i - 1, 0))
+      } else if (e.key === 'Enter') {
+        e.preventDefault()
+        if (open && filtered[highlightIndex]) {
+          handleSelect(filtered[highlightIndex])
+        } else {
+          setOpen(true)
+        }
+      } else if (e.key === 'Escape') {
+        setOpen(false)
+        setQuery('')
+      } else if (e.key === 'Tab') {
+        setOpen(false)
+        setQuery('')
+      }
+    },
+    [open, filtered, highlightIndex, handleSelect],
+  )
+
+  const width = compact ? 'w-[5.5rem]' : 'w-28'
+
+  return (
+    <div ref={containerRef} className={`relative ${width}`}>
+      {/* Trigger */}
+      <div
+        className={`${panelInputClass} flex items-center gap-1 cursor-text !py-1 !px-1.5`}
+        onClick={() => {
+          setOpen(true)
+          inputRef.current?.focus()
+        }}
+      >
+        {/* Flag of selected country */}
+        {selected && !open && (
+          <span className="text-sm leading-none shrink-0">{selected.flag}</span>
+        )}
+
+        <input
+          ref={inputRef}
+          type="text"
+          className="flex-1 bg-transparent border-0 outline-none text-xs p-0 placeholder:text-muted-foreground min-w-0 font-mono"
+          placeholder={selected && !open ? selected.phone : '+...'}
+          value={open ? query : (selected ? selected.phone : value)}
+          onChange={handleInputChange}
+          onFocus={() => {
+            setOpen(true)
+            setQuery('')
+          }}
+          onKeyDown={handleKeyDown}
+        />
+
+        <ChevronDown
+          size={10}
+          className={`text-muted-foreground transition-transform shrink-0 ${open ? 'rotate-180' : ''}`}
+        />
+      </div>
+
+      {/* Dropdown */}
+      {open && (
+        <ul
+          ref={listRef}
+          className="absolute z-50 mt-1 w-64 max-h-56 overflow-auto rounded-lg border border-border bg-popover shadow-md py-1"
+        >
+          {filtered.length === 0 && (
+            <li className="px-3 py-2 text-xs text-muted-foreground text-center">
+              Aucun pays trouvé
+            </li>
+          )}
+          {filtered.map((c, idx) => (
+            <li
+              key={c.code}
+              className={`flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer transition-colors ${
+                idx === highlightIndex
+                  ? 'bg-accent text-accent-foreground'
+                  : 'hover:bg-accent/50'
+              } ${value === c.phone ? 'font-semibold' : ''}`}
+              onMouseEnter={() => setHighlightIndex(idx)}
+              onMouseDown={(e) => {
+                e.preventDefault() // prevent blur before select
+                handleSelect(c)
+              }}
+            >
+              <span className="text-base leading-none">{c.flag}</span>
+              <span className="flex-1 truncate text-xs">{c.name}</span>
+              <span className="text-xs text-muted-foreground font-mono">{c.phone}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+// ── PhoneManager (main) ───────────────────────────────────────
 
 interface PhoneManagerProps {
   ownerType: string
@@ -118,6 +341,7 @@ export function PhoneManager({ ownerType, ownerId, compact }: PhoneManagerProps)
             }
 
             const isConfirming = confirmDeleteId === phone.id
+            const flag = getFlagForCode(phone.country_code)
             return (
               <div
                 key={phone.id}
@@ -125,7 +349,11 @@ export function PhoneManager({ ownerType, ownerId, compact }: PhoneManagerProps)
                 onDoubleClick={() => setEditingId(phone.id)}
                 title="Double-cliquez pour modifier"
               >
-                <PhoneIcon size={12} className="text-muted-foreground shrink-0" />
+                {flag ? (
+                  <span className="text-sm leading-none shrink-0">{flag}</span>
+                ) : (
+                  <PhoneIcon size={12} className="text-muted-foreground shrink-0" />
+                )}
                 <span className="text-[10px] font-medium text-muted-foreground uppercase w-12 shrink-0">
                   {PHONE_LABELS.find((l) => l.value === phone.label)?.label ?? phone.label}
                 </span>
@@ -182,12 +410,9 @@ export function PhoneManager({ ownerType, ownerId, compact }: PhoneManagerProps)
       {showForm && (
         <div className="border border-border/60 rounded-lg bg-card p-3 space-y-2">
           <div className="flex items-center gap-2">
-            <input
-              type="text"
-              className={`${panelInputClass} w-16`}
-              placeholder="+33"
+            <PhoneCountryCombobox
               value={countryCode}
-              onChange={(e) => setCountryCode(e.target.value)}
+              onChange={setCountryCode}
             />
             <input
               type="tel"
@@ -213,6 +438,8 @@ export function PhoneManager({ ownerType, ownerId, compact }: PhoneManagerProps)
     </div>
   )
 }
+
+// ── InlinePhoneEditor ─────────────────────────────────────────
 
 function InlinePhoneEditor({
   phone,
@@ -243,12 +470,10 @@ function InlinePhoneEditor({
 
   return (
     <div className="flex items-center gap-1.5 p-1.5 rounded-lg border border-primary/30 bg-card">
-      <input
-        type="text"
+      <PhoneCountryCombobox
         value={editCode}
-        onChange={(e) => setEditCode(e.target.value)}
-        className="w-12 px-1 py-0.5 text-xs rounded border border-border/60 bg-card focus:outline-none"
-        placeholder="+33"
+        onChange={setEditCode}
+        compact
       />
       <input
         ref={inputRef}

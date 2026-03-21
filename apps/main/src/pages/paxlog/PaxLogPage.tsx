@@ -36,6 +36,7 @@ import {
   Briefcase,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { normalizeNames } from '@/lib/normalize'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useDebounce } from '@/hooks/useDebounce'
@@ -1184,16 +1185,16 @@ function CreateProfilePanel() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    await createProfile.mutateAsync({
+    await createProfile.mutateAsync(normalizeNames({
       type: form.type,
-      first_name: form.first_name.toUpperCase(),
-      last_name: form.last_name.toUpperCase(),
+      first_name: form.first_name,
+      last_name: form.last_name,
       birth_date: form.birth_date || undefined,
       nationality: form.nationality || undefined,
       badge_number: form.badge_number || undefined,
       company_id: form.type === 'external' ? form.company_id || undefined : undefined,
       user_id: form.type === 'internal' ? form.user_id || undefined : undefined,
-    })
+    }))
     closeDynamicPanel()
   }
 
@@ -1224,7 +1225,8 @@ function CreateProfilePanel() {
         </>
       }
     >
-      <form id="create-profile-form" onSubmit={handleSubmit} className="p-4 space-y-5">
+      <form id="create-profile-form" onSubmit={handleSubmit}>
+        <PanelContentLayout>
         <FormSection title="Type de profil">
           <TagSelector
             options={PAX_TYPE_OPTIONS}
@@ -1298,6 +1300,7 @@ function CreateProfilePanel() {
             </DynamicPanelField>
           </FormGrid>
         </FormSection>
+        </PanelContentLayout>
       </form>
     </DynamicPanelShell>
   )
@@ -1313,7 +1316,7 @@ function ProfileDetailPanel({ id }: { id: string }) {
   const { data: credentialTypes } = useCredentialTypes()
 
   const handleSave = useCallback((field: string, value: string) => {
-    updateProfile.mutate({ id, payload: { [field]: value } })
+    updateProfile.mutate({ id, payload: normalizeNames({ [field]: value }) })
   }, [id, updateProfile])
 
   const credTypeMap = useMemo(() => {
@@ -1475,7 +1478,8 @@ function CreateAdsPanel() {
         </>
       }
     >
-      <form id="create-ads-form" onSubmit={handleSubmit} className="p-4 space-y-5">
+      <form id="create-ads-form" onSubmit={handleSubmit}>
+        <PanelContentLayout>
         <FormSection title="Type">
           <TagSelector
             options={[{ value: 'individual', label: 'Individuel' }, { value: 'team', label: 'Equipe' }]}
@@ -1518,6 +1522,7 @@ function CreateAdsPanel() {
         <p className="text-xs text-muted-foreground italic">
           Les passagers et imputations peuvent etre ajoutes apres la creation, via le panneau de detail.
         </p>
+        </PanelContentLayout>
       </form>
     </DynamicPanelShell>
   )
@@ -1866,7 +1871,8 @@ function CreateIncidentPanel() {
         </>
       }
     >
-      <form id="create-incident-form" onSubmit={handleSubmit} className="p-4 space-y-5">
+      <form id="create-incident-form" onSubmit={handleSubmit}>
+        <PanelContentLayout>
         <FormSection title="Severite">
           <TagSelector
             options={SEVERITY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
@@ -1918,6 +1924,7 @@ function CreateIncidentPanel() {
             )}
           </FormSection>
         )}
+        </PanelContentLayout>
       </form>
     </DynamicPanelShell>
   )
@@ -1974,7 +1981,8 @@ function CreateRotationPanel() {
         </>
       }
     >
-      <form id="create-rotation-form" onSubmit={handleSubmit} className="p-4 space-y-5">
+      <form id="create-rotation-form" onSubmit={handleSubmit}>
+        <PanelContentLayout>
         <FormSection title="PAX">
           <SearchablePicker
             label="Profil PAX"
@@ -2020,6 +2028,7 @@ function CreateRotationPanel() {
             <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className={cn(panelInputClass, 'min-h-[60px] resize-y')} placeholder="Notes optionnelles..." />
           </DynamicPanelField>
         </FormSection>
+        </PanelContentLayout>
       </form>
     </DynamicPanelShell>
   )
@@ -2183,7 +2192,8 @@ function CreateAvmPanel() {
         </>
       }
     >
-      <form id="create-avm-form" onSubmit={handleSubmit} className="p-4 space-y-5">
+      <form id="create-avm-form" onSubmit={handleSubmit}>
+        <PanelContentLayout>
         <FormSection title="Mission">
           <DynamicPanelField label="Titre" required>
             <input type="text" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className={panelInputClass} placeholder="Ex: Mission E-LINE ESF1" />
@@ -2231,6 +2241,7 @@ function CreateAvmPanel() {
             ))}
           </div>
         </FormSection>
+        </PanelContentLayout>
       </form>
     </DynamicPanelShell>
   )

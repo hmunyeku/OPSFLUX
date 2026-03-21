@@ -18,6 +18,7 @@ import {
   Building2, Trash2, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { normalizeNames } from '@/lib/normalize'
 import { PanelHeader, ToolbarButton } from '@/components/layout/PanelHeader'
 import {
   DynamicPanelShell,
@@ -37,6 +38,7 @@ import { useUIStore } from '@/stores/uiStore'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
 import { useUsers, useUser, useCreateUser, useUpdateUser, useRevokeAllSessions, useUserEntities, useAssignUserToEntity, useRemoveUserFromEntity } from '@/hooks/useUsers'
 import { useAllEntities } from '@/hooks/useEntities'
+import { usePageSize } from '@/hooks/usePageSize'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { RolesTab, GroupsTab, PermissionsTab, GroupDetailPanel, CreateGroupForm } from '@/pages/settings/tabs/RbacAdminTab'
 import { useUserRoles, useUserGroups } from '@/hooks/useSettings'
@@ -183,11 +185,7 @@ function CreateUserPanel() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    await createUser.mutateAsync({
-      ...form,
-      first_name: form.first_name.toUpperCase(),
-      last_name: form.last_name.toUpperCase(),
-    })
+    await createUser.mutateAsync(normalizeNames(form))
     closeDynamicPanel()
   }
 
@@ -445,7 +443,7 @@ function UserDetailPanel({ id }: { id: string }) {
   const [detailTab, setDetailTab] = useState<UserDetailTab>('infos')
 
   const handleInlineSave = useCallback((field: string, value: string) => {
-    updateUser.mutate({ id, payload: { [field]: value } })
+    updateUser.mutate({ id, payload: normalizeNames({ [field]: value }) })
   }, [id, updateUser])
 
   const handleToggleActive = useCallback(() => {
@@ -658,7 +656,7 @@ export function UsersPage() {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<AccountsTab>('users')
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(25)
+  const { pageSize, setPageSize } = usePageSize()
   const [statusFilterValue, setStatusFilterValue] = useState<string | undefined>(undefined)
   // Counter to trigger create in child Roles/Groups tabs
   const [createTrigger, setCreateTrigger] = useState(0)

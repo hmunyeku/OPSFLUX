@@ -17,6 +17,7 @@ import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTablePagination, DataTableFilterDef } from '@/components/ui/DataTable/types'
 import { cn } from '@/lib/utils'
+import { normalizeNames } from '@/lib/normalize'
 import { useDebounce } from '@/hooks/useDebounce'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
 import {
@@ -120,7 +121,7 @@ function CreateAssetPanel() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    await createAsset.mutateAsync(form)
+    await createAsset.mutateAsync(normalizeNames(form))
     closeDynamicPanel()
   }
 
@@ -221,7 +222,7 @@ function AssetDetailPanel({ id }: { id: string }) {
 
   const updateAsset = useUpdateAsset()
   const handleInlineSave = useCallback((field: string, value: string | number | boolean | null) => {
-    updateAsset.mutate({ id, payload: { [field]: value } })
+    updateAsset.mutate({ id, payload: normalizeNames({ [field]: value }) })
   }, [id, updateAsset])
 
   const handleGeoChange = useCallback((geo: GeoValue | null) => {

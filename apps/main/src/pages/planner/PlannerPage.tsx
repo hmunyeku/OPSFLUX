@@ -12,6 +12,7 @@ import {
   ChevronLeft, ChevronRight, GanttChart, Eye, Repeat, ArrowUpDown,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { normalizeNames } from '@/lib/normalize'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useDebounce } from '@/hooks/useDebounce'
@@ -1340,7 +1341,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
   // Inline field save (used by InlineEditableRow in read mode)
   const handleInlineSave = useCallback((field: string, value: string) => {
     updateActivity.mutate(
-      { id, payload: { [field]: value } },
+      { id, payload: normalizeNames({ [field]: value }) },
       {
         onSuccess: () => toast({ title: 'Champ mis a jour', variant: 'success' }),
         onError: () => toast({ title: 'Erreur lors de la mise a jour', variant: 'error' }),
@@ -1398,7 +1399,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
 
   const doSave = useCallback(() => {
     updateActivity.mutate(
-      { id, payload: editForm as Record<string, string | number | null> },
+      { id, payload: normalizeNames(editForm as Record<string, string | number | null>) },
       {
         onSuccess: () => {
           toast({ title: 'Activite mise a jour', variant: 'success' })
@@ -2185,7 +2186,7 @@ function CreateActivityPanel() {
 
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault()
-    createActivity.mutate(form, {
+    createActivity.mutate(normalizeNames(form), {
       onSuccess: () => {
         toast({ title: 'Activite creee avec succes', variant: 'success' })
         closeDynamicPanel()

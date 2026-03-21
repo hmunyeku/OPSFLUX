@@ -82,6 +82,7 @@ from app.api.routes.core.admin import router as admin_router
 from app.api.routes.core.import_assistant import router as import_assistant_router
 from app.api.routes.core.user_sync import router as user_sync_router
 from app.api.routes.core.departments import router as departments_router
+from app.api.routes.core.preview import router as preview_router
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL),
@@ -225,6 +226,7 @@ app.include_router(admin_router)
 app.include_router(import_assistant_router)
 app.include_router(user_sync_router)
 app.include_router(departments_router)
+app.include_router(preview_router)
 
 
 # ─── Static files (avatars, uploads) ──────────────────────────────────────

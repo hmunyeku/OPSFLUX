@@ -6,6 +6,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ScrollText, Download, Search } from 'lucide-react'
+import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
@@ -230,27 +231,15 @@ export function AuditTab() {
           />
         </div>
 
-        {/* Date from */}
-        <div className="flex flex-col gap-1">
-          <label className="text-[11px] text-muted-foreground">{t('common.start_date')}</label>
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => { setDateFrom(e.target.value); setPage(1) }}
-            className="h-8 rounded-md border border-input bg-background px-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-          />
-        </div>
-
-        {/* Date to */}
-        <div className="flex flex-col gap-1">
-          <label className="text-[11px] text-muted-foreground">{t('common.due_date')}</label>
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(e) => { setDateTo(e.target.value); setPage(1) }}
-            className="h-8 rounded-md border border-input bg-background px-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-          />
-        </div>
+        {/* Date range filter */}
+        <DateRangePicker
+          startDate={dateFrom || null}
+          endDate={dateTo || null}
+          onStartChange={(v) => { setDateFrom(v); setPage(1) }}
+          onEndChange={(v) => { setDateTo(v); setPage(1) }}
+          startLabel={t('common.start_date')}
+          endLabel={t('common.due_date')}
+        />
 
         {/* Export CSV */}
         <button

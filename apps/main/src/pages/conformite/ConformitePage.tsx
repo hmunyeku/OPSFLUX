@@ -13,7 +13,9 @@ import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTablePagination, DataTableFilterDef } from '@/components/ui/DataTable/types'
 import { cn } from '@/lib/utils'
+import { normalizeNames } from '@/lib/normalize'
 import { useDebounce } from '@/hooks/useDebounce'
+import { usePageSize } from '@/hooks/usePageSize'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
 import {
   DynamicPanelShell,
@@ -114,7 +116,7 @@ function CreateTypePanel() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      await createType.mutateAsync(form)
+      await createType.mutateAsync(normalizeNames(form))
       closeDynamicPanel()
       toast({ title: 'Type de conformite cree', variant: 'success' })
     } catch {
@@ -204,7 +206,7 @@ function TypeDetailPanel({ id }: { id: string }) {
   const { toast } = useToast()
 
   const handleSave = useCallback((field: string, value: string) => {
-    updateType.mutate({ id, payload: { [field]: value } })
+    updateType.mutate({ id, payload: normalizeNames({ [field]: value }) })
   }, [id, updateType])
 
   const handleDelete = useCallback(async () => {
@@ -519,7 +521,7 @@ function CreateJobPositionPanel() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      await createJP.mutateAsync(form)
+      await createJP.mutateAsync(normalizeNames(form))
       closeDynamicPanel()
       toast({ title: 'Fiche de poste creee', variant: 'success' })
     } catch {
@@ -591,7 +593,7 @@ function JobPositionDetailPanel({ id }: { id: string }) {
   const { data: allRules } = useComplianceRules(undefined)
 
   const handleSave = useCallback((field: string, value: string) => {
-    updateJP.mutate({ id, payload: { [field]: value } })
+    updateJP.mutate({ id, payload: normalizeNames({ [field]: value }) })
   }, [id, updateJP])
 
   const handleDelete = useCallback(async () => {
@@ -659,7 +661,7 @@ export function ConformitePage() {
   useTranslation() // loaded for future i18n
   const [activeTab, setActiveTab] = useState<ConformiteTab>('referentiel')
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(25)
+  const { pageSize, setPageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>({})

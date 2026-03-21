@@ -18,7 +18,9 @@ import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTablePagination, DataTableFilterDef, InlineEditConfig } from '@/components/ui/DataTable/types'
 import { cn } from '@/lib/utils'
+import { normalizeNames } from '@/lib/normalize'
 import { useDebounce } from '@/hooks/useDebounce'
+import { usePageSize } from '@/hooks/usePageSize'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
 import {
   DynamicPanelShell,
@@ -132,7 +134,7 @@ function CreateProjectPanel() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      await createProject.mutateAsync(form)
+      await createProject.mutateAsync(normalizeNames(form))
       closeDynamicPanel()
       toast({ title: 'Projet cree', variant: 'success' })
     } catch {
@@ -733,7 +735,7 @@ function ProjectDetailPanel({ id }: { id: string }) {
   const { toast } = useToast()
 
   const handleSave = useCallback((field: string, value: string) => {
-    updateProject.mutate({ id, payload: { [field]: value } })
+    updateProject.mutate({ id, payload: normalizeNames({ [field]: value }) })
   }, [id, updateProject])
 
   const handleArchive = useCallback(async () => {
@@ -885,7 +887,7 @@ function ProjectDetailPanel({ id }: { id: string }) {
 
 function SpreadsheetView() {
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(25)
+  const { pageSize, setPageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [filterProjectId, setFilterProjectId] = useState<string | undefined>(undefined)
@@ -1396,7 +1398,7 @@ function ViewTabSelector({ active, onChange }: { active: ViewTab; onChange: (tab
 
 function ProjectsListView() {
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(25)
+  const { pageSize, setPageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>({})

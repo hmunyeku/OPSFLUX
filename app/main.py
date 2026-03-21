@@ -127,12 +127,11 @@ async def lifespan(app: FastAPI):
     # MCP plugins
     await register_mcp_plugins()
 
-    # Seed development data (idempotent)
-    if settings.ENVIRONMENT in ("development", "dev", "local"):
-        from app.core.database import async_session_factory as async_session
-        from app.services.core.seed_service import seed_dev_data
-        async with async_session() as session:
-            await seed_dev_data(session)
+    # Seed initial data (idempotent — creates entity, admin user, default groups)
+    from app.core.database import async_session_factory as async_session
+    from app.services.core.seed_service import seed_dev_data
+    async with async_session() as session:
+        await seed_dev_data(session)
 
     # APScheduler
     await start_scheduler()

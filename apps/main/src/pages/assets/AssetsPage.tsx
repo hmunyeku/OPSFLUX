@@ -19,6 +19,7 @@ import type { DataTablePagination, DataTableFilterDef } from '@/components/ui/Da
 import { cn } from '@/lib/utils'
 import { normalizeNames } from '@/lib/normalize'
 import { useDebounce } from '@/hooks/useDebounce'
+import { usePageSize } from '@/hooks/usePageSize'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
 import {
   DynamicPanelShell,
@@ -441,6 +442,7 @@ export function AssetsPage() {
   const { t } = useTranslation()
   const [view, setView] = useState<'list' | 'tree'>('list')
   const [page, setPage] = useState(1)
+  const { pageSize, setPageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>({})
@@ -452,7 +454,7 @@ export function AssetsPage() {
 
   const typeFilter = typeof activeFilters.type === 'string' ? activeFilters.type : undefined
   const { data: listData, isLoading: listLoading } = useAssets({
-    page, page_size: 25,
+    page, page_size: pageSize,
     search: debouncedSearch || undefined,
     type: typeFilter,
   })
@@ -515,7 +517,7 @@ export function AssetsPage() {
 
   const paginationState: DataTablePagination | undefined = listData ? {
     page: listData.page,
-    pageSize: 25,
+    pageSize,
     total: listData.total,
     pages: listData.pages,
   } : undefined
@@ -578,7 +580,7 @@ export function AssetsPage() {
               data={items}
               isLoading={listLoading}
               pagination={paginationState}
-              onPaginationChange={(p) => setPage(p)}
+              onPaginationChange={(p, size) => { setPage(p); if (size !== pageSize) setPageSize(size) }}
               searchValue={search}
               onSearchChange={setSearch}
               searchPlaceholder="Rechercher par code, nom…"

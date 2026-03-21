@@ -28,6 +28,7 @@ import { cn } from '@/lib/utils'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useToast } from '@/components/ui/Toast'
+import { usePageSize } from '@/hooks/usePageSize'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { DangerConfirmButton } from '@/components/layout/DynamicPanel'
 import { useUIStore } from '@/stores/uiStore'
@@ -1771,10 +1772,11 @@ function InstancesTable({
   onViewInstance: (id: string) => void
 }) {
   const { t } = useTranslation()
+  const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const { data, isLoading } = useWorkflowInstances({
     definition_id: definitionFilter,
-    page_size: 25,
+    page_size: pageSize,
   })
 
   const instances = useMemo(() => {
@@ -1959,6 +1961,7 @@ export function WorkflowPage() {
   const confirm = useConfirm()
 
   // ── Global search from topbar (no local search bar) ──
+  const { pageSize } = usePageSize()
   const search = useUIStore((s) => s.globalSearch)
 
   // ── Navigation state ──
@@ -1973,7 +1976,7 @@ export function WorkflowPage() {
   const { data: defsData, isLoading } = useWorkflowDefinitions({
     status: statusFilter || undefined,
     search: search || undefined,
-    page_size: 25,
+    page_size: pageSize,
   })
   const { data: editingDef } = useWorkflowDefinition(editingId || '')
   const { data: stats } = useWorkflowStats()

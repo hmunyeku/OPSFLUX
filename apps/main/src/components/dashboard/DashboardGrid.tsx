@@ -69,7 +69,7 @@ export function DashboardGrid({ widgets, mode, onRemoveWidget, onUpdateWidget, o
       <div className="flex items-center justify-center h-full min-h-[300px] text-sm text-muted-foreground border border-dashed rounded-md">
         {mode === 'edit'
           ? 'Ajoutez des widgets depuis le catalogue pour personnaliser cet onglet.'
-          : 'Aucun widget configur\u00e9 sur cet onglet.'}
+          : 'Aucun widget configuré sur cet onglet.'}
       </div>
     )
   }

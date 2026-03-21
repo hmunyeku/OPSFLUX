@@ -34,8 +34,8 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 const MODE_ICONS: Record<string, string> = {
-  air: '\u2708',        // airplane
-  sea: '\u26F5',        // sailboat
+  air: '✈',        // airplane
+  sea: '⛵',        // sailboat
   road: '\u{1F68C}',    // bus
 }
 

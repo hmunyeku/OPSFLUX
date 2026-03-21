@@ -39,6 +39,7 @@ import {
   useAddEntityUser,
   useRemoveEntityUser,
 } from '@/hooks/useEntities'
+import { usePageSize } from '@/hooks/usePageSize'
 import { useUsers } from '@/hooks/useUsers'
 import type { EntityRead, EntityCreate as EntityCreatePayload } from '@/services/entityService'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -76,14 +77,14 @@ const COUNTRY_OPTIONS = [
   { value: 'CG', label: 'Congo' },
   { value: 'CD', label: 'Congo (RDC)' },
   { value: 'GA', label: 'Gabon' },
-  { value: 'GQ', label: 'Guin\u00e9e \u00c9quatoriale' },
+  { value: 'GQ', label: 'Guinée Équatoriale' },
   { value: 'TD', label: 'Tchad' },
   { value: 'TN', label: 'Tunisie' },
   { value: 'AO', label: 'Angola' },
   { value: 'GB', label: 'Royaume-Uni' },
   { value: 'FR', label: 'France' },
-  { value: 'US', label: '\u00c9tats-Unis' },
-  { value: 'PE', label: 'P\u00e9rou' },
+  { value: 'US', label: 'États-Unis' },
+  { value: 'PE', label: 'Pérou' },
   { value: 'CO', label: 'Colombie' },
   { value: 'GT', label: 'Guatemala' },
   { value: 'AU', label: 'Australie' },
@@ -117,7 +118,7 @@ const entityColumns: ColumnDef<EntityRead, unknown>[] = [
     header: 'Pays',
     cell: ({ getValue }) => {
       const v = getValue() as string | null
-      if (!v) return <span className="text-muted-foreground">\u2014</span>
+      if (!v) return <span className="text-muted-foreground">—</span>
       const label = COUNTRY_OPTIONS.find((c) => c.value === v)?.label ?? v
       return <span className="text-sm text-muted-foreground">{label}</span>
     },
@@ -148,13 +149,13 @@ const entityColumns: ColumnDef<EntityRead, unknown>[] = [
     header: 'Statut',
     cell: ({ getValue }) => {
       const active = getValue() as boolean
-      return <BadgeCell value={active ? 'Active' : 'Archiv\u00e9e'} variant={active ? 'success' : 'neutral'} />
+      return <BadgeCell value={active ? 'Active' : 'Archivée'} variant={active ? 'success' : 'neutral'} />
     },
     size: 100,
   },
   {
     accessorKey: 'created_at',
-    header: 'Cr\u00e9\u00e9 le',
+    header: 'Créé le',
     cell: ({ getValue }) => <DateCell value={getValue() as string} />,
     size: 110,
   },
@@ -228,7 +229,7 @@ function CreateEntityPanel() {
           </FormGrid>
         </FormSection>
 
-        <FormSection title="R\u00e9gion">
+        <FormSection title="Région">
           <DynamicPanelField label={t('entities.country')}>
             <TagSelector
               options={COUNTRY_OPTIONS}
@@ -350,7 +351,7 @@ function EntityDetailPanel({ id }: { id: string }) {
             <p className="text-sm text-muted-foreground font-mono">{entity.code}</p>
             <div className="flex items-center gap-2 mt-1.5">
               <span className={cn('gl-badge', entity.active ? 'gl-badge-success' : 'gl-badge-neutral')}>
-                {entity.active ? 'Active' : 'Archiv\u00e9e'}
+                {entity.active ? 'Active' : 'Archivée'}
               </span>
               {entity.country && (
                 <span className="text-xs text-muted-foreground">
@@ -482,7 +483,7 @@ function EntityDetailPanel({ id }: { id: string }) {
               ))}
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground py-2">Aucun utilisateur dans cette entit\u00e9</p>
+            <p className="text-xs text-muted-foreground py-2">Aucun utilisateur dans cette entité</p>
           )}
         </FormSection>
 
@@ -499,13 +500,13 @@ function EntityDetailPanel({ id }: { id: string }) {
             }
           />
           <ReadOnlyRow
-            label="Cr\u00e9\u00e9 le"
+            label="Créé le"
             value={
               <span className="flex items-center gap-1.5 text-sm">
                 <Clock size={12} className="text-muted-foreground" />
                 {entity.created_at
                   ? new Date(entity.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
-                  : '\u2014'}
+                  : '—'}
               </span>
             }
           />
@@ -521,7 +522,7 @@ function EntityDetailPanel({ id }: { id: string }) {
 export function EntitiesTab() {
   const { t } = useTranslation()
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(25)
+  const { pageSize, setPageSize } = usePageSize()
   const [statusFilterValue, setStatusFilterValue] = useState<string | undefined>(undefined)
 
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
@@ -554,7 +555,7 @@ export function EntitiesTab() {
       options: [
         { value: 'all', label: 'Toutes', count: data?.total },
         { value: 'active', label: 'Actives', count: activeCount },
-        { value: 'archived', label: 'Archiv\u00e9es', count: archivedCount },
+        { value: 'archived', label: 'Archivées', count: archivedCount },
       ],
     }]
   }, [data])
@@ -570,7 +571,7 @@ export function EntitiesTab() {
             <div>
               <h2 className="text-base font-semibold text-foreground">{t('entities.title')}</h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                G\u00e9rez les entit\u00e9s de votre organisation et leurs utilisateurs.
+                Gérez les entités de votre organisation et leurs utilisateurs.
               </p>
             </div>
             <button
@@ -623,7 +624,7 @@ export function EntitiesTab() {
                 timezone: 'Fuseau horaire',
                 user_count: 'Utilisateurs',
                 active: 'Statut',
-                created_at: 'Cr\u00e9\u00e9 le',
+                created_at: 'Créé le',
               },
             }}
 

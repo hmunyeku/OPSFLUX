@@ -6,6 +6,7 @@
  */
 import { useState } from 'react'
 import { useAuthStore } from '@/stores/authStore'
+import { usePageSize } from '@/hooks/usePageSize'
 import { useAuditLog } from '@/hooks/useSettings'
 import {
   LogIn, Settings, Users, Edit3, Trash2,
@@ -64,12 +65,13 @@ function formatRelativeDate(isoString: string): string {
 
 export function ActivityTab() {
   const { user } = useAuthStore()
+  const { pageSize } = usePageSize()
   const [activeFilter, setActiveFilter] = useState('')
   const [page, setPage] = useState(1)
 
   const { data, isLoading, isFetching } = useAuditLog({
     page,
-    page_size: 25,
+    page_size: pageSize,
     action: activeFilter || undefined,
   })
 

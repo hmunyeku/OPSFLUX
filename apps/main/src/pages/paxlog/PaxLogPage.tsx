@@ -40,6 +40,7 @@ import { normalizeNames } from '@/lib/normalize'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useDebounce } from '@/hooks/useDebounce'
+import { usePageSize } from '@/hooks/usePageSize'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
 import {
   DynamicPanelShell,
@@ -251,12 +252,12 @@ function SeverityBadge({ severity }: { severity: string }) {
 }
 
 function formatDate(d: string | null) {
-  if (!d) return '\u2014'
+  if (!d) return '—'
   return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 function formatDateShort(d: string | null | undefined) {
-  if (!d) return '\u2014'
+  if (!d) return '—'
   return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
@@ -447,8 +448,8 @@ function DashboardTab() {
                     <p className="text-xs font-medium font-mono text-foreground">{ads.reference}</p>
                     <p className="text-[10px] text-muted-foreground">
                       {VISIT_CATEGORY_OPTIONS.find((o) => o.value === ads.visit_category)?.label || ads.visit_category}
-                      {' \u2014 '}
-                      {formatDate(ads.start_date)} \u2192 {formatDate(ads.end_date)}
+                      {' — '}
+                      {formatDate(ads.start_date)} → {formatDate(ads.end_date)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -475,7 +476,7 @@ function DashboardTab() {
                     <p className="text-xs font-medium text-foreground">{cred.pax_last_name} {cred.pax_first_name}</p>
                     <p className="text-[10px] text-muted-foreground">
                       {cred.credential_type_name}
-                      {cred.pax_company_name && ` \u2014 ${cred.pax_company_name}`}
+                      {cred.pax_company_name && ` — ${cred.pax_company_name}`}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -512,13 +513,14 @@ function DashboardTab() {
 
 function AdsTab({ openDetail }: { openDetail: (id: string) => void }) {
   const [page, setPage] = useState(1)
+  const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [statusFilter, setStatusFilter] = useState('')
 
   const { data, isLoading } = useAdsList({
     page,
-    page_size: 25,
+    page_size: pageSize,
     status: statusFilter || undefined,
     search: debouncedSearch || undefined,
   })
@@ -567,12 +569,12 @@ function AdsTab({ openDetail }: { openDetail: (id: string) => void }) {
     {
       id: 'dates',
       header: 'Dates',
-      cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{formatDate(row.original.start_date)} \u2192 {formatDate(row.original.end_date)}</span>,
+      cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{formatDate(row.original.start_date)} → {formatDate(row.original.end_date)}</span>,
     },
     {
       accessorKey: 'requester_name',
       header: 'Demandeur',
-      cell: ({ row }) => <span className="text-xs text-muted-foreground truncate block max-w-[120px]">{row.original.requester_name || '\u2014'}</span>,
+      cell: ({ row }) => <span className="text-xs text-muted-foreground truncate block max-w-[120px]">{row.original.requester_name || '—'}</span>,
     },
     {
       accessorKey: 'pax_count',
@@ -618,7 +620,7 @@ function AdsTab({ openDetail }: { openDetail: (id: string) => void }) {
           columns={adsColumns}
           data={items}
           isLoading={isLoading}
-          pagination={data ? { page: data.page, pageSize: 25, total: data.total, pages: data.pages } : undefined}
+          pagination={data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined}
           onPaginationChange={(p) => setPage(p)}
           searchValue={search}
           onSearchChange={(v) => { setSearch(v); setPage(1) }}
@@ -639,6 +641,7 @@ function AdsTab({ openDetail }: { openDetail: (id: string) => void }) {
 
 function ProfilesTab({ openDetail }: { openDetail: (id: string) => void }) {
   const [page, setPage] = useState(1)
+  const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [statusFilter, setStatusFilter] = useState('')
@@ -648,7 +651,7 @@ function ProfilesTab({ openDetail }: { openDetail: (id: string) => void }) {
   const canExport = hasPermission('paxlog.export') || hasPermission('paxlog.profile.read')
 
   const { data, isLoading } = usePaxProfiles({
-    page, page_size: 25,
+    page, page_size: pageSize,
     search: debouncedSearch || undefined,
     status: statusFilter || undefined,
     type: typeFilter || undefined,
@@ -668,7 +671,7 @@ function ProfilesTab({ openDetail }: { openDetail: (id: string) => void }) {
         ? <CrossModuleLink module="tiers" id={row.original.company_id} label={row.original.company_name || row.original.company_id} showIcon={false} className="text-xs" />
         : row.original.company_name
           ? <span className="flex items-center gap-1 text-muted-foreground text-xs"><Building2 size={11} /> {row.original.company_name}</span>
-          : <span className="text-muted-foreground">\u2014</span>,
+          : <span className="text-muted-foreground">—</span>,
     },
     {
       accessorKey: 'type',
@@ -683,7 +686,7 @@ function ProfilesTab({ openDetail }: { openDetail: (id: string) => void }) {
     {
       accessorKey: 'badge_number',
       header: 'Badge',
-      cell: ({ row }) => <span className="text-muted-foreground">{row.original.badge_number || '\u2014'}</span>,
+      cell: ({ row }) => <span className="text-muted-foreground">{row.original.badge_number || '—'}</span>,
     },
     {
       accessorKey: 'profile_completeness',
@@ -725,7 +728,7 @@ function ProfilesTab({ openDetail }: { openDetail: (id: string) => void }) {
           columns={profileColumns}
           data={data?.items ?? []}
           isLoading={isLoading}
-          pagination={data ? { page: data.page, pageSize: 25, total: data.total, pages: data.pages } : undefined}
+          pagination={data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined}
           onPaginationChange={(p) => setPage(p)}
           searchValue={search}
           onSearchChange={(v) => { setSearch(v); setPage(1) }}
@@ -909,6 +912,7 @@ function ComplianceTab() {
 
 function SignalementsTab() {
   const [page, setPage] = useState(1)
+  const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const [activeOnly, setActiveOnly] = useState(true)
   const [severityFilter, setSeverityFilter] = useState('')
@@ -916,7 +920,7 @@ function SignalementsTab() {
 
   const { data, isLoading } = usePaxIncidents({
     page,
-    page_size: 25,
+    page_size: pageSize,
     active_only: activeOnly,
     severity: severityFilter || undefined,
   })
@@ -940,13 +944,13 @@ function SignalementsTab() {
         if (pax.pax_first_name || pax.pax_last_name) {
           return <span className="text-xs font-medium text-foreground">{pax.pax_last_name} {pax.pax_first_name}</span>
         }
-        return <span className="text-xs text-muted-foreground">\u2014</span>
+        return <span className="text-xs text-muted-foreground">—</span>
       },
     },
     {
       id: 'asset',
       header: 'Asset',
-      cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.asset_name || '\u2014'}</span>,
+      cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.asset_name || '—'}</span>,
     },
     {
       accessorKey: 'severity',
@@ -1011,7 +1015,7 @@ function SignalementsTab() {
           columns={incidentColumns}
           data={filtered}
           isLoading={isLoading}
-          pagination={data ? { page: data.page, pageSize: 25, total: data.total, pages: data.pages } : undefined}
+          pagination={data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined}
           onPaginationChange={(p) => setPage(p)}
           searchValue={search}
           onSearchChange={(v) => { setSearch(v); setPage(1) }}
@@ -1031,13 +1035,14 @@ function SignalementsTab() {
 
 function RotationsTab() {
   const [page, setPage] = useState(1)
+  const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const endCycle = useEndRotationCycle()
 
   const { data, isLoading } = useRotationCycles({
     page,
-    page_size: 25,
+    page_size: pageSize,
     status: statusFilter || undefined,
   })
 
@@ -1064,7 +1069,7 @@ function RotationsTab() {
     {
       id: 'site',
       header: 'Site',
-      cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.site_name || '\u2014'}</span>,
+      cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.site_name || '—'}</span>,
     },
     {
       id: 'cycle',
@@ -1086,7 +1091,7 @@ function RotationsTab() {
       id: 'next_rotation',
       header: 'Prochaine rotation',
       cell: ({ row }) => {
-        if (!row.original.next_rotation_date) return <span className="text-muted-foreground text-xs">\u2014</span>
+        if (!row.original.next_rotation_date) return <span className="text-muted-foreground text-xs">—</span>
         const days = daysUntil(row.original.next_rotation_date)
         return (
           <div className="flex items-center gap-1.5">
@@ -1137,7 +1142,7 @@ function RotationsTab() {
           columns={rotationColumns}
           data={filtered}
           isLoading={isLoading}
-          pagination={data ? { page: data.page, pageSize: 25, total: data.total, pages: data.pages } : undefined}
+          pagination={data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined}
           onPaginationChange={(p) => setPage(p)}
           searchValue={search}
           onSearchChange={(v) => { setSearch(v); setPage(1) }}
@@ -1235,8 +1240,8 @@ function CreateProfilePanel() {
           />
           <p className="text-[10px] text-muted-foreground mt-1">
             {form.type === 'internal'
-              ? 'Personnel Perenco \u2014 lie a un compte utilisateur'
-              : 'Sous-traitant / visiteur \u2014 lie a une entreprise (tier)'}
+              ? 'Personnel Perenco — lie a un compte utilisateur'
+              : 'Sous-traitant / visiteur — lie a une entreprise (tier)'}
           </p>
         </FormSection>
 
@@ -1249,7 +1254,7 @@ function CreateProfilePanel() {
               isLoading={tiersLoading}
               searchValue={companySearch}
               onSearchChange={setCompanySearch}
-              renderItem={(tier) => <><span className="font-semibold">{tier.code}</span> \u2014 {tier.name}</>}
+              renderItem={(tier) => <><span className="font-semibold">{tier.code}</span> — {tier.name}</>}
               selectedId={form.company_id}
               onSelect={(tier) => setForm({ ...form, company_id: tier.id })}
               onClear={() => setForm({ ...form, company_id: null })}
@@ -1388,7 +1393,7 @@ function ProfileDetailPanel({ id }: { id: string }) {
 
             {profile.synced_from_intranet && (
               <div className="flex items-center gap-1.5 px-2 py-1.5 rounded bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 text-xs">
-                <Info size={12} /> Profil synchronise depuis l'intranet \u2014 edition limitee
+                <Info size={12} /> Profil synchronise depuis l'intranet — edition limitee
               </div>
             )}
           </div>
@@ -1405,7 +1410,7 @@ function ProfileDetailPanel({ id }: { id: string }) {
                         <p className="font-medium truncate">{credTypeMap[cred.credential_type_id]?.name || 'Certification'}</p>
                         <p className="text-[10px] text-muted-foreground">
                           Obtenu : {formatDate(cred.obtained_date)}
-                          {cred.expiry_date && ` \u2014 Expire : ${formatDate(cred.expiry_date)}`}
+                          {cred.expiry_date && ` — Expire : ${formatDate(cred.expiry_date)}`}
                         </p>
                       </div>
                       <StatusBadge status={cred.status} />
@@ -1596,7 +1601,7 @@ function AdsDetailPanel({ id }: { id: string }) {
   return (
     <DynamicPanelShell
       title={ads.reference}
-      subtitle={`AdS \u2014 ${VISIT_CATEGORY_OPTIONS.find((o) => o.value === ads.visit_category)?.label || ads.visit_category}`}
+      subtitle={`AdS — ${VISIT_CATEGORY_OPTIONS.find((o) => o.value === ads.visit_category)?.label || ads.visit_category}`}
       icon={<ClipboardList size={14} className="text-primary" />}
       actions={
         <div className="flex items-center gap-1">
@@ -1677,7 +1682,7 @@ function AdsDetailPanel({ id }: { id: string }) {
                 <CrossModuleLink module="assets" id={ads.site_entry_asset_id} label={resolveAssetName(ads.site_entry_asset_id) || ads.site_name || ads.site_entry_asset_id} mode="navigate" />
               ) : (ads.site_name || '—')
             } />
-            <ReadOnlyRow label="Dates" value={`${formatDate(ads.start_date)} \u2192 ${formatDate(ads.end_date)}`} />
+            <ReadOnlyRow label="Dates" value={`${formatDate(ads.start_date)} → ${formatDate(ads.end_date)}`} />
             {ads.requester_name && <ReadOnlyRow label="Demandeur" value={ads.requester_name} />}
           </div>
         </CollapsibleSection>
@@ -1856,7 +1861,7 @@ function CreateIncidentPanel() {
   return (
     <DynamicPanelShell
       title="Nouveau signalement"
-      subtitle="PaxLog \u2014 Signalements"
+      subtitle="PaxLog — Signalements"
       icon={<AlertTriangle size={14} className="text-destructive" />}
       actions={
         <>
@@ -1889,7 +1894,7 @@ function CreateIncidentPanel() {
             isLoading={paxLoading}
             searchValue={paxSearch}
             onSearchChange={setPaxSearch}
-            renderItem={(p) => <>{p.last_name} {p.first_name} {p.company_name ? <span className="text-muted-foreground">\u2014 {p.company_name}</span> : ''}</>}
+            renderItem={(p) => <>{p.last_name} {p.first_name} {p.company_name ? <span className="text-muted-foreground">— {p.company_name}</span> : ''}</>}
             selectedId={form.pax_id}
             onSelect={(p) => setForm({ ...form, pax_id: p.id, pax_display: `${p.last_name} ${p.first_name}` })}
             onClear={() => setForm({ ...form, pax_id: null, pax_display: null })}
@@ -1966,7 +1971,7 @@ function CreateRotationPanel() {
   return (
     <DynamicPanelShell
       title="Nouveau cycle de rotation"
-      subtitle="PaxLog \u2014 Rotations"
+      subtitle="PaxLog — Rotations"
       icon={<RefreshCw size={14} className="text-primary" />}
       actions={
         <>
@@ -2041,13 +2046,14 @@ function CreateRotationPanel() {
 
 function AvmTab({ openDetail }: { openDetail: (id: string) => void }) {
   const [page, setPage] = useState(1)
+  const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [statusFilter, setStatusFilter] = useState('')
 
   const { data, isLoading } = useAvmList({
     page,
-    page_size: 25,
+    page_size: pageSize,
     search: debouncedSearch || undefined,
     status: statusFilter || undefined,
   })
@@ -2071,7 +2077,7 @@ function AvmTab({ openDetail }: { openDetail: (id: string) => void }) {
     {
       id: 'creator',
       header: 'Createur',
-      cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.creator_name || '\u2014'}</span>,
+      cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.creator_name || '—'}</span>,
       size: 130,
     },
     {
@@ -2079,7 +2085,7 @@ function AvmTab({ openDetail }: { openDetail: (id: string) => void }) {
       header: 'Dates',
       cell: ({ row }) => (
         <span className="text-xs text-muted-foreground tabular-nums">
-          {formatDateShort(row.original.planned_start_date)} {'\u2014'} {formatDateShort(row.original.planned_end_date)}
+          {formatDateShort(row.original.planned_start_date)} {'—'} {formatDateShort(row.original.planned_end_date)}
         </span>
       ),
       size: 180,
@@ -2123,7 +2129,7 @@ function AvmTab({ openDetail }: { openDetail: (id: string) => void }) {
           columns={avmColumns}
           data={data?.items || []}
           isLoading={isLoading}
-          pagination={data ? { page: data.page, pageSize: 25, total: data.total, pages: data.pages } : undefined}
+          pagination={data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined}
           onPaginationChange={(p) => setPage(p)}
           searchValue={search}
           onSearchChange={(v) => { setSearch(v); setPage(1) }}
@@ -2321,7 +2327,7 @@ function AvmDetailPanel({ id }: { id?: string }) {
             <ReadOnlyRow label="Titre" value={avm.title} />
             <ReadOnlyRow label="Statut" value={<StatusBadge status={avm.status} map={AVM_STATUS_MAP} />} />
             <ReadOnlyRow label="Type de mission" value={AVM_MISSION_TYPE_OPTIONS.find((o: { value: string; label: string }) => o.value === avm.mission_type)?.label || avm.mission_type} />
-            <ReadOnlyRow label="Createur" value={avm.creator_name || '\u2014'} />
+            <ReadOnlyRow label="Createur" value={avm.creator_name || '—'} />
             <ReadOnlyRow label="Dates prevues" value={`${formatDateShort(avm.planned_start_date)} — ${formatDateShort(avm.planned_end_date)}`} />
             {avm.description && <ReadOnlyRow label="Description" value={avm.description} />}
             {avm.cancellation_reason && <ReadOnlyRow label="Motif annulation" value={avm.cancellation_reason} />}
@@ -2339,7 +2345,7 @@ function AvmDetailPanel({ id }: { id?: string }) {
             ].map((ind) => (
               <div key={ind.label} className="flex items-center gap-2 text-xs">
                 <span className={cn('w-4 h-4 rounded flex items-center justify-center text-[10px]', ind.flag ? 'bg-green-100 dark:bg-green-900/30 text-green-700' : 'bg-muted text-muted-foreground')}>
-                  {ind.flag ? '\u2713' : '\u2013'}
+                  {ind.flag ? '✓' : '–'}
                 </span>
                 <span className={ind.flag ? 'text-foreground' : 'text-muted-foreground'}>{ind.label}</span>
               </div>

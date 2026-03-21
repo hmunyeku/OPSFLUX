@@ -7,6 +7,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ScrollText, Download, Search } from 'lucide-react'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
+import { usePageSize } from '@/hooks/usePageSize'
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
@@ -154,7 +155,7 @@ function exportAuditCSV(items: AuditLogEntry[]) {
 export function AuditTab() {
   const { t } = useTranslation()
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(25)
+  const { pageSize, setPageSize } = usePageSize()
   const [action, setAction] = useState<string>('')
   const [resourceType, setResourceType] = useState<string>('')
   const [dateFrom, setDateFrom] = useState<string>('')

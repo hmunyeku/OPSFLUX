@@ -54,10 +54,10 @@ export function useCreateEntity() {
     mutationFn: (payload: EntityCreate) => entityService.createEntity(payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['entities'] })
-      toast({ title: 'Entit\u00e9 cr\u00e9\u00e9e', variant: 'success' })
+      toast({ title: 'Entité créée', variant: 'success' })
     },
     onError: () => {
-      toast({ title: 'Erreur', description: 'Impossible de cr\u00e9er l\u2019entit\u00e9.', variant: 'error' })
+      toast({ title: 'Erreur', description: 'Impossible de créer l’entité.', variant: 'error' })
     },
   })
 }
@@ -71,10 +71,10 @@ export function useUpdateEntity() {
       entityService.updateEntity(id, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['entities'] })
-      toast({ title: 'Entit\u00e9 mise \u00e0 jour', variant: 'success' })
+      toast({ title: 'Entité mise à jour', variant: 'success' })
     },
     onError: () => {
-      toast({ title: 'Erreur', description: 'Impossible de mettre \u00e0 jour l\u2019entit\u00e9.', variant: 'error' })
+      toast({ title: 'Erreur', description: 'Impossible de mettre à jour l’entité.', variant: 'error' })
     },
   })
 }
@@ -87,10 +87,10 @@ export function useDeleteEntity() {
     mutationFn: (id: string) => entityService.deleteEntity(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['entities'] })
-      toast({ title: 'Entit\u00e9 archiv\u00e9e', variant: 'success' })
+      toast({ title: 'Entité archivée', variant: 'success' })
     },
     onError: () => {
-      toast({ title: 'Erreur', description: 'Impossible d\u2019archiver l\u2019entit\u00e9.', variant: 'error' })
+      toast({ title: 'Erreur', description: 'Impossible d’archiver l’entité.', variant: 'error' })
     },
   })
 }
@@ -115,10 +115,10 @@ export function useAddEntityUser() {
     onSuccess: (_, { entityId }) => {
       qc.invalidateQueries({ queryKey: ['entities', 'users', entityId] })
       qc.invalidateQueries({ queryKey: ['entities', 'all'] })
-      toast({ title: 'Utilisateur ajout\u00e9', variant: 'success' })
+      toast({ title: 'Utilisateur ajouté', variant: 'success' })
     },
     onError: () => {
-      toast({ title: 'Erreur', description: 'Impossible d\u2019ajouter l\u2019utilisateur.', variant: 'error' })
+      toast({ title: 'Erreur', description: 'Impossible d’ajouter l’utilisateur.', variant: 'error' })
     },
   })
 }
@@ -133,10 +133,10 @@ export function useRemoveEntityUser() {
     onSuccess: (_, { entityId }) => {
       qc.invalidateQueries({ queryKey: ['entities', 'users', entityId] })
       qc.invalidateQueries({ queryKey: ['entities', 'all'] })
-      toast({ title: 'Utilisateur retir\u00e9', variant: 'success' })
+      toast({ title: 'Utilisateur retiré', variant: 'success' })
     },
     onError: () => {
-      toast({ title: 'Erreur', description: 'Impossible de retirer l\u2019utilisateur.', variant: 'error' })
+      toast({ title: 'Erreur', description: 'Impossible de retirer l’utilisateur.', variant: 'error' })
     },
   })
 }

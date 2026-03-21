@@ -16,6 +16,7 @@ import { normalizeNames } from '@/lib/normalize'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useDebounce } from '@/hooks/useDebounce'
+import { usePageSize } from '@/hooks/usePageSize'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
 import { useUIStore } from '@/stores/uiStore'
 import {
@@ -159,12 +160,12 @@ function StatusBadge({ status, map }: { status: string; map: Record<string, { la
 }
 
 function formatDateShort(d: string | null | undefined) {
-  if (!d) return '\u2014'
+  if (!d) return '—'
   return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 function formatDateOnly(d: string | null | undefined) {
-  if (!d) return '\u2014'
+  if (!d) return '—'
   return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
 }
 
@@ -516,6 +517,7 @@ function ActivityBar({ activity, viewStart, viewEnd, dayWidth, onClick }: {
 
 function ActivitiesTab() {
   const [page, setPage] = useState(1)
+  const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [statusFilter, setStatusFilter] = useState('')
@@ -529,7 +531,7 @@ function ActivitiesTab() {
 
   const { data, isLoading } = useActivities({
     page,
-    page_size: 25,
+    page_size: pageSize,
     search: debouncedSearch || undefined,
     status: statusFilter || undefined,
     type: typeFilter || undefined,
@@ -740,7 +742,7 @@ function ActivitiesTab() {
           columns={columns}
           data={items}
           isLoading={isLoading}
-          pagination={data ? { page: data.page, pageSize: 25, total: data.total, pages: data.pages } : undefined}
+          pagination={data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined}
           onPaginationChange={(p) => setPage(p)}
           searchValue={search}
           onSearchChange={(v) => { setSearch(v); setPage(1) }}
@@ -773,12 +775,13 @@ function ActivitiesTab() {
 
 function ConflitsTab() {
   const [page, setPage] = useState(1)
+  const { pageSize } = usePageSize()
   const [statusFilter, setStatusFilter] = useState('')
   const resolveConflict = useResolveConflict()
 
   const { data, isLoading } = useConflicts({
     page,
-    page_size: 25,
+    page_size: pageSize,
     status: statusFilter || undefined,
   })
 
@@ -817,7 +820,7 @@ function ConflitsTab() {
       header: 'Site',
       cell: ({ row }) => row.original.asset_id
         ? <CrossModuleLink module="assets" id={row.original.asset_id} label={row.original.asset_name || row.original.asset_id} showIcon={false} className="font-medium" />
-        : <span className="font-medium text-foreground">{row.original.asset_name || '\u2014'}</span>,
+        : <span className="font-medium text-foreground">{row.original.asset_name || '—'}</span>,
     },
     {
       accessorKey: 'conflict_date',
@@ -849,7 +852,7 @@ function ConflitsTab() {
       header: 'Resolution',
       size: 140,
       cell: ({ row }) => {
-        if (!row.original.resolution) return <span className="text-xs text-muted-foreground">{'\u2014'}</span>
+        if (!row.original.resolution) return <span className="text-xs text-muted-foreground">{'—'}</span>
         const opt = RESOLUTION_OPTIONS.find((o) => o.value === row.original.resolution)
         return <span className="text-xs text-muted-foreground">{opt?.label || row.original.resolution}</span>
       },
@@ -916,7 +919,7 @@ function ConflitsTab() {
           columns={columns}
           data={items}
           isLoading={isLoading}
-          pagination={data ? { page: data.page, pageSize: 25, total: data.total, pages: data.pages } : undefined}
+          pagination={data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined}
           onPaginationChange={(p) => setPage(p)}
           emptyIcon={AlertTriangle}
           emptyTitle="Aucun conflit"
@@ -1808,12 +1811,12 @@ function ActivityDetailPanel({ id }: { id: string }) {
                   <DetailRow label="Site" value={
                     activity.asset_id ? (
                       <CrossModuleLink module="assets" id={activity.asset_id} label={activity.asset_name || activity.asset_id} mode="navigate" />
-                    ) : (activity.asset_name || '\u2014')
+                    ) : (activity.asset_name || '—')
                   } />
                   <DetailRow label="Projet" value={
                     activity.project_id ? (
                       <CrossModuleLink module="projets" id={activity.project_id} label={activity.project_name || activity.project_id} mode="navigate" />
-                    ) : (activity.project_name || '\u2014')
+                    ) : (activity.project_name || '—')
                   } />
                 </FormSection>
 
@@ -1849,17 +1852,17 @@ function ActivityDetailPanel({ id }: { id: string }) {
 
                 {/* Workflow */}
                 <FormSection title="Workflow">
-                  <DetailRow label="Cree par" value={activity.created_by_name || '\u2014'} />
+                  <DetailRow label="Cree par" value={activity.created_by_name || '—'} />
                   {activity.submitted_by_name && (
                     <DetailRow
                       label="Soumis par"
-                      value={`${activity.submitted_by_name}${activity.submitted_at ? ` \u2014 ${formatDateShort(activity.submitted_at)}` : ''}`}
+                      value={`${activity.submitted_by_name}${activity.submitted_at ? ` — ${formatDateShort(activity.submitted_at)}` : ''}`}
                     />
                   )}
                   {activity.validated_by_name && (
                     <DetailRow
                       label="Valide par"
-                      value={`${activity.validated_by_name}${activity.validated_at ? ` \u2014 ${formatDateShort(activity.validated_at)}` : ''}`}
+                      value={`${activity.validated_by_name}${activity.validated_at ? ` — ${formatDateShort(activity.validated_at)}` : ''}`}
                     />
                   )}
                   {st === 'rejected' && activity.rejection_reason && (
@@ -2129,7 +2132,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
                     <p className="font-medium">Modifications:</p>
                     {impactPreview.data.changes.map((c, i) => (
                       <div key={i} className="text-xs text-muted-foreground">
-                        {c.field}: {c.old_value || '\u2014'} &rarr; {c.new_value || '\u2014'}
+                        {c.field}: {c.old_value || '—'} &rarr; {c.new_value || '—'}
                       </div>
                     ))}
                   </div>

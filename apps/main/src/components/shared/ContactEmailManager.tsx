@@ -57,7 +57,7 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
       })
       setEmail('')
       setShowForm(false)
-      toast({ title: 'Email ajout\u00e9', variant: 'success' })
+      toast({ title: 'Email ajouté', variant: 'success' })
     } catch {
       toast({ title: 'Erreur', variant: 'error' })
     }
@@ -67,7 +67,7 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
     try {
       await deleteEmail.mutateAsync(id)
       setConfirmDeleteId(null)
-      toast({ title: 'Email supprim\u00e9', variant: 'success' })
+      toast({ title: 'Email supprimé', variant: 'success' })
     } catch {
       toast({ title: 'Erreur', variant: 'error' })
     }
@@ -76,7 +76,7 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
   const handleSetDefault = useCallback(async (id: string) => {
     try {
       await updateEmail.mutateAsync({ id, payload: { is_default: true } })
-      toast({ title: 'Email par d\u00e9faut d\u00e9fini', variant: 'success' })
+      toast({ title: 'Email par défaut défini', variant: 'success' })
     } catch {
       toast({ title: 'Erreur', variant: 'error' })
     }
@@ -104,7 +104,7 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
                     try {
                       await updateEmail.mutateAsync({ id: ce.id, payload: updates })
                       setEditingId(null)
-                      toast({ title: 'Email modifi\u00e9', variant: 'success' })
+                      toast({ title: 'Email modifié', variant: 'success' })
                     } catch {
                       toast({ title: 'Erreur', variant: 'error' })
                     }
@@ -138,7 +138,7 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
                     <button
                       onClick={() => handleSetDefault(ce.id)}
                       className="p-0.5 rounded hover:bg-accent text-muted-foreground"
-                      title="D\u00e9finir par d\u00e9faut"
+                      title="Définir par défaut"
                     >
                       <Star size={10} />
                     </button>

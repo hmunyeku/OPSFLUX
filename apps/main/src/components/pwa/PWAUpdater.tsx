@@ -22,8 +22,8 @@ export function PWAUpdater() {
     if (isUpdateAvailable && !shownUpdateRef.current) {
       shownUpdateRef.current = true
       toast({
-        title: 'Mise \u00e0 jour disponible',
-        description: 'Une nouvelle version est disponible. Cliquez pour rafra\u00eechir.',
+        title: 'Mise à jour disponible',
+        description: 'Une nouvelle version est disponible. Cliquez pour rafraîchir.',
         variant: 'default',
         duration: 0, // persistent until dismissed
       })
@@ -39,8 +39,8 @@ export function PWAUpdater() {
     if (isOfflineReady && !shownOfflineRef.current) {
       shownOfflineRef.current = true
       toast({
-        title: 'Application pr\u00eate pour le mode hors ligne',
-        description: 'Le contenu a \u00e9t\u00e9 mis en cache pour une utilisation hors ligne.',
+        title: 'Application prête pour le mode hors ligne',
+        description: 'Le contenu a été mis en cache pour une utilisation hors ligne.',
         variant: 'success',
       })
     }

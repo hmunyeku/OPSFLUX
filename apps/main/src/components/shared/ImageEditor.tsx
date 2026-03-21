@@ -300,12 +300,12 @@ export function ImageEditor({
             {/* Rotate */}
             <ToolBtn
               icon={RotateCcw}
-              title="Pivoter -90\u00b0"
+              title="Pivoter -90°"
               onClick={() => setRotation((r) => (r - 90 + 360) % 360)}
             />
             <ToolBtn
               icon={RotateCw}
-              title="Pivoter +90\u00b0"
+              title="Pivoter +90°"
               onClick={() => setRotation((r) => (r + 90) % 360)}
             />
 
@@ -340,7 +340,7 @@ export function ImageEditor({
             {cropRect && (
               <ToolBtn
                 icon={RotateCcwSquare}
-                title="R\u00e9initialiser le recadrage"
+                title="Réinitialiser le recadrage"
                 onClick={() => setCropRect(null)}
               />
             )}
@@ -350,7 +350,7 @@ export function ImageEditor({
             {/* Zoom */}
             <ToolBtn
               icon={ZoomOut}
-              title="D\u00e9zoomer"
+              title="Dézoomer"
               onClick={() => setZoom((z) => Math.max(0.25, z - 0.1))}
             />
             <span className="text-xs font-mono text-muted-foreground w-10 text-center">
@@ -382,9 +382,9 @@ export function ImageEditor({
         {/* Status bar */}
         {loaded && imgRef.current && (
           <div className="flex items-center gap-4 px-4 py-1 text-[10px] text-muted-foreground border-t border-border/50 bg-background">
-            <span>{imgRef.current.width} \u00d7 {imgRef.current.height} px</span>
-            <span>Rotation : {rotation}\u00b0</span>
-            {cropRect && <span>Recadrage : {Math.round(cropRect.w)} \u00d7 {Math.round(cropRect.h)}</span>}
+            <span>{imgRef.current.width} × {imgRef.current.height} px</span>
+            <span>Rotation : {rotation}°</span>
+            {cropRect && <span>Recadrage : {Math.round(cropRect.w)} × {Math.round(cropRect.h)}</span>}
           </div>
         )}
       </div>

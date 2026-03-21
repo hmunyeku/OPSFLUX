@@ -25,6 +25,7 @@ import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTablePagination, DataTableFilterDef } from '@/components/ui/DataTable/types'
 import { cn } from '@/lib/utils'
 import { useDebounce } from '@/hooks/useDebounce'
+import { usePageSize } from '@/hooks/usePageSize'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
 import {
   DynamicPanelShell,
@@ -791,7 +792,7 @@ export function PidPfdPage() {
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState<PidPfdTab>('dashboard')
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(25)
+  const { pageSize, setPageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>({})

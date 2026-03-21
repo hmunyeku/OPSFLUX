@@ -65,7 +65,7 @@ export function DateRangePicker({
   endDate,
   onStartChange,
   onEndChange,
-  startLabel = 'D\u00e9but',
+  startLabel = 'Début',
   endLabel = 'Fin',
   className = '',
   disabled = false,
@@ -103,7 +103,7 @@ export function DateRangePicker({
 
       {/* Separator + duration */}
       <div className="flex flex-col items-center gap-0.5 pb-1 shrink-0">
-        <span className="text-muted-foreground text-sm select-none">\u2192</span>
+        <span className="text-muted-foreground text-sm select-none">→</span>
         {duration !== null && (
           <span
             className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full whitespace-nowrap ${

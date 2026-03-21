@@ -137,6 +137,28 @@ export function GeneralConfigTab() {
         </div>
       </CollapsibleSection>
 
+      {/* ── Tableaux de données ── */}
+      <CollapsibleSection
+        id="datatable-config"
+        title="Tableaux de données"
+        description="Nombre de lignes par page par défaut pour tous les utilisateurs. Les utilisateurs peuvent personnaliser dans leurs préférences."
+        storageKey="settings.general-config.collapse"
+      >
+        <div className="mt-2 space-y-0">
+          <SettingRow label="Lignes par page" description="Nombre de lignes affichées par défaut dans les tableaux de données.">
+            <select
+              className="gl-form-select text-sm"
+              value={(s['datatable.page_size'] as number) ?? 25}
+              onChange={(e) => save('datatable.page_size', Number(e.target.value))}
+            >
+              {[10, 25, 50, 100].map((n) => (
+                <option key={n} value={n}>{n} lignes</option>
+              ))}
+            </select>
+          </SettingRow>
+        </div>
+      </CollapsibleSection>
+
       {/* ── Cartographie ── */}
       <CollapsibleSection
         id="cartographie"

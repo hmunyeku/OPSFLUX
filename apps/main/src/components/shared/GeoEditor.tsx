@@ -155,10 +155,10 @@ function formatDistance(km: number): string {
 
 /** Format an area in m^2 */
 function formatArea(m2: number): string {
-  if (m2 < 10000) return `${m2.toFixed(0)} m\u00B2`
+  if (m2 < 10000) return `${m2.toFixed(0)} m²`
   const ha = m2 / 10000
   if (ha < 100) return `${ha.toFixed(2)} ha`
-  return `${(m2 / 1e6).toFixed(2)} km\u00B2`
+  return `${(m2 / 1e6).toFixed(2)} km²`
 }
 
 /** Decimal degrees to DMS string */
@@ -169,7 +169,7 @@ function ddToDms(dd: number, isLat: boolean): string {
   const minF = (abs - deg) * 60
   const min = Math.floor(minF)
   const sec = ((minF - min) * 60).toFixed(2)
-  return `${deg}\u00B0${min}'${sec}"${dir}`
+  return `${deg}°${min}'${sec}"${dir}`
 }
 
 /** Convert GeoJSON [lng, lat] to [lat, lng] for Leaflet */

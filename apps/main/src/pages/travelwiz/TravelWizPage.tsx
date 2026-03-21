@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useDebounce } from '@/hooks/useDebounce'
+import { usePageSize } from '@/hooks/usePageSize'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
 import { useUIStore } from '@/stores/uiStore'
 import {
@@ -194,12 +195,12 @@ function StatusBadge({ status, map }: { status: string; map: Record<string, { la
 }
 
 function formatDateShort(d: string | null | undefined) {
-  if (!d) return '\u2014'
+  if (!d) return '—'
   return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
 }
 
 function formatDateTime(d: string | null | undefined) {
-  if (!d) return '\u2014'
+  if (!d) return '—'
   return new Date(d).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
@@ -260,7 +261,7 @@ function DashboardTab() {
         return (
           <div className="flex items-center gap-1.5">
             <VIcon size={12} className="text-muted-foreground shrink-0" />
-            <span className="text-foreground truncate">{row.original.vector_name || '\u2014'}</span>
+            <span className="text-foreground truncate">{row.original.vector_name || '—'}</span>
           </div>
         )
       },
@@ -380,6 +381,7 @@ function DashboardTab() {
 
 function VoyagesTab() {
   const [page, setPage] = useState(1)
+  const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [statusFilter, setStatusFilter] = useState('')
@@ -388,7 +390,7 @@ function VoyagesTab() {
 
   const { data, isLoading } = useVoyages({
     page,
-    page_size: 25,
+    page_size: pageSize,
     search: debouncedSearch || undefined,
     status: statusFilter || undefined,
   })
@@ -421,7 +423,7 @@ function VoyagesTab() {
         return (
           <div className="flex items-center gap-1.5">
             <VIcon size={12} className="text-muted-foreground shrink-0" />
-            <span className="text-foreground truncate">{row.original.vector_name || '\u2014'}</span>
+            <span className="text-foreground truncate">{row.original.vector_name || '—'}</span>
           </div>
         )
       },
@@ -469,7 +471,7 @@ function VoyagesTab() {
         return (
           <span className="inline-flex items-center gap-1 text-xs text-muted-foreground tabular-nums">
             <Weight size={11} />
-            {w ? `${Number(w).toLocaleString('fr-FR')}` : '\u2014'}
+            {w ? `${Number(w).toLocaleString('fr-FR')}` : '—'}
           </span>
         )
       },
@@ -522,7 +524,7 @@ function VoyagesTab() {
           columns={columns}
           data={items}
           isLoading={isLoading}
-          pagination={data ? { page: data.page, pageSize: 25, total: data.total, pages: data.pages } : undefined}
+          pagination={data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined}
           onPaginationChange={(p) => setPage(p)}
           searchValue={search}
           onSearchChange={(v) => { setSearch(v); setPage(1) }}
@@ -555,6 +557,7 @@ function VoyagesTab() {
 
 function ManifestesTab() {
   const [page, setPage] = useState(1)
+  const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [statusFilter, setStatusFilter] = useState('')
@@ -563,7 +566,7 @@ function ManifestesTab() {
 
   const { data, isLoading } = useAllManifests({
     page,
-    page_size: 25,
+    page_size: pageSize,
     search: debouncedSearch || undefined,
     status: statusFilter || undefined,
   })
@@ -589,7 +592,7 @@ function ManifestesTab() {
       accessorKey: 'voyage_code',
       header: 'Voyage',
       size: 110,
-      cell: ({ row }) => <span className="font-mono text-xs text-muted-foreground">{row.original.voyage_code || '\u2014'}</span>,
+      cell: ({ row }) => <span className="font-mono text-xs text-muted-foreground">{row.original.voyage_code || '—'}</span>,
     },
     {
       accessorKey: 'status',
@@ -616,7 +619,7 @@ function ManifestesTab() {
         const w = row.original.total_weight_kg
         return (
           <span className="text-xs text-muted-foreground tabular-nums">
-            {w ? `${Number(w).toLocaleString('fr-FR')} kg` : '\u2014'}
+            {w ? `${Number(w).toLocaleString('fr-FR')} kg` : '—'}
           </span>
         )
       },
@@ -676,7 +679,7 @@ function ManifestesTab() {
           columns={columns}
           data={items}
           isLoading={isLoading}
-          pagination={data ? { page: data.page, pageSize: 25, total: data.total, pages: data.pages } : undefined}
+          pagination={data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined}
           onPaginationChange={(p) => setPage(p)}
           searchValue={search}
           onSearchChange={(v) => { setSearch(v); setPage(1) }}
@@ -697,6 +700,7 @@ function ManifestesTab() {
 
 function CargoTab() {
   const [page, setPage] = useState(1)
+  const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [statusFilter, setStatusFilter] = useState('')
@@ -705,7 +709,7 @@ function CargoTab() {
 
   const { data, isLoading } = useCargo({
     page,
-    page_size: 25,
+    page_size: pageSize,
     search: debouncedSearch || undefined,
     status: statusFilter || undefined,
   })
@@ -731,7 +735,7 @@ function CargoTab() {
     {
       accessorKey: 'description',
       header: 'Description',
-      cell: ({ row }) => <span className="text-foreground truncate max-w-[200px] block">{row.original.description || '\u2014'}</span>,
+      cell: ({ row }) => <span className="text-foreground truncate max-w-[200px] block">{row.original.description || '—'}</span>,
     },
     {
       accessorKey: 'weight_kg',
@@ -740,7 +744,7 @@ function CargoTab() {
       cell: ({ row }) => (
         <span className="inline-flex items-center gap-1 text-xs text-muted-foreground tabular-nums">
           <Weight size={11} />
-          {row.original.weight_kg ? `${row.original.weight_kg.toLocaleString('fr-FR')}` : '\u2014'}
+          {row.original.weight_kg ? `${row.original.weight_kg.toLocaleString('fr-FR')}` : '—'}
         </span>
       ),
     },
@@ -748,13 +752,13 @@ function CargoTab() {
       id: 'origin',
       header: 'Origine',
       size: 100,
-      cell: ({ row }) => <span className="text-xs text-muted-foreground truncate">{row.original.sender_name || '\u2014'}</span>,
+      cell: ({ row }) => <span className="text-xs text-muted-foreground truncate">{row.original.sender_name || '—'}</span>,
     },
     {
       id: 'destination',
       header: 'Destination',
       size: 100,
-      cell: ({ row }) => <span className="text-xs text-muted-foreground truncate">{row.original.receiver_name || '\u2014'}</span>,
+      cell: ({ row }) => <span className="text-xs text-muted-foreground truncate">{row.original.receiver_name || '—'}</span>,
     },
     {
       accessorKey: 'status',
@@ -837,7 +841,7 @@ function CargoTab() {
           columns={columns}
           data={items}
           isLoading={isLoading}
-          pagination={data ? { page: data.page, pageSize: 25, total: data.total, pages: data.pages } : undefined}
+          pagination={data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined}
           onPaginationChange={(p) => setPage(p)}
           searchValue={search}
           onSearchChange={(v) => { setSearch(v); setPage(1) }}
@@ -858,6 +862,7 @@ function CargoTab() {
 
 function VecteursTab() {
   const [page, setPage] = useState(1)
+  const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
@@ -865,7 +870,7 @@ function VecteursTab() {
 
   const { data, isLoading } = useVectors({
     page,
-    page_size: 25,
+    page_size: pageSize,
     search: debouncedSearch || undefined,
   })
 
@@ -888,7 +893,7 @@ function VecteursTab() {
       accessorKey: 'registration',
       header: 'Immatriculation',
       size: 120,
-      cell: ({ row }) => <span className="font-mono text-xs text-muted-foreground">{row.original.registration || '\u2014'}</span>,
+      cell: ({ row }) => <span className="font-mono text-xs text-muted-foreground">{row.original.registration || '—'}</span>,
     },
     {
       accessorKey: 'type',
@@ -912,7 +917,7 @@ function VecteursTab() {
       cell: ({ row }) => (
         <span className="inline-flex items-center gap-1 text-xs">
           <Users size={11} className="text-muted-foreground" />
-          {row.original.pax_capacity ?? '\u2014'}
+          {row.original.pax_capacity ?? '—'}
         </span>
       ),
     },
@@ -920,7 +925,7 @@ function VecteursTab() {
       id: 'home_base',
       header: 'Base',
       size: 110,
-      cell: ({ row }) => <span className="text-xs text-muted-foreground truncate">{row.original.home_base_name || '\u2014'}</span>,
+      cell: ({ row }) => <span className="text-xs text-muted-foreground truncate">{row.original.home_base_name || '—'}</span>,
     },
     {
       id: 'actions',
@@ -952,7 +957,7 @@ function VecteursTab() {
           columns={columns}
           data={items}
           isLoading={isLoading}
-          pagination={data ? { page: data.page, pageSize: 25, total: data.total, pages: data.pages } : undefined}
+          pagination={data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined}
           onPaginationChange={(p) => setPage(p)}
           searchValue={search}
           onSearchChange={(v) => { setSearch(v); setPage(1) }}
@@ -973,6 +978,7 @@ function VecteursTab() {
 
 function ArticlesTab() {
   const [page, setPage] = useState(1)
+  const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
@@ -980,7 +986,7 @@ function ArticlesTab() {
 
   const { data, isLoading } = useArticles({
     page,
-    page_size: 25,
+    page_size: pageSize,
     search: debouncedSearch || undefined,
   })
 
@@ -1007,13 +1013,13 @@ function ArticlesTab() {
       accessorKey: 'management_type',
       header: 'Gestion',
       size: 100,
-      cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{row.original.management_type || '\u2014'}</span>,
+      cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{row.original.management_type || '—'}</span>,
     },
     {
       accessorKey: 'packaging',
       header: 'Conditionnement',
       size: 120,
-      cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.packaging || '\u2014'}</span>,
+      cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.packaging || '—'}</span>,
     },
     {
       id: 'hazmat',
@@ -1071,7 +1077,7 @@ function ArticlesTab() {
           columns={columns}
           data={items}
           isLoading={isLoading}
-          pagination={data ? { page: data.page, pageSize: 25, total: data.total, pages: data.pages } : undefined}
+          pagination={data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined}
           onPaginationChange={(p) => setPage(p)}
           searchValue={search}
           onSearchChange={(v) => { setSearch(v); setPage(1) }}
@@ -1119,6 +1125,7 @@ const PICKUP_STATUS_MAP: Record<string, { label: string; badge: string }> = {
 
 function PickupTab() {
   const [page, setPage] = useState(1)
+  const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -1126,7 +1133,7 @@ function PickupTab() {
 
   const { data, isLoading } = usePickupRounds({
     page,
-    page_size: 25,
+    page_size: pageSize,
     status: statusFilter || undefined,
   })
   const { data: roundDetail } = usePickupRound(selectedId ?? undefined)
@@ -1151,13 +1158,13 @@ function PickupTab() {
       accessorKey: 'vehicle_name',
       header: 'Vehicule',
       size: 130,
-      cell: ({ row }) => <span className="text-foreground truncate">{row.original.vehicle_name || '\u2014'}</span>,
+      cell: ({ row }) => <span className="text-foreground truncate">{row.original.vehicle_name || '—'}</span>,
     },
     {
       accessorKey: 'driver_name',
       header: 'Chauffeur',
       size: 120,
-      cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.driver_name || '\u2014'}</span>,
+      cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.driver_name || '—'}</span>,
     },
     {
       accessorKey: 'stops_count',
@@ -1212,7 +1219,7 @@ function PickupTab() {
               columns={columns}
               data={items}
               isLoading={isLoading}
-              pagination={data ? { page: data.page, pageSize: 25, total: data.total, pages: data.pages } : undefined}
+              pagination={data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined}
               onPaginationChange={(p) => setPage(p)}
               searchValue={search}
               onSearchChange={(v) => { setSearch(v); setPage(1) }}
@@ -1878,7 +1885,7 @@ function VoyageDetailPanel({ id }: { id: string }) {
   return (
     <DynamicPanelShell
       title={voyage.code}
-      subtitle={`${voyage.origin ?? '?'} \u2192 ${voyage.destination ?? '?'}`}
+      subtitle={`${voyage.origin ?? '?'} → ${voyage.destination ?? '?'}`}
       icon={<Plane size={14} className="text-primary" />}
       actions={<>
         {!editing && <PanelActionButton onClick={startEdit} icon={<Pencil size={12} />}>Modifier</PanelActionButton>}
@@ -1927,12 +1934,12 @@ function VoyageDetailPanel({ id }: { id: string }) {
                 {/* Info */}
                 <FormSection title="Informations">
                   <DetailRow label="Code" value={voyage.code} />
-                  <DetailRow label="Vecteur" value={voyage.vector_name ?? '\u2014'} />
-                  <DetailRow label="Rotation" value={voyage.rotation_name ?? '\u2014'} />
-                  <DetailRow label="Origine" value={voyage.origin ?? '\u2014'} />
-                  <DetailRow label="Destination" value={voyage.destination ?? '\u2014'} />
-                  <DetailRow label="Depart" value={voyage.departure_at ? new Date(voyage.departure_at).toLocaleString('fr-FR') : '\u2014'} />
-                  <DetailRow label="Arrivee" value={voyage.arrival_at ? new Date(voyage.arrival_at).toLocaleString('fr-FR') : '\u2014'} />
+                  <DetailRow label="Vecteur" value={voyage.vector_name ?? '—'} />
+                  <DetailRow label="Rotation" value={voyage.rotation_name ?? '—'} />
+                  <DetailRow label="Origine" value={voyage.origin ?? '—'} />
+                  <DetailRow label="Destination" value={voyage.destination ?? '—'} />
+                  <DetailRow label="Depart" value={voyage.departure_at ? new Date(voyage.departure_at).toLocaleString('fr-FR') : '—'} />
+                  <DetailRow label="Arrivee" value={voyage.arrival_at ? new Date(voyage.arrival_at).toLocaleString('fr-FR') : '—'} />
                   <InlineEditableRow label="Description" value={voyage.description ?? ''} onSave={(v) => handleInlineSave('description', v)} />
                 </FormSection>
 
@@ -2013,7 +2020,7 @@ function VoyageDetailPanel({ id }: { id: string }) {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-lg border border-border p-3">
                     <div className="flex items-center gap-1.5 text-muted-foreground mb-1"><Users size={12} /><span className="text-[10px] font-medium uppercase tracking-wide">PAX</span></div>
-                    <p className="text-sm font-semibold tabular-nums">{capacity.current_pax} / {capacity.vector_capacity_pax ?? '\u221E'}</p>
+                    <p className="text-sm font-semibold tabular-nums">{capacity.current_pax} / {capacity.vector_capacity_pax ?? '∞'}</p>
                     {capacity.pax_utilization_pct !== null && (
                       <div className="mt-1.5 h-1.5 rounded-full bg-border overflow-hidden">
                         <div className={cn('h-full rounded-full transition-all', capacity.pax_utilization_pct > 90 ? 'bg-destructive' : 'bg-primary')} style={{ width: `${Math.min(100, capacity.pax_utilization_pct)}%` }} />
@@ -2022,7 +2029,7 @@ function VoyageDetailPanel({ id }: { id: string }) {
                   </div>
                   <div className="rounded-lg border border-border p-3">
                     <div className="flex items-center gap-1.5 text-muted-foreground mb-1"><Weight size={12} /><span className="text-[10px] font-medium uppercase tracking-wide">Cargo (kg)</span></div>
-                    <p className="text-sm font-semibold tabular-nums">{capacity.current_cargo_kg.toLocaleString('fr-FR')} / {capacity.vector_capacity_cargo_kg?.toLocaleString('fr-FR') ?? '\u221E'}</p>
+                    <p className="text-sm font-semibold tabular-nums">{capacity.current_cargo_kg.toLocaleString('fr-FR')} / {capacity.vector_capacity_cargo_kg?.toLocaleString('fr-FR') ?? '∞'}</p>
                     {capacity.cargo_utilization_pct !== null && (
                       <div className="mt-1.5 h-1.5 rounded-full bg-border overflow-hidden">
                         <div className={cn('h-full rounded-full transition-all', capacity.cargo_utilization_pct > 90 ? 'bg-destructive' : 'bg-primary')} style={{ width: `${Math.min(100, capacity.cargo_utilization_pct)}%` }} />
@@ -2042,7 +2049,7 @@ function VoyageDetailPanel({ id }: { id: string }) {
                       <div className="absolute -left-[21px] top-1 w-3 h-3 rounded-full bg-primary border-2 border-background" />
                       <div className="ml-2">
                         <p className="text-xs font-medium text-foreground">{evt.event_code.replace(/_/g, ' ')}</p>
-                        <p className="text-[10px] text-muted-foreground">{formatDateTime(evt.recorded_at)}{evt.recorded_by_name ? ` \u2022 ${evt.recorded_by_name}` : ''}</p>
+                        <p className="text-[10px] text-muted-foreground">{formatDateTime(evt.recorded_at)}{evt.recorded_by_name ? ` • ${evt.recorded_by_name}` : ''}</p>
                         {evt.notes && <p className="text-xs text-muted-foreground mt-0.5">{evt.notes}</p>}
                         {(evt.latitude || evt.longitude) && (
                           <p className="text-[10px] text-muted-foreground mt-0.5 inline-flex items-center gap-1"><MapPin size={9} />{evt.latitude?.toFixed(4)}, {evt.longitude?.toFixed(4)}</p>
@@ -2215,19 +2222,19 @@ function VectorDetailPanel({ id }: { id: string }) {
               <DetailRow label="Nom" value={vector.name} />
               <DetailRow label="Type" value={<span className={cn('gl-badge inline-flex items-center gap-1', typeEntry?.badge || 'gl-badge-neutral')}>{typeEntry?.label || vector.type}</span>} />
               <DetailRow label="Mode" value={modeLabels[vector.mode] || vector.mode} />
-              <DetailRow label="Base d'attache" value={vector.home_base_name ?? '\u2014'} />
+              <DetailRow label="Base d'attache" value={vector.home_base_name ?? '—'} />
               <DetailRow label="Actif" value={vector.active ? 'Oui' : 'Non'} />
             </FormSection>
 
             <FormSection title="Capacites">
               <DetailRow label="Capacite PAX" value={vector.pax_capacity} />
-              <DetailRow label="Capacite poids" value={vector.weight_capacity_kg ? `${vector.weight_capacity_kg.toLocaleString('fr-FR')} kg` : '\u2014'} />
-              <DetailRow label="Volume" value={vector.volume_capacity_m3 ? `${vector.volume_capacity_m3.toLocaleString('fr-FR')} m\u00B3` : '\u2014'} />
+              <DetailRow label="Capacite poids" value={vector.weight_capacity_kg ? `${vector.weight_capacity_kg.toLocaleString('fr-FR')} kg` : '—'} />
+              <DetailRow label="Volume" value={vector.volume_capacity_m3 ? `${vector.volume_capacity_m3.toLocaleString('fr-FR')} m³` : '—'} />
             </FormSection>
 
             <FormSection title="Operationnel" collapsible defaultExpanded={false}>
               <DetailRow label="Pesee requise" value={vector.requires_weighing ? 'Oui' : 'Non'} />
-              {vector.mode === 'sea' && <DetailRow label="Numero MMSI" value={vector.mmsi_number ?? '\u2014'} />}
+              {vector.mode === 'sea' && <DetailRow label="Numero MMSI" value={vector.mmsi_number ?? '—'} />}
             </FormSection>
 
             {/* Deck surfaces / Zones */}
@@ -2239,7 +2246,7 @@ function VectorDetailPanel({ id }: { id: string }) {
                       <MapPin size={14} className="text-muted-foreground shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">{zone.name}</p>
-                        <p className="text-xs text-muted-foreground">{zone.zone_type}{zone.capacity ? ` \u2022 Capacite: ${zone.capacity}` : ''}</p>
+                        <p className="text-xs text-muted-foreground">{zone.zone_type}{zone.capacity ? ` • Capacite: ${zone.capacity}` : ''}</p>
                       </div>
                       <span className={cn('gl-badge', zone.active ? 'gl-badge-success' : 'gl-badge-neutral')}>{zone.active ? 'Actif' : 'Inactif'}</span>
                     </div>
@@ -2345,14 +2352,14 @@ function CargoDetailPanel({ id }: { id: string }) {
           <>
             <FormSection title="Details">
               <DetailRow label="Code" value={cargo.code} />
-              <DetailRow label="Type" value={cargo.cargo_type ?? '\u2014'} />
-              <DetailRow label="Poids" value={cargo.weight_kg ? `${cargo.weight_kg.toLocaleString('fr-FR')} kg` : '\u2014'} />
-              <DetailRow label="Volume" value={cargo.volume_m3 ? `${cargo.volume_m3.toLocaleString('fr-FR')} m\u00B3` : '\u2014'} />
-              <DetailRow label="Voyage" value={cargo.voyage_code ?? '\u2014'} />
-              <DetailRow label="Expediteur" value={cargo.sender_name ?? '\u2014'} />
-              <DetailRow label="Destinataire" value={cargo.receiver_name ?? '\u2014'} />
-              <DetailRow label="Description" value={cargo.description ?? '\u2014'} />
-              <DetailRow label="Notes" value={cargo.notes ?? '\u2014'} />
+              <DetailRow label="Type" value={cargo.cargo_type ?? '—'} />
+              <DetailRow label="Poids" value={cargo.weight_kg ? `${cargo.weight_kg.toLocaleString('fr-FR')} kg` : '—'} />
+              <DetailRow label="Volume" value={cargo.volume_m3 ? `${cargo.volume_m3.toLocaleString('fr-FR')} m³` : '—'} />
+              <DetailRow label="Voyage" value={cargo.voyage_code ?? '—'} />
+              <DetailRow label="Expediteur" value={cargo.sender_name ?? '—'} />
+              <DetailRow label="Destinataire" value={cargo.receiver_name ?? '—'} />
+              <DetailRow label="Description" value={cargo.description ?? '—'} />
+              <DetailRow label="Notes" value={cargo.notes ?? '—'} />
               {cargo.received_at && <DetailRow label="Recu le" value={new Date(cargo.received_at).toLocaleString('fr-FR')} />}
               <DetailRow label="Cree le" value={new Date(cargo.created_at).toLocaleDateString('fr-FR')} />
             </FormSection>
@@ -2367,7 +2374,7 @@ function CargoDetailPanel({ id }: { id: string }) {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-foreground truncate">{el.description}</p>
                         <p className="text-xs text-muted-foreground">
-                          Qte: {el.quantity}{el.weight_kg ? ` \u2022 ${el.weight_kg} kg` : ''}{el.sap_code ? ` \u2022 SAP: ${el.sap_code}` : ''}
+                          Qte: {el.quantity}{el.weight_kg ? ` • ${el.weight_kg} kg` : ''}{el.sap_code ? ` • SAP: ${el.sap_code}` : ''}
                         </p>
                       </div>
                     </div>
@@ -2396,7 +2403,7 @@ function CargoDetailPanel({ id }: { id: string }) {
                   {sapMatch.data.matched ? (
                     <p className="text-xs text-foreground">
                       <span className="font-mono font-medium">{sapMatch.data.sap_code}</span>
-                      {' \u2014 '}{sapMatch.data.description}
+                      {' — '}{sapMatch.data.description}
                       {' '}({Math.round(sapMatch.data.confidence * 100)}% confiance)
                     </p>
                   ) : <p className="text-xs text-muted-foreground">Aucun article SAP correspondant.</p>}

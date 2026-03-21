@@ -498,7 +498,7 @@ function TagForm({
             <option value="">Aucun (racine)</option>
             {availableParents.map((t) => (
               <option key={t.id} value={t.id}>
-                {t.parent_id ? '\u00A0\u00A0\u21B3 ' : ''}{t.name}
+                {t.parent_id ? '\u00A0\u00A0↳ ' : ''}{t.name}
               </option>
             ))}
           </select>

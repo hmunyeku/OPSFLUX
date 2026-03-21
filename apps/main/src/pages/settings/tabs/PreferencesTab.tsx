@@ -11,7 +11,8 @@ import { useTranslation } from 'react-i18next'
 import { useThemeStore } from '@/stores/themeStore'
 import { useUpdateProfile } from '@/hooks/useSettings'
 import { useToast } from '@/components/ui/Toast'
-import { Sun, Moon, Monitor, Loader2, ZoomIn } from 'lucide-react'
+import { Sun, Moon, Monitor, Loader2, ZoomIn, Table2 } from 'lucide-react'
+import { usePageSize } from '@/hooks/usePageSize'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 import {
   getUIScale,
@@ -56,6 +57,15 @@ export function PreferencesTab() {
         storageKey="settings.preferences.collapse"
       >
         <UIScaleSection />
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        id="datatable"
+        title="Tableaux de données"
+        description="Nombre de lignes par page dans les tableaux."
+        storageKey="settings.preferences.collapse"
+      >
+        <PageSizeSection />
       </CollapsibleSection>
 
       <CollapsibleSection id="theme" title="Mode" description="Choisissez un mode d'affichage." storageKey="settings.preferences.collapse">
@@ -106,6 +116,49 @@ export function PreferencesTab() {
         </div>
       </CollapsibleSection>
     </>
+  )
+}
+
+// ── Page Size configuration section ──────────────────────────────
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
+
+function PageSizeSection() {
+  const { toast } = useToast()
+  const { pageSize, setPageSize } = usePageSize()
+
+  const handleChange = (value: number) => {
+    setPageSize(value)
+    toast({ title: `Affichage: ${value} lignes par page`, variant: 'success' })
+  }
+
+  return (
+    <div className="mt-2 space-y-3">
+      <div>
+        <label className="gl-label flex items-center gap-1.5">
+          <Table2 size={12} className="text-muted-foreground" />
+          Lignes par page
+        </label>
+        <div className="flex items-center gap-2 mt-2">
+          {PAGE_SIZE_OPTIONS.map((size) => (
+            <button
+              key={size}
+              type="button"
+              onClick={() => handleChange(size)}
+              className={`inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
+                pageSize === size
+                  ? 'bg-primary/10 border-primary/40 text-primary shadow-sm'
+                  : 'bg-background border-border text-muted-foreground hover:bg-accent hover:text-foreground'
+              }`}
+            >
+              {size}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Nombre de lignes affichees par defaut dans tous les tableaux de donnees.
+        </p>
+      </div>
+    </div>
   )
 }
 

@@ -238,7 +238,7 @@ function TypeDetailPanel({ id }: { id: string }) {
         <FormSection title="Informations" collapsible defaultExpanded>
           <DetailFieldGrid>
             <ReadOnlyRow label="Categorie" value={<span className="gl-badge gl-badge-info">{CATEGORY_OPTIONS.find(o => o.value === ct.category)?.label ?? ct.category}</span>} />
-            <ReadOnlyRow label="Code" value={<span className="text-sm font-mono font-medium text-foreground">{ct.code || '\u2014'}</span>} />
+            <ReadOnlyRow label="Code" value={<span className="text-sm font-mono font-medium text-foreground">{ct.code || '—'}</span>} />
             <InlineEditableRow label="Nom" value={ct.name} onSave={(v) => handleSave('name', v)} />
             <ReadOnlyRow label="Validite" value={ct.validity_days ? `${ct.validity_days} jours` : 'Permanent'} />
             <ReadOnlyRow label="Obligatoire" value={ct.is_mandatory ? 'Oui' : 'Non'} />
@@ -626,7 +626,7 @@ function JobPositionDetailPanel({ id }: { id: string }) {
       <PanelContentLayout>
         <FormSection title="Informations" collapsible defaultExpanded>
           <DetailFieldGrid>
-            <ReadOnlyRow label="Code" value={<span className="text-sm font-mono font-medium text-foreground">{jp.code || '\u2014'}</span>} />
+            <ReadOnlyRow label="Code" value={<span className="text-sm font-mono font-medium text-foreground">{jp.code || '—'}</span>} />
             <InlineEditableRow label="Intitule" value={jp.name} onSave={(v) => handleSave('name', v)} />
             <InlineEditableRow label="Departement" value={jp.department || ''} onSave={(v) => handleSave('department', v)} />
           </DetailFieldGrid>
@@ -808,7 +808,7 @@ export function ConformitePage() {
   const ruleColumns = useMemo<ColumnDef<ComplianceRule, unknown>[]>(() => [
     { accessorKey: 'compliance_type_id', header: 'Type', size: 200, cell: ({ row }) => {
       const ct = typesData?.items.find(t => t.id === row.original.compliance_type_id)
-      return <span className="text-foreground font-medium">{ct ? `${ct.code} \u2014 ${ct.name}` : row.original.compliance_type_id.slice(0, 8)}</span>
+      return <span className="text-foreground font-medium">{ct ? `${ct.code} — ${ct.name}` : row.original.compliance_type_id.slice(0, 8)}</span>
     }},
     { accessorKey: 'target_type', header: 'Cible', size: 130, cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{RULE_TARGET_OPTIONS.find(o => o.value === row.original.target_type)?.label ?? row.original.target_type}</span> },
     { accessorKey: 'target_value', header: 'Valeur', size: 150, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.target_value || 'N/A'}</span> },

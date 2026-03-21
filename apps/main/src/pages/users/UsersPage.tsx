@@ -607,7 +607,7 @@ function UserDetailPanel({ id }: { id: string }) {
                     <Clock size={12} className="text-muted-foreground" />
                     {user.last_login_at ? (
                       <span title={new Date(user.last_login_at).toLocaleString()}>{relativeTime(user.last_login_at)}</span>
-                    ) : '\u2014'}
+                    ) : '—'}
                   </span>
                 }
               />
@@ -616,7 +616,7 @@ function UserDetailPanel({ id }: { id: string }) {
                 value={
                   <span className="flex items-center gap-1.5 text-sm">
                     <Calendar size={12} className="text-muted-foreground" />
-                    {user.created_at ? new Date(user.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '\u2014'}
+                    {user.created_at ? new Date(user.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                   </span>
                 }
               />

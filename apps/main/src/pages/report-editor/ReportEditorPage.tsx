@@ -22,6 +22,7 @@ import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTablePagination, DataTableFilterDef } from '@/components/ui/DataTable/types'
 import { cn } from '@/lib/utils'
 import { useDebounce } from '@/hooks/useDebounce'
+import { usePageSize } from '@/hooks/usePageSize'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
 import {
   DynamicPanelShell,
@@ -999,7 +1000,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
 export function ReportEditorPage() {
   const [activeTab, setActiveTab] = useState<ReportEditorTab>('dashboard')
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(25)
+  const { pageSize, setPageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>({})

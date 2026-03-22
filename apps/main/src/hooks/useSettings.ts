@@ -25,6 +25,8 @@ import {
   auditLogService,
   rolesService,
   mfaService,
+  socialNetworkService,
+  openingHourService,
 } from '@/services/settingsService'
 import type {
   ProfileUpdate,
@@ -43,6 +45,7 @@ import type {
   OAuthAppCreate,
   NotificationPreferenceUpdate,
 } from '@/types/api'
+import type { SocialNetworkCreate, OpeningHourCreate } from '@/services/settingsService'
 
 // ═════════════════════════════════════════════════════════════
 // PROFILE
@@ -668,5 +671,81 @@ export function useDeleteAttachment() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['attachments'] })
     },
+  })
+}
+
+// ═════════════════════════════════════════════════════════════
+// SOCIAL NETWORKS (polymorphic — reusable for any object type)
+// ═════════════════════════════════════════════════════════════
+
+export function useSocialNetworks(ownerType: string, ownerId: string | undefined) {
+  return useQuery({
+    queryKey: ['social-networks', ownerType, ownerId],
+    queryFn: () => socialNetworkService.list(ownerType, ownerId!),
+    enabled: !!ownerId,
+  })
+}
+
+export function useCreateSocialNetwork() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: SocialNetworkCreate) => socialNetworkService.create(payload),
+    onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['social-networks', v.owner_type, v.owner_id] }) },
+  })
+}
+
+export function useUpdateSocialNetwork() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Partial<SocialNetworkCreate> }) =>
+      socialNetworkService.update(id, payload),
+    onSuccess: (data) => { qc.invalidateQueries({ queryKey: ['social-networks', data.owner_type, data.owner_id] }) },
+  })
+}
+
+export function useDeleteSocialNetwork() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (vars: { id: string; ownerType: string; ownerId: string }) =>
+      socialNetworkService.remove(vars.id),
+    onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['social-networks', v.ownerType, v.ownerId] }) },
+  })
+}
+
+// ═════════════════════════════════════════════════════════════
+// OPENING HOURS (polymorphic — reusable for any object type)
+// ═════════════════════════════════════════════════════════════
+
+export function useOpeningHours(ownerType: string, ownerId: string | undefined) {
+  return useQuery({
+    queryKey: ['opening-hours', ownerType, ownerId],
+    queryFn: () => openingHourService.list(ownerType, ownerId!),
+    enabled: !!ownerId,
+  })
+}
+
+export function useCreateOpeningHour() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: OpeningHourCreate) => openingHourService.create(payload),
+    onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['opening-hours', v.owner_type, v.owner_id] }) },
+  })
+}
+
+export function useUpdateOpeningHour() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Partial<OpeningHourCreate> }) =>
+      openingHourService.update(id, payload),
+    onSuccess: (data) => { qc.invalidateQueries({ queryKey: ['opening-hours', data.owner_type, data.owner_id] }) },
+  })
+}
+
+export function useDeleteOpeningHour() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (vars: { id: string; ownerType: string; ownerId: string }) =>
+      openingHourService.remove(vars.id),
+    onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['opening-hours', v.ownerType, v.ownerId] }) },
   })
 }

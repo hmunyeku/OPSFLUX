@@ -826,6 +826,67 @@ class AttachmentRead(OpsFluxSchema):
     created_at: datetime
 
 
+# ─── Social Networks (polymorphic) ───────────────────────────────────────────
+
+class SocialNetworkCreate(BaseModel):
+    owner_type: str = Field(..., min_length=1, max_length=50)
+    owner_id: UUID
+    network: str = Field(..., min_length=1, max_length=50)
+    url: str = Field(..., min_length=1, max_length=500)
+    label: str | None = None
+    sort_order: int = 0
+
+
+class SocialNetworkRead(OpsFluxSchema):
+    id: UUID
+    owner_type: str
+    owner_id: UUID
+    network: str
+    url: str
+    label: str | None
+    sort_order: int
+    created_at: datetime
+
+
+class SocialNetworkUpdate(BaseModel):
+    network: str | None = None
+    url: str | None = None
+    label: str | None = None
+    sort_order: int | None = None
+
+
+# ─── Opening Hours (polymorphic) ───────────────────────────────────────────
+
+class OpeningHourCreate(BaseModel):
+    owner_type: str = Field(..., min_length=1, max_length=50)
+    owner_id: UUID
+    day_of_week: int = Field(..., ge=0, le=6)
+    open_time: str | None = Field(None, pattern=r"^\d{2}:\d{2}$")
+    close_time: str | None = Field(None, pattern=r"^\d{2}:\d{2}$")
+    is_closed: bool = False
+    label: str | None = None
+
+
+class OpeningHourRead(OpsFluxSchema):
+    id: UUID
+    owner_type: str
+    owner_id: UUID
+    day_of_week: int
+    open_time: str | None
+    close_time: str | None
+    is_closed: bool
+    label: str | None
+    created_at: datetime
+
+
+class OpeningHourUpdate(BaseModel):
+    day_of_week: int | None = Field(None, ge=0, le=6)
+    open_time: str | None = Field(None, pattern=r"^\d{2}:\d{2}$")
+    close_time: str | None = Field(None, pattern=r"^\d{2}:\d{2}$")
+    is_closed: bool | None = None
+    label: str | None = None
+
+
 # ─── Notification Preferences ───────────────────────────────────────────────
 
 class NotificationPreferenceRead(OpsFluxSchema):

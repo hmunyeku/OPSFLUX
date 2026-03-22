@@ -1041,6 +1041,7 @@ function UserDetailPanel({ id }: { id: string }) {
   const genderOptions = useDictionaryOptions('gender')
   const nationalityOptions = useDictionaryColumnOptions('nationality', 'nationality')
   const countryOptions = useDictionaryColumnOptions('nationality', 'country')
+  const airportOptions = useDictionaryOptions('airport')
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const [detailTab, setDetailTab] = useState<UserDetailTab>('fiche')
   const avatarInputRef = useRef<HTMLInputElement>(null)
@@ -1287,8 +1288,16 @@ function UserDetailPanel({ id }: { id: string }) {
 
               {/* Voyage & Transport */}
               <FormSection title="Voyage & Transport" collapsible storageKey="panel.user.sections" id="user-travel">
-                <InlineEditableRow label="Aéroport contractuel" value={user.contractual_airport || ''} onSave={(v) => updateUser.mutate({ id, payload: { contractual_airport: v || null } })} />
-                <InlineEditableRow label="Aéroport le plus proche" value={user.nearest_airport || ''} onSave={(v) => updateUser.mutate({ id, payload: { nearest_airport: v || null } })} />
+                {airportOptions.length > 0 ? (
+                  <InlineEditableCombobox label="Aéroport contractuel" value={user.contractual_airport || ''} options={airportOptions} onSave={(v) => updateUser.mutate({ id, payload: { contractual_airport: v || null } })} placeholder="Rechercher un aéroport..." />
+                ) : (
+                  <InlineEditableRow label="Aéroport contractuel" value={user.contractual_airport || ''} onSave={(v) => updateUser.mutate({ id, payload: { contractual_airport: v || null } })} />
+                )}
+                {airportOptions.length > 0 ? (
+                  <InlineEditableCombobox label="Aéroport le plus proche" value={user.nearest_airport || ''} options={airportOptions} onSave={(v) => updateUser.mutate({ id, payload: { nearest_airport: v || null } })} placeholder="Rechercher un aéroport..." />
+                ) : (
+                  <InlineEditableRow label="Aéroport le plus proche" value={user.nearest_airport || ''} onSave={(v) => updateUser.mutate({ id, payload: { nearest_airport: v || null } })} />
+                )}
                 <InlineEditableRow label="Gare la plus proche" value={user.nearest_station || ''} onSave={(v) => updateUser.mutate({ id, payload: { nearest_station: v || null } })} />
                 <InlineEditableRow label="Programme fidélité" value={user.loyalty_program || ''} onSave={(v) => updateUser.mutate({ id, payload: { loyalty_program: v || null } })} />
               </FormSection>

@@ -75,6 +75,8 @@ from app.api.routes.core.user_medical_checks import router as user_medical_check
 from app.api.routes.core.integrations import router as integrations_router
 from app.api.routes.core.gouti_sync import router as gouti_sync_router
 from app.api.routes.core.references import router as references_router
+from app.api.routes.core.social_networks import router as social_networks_router
+from app.api.routes.core.opening_hours import router as opening_hours_router
 from app.api.routes.core.mcp import router as mcp_router
 from app.api.routes.core.ws_notifications import router as ws_notifications_router
 from app.api.routes.core.workflow import router as workflow_router
@@ -247,6 +249,8 @@ app.include_router(admin_router)
 app.include_router(import_assistant_router)
 app.include_router(user_sync_router)
 app.include_router(departments_router)
+app.include_router(social_networks_router)
+app.include_router(opening_hours_router)
 app.include_router(preview_router)
 app.include_router(dictionary_router)
 

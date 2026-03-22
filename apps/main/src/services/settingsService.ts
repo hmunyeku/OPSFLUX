@@ -5,6 +5,51 @@
  * Each method returns typed data matching schemas in types/api.ts.
  */
 import api from '@/lib/api'
+
+// ── Social Network types ──────────────────────────────────────────
+export interface SocialNetworkRead {
+  id: string
+  owner_type: string
+  owner_id: string
+  network: string
+  url: string
+  label: string | null
+  sort_order: number
+  created_at: string
+}
+
+export interface SocialNetworkCreate {
+  owner_type: string
+  owner_id: string
+  network: string
+  url: string
+  label?: string | null
+  sort_order?: number
+}
+
+// ── Opening Hour types ────────────────────────────────────────────
+export interface OpeningHourRead {
+  id: string
+  owner_type: string
+  owner_id: string
+  day_of_week: number
+  open_time: string | null
+  close_time: string | null
+  is_closed: boolean
+  label: string | null
+  created_at: string
+}
+
+export interface OpeningHourCreate {
+  owner_type: string
+  owner_id: string
+  day_of_week: number
+  open_time?: string | null
+  close_time?: string | null
+  is_closed?: boolean
+  label?: string | null
+}
+
 import type {
   UserRead,
   ProfileUpdate,
@@ -444,5 +489,47 @@ export const searchService = {
   search: async (q: string): Promise<SearchResponse> => {
     const { data } = await api.get('/api/v1/search', { params: { q } })
     return data
+  },
+}
+
+// ── Social Networks (polymorphic) ────────────────────────
+export const socialNetworkService = {
+  list: async (ownerType: string, ownerId: string) => {
+    const { data } = await api.get('/api/v1/social-networks', {
+      params: { owner_type: ownerType, owner_id: ownerId },
+    })
+    return data as SocialNetworkRead[]
+  },
+  create: async (payload: SocialNetworkCreate) => {
+    const { data } = await api.post('/api/v1/social-networks', payload)
+    return data as SocialNetworkRead
+  },
+  update: async (id: string, payload: Partial<SocialNetworkCreate>) => {
+    const { data } = await api.patch(`/api/v1/social-networks/${id}`, payload)
+    return data as SocialNetworkRead
+  },
+  remove: async (id: string) => {
+    await api.delete(`/api/v1/social-networks/${id}`)
+  },
+}
+
+// ── Opening Hours (polymorphic) ──────────────────────────
+export const openingHourService = {
+  list: async (ownerType: string, ownerId: string) => {
+    const { data } = await api.get('/api/v1/opening-hours', {
+      params: { owner_type: ownerType, owner_id: ownerId },
+    })
+    return data as OpeningHourRead[]
+  },
+  create: async (payload: OpeningHourCreate) => {
+    const { data } = await api.post('/api/v1/opening-hours', payload)
+    return data as OpeningHourRead
+  },
+  update: async (id: string, payload: Partial<OpeningHourCreate>) => {
+    const { data } = await api.patch(`/api/v1/opening-hours/${id}`, payload)
+    return data as OpeningHourRead
+  },
+  remove: async (id: string) => {
+    await api.delete(`/api/v1/opening-hours/${id}`)
   },
 }

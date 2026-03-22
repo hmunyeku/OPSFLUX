@@ -3,17 +3,19 @@
  *
  * Architecture:
  *  - PanelHeader + PanelContent wrapper
- *  - DataTable with columns, search, filters, pagination, export
+ *  - DataTable with columns, search, filters, pagination, import/export, batch actions
  *  - CreateEntityPanel / EntityDetailPanel via DynamicPanel
- *  - Tabbed detail: Général, Juridique, Adresse & Contact, Réseaux & Horaires, Utilisateurs
+ *  - SectionColumns 2-col grid, polymorphic managers, dictionary-driven selects
  */
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Globe, Plus, Loader2, Users,
-  UserPlus, UserMinus, Check, X,
+  UserPlus, Check, X,
   Building2, Clock, Archive, MapPin,
-  Scale, Share2,
+  Share2, Phone, Mail,
+  MessageSquare, Paperclip, Image,
+  Power,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { isoToFlag } from '@/lib/countryFlags'
@@ -23,11 +25,13 @@ import {
   DynamicPanelField,
   FormGrid,
   FormSection,
+  SectionColumns,
+  DetailFieldGrid,
   InlineEditableRow,
   InlineEditableTags,
+  InlineEditableCombobox,
   ReadOnlyRow,
   PanelActionButton,
-  SectionHeader,
   TagSelector,
   panelInputClass,
   PanelContentLayout,
@@ -47,18 +51,29 @@ import {
   useRemoveEntityUser,
 } from '@/hooks/useEntities'
 import { useUsers } from '@/hooks/useUsers'
-import type { EntityRead, EntityCreate as EntityCreatePayload } from '@/services/entityService'
+import {
+  usePhones, useContactEmails, useAddresses,
+  useNotes, useAttachments,
+  useSocialNetworks, useOpeningHours,
+} from '@/hooks/useSettings'
+import type { EntityRead, EntityCreate as EntityCreatePayload, EntityUser } from '@/services/entityService'
 import type { ColumnDef } from '@tanstack/react-table'
 import {
   DataTable,
   BadgeCell,
   DateCell,
   type DataTableFilterDef,
+  type DataTableBatchAction,
 } from '@/components/ui/DataTable'
 import { useDictionaryOptions } from '@/hooks/useDictionary'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { AddressManager } from '@/components/shared/AddressManager'
 import { PhoneManager } from '@/components/shared/PhoneManager'
 import { ContactEmailManager } from '@/components/shared/ContactEmailManager'
+import { NoteManager } from '@/components/shared/NoteManager'
+import { AttachmentManager } from '@/components/shared/AttachmentManager'
+import { SocialNetworkManager } from '@/components/shared/SocialNetworkManager'
+import { OpeningHoursManager } from '@/components/shared/OpeningHoursManager'
 
 // ── Constants ──────────────────────────────────────────────────
 
@@ -138,20 +153,6 @@ const FISCAL_MONTH_OPTIONS = Array.from({ length: 12 }, (_, i) => ({
   label: new Date(2000, i, 1).toLocaleDateString('fr-FR', { month: 'long' }),
 }))
 
-const DAY_LABELS: Record<string, string> = {
-  mon: 'Lundi', tue: 'Mardi', wed: 'Mercredi',
-  thu: 'Jeudi', fri: 'Vendredi', sat: 'Samedi', sun: 'Dimanche',
-}
-const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
-
-const SOCIAL_KEYS: { key: string; label: string }[] = [
-  { key: 'linkedin', label: 'LinkedIn' },
-  { key: 'twitter', label: 'Twitter / X' },
-  { key: 'facebook', label: 'Facebook' },
-  { key: 'instagram', label: 'Instagram' },
-  { key: 'youtube', label: 'YouTube' },
-]
-
 // ── Column definitions ─────────────────────────────────────
 
 const entityColumns: ColumnDef<EntityRead, unknown>[] = [
@@ -176,6 +177,26 @@ const entityColumns: ColumnDef<EntityRead, unknown>[] = [
     ),
   },
   {
+    accessorKey: 'trade_name',
+    header: 'Nom commercial',
+    cell: ({ getValue }) => {
+      const v = getValue() as string | null
+      return v ? <span className="text-sm text-muted-foreground truncate block">{v}</span> : <span className="text-muted-foreground">—</span>
+    },
+    size: 180,
+  },
+  {
+    accessorKey: 'legal_form',
+    header: 'Forme juridique',
+    cell: ({ getValue }) => {
+      const v = getValue() as string | null
+      if (!v) return <span className="text-muted-foreground">—</span>
+      const label = LEGAL_FORM_OPTIONS.find((o) => o.value === v)?.label ?? v
+      return <BadgeCell value={label} variant="info" />
+    },
+    size: 140,
+  },
+  {
     accessorKey: 'country',
     header: 'Pays',
     cell: ({ getValue }) => {
@@ -195,6 +216,14 @@ const entityColumns: ColumnDef<EntityRead, unknown>[] = [
       return v ? <span className="text-sm text-muted-foreground">{v}</span> : <span className="text-muted-foreground">—</span>
     },
     size: 120,
+  },
+  {
+    accessorKey: 'currency',
+    header: 'Devise',
+    cell: ({ getValue }) => (
+      <span className="text-xs text-muted-foreground font-mono">{getValue() as string}</span>
+    ),
+    size: 80,
   },
   {
     accessorKey: 'timezone',
@@ -233,6 +262,72 @@ const entityColumns: ColumnDef<EntityRead, unknown>[] = [
   },
 ]
 
+// ── Entity Users columns (for DataTable inside detail panel) ──
+
+const entityUserColumns: ColumnDef<EntityUser, unknown>[] = [
+  {
+    accessorKey: 'first_name',
+    header: 'Nom',
+    cell: ({ row }) => {
+      const u = row.original
+      return (
+        <div className="flex items-center gap-2">
+          {u.avatar_url ? (
+            <img src={u.avatar_url} alt="" className="h-6 w-6 rounded-full object-cover shrink-0" />
+          ) : (
+            <div className="h-6 w-6 flex items-center justify-center rounded-full bg-primary/10 text-primary text-[9px] font-semibold shrink-0">
+              {u.first_name[0]}{u.last_name[0]}
+            </div>
+          )}
+          <span className="text-sm font-medium text-foreground truncate">{u.first_name} {u.last_name}</span>
+        </div>
+      )
+    },
+    enableHiding: false,
+  },
+  {
+    accessorKey: 'email',
+    header: 'Email',
+    cell: ({ getValue }) => <span className="text-xs text-muted-foreground truncate block">{getValue() as string}</span>,
+    size: 200,
+  },
+  {
+    accessorKey: 'group_names',
+    header: 'Groupes',
+    cell: ({ getValue }) => {
+      const groups = getValue() as string[]
+      return groups.length > 0 ? (
+        <div className="flex flex-wrap gap-1">
+          {groups.map((g) => <span key={g} className="gl-badge gl-badge-neutral text-[9px]">{g}</span>)}
+        </div>
+      ) : <span className="text-muted-foreground text-xs">—</span>
+    },
+    size: 180,
+  },
+  {
+    accessorKey: 'active',
+    header: 'Statut',
+    cell: ({ getValue }) => {
+      const active = getValue() as boolean
+      return <BadgeCell value={active ? 'Actif' : 'Inactif'} variant={active ? 'success' : 'neutral'} />
+    },
+    size: 90,
+  },
+]
+
+
+// ── Sub-section label ────────────────────────────────────────
+function SubSectionLabel({ icon: Icon, label, count }: { icon: React.ElementType; label: string; count: number }) {
+  return (
+    <div className="flex items-center gap-1.5 pt-2 pb-1">
+      <Icon size={11} className="text-muted-foreground" />
+      <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
+      {count > 0 && (
+        <span className="text-[10px] bg-muted text-muted-foreground rounded-full px-1.5 py-px font-semibold">{count}</span>
+      )}
+    </div>
+  )
+}
 
 // ── Create Entity Panel ─────────────────────────────────────
 
@@ -241,7 +336,6 @@ function CreateEntityPanel() {
   const createEntity = useCreateEntity()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
 
-  // Dictionary-driven options (fallback to static if loading)
   const dictCountries = useDictionaryOptions('country')
   const dictLegalForms = useDictionaryOptions('legal_form')
   const dictCurrencies = useDictionaryOptions('currency')
@@ -290,7 +384,6 @@ function CreateEntityPanel() {
       }
     >
       <form id="create-entity-form" onSubmit={handleSubmit} className="p-4 space-y-5">
-        {/* Identity */}
         <FormSection title="Identité">
           <FormGrid>
             <DynamicPanelField label="Code" required>
@@ -304,6 +397,11 @@ function CreateEntityPanel() {
             <DynamicPanelField label="Nom commercial">
               <input type="text" value={form.trade_name || ''} onChange={(e) => set({ trade_name: e.target.value || null })} className={panelInputClass} placeholder="Perenco Cameroun S.A." />
             </DynamicPanelField>
+            <DynamicPanelField label="Pays">
+              <TagSelector options={countryOpts} value={form.country || 'CM'} onChange={(v) => set({ country: v })} />
+            </DynamicPanelField>
+          </FormGrid>
+          <FormGrid>
             <DynamicPanelField label="Secteur d'activité">
               {dictIndustries.length > 0 ? (
                 <TagSelector options={dictIndustries} value={form.industry || ''} onChange={(v) => set({ industry: v || null })} />
@@ -311,10 +409,12 @@ function CreateEntityPanel() {
                 <input type="text" value={form.industry || ''} onChange={(e) => set({ industry: e.target.value || null })} className={panelInputClass} placeholder="Oil & Gas" />
               )}
             </DynamicPanelField>
+            <DynamicPanelField label="Site web">
+              <input type="url" value={form.website || ''} onChange={(e) => set({ website: e.target.value || null })} className={panelInputClass} placeholder="https://www.company.com" />
+            </DynamicPanelField>
           </FormGrid>
         </FormSection>
 
-        {/* Legal */}
         <FormSection title="Juridique">
           <FormGrid>
             <DynamicPanelField label="Forme juridique">
@@ -337,7 +437,7 @@ function CreateEntityPanel() {
               <input type="text" value={form.vat_number || ''} onChange={(e) => set({ vat_number: e.target.value || null })} className={panelInputClass} />
             </DynamicPanelField>
             <DynamicPanelField label="Capital social">
-              <input type="number" value={form.capital ?? ''} onChange={(e) => set({ capital: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} placeholder="1 000 000" />
+              <input type="number" value={form.capital ?? ''} onChange={(e) => set({ capital: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
           <FormGrid>
@@ -350,53 +450,6 @@ function CreateEntityPanel() {
           </FormGrid>
         </FormSection>
 
-        {/* Address */}
-        <FormSection title="Adresse">
-          <DynamicPanelField label="Adresse ligne 1">
-            <input type="text" value={form.address_line1 || ''} onChange={(e) => set({ address_line1: e.target.value || null })} className={panelInputClass} placeholder="123 Rue Principale" />
-          </DynamicPanelField>
-          <DynamicPanelField label="Adresse ligne 2">
-            <input type="text" value={form.address_line2 || ''} onChange={(e) => set({ address_line2: e.target.value || null })} className={panelInputClass} />
-          </DynamicPanelField>
-          <FormGrid>
-            <DynamicPanelField label="Ville">
-              <input type="text" value={form.city || ''} onChange={(e) => set({ city: e.target.value || null })} className={panelInputClass} placeholder="Douala" />
-            </DynamicPanelField>
-            <DynamicPanelField label="Région / État">
-              <input type="text" value={form.state || ''} onChange={(e) => set({ state: e.target.value || null })} className={panelInputClass} />
-            </DynamicPanelField>
-          </FormGrid>
-          <FormGrid>
-            <DynamicPanelField label="Code postal / BP">
-              <input type="text" value={form.zip_code || ''} onChange={(e) => set({ zip_code: e.target.value || null })} className={panelInputClass} placeholder="BP 2199" />
-            </DynamicPanelField>
-            <DynamicPanelField label="Pays">
-              <TagSelector options={countryOpts} value={form.country || 'CM'} onChange={(v) => set({ country: v })} />
-            </DynamicPanelField>
-          </FormGrid>
-        </FormSection>
-
-        {/* Contact */}
-        <FormSection title="Contact">
-          <FormGrid>
-            <DynamicPanelField label="Téléphone">
-              <input type="tel" value={form.phone || ''} onChange={(e) => set({ phone: e.target.value || null })} className={panelInputClass} placeholder="+237 233 42 64 80" />
-            </DynamicPanelField>
-            <DynamicPanelField label="Fax">
-              <input type="tel" value={form.fax || ''} onChange={(e) => set({ fax: e.target.value || null })} className={panelInputClass} />
-            </DynamicPanelField>
-          </FormGrid>
-          <FormGrid>
-            <DynamicPanelField label="Email">
-              <input type="email" value={form.email || ''} onChange={(e) => set({ email: e.target.value || null })} className={panelInputClass} placeholder="contact@company.com" />
-            </DynamicPanelField>
-            <DynamicPanelField label="Site web">
-              <input type="url" value={form.website || ''} onChange={(e) => set({ website: e.target.value || null })} className={panelInputClass} placeholder="https://www.company.com" />
-            </DynamicPanelField>
-          </FormGrid>
-        </FormSection>
-
-        {/* Config */}
         <FormSection title="Configuration">
           <FormGrid>
             <DynamicPanelField label="Fuseau horaire">
@@ -419,7 +472,7 @@ function CreateEntityPanel() {
 
 // ── Entity Detail Panel ─────────────────────────────────────
 
-type DetailTab = 'general' | 'legal' | 'address' | 'social' | 'users'
+type DetailTab = 'fiche' | 'users'
 
 function EntityDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
@@ -430,18 +483,31 @@ function EntityDetailPanel({ id }: { id: string }) {
   const removeEntityUser = useRemoveEntityUser()
   const { hasPermission } = usePermission()
   const canUpdate = hasPermission('core.entity.update')
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
 
-  // Dictionary-driven options (fallback to static if loading)
+  // Dictionary-driven options
   const dictCountries = useDictionaryOptions('country')
   const dictLegalForms = useDictionaryOptions('legal_form')
   const dictCurrencies = useDictionaryOptions('currency')
+  const dictIndustries = useDictionaryOptions('industry')
   const countryOpts = dictCountries.length > 0 ? dictCountries : COUNTRY_OPTIONS
   const legalFormOpts = dictLegalForms.length > 0 ? dictLegalForms : LEGAL_FORM_OPTIONS
   const currencyOpts = dictCurrencies.length > 0 ? dictCurrencies : CURRENCY_OPTIONS
 
-  const [tab, setTab] = useState<DetailTab>('general')
+  // Polymorphic data counts
+  const { data: phones } = usePhones('entity', id)
+  const { data: contactEmails } = useContactEmails('entity', id)
+  const { data: addresses } = useAddresses('entity', id)
+  const { data: socialNetworks } = useSocialNetworks('entity', id)
+  const { data: openingHours } = useOpeningHours('entity', id)
+  const { data: notes } = useNotes('entity', id)
+  const { data: attachments } = useAttachments('entity', id)
+
+  const [tab, setTab] = useState<DetailTab>('fiche')
   const [showUserPicker, setShowUserPicker] = useState(false)
   const [userSearch, setUserSearch] = useState('')
+  const [logoEditing, setLogoEditing] = useState(false)
+  const [logoInput, setLogoInput] = useState('')
   const { data: allUsersData } = useUsers({ page: 1, page_size: 50, search: userSearch || undefined })
 
   const save = useCallback((field: string, value: string | number | boolean | Record<string, unknown> | null) => {
@@ -463,6 +529,28 @@ function EntityDetailPanel({ id }: { id: string }) {
     removeEntityUser.mutate({ entityId: id, userId })
   }, [id, removeEntityUser])
 
+  const [userFilterSearch, setUserFilterSearch] = useState('')
+
+  // Users DataTable columns — with remove action
+  const usersColumns = useMemo<ColumnDef<EntityUser, unknown>[]>(() => [
+    ...entityUserColumns,
+    ...(canUpdate ? [{
+      id: 'actions',
+      header: '',
+      size: 50,
+      cell: ({ row }: { row: { original: EntityUser } }) => (
+        <button
+          type="button"
+          className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+          title="Retirer"
+          onClick={(e) => { e.stopPropagation(); handleRemoveUser(row.original.user_id) }}
+        >
+          <X size={12} />
+        </button>
+      ),
+    }] : []),
+  ], [canUpdate, handleRemoveUser])
+
   const existingUserIds = useMemo(() => new Set((entityUsers ?? []).map((u) => u.user_id)), [entityUsers])
   const availableUsers = useMemo(() => {
     if (!allUsersData?.items) return []
@@ -478,10 +566,7 @@ function EntityDetailPanel({ id }: { id: string }) {
   }
 
   const TABS: { id: DetailTab; label: string; icon: typeof Globe }[] = [
-    { id: 'general', label: 'Général', icon: Building2 },
-    { id: 'legal', label: 'Juridique', icon: Scale },
-    { id: 'address', label: 'Adresse & Contact', icon: MapPin },
-    { id: 'social', label: 'Réseaux & Horaires', icon: Share2 },
+    { id: 'fiche', label: 'Fiche', icon: Building2 },
     { id: 'users', label: `Utilisateurs (${entity.user_count})`, icon: Users },
   ]
 
@@ -502,19 +587,58 @@ function EntityDetailPanel({ id }: { id: string }) {
         ) : null
       }
     >
-      {/* Entity header */}
+      {/* Entity header with logo */}
       <div className="px-4 pt-4 pb-3 border-b border-border/50">
         <div className="flex items-center gap-4">
-          <div className="h-14 w-14 flex items-center justify-center rounded-full bg-primary/10 text-primary shrink-0">
+          <div
+            className={cn(
+              'h-14 w-14 flex items-center justify-center rounded-full shrink-0 relative group',
+              entity.logo_url ? '' : 'bg-primary/10 text-primary',
+            )}
+            title={canUpdate ? 'Cliquer pour changer le logo' : undefined}
+            onClick={() => {
+              if (!canUpdate) return
+              setLogoInput(entity.logo_url || '')
+              setLogoEditing(true)
+            }}
+          >
             {entity.logo_url ? (
               <img src={entity.logo_url} alt="" className="h-14 w-14 rounded-full object-cover" />
             ) : (
               <Building2 size={24} />
             )}
+            {canUpdate && (
+              <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer">
+                <Image size={14} className="text-white" />
+              </div>
+            )}
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="text-base font-semibold text-foreground truncate">{entity.name}</h3>
-            {entity.trade_name && entity.trade_name !== entity.name && (
+            {logoEditing ? (
+              <div className="flex items-center gap-2 mb-1">
+                <input
+                  type="url"
+                  className={cn(panelInputClass, 'flex-1 text-xs')}
+                  placeholder="URL du logo..."
+                  value={logoInput}
+                  onChange={(e) => setLogoInput(e.target.value)}
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { save('logo_url', logoInput || null); setLogoEditing(false) }
+                    if (e.key === 'Escape') setLogoEditing(false)
+                  }}
+                />
+                <button className="gl-button-sm gl-button-confirm" onClick={() => { save('logo_url', logoInput || null); setLogoEditing(false) }}>
+                  <Check size={10} />
+                </button>
+                <button className="gl-button-sm gl-button-default" onClick={() => setLogoEditing(false)}>
+                  <X size={10} />
+                </button>
+              </div>
+            ) : (
+              <h3 className="text-base font-semibold text-foreground truncate">{entity.name}</h3>
+            )}
+            {!logoEditing && entity.trade_name && entity.trade_name !== entity.name && (
               <p className="text-xs text-muted-foreground truncate">{entity.trade_name}</p>
             )}
             <div className="flex items-center gap-2 mt-1">
@@ -534,160 +658,141 @@ function EntityDetailPanel({ id }: { id: string }) {
 
       {/* Tab navigation */}
       <div className="flex border-b border-border bg-muted/30 px-4 gap-0.5 overflow-x-auto">
-        {TABS.map((t) => (
+        {TABS.map((tb) => (
           <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
+            key={tb.id}
+            onClick={() => setTab(tb.id)}
             className={cn(
               'flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors whitespace-nowrap',
-              tab === t.id
+              tab === tb.id
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border',
             )}
           >
-            <t.icon size={12} />
-            {t.label}
+            <tb.icon size={12} />
+            {tb.label}
           </button>
         ))}
       </div>
 
       {/* Tab content */}
       <PanelContentLayout>
-        {tab === 'general' && (
-          <div className="space-y-5">
-            <FormSection title="Identité">
-              <InlineEditableRow label="Code" value={entity.code} onSave={(v) => save('code', v)} disabled={!canUpdate} />
-              <InlineEditableRow label="Raison sociale" value={entity.name} onSave={(v) => save('name', v)} disabled={!canUpdate} />
-              <InlineEditableRow label="Nom commercial" value={entity.trade_name || ''} onSave={(v) => save('trade_name', v || null)} disabled={!canUpdate} />
-              <InlineEditableRow label="Secteur d'activité" value={entity.industry || ''} onSave={(v) => save('industry', v || null)} disabled={!canUpdate} />
-            </FormSection>
+        {tab === 'fiche' && (
+          <SectionColumns>
+            {/* ─── Column 1: Identity + Coordonnées + Réseaux ─── */}
+            <div className="@container space-y-5">
+              <FormSection title="Identité">
+                <InlineEditableRow label="Code" value={entity.code} onSave={(v) => save('code', v)} disabled={!canUpdate} />
+                <InlineEditableRow label="Raison sociale" value={entity.name} onSave={(v) => save('name', v)} disabled={!canUpdate} />
+                <InlineEditableRow label="Nom commercial" value={entity.trade_name || ''} onSave={(v) => save('trade_name', v || null)} disabled={!canUpdate} />
+                {dictIndustries.length > 0 ? (
+                  <InlineEditableCombobox label="Secteur d'activité" value={entity.industry || ''} options={dictIndustries} onSave={(v) => save('industry', v || null)} placeholder="Rechercher un secteur..." />
+                ) : (
+                  <InlineEditableRow label="Secteur d'activité" value={entity.industry || ''} onSave={(v) => save('industry', v || null)} disabled={!canUpdate} />
+                )}
+                <InlineEditableRow label="Site web" value={entity.website || ''} onSave={(v) => save('website', v || null)} disabled={!canUpdate} />
+                <InlineEditableRow label="Date de fondation" value={entity.founded_date || ''} onSave={(v) => save('founded_date', v || null)} disabled={!canUpdate} type="date" />
+              </FormSection>
 
-            <FormSection title="Configuration">
-              <InlineEditableTags label="Pays" value={entity.country || ''} options={countryOpts} onSave={(v) => save('country', v)} disabled={!canUpdate} />
-              <InlineEditableTags label="Fuseau horaire" value={entity.timezone} options={TIMEZONE_OPTIONS} onSave={(v) => save('timezone', v)} disabled={!canUpdate} />
-              <InlineEditableTags label="Langue" value={entity.language} options={LANGUAGE_OPTIONS} onSave={(v) => save('language', v)} disabled={!canUpdate} />
-              <InlineEditableTags label="Devise" value={entity.currency} options={currencyOpts} onSave={(v) => save('currency', v)} disabled={!canUpdate} />
-            </FormSection>
+              {/* Coordonnées — polymorphic managers */}
+              <FormSection title="Coordonnées" collapsible defaultExpanded storageKey="panel.entity.sections" id="entity-contact">
+                <div className="space-y-3 border-t border-border/40 pt-3 mt-2">
+                  <SubSectionLabel icon={Phone} label="Téléphones" count={phones?.length ?? 0} />
+                  <PhoneManager ownerType="entity" ownerId={id} compact />
 
-            <SectionHeader>Informations</SectionHeader>
-            <div className="space-y-0">
-              <ReadOnlyRow label="Utilisateurs" value={<span className="flex items-center gap-1.5 text-sm"><Users size={12} className="text-muted-foreground" />{entity.user_count}</span>} />
-              <ReadOnlyRow
-                label="Créé le"
-                value={
-                  <span className="flex items-center gap-1.5 text-sm">
-                    <Clock size={12} className="text-muted-foreground" />
-                    {entity.created_at ? new Date(entity.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
-                  </span>
-                }
-              />
+                  <SubSectionLabel icon={Mail} label="Emails" count={contactEmails?.length ?? 0} />
+                  <ContactEmailManager ownerType="entity" ownerId={id} compact />
+
+                  <SubSectionLabel icon={MapPin} label="Adresses" count={addresses?.length ?? 0} />
+                  <AddressManager ownerType="entity" ownerId={id} compact />
+                </div>
+              </FormSection>
+
+              {/* Réseaux sociaux — polymorphic manager */}
+              <FormSection title="Réseaux sociaux" collapsible storageKey="panel.entity.sections" id="entity-social">
+                <div className="border-t border-border/40 pt-3 mt-2">
+                  <SubSectionLabel icon={Share2} label="Réseaux" count={socialNetworks?.length ?? 0} />
+                  <SocialNetworkManager ownerType="entity" ownerId={id} compact />
+                </div>
+              </FormSection>
             </div>
 
-            {entity.notes !== null && entity.notes !== undefined && (
-              <FormSection title="Notes">
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{entity.notes || 'Aucune note'}</p>
+            {/* ─── Column 2: Juridique + Config + Activité + Horaires + Notes ─── */}
+            <div className="@container space-y-5">
+              <FormSection title="Juridique">
+                <InlineEditableTags label="Forme juridique" value={entity.legal_form || ''} options={legalFormOpts} onSave={(v) => save('legal_form', v || null)} disabled={!canUpdate} />
+                <InlineEditableRow label="N° RCCM" value={entity.registration_number || ''} onSave={(v) => save('registration_number', v || null)} disabled={!canUpdate} />
+                <InlineEditableRow label="Tax ID" value={entity.tax_id || ''} onSave={(v) => save('tax_id', v || null)} disabled={!canUpdate} />
+                <InlineEditableRow label="N° TVA" value={entity.vat_number || ''} onSave={(v) => save('vat_number', v || null)} disabled={!canUpdate} />
+                <InlineEditableRow label="Capital" value={entity.capital != null ? String(entity.capital) : ''} onSave={(v) => save('capital', v ? Number(v) : null)} disabled={!canUpdate} />
               </FormSection>
-            )}
-          </div>
-        )}
 
-        {tab === 'legal' && (
-          <div className="space-y-5">
-            <FormSection title="Informations juridiques">
-              <InlineEditableTags label="Forme juridique" value={entity.legal_form || ''} options={legalFormOpts} onSave={(v) => save('legal_form', v || null)} disabled={!canUpdate} />
-              <InlineEditableRow label="N° RCCM / Immatriculation" value={entity.registration_number || ''} onSave={(v) => save('registration_number', v || null)} disabled={!canUpdate} />
-              <InlineEditableRow label="N° Contribuable / Tax ID" value={entity.tax_id || ''} onSave={(v) => save('tax_id', v || null)} disabled={!canUpdate} />
-              <InlineEditableRow label="N° TVA" value={entity.vat_number || ''} onSave={(v) => save('vat_number', v || null)} disabled={!canUpdate} />
-            </FormSection>
+              <FormSection title="Configuration">
+                <InlineEditableTags label="Pays" value={entity.country || ''} options={countryOpts} onSave={(v) => save('country', v)} disabled={!canUpdate} />
+                <InlineEditableTags label="Fuseau horaire" value={entity.timezone} options={TIMEZONE_OPTIONS} onSave={(v) => save('timezone', v)} disabled={!canUpdate} />
+                <InlineEditableTags label="Langue" value={entity.language} options={LANGUAGE_OPTIONS} onSave={(v) => save('language', v)} disabled={!canUpdate} />
+                <InlineEditableTags label="Devise" value={entity.currency} options={currencyOpts} onSave={(v) => save('currency', v)} disabled={!canUpdate} />
+                <InlineEditableTags label="Exercice fiscal" value={String(entity.fiscal_year_start)} options={FISCAL_MONTH_OPTIONS} onSave={(v) => save('fiscal_year_start', Number(v))} disabled={!canUpdate} />
+              </FormSection>
 
-            <FormSection title="Financier">
-              <InlineEditableRow label="Capital social" value={entity.capital != null ? String(entity.capital) : ''} onSave={(v) => save('capital', v ? Number(v) : null)} disabled={!canUpdate} />
-              <InlineEditableTags label="Devise" value={entity.currency} options={currencyOpts} onSave={(v) => save('currency', v)} disabled={!canUpdate} />
-              <InlineEditableTags label="Début exercice fiscal" value={String(entity.fiscal_year_start)} options={FISCAL_MONTH_OPTIONS} onSave={(v) => save('fiscal_year_start', Number(v))} disabled={!canUpdate} />
-              <InlineEditableRow label="Date de fondation" value={entity.founded_date || ''} onSave={(v) => save('founded_date', v || null)} disabled={!canUpdate} />
-            </FormSection>
-          </div>
-        )}
-
-        {tab === 'address' && (
-          <div className="@container space-y-5">
-            {/* Adresse siège (champs directs du modèle) */}
-            <FormSection title="Adresse du siège">
-              <InlineEditableRow label="Adresse ligne 1" value={entity.address_line1 || ''} onSave={(v) => save('address_line1', v || null)} disabled={!canUpdate} />
-              <InlineEditableRow label="Adresse ligne 2" value={entity.address_line2 || ''} onSave={(v) => save('address_line2', v || null)} disabled={!canUpdate} />
-              <InlineEditableRow label="Ville" value={entity.city || ''} onSave={(v) => save('city', v || null)} disabled={!canUpdate} />
-              <InlineEditableRow label="Région / État" value={entity.state || ''} onSave={(v) => save('state', v || null)} disabled={!canUpdate} />
-              <InlineEditableRow label="Code postal / BP" value={entity.zip_code || ''} onSave={(v) => save('zip_code', v || null)} disabled={!canUpdate} />
-              <InlineEditableTags label="Pays" value={entity.country || ''} options={countryOpts} onSave={(v) => save('country', v)} disabled={!canUpdate} />
-            </FormSection>
-
-            {/* Adresses supplémentaires (polymorphique) */}
-            <FormSection title="Adresses supplémentaires" collapsible storageKey="panel.entity.sections" id="entity-addresses">
-              <AddressManager ownerType="entity" ownerId={id} compact />
-            </FormSection>
-
-            {/* Contact principal */}
-            <FormSection title="Contact principal">
-              <InlineEditableRow label="Téléphone" value={entity.phone || ''} onSave={(v) => save('phone', v || null)} disabled={!canUpdate} type="tel" />
-              <InlineEditableRow label="Fax" value={entity.fax || ''} onSave={(v) => save('fax', v || null)} disabled={!canUpdate} type="tel" />
-              <InlineEditableRow label="Email" value={entity.email || ''} onSave={(v) => save('email', v || null)} disabled={!canUpdate} type="email" />
-              <InlineEditableRow label="Site web" value={entity.website || ''} onSave={(v) => save('website', v || null)} disabled={!canUpdate} />
-            </FormSection>
-
-            {/* Téléphones et emails supplémentaires (polymorphiques) */}
-            <FormSection title="Téléphones" collapsible storageKey="panel.entity.sections" id="entity-phones">
-              <PhoneManager ownerType="entity" ownerId={id} compact />
-            </FormSection>
-
-            <FormSection title="Emails" collapsible storageKey="panel.entity.sections" id="entity-emails">
-              <ContactEmailManager ownerType="entity" ownerId={id} compact />
-            </FormSection>
-          </div>
-        )}
-
-        {tab === 'social' && (
-          <div className="space-y-5">
-            <FormSection title="Réseaux sociaux">
-              {SOCIAL_KEYS.map((s) => (
-                <InlineEditableRow
-                  key={s.key}
-                  label={s.label}
-                  value={(entity.social_networks as Record<string, string> | null)?.[s.key] || ''}
-                  onSave={(v) => {
-                    const current = (entity.social_networks || {}) as Record<string, string>
-                    const updated = { ...current }
-                    if (v) updated[s.key] = v
-                    else delete updated[s.key]
-                    save('social_networks', Object.keys(updated).length > 0 ? updated : null)
-                  }}
-                  disabled={!canUpdate}
+              <FormSection title="Activité">
+                <ReadOnlyRow
+                  label="Utilisateurs"
+                  value={
+                    <button
+                      className="flex items-center gap-1.5 text-sm text-primary hover:underline"
+                      onClick={() => setTab('users')}
+                    >
+                      <Users size={12} />{entity.user_count}
+                    </button>
+                  }
                 />
-              ))}
-            </FormSection>
+                {entity.parent_name && (
+                  <ReadOnlyRow label="Entité parente" value={<span className="text-sm">{entity.parent_name}</span>} />
+                )}
+                {entity.children_count > 0 && (
+                  <ReadOnlyRow label="Sous-entités" value={<span className="text-sm">{entity.children_count}</span>} />
+                )}
+                <ReadOnlyRow
+                  label="Créé le"
+                  value={
+                    <span className="flex items-center gap-1.5 text-sm">
+                      <Clock size={12} className="text-muted-foreground" />
+                      {entity.created_at ? new Date(entity.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                    </span>
+                  }
+                />
+                {entity.updated_at && (
+                  <ReadOnlyRow
+                    label="Modifié le"
+                    value={<span className="text-sm">{new Date(entity.updated_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}</span>}
+                  />
+                )}
+              </FormSection>
 
-            <FormSection title="Horaires d'ouverture">
-              <div className="space-y-1.5">
-                {DAY_KEYS.map((day) => {
-                  const hours = (entity.opening_hours as Record<string, { open: string; close: string }> | null)?.[day]
-                  return (
-                    <div key={day} className="flex items-center gap-3 text-sm">
-                      <span className="w-20 text-muted-foreground text-xs">{DAY_LABELS[day]}</span>
-                      {hours ? (
-                        <span className="text-foreground font-mono text-xs">{hours.open} — {hours.close}</span>
-                      ) : (
-                        <span className="text-muted-foreground text-xs italic">Fermé</span>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-              {canUpdate && (
-                <p className="text-[10px] text-muted-foreground mt-2 italic">
-                  Les horaires peuvent être modifiés via l'API pour le moment.
-                </p>
-              )}
-            </FormSection>
-          </div>
+              {/* Horaires d'ouverture — polymorphic manager */}
+              <FormSection title="Horaires d'ouverture" collapsible storageKey="panel.entity.sections" id="entity-hours">
+                <div className="border-t border-border/40 pt-3 mt-2">
+                  <SubSectionLabel icon={Clock} label="Horaires" count={openingHours?.length ?? 0} />
+                  <OpeningHoursManager ownerType="entity" ownerId={id} compact />
+                </div>
+              </FormSection>
+
+              {/* Notes & Documents */}
+              <FormSection title="Notes & Documents" collapsible storageKey="panel.entity.sections" id="entity-notes-files">
+                <DetailFieldGrid>
+                  <div>
+                    <SubSectionLabel icon={MessageSquare} label="Notes" count={notes?.length ?? 0} />
+                    <NoteManager ownerType="entity" ownerId={id} compact />
+                  </div>
+                  <div>
+                    <SubSectionLabel icon={Paperclip} label="Fichiers" count={attachments?.length ?? 0} />
+                    <AttachmentManager ownerType="entity" ownerId={id} compact />
+                  </div>
+                </DetailFieldGrid>
+              </FormSection>
+            </div>
+          </SectionColumns>
         )}
 
         {tab === 'users' && (
@@ -741,44 +846,28 @@ function EntityDetailPanel({ id }: { id: string }) {
               </div>
             )}
 
-            {usersLoading ? (
-              <div className="flex justify-center py-4"><Loader2 size={14} className="animate-spin text-muted-foreground" /></div>
-            ) : entityUsers && entityUsers.length > 0 ? (
-              <div className="space-y-1">
-                {entityUsers.map((user) => (
-                  <div key={user.user_id} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent/50 group transition-colors">
-                    {user.avatar_url ? (
-                      <img src={user.avatar_url} alt="" className="h-6 w-6 rounded-full object-cover shrink-0" />
-                    ) : (
-                      <div className="h-6 w-6 flex items-center justify-center rounded-full bg-primary/10 text-primary text-[9px] font-semibold shrink-0">
-                        {user.first_name[0]}{user.last_name[0]}
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <span className="text-sm text-foreground truncate block">{user.first_name} {user.last_name}</span>
-                      {user.group_names.length > 0 && (
-                        <span className="text-[10px] text-muted-foreground truncate block">{user.group_names.join(', ')}</span>
-                      )}
-                    </div>
-                    <span className={cn('gl-badge text-[9px]', user.active ? 'gl-badge-success' : 'gl-badge-neutral')}>
-                      {user.active ? 'Actif' : 'Inactif'}
-                    </span>
-                    {canUpdate && (
-                      <button
-                        type="button"
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500"
-                        title="Retirer l'utilisateur"
-                        onClick={() => handleRemoveUser(user.user_id)}
-                      >
-                        <UserMinus size={12} />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground py-2">Aucun utilisateur dans cette entité</p>
-            )}
+            <DataTable<EntityUser>
+              columns={usersColumns}
+              data={entityUsers ?? []}
+              isLoading={usersLoading}
+              getRowId={(row) => row.user_id}
+              storageKey="entity-users"
+
+              searchValue={userFilterSearch}
+              onSearchChange={setUserFilterSearch}
+              searchPlaceholder="Filtrer par nom ou email..."
+
+              sortable
+
+              onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'users', id: row.user_id })}
+
+              emptyIcon={Users}
+              emptyTitle="Aucun utilisateur"
+              emptyAction={canUpdate ? {
+                label: 'Ajouter un utilisateur',
+                onClick: () => setShowUserPicker(true),
+              } : undefined}
+            />
           </div>
         )}
       </PanelContentLayout>
@@ -800,6 +889,10 @@ function EntitiesListView() {
   const setNavItems = useUIStore((s) => s.setDynamicPanelNavItems)
   const { hasPermission } = usePermission()
   const canExport = hasPermission('core.entity.read')
+  const canUpdate = hasPermission('core.entity.update')
+  const canDelete = hasPermission('core.entity.delete')
+  const updateEntity = useUpdateEntity()
+  const confirm = useConfirm()
 
   const statusFilter = typeof activeFilters.status === 'string' ? activeFilters.status : undefined
   const active = statusFilter === 'active' ? true : statusFilter === 'archived' ? false : undefined
@@ -842,6 +935,44 @@ function EntitiesListView() {
     })
   }, [])
 
+  // ── Batch actions ──
+  const batchActions: DataTableBatchAction<EntityRead>[] = useMemo(() => {
+    const actions: DataTableBatchAction<EntityRead>[] = []
+    if (canUpdate) {
+      actions.push(
+        {
+          id: 'activate',
+          label: 'Activer',
+          icon: <Power size={12} />,
+          onAction: async (rows) => {
+            const inactive = rows.filter((r) => !r.active)
+            if (inactive.length === 0) return
+            await Promise.all(inactive.map((r) => updateEntity.mutateAsync({ id: r.id, payload: { active: true } })))
+          },
+        },
+        {
+          id: 'archive',
+          label: 'Archiver',
+          icon: <Archive size={12} />,
+          variant: 'danger',
+          onAction: async (rows) => {
+            const activeRows = rows.filter((r) => r.active)
+            if (activeRows.length === 0) return
+            const ok = await confirm({
+              title: `Archiver ${activeRows.length} entité(s) ?`,
+              message: 'Les entités sélectionnées seront désactivées.',
+              confirmLabel: 'Archiver',
+              variant: 'danger',
+            })
+            if (!ok) return
+            await Promise.all(activeRows.map((r) => updateEntity.mutateAsync({ id: r.id, payload: { active: false } })))
+          },
+        },
+      )
+    }
+    return actions
+  }, [canUpdate, canDelete, updateEntity, confirm])
+
   const pagination = data ? {
     page: data.page,
     pageSize: data.page_size,
@@ -872,9 +1003,10 @@ function EntitiesListView() {
       onFilterChange={handleFilterChange}
 
       columnVisibility
-      defaultHiddenColumns={['created_at', 'city']}
+      defaultHiddenColumns={['created_at', 'trade_name', 'currency']}
 
       selectable
+      batchActions={batchActions}
 
       importExport={canExport ? {
         exportFormats: ['csv', 'xlsx'],
@@ -882,13 +1014,32 @@ function EntitiesListView() {
         filenamePrefix: 'entites',
         exportHeaders: {
           code: 'Code',
-          name: 'Nom',
+          name: 'Raison sociale',
+          trade_name: 'Nom commercial',
+          legal_form: 'Forme juridique',
           country: 'Pays',
           city: 'Ville',
+          currency: 'Devise',
           timezone: 'Fuseau horaire',
           user_count: 'Utilisateurs',
           active: 'Statut',
           created_at: 'Créé le',
+        },
+        importWizardTarget: canUpdate ? 'entity' as never : undefined,
+        importTemplate: {
+          filename: 'modele_entites',
+          includeExamples: true,
+          columns: [
+            { key: 'code', label: 'Code', required: true, example: 'PER_CMR' },
+            { key: 'name', label: 'Raison sociale', required: true, example: 'Perenco Cameroun' },
+            { key: 'trade_name', label: 'Nom commercial', example: 'Perenco Cameroun S.A.' },
+            { key: 'country', label: 'Pays (ISO)', example: 'CM' },
+            { key: 'timezone', label: 'Fuseau horaire', example: 'Africa/Douala' },
+            { key: 'currency', label: 'Devise', example: 'XAF' },
+            { key: 'legal_form', label: 'Forme juridique', example: 'SA' },
+            { key: 'registration_number', label: 'N° RCCM', example: 'RC/DLA/2019/B/1234' },
+            { key: 'tax_id', label: 'Tax ID', example: 'M012345678901A' },
+          ],
         },
       } : undefined}
 

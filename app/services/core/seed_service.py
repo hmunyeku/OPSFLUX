@@ -885,6 +885,81 @@ async def seed_dictionary_entries(db: AsyncSession) -> None:
         ("country", "CO", "Colombie", 16),
         ("country", "GT", "Guatemala", 17),
         ("country", "AU", "Australie", 18),
+        # ── Airports (IATA codes — oil & gas hubs, Central/West Africa + global) ──
+        # Cameroon
+        ("airport", "DLA", "Douala — DLA (Cameroun)", 1),
+        ("airport", "NSI", "Yaoundé Nsimalen — NSI (Cameroun)", 2),
+        ("airport", "GOU", "Garoua — GOU (Cameroun)", 3),
+        ("airport", "MVR", "Maroua Salak — MVR (Cameroun)", 4),
+        # Gabon
+        ("airport", "LBV", "Libreville — LBV (Gabon)", 5),
+        ("airport", "POG", "Port-Gentil — POG (Gabon)", 6),
+        ("airport", "MVB", "Franceville — MVB (Gabon)", 7),
+        # Congo (RC)
+        ("airport", "BZV", "Brazzaville — BZV (Congo)", 8),
+        ("airport", "PNR", "Pointe-Noire — PNR (Congo)", 9),
+        # Congo (RDC)
+        ("airport", "FIH", "Kinshasa — FIH (RDC)", 10),
+        ("airport", "FBM", "Lubumbashi — FBM (RDC)", 11),
+        # Chad
+        ("airport", "NDJ", "N'Djamena — NDJ (Tchad)", 12),
+        # Equatorial Guinea
+        ("airport", "SSG", "Malabo — SSG (Guinée Eq.)", 13),
+        ("airport", "BSG", "Bata — BSG (Guinée Eq.)", 14),
+        # Angola
+        ("airport", "LAD", "Luanda — LAD (Angola)", 15),
+        ("airport", "CAB", "Cabinda — CAB (Angola)", 16),
+        ("airport", "SZA", "Soyo — SZA (Angola)", 17),
+        # Nigeria
+        ("airport", "LOS", "Lagos — LOS (Nigéria)", 18),
+        ("airport", "ABV", "Abuja — ABV (Nigéria)", 19),
+        ("airport", "PHC", "Port Harcourt — PHC (Nigéria)", 20),
+        ("airport", "QRW", "Warri — QRW (Nigéria)", 21),
+        # Senegal
+        ("airport", "DSS", "Dakar Blaise Diagne — DSS (Sénégal)", 22),
+        # Côte d'Ivoire
+        ("airport", "ABJ", "Abidjan — ABJ (Côte d'Ivoire)", 23),
+        # Ghana
+        ("airport", "ACC", "Accra — ACC (Ghana)", 24),
+        # Togo
+        ("airport", "LFW", "Lomé — LFW (Togo)", 25),
+        # Benin
+        ("airport", "COO", "Cotonou — COO (Bénin)", 26),
+        # São Tomé
+        ("airport", "TMS", "São Tomé — TMS (São Tomé)", 27),
+        # France
+        ("airport", "CDG", "Paris CDG — CDG (France)", 28),
+        ("airport", "ORY", "Paris Orly — ORY (France)", 29),
+        ("airport", "MRS", "Marseille — MRS (France)", 30),
+        ("airport", "LYS", "Lyon — LYS (France)", 31),
+        ("airport", "TLS", "Toulouse — TLS (France)", 32),
+        ("airport", "NCE", "Nice — NCE (France)", 33),
+        ("airport", "BOD", "Bordeaux — BOD (France)", 34),
+        # United Kingdom
+        ("airport", "LHR", "Londres Heathrow — LHR (UK)", 35),
+        ("airport", "LGW", "Londres Gatwick — LGW (UK)", 36),
+        ("airport", "ABZ", "Aberdeen — ABZ (UK)", 37),
+        ("airport", "EDI", "Édimbourg — EDI (UK)", 38),
+        # United States
+        ("airport", "JFK", "New York JFK — JFK (USA)", 39),
+        ("airport", "IAH", "Houston — IAH (USA)", 40),
+        ("airport", "EWR", "Newark — EWR (USA)", 41),
+        ("airport", "LAX", "Los Angeles — LAX (USA)", 42),
+        ("airport", "ATL", "Atlanta — ATL (USA)", 43),
+        # Middle East / Asia hubs
+        ("airport", "DXB", "Dubai — DXB (EAU)", 44),
+        ("airport", "AUH", "Abu Dhabi — AUH (EAU)", 45),
+        ("airport", "DOH", "Doha — DOH (Qatar)", 46),
+        ("airport", "SIN", "Singapore — SIN (Singapour)", 47),
+        ("airport", "KUL", "Kuala Lumpur — KUL (Malaisie)", 48),
+        # Other global hubs
+        ("airport", "AMS", "Amsterdam — AMS (Pays-Bas)", 49),
+        ("airport", "FRA", "Francfort — FRA (Allemagne)", 50),
+        ("airport", "IST", "Istanbul — IST (Turquie)", 51),
+        ("airport", "JNB", "Johannesburg — JNB (Afrique du Sud)", 52),
+        ("airport", "NBO", "Nairobi — NBO (Kenya)", 53),
+        ("airport", "ADD", "Addis-Abeba — ADD (Éthiopie)", 54),
+        ("airport", "CMN", "Casablanca — CMN (Maroc)", 55),
     ]
 
     # ── Nationality entries with country + nationality metadata columns ──

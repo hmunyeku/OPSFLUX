@@ -977,6 +977,41 @@ class Attachment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     uploader: Mapped["User"] = relationship(foreign_keys=[uploaded_by])
 
 
+# ─── Social Networks (polymorphic — links for any object) ──────────────────
+
+class SocialNetwork(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Polymorphic social network link — linked to any entity via owner_type + owner_id."""
+    __tablename__ = "social_networks"
+    __table_args__ = (
+        Index("idx_social_networks_owner", "owner_type", "owner_id"),
+    )
+
+    owner_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    owner_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    network: Mapped[str] = mapped_column(String(50), nullable=False)  # linkedin, twitter, facebook, instagram, youtube, website, other
+    url: Mapped[str] = mapped_column(String(500), nullable=False)
+    label: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    sort_order: Mapped[int] = mapped_column(default=0, server_default="0")
+
+
+# ─── Opening Hours (polymorphic — schedule for any object) ──────────────────
+
+class OpeningHour(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Polymorphic opening hours — linked to any entity via owner_type + owner_id."""
+    __tablename__ = "opening_hours"
+    __table_args__ = (
+        Index("idx_opening_hours_owner", "owner_type", "owner_id"),
+    )
+
+    owner_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    owner_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    day_of_week: Mapped[int] = mapped_column(nullable=False)  # 0=Monday, 6=Sunday
+    open_time: Mapped[str | None] = mapped_column(String(5), nullable=True)  # "08:00"
+    close_time: Mapped[str | None] = mapped_column(String(5), nullable=True)  # "17:00"
+    is_closed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    label: Mapped[str | None] = mapped_column(String(100), nullable=True)  # "Matin" for split hours
+
+
 # ─── Email Templates ───────────────────────────────────────────────────────
 
 class EmailTemplate(UUIDPrimaryKeyMixin, TimestampMixin, Base):

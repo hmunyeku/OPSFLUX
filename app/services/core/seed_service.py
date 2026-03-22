@@ -698,10 +698,7 @@ async def seed_reference_numbering(db: AsyncSession, entity_id) -> None:
     for prefix, template in numbering_defaults:
         setting_key = f"reference_template:{prefix}"
         result = await db.execute(
-            select(Setting).where(
-                Setting.key == setting_key,
-                Setting.scope_id == entity_id_str,
-            )
+            select(Setting).where(Setting.key == setting_key)
         )
         if result.scalar_one_or_none():
             continue

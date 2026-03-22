@@ -15,12 +15,14 @@ import {
   verificationService,
   ipLocationService,
   healthConditionsService,
+  legalIdentifiersService,
 } from '@/services/userSubModelsService'
 import type {
   UserPassportCreate, UserVisaCreate, EmergencyContactCreate,
   SocialSecurityCreate, UserVaccineCreate, UserLanguageCreate, DrivingLicenseCreate,
   UserSSOProviderCreate,
   MedicalCheckCreate,
+  LegalIdentifierCreate,
 } from '@/types/api'
 
 // Generic hook factory
@@ -222,5 +224,47 @@ export function useUserIPLocation(userId: string | undefined) {
     queryKey: ['user-ip-location', userId],
     queryFn: () => ipLocationService.getUserLocation(userId!),
     enabled: !!userId,
+  })
+}
+
+// ── Legal Identifiers (polymorphic) ────────────────────────
+export function useLegalIdentifiers(ownerType: string, ownerId: string | undefined) {
+  return useQuery({
+    queryKey: ['legal-identifiers', ownerType, ownerId],
+    queryFn: () => legalIdentifiersService.list(ownerType, ownerId!),
+    enabled: !!ownerId,
+  })
+}
+
+export function useCreateLegalIdentifier() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ ownerType, ownerId, payload }: { ownerType: string; ownerId: string; payload: LegalIdentifierCreate }) =>
+      legalIdentifiersService.create(ownerType, ownerId, payload),
+    onSuccess: (_, { ownerType, ownerId }) => {
+      qc.invalidateQueries({ queryKey: ['legal-identifiers', ownerType, ownerId] })
+    },
+  })
+}
+
+export function useUpdateLegalIdentifier() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (vars: { ownerType: string; ownerId: string; identId: string; payload: Partial<LegalIdentifierCreate> }) =>
+      legalIdentifiersService.update(vars.identId, vars.payload),
+    onSuccess: (_, { ownerType, ownerId }) => {
+      qc.invalidateQueries({ queryKey: ['legal-identifiers', ownerType, ownerId] })
+    },
+  })
+}
+
+export function useDeleteLegalIdentifier() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (vars: { ownerType: string; ownerId: string; identId: string }) =>
+      legalIdentifiersService.remove(vars.identId),
+    onSuccess: (_, { ownerType, ownerId }) => {
+      qc.invalidateQueries({ queryKey: ['legal-identifiers', ownerType, ownerId] })
+    },
   })
 }

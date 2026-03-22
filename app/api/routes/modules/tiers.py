@@ -14,13 +14,12 @@ from app.core.database import get_db
 from app.services.core.delete_service import delete_entity
 from app.core.pagination import PaginationParams, paginate
 from app.models.common import (
-    Address, ExternalReference, Tag, Tier, TierBlock, TierContact, TierIdentifier, User,
+    Address, ExternalReference, Tag, Tier, TierBlock, TierContact, User,
 )
 from app.schemas.common import (
     PaginatedResponse,
     TierCreate, TierRead, TierUpdate,
     TierContactCreate, TierContactRead, TierContactUpdate, TierContactWithTier,
-    TierIdentifierCreate, TierIdentifierRead, TierIdentifierUpdate,
     TierBlockCreate, TierBlockRead,
     ExternalReferenceCreate, ExternalReferenceRead,
 )
@@ -344,78 +343,8 @@ async def delete_tier_contact(
     return {"detail": "Contact deleted"}
 
 
-# ── Tier Identifiers CRUD ───────────────────────────────────────────────────
-
-
-@router.get("/{tier_id}/identifiers", response_model=list[TierIdentifierRead])
-async def list_tier_identifiers(
-    tier_id: UUID, entity_id: UUID = Depends(get_current_entity),
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    await _get_tier_or_404(db, tier_id, entity_id)
-    result = await db.execute(
-        select(TierIdentifier)
-        .where(TierIdentifier.tier_id == tier_id)
-        .order_by(TierIdentifier.type)
-    )
-    return result.scalars().all()
-
-
-@router.post("/{tier_id}/identifiers", response_model=TierIdentifierRead, status_code=201)
-async def create_tier_identifier(
-    tier_id: UUID, body: TierIdentifierCreate,
-    entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("tier.update"),
-    db: AsyncSession = Depends(get_db),
-):
-    tier = await _get_tier_or_404(db, tier_id, entity_id)
-    ident = TierIdentifier(tier_id=tier.id, **body.model_dump())
-    db.add(ident)
-    await db.commit()
-    await db.refresh(ident)
-    return ident
-
-
-@router.patch("/{tier_id}/identifiers/{ident_id}", response_model=TierIdentifierRead)
-async def update_tier_identifier(
-    tier_id: UUID, ident_id: UUID, body: TierIdentifierUpdate,
-    entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("tier.update"),
-    db: AsyncSession = Depends(get_db),
-):
-    await _get_tier_or_404(db, tier_id, entity_id)
-    result = await db.execute(
-        select(TierIdentifier).where(TierIdentifier.id == ident_id, TierIdentifier.tier_id == tier_id)
-    )
-    ident = result.scalar_one_or_none()
-    if not ident:
-        raise HTTPException(status_code=404, detail="Identifier not found")
-    for field, value in body.model_dump(exclude_unset=True).items():
-        setattr(ident, field, value)
-    await db.commit()
-    await db.refresh(ident)
-    return ident
-
-
-@router.delete("/{tier_id}/identifiers/{ident_id}")
-async def delete_tier_identifier(
-    tier_id: UUID, ident_id: UUID,
-    entity_id: UUID = Depends(get_current_entity),
-    current_user: User = Depends(get_current_user),
-    _: None = require_permission("tier.update"),
-    db: AsyncSession = Depends(get_db),
-):
-    await _get_tier_or_404(db, tier_id, entity_id)
-    result = await db.execute(
-        select(TierIdentifier).where(TierIdentifier.id == ident_id, TierIdentifier.tier_id == tier_id)
-    )
-    ident = result.scalar_one_or_none()
-    if not ident:
-        raise HTTPException(status_code=404, detail="Identifier not found")
-    await delete_entity(ident, db, "tier_identifier", entity_id=ident_id, user_id=current_user.id)
-    await db.commit()
-    return {"detail": "Identifier deleted"}
+# ── Tier Identifiers — now served by /api/v1/legal-identifiers/{owner_type}/{owner_id}
+# Old routes removed. Use LegalIdentifierManager with ownerType="tier".
 
 
 # ── Tier Blocks (blocking/unblocking) ────────────────────────────────────────

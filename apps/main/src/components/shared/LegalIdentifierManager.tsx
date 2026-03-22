@@ -1,107 +1,143 @@
 /**
- * TierIdentifierManager — Manages multiple legal/fiscal identifiers per company.
+ * LegalIdentifierManager — Polymorphic manager for legal/fiscal identifiers.
  *
- * Supports: SIRET, RCCM, NIU, TVA intracommunautaire, NIF, NINEA, etc.
- * Each identifier has: type, value, country, issued_at, expires_at.
+ * Uses dictionary-driven types (category=legal_identifier_type) with per-country metadata.
+ * Supports: entity, tier, user, or any owner_type.
  * Double-click to edit inline.
  *
  * Usage:
- *   <TierIdentifierManager tierId={tier.id} />
+ *   <LegalIdentifierManager ownerType="tier" ownerId={tier.id} country="CM" />
+ *   <LegalIdentifierManager ownerType="entity" ownerId={entity.id} />
  */
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { Plus, X, Loader2, FileText, Check } from 'lucide-react'
+import { Plus, X, Loader2, FileText, Check, AlertCircle } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import {
-  useTierIdentifiers, useCreateTierIdentifier,
-  useUpdateTierIdentifier, useDeleteTierIdentifier,
-} from '@/hooks/useTiers'
+  useLegalIdentifiers, useCreateLegalIdentifier,
+  useUpdateLegalIdentifier, useDeleteLegalIdentifier,
+} from '@/hooks/useUserSubModels'
+import { useDictionary, type DictionaryEntry } from '@/hooks/useDictionary'
 import { useToast } from '@/components/ui/Toast'
 import { panelInputClass } from '@/components/layout/DynamicPanel'
-import type { TierIdentifier } from '@/types/api'
+import type { LegalIdentifier } from '@/types/api'
 
-const IDENTIFIER_TYPES = [
-  { value: 'siret', label: 'SIRET' },
-  { value: 'siren', label: 'SIREN' },
-  { value: 'rccm', label: 'RCCM' },
-  { value: 'niu', label: 'NIU' },
-  { value: 'nif', label: 'NIF' },
-  { value: 'ninea', label: 'NINEA' },
-  { value: 'tva_intra', label: 'TVA Intracommunautaire' },
-  { value: 'cnps', label: 'CNPS' },
-  { value: 'patente', label: 'Patente' },
-  { value: 'other', label: 'Autre' },
-]
-
-interface TierIdentifierManagerProps {
-  tierId: string | undefined
+interface LegalIdentifierManagerProps {
+  ownerType: string
+  ownerId: string | undefined
+  /** Country code (ISO 2) to filter available identifier types */
+  country?: string | null
   compact?: boolean
 }
 
-export function TierIdentifierManager({ tierId, compact }: TierIdentifierManagerProps) {
+function useIdentifierTypes(country?: string | null) {
+  const { data: allTypes } = useDictionary('legal_identifier_type')
+
+  // Filter by country: show types for this country + generic (*) types
+  const types = (allTypes ?? []).filter((t) => {
+    const meta = t.metadata_json as { country?: string } | null
+    if (!meta?.country) return true
+    if (meta.country === '*') return true
+    if (!country) return true // no country filter → show all
+    return meta.country === country
+  })
+
+  return types
+}
+
+function getTypeLabel(types: DictionaryEntry[], code: string): string {
+  return types.find((t) => t.code === code)?.label ?? code
+}
+
+function isRequired(types: DictionaryEntry[], code: string): boolean {
+  const entry = types.find((t) => t.code === code)
+  const meta = entry?.metadata_json as { required?: boolean } | null
+  return meta?.required === true
+}
+
+export function LegalIdentifierManager({ ownerType, ownerId, country, compact }: LegalIdentifierManagerProps) {
   const { toast } = useToast()
-  const { data, isLoading } = useTierIdentifiers(tierId)
-  const createIdent = useCreateTierIdentifier()
-  const updateIdent = useUpdateTierIdentifier()
-  const deleteIdent = useDeleteTierIdentifier()
+  const { data, isLoading } = useLegalIdentifiers(ownerType, ownerId)
+  const createIdent = useCreateLegalIdentifier()
+  const updateIdent = useUpdateLegalIdentifier()
+  const deleteIdent = useDeleteLegalIdentifier()
+  const types = useIdentifierTypes(country)
 
   const [showForm, setShowForm] = useState(false)
-  const [type, setType] = useState('siret')
+  const [type, setType] = useState('')
   const [value, setValue] = useState('')
-  const [country, setCountry] = useState('')
+  const [identCountry, setIdentCountry] = useState('')
   const [issuedAt, setIssuedAt] = useState('')
   const [expiresAt, setExpiresAt] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
-  const identifiers: TierIdentifier[] = data ?? []
+  const identifiers: LegalIdentifier[] = data ?? []
+
+  // Set default type when types load
+  useEffect(() => {
+    if (types.length > 0 && !type) setType(types[0].code)
+  }, [types, type])
 
   const resetForm = useCallback(() => {
-    setType('siret')
+    setType(types.length > 0 ? types[0].code : '')
     setValue('')
-    setCountry('')
+    setIdentCountry('')
     setIssuedAt('')
     setExpiresAt('')
-  }, [])
+  }, [types])
 
   const handleCreate = useCallback(async () => {
-    if (!tierId || !value.trim()) return
+    if (!ownerId || !value.trim()) return
     try {
       await createIdent.mutateAsync({
-        tierId,
+        ownerType,
+        ownerId,
         payload: {
           type,
           value: value.trim(),
-          country: country.trim() || undefined,
+          country: identCountry.trim() || undefined,
           issued_at: issuedAt || undefined,
           expires_at: expiresAt || undefined,
         },
       })
       resetForm()
       setShowForm(false)
-      toast({ title: 'Identifiant ajoute', variant: 'success' })
+      toast({ title: 'Identifiant ajouté', variant: 'success' })
     } catch {
       toast({ title: 'Erreur', variant: 'error' })
     }
-  }, [tierId, type, value, country, issuedAt, expiresAt, createIdent, toast, resetForm])
+  }, [ownerId, ownerType, type, value, identCountry, issuedAt, expiresAt, createIdent, toast, resetForm])
 
   const handleDelete = useCallback(async (identId: string) => {
-    if (!tierId) return
+    if (!ownerId) return
     try {
-      await deleteIdent.mutateAsync({ tierId, identId })
+      await deleteIdent.mutateAsync({ ownerType, ownerId, identId })
       setConfirmDeleteId(null)
-      toast({ title: 'Identifiant supprime', variant: 'success' })
+      toast({ title: 'Identifiant supprimé', variant: 'success' })
     } catch {
       toast({ title: 'Erreur', variant: 'error' })
     }
-  }, [tierId, deleteIdent, toast])
+  }, [ownerId, ownerType, deleteIdent, toast])
 
-  if (!tierId) return null
+  if (!ownerId) return null
+
+  // Check for missing required identifiers
+  const existingTypes = new Set(identifiers.map((i) => i.type))
+  const missingRequired = types.filter((t) => isRequired(types, t.code) && !existingTypes.has(t.code))
 
   return (
     <div className="space-y-2">
       {isLoading && (
         <div className="flex items-center justify-center py-3">
           <Loader2 size={14} className="animate-spin text-muted-foreground" />
+        </div>
+      )}
+
+      {/* Missing required identifiers warning */}
+      {!isLoading && missingRequired.length > 0 && (
+        <div className="flex items-start gap-1.5 text-[10px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded px-2 py-1.5">
+          <AlertCircle size={10} className="shrink-0 mt-0.5" />
+          <span>Obligatoire : {missingRequired.map((t) => t.label).join(', ')}</span>
         </div>
       )}
 
@@ -113,12 +149,14 @@ export function TierIdentifierManager({ tierId, compact }: TierIdentifierManager
                 <InlineIdentifierEditor
                   key={ident.id}
                   identifier={ident}
-                  tierId={tierId}
+                  ownerType={ownerType}
+                  ownerId={ownerId}
+                  types={types}
                   onSave={async (updates) => {
                     try {
-                      await updateIdent.mutateAsync({ tierId, identId: ident.id, payload: updates })
+                      await updateIdent.mutateAsync({ ownerType, ownerId, identId: ident.id, payload: updates })
                       setEditingId(null)
-                      toast({ title: 'Identifiant modifie', variant: 'success' })
+                      toast({ title: 'Identifiant modifié', variant: 'success' })
                     } catch {
                       toast({ title: 'Erreur', variant: 'error' })
                     }
@@ -129,7 +167,8 @@ export function TierIdentifierManager({ tierId, compact }: TierIdentifierManager
               )
             }
 
-            const typeLabel = IDENTIFIER_TYPES.find((t) => t.value === ident.type)?.label ?? ident.type
+            const typeLabel = getTypeLabel(types, ident.type)
+            const required = isRequired(types, ident.type)
             const isConfirming = confirmDeleteId === ident.id
 
             return (
@@ -142,6 +181,7 @@ export function TierIdentifierManager({ tierId, compact }: TierIdentifierManager
                 <FileText size={12} className="text-muted-foreground shrink-0" />
                 <span className="text-[10px] font-semibold text-muted-foreground uppercase min-w-[60px] shrink-0">
                   {typeLabel}
+                  {required && <span className="text-amber-500 ml-0.5">*</span>}
                 </span>
                 <span className="text-foreground font-mono text-xs truncate">
                   {ident.value}
@@ -175,7 +215,7 @@ export function TierIdentifierManager({ tierId, compact }: TierIdentifierManager
       )}
 
       {!isLoading && !showForm && identifiers.length === 0 && !compact && (
-        <EmptyState icon={FileText} title="Aucun identifiant legal" size="compact" />
+        <EmptyState icon={FileText} title="Aucun identifiant légal" size="compact" />
       )}
 
       {!showForm && (
@@ -195,7 +235,11 @@ export function TierIdentifierManager({ tierId, compact }: TierIdentifierManager
               value={type}
               onChange={(e) => setType(e.target.value)}
             >
-              {IDENTIFIER_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              {types.map((t) => (
+                <option key={t.code} value={t.code}>
+                  {t.label}{isRequired(types, t.code) ? ' *' : ''}
+                </option>
+              ))}
             </select>
             <input
               type="text"
@@ -212,13 +256,13 @@ export function TierIdentifierManager({ tierId, compact }: TierIdentifierManager
               type="text"
               className={`${panelInputClass} flex-1`}
               placeholder="Pays (optionnel)"
-              value={country}
-              onChange={(e) => setCountry(e.target.value)}
+              value={identCountry}
+              onChange={(e) => setIdentCountry(e.target.value)}
             />
             <input
               type="text"
               className={`${panelInputClass} flex-1`}
-              placeholder="Date emission (YYYY-MM-DD)"
+              placeholder="Date émission (YYYY-MM-DD)"
               value={issuedAt}
               onChange={(e) => setIssuedAt(e.target.value)}
             />
@@ -244,13 +288,17 @@ export function TierIdentifierManager({ tierId, compact }: TierIdentifierManager
 
 function InlineIdentifierEditor({
   identifier,
-  tierId: _tierId,
+  ownerType: _ownerType,
+  ownerId: _ownerId,
+  types,
   onSave,
   onCancel,
   isSaving,
 }: {
-  identifier: TierIdentifier
-  tierId: string
+  identifier: LegalIdentifier
+  ownerType: string
+  ownerId: string
+  types: DictionaryEntry[]
   onSave: (updates: { type?: string; value?: string; country?: string | null; issued_at?: string | null; expires_at?: string | null }) => Promise<void>
   onCancel: () => void
   isSaving: boolean
@@ -279,7 +327,7 @@ function InlineIdentifierEditor({
     <div className="p-2 rounded-lg border border-primary/30 bg-card space-y-1.5">
       <div className="flex items-center gap-1.5">
         <select value={editType} onChange={(e) => setEditType(e.target.value)} className="text-[10px] px-1 py-0.5 rounded border border-border/60 bg-card">
-          {IDENTIFIER_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+          {types.map((t) => <option key={t.code} value={t.code}>{t.label}</option>)}
         </select>
         <input
           ref={inputRef}
@@ -304,7 +352,7 @@ function InlineIdentifierEditor({
           value={editIssued}
           onChange={(e) => setEditIssued(e.target.value)}
           className="flex-1 px-1 py-0.5 text-[10px] rounded border border-border/60 bg-card focus:outline-none"
-          placeholder="Emission"
+          placeholder="Émission"
         />
         <input
           type="text"

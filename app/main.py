@@ -72,6 +72,7 @@ from app.api.routes.core.user_driving_licenses import router as user_driving_lic
 from app.api.routes.core.user_sso import router as user_sso_router
 from app.api.routes.core.user_health_conditions import router as user_health_conditions_router
 from app.api.routes.core.medical_checks import router as medical_checks_router
+from app.api.routes.core.legal_identifiers import router as legal_identifiers_router
 from app.api.routes.core.integrations import router as integrations_router
 from app.api.routes.core.gouti_sync import router as gouti_sync_router
 from app.api.routes.core.references import router as references_router
@@ -229,6 +230,7 @@ app.include_router(user_driving_licenses_router)
 app.include_router(user_sso_router)
 app.include_router(user_health_conditions_router)
 app.include_router(medical_checks_router)
+app.include_router(legal_identifiers_router)
 app.include_router(integrations_router)
 app.include_router(gouti_sync_router)
 app.include_router(ws_notifications_router)

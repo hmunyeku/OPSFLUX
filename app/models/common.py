@@ -509,7 +509,6 @@ class Tier(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     scope: Mapped[str] = mapped_column(String(20), default="local", nullable=False)  # 'local' or 'international'
 
     contacts: Mapped[list["TierContact"]] = relationship(back_populates="tier")
-    identifiers: Mapped[list["TierIdentifier"]] = relationship(back_populates="tier")
 
 
 class TierContact(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -546,26 +545,28 @@ class TierContact(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     job_position: Mapped["JobPosition | None"] = relationship(foreign_keys=[job_position_id])
 
 
-class TierIdentifier(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """Legal / fiscal identifier for a company (multiple per tier).
+class LegalIdentifier(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Legal / fiscal identifier — polymorphic (entity, tier, user, etc.).
 
-    Examples: SIRET, RCCM, NIU, TVA intracommunautaire, NIF, etc.
+    Examples: SIRET, RCCM, NIU, TVA intracommunautaire, NIF, tax_id, etc.
+    Types are dictionary-driven (category=legal_identifier_type) with per-country metadata.
     """
-    __tablename__ = "tier_identifiers"
+    __tablename__ = "legal_identifiers"
     __table_args__ = (
-        Index("idx_tier_identifiers_tier", "tier_id"),
+        Index("idx_legal_identifiers_owner", "owner_type", "owner_id"),
     )
 
-    tier_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tiers.id"), nullable=False
-    )
+    owner_type: Mapped[str] = mapped_column(String(50), nullable=False)  # entity, tier, user
+    owner_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     type: Mapped[str] = mapped_column(String(50), nullable=False)  # siret, rccm, niu, tva, nif, ...
     value: Mapped[str] = mapped_column(String(200), nullable=False)
     country: Mapped[str | None] = mapped_column(String(100))
     issued_at: Mapped[str | None] = mapped_column(String(20))  # ISO date string
     expires_at: Mapped[str | None] = mapped_column(String(20))
 
-    tier: Mapped["Tier"] = relationship(back_populates="identifiers")
+
+# Keep backward-compatible alias
+TierIdentifier = LegalIdentifier
 
 
 # ─── Tier Blocks (blocking/unblocking history) ──────────────────────────────

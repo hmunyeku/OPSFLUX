@@ -5,7 +5,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { tiersService } from '@/services/tiersService'
 import type {
   TierCreate, TierContactCreate, TierContactUpdate,
-  TierIdentifierCreate, TierIdentifierUpdate,
   TierBlockCreate, ExternalReferenceCreate,
 } from '@/types/api'
 
@@ -125,48 +124,7 @@ export function useAllTierContacts(params: { page?: number; page_size?: number; 
   })
 }
 
-// ── Identifiers (legal/fiscal IDs) ──
-
-export function useTierIdentifiers(tierId: string | undefined) {
-  return useQuery({
-    queryKey: ['tier-identifiers', tierId],
-    queryFn: () => tiersService.listIdentifiers(tierId!),
-    enabled: !!tierId,
-  })
-}
-
-export function useCreateTierIdentifier() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ tierId, payload }: { tierId: string; payload: TierIdentifierCreate }) =>
-      tiersService.createIdentifier(tierId, payload),
-    onSuccess: (_, { tierId }) => {
-      qc.invalidateQueries({ queryKey: ['tier-identifiers', tierId] })
-    },
-  })
-}
-
-export function useUpdateTierIdentifier() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ tierId, identId, payload }: { tierId: string; identId: string; payload: TierIdentifierUpdate }) =>
-      tiersService.updateIdentifier(tierId, identId, payload),
-    onSuccess: (_, { tierId }) => {
-      qc.invalidateQueries({ queryKey: ['tier-identifiers', tierId] })
-    },
-  })
-}
-
-export function useDeleteTierIdentifier() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ tierId, identId }: { tierId: string; identId: string }) =>
-      tiersService.deleteIdentifier(tierId, identId),
-    onSuccess: (_, { tierId }) => {
-      qc.invalidateQueries({ queryKey: ['tier-identifiers', tierId] })
-    },
-  })
-}
+// ── Identifiers — now in useUserSubModels.ts (useLegalIdentifiers, polymorphic) ──
 
 // ── Blocks (blocking/unblocking) ──
 

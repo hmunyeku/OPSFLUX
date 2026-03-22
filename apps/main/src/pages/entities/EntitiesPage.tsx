@@ -74,6 +74,8 @@ import { NoteManager } from '@/components/shared/NoteManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { SocialNetworkManager } from '@/components/shared/SocialNetworkManager'
 import { OpeningHoursManager } from '@/components/shared/OpeningHoursManager'
+import { LegalIdentifierManager } from '@/components/shared/LegalIdentifierManager'
+import { EntityIcon } from '@/components/shared/EntityIcon'
 
 // ── Constants ──────────────────────────────────────────────────
 
@@ -170,10 +172,13 @@ const entityColumns: ColumnDef<EntityRead, unknown>[] = [
   {
     accessorKey: 'name',
     header: 'Nom',
-    cell: ({ getValue }) => (
-      <span className="font-medium text-foreground truncate max-w-[300px] block">
-        {getValue() as string}
-      </span>
+    cell: ({ row }) => (
+      <div className="flex items-center gap-2">
+        <EntityIcon logoUrl={row.original.logo_url} country={row.original.country} size={16} />
+        <span className="font-medium text-foreground truncate max-w-[280px]">
+          {row.original.name}
+        </span>
+      </div>
     ),
   },
   {
@@ -425,17 +430,6 @@ function CreateEntityPanel() {
             </DynamicPanelField>
           </FormGrid>
           <FormGrid>
-            <DynamicPanelField label="N° RCCM / Immatriculation">
-              <input type="text" value={form.registration_number || ''} onChange={(e) => set({ registration_number: e.target.value || null })} className={panelInputClass} />
-            </DynamicPanelField>
-            <DynamicPanelField label="N° Contribuable / Tax ID">
-              <input type="text" value={form.tax_id || ''} onChange={(e) => set({ tax_id: e.target.value || null })} className={panelInputClass} />
-            </DynamicPanelField>
-          </FormGrid>
-          <FormGrid>
-            <DynamicPanelField label="N° TVA">
-              <input type="text" value={form.vat_number || ''} onChange={(e) => set({ vat_number: e.target.value || null })} className={panelInputClass} />
-            </DynamicPanelField>
             <DynamicPanelField label="Capital social">
               <input type="number" value={form.capital ?? ''} onChange={(e) => set({ capital: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
             </DynamicPanelField>
@@ -721,10 +715,10 @@ function EntityDetailPanel({ id }: { id: string }) {
             <div className="@container space-y-5">
               <FormSection title="Juridique">
                 <InlineEditableTags label="Forme juridique" value={entity.legal_form || ''} options={legalFormOpts} onSave={(v) => save('legal_form', v || null)} disabled={!canUpdate} />
-                <InlineEditableRow label="N° RCCM" value={entity.registration_number || ''} onSave={(v) => save('registration_number', v || null)} disabled={!canUpdate} />
-                <InlineEditableRow label="Tax ID" value={entity.tax_id || ''} onSave={(v) => save('tax_id', v || null)} disabled={!canUpdate} />
-                <InlineEditableRow label="N° TVA" value={entity.vat_number || ''} onSave={(v) => save('vat_number', v || null)} disabled={!canUpdate} />
                 <InlineEditableRow label="Capital" value={entity.capital != null ? String(entity.capital) : ''} onSave={(v) => save('capital', v ? Number(v) : null)} disabled={!canUpdate} />
+                <div className="mt-2">
+                  <LegalIdentifierManager ownerType="entity" ownerId={id} country={entity.country} compact />
+                </div>
               </FormSection>
 
               <FormSection title="Configuration">

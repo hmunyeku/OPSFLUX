@@ -7,10 +7,11 @@
  * - "Toutes les entités" option if user has core.multi_entity permission
  */
 import { useState, useRef, useEffect } from 'react'
-import { Building2, ChevronDown, Check, Search } from 'lucide-react'
+import { ChevronDown, Check, Search } from 'lucide-react'
 import { useMyEntities, useSwitchEntity } from '@/hooks/useEntities'
 import { useAuthStore } from '@/stores/authStore'
 import { cn } from '@/lib/utils'
+import { EntityIcon } from '@/components/shared/EntityIcon'
 
 export function EntitySwitcher() {
   const { data: entities, isLoading } = useMyEntities()
@@ -44,7 +45,7 @@ export function EntitySwitcher() {
   if (isLoading) {
     return (
       <div className="flex items-center gap-1 text-xs text-muted-foreground px-1.5">
-        <Building2 size={12} />
+        <EntityIcon size={12} />
         <span className="animate-pulse">…</span>
       </div>
     )
@@ -55,8 +56,8 @@ export function EntitySwitcher() {
   // Single entity — just show the name
   if (entities.length === 1) {
     return (
-      <div className="flex items-center gap-1 text-xs text-muted-foreground px-1.5" title={entities[0].name}>
-        <Building2 size={12} className="shrink-0" />
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground px-1.5" title={entities[0].name}>
+        <EntityIcon logoUrl={entities[0].logo_url} country={entities[0].country} size={14} />
         <span className="truncate max-w-[120px]">{entities[0].code}</span>
       </div>
     )
@@ -96,7 +97,7 @@ export function EntitySwitcher() {
         )}
         title={currentEntity?.name ?? 'Switch entity'}
       >
-        <Building2 size={12} className="shrink-0" />
+        <EntityIcon logoUrl={currentEntity?.logo_url} country={currentEntity?.country} size={14} />
         <span className="truncate max-w-[120px]">{currentEntity?.code ?? '—'}</span>
         <ChevronDown size={10} className={cn('transition-transform', open && 'rotate-180')} />
       </button>
@@ -134,7 +135,7 @@ export function EntitySwitcher() {
                   entity.id === currentEntityId && 'bg-primary/[0.08] font-medium',
                 )}
               >
-                <Building2 size={12} className="shrink-0 text-muted-foreground" />
+                <EntityIcon logoUrl={entity.logo_url} country={entity.country} size={16} />
                 <div className="flex-1 min-w-0">
                   <div className="truncate font-medium">{entity.name}</div>
                   <div className="truncate text-muted-foreground">{entity.code}{entity.country ? ` · ${entity.country}` : ''}</div>

@@ -52,7 +52,7 @@ import { NoteManager } from '@/components/shared/NoteManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { PhoneManager } from '@/components/shared/PhoneManager'
 import { ContactEmailManager } from '@/components/shared/ContactEmailManager'
-import { TierIdentifierManager } from '@/components/shared/TierIdentifierManager'
+import { LegalIdentifierManager } from '@/components/shared/LegalIdentifierManager'
 import { ComplianceRecordManager } from '@/components/shared/ComplianceRecordManager'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { useUIStore } from '@/stores/uiStore'
@@ -61,11 +61,12 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import {
   useTiers, useCreateTier, useUpdateTier, useArchiveTier,
   useTierContacts, useCreateTierContact, useUpdateTierContact,
-  useDeleteTierContact, useTierIdentifiers, useAllTierContacts,
+  useDeleteTierContact, useAllTierContacts,
   useTierBlocks, useBlockTier, useUnblockTier,
   useTierExternalRefs, useCreateTierExternalRef, useDeleteTierExternalRef,
 } from '@/hooks/useTiers'
 import { useAddresses, useNotes, useAttachments, usePhones, useContactEmails } from '@/hooks/useSettings'
+import { useLegalIdentifiers } from '@/hooks/useUserSubModels'
 import { useProjects } from '@/hooks/useProjets'
 import { useToast } from '@/components/ui/Toast'
 import type { Tier, TierCreate, TierContact, TierContactCreate, TierContactUpdate, TierContactWithTier } from '@/types/api'
@@ -279,7 +280,7 @@ function TierDetailPanel({ id }: { id: string }) {
   const { data: addresses } = useAddresses('tier', tier?.id)
   const { data: notes } = useNotes('tier', tier?.id)
   const { data: attachments } = useAttachments('tier', tier?.id)
-  const { data: identifiers } = useTierIdentifiers(tier?.id)
+  const { data: identifiers } = useLegalIdentifiers('tier', tier?.id)
 
   // Contacts (employees)
   const { data: contacts, isLoading: contactsLoading } = useTierContacts(tier?.id)
@@ -418,8 +419,8 @@ function TierDetailPanel({ id }: { id: string }) {
               </DetailFieldGrid>
 
               <div className="border-t border-border/40 pt-3 mt-3">
-                <SubSectionLabel icon={FileText} label="Identifiants legaux" count={identifiers?.length ?? 0} />
-                <TierIdentifierManager tierId={tier.id} compact />
+                <SubSectionLabel icon={FileText} label="Identifiants légaux" count={identifiers?.length ?? 0} />
+                <LegalIdentifierManager ownerType="tier" ownerId={tier.id} compact />
               </div>
             </FormSection>
 

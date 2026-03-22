@@ -10,6 +10,7 @@ export interface EntityBrief {
   name: string
   country: string | null
   timezone: string
+  logo_url: string | null
 }
 
 export interface EntityRead {

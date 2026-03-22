@@ -5,7 +5,6 @@ import api from '@/lib/api'
 import type {
   Tier, TierCreate,
   TierContact, TierContactCreate, TierContactUpdate, TierContactWithTier,
-  TierIdentifier, TierIdentifierCreate, TierIdentifierUpdate,
   TierBlock, TierBlockCreate,
   ExternalReference, ExternalReferenceCreate,
   SapImportResult,
@@ -80,25 +79,7 @@ export const tiersService = {
     return data
   },
 
-  // ── Identifiers (legal/fiscal IDs) ──
-  listIdentifiers: async (tierId: string): Promise<TierIdentifier[]> => {
-    const { data } = await api.get(`/api/v1/tiers/${tierId}/identifiers`)
-    return data
-  },
-
-  createIdentifier: async (tierId: string, payload: TierIdentifierCreate): Promise<TierIdentifier> => {
-    const { data } = await api.post(`/api/v1/tiers/${tierId}/identifiers`, payload)
-    return data
-  },
-
-  updateIdentifier: async (tierId: string, identId: string, payload: TierIdentifierUpdate): Promise<TierIdentifier> => {
-    const { data } = await api.patch(`/api/v1/tiers/${tierId}/identifiers/${identId}`, payload)
-    return data
-  },
-
-  deleteIdentifier: async (tierId: string, identId: string): Promise<void> => {
-    await api.delete(`/api/v1/tiers/${tierId}/identifiers/${identId}`)
-  },
+  // ── Identifiers — now served by legalIdentifiersService (polymorphic) ──
 
   // ── Blocks (blocking/unblocking) ──
   listBlocks: async (tierId: string): Promise<TierBlock[]> => {

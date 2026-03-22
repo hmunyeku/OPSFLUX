@@ -139,10 +139,11 @@ export interface TierContactUpdate {
   active?: boolean
 }
 
-// ── Tier Identifiers (Legal/Fiscal IDs) ─────────────────────
-export interface TierIdentifier {
+// ── Legal Identifiers (polymorphic) ──────────────────────────
+export interface LegalIdentifier {
   id: string
-  tier_id: string
+  owner_type: string
+  owner_id: string
   type: string
   value: string
   country: string | null
@@ -151,7 +152,7 @@ export interface TierIdentifier {
   created_at: string
 }
 
-export interface TierIdentifierCreate {
+export interface LegalIdentifierCreate {
   type: string
   value: string
   country?: string | null
@@ -159,13 +160,20 @@ export interface TierIdentifierCreate {
   expires_at?: string | null
 }
 
-export interface TierIdentifierUpdate {
+export interface LegalIdentifierUpdate {
   type?: string
   value?: string
   country?: string | null
   issued_at?: string | null
   expires_at?: string | null
 }
+
+/** @deprecated Use LegalIdentifier */
+export type TierIdentifier = LegalIdentifier
+/** @deprecated Use LegalIdentifierCreate */
+export type TierIdentifierCreate = LegalIdentifierCreate
+/** @deprecated Use LegalIdentifierUpdate */
+export type TierIdentifierUpdate = LegalIdentifierUpdate
 
 // ── Tier Blocks (Blocking/Unblocking) ───────────────────────
 export interface TierBlock {

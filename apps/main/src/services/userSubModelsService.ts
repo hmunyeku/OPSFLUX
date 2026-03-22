@@ -61,6 +61,27 @@ export const medicalChecksService = {
 }
 export const ssoProvidersService = crudService<UserSSOProviderRead, UserSSOProviderCreate>('sso-providers')
 
+// Legal identifiers — polymorphic (uses /api/v1/legal-identifiers/{owner_type}/{owner_id})
+import type { LegalIdentifier, LegalIdentifierCreate } from '@/types/api'
+
+export const legalIdentifiersService = {
+  list: async (ownerType: string, ownerId: string): Promise<LegalIdentifier[]> => {
+    const { data } = await api.get(`/api/v1/legal-identifiers/${ownerType}/${ownerId}`)
+    return data
+  },
+  create: async (ownerType: string, ownerId: string, payload: LegalIdentifierCreate): Promise<LegalIdentifier> => {
+    const { data } = await api.post(`/api/v1/legal-identifiers/${ownerType}/${ownerId}`, payload)
+    return data
+  },
+  update: async (identId: string, payload: Partial<LegalIdentifierCreate>): Promise<LegalIdentifier> => {
+    const { data } = await api.patch(`/api/v1/legal-identifiers/${identId}`, payload)
+    return data
+  },
+  remove: async (identId: string): Promise<void> => {
+    await api.delete(`/api/v1/legal-identifiers/${identId}`)
+  },
+}
+
 // Phone/Email verification
 export const verificationService = {
   sendPhoneVerification: async (phoneId: string): Promise<{ message: string; debug_code?: string }> => {

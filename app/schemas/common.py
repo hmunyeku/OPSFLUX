@@ -433,11 +433,12 @@ class TierContactUpdate(BaseModel):
     active: bool | None = None
 
 
-# ─── TierIdentifier schemas ────────────────────────────────────────────────
+# ─── LegalIdentifier schemas (polymorphic) ─────────────────────────────────
 
-class TierIdentifierRead(OpsFluxSchema):
+class LegalIdentifierRead(OpsFluxSchema):
     id: UUID
-    tier_id: UUID
+    owner_type: str
+    owner_id: UUID
     type: str
     value: str
     country: str | None = None
@@ -446,7 +447,7 @@ class TierIdentifierRead(OpsFluxSchema):
     created_at: datetime
 
 
-class TierIdentifierCreate(BaseModel):
+class LegalIdentifierCreate(BaseModel):
     type: str = Field(..., min_length=1, max_length=50)
     value: str = Field(..., min_length=1, max_length=200)
     country: str | None = None
@@ -454,12 +455,18 @@ class TierIdentifierCreate(BaseModel):
     expires_at: str | None = None
 
 
-class TierIdentifierUpdate(BaseModel):
+class LegalIdentifierUpdate(BaseModel):
     type: str | None = None
     value: str | None = None
     country: str | None = None
     issued_at: str | None = None
     expires_at: str | None = None
+
+
+# Backward-compatible aliases
+TierIdentifierRead = LegalIdentifierRead
+TierIdentifierCreate = LegalIdentifierCreate
+TierIdentifierUpdate = LegalIdentifierUpdate
 
 
 # ─── TierBlock schemas ────────────────────────────────────────────────────

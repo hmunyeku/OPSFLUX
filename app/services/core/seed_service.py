@@ -864,6 +864,7 @@ async def seed_dictionary_entries(db: AsyncSession) -> None:
         ("industry", "public", "Secteur public", 13),
         ("industry", "other", "Autre", 14),
         # ── Countries (ISO 3166-1 alpha-2) ──
+        # NOTE: legal_identifier_type entries are seeded separately below (with metadata_json)
         ("country", "CM", "Cameroun", 1),
         ("country", "CG", "Congo (RC)", 2),
         ("country", "CD", "Congo (RDC)", 3),
@@ -1061,6 +1062,52 @@ async def seed_dictionary_entries(db: AsyncSession) -> None:
             sort_order=sort_order,
             active=True,
             metadata_json=expected_meta,
+        ))
+        created += 1
+
+    # ── Legal identifier types (with country + required metadata) ──
+    legal_ident_entries = [
+        # Cameroon (CM)
+        ("legal_identifier_type", "rccm", "RCCM", 1, {"country": "CM", "required": True}),
+        ("legal_identifier_type", "niu", "NIU", 2, {"country": "CM", "required": True}),
+        ("legal_identifier_type", "cnps", "CNPS", 3, {"country": "CM", "required": False}),
+        ("legal_identifier_type", "patente", "Patente", 4, {"country": "CM", "required": False}),
+        # France (FR)
+        ("legal_identifier_type", "siret", "SIRET", 10, {"country": "FR", "required": True}),
+        ("legal_identifier_type", "siren", "SIREN", 11, {"country": "FR", "required": True}),
+        ("legal_identifier_type", "tva_intra", "TVA Intracommunautaire", 12, {"country": "FR", "required": False}),
+        ("legal_identifier_type", "naf", "Code NAF", 13, {"country": "FR", "required": False}),
+        # Gabon (GA)
+        ("legal_identifier_type", "nif_ga", "NIF", 20, {"country": "GA", "required": True}),
+        ("legal_identifier_type", "rccm_ga", "RCCM", 21, {"country": "GA", "required": True}),
+        # Congo (CG)
+        ("legal_identifier_type", "rccm_cg", "RCCM", 30, {"country": "CG", "required": True}),
+        ("legal_identifier_type", "nif_cg", "NIF", 31, {"country": "CG", "required": True}),
+        # Senegal (SN)
+        ("legal_identifier_type", "ninea", "NINEA", 40, {"country": "SN", "required": True}),
+        ("legal_identifier_type", "rccm_sn", "RCCM", 41, {"country": "SN", "required": True}),
+        # International / generic
+        ("legal_identifier_type", "tax_id", "Tax ID", 90, {"country": "*", "required": False}),
+        ("legal_identifier_type", "vat_number", "VAT Number", 91, {"country": "*", "required": False}),
+        ("legal_identifier_type", "registration_number", "N° Immatriculation", 92, {"country": "*", "required": False}),
+        ("legal_identifier_type", "other", "Autre", 99, {"country": "*", "required": False}),
+    ]
+    for category, code, label, sort_order, meta in legal_ident_entries:
+        existing = await db.execute(
+            select(DictionaryEntry).where(
+                DictionaryEntry.category == category,
+                DictionaryEntry.code == code,
+            )
+        )
+        if existing.scalar_one_or_none():
+            continue
+        db.add(DictionaryEntry(
+            category=category,
+            code=code,
+            label=label,
+            sort_order=sort_order,
+            active=True,
+            metadata_json=meta,
         ))
         created += 1
 

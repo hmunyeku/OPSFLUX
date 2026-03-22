@@ -87,6 +87,7 @@ class EntityBrief(BaseModel):
     name: str
     country: str | None = None
     timezone: str
+    logo_url: str | None = None
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -511,7 +512,7 @@ async def get_my_entities(
         if default_entity:
             entities.insert(0, default_entity)
 
-    return [EntityBrief(id=e.id, code=e.code, name=e.name, country=e.country, timezone=e.timezone) for e in entities]
+    return [EntityBrief(id=e.id, code=e.code, name=e.name, country=e.country, timezone=e.timezone, logo_url=e.logo_url) for e in entities]
 
 
 class EntitySwitch(BaseModel):

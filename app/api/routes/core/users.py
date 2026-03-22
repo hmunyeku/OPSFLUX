@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.database import get_db
@@ -41,7 +42,7 @@ async def list_users(
     db: AsyncSession = Depends(get_db),
 ):
     """List users with pagination and optional search/filters."""
-    query = select(User)
+    query = select(User).options(selectinload(User.job_position))
     if active is not None:
         query = query.where(User.active == active)
     if user_type is not None:
@@ -329,7 +330,9 @@ async def get_user(
     db: AsyncSession = Depends(get_db),
 ):
     """Get user by ID."""
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await db.execute(
+        select(User).options(selectinload(User.job_position)).where(User.id == user_id)
+    )
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -344,7 +347,9 @@ async def update_user(
     db: AsyncSession = Depends(get_db),
 ):
     """Update user details."""
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await db.execute(
+        select(User).options(selectinload(User.job_position)).where(User.id == user_id)
+    )
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

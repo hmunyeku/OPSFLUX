@@ -45,6 +45,9 @@ interface User {
   retirement_date: string | null
   vantage_number: string | null
   extension_number: string | null
+  // Job position (conformité)
+  job_position_id: string | null
+  job_position_name: string | null
 }
 
 /** Custom error thrown when MFA is required after password step. */

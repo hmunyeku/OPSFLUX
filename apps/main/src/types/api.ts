@@ -276,6 +276,9 @@ export interface UserRead {
   extension_number: string | null
   // Classification
   user_type: string
+  // Job position (conformité)
+  job_position_id: string | null
+  job_position_name: string | null
   // Timestamps
   last_login_at: string | null
   created_at: string
@@ -298,6 +301,7 @@ export interface UserCreate {
   birth_country?: string | null
   birth_date?: string | null
   birth_city?: string | null
+  job_position_id?: string | null
 }
 
 export interface UserUpdate extends Partial<UserCreate> {
@@ -567,6 +571,8 @@ export interface ProfileUpdate {
   retirement_date?: string | null
   vantage_number?: string | null
   extension_number?: string | null
+  // Job position (conformité)
+  job_position_id?: string | null
 }
 
 export interface ChangePasswordRequest {

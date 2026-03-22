@@ -116,6 +116,9 @@ class UserRead(OpsFluxSchema):
     extension_number: str | None = None
     # Classification
     user_type: str = "internal"
+    # Job position (conformité)
+    job_position_id: UUID | None = None
+    job_position_name: str | None = None
     # Timestamps
     last_login_at: datetime | None
     created_at: datetime
@@ -138,6 +141,7 @@ class UserCreate(BaseModel):
     birth_country: str | None = None
     birth_date: date | None = None
     birth_city: str | None = None
+    job_position_id: UUID | None = None
 
 
 class UserUpdate(BaseModel):
@@ -176,6 +180,8 @@ class UserUpdate(BaseModel):
     retirement_date: date | None = None
     vantage_number: str | None = None
     extension_number: str | None = None
+    # Job position (conformité)
+    job_position_id: UUID | None = None
 
 
 # ─── Entity schemas ──────────────────────────────────────────────────────────
@@ -942,6 +948,8 @@ class ProfileUpdate(BaseModel):
     retirement_date: date | None = None
     vantage_number: str | None = None
     extension_number: str | None = None
+    # Job position (conformité)
+    job_position_id: UUID | None = None
 
 
 class ChangePasswordRequest(BaseModel):

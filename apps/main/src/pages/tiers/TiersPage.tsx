@@ -53,7 +53,7 @@ import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { PhoneManager } from '@/components/shared/PhoneManager'
 import { ContactEmailManager } from '@/components/shared/ContactEmailManager'
 import { LegalIdentifierManager } from '@/components/shared/LegalIdentifierManager'
-import { ComplianceRecordManager } from '@/components/shared/ComplianceRecordManager'
+import { ReferentielManager } from '@/components/shared/ReferentielManager'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { useUIStore } from '@/stores/uiStore'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
@@ -631,7 +631,7 @@ function TierDetailPanel({ id }: { id: string }) {
 
         {/* Conformite */}
         <FormSection title="Conformite" collapsible defaultExpanded={false} storageKey="tier-detail-conformite">
-          <ComplianceRecordManager ownerType="tier" ownerId={tier.id} compact />
+          <ReferentielManager ownerType="tier" ownerId={tier.id} compact />
         </FormSection>
 
         {/* Projets liés */}
@@ -1102,9 +1102,9 @@ function ContactDetailPanel({
           </div>
         </SectionColumns>
 
-        {/* Conformite — HSE compliance per employee */}
-        <FormSection title="Conformite" collapsible defaultExpanded={false} storageKey="contact-detail-conformite">
-          <ComplianceRecordManager ownerType="tier_contact" ownerId={contact.id} compact />
+        {/* Référentiels & Conformité — HSE compliance per employee */}
+        <FormSection title="Référentiels & Conformité" collapsible defaultExpanded={false} storageKey="contact-detail-conformite">
+          <ReferentielManager ownerType="tier_contact" ownerId={contact.id} compact />
         </FormSection>
 
         {/* Full-width: Notes & Documents */}

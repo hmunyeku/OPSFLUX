@@ -192,6 +192,13 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         String(20), default="internal", nullable=False
     )  # internal | external
 
+    # Job position (linked to conformité — determines required referentiels)
+    job_position_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("job_positions.id"), nullable=True
+    )
+
+    job_position: Mapped["JobPosition | None"] = relationship(foreign_keys=[job_position_id])
+
     group_memberships: Mapped[list["UserGroupMember"]] = relationship(back_populates="user")
     tier_links: Mapped[list["UserTierLink"]] = relationship(back_populates="user")
     access_tokens: Mapped[list["PersonalAccessToken"]] = relationship(back_populates="user")
@@ -202,6 +209,11 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     @property
     def full_name(self) -> str:
         return f"{self.first_name} {self.last_name}"
+
+    @property
+    def job_position_name(self) -> str | None:
+        jp = self.job_position
+        return jp.name if jp else None
 
 
 # ─── Roles ───────────────────────────────────────────────────────────────────

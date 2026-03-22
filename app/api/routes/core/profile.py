@@ -6,6 +6,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_entity, get_current_user
 from app.core.audit import record_audit
@@ -56,7 +57,11 @@ async def update_profile(
     )
     await db.commit()
 
-    return current_user
+    # Re-fetch with eager-loaded relationships for response
+    result = await db.execute(
+        select(User).options(selectinload(User.job_position)).where(User.id == current_user.id)
+    )
+    return result.scalar_one()
 
 
 @router.post("/change-password")

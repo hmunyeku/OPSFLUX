@@ -981,6 +981,23 @@ async def seed_dictionary_entries(db: AsyncSession) -> None:
         ("airport", "NBO", "Nairobi — NBO (Kenya)", 53),
         ("airport", "ADD", "Addis-Abeba — ADD (Éthiopie)", 54),
         ("airport", "CMN", "Casablanca — CMN (Maroc)", 55),
+        # ── Compliance categories (referentiel types) ──
+        ("compliance_category", "formation", "Formation", 1),
+        ("compliance_category", "certification", "Certification", 2),
+        ("compliance_category", "habilitation", "Habilitation", 3),
+        ("compliance_category", "audit", "Audit", 4),
+        ("compliance_category", "medical", "Médical", 5),
+        ("compliance_category", "epi", "EPI", 6),
+        # ── EPI types ──
+        ("epi_type", "helmet", "Casque de sécurité", 1),
+        ("epi_type", "goggles", "Lunettes de protection", 2),
+        ("epi_type", "gloves", "Gants de protection", 3),
+        ("epi_type", "boots", "Chaussures de sécurité", 4),
+        ("epi_type", "coverall", "Combinaison de travail", 5),
+        ("epi_type", "harness", "Harnais antichute", 6),
+        ("epi_type", "ear_protection", "Protection auditive", 7),
+        ("epi_type", "respirator", "Masque respiratoire", 8),
+        ("epi_type", "life_jacket", "Gilet de sauvetage", 9),
     ]
 
     # ── Nationality entries with country + nationality metadata columns ──

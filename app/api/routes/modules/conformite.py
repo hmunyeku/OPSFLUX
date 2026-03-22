@@ -485,23 +485,30 @@ async def check_compliance(
     )
     required_type_ids = set(r[0] for r in all_rules.all())
 
-    # 2) Rules with target_type='job_position' — resolve via contact's job_position_id
+    # 2) Rules with target_type='job_position' — resolve via owner's job_position_id
+    job_position_id = None
     if owner_type == "tier_contact":
         contact_result = await db.execute(
             select(TierContact.job_position_id).where(TierContact.id == owner_id)
         )
         job_position_id = contact_result.scalar()
-        if job_position_id:
-            jp_rules = await db.execute(
-                select(ComplianceRule.compliance_type_id)
-                .where(
-                    ComplianceRule.entity_id == entity_id,
-                    ComplianceRule.active == True,
-                    ComplianceRule.target_type == "job_position",
-                    ComplianceRule.target_value == str(job_position_id),
-                )
+    elif owner_type == "user":
+        user_result = await db.execute(
+            select(User.job_position_id).where(User.id == owner_id)
+        )
+        job_position_id = user_result.scalar()
+
+    if job_position_id:
+        jp_rules = await db.execute(
+            select(ComplianceRule.compliance_type_id)
+            .where(
+                ComplianceRule.entity_id == entity_id,
+                ComplianceRule.active == True,
+                ComplianceRule.target_type == "job_position",
+                ComplianceRule.target_value == str(job_position_id),
             )
-            required_type_ids |= set(r[0] for r in jp_rules.all())
+        )
+        required_type_ids |= set(r[0] for r in jp_rules.all())
 
     # Get existing records for this owner
     records_result = await db.execute(

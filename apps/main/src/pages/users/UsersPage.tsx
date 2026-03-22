@@ -51,7 +51,7 @@ import { useRoles, useGroups, useUserEffectivePermissions, useModules, useUserPe
 import { usePermission } from '@/hooks/usePermission'
 import type { PermissionOverride } from '@/services/rbacService'
 import { useUserRoles, useUserGroups, useUploadAvatar, usePhones, useContactEmails, useAddresses, useNotes, useAttachments } from '@/hooks/useSettings'
-import { useSSOProviders, useDeleteSSOProvider, useUserIPLocation, useHealthConditions, useAddHealthCondition, useRemoveHealthCondition } from '@/hooks/useUserSubModels'
+import { useSSOProviders, useDeleteSSOProvider, useUserIPLocation } from '@/hooks/useUserSubModels'
 import { useTiers } from '@/hooks/useTiers'
 import { AddressManager } from '@/components/shared/AddressManager'
 import { PhoneManager } from '@/components/shared/PhoneManager'
@@ -66,8 +66,11 @@ import { VaccineManager } from '@/components/shared/VaccineManager'
 import { UserLanguageManager } from '@/components/shared/UserLanguageManager'
 import { DrivingLicenseManager } from '@/components/shared/DrivingLicenseManager'
 import { MedicalCheckManager } from '@/components/shared/MedicalCheckManager'
+import { HealthConditionsChecklist } from '@/components/shared/HealthConditionsChecklist'
 import { ExternalRefManager } from '@/components/shared/ExternalRefManager'
-import { useDictionary, useDictionaryOptions, useDictionaryColumnOptions } from '@/hooks/useDictionary'
+import { ReferentielManager } from '@/components/shared/ReferentielManager'
+import { useJobPositions } from '@/hooks/useConformite'
+import { useDictionaryOptions, useDictionaryColumnOptions } from '@/hooks/useDictionary'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import type { UserRead, UserCreate } from '@/types/api'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -1053,6 +1056,8 @@ function UserDetailPanel({ id }: { id: string }) {
   const detailUserTypeOptions = dictUserTypeOptions.length > 0 ? dictUserTypeOptions : [{ value: 'internal', label: 'Interne' }, { value: 'external', label: 'Externe' }]
   const clothingSizeOptions = useDictionaryOptions('clothing_size')
   const shoeSizeOptions = useDictionaryOptions('shoe_size')
+  const { data: jobPositionsData } = useJobPositions({ page_size: 200 })
+  const jobPositionOptions = (jobPositionsData?.items ?? []).map(jp => ({ value: jp.id, label: `${jp.code} — ${jp.name}` }))
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const [detailTab, setDetailTab] = useState<UserDetailTab>('fiche')
   const avatarInputRef = useRef<HTMLInputElement>(null)
@@ -1264,6 +1269,11 @@ function UserDetailPanel({ id }: { id: string }) {
                 <InlineEditableRow label="ID Intranet" value={user.intranet_id || ''} onSave={(v) => updateUser.mutate({ id, payload: { intranet_id: v || undefined } })} />
                 <InlineEditableTags label={t('settings.language')} value={user.language} options={detailLanguageOptions} onSave={(v) => handleInlineSave('language', v)} />
                 <InlineEditableTags label="Type" value={user.user_type || 'internal'} options={detailUserTypeOptions} onSave={(v) => updateUser.mutate({ id, payload: { user_type: v } })} />
+                {jobPositionOptions.length > 0 ? (
+                  <InlineEditableCombobox label="Poste / Fonction" value={user.job_position_id || ''} options={jobPositionOptions} onSave={(v) => updateUser.mutate({ id, payload: { job_position_id: v || null } })} placeholder="Sélectionner un poste..." />
+                ) : (
+                  <ReadOnlyRow label="Poste / Fonction" value={<span className="text-xs text-muted-foreground">Aucun poste défini</span>} />
+                )}
               </FormSection>
 
               {/* Coordonnées: phones, emails, addresses */}
@@ -1446,6 +1456,11 @@ function UserDetailPanel({ id }: { id: string }) {
                   <SubSectionLabel icon={Car} label="Permis de conduire" count={0} />
                   <DrivingLicenseManager userId={id} compact />
                 </div>
+              </FormSection>
+
+              {/* Référentiels & Conformité */}
+              <FormSection title="Référentiels & Conformité" collapsible storageKey="panel.user.sections" id="user-referentiels">
+                <ReferentielManager ownerType="user" ownerId={id} compact />
               </FormSection>
 
               {/* Divers */}
@@ -1654,52 +1669,7 @@ function UserDetailPanel({ id }: { id: string }) {
   )
 }
 
-// ── Health Conditions Checklist ────────────────────────────
-function HealthConditionsChecklist({ userId }: { userId: string }) {
-  const { data: conditions, isLoading: condLoading } = useHealthConditions(userId)
-  const addCondition = useAddHealthCondition()
-  const removeCondition = useRemoveHealthCondition()
-  const { data: dictRaw } = useDictionary('health_condition')
-  const dictEntries = useMemo(() => (dictRaw ?? []).map(e => ({ code: e.code, label: e.label })), [dictRaw])
-
-  if (condLoading) return <Loader2 size={14} className="animate-spin text-muted-foreground mx-auto my-2" />
-
-  const activeConditions = new Map((conditions ?? []).map(c => [c.condition_code, c.id]))
-
-  const toggle = (code: string) => {
-    const existingId = activeConditions.get(code)
-    if (existingId) {
-      removeCondition.mutate({ userId, conditionId: existingId })
-    } else {
-      addCondition.mutate({ userId, conditionCode: code })
-    }
-  }
-
-  if (dictEntries.length === 0) {
-    return <p className="text-xs text-muted-foreground py-2">Aucune condition définie dans le dictionnaire</p>
-  }
-
-  return (
-    <div className="grid grid-cols-2 gap-x-4 gap-y-1 py-1">
-      {dictEntries.map((entry) => (
-        <label key={entry.code} className="flex items-center gap-2 py-0.5 cursor-pointer hover:bg-accent/30 rounded px-1 transition-colors">
-          <button
-            type="button"
-            onClick={() => toggle(entry.code)}
-            className="shrink-0"
-          >
-            {activeConditions.has(entry.code) ? (
-              <CheckSquare size={14} className="text-primary" />
-            ) : (
-              <Square size={14} className="text-muted-foreground" />
-            )}
-          </button>
-          <span className="text-xs text-foreground">{entry.label}</span>
-        </label>
-      ))}
-    </div>
-  )
-}
+// ── HealthConditionsChecklist — extracted to @/components/shared/HealthConditionsChecklist
 
 // ── Journal Tab (DataTable) ───────────────────────────────
 type AuditEntry = { id: string; action: string; resource_type: string; resource_id: string | null; ip_address: string | null; details: Record<string, unknown> | null; created_at: string }

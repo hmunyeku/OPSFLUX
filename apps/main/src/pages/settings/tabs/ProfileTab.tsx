@@ -18,9 +18,18 @@ import { ImageEditor } from '@/components/shared/ImageEditor'
 import { PhoneManager } from '@/components/shared/PhoneManager'
 import { EmergencyContactManager } from '@/components/shared/EmergencyContactManager'
 import { MedicalCheckManager } from '@/components/shared/MedicalCheckManager'
+import { PassportManager } from '@/components/shared/PassportManager'
+import { VisaManager } from '@/components/shared/VisaManager'
+import { SocialSecurityManager } from '@/components/shared/SocialSecurityManager'
+import { DrivingLicenseManager } from '@/components/shared/DrivingLicenseManager'
+import { UserLanguageManager } from '@/components/shared/UserLanguageManager'
+import { VaccineManager } from '@/components/shared/VaccineManager'
+import { HealthConditionsChecklist } from '@/components/shared/HealthConditionsChecklist'
+import { ReferentielManager } from '@/components/shared/ReferentielManager'
 import { EmailsTab } from './EmailsTab'
 import { AddressesTab } from './AddressesTab'
 import { useDictionaryOptions, useDictionaryColumnOptions } from '@/hooks/useDictionary'
+import { useJobPositions } from '@/hooks/useConformite'
 import type { ProfileUpdate } from '@/types/api'
 
 const FALLBACK_GENDER = [
@@ -130,6 +139,8 @@ export function ProfileTab() {
   const dictAirport = useDictionaryOptions('airport')
   const dictClothingSize = useDictionaryOptions('clothing_size')
   const dictShoeSize = useDictionaryOptions('shoe_size')
+  const { data: jobPositionsData } = useJobPositions({ page_size: 200 })
+  const jobPositionOptions = (jobPositionsData?.items ?? []).map(jp => ({ value: jp.id, label: `${jp.code} — ${jp.name}` }))
 
   const genderOptions = dictGender.length > 0 ? dictGender : FALLBACK_GENDER
   const languageOptions = dictLanguage.length > 0 ? dictLanguage : FALLBACK_LANGUAGE
@@ -160,6 +171,8 @@ export function ProfileTab() {
     retirement_date: user?.retirement_date || '',
     vantage_number: user?.vantage_number || '',
     extension_number: user?.extension_number || '',
+    // Job position
+    job_position_id: user?.job_position_id || '',
   })
 
   // Sync form when user data refreshes
@@ -187,6 +200,7 @@ export function ProfileTab() {
         retirement_date: user.retirement_date || '',
         vantage_number: user.vantage_number || '',
         extension_number: user.extension_number || '',
+        job_position_id: user.job_position_id || '',
       })
     }
   }, [user])
@@ -215,7 +229,8 @@ export function ProfileTab() {
     form.ppe_shoe_size !== (user.ppe_shoe_size || '') ||
     form.retirement_date !== (user.retirement_date || '') ||
     form.vantage_number !== (user.vantage_number || '') ||
-    form.extension_number !== (user.extension_number || '')
+    form.extension_number !== (user.extension_number || '') ||
+    form.job_position_id !== (user.job_position_id || '')
   ) : false
 
   const handleSubmit = async () => {
@@ -245,6 +260,7 @@ export function ProfileTab() {
       if (form.retirement_date !== (user?.retirement_date || '')) payload.retirement_date = optStr(form.retirement_date as string)
       if (form.vantage_number !== (user?.vantage_number || '')) payload.vantage_number = optStr(form.vantage_number as string)
       if (form.extension_number !== (user?.extension_number || '')) payload.extension_number = optStr(form.extension_number as string)
+      if (form.job_position_id !== (user?.job_position_id || '')) payload.job_position_id = (form.job_position_id as string) || null
 
       await updateProfile.mutateAsync(payload)
       toast({ title: 'Profil mis à jour', description: 'Vos informations ont été enregistrées.', variant: 'success' })
@@ -277,6 +293,7 @@ export function ProfileTab() {
         retirement_date: user.retirement_date || '',
         vantage_number: user.vantage_number || '',
         extension_number: user.extension_number || '',
+        job_position_id: user.job_position_id || '',
       })
     }
   }
@@ -454,6 +471,44 @@ export function ProfileTab() {
               )}
             </div>
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="gl-label">Poste / Fonction</label>
+              {jobPositionOptions.length > 0 ? (
+                <DictCombobox value={form.job_position_id as string || ''} options={jobPositionOptions} onChange={(v) => updateField('job_position_id', v)} placeholder="Sélectionner un poste..." />
+              ) : (
+                <p className="text-xs text-muted-foreground py-2">Aucun poste défini (Conformité &gt; Fiches de poste)</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </CollapsibleSection>
+
+      {/* Section: Documents administratifs */}
+      <CollapsibleSection
+        id="legal-docs"
+        title="Documents administratifs"
+        description="Passeports, visas, sécurité sociale — gérés via sous-modèles."
+        storageKey="settings.profile.collapse"
+        showSeparator={false}
+      >
+        <div className="mt-2 space-y-4">
+          {user?.id && (
+            <>
+              <div>
+                <h4 className="text-xs font-semibold text-muted-foreground mb-1.5">Passeports</h4>
+                <PassportManager userId={user.id} />
+              </div>
+              <div>
+                <h4 className="text-xs font-semibold text-muted-foreground mb-1.5">Visas</h4>
+                <VisaManager userId={user.id} />
+              </div>
+              <div>
+                <h4 className="text-xs font-semibold text-muted-foreground mb-1.5">Sécurité sociale</h4>
+                <SocialSecurityManager userId={user.id} />
+              </div>
+            </>
+          )}
         </div>
       </CollapsibleSection>
 
@@ -501,12 +556,27 @@ export function ProfileTab() {
       <CollapsibleSection
         id="health"
         title="Santé & Médical"
-        description="Visites médicales obligatoires — géré via le sous-modèle polymorphique."
+        description="Visites médicales, vaccins et conditions de santé."
         storageKey="settings.profile.collapse"
         showSeparator={false}
       >
-        <div className="mt-2">
-          {user?.id && <MedicalCheckManager ownerType="user" ownerId={user.id} />}
+        <div className="mt-2 space-y-4">
+          {user?.id && (
+            <>
+              <div>
+                <h4 className="text-xs font-semibold text-muted-foreground mb-1.5">Visites médicales</h4>
+                <MedicalCheckManager ownerType="user" ownerId={user.id} />
+              </div>
+              <div>
+                <h4 className="text-xs font-semibold text-muted-foreground mb-1.5">Vaccins</h4>
+                <VaccineManager userId={user.id} />
+              </div>
+              <div>
+                <h4 className="text-xs font-semibold text-muted-foreground mb-1.5">Conditions de santé</h4>
+                <HealthConditionsChecklist userId={user.id} />
+              </div>
+            </>
+          )}
         </div>
       </CollapsibleSection>
 
@@ -564,6 +634,43 @@ export function ProfileTab() {
               )}
             </div>
           </div>
+        </div>
+      </CollapsibleSection>
+
+      {/* Section: Compétences */}
+      <CollapsibleSection
+        id="skills"
+        title="Compétences"
+        description="Langues parlées et permis de conduire."
+        storageKey="settings.profile.collapse"
+        showSeparator={false}
+      >
+        <div className="mt-2 space-y-4">
+          {user?.id && (
+            <>
+              <div>
+                <h4 className="text-xs font-semibold text-muted-foreground mb-1.5">Langues</h4>
+                <UserLanguageManager userId={user.id} />
+              </div>
+              <div>
+                <h4 className="text-xs font-semibold text-muted-foreground mb-1.5">Permis de conduire</h4>
+                <DrivingLicenseManager userId={user.id} />
+              </div>
+            </>
+          )}
+        </div>
+      </CollapsibleSection>
+
+      {/* Section: Référentiels & Conformité */}
+      <CollapsibleSection
+        id="referentiels"
+        title="Référentiels & Conformité"
+        description="Formations, certifications, habilitations, audits — suivi de conformité."
+        storageKey="settings.profile.collapse"
+        showSeparator={false}
+      >
+        <div className="mt-2">
+          {user?.id && <ReferentielManager ownerType="user" ownerId={user.id} />}
         </div>
       </CollapsibleSection>
 

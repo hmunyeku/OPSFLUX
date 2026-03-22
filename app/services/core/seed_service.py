@@ -334,6 +334,9 @@ async def seed_dev_data(db: AsyncSession) -> None:
     # ── Dictionary entries (visa types, health conditions, etc.) ──
     await seed_dictionary_entries(db)
 
+    # ── Compliance matrix (postes, referentiels, rules) ──
+    await seed_compliance_matrix(db, entity.id)
+
     await db.commit()
     logger.info("Seed: development data seeded successfully")
 
@@ -1157,3 +1160,174 @@ async def seed_dictionary_entries(db: AsyncSession) -> None:
         logger.info("Seed: updated %d nationality entries with country/nationality metadata", updated)
     if not created and not updated:
         logger.info("Seed: all dictionary entries already up to date")
+
+
+async def seed_compliance_matrix(db: AsyncSession, entity_id) -> None:
+    """Seed job positions, compliance types, and compliance rules from Perenco HSE matrix.
+
+    Idempotent: checks by code before inserting.
+    """
+    from app.models.common import JobPosition, ComplianceType, ComplianceRule
+
+    # ── 1. Job Positions (32 postes) ──────────────────────────────────────
+    positions = [
+        ("ASST_POMP", "Assistant Pompiste"),
+        ("BOSCO", "BOSCO"),
+        ("CARISTE", "Cariste"),
+        ("CATERING", "Catering"),
+        ("CQM", "Chef de Quart Machine"),
+        ("CORDISTE", "Cordiste"),
+        ("DRILLER_WO", "Driller WO"),
+        ("ECHAFAUDEUR", "Echafaudeur"),
+        ("ELEC_HVAC", "Électricien/HVAC"),
+        ("GRUTIER", "Grutier"),
+        ("HSE", "HSE"),
+        ("HTM_CARGO", "HTM Cargo"),
+        ("HTM_PONT", "HTM Pont"),
+        ("INSTRUM", "Instrumentiste"),
+        ("MARIN", "Marin"),
+        ("MECA", "Mécanicien"),
+        ("MECA_MACH", "Mécanicien Machine"),
+        ("OMAA", "OMAA"),
+        ("OP_MACHINE", "Opérateur machine"),
+        ("OP_PROD", "Opérateur Prod"),
+        ("PLONGEUR", "Plongeur Scaphandrier"),
+        ("POMP_HTM", "Pompiers (HTM)"),
+        ("POMPISTE", "Pompiste"),
+        ("ROVISTE", "Roviste"),
+        ("SONDEUR_WO", "Sondeurs WO"),
+        ("SOUDEUR", "Soudeur"),
+        ("SUP_CARGO", "Sup Cargo"),
+        ("SUP_PROJET", "Superviseur Projet"),
+        ("SUP_WO", "Superviseur Workover"),
+        ("TOOLPUSH", "Toolpusher WO"),
+        ("VEILLEUR", "Veilleur"),
+        ("ZODIACMAN", "Zodiacman"),
+    ]
+
+    jp_map: dict[str, object] = {}  # code → JobPosition
+    for code, name in positions:
+        result = await db.execute(
+            select(JobPosition).where(JobPosition.entity_id == entity_id, JobPosition.code == code)
+        )
+        jp = result.scalar_one_or_none()
+        if not jp:
+            jp = JobPosition(entity_id=entity_id, code=code, name=name, department="Offshore")
+            db.add(jp)
+            await db.flush()
+        jp_map[code] = jp
+
+    # ── 2. Compliance Types (24 referentiels) ─────────────────────────────
+    # (category, code, name, validity_days, is_mandatory)
+    types_data = [
+        ("formation", "INDUCTION", "Induction", 730, True),
+        ("medical", "VISITE_MED", "Visite Médicale", 365, True),
+        ("formation", "SURVIE_MER", "Survie en mer", 1095, True),
+        ("habilitation", "ATEX", "ATEX", 1095, True),
+        ("habilitation", "HABILEC_H0B0", "Habilitation Électrique H0B0", 1095, False),
+        ("habilitation", "HABILEC_SUP", "Habilitation Électrique >H0B0", 1095, False),
+        ("certification", "WELL_CTRL", "Well Control (IWCF/IADC)", 730, False),
+        ("formation", "BST", "Basic Safety Training", 1825, False),
+        ("certification", "MONTEUR_ECHAF", "Monteur échafaudage", 1095, False),
+        ("certification", "VERIF_ECHAF", "Vérificateur échafaudage", 1095, False),
+        ("certification", "GRUTIER", "Grutier", 1095, False),
+        ("certification", "CACES", "CACES", 1825, False),
+        ("formation", "ESPACE_CONF", "Espace Confiné", 1095, False),
+        ("formation", "PROTECT_RESP", "Protection Respiratoire", 1825, False),
+        ("certification", "HLO", "HLO", 1095, False),
+        ("formation", "ELINGAGE", "Technique d'élingage", 1095, False),
+        ("certification", "IRATA", "IRATA 1, 2, 3", 1095, False),
+        ("certification", "APT_HYPERBARE", "Certificat aptitude hyperbare", None, False),
+        ("medical", "MED_HYPERBARE", "Visite médicale hyperbare", 365, False),
+        ("certification", "SOUDEUR_HOM", "Homologation Soudeur 3G-6G", 1095, False),
+        ("certification", "PIROGUE_MOT", "Capacité pirogues à moteur", 1825, False),
+        ("certification", "ROVISTE", "Certificat Roviste", None, False),
+        ("certification", "RTSH", "RTSH", 1825, False),
+    ]
+
+    ct_map: dict[str, object] = {}  # code → ComplianceType
+    for cat, code, name, validity, mandatory in types_data:
+        result = await db.execute(
+            select(ComplianceType).where(ComplianceType.entity_id == entity_id, ComplianceType.code == code)
+        )
+        ct = result.scalar_one_or_none()
+        if not ct:
+            ct = ComplianceType(
+                entity_id=entity_id, category=cat, code=code, name=name,
+                validity_days=validity, is_mandatory=mandatory,
+            )
+            db.add(ct)
+            await db.flush()
+        ct_map[code] = ct
+
+    # ── 3. Compliance Rules (matrix: position → required types) ───────────
+    # Matrix: position_code → list of required type_codes
+    # X = required, special values like N0/2E/2M for ATEX levels are treated as required
+    matrix: dict[str, list[str]] = {
+        "ASST_POMP": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "ESPACE_CONF"],
+        "BOSCO": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "BST", "GRUTIER", "ESPACE_CONF", "PROTECT_RESP"],
+        "CARISTE": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "CACES"],
+        "CATERING": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0"],
+        "CQM": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "BST"],
+        "CORDISTE": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "IRATA"],
+        "DRILLER_WO": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "WELL_CTRL", "ELINGAGE"],
+        "ECHAFAUDEUR": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "MONTEUR_ECHAF", "ESPACE_CONF", "ELINGAGE"],
+        "ELEC_HVAC": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_SUP", "ESPACE_CONF"],
+        "GRUTIER": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "GRUTIER", "ELINGAGE"],
+        "HSE": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "VERIF_ECHAF", "ESPACE_CONF", "PROTECT_RESP", "HLO", "ELINGAGE", "RTSH"],
+        "HTM_CARGO": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "BST", "MONTEUR_ECHAF", "ESPACE_CONF", "PROTECT_RESP", "ELINGAGE"],
+        "HTM_PONT": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "BST", "MONTEUR_ECHAF", "ESPACE_CONF", "PROTECT_RESP", "ELINGAGE"],
+        "INSTRUM": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_SUP", "ESPACE_CONF", "PROTECT_RESP", "ELINGAGE"],
+        "MARIN": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0"],
+        "MECA": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "GRUTIER", "ESPACE_CONF", "ELINGAGE"],
+        "MECA_MACH": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "BST", "ESPACE_CONF", "PROTECT_RESP", "ELINGAGE"],
+        "OMAA": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "HLO", "ELINGAGE"],
+        "OP_MACHINE": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "ESPACE_CONF", "PROTECT_RESP", "ELINGAGE"],
+        "OP_PROD": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "GRUTIER", "ESPACE_CONF", "PROTECT_RESP", "ELINGAGE", "RTSH"],
+        "PLONGEUR": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "APT_HYPERBARE", "MED_HYPERBARE"],
+        "POMP_HTM": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "ESPACE_CONF", "PROTECT_RESP", "ELINGAGE"],
+        "POMPISTE": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "BST", "ESPACE_CONF", "ELINGAGE"],
+        "ROVISTE": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "ROVISTE"],
+        "SONDEUR_WO": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "ELINGAGE"],
+        "SOUDEUR": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "PROTECT_RESP", "ELINGAGE", "SOUDEUR_HOM"],
+        "SUP_CARGO": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "BST", "ESPACE_CONF", "PROTECT_RESP"],
+        "SUP_PROJET": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "ELINGAGE", "RTSH"],
+        "SUP_WO": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "WELL_CTRL"],
+        "TOOLPUSH": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "WELL_CTRL", "ELINGAGE"],
+        "VEILLEUR": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0"],
+        "ZODIACMAN": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "BST", "MONTEUR_ECHAF", "ESPACE_CONF", "PROTECT_RESP", "ELINGAGE", "PIROGUE_MOT"],
+    }
+
+    rules_created = 0
+    for pos_code, type_codes in matrix.items():
+        jp = jp_map.get(pos_code)
+        if not jp:
+            continue
+        for type_code in type_codes:
+            ct = ct_map.get(type_code)
+            if not ct:
+                continue
+            # Check if rule already exists
+            result = await db.execute(
+                select(ComplianceRule).where(
+                    ComplianceRule.entity_id == entity_id,
+                    ComplianceRule.compliance_type_id == ct.id,
+                    ComplianceRule.target_type == "job_position",
+                    ComplianceRule.target_value == str(jp.id),
+                )
+            )
+            if not result.scalar_one_or_none():
+                db.add(ComplianceRule(
+                    entity_id=entity_id,
+                    compliance_type_id=ct.id,
+                    target_type="job_position",
+                    target_value=str(jp.id),
+                    description=f"{ct.name} requis pour {jp.name}",
+                ))
+                rules_created += 1
+
+    await db.flush()
+    logger.info(
+        "Seed: compliance matrix — %d positions, %d types, %d rules created",
+        len(jp_map), len(ct_map), rules_created,
+    )

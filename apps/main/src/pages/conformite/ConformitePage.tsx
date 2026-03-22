@@ -33,6 +33,7 @@ import {
   DetailFieldGrid,
 } from '@/components/layout/DynamicPanel'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
+import { useDictionaryOptions } from '@/hooks/useDictionary'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { useUIStore } from '@/stores/uiStore'
 import { usePermission } from '@/hooks/usePermission'
@@ -57,12 +58,13 @@ import type {
 
 // -- Constants ----------------------------------------------------------------
 
-const CATEGORY_OPTIONS = [
+const FALLBACK_CATEGORY_OPTIONS = [
   { value: 'formation', label: 'Formation' },
   { value: 'certification', label: 'Certification' },
   { value: 'habilitation', label: 'Habilitation' },
   { value: 'audit', label: 'Audit' },
-  { value: 'medical', label: 'Medical' },
+  { value: 'medical', label: 'Médical' },
+  { value: 'epi', label: 'EPI' },
 ]
 
 const STATUS_OPTIONS = [
@@ -105,6 +107,8 @@ function CreateTypePanel() {
   const createType = useCreateComplianceType()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { toast } = useToast()
+  const dictCats = useDictionaryOptions('compliance_category')
+  const CATEGORY_OPTIONS = dictCats.length > 0 ? dictCats : FALLBACK_CATEGORY_OPTIONS
   const [form, setForm] = useState<ComplianceTypeCreate>({
     category: 'formation',
     name: '',
@@ -204,6 +208,8 @@ function TypeDetailPanel({ id }: { id: string }) {
   const updateType = useUpdateComplianceType()
   const deleteType = useDeleteComplianceType()
   const { toast } = useToast()
+  const dictCats = useDictionaryOptions('compliance_category')
+  const CATEGORY_OPTIONS = dictCats.length > 0 ? dictCats : FALLBACK_CATEGORY_OPTIONS
 
   const handleSave = useCallback((field: string, value: string) => {
     updateType.mutate({ id, payload: normalizeNames({ [field]: value }) })
@@ -665,6 +671,10 @@ export function ConformitePage() {
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>({})
+
+  // Dictionary-driven category options (with fallback)
+  const dictCategoryOptions = useDictionaryOptions('compliance_category')
+  const CATEGORY_OPTIONS = dictCategoryOptions.length > 0 ? dictCategoryOptions : FALLBACK_CATEGORY_OPTIONS
 
   const { hasPermission } = usePermission()
   const canImport = hasPermission('conformite.import')

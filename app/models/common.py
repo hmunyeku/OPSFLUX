@@ -1194,12 +1194,10 @@ class ComplianceRecord(UUIDPrimaryKeyMixin, TimestampMixin, VerifiableMixin, Bas
     issuer: Mapped[str | None] = mapped_column(String(200))  # organisme certificateur
     reference_number: Mapped[str | None] = mapped_column(String(100))
     notes: Mapped[str | None] = mapped_column(Text)
-    verified_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     created_by: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     compliance_type: Mapped["ComplianceType"] = relationship()
-    verifier: Mapped["User | None"] = relationship(foreign_keys=[verified_by])
     creator: Mapped["User"] = relationship(foreign_keys=[created_by])
 
 
@@ -1671,7 +1669,7 @@ class UserPassport(UUIDPrimaryKeyMixin, TimestampMixin, VerifiableMixin, Base):
     expiry_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     document_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
-    user: Mapped["User"] = relationship()
+    user: Mapped["User"] = relationship(foreign_keys=[user_id])
 
 
 class UserVisa(UUIDPrimaryKeyMixin, TimestampMixin, VerifiableMixin, Base):
@@ -1689,7 +1687,7 @@ class UserVisa(UUIDPrimaryKeyMixin, TimestampMixin, VerifiableMixin, Base):
     expiry_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     document_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
-    user: Mapped["User"] = relationship()
+    user: Mapped["User"] = relationship(foreign_keys=[user_id])
 
 
 class EmergencyContact(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -1705,7 +1703,7 @@ class EmergencyContact(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     phone_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
-    user: Mapped["User"] = relationship()
+    user: Mapped["User"] = relationship(foreign_keys=[user_id])
 
 
 class SocialSecurity(UUIDPrimaryKeyMixin, TimestampMixin, VerifiableMixin, Base):
@@ -1720,7 +1718,7 @@ class SocialSecurity(UUIDPrimaryKeyMixin, TimestampMixin, VerifiableMixin, Base)
     country: Mapped[str] = mapped_column(String(100), nullable=False)
     number: Mapped[str] = mapped_column(String(100), nullable=False)
 
-    user: Mapped["User"] = relationship()
+    user: Mapped["User"] = relationship(foreign_keys=[user_id])
 
 
 class UserVaccine(UUIDPrimaryKeyMixin, TimestampMixin, VerifiableMixin, Base):
@@ -1736,7 +1734,7 @@ class UserVaccine(UUIDPrimaryKeyMixin, TimestampMixin, VerifiableMixin, Base):
     expiry_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     batch_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
-    user: Mapped["User"] = relationship()
+    user: Mapped["User"] = relationship(foreign_keys=[user_id])
 
 
 class MedicalCheck(UUIDPrimaryKeyMixin, TimestampMixin, VerifiableMixin, Base):
@@ -1768,7 +1766,7 @@ class UserLanguage(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     language_code: Mapped[str] = mapped_column(String(10), nullable=False)
     proficiency_level: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
-    user: Mapped["User"] = relationship()
+    user: Mapped["User"] = relationship(foreign_keys=[user_id])
 
 
 class DrivingLicense(UUIDPrimaryKeyMixin, TimestampMixin, VerifiableMixin, Base):
@@ -1784,7 +1782,7 @@ class DrivingLicense(UUIDPrimaryKeyMixin, TimestampMixin, VerifiableMixin, Base)
     expiry_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     document_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
-    user: Mapped["User"] = relationship()
+    user: Mapped["User"] = relationship(foreign_keys=[user_id])
 
 
 # ─── UserSSOProvider ─────────────────────────────────────────────────────────
@@ -1805,7 +1803,7 @@ class UserSSOProvider(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     linked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    user: Mapped["User"] = relationship()
+    user: Mapped["User"] = relationship(foreign_keys=[user_id])
 
 
 # ─── Dictionary (configurable dropdown lists) ────────────────────────────────

@@ -37,6 +37,8 @@ export function useUpdateUser() {
       usersService.update(id, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['users'] })
+      qc.invalidateQueries({ queryKey: ['compliance-check'] })
+      qc.invalidateQueries({ queryKey: ['compliance-records'] })
     },
   })
 }

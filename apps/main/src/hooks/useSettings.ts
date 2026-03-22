@@ -62,6 +62,9 @@ export function useUpdateProfile() {
       // Refresh authStore so the rest of the app sees updated user data
       fetchUser()
       qc.invalidateQueries({ queryKey: ['profile'] })
+      // Invalidate compliance check in case job_position_id changed
+      qc.invalidateQueries({ queryKey: ['compliance-check'] })
+      qc.invalidateQueries({ queryKey: ['compliance-records'] })
     },
   })
 }

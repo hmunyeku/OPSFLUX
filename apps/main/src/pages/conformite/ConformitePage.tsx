@@ -42,7 +42,7 @@ import { useToast } from '@/components/ui/Toast'
 import {
   useComplianceTypes, useCreateComplianceType, useUpdateComplianceType, useDeleteComplianceType,
   useComplianceRecords,
-  useComplianceRules, useDeleteComplianceRule,
+  useComplianceRules, useCreateComplianceRule, useDeleteComplianceRule,
   useJobPositions, useCreateJobPosition, useUpdateJobPosition, useDeleteJobPosition,
   useTransfers,
   useExemptions, useCreateExemption, useApproveExemption, useRejectExemption, useDeleteExemption,
@@ -731,6 +731,7 @@ export function ConformitePage() {
   })
 
   const { data: rulesData, isLoading: rulesLoading } = useComplianceRules(undefined)
+  const { data: jobPositionsData } = useJobPositions({ page_size: 200 })
 
   const { data: transfersData, isLoading: transfersLoading } = useTransfers({
     page: activeTab === 'transferts' ? page : 1,
@@ -823,14 +824,22 @@ export function ConformitePage() {
       return <span className="text-foreground font-medium">{ct ? `${ct.code} — ${ct.name}` : row.original.compliance_type_id.slice(0, 8)}</span>
     }},
     { accessorKey: 'target_type', header: 'Cible', size: 130, cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{RULE_TARGET_OPTIONS.find(o => o.value === row.original.target_type)?.label ?? row.original.target_type}</span> },
-    { accessorKey: 'target_value', header: 'Valeur', size: 150, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.target_value || 'N/A'}</span> },
+    { accessorKey: 'target_value', header: 'Valeur', size: 200, cell: ({ row }) => {
+      const val = row.original.target_value
+      if (!val) return <span className="text-muted-foreground text-xs">N/A</span>
+      if (row.original.target_type === 'job_position') {
+        const jp = jobPositionsData?.items?.find((p: JobPosition) => p.id === val)
+        return <span className="text-foreground text-xs">{jp ? `${jp.code} — ${jp.name}` : val.slice(0, 8)}</span>
+      }
+      return <span className="text-muted-foreground text-xs">{val}</span>
+    }},
     { accessorKey: 'description', header: 'Description', cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.description || '--'}</span> },
     { id: 'actions', header: '', size: 50, cell: ({ row }) => (
       <button onClick={(e) => { e.stopPropagation(); deleteRule.mutate(row.original.id) }} className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
         <Trash2 size={12} />
       </button>
     )},
-  ], [typesData?.items, deleteRule])
+  ], [typesData?.items, jobPositionsData?.items, deleteRule])
 
   // Transfer columns
   const transferColumns = useMemo<ColumnDef<TierContactTransfer, unknown>[]>(() => [
@@ -860,6 +869,7 @@ export function ConformitePage() {
     if (activeTab === 'referentiel') return <ToolbarButton icon={Plus} label="Nouveau type" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite' })} />
     if (activeTab === 'fiches') return <ToolbarButton icon={Plus} label="Nouvelle fiche" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite', meta: { subtype: 'job-position' } })} />
     if (activeTab === 'exemptions') return <ToolbarButton icon={Plus} label="Nouvelle exemption" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite', meta: { subtype: 'exemption' } })} />
+    if (activeTab === 'regles') return <ToolbarButton icon={Plus} label="Nouvelle règle" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite', meta: { subtype: 'rule' } })} />
     return null
   }, [activeTab, openDynamicPanel])
 
@@ -1025,6 +1035,78 @@ export function ConformitePage() {
   )
 }
 
+// ── Create Rule Panel ────────────────────────────────────────────────────
+
+function CreateRulePanel() {
+  const createRule = useCreateComplianceRule()
+  const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const { toast } = useToast()
+  const { data: typesData } = useComplianceTypes({ page_size: 200 })
+  const { data: jpData } = useJobPositions({ page_size: 200 })
+  const [form, setForm] = useState({ compliance_type_id: '', target_type: 'job_position', target_value: '', description: '' })
+
+  const handleCreate = async () => {
+    if (!form.compliance_type_id) return
+    try {
+      await createRule.mutateAsync({
+        compliance_type_id: form.compliance_type_id,
+        target_type: form.target_type,
+        target_value: form.target_value || undefined,
+        description: form.description || undefined,
+      })
+      toast({ title: 'Règle créée', variant: 'success' })
+      closeDynamicPanel()
+    } catch {
+      toast({ title: 'Erreur', variant: 'error' })
+    }
+  }
+
+  return (
+    <DynamicPanelShell title="Nouvelle règle" icon={<Scale size={14} className="text-primary" />}>
+      <div className="p-4 space-y-4">
+        <div>
+          <label className="gl-label">Type de référentiel *</label>
+          <select value={form.compliance_type_id} onChange={(e) => setForm({ ...form, compliance_type_id: e.target.value })} className="gl-form-input">
+            <option value="">— Sélectionner —</option>
+            {typesData?.items?.map(t => <option key={t.id} value={t.id}>[{t.category}] {t.code} — {t.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="gl-label">Cible *</label>
+          <select value={form.target_type} onChange={(e) => setForm({ ...form, target_type: e.target.value, target_value: '' })} className="gl-form-input">
+            {RULE_TARGET_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+        {form.target_type === 'job_position' && (
+          <div>
+            <label className="gl-label">Fiche de poste</label>
+            <select value={form.target_value} onChange={(e) => setForm({ ...form, target_value: e.target.value })} className="gl-form-input">
+              <option value="">— Tous les postes —</option>
+              {jpData?.items?.map(jp => <option key={jp.id} value={jp.id}>{jp.code} — {jp.name}</option>)}
+            </select>
+          </div>
+        )}
+        {(form.target_type === 'asset' || form.target_type === 'tier_type' || form.target_type === 'department') && (
+          <div>
+            <label className="gl-label">Valeur</label>
+            <input type="text" value={form.target_value} onChange={(e) => setForm({ ...form, target_value: e.target.value })} className="gl-form-input" placeholder={form.target_type === 'asset' ? 'ID de l\'asset...' : form.target_type === 'department' ? 'Nom du département...' : 'Type de tiers...'} />
+          </div>
+        )}
+        <div>
+          <label className="gl-label">Description</label>
+          <input type="text" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="gl-form-input" placeholder="Description de la règle..." />
+        </div>
+        <div className="flex gap-2 pt-2">
+          <button onClick={handleCreate} disabled={!form.compliance_type_id || createRule.isPending} className="gl-button gl-button-confirm">
+            {createRule.isPending ? <Loader2 size={14} className="animate-spin mr-1" /> : null}Créer la règle
+          </button>
+          <button onClick={closeDynamicPanel} className="gl-button gl-button-default">Annuler</button>
+        </div>
+      </div>
+    </DynamicPanelShell>
+  )
+}
+
 // ── Verifications Tab ────────────────────────────────────────────────────
 
 const RECORD_TYPE_LABELS: Record<string, string> = {
@@ -1133,6 +1215,7 @@ registerPanelRenderer('conformite', (view) => {
   if (view.type === 'detail' && 'id' in view && !view.meta?.subtype) return <TypeDetailPanel id={view.id} />
   if (view.type === 'create' && view.meta?.subtype === 'job-position') return <CreateJobPositionPanel />
   if (view.type === 'detail' && 'id' in view && view.meta?.subtype === 'job-position') return <JobPositionDetailPanel id={view.id} />
+  if (view.type === 'create' && view.meta?.subtype === 'rule') return <CreateRulePanel />
   if (view.type === 'create' && view.meta?.subtype === 'exemption') return <CreateExemptionPanel />
   if (view.type === 'detail' && 'id' in view && view.meta?.subtype === 'exemption') return <ExemptionDetailPanel id={view.id} />
   return null

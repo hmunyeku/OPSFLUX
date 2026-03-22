@@ -24,6 +24,7 @@ from app.models.common import (
     User,
     UserGroup,
     UserGroupMember,
+    UserGroupRole,
     WorkflowInstance,
 )
 from app.models.dashboard import (
@@ -91,7 +92,8 @@ async def _get_user_role_codes(
 ) -> set[str]:
     """Return the set of role codes the user holds in the given entity."""
     stmt = (
-        select(distinct(UserGroup.role_code))
+        select(distinct(UserGroupRole.role_code))
+        .join(UserGroup, UserGroup.id == UserGroupRole.group_id)
         .join(UserGroupMember, UserGroupMember.group_id == UserGroup.id)
         .where(
             UserGroupMember.user_id == user_id,

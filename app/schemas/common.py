@@ -1869,10 +1869,9 @@ class DrivingLicenseRead(BaseModel):
     updated_at: datetime
 
 
-# ─── UserMedicalCheck ────────────────────────────────────────────────────
+# ─── MedicalCheck (polymorphic) ──────────────────────────────────────────
 
-class UserMedicalCheckCreate(BaseModel):
-    user_id: UUID
+class MedicalCheckCreate(BaseModel):
     check_type: str
     check_date: date
     expiry_date: date | None = None
@@ -1880,7 +1879,7 @@ class UserMedicalCheckCreate(BaseModel):
     notes: str | None = None
     document_url: str | None = None
 
-class UserMedicalCheckUpdate(BaseModel):
+class MedicalCheckUpdate(BaseModel):
     check_type: str | None = None
     check_date: date | None = None
     expiry_date: date | None = None
@@ -1888,10 +1887,11 @@ class UserMedicalCheckUpdate(BaseModel):
     notes: str | None = None
     document_url: str | None = None
 
-class UserMedicalCheckRead(BaseModel):
+class MedicalCheckRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: UUID
-    user_id: UUID
+    owner_type: str
+    owner_id: UUID
     check_type: str
     check_date: date
     expiry_date: date | None = None

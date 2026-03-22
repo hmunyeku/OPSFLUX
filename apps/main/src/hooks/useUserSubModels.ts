@@ -20,7 +20,7 @@ import type {
   UserPassportCreate, UserVisaCreate, EmergencyContactCreate,
   SocialSecurityCreate, UserVaccineCreate, UserLanguageCreate, DrivingLicenseCreate,
   UserSSOProviderCreate,
-  UserMedicalCheckCreate,
+  MedicalCheckCreate,
 } from '@/types/api'
 
 // Generic hook factory
@@ -105,11 +105,47 @@ export const useCreateDrivingLicense = () => useSubModelCreate<DrivingLicenseCre
 export const useUpdateDrivingLicense = () => useSubModelUpdate<DrivingLicenseCreate>('user-driving-licenses', drivingLicensesService)
 export const useDeleteDrivingLicense = () => useSubModelDelete('user-driving-licenses', drivingLicensesService)
 
-// ── Medical Checks ────────────────────────────────────────
-export const useMedicalChecks = (userId: string | undefined) => useSubModelList('user-medical-checks', medicalChecksService, userId)
-export const useCreateMedicalCheck = () => useSubModelCreate<UserMedicalCheckCreate>('user-medical-checks', medicalChecksService)
-export const useUpdateMedicalCheck = () => useSubModelUpdate<UserMedicalCheckCreate>('user-medical-checks', medicalChecksService)
-export const useDeleteMedicalCheck = () => useSubModelDelete('user-medical-checks', medicalChecksService)
+// ── Medical Checks (polymorphic) ──────────────────────────
+export function useMedicalChecks(ownerType: string, ownerId: string | undefined) {
+  return useQuery({
+    queryKey: ['medical-checks', ownerType, ownerId],
+    queryFn: () => medicalChecksService.list(ownerType, ownerId!),
+    enabled: !!ownerId,
+  })
+}
+
+export function useCreateMedicalCheck() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ ownerType, ownerId, payload }: { ownerType: string; ownerId: string; payload: MedicalCheckCreate }) =>
+      medicalChecksService.create(ownerType, ownerId, payload),
+    onSuccess: (_, { ownerType, ownerId }) => {
+      qc.invalidateQueries({ queryKey: ['medical-checks', ownerType, ownerId] })
+    },
+  })
+}
+
+export function useUpdateMedicalCheck() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (vars: { ownerType: string; ownerId: string; checkId: string; payload: Partial<MedicalCheckCreate> }) =>
+      medicalChecksService.update(vars.checkId, vars.payload),
+    onSuccess: (_, { ownerType, ownerId }) => {
+      qc.invalidateQueries({ queryKey: ['medical-checks', ownerType, ownerId] })
+    },
+  })
+}
+
+export function useDeleteMedicalCheck() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (vars: { ownerType: string; ownerId: string; checkId: string }) =>
+      medicalChecksService.remove(vars.checkId),
+    onSuccess: (_, { ownerType, ownerId }) => {
+      qc.invalidateQueries({ queryKey: ['medical-checks', ownerType, ownerId] })
+    },
+  })
+}
 
 // ── SSO Providers ──────────────────────────────────────────
 export const useSSOProviders = (userId: string | undefined) => useSubModelList('user-sso-providers', ssoProvidersService, userId)

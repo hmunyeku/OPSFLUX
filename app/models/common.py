@@ -1726,22 +1726,21 @@ class UserVaccine(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     user: Mapped["User"] = relationship()
 
 
-class UserMedicalCheck(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """User medical check record — replaces flat date fields on User."""
-    __tablename__ = "user_medical_checks"
+class MedicalCheck(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Polymorphic medical check record — applicable to users, tiers, assets, etc."""
+    __tablename__ = "medical_checks"
     __table_args__ = (
-        Index("idx_user_medical_checks_user", "user_id"),
+        Index("idx_medical_checks_owner", "owner_type", "owner_id"),
     )
 
-    user_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    owner_type: Mapped[str] = mapped_column(String(50), nullable=False)  # e.g. "user", "tier"
+    owner_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     check_type: Mapped[str] = mapped_column(String(50), nullable=False)  # general, international, subsidiary
     check_date: Mapped[date] = mapped_column(Date, nullable=False)
     expiry_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     provider: Mapped[str | None] = mapped_column(String(200), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     document_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
-
-    user: Mapped["User"] = relationship()
 
 
 class UserLanguage(UUIDPrimaryKeyMixin, TimestampMixin, Base):

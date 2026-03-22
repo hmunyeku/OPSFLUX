@@ -459,10 +459,11 @@ export interface DrivingLicenseCreate {
   document_url?: string | null
 }
 
-// ── User Medical Checks ───────────────────────────────────
-export interface UserMedicalCheckRead {
+// ── Medical Checks (polymorphic) ──────────────────────────
+export interface MedicalCheckRead {
   id: string
-  user_id: string
+  owner_type: string
+  owner_id: string
   check_type: string
   check_date: string
   expiry_date: string | null
@@ -472,7 +473,7 @@ export interface UserMedicalCheckRead {
   created_at: string
   updated_at: string
 }
-export interface UserMedicalCheckCreate {
+export interface MedicalCheckCreate {
   check_type: string
   check_date: string
   expiry_date?: string | null
@@ -480,6 +481,10 @@ export interface UserMedicalCheckCreate {
   notes?: string | null
   document_url?: string | null
 }
+/** @deprecated Use MedicalCheckRead */
+export type UserMedicalCheckRead = MedicalCheckRead
+/** @deprecated Use MedicalCheckCreate */
+export type UserMedicalCheckCreate = MedicalCheckCreate
 
 // ── User SSO Providers ────────────────────────────────────
 export interface UserSSOProviderRead {

@@ -11,7 +11,7 @@ import type {
   UserLanguageRead, UserLanguageCreate,
   DrivingLicenseRead, DrivingLicenseCreate,
   UserSSOProviderRead, UserSSOProviderCreate,
-  UserMedicalCheckRead, UserMedicalCheckCreate,
+  MedicalCheckRead, MedicalCheckCreate,
 } from '@/types/api'
 
 function crudService<TRead, TCreate>(segment: string) {
@@ -41,7 +41,24 @@ export const socialSecuritiesService = crudService<SocialSecurityRead, SocialSec
 export const vaccinesService = crudService<UserVaccineRead, UserVaccineCreate>('vaccines')
 export const userLanguagesService = crudService<UserLanguageRead, UserLanguageCreate>('languages')
 export const drivingLicensesService = crudService<DrivingLicenseRead, DrivingLicenseCreate>('driving-licenses')
-export const medicalChecksService = crudService<UserMedicalCheckRead, UserMedicalCheckCreate>('medical-checks')
+// Medical checks — polymorphic (uses /api/v1/medical-checks/{owner_type}/{owner_id})
+export const medicalChecksService = {
+  list: async (ownerType: string, ownerId: string): Promise<MedicalCheckRead[]> => {
+    const { data } = await api.get(`/api/v1/medical-checks/${ownerType}/${ownerId}`)
+    return data
+  },
+  create: async (ownerType: string, ownerId: string, payload: MedicalCheckCreate): Promise<MedicalCheckRead> => {
+    const { data } = await api.post(`/api/v1/medical-checks/${ownerType}/${ownerId}`, payload)
+    return data
+  },
+  update: async (checkId: string, payload: Partial<MedicalCheckCreate>): Promise<MedicalCheckRead> => {
+    const { data } = await api.patch(`/api/v1/medical-checks/${checkId}`, payload)
+    return data
+  },
+  remove: async (checkId: string): Promise<void> => {
+    await api.delete(`/api/v1/medical-checks/${checkId}`)
+  },
+}
 export const ssoProvidersService = crudService<UserSSOProviderRead, UserSSOProviderCreate>('sso-providers')
 
 // Phone/Email verification

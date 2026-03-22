@@ -66,6 +66,7 @@ import { VaccineManager } from '@/components/shared/VaccineManager'
 import { UserLanguageManager } from '@/components/shared/UserLanguageManager'
 import { DrivingLicenseManager } from '@/components/shared/DrivingLicenseManager'
 import { MedicalCheckManager } from '@/components/shared/MedicalCheckManager'
+import { ExternalRefManager } from '@/components/shared/ExternalRefManager'
 import { useDictionaryOptions, useDictionaryColumnOptions } from '@/hooks/useDictionary'
 import type { UserRead, UserCreate } from '@/types/api'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -1405,7 +1406,7 @@ function UserDetailPanel({ id }: { id: string }) {
               <FormSection title="Santé" collapsible storageKey="panel.user.sections" id="user-health">
                 <div className="border-b border-border/40 pb-3 mb-2">
                   <SubSectionLabel icon={Stethoscope} label="Visites médicales" count={0} />
-                  <MedicalCheckManager userId={id} compact />
+                  <MedicalCheckManager ownerType="user" ownerId={id} compact />
                 </div>
                 <div className="border-t border-border/40 pt-3 mt-2">
                   <SubSectionLabel icon={Syringe} label="Vaccins" count={0} />
@@ -1433,6 +1434,11 @@ function UserDetailPanel({ id }: { id: string }) {
                 <InlineEditableRow label="Date de retraite" value={user.retirement_date || ''} onSave={(v) => updateUser.mutate({ id, payload: { retirement_date: v || null } })} type="date" />
                 <InlineEditableRow label="N° Vantage" value={user.vantage_number || ''} onSave={(v) => updateUser.mutate({ id, payload: { vantage_number: v || null } })} />
                 <InlineEditableRow label="N° poste" value={user.extension_number || ''} onSave={(v) => updateUser.mutate({ id, payload: { extension_number: v || null } })} />
+              </FormSection>
+
+              {/* Identifiants externes */}
+              <FormSection title="Identifiants externes" collapsible storageKey="panel.user.sections" id="user-ext-refs" defaultExpanded={false}>
+                <ExternalRefManager ownerType="user" ownerId={id} compact />
               </FormSection>
 
               {/* Notes & Fichiers */}

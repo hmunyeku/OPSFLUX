@@ -522,13 +522,35 @@ async def check_compliance(
     )
     records = records_result.scalars().all()
 
+    # Get active approved exemptions for this owner's records
+    record_ids = [r.id for r in records]
+    exempted_record_ids: set = set()
+    if record_ids:
+        today = now.date()
+        exemptions_result = await db.execute(
+            select(ComplianceExemption.compliance_record_id)
+            .where(
+                ComplianceExemption.compliance_record_id.in_(record_ids),
+                ComplianceExemption.status == "approved",
+                ComplianceExemption.active == True,
+                ComplianceExemption.start_date <= today,
+                ComplianceExemption.end_date >= today,
+            )
+        )
+        exempted_record_ids = set(r[0] for r in exemptions_result.all())
+
     valid_type_ids = set()
+    exempted_type_ids = set()
     expired_count = 0
     details: list[dict] = []
 
     for rec in records:
         is_expired = rec.expires_at and rec.expires_at < now
-        if is_expired:
+        is_exempted = rec.id in exempted_record_ids
+        if is_exempted:
+            # Exemption overrides expired status — treat as compliant
+            exempted_type_ids.add(rec.compliance_type_id)
+        elif is_expired:
             expired_count += 1
             rec.status = "expired"
         elif rec.status == "valid":
@@ -538,23 +560,40 @@ async def check_compliance(
     for type_id in required_type_ids:
         type_obj = await db.get(ComplianceType, type_id)
         matching = [r for r in records if r.compliance_type_id == type_id]
-        valid_match = any(r.compliance_type_id == type_id for r in records if r.status == "valid" and not (r.expires_at and r.expires_at < now))
+        is_exempted = type_id in exempted_type_ids
+        valid_match = any(
+            r.compliance_type_id == type_id
+            for r in records
+            if r.status == "valid" and not (r.expires_at and r.expires_at < now)
+        )
+        if is_exempted:
+            detail_status = "exempted"
+        elif valid_match:
+            detail_status = "valid"
+        elif any(r.expires_at and r.expires_at < now for r in matching):
+            detail_status = "expired"
+        else:
+            detail_status = "missing"
         details.append({
             "compliance_type_id": str(type_id),
+            "type_id": str(type_id),
             "type_name": type_obj.name if type_obj else None,
             "type_category": type_obj.category if type_obj else None,
-            "status": "valid" if valid_match else ("expired" if any(r.expires_at and r.expires_at < now for r in matching) else "missing"),
+            "category": type_obj.category if type_obj else None,
+            "status": detail_status,
             "record_count": len(matching),
         })
 
-    missing_type_ids = required_type_ids - valid_type_ids
+    # Exempted types count as compliant
+    compliant_type_ids = (valid_type_ids | exempted_type_ids) & required_type_ids
+    missing_type_ids = required_type_ids - valid_type_ids - exempted_type_ids
     await db.commit()
 
     return ComplianceCheckResult(
         owner_type=owner_type,
         owner_id=owner_id,
         total_required=len(required_type_ids),
-        total_valid=len(valid_type_ids & required_type_ids),
+        total_valid=len(compliant_type_ids),
         total_expired=expired_count,
         total_missing=len(missing_type_ids),
         is_compliant=len(missing_type_ids) == 0 and expired_count == 0,

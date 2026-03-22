@@ -49,6 +49,7 @@ const STATUS_STYLES: Record<string, string> = {
   pending: 'gl-badge-warning',
   rejected: 'gl-badge-danger',
   missing: 'gl-badge-neutral',
+  exempted: 'gl-badge-info',
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -56,6 +57,7 @@ const STATUS_LABELS: Record<string, string> = {
   expired: 'Expiré',
   pending: 'En attente',
   rejected: 'Rejeté',
+  exempted: 'Exempté',
 }
 
 type FormData = {
@@ -243,6 +245,8 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
             {checkResult.total_valid}/{checkResult.total_required} valides
             {checkResult.total_expired > 0 && ` · ${checkResult.total_expired} expirés`}
             {checkResult.total_missing > 0 && ` · ${checkResult.total_missing} manquants`}
+            {checkResult.details?.filter((d: Record<string, unknown>) => d.status === 'exempted').length > 0 &&
+              ` · ${checkResult.details.filter((d: Record<string, unknown>) => d.status === 'exempted').length} exemptés`}
           </span>
         </div>
       )}
@@ -265,6 +269,19 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
               </span>
               <Plus size={10} className="text-primary shrink-0" />
             </button>
+          ))}
+        </div>
+      )}
+
+      {/* Exempted items (informational) */}
+      {checkResult?.details?.some((d: Record<string, unknown>) => d.status === 'exempted') && (
+        <div className="space-y-1">
+          {checkResult.details.filter((d: Record<string, unknown>) => d.status === 'exempted').map((detail: Record<string, unknown>, i: number) => (
+            <div key={i} className="flex items-center gap-2 text-[11px] px-2 py-1.5 rounded bg-blue-500/5 border border-blue-500/20 text-left">
+              <ShieldCheck size={10} className="text-blue-500 shrink-0" />
+              <span className="flex-1 truncate">{String(detail.type_name || '?')}</span>
+              <span className="gl-badge gl-badge-info text-[9px]">Exempté</span>
+            </div>
           ))}
         </div>
       )}

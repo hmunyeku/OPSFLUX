@@ -136,7 +136,7 @@ interface SubModelManagerProps<TRead extends { id: string }, TCreate> {
   isLoading?: boolean
   fields: FieldDef<TCreate>[]
   /** Columns to show in list (keys from TRead) */
-  displayColumns: { key: keyof TRead & string; label: string; format?: (v: unknown) => string }[]
+  displayColumns: { key: keyof TRead & string; label: string; format?: (v: unknown) => string; render?: (v: unknown, item: TRead) => React.ReactNode }[]
   emptyLabel: string
   emptyIcon: LucideIcon
   onCreate: (payload: TCreate) => void
@@ -350,11 +350,15 @@ export function SubModelManager<TRead extends { id: string }, TCreate>({
                   <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-3 gap-y-0.5">
                     {displayColumns.map((col, i) => {
                       const raw = (item as Record<string, unknown>)[col.key]
-                      const text = col.format ? col.format(raw) : (typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}/.test(raw) ? formatDate(raw) : String(raw ?? '—'))
+                      const content = col.render
+                        ? col.render(raw, item)
+                        : col.format
+                          ? col.format(raw)
+                          : (typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}/.test(raw) ? formatDate(raw) : String(raw ?? '—'))
                       return (
                         <span key={col.key} className={i === 0 ? 'text-sm font-medium text-foreground' : 'text-xs text-muted-foreground'}>
                           {i > 0 && <span className="text-muted-foreground/40 mr-1">·</span>}
-                          {text}
+                          {content}
                         </span>
                       )
                     })}

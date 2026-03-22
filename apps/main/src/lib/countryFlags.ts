@@ -3,6 +3,9 @@
  *
  * Uses Unicode Regional Indicator Symbols: each letter A-Z maps to
  * U+1F1E6..U+1F1FF. Two regional indicators form a flag emoji.
+ *
+ * NOTE: On Windows, emoji flags don't render. Use <CountryFlag /> component
+ * (flag-icons CSS) for cross-platform flag display.
  */
 
 const REGIONAL_A = 0x1F1E6
@@ -31,4 +34,13 @@ export function formatCountryCode(iso: string, showCode = false): string {
   const flag = isoToFlag(iso)
   if (!flag) return iso
   return showCode ? `${flag} ${iso.toUpperCase()}` : flag
+}
+
+/**
+ * Validate that a string is a plausible ISO 3166-1 alpha-2 country code.
+ */
+export function isValidIso2(iso: string): boolean {
+  if (!iso || iso.length !== 2) return false
+  const upper = iso.toUpperCase()
+  return /^[A-Z]{2}$/.test(upper)
 }

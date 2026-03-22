@@ -18,7 +18,7 @@ import {
   Power,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { isoToFlag } from '@/lib/countryFlags'
+import { CountryFlag } from '@/components/ui/CountryFlag'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
 import {
   DynamicPanelShell,
@@ -207,9 +207,8 @@ const entityColumns: ColumnDef<EntityRead, unknown>[] = [
     cell: ({ getValue }) => {
       const v = getValue() as string | null
       if (!v) return <span className="text-muted-foreground">—</span>
-      const flag = isoToFlag(v)
       const label = COUNTRY_OPTIONS.find((c) => c.value === v)?.label ?? v
-      return <span className="text-sm text-muted-foreground">{flag ? `${flag} ${label}` : label}</span>
+      return <CountryFlag code={v} label={label} className="text-sm text-muted-foreground" />
     },
     size: 140,
   },
@@ -641,9 +640,7 @@ function EntityDetailPanel({ id }: { id: string }) {
                 {entity.active ? 'Active' : 'Archivée'}
               </span>
               {entity.country && (
-                <span className="text-xs text-muted-foreground">
-                  {isoToFlag(entity.country)} {countryOpts.find((c) => c.value === entity.country)?.label ?? entity.country}
-                </span>
+                <CountryFlag code={entity.country} label={countryOpts.find((c) => c.value === entity.country)?.label ?? entity.country} className="text-xs text-muted-foreground" />
               )}
             </div>
           </div>

@@ -12,8 +12,9 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import Request
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, check_polymorphic_owner_access
 from app.core.database import get_db
 from app.models.common import ContactEmail, User
 from app.schemas.common import ContactEmailCreate, ContactEmailRead, ContactEmailUpdate
@@ -26,10 +27,12 @@ router = APIRouter(prefix="/api/v1/contact-emails", tags=["contact-emails"])
 async def list_contact_emails(
     owner_type: str = Query(..., description="Object type: tier, tier_contact, asset, entity"),
     owner_id: UUID = Query(..., description="UUID of the owning object"),
+    request: Request = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """List contact email addresses for a given owner."""
+    await check_polymorphic_owner_access(owner_type, owner_id, current_user, db, request, write=False)
     result = await db.execute(
         select(ContactEmail)
         .where(ContactEmail.owner_type == owner_type, ContactEmail.owner_id == owner_id)
@@ -41,10 +44,12 @@ async def list_contact_emails(
 @router.post("", response_model=ContactEmailRead, status_code=201)
 async def create_contact_email(
     body: ContactEmailCreate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Add a contact email to any object."""
+    await check_polymorphic_owner_access(body.owner_type, body.owner_id, current_user, db, request, write=True)
     if body.is_default:
         existing = await db.execute(
             select(ContactEmail).where(
@@ -73,6 +78,7 @@ async def create_contact_email(
 async def update_contact_email(
     email_id: UUID,
     body: ContactEmailUpdate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -81,6 +87,8 @@ async def update_contact_email(
     contact_email = result.scalar_one_or_none()
     if not contact_email:
         raise HTTPException(status_code=404, detail="Contact email not found")
+
+    await check_polymorphic_owner_access(contact_email.owner_type, contact_email.owner_id, current_user, db, request, write=True)
 
     update_data = body.model_dump(exclude_unset=True)
     if not update_data:
@@ -109,6 +117,7 @@ async def update_contact_email(
 @router.delete("/{email_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_contact_email(
     email_id: UUID,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -118,6 +127,7 @@ async def delete_contact_email(
     if not contact_email:
         raise HTTPException(status_code=404, detail="Contact email not found")
 
+    await check_polymorphic_owner_access(contact_email.owner_type, contact_email.owner_id, current_user, db, request, write=True)
     await delete_entity(contact_email, db, "contact_email", entity_id=email_id, user_id=current_user.id)
     await db.commit()
 
@@ -152,7 +162,6 @@ async def send_email_verification(
 
     # Send via email template system
     from app.api.deps import get_current_entity
-    from starlette.requests import Request
     entity_id = getattr(current_user, "current_entity_id", None)
     if entity_id:
         from app.core.email_templates import render_and_send_email

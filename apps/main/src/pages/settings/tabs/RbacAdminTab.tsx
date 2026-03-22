@@ -40,6 +40,7 @@ import {
 } from '@/hooks/useRbac'
 import { useUsers } from '@/hooks/useUsers'
 import { usePageSize } from '@/hooks/usePageSize'
+import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import type { RoleRead, PermissionRead, GroupRead, PermissionOverride } from '@/services/rbacService'
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -856,7 +857,7 @@ export function GroupsTab({ externalSearch, createTrigger, onOpenPanel }: {
       accessorKey: 'entity_name',
       header: 'Entité',
       cell: ({ row }) => row.original.entity_name ? (
-        <span className="text-muted-foreground text-xs">{row.original.entity_name}</span>
+        <CrossModuleLink module="entities" id={row.original.entity_id} label={row.original.entity_name} showIcon={false} className="text-xs" />
       ) : (
         <span className="text-muted-foreground/50 text-xs italic">—</span>
       ),
@@ -1870,7 +1871,7 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
             />
             <DetailRow
               label="Entité"
-              value={<span className="text-foreground">{group.entity_name || group.entity_id}</span>}
+              value={<CrossModuleLink module="entities" id={group.entity_id} label={group.entity_name || group.entity_id} showIcon={false} className="text-foreground" />}
             />
             <DetailRow
               label="Scope asset"

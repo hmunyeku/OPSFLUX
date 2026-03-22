@@ -9,8 +9,9 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import Request
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, check_polymorphic_owner_access
 from app.core.database import get_db
 from app.models.common import Phone, User
 from app.schemas.common import PhoneCreate, PhoneRead, PhoneUpdate
@@ -23,10 +24,12 @@ router = APIRouter(prefix="/api/v1/phones", tags=["phones"])
 async def list_phones(
     owner_type: str = Query(..., description="Object type: user, tier, tier_contact, asset, entity"),
     owner_id: UUID = Query(..., description="UUID of the owning object"),
+    request: Request = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """List phone numbers for a given owner."""
+    await check_polymorphic_owner_access(owner_type, owner_id, current_user, db, request, write=False)
     result = await db.execute(
         select(Phone)
         .where(Phone.owner_type == owner_type, Phone.owner_id == owner_id)
@@ -38,10 +41,12 @@ async def list_phones(
 @router.post("", response_model=PhoneRead, status_code=201)
 async def create_phone(
     body: PhoneCreate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Add a phone number to any object."""
+    await check_polymorphic_owner_access(body.owner_type, body.owner_id, current_user, db, request, write=True)
     # If setting as default, unset other defaults
     if body.is_default:
         existing = await db.execute(
@@ -72,6 +77,7 @@ async def create_phone(
 async def update_phone(
     phone_id: UUID,
     body: PhoneUpdate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -80,6 +86,8 @@ async def update_phone(
     phone = result.scalar_one_or_none()
     if not phone:
         raise HTTPException(status_code=404, detail="Phone not found")
+
+    await check_polymorphic_owner_access(phone.owner_type, phone.owner_id, current_user, db, request, write=True)
 
     update_data = body.model_dump(exclude_unset=True)
     if not update_data:
@@ -109,6 +117,7 @@ async def update_phone(
 @router.delete("/{phone_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_phone(
     phone_id: UUID,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -118,6 +127,7 @@ async def delete_phone(
     if not phone:
         raise HTTPException(status_code=404, detail="Phone not found")
 
+    await check_polymorphic_owner_access(phone.owner_type, phone.owner_id, current_user, db, request, write=True)
     await delete_entity(phone, db, "phone", entity_id=phone_id, user_id=current_user.id)
     await db.commit()
 

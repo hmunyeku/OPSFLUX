@@ -9,8 +9,9 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import Request
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, check_polymorphic_owner_access
 from app.core.database import get_db
 from app.models.common import Address, User
 from app.schemas.common import AddressCreate, AddressRead, AddressUpdate
@@ -23,10 +24,12 @@ router = APIRouter(prefix="/api/v1/addresses", tags=["addresses"])
 async def list_addresses(
     owner_type: str = Query(..., description="Object type: user, tier, asset, entity"),
     owner_id: UUID = Query(..., description="UUID of the owning object"),
+    request: Request = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """List addresses for a given owner (object type + id)."""
+    await check_polymorphic_owner_access(owner_type, owner_id, current_user, db, request, write=False)
     result = await db.execute(
         select(Address)
         .where(Address.owner_type == owner_type, Address.owner_id == owner_id)
@@ -38,10 +41,12 @@ async def list_addresses(
 @router.post("", response_model=AddressRead, status_code=201)
 async def create_address(
     body: AddressCreate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new address linked to any object."""
+    await check_polymorphic_owner_access(body.owner_type, body.owner_id, current_user, db, request, write=True)
     # If setting as default, unset other defaults for this owner
     if body.is_default:
         await db.execute(
@@ -77,6 +82,7 @@ async def create_address(
 async def update_address(
     address_id: UUID,
     body: AddressUpdate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -87,6 +93,8 @@ async def update_address(
     address = result.scalar_one_or_none()
     if not address:
         raise HTTPException(status_code=404, detail="Address not found")
+
+    await check_polymorphic_owner_access(address.owner_type, address.owner_id, current_user, db, request, write=True)
 
     update_data = body.model_dump(exclude_unset=True)
     if not update_data:
@@ -118,6 +126,7 @@ async def update_address(
 @router.delete("/{address_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_address(
     address_id: UUID,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -129,5 +138,6 @@ async def delete_address(
     if not address:
         raise HTTPException(status_code=404, detail="Address not found")
 
+    await check_polymorphic_owner_access(address.owner_type, address.owner_id, current_user, db, request, write=True)
     await delete_entity(address, db, "address", entity_id=address_id, user_id=current_user.id)
     await db.commit()

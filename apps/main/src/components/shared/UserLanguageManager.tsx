@@ -19,10 +19,15 @@ export function UserLanguageManager({ userId, compact }: { userId: string; compa
   const del = useDeleteUserLanguage()
   const proficiencyOptions = useDictionaryOptions('proficiency_level')
   const { data: profEntries } = useDictionary('proficiency_level')
+  const languageOptions = useDictionaryOptions('language')
+
+  const profOpts = proficiencyOptions.length > 0 ? proficiencyOptions : FALLBACK_PROFICIENCY_OPTIONS
 
   const FIELDS: FieldDef<UserLanguageCreate>[] = [
-    { key: 'language_code', label: 'Langue', required: true, placeholder: 'fr, en, pt...' },
-    { key: 'proficiency_level', label: 'Niveau', type: 'select' as const, options: proficiencyOptions.length > 0 ? proficiencyOptions : FALLBACK_PROFICIENCY_OPTIONS },
+    languageOptions.length > 0
+      ? { key: 'language_code', label: 'Langue', required: true, type: 'combobox' as const, options: languageOptions }
+      : { key: 'language_code', label: 'Langue', required: true, placeholder: 'fr, en, pt...' },
+    { key: 'proficiency_level', label: 'Niveau', type: 'select' as const, options: profOpts },
   ]
 
   const labels: Record<string, string> = {}
@@ -32,8 +37,11 @@ export function UserLanguageManager({ userId, compact }: { userId: string; compa
     for (const o of FALLBACK_PROFICIENCY_OPTIONS) labels[o.value] = o.label
   }
 
+  const langLabels: Record<string, string> = {}
+  for (const o of languageOptions) langLabels[o.value] = o.label
+
   const DISPLAY_COLUMNS = [
-    { key: 'language_code' as const, label: 'Langue' },
+    { key: 'language_code' as const, label: 'Langue', format: (v: unknown) => langLabels[v as string] ?? String(v ?? '—') },
     { key: 'proficiency_level' as const, label: 'Niveau', format: (v: unknown) => labels[v as string] ?? String(v ?? '—') },
   ]
 

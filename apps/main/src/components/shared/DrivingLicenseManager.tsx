@@ -2,7 +2,7 @@ import { Car } from 'lucide-react'
 import { SubModelManager, type FieldDef } from './SubModelManager'
 import { useDrivingLicenses, useCreateDrivingLicense, useUpdateDrivingLicense, useDeleteDrivingLicense } from '@/hooks/useUserSubModels'
 import { useDictionaryOptions, useDictionaryColumnOptions, useDictionary } from '@/hooks/useDictionary'
-import { isoToFlag } from '@/lib/countryFlags'
+import { CountryFlag } from '@/components/ui/CountryFlag'
 import type { DrivingLicenseRead, DrivingLicenseCreate } from '@/types/api'
 
 export function DrivingLicenseManager({ userId, compact }: { userId: string; compact?: boolean }) {
@@ -31,7 +31,7 @@ export function DrivingLicenseManager({ userId, compact }: { userId: string; com
 
   const DISPLAY_COLUMNS = [
     { key: 'license_type' as const, label: 'Type' },
-    { key: 'country' as const, label: 'Pays', format: (v: unknown) => { const code = v as string; const flag = isoToFlag(code); const label = countryLabels[code] ?? code; return flag ? `${flag} ${label}` : label } },
+    { key: 'country' as const, label: 'Pays', render: (v: unknown) => <CountryFlag code={v as string} label={countryLabels[v as string] ?? (v as string)} size={14} /> },
     { key: 'expiry_date' as const, label: 'Expiration' },
   ]
 

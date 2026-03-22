@@ -1475,7 +1475,10 @@ function ProjectsListView() {
         return <span className={cn('gl-badge', cls)}>{PRIORITY_OPTIONS.find(o => o.value === p)?.label ?? p}</span>
       },
     },
-    { accessorKey: 'manager_name', header: 'Chef de projet', size: 140, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.manager_name || '--'}</span> },
+    { accessorKey: 'manager_name', header: 'Chef de projet', size: 140, cell: ({ row }) => row.original.manager_id
+        ? <CrossModuleLink module="users" id={row.original.manager_id} label={row.original.manager_name || row.original.manager_id} showIcon={false} className="text-xs" />
+        : <span className="text-muted-foreground/40">--</span>,
+    },
     { accessorKey: 'task_count', header: 'Taches', size: 70, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.task_count ?? 0}</span> },
     {
       accessorKey: 'parent_name', header: 'Macro-projet', size: 130,

@@ -5,8 +5,9 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import Request
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, check_polymorphic_owner_access
 from app.core.database import get_db
 from app.services.core.delete_service import delete_entity
 from app.models.common import SocialNetwork, User
@@ -19,9 +20,11 @@ router = APIRouter(prefix="/api/v1/social-networks", tags=["social-networks"])
 async def list_social_networks(
     owner_type: str = Query(...),
     owner_id: UUID = Query(...),
+    request: Request = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    await check_polymorphic_owner_access(owner_type, owner_id, current_user, db, request, write=False)
     result = await db.execute(
         select(SocialNetwork)
         .where(SocialNetwork.owner_type == owner_type, SocialNetwork.owner_id == owner_id)
@@ -33,9 +36,11 @@ async def list_social_networks(
 @router.post("", response_model=SocialNetworkRead, status_code=201)
 async def create_social_network(
     body: SocialNetworkCreate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    await check_polymorphic_owner_access(body.owner_type, body.owner_id, current_user, db, request, write=True)
     sn = SocialNetwork(**body.model_dump())
     db.add(sn)
     await db.commit()
@@ -47,6 +52,7 @@ async def create_social_network(
 async def update_social_network(
     item_id: UUID,
     body: SocialNetworkUpdate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -54,6 +60,7 @@ async def update_social_network(
     sn = result.scalar_one_or_none()
     if not sn:
         raise HTTPException(status_code=404, detail="Social network not found")
+    await check_polymorphic_owner_access(sn.owner_type, sn.owner_id, current_user, db, request, write=True)
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(sn, field, value)
     await db.commit()
@@ -64,6 +71,7 @@ async def update_social_network(
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_social_network(
     item_id: UUID,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -71,5 +79,6 @@ async def delete_social_network(
     sn = result.scalar_one_or_none()
     if not sn:
         raise HTTPException(status_code=404, detail="Social network not found")
+    await check_polymorphic_owner_access(sn.owner_type, sn.owner_id, current_user, db, request, write=True)
     await delete_entity(sn, db, "social_network", entity_id=sn.id, user_id=current_user.id)
     await db.commit()

@@ -1164,7 +1164,7 @@ function useContactColumns() {
       size: 160,
       cell: ({ row }) => (
         <div className="flex flex-col">
-          <span className="text-foreground text-xs">{row.original.tier_name}</span>
+          <CrossModuleLink module="tiers" id={row.original.tier_id} label={row.original.tier_name || row.original.tier_code} showIcon={false} className="text-xs" />
           <span className="text-[10px] text-muted-foreground">{row.original.tier_code}</span>
         </div>
       ),

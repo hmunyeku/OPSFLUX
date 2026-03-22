@@ -2,7 +2,7 @@ import { Stamp } from 'lucide-react'
 import { SubModelManager, type FieldDef } from './SubModelManager'
 import { useVisas, useCreateVisa, useUpdateVisa, useDeleteVisa } from '@/hooks/useUserSubModels'
 import { useDictionaryOptions, useDictionaryColumnOptions, useDictionary } from '@/hooks/useDictionary'
-import { isoToFlag } from '@/lib/countryFlags'
+import { CountryFlag } from '@/components/ui/CountryFlag'
 import type { UserVisaRead, UserVisaCreate } from '@/types/api'
 
 export function VisaManager({ userId, compact }: { userId: string; compact?: boolean }) {
@@ -33,7 +33,7 @@ export function VisaManager({ userId, compact }: { userId: string; compact?: boo
 
   const DISPLAY_COLUMNS = [
     { key: 'visa_type' as const, label: 'Type' },
-    { key: 'country' as const, label: 'Pays', format: (v: unknown) => { const code = v as string; const flag = isoToFlag(code); const label = countryLabels[code] ?? code; return flag ? `${flag} ${label}` : label } },
+    { key: 'country' as const, label: 'Pays', render: (v: unknown) => <CountryFlag code={v as string} label={countryLabels[v as string] ?? (v as string)} size={14} /> },
     { key: 'expiry_date' as const, label: 'Expiration' },
   ]
 

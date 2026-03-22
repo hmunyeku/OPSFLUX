@@ -2,7 +2,7 @@ import { FileText } from 'lucide-react'
 import { SubModelManager, type FieldDef } from './SubModelManager'
 import { usePassports, useCreatePassport, useUpdatePassport, useDeletePassport } from '@/hooks/useUserSubModels'
 import { useDictionaryOptions, useDictionaryColumnOptions, useDictionary } from '@/hooks/useDictionary'
-import { isoToFlag } from '@/lib/countryFlags'
+import { CountryFlag } from '@/components/ui/CountryFlag'
 import type { UserPassportRead, UserPassportCreate } from '@/types/api'
 
 export function PassportManager({ userId, compact }: { userId: string; compact?: boolean }) {
@@ -33,14 +33,13 @@ export function PassportManager({ userId, compact }: { userId: string; compact?:
     for (const e of natEntries) countryLabels[e.code] = (e.metadata_json?.country as string) ?? e.label
   }
 
-  type ColDef = { key: keyof UserPassportRead & string; label: string; format?: (v: unknown) => string }
-  const DISPLAY_COLUMNS: ColDef[] = [
+  const DISPLAY_COLUMNS = [
     ...(passportTypeOptions.length > 0
       ? [{ key: 'passport_type' as const, label: 'Type', format: (v: unknown) => passportTypeOptions.find(o => o.value === v)?.label ?? String(v ?? '') }]
       : []),
-    { key: 'number', label: 'Numéro' },
-    { key: 'country', label: 'Pays', format: (v: unknown) => { const code = v as string; const flag = isoToFlag(code); const label = countryLabels[code] ?? code; return flag ? `${flag} ${label}` : label } },
-    { key: 'expiry_date', label: 'Expiration' },
+    { key: 'number' as const, label: 'Numéro' },
+    { key: 'country' as const, label: 'Pays', render: (v: unknown) => <CountryFlag code={v as string} label={countryLabels[v as string] ?? (v as string)} size={14} /> },
+    { key: 'expiry_date' as const, label: 'Expiration' },
   ]
 
   return (

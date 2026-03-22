@@ -52,6 +52,8 @@ const MODULE_ROUTES: Record<string, string> = {
   conformite: '/conformite',
   travelwiz: '/travelwiz',
   workflow: '/workflow',
+  users: '/users',
+  entities: '/entities',
   'report-editor': '/report-editor',
   'pid-pfd': '/pid-pfd',
 }

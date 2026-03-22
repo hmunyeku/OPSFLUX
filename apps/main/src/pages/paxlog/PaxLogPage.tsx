@@ -541,7 +541,10 @@ function AdsTab({ openDetail }: { openDetail: (id: string) => void }) {
       cell: ({ row }) => (
         <div className="min-w-0">
           <span className="font-medium text-foreground font-mono text-xs">{row.original.reference}</span>
-          {row.original.site_name && (
+          {row.original.site_name && row.original.site_entry_asset_id && (
+            <CrossModuleLink module="assets" id={row.original.site_entry_asset_id} label={row.original.site_name} showIcon={false} className="text-[10px] block truncate" />
+          )}
+          {row.original.site_name && !row.original.site_entry_asset_id && (
             <span className="text-[10px] text-muted-foreground block truncate">{row.original.site_name}</span>
           )}
         </div>
@@ -950,7 +953,9 @@ function SignalementsTab() {
     {
       id: 'asset',
       header: 'Asset',
-      cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.asset_name || '—'}</span>,
+      cell: ({ row }) => row.original.asset_id
+        ? <CrossModuleLink module="assets" id={row.original.asset_id} label={row.original.asset_name || row.original.asset_id} showIcon={false} className="text-xs" />
+        : <span className="text-xs text-muted-foreground">—</span>,
     },
     {
       accessorKey: 'severity',

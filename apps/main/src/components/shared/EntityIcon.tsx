@@ -4,7 +4,6 @@
  * Priority: logo_url > country flag > Building2 icon
  */
 import { Building2 } from 'lucide-react'
-import { isoToFlag } from '@/lib/countryFlags'
 import { cn } from '@/lib/utils'
 
 interface EntityIconProps {
@@ -31,17 +30,13 @@ export function EntityIcon({ logoUrl, country, size = 14, className }: EntityIco
     )
   }
 
-  const flag = country ? isoToFlag(country) : ''
-  if (flag) {
+  if (country && country.length === 2) {
     return (
       <span
-        className={cn('shrink-0 leading-none', className)}
-        style={{ fontSize: size - 2 }}
-        role="img"
-        aria-label={country ?? ''}
-      >
-        {flag}
-      </span>
+        className={cn(`fi fi-${country.toLowerCase()} shrink-0`, className)}
+        style={{ fontSize: size - 2, lineHeight: 1 }}
+        title={country.toUpperCase()}
+      />
     )
   }
 

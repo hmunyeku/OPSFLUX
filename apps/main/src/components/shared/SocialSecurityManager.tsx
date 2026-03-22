@@ -1,23 +1,38 @@
 import { CreditCard } from 'lucide-react'
 import { SubModelManager, type FieldDef } from './SubModelManager'
 import { useSocialSecurities, useCreateSocialSecurity, useUpdateSocialSecurity, useDeleteSocialSecurity } from '@/hooks/useUserSubModels'
+import { useDictionaryColumnOptions } from '@/hooks/useDictionary'
+import { CountryFlag } from '@/components/ui/CountryFlag'
 import type { SocialSecurityRead, SocialSecurityCreate } from '@/types/api'
-
-const FIELDS: FieldDef<SocialSecurityCreate>[] = [
-  { key: 'country', label: 'Pays', required: true, placeholder: 'France' },
-  { key: 'number', label: 'N° Sécu. Sociale', required: true, placeholder: '1 85 01 75 123 456 78' },
-]
-
-const DISPLAY_COLUMNS = [
-  { key: 'country' as const, label: 'Pays' },
-  { key: 'number' as const, label: 'Numéro' },
-]
 
 export function SocialSecurityManager({ userId, compact }: { userId: string; compact?: boolean }) {
   const { data: items, isLoading } = useSocialSecurities(userId)
   const create = useCreateSocialSecurity()
   const update = useUpdateSocialSecurity()
   const del = useDeleteSocialSecurity()
+  const countryOptions = useDictionaryColumnOptions('nationality', 'country')
+
+  const FIELDS: FieldDef<SocialSecurityCreate>[] = [
+    countryOptions.length > 0
+      ? { key: 'country', label: 'Pays', required: true, type: 'combobox' as const, options: countryOptions }
+      : { key: 'country', label: 'Pays', required: true, placeholder: 'CM, FR...' },
+    { key: 'number', label: 'N° Sécu. Sociale', required: true, placeholder: '1 85 01 75 123 456 78' },
+  ]
+
+  const countryLabels: Record<string, string> = {}
+  for (const o of countryOptions) countryLabels[o.value] = o.label
+
+  const DISPLAY_COLUMNS = [
+    {
+      key: 'country' as const,
+      label: 'Pays',
+      render: (v: unknown) => {
+        const code = v as string
+        return <CountryFlag code={code} label={countryLabels[code] ?? code} size={14} />
+      },
+    },
+    { key: 'number' as const, label: 'Numéro' },
+  ]
 
   return (
     <SubModelManager<SocialSecurityRead, SocialSecurityCreate>

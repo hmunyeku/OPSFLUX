@@ -15,7 +15,7 @@ from app.core.database import get_db
 from app.core.redis_client import get_redis
 from app.models.common import User
 from app.services.core.delete_service import (
-    ENTITY_TYPE_REGISTRY,
+    _ensure_registry,
     get_archived_counts,
     get_delete_policy,
     purge_archived,
@@ -134,7 +134,8 @@ async def list_delete_policies(
     counts = await get_archived_counts(db)
     policies = []
 
-    for entity_type, reg in ENTITY_TYPE_REGISTRY.items():
+    registry = _ensure_registry()
+    for entity_type, reg in registry.items():
         policy = await get_delete_policy(entity_type, db, entity_id)
         policies.append({
             "entity_type": entity_type,
@@ -162,7 +163,8 @@ async def update_delete_policy(
     db: AsyncSession = Depends(get_db),
 ):
     """Create or update a delete policy for an entity type."""
-    if entity_type not in ENTITY_TYPE_REGISTRY:
+    registry = _ensure_registry()
+    if entity_type not in registry:
         raise HTTPException(status_code=400, detail=f"Unknown entity type: {entity_type}")
     if body.mode not in ("soft", "soft_purge", "hard"):
         raise HTTPException(status_code=400, detail=f"Invalid mode: {body.mode}")
@@ -197,7 +199,8 @@ async def manual_purge(
     db: AsyncSession = Depends(get_db),
 ):
     """Manually trigger purge of archived records for a specific entity type."""
-    if entity_type not in ENTITY_TYPE_REGISTRY:
+    registry = _ensure_registry()
+    if entity_type not in registry:
         raise HTTPException(status_code=400, detail=f"Unknown entity type: {entity_type}")
 
     policy = await get_delete_policy(entity_type, db, entity_id)

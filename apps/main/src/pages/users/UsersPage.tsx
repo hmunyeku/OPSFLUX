@@ -23,7 +23,7 @@ import {
   Pencil, Check, Save,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { isoToFlag } from '@/lib/countryFlags'
+import { CountryFlag } from '@/components/ui/CountryFlag'
 import { normalizeNames } from '@/lib/normalize'
 import { PanelHeader, ToolbarButton } from '@/components/layout/PanelHeader'
 import {
@@ -67,7 +67,8 @@ import { UserLanguageManager } from '@/components/shared/UserLanguageManager'
 import { DrivingLicenseManager } from '@/components/shared/DrivingLicenseManager'
 import { MedicalCheckManager } from '@/components/shared/MedicalCheckManager'
 import { ExternalRefManager } from '@/components/shared/ExternalRefManager'
-import { useDictionaryOptions, useDictionaryColumnOptions } from '@/hooks/useDictionary'
+import { useDictionary, useDictionaryOptions, useDictionaryColumnOptions } from '@/hooks/useDictionary'
+import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import type { UserRead, UserCreate } from '@/types/api'
 import type { ColumnDef } from '@tanstack/react-table'
 import {
@@ -81,7 +82,7 @@ import {
 } from '@/components/ui/DataTable'
 import { relativeTime, getAvatarColor } from '@/components/ui/DataTable/utils'
 
-const LANGUAGE_OPTIONS = [
+const FALLBACK_LANGUAGE_OPTIONS = [
   { value: 'fr', label: 'Français' },
   { value: 'en', label: 'English' },
 ]
@@ -97,11 +98,10 @@ const AUTH_TYPE_LABELS: Record<string, string> = {
 const TextCell = ({ value }: { value: string | null | undefined }) =>
   value ? <span className="text-foreground text-xs truncate block">{value}</span> : <span className="text-muted-foreground/40">—</span>
 
-// ── Helper: display ISO country code with flag emoji ────────
+// ── Helper: display ISO country code with flag ──────────────
 const FlagCell = ({ value }: { value: string | null | undefined }) => {
   if (!value) return <span className="text-muted-foreground/40">—</span>
-  const flag = isoToFlag(value)
-  return <span className="text-foreground text-xs truncate block">{flag ? `${flag} ${value}` : value}</span>
+  return <CountryFlag code={value} label={value.toUpperCase()} className="text-foreground text-xs" />
 }
 
 // ── Column definitions ─────────────────────────────────────
@@ -443,6 +443,10 @@ function CreateUserPanel() {
   const createUser = useCreateUser()
   const { data: allEntitiesData } = useAllEntities({ page: 1, page_size: 200 })
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const dictLanguageOptions = useDictionaryOptions('language')
+  const dictUserTypeOptions = useDictionaryOptions('user_type')
+  const languageOptions = dictLanguageOptions.length > 0 ? dictLanguageOptions : FALLBACK_LANGUAGE_OPTIONS
+  const userTypeOptions = dictUserTypeOptions.length > 0 ? dictUserTypeOptions : [{ value: 'internal', label: 'Interne' }, { value: 'external', label: 'Externe' }]
   const [form, setForm] = useState<UserCreate & { account_expires_at?: string }>({
     email: '', first_name: '', last_name: '', password: '', language: 'fr',
   })
@@ -527,7 +531,7 @@ function CreateUserPanel() {
                 <tr className="border-b border-border/40">
                   <td className="py-2 px-3 text-muted-foreground font-medium align-top whitespace-nowrap">{t('settings.language')}</td>
                   <td className="py-2 px-3">
-                    <TagSelector options={LANGUAGE_OPTIONS} value={form.language || 'fr'} onChange={(v) => setForm({ ...form, language: v })} />
+                    <TagSelector options={languageOptions} value={form.language || 'fr'} onChange={(v) => setForm({ ...form, language: v })} />
                   </td>
                 </tr>
               </tbody>
@@ -551,7 +555,7 @@ function CreateUserPanel() {
                   <td className="py-2 px-3 text-muted-foreground font-medium align-top whitespace-nowrap">Type</td>
                   <td className="py-2 px-3">
                     <TagSelector
-                      options={[{ value: 'internal', label: 'Interne' }, { value: 'external', label: 'Externe' }]}
+                      options={userTypeOptions}
                       value={form.user_type || 'internal'}
                       onChange={(v) => setForm({ ...form, user_type: v })}
                     />
@@ -764,7 +768,7 @@ function UserEntitiesTab({ userId }: { userId: string }) {
               <div className="flex items-center gap-2 min-w-0">
                 <Building2 size={14} className="text-primary shrink-0" />
                 <div className="min-w-0">
-                  <h4 className="text-sm font-semibold text-foreground truncate">{entity.entity_name}</h4>
+                  <CrossModuleLink module="entities" id={entity.entity_id} label={entity.entity_name} showIcon={false} className="text-sm font-semibold" />
                   <span className="text-[10px] text-muted-foreground font-mono">{entity.entity_code}</span>
                 </div>
               </div>
@@ -877,7 +881,7 @@ function UserEntitiesTab({ userId }: { userId: string }) {
               <div key={link.id} className="flex items-center gap-2 border border-border rounded-lg px-3 py-2">
                 <CreditCard size={13} className="text-amber-600 shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <span className="text-sm font-medium text-foreground truncate block">{link.tier_name}</span>
+                  <CrossModuleLink module="tiers" id={link.tier_id} label={link.tier_name} showIcon={false} className="text-sm font-medium truncate block" />
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-mono text-muted-foreground">{link.tier_code}</span>
                     {link.tier_type && <span className="gl-badge gl-badge-neutral text-[9px]">{link.tier_type}</span>}
@@ -1043,6 +1047,12 @@ function UserDetailPanel({ id }: { id: string }) {
   const nationalityOptions = useDictionaryColumnOptions('nationality', 'nationality')
   const countryOptions = useDictionaryColumnOptions('nationality', 'country')
   const airportOptions = useDictionaryOptions('airport')
+  const dictLanguageOptions = useDictionaryOptions('language')
+  const detailLanguageOptions = dictLanguageOptions.length > 0 ? dictLanguageOptions : FALLBACK_LANGUAGE_OPTIONS
+  const dictUserTypeOptions = useDictionaryOptions('user_type')
+  const detailUserTypeOptions = dictUserTypeOptions.length > 0 ? dictUserTypeOptions : [{ value: 'internal', label: 'Interne' }, { value: 'external', label: 'Externe' }]
+  const clothingSizeOptions = useDictionaryOptions('clothing_size')
+  const shoeSizeOptions = useDictionaryOptions('shoe_size')
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const [detailTab, setDetailTab] = useState<UserDetailTab>('fiche')
   const avatarInputRef = useRef<HTMLInputElement>(null)
@@ -1252,8 +1262,8 @@ function UserDetailPanel({ id }: { id: string }) {
                 <InlineEditableRow label="Ville de naissance" value={user.birth_city || ''} onSave={(v) => updateUser.mutate({ id, payload: { birth_city: v || null } })} />
                 <InlineEditableRow label="Date de naissance" value={user.birth_date || ''} onSave={(v) => updateUser.mutate({ id, payload: { birth_date: v || null } })} type="date" />
                 <InlineEditableRow label="ID Intranet" value={user.intranet_id || ''} onSave={(v) => updateUser.mutate({ id, payload: { intranet_id: v || undefined } })} />
-                <InlineEditableTags label={t('settings.language')} value={user.language} options={LANGUAGE_OPTIONS} onSave={(v) => handleInlineSave('language', v)} />
-                <InlineEditableTags label="Type" value={user.user_type || 'internal'} options={[{ value: 'internal', label: 'Interne' }, { value: 'external', label: 'Externe' }]} onSave={(v) => updateUser.mutate({ id, payload: { user_type: v } })} />
+                <InlineEditableTags label={t('settings.language')} value={user.language} options={detailLanguageOptions} onSave={(v) => handleInlineSave('language', v)} />
+                <InlineEditableTags label="Type" value={user.user_type || 'internal'} options={detailUserTypeOptions} onSave={(v) => updateUser.mutate({ id, payload: { user_type: v } })} />
               </FormSection>
 
               {/* Coordonnées: phones, emails, addresses */}
@@ -1397,9 +1407,18 @@ function UserDetailPanel({ id }: { id: string }) {
               <FormSection title="Mensurations" collapsible storageKey="panel.user.sections" id="user-body">
                 <InlineEditableRow label="Taille (cm)" value={user.height != null ? String(user.height) : ''} onSave={(v) => updateUser.mutate({ id, payload: { height: v ? parseInt(v) : null } })} />
                 <InlineEditableRow label="Poids (kg)" value={user.weight != null ? String(user.weight) : ''} onSave={(v) => updateUser.mutate({ id, payload: { weight: v ? parseFloat(v) : null } })} />
-                <PPESizeRow label="Vêtement haut" value={user.ppe_clothing_size || ''} onSave={(v) => updateUser.mutate({ id, payload: { ppe_clothing_size: v || null } })} chartType="clothing" />
-                <PPESizeRow label="Vêtement bas" value={user.ppe_clothing_size_bottom || ''} onSave={(v) => updateUser.mutate({ id, payload: { ppe_clothing_size_bottom: v || null } })} chartType="clothing" />
-                <PPESizeRow label="Pointure" value={user.ppe_shoe_size || ''} onSave={(v) => updateUser.mutate({ id, payload: { ppe_shoe_size: v || null } })} chartType="shoe" />
+                {clothingSizeOptions.length > 0
+                  ? <InlineEditableTags label="Vêtement haut" value={user.ppe_clothing_size || ''} options={clothingSizeOptions} onSave={(v) => updateUser.mutate({ id, payload: { ppe_clothing_size: v || null } })} />
+                  : <PPESizeRow label="Vêtement haut" value={user.ppe_clothing_size || ''} onSave={(v) => updateUser.mutate({ id, payload: { ppe_clothing_size: v || null } })} chartType="clothing" />
+                }
+                {clothingSizeOptions.length > 0
+                  ? <InlineEditableTags label="Vêtement bas" value={user.ppe_clothing_size_bottom || ''} options={clothingSizeOptions} onSave={(v) => updateUser.mutate({ id, payload: { ppe_clothing_size_bottom: v || null } })} />
+                  : <PPESizeRow label="Vêtement bas" value={user.ppe_clothing_size_bottom || ''} onSave={(v) => updateUser.mutate({ id, payload: { ppe_clothing_size_bottom: v || null } })} chartType="clothing" />
+                }
+                {shoeSizeOptions.length > 0
+                  ? <InlineEditableTags label="Pointure" value={user.ppe_shoe_size || ''} options={shoeSizeOptions} onSave={(v) => updateUser.mutate({ id, payload: { ppe_shoe_size: v || null } })} />
+                  : <PPESizeRow label="Pointure" value={user.ppe_shoe_size || ''} onSave={(v) => updateUser.mutate({ id, payload: { ppe_shoe_size: v || null } })} chartType="shoe" />
+                }
               </FormSection>
 
               {/* Santé */}
@@ -1640,15 +1659,8 @@ function HealthConditionsChecklist({ userId }: { userId: string }) {
   const { data: conditions, isLoading: condLoading } = useHealthConditions(userId)
   const addCondition = useAddHealthCondition()
   const removeCondition = useRemoveHealthCondition()
-  const [dictEntries, setDictEntries] = useState<{ code: string; label: string }[]>([])
-
-  useEffect(() => {
-    import('@/lib/api').then(({ default: api }) => {
-      api.get('/api/v1/dictionary', { params: { category: 'health_condition' } })
-        .then(({ data }) => setDictEntries((data.items ?? data ?? []).map((e: { code: string; label: string }) => ({ code: e.code, label: e.label }))))
-        .catch(() => {})
-    })
-  }, [])
+  const { data: dictRaw } = useDictionary('health_condition')
+  const dictEntries = useMemo(() => (dictRaw ?? []).map(e => ({ code: e.code, label: e.label })), [dictRaw])
 
   if (condLoading) return <Loader2 size={14} className="animate-spin text-muted-foreground mx-auto my-2" />
 

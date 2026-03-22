@@ -17,15 +17,102 @@ import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 import { ImageEditor } from '@/components/shared/ImageEditor'
 import { PhoneManager } from '@/components/shared/PhoneManager'
 import { EmergencyContactManager } from '@/components/shared/EmergencyContactManager'
+import { MedicalCheckManager } from '@/components/shared/MedicalCheckManager'
 import { EmailsTab } from './EmailsTab'
 import { AddressesTab } from './AddressesTab'
+import { useDictionaryOptions, useDictionaryColumnOptions } from '@/hooks/useDictionary'
 import type { ProfileUpdate } from '@/types/api'
 
-const GENDER_OPTIONS = [
+const FALLBACK_GENDER = [
   { value: 'M', label: 'Homme' },
   { value: 'F', label: 'Femme' },
   { value: 'X', label: 'Autre' },
 ]
+
+const FALLBACK_LANGUAGE = [
+  { value: 'fr', label: 'Français' },
+  { value: 'en', label: 'English' },
+]
+
+/** Searchable combobox for dictionary-driven fields */
+function DictCombobox({ value, options, onChange, placeholder }: {
+  value: string
+  options: { value: string; label: string }[]
+  onChange: (v: string) => void
+  placeholder?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  const filtered = options.filter((o) =>
+    o.label.toLowerCase().includes(search.toLowerCase()) ||
+    o.value.toLowerCase().includes(search.toLowerCase())
+  )
+  const selectedLabel = options.find((o) => o.value === value)?.label || value
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="gl-form-input text-left w-full flex items-center justify-between"
+      >
+        <span className={value ? 'text-foreground' : 'text-muted-foreground'}>
+          {value ? selectedLabel : (placeholder || '— Sélectionner —')}
+        </span>
+        <svg className="h-4 w-4 text-muted-foreground shrink-0" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute z-50 mt-1 w-full rounded-lg border border-border bg-popover shadow-lg max-h-52 overflow-hidden">
+          <div className="p-1.5 border-b border-border">
+            <input
+              type="text"
+              className="w-full bg-transparent text-sm px-2 py-1 outline-none placeholder:text-muted-foreground"
+              placeholder="Rechercher..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div className="overflow-y-auto max-h-40">
+            <button
+              type="button"
+              className="w-full text-left px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent"
+              onClick={() => { onChange(''); setOpen(false); setSearch('') }}
+            >
+              — Aucun —
+            </button>
+            {filtered.map((o) => (
+              <button
+                key={o.value}
+                type="button"
+                className={`w-full text-left px-3 py-1.5 text-sm hover:bg-accent ${o.value === value ? 'bg-primary/10 text-primary font-medium' : 'text-foreground'}`}
+                onClick={() => { onChange(o.value); setOpen(false); setSearch('') }}
+              >
+                {o.label}
+              </button>
+            ))}
+            {filtered.length === 0 && (
+              <p className="px-3 py-2 text-sm text-muted-foreground">Aucun résultat</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function ProfileTab() {
   const { t } = useTranslation()
@@ -34,6 +121,18 @@ export function ProfileTab() {
   const updateProfile = useUpdateProfile()
   const uploadAvatar = useUploadAvatar()
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Dictionary hooks
+  const dictGender = useDictionaryOptions('gender')
+  const dictLanguage = useDictionaryOptions('language')
+  const dictNationality = useDictionaryColumnOptions('nationality', 'nationality')
+  const dictCountry = useDictionaryColumnOptions('nationality', 'country')
+  const dictAirport = useDictionaryOptions('airport')
+  const dictClothingSize = useDictionaryOptions('clothing_size')
+  const dictShoeSize = useDictionaryOptions('shoe_size')
+
+  const genderOptions = dictGender.length > 0 ? dictGender : FALLBACK_GENDER
+  const languageOptions = dictLanguage.length > 0 ? dictLanguage : FALLBACK_LANGUAGE
 
   const [form, setForm] = useState<ProfileUpdate>({
     first_name: user?.first_name || '',
@@ -51,10 +150,6 @@ export function ProfileTab() {
     nearest_airport: user?.nearest_airport || '',
     nearest_station: user?.nearest_station || '',
     loyalty_program: user?.loyalty_program || '',
-    // Health / Medical
-    last_medical_check: user?.last_medical_check || '',
-    last_international_medical_check: user?.last_international_medical_check || '',
-    last_subsidiary_medical_check: user?.last_subsidiary_medical_check || '',
     // Body / PPE
     height: user?.height ?? null,
     weight: user?.weight ?? null,
@@ -84,9 +179,6 @@ export function ProfileTab() {
         nearest_airport: user.nearest_airport || '',
         nearest_station: user.nearest_station || '',
         loyalty_program: user.loyalty_program || '',
-        last_medical_check: user.last_medical_check || '',
-        last_international_medical_check: user.last_international_medical_check || '',
-        last_subsidiary_medical_check: user.last_subsidiary_medical_check || '',
         height: user.height ?? null,
         weight: user.weight ?? null,
         ppe_clothing_size: user.ppe_clothing_size || '',
@@ -116,9 +208,6 @@ export function ProfileTab() {
     form.nearest_airport !== (user.nearest_airport || '') ||
     form.nearest_station !== (user.nearest_station || '') ||
     form.loyalty_program !== (user.loyalty_program || '') ||
-    form.last_medical_check !== (user.last_medical_check || '') ||
-    form.last_international_medical_check !== (user.last_international_medical_check || '') ||
-    form.last_subsidiary_medical_check !== (user.last_subsidiary_medical_check || '') ||
     form.height !== (user.height ?? null) ||
     form.weight !== (user.weight ?? null) ||
     form.ppe_clothing_size !== (user.ppe_clothing_size || '') ||
@@ -148,9 +237,6 @@ export function ProfileTab() {
       if (form.nearest_airport !== (user?.nearest_airport || '')) payload.nearest_airport = optStr(form.nearest_airport as string)
       if (form.nearest_station !== (user?.nearest_station || '')) payload.nearest_station = optStr(form.nearest_station as string)
       if (form.loyalty_program !== (user?.loyalty_program || '')) payload.loyalty_program = optStr(form.loyalty_program as string)
-      if (form.last_medical_check !== (user?.last_medical_check || '')) payload.last_medical_check = optStr(form.last_medical_check as string)
-      if (form.last_international_medical_check !== (user?.last_international_medical_check || '')) payload.last_international_medical_check = optStr(form.last_international_medical_check as string)
-      if (form.last_subsidiary_medical_check !== (user?.last_subsidiary_medical_check || '')) payload.last_subsidiary_medical_check = optStr(form.last_subsidiary_medical_check as string)
       if (form.height !== (user?.height ?? null)) payload.height = form.height
       if (form.weight !== (user?.weight ?? null)) payload.weight = form.weight
       if (form.ppe_clothing_size !== (user?.ppe_clothing_size || '')) payload.ppe_clothing_size = optStr(form.ppe_clothing_size as string)
@@ -183,9 +269,6 @@ export function ProfileTab() {
         nearest_airport: user.nearest_airport || '',
         nearest_station: user.nearest_station || '',
         loyalty_program: user.loyalty_program || '',
-        last_medical_check: user.last_medical_check || '',
-        last_international_medical_check: user.last_international_medical_check || '',
-        last_subsidiary_medical_check: user.last_subsidiary_medical_check || '',
         height: user.height ?? null,
         weight: user.weight ?? null,
         ppe_clothing_size: user.ppe_clothing_size || '',
@@ -299,10 +382,7 @@ export function ProfileTab() {
         <div>
           <label className="gl-label">{t('settings.language')}</label>
           <div className="flex gap-2 mt-2">
-            {[
-              { value: 'fr', label: 'Français' },
-              { value: 'en', label: 'English' },
-            ].map((opt) => (
+            {languageOptions.map((opt) => (
               <button
                 key={opt.value}
                 type="button"
@@ -340,7 +420,7 @@ export function ProfileTab() {
               <label className="gl-label">Genre</label>
               <select className="gl-form-input" value={form.gender || ''} onChange={(e) => updateField('gender', e.target.value)}>
                 <option value="">— Sélectionner —</option>
-                {GENDER_OPTIONS.map((opt) => (
+                {genderOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
@@ -349,7 +429,11 @@ export function ProfileTab() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="gl-label">Nationalité</label>
-              <input type="text" className="gl-form-input" value={form.nationality || ''} onChange={(e) => updateField('nationality', e.target.value)} placeholder="ex: FR, GB, US" />
+              {dictNationality.length > 0 ? (
+                <DictCombobox value={form.nationality as string || ''} options={dictNationality} onChange={(v) => updateField('nationality', v)} placeholder="Rechercher une nationalité..." />
+              ) : (
+                <input type="text" className="gl-form-input" value={form.nationality || ''} onChange={(e) => updateField('nationality', e.target.value)} placeholder="ex: FR, GB, US" />
+              )}
             </div>
             <div>
               <label className="gl-label">Date de naissance</label>
@@ -363,7 +447,11 @@ export function ProfileTab() {
             </div>
             <div>
               <label className="gl-label">Pays de naissance</label>
-              <input type="text" className="gl-form-input" value={form.birth_country || ''} onChange={(e) => updateField('birth_country', e.target.value)} placeholder="ex: FR, GB, US" />
+              {dictCountry.length > 0 ? (
+                <DictCombobox value={form.birth_country as string || ''} options={dictCountry} onChange={(v) => updateField('birth_country', v)} placeholder="Rechercher un pays..." />
+              ) : (
+                <input type="text" className="gl-form-input" value={form.birth_country || ''} onChange={(e) => updateField('birth_country', e.target.value)} placeholder="ex: FR, GB, US" />
+              )}
             </div>
           </div>
         </div>
@@ -381,11 +469,19 @@ export function ProfileTab() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="gl-label">Aéroport contractuel</label>
-              <input type="text" className="gl-form-input" value={form.contractual_airport || ''} onChange={(e) => updateField('contractual_airport', e.target.value)} placeholder="ex: CDG, LHR" />
+              {dictAirport.length > 0 ? (
+                <DictCombobox value={form.contractual_airport as string || ''} options={dictAirport} onChange={(v) => updateField('contractual_airport', v)} placeholder="Rechercher un aéroport..." />
+              ) : (
+                <input type="text" className="gl-form-input" value={form.contractual_airport || ''} onChange={(e) => updateField('contractual_airport', e.target.value)} placeholder="ex: CDG, LHR" />
+              )}
             </div>
             <div>
               <label className="gl-label">Aéroport le plus proche</label>
-              <input type="text" className="gl-form-input" value={form.nearest_airport || ''} onChange={(e) => updateField('nearest_airport', e.target.value)} placeholder="ex: ORY, LTN" />
+              {dictAirport.length > 0 ? (
+                <DictCombobox value={form.nearest_airport as string || ''} options={dictAirport} onChange={(v) => updateField('nearest_airport', v)} placeholder="Rechercher un aéroport..." />
+              ) : (
+                <input type="text" className="gl-form-input" value={form.nearest_airport || ''} onChange={(e) => updateField('nearest_airport', e.target.value)} placeholder="ex: ORY, LTN" />
+              )}
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -405,25 +501,12 @@ export function ProfileTab() {
       <CollapsibleSection
         id="health"
         title="Santé & Médical"
-        description="Dates des dernières visites médicales obligatoires."
+        description="Visites médicales obligatoires — géré via le sous-modèle polymorphique."
         storageKey="settings.profile.collapse"
         showSeparator={false}
       >
-        <div className="mt-2 space-y-4 max-w-[640px]">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="gl-label">Visite médicale</label>
-              <input type="date" className="gl-form-input" value={form.last_medical_check || ''} onChange={(e) => updateField('last_medical_check', e.target.value)} />
-            </div>
-            <div>
-              <label className="gl-label">Visite internationale</label>
-              <input type="date" className="gl-form-input" value={form.last_international_medical_check || ''} onChange={(e) => updateField('last_international_medical_check', e.target.value)} />
-            </div>
-            <div>
-              <label className="gl-label">Visite filiale</label>
-              <input type="date" className="gl-form-input" value={form.last_subsidiary_medical_check || ''} onChange={(e) => updateField('last_subsidiary_medical_check', e.target.value)} />
-            </div>
-          </div>
+        <div className="mt-2">
+          {user?.id && <MedicalCheckManager ownerType="user" ownerId={user.id} />}
         </div>
       </CollapsibleSection>
 
@@ -447,17 +530,38 @@ export function ProfileTab() {
             </div>
             <div>
               <label className="gl-label">Pointure</label>
-              <input type="text" className="gl-form-input" value={form.ppe_shoe_size || ''} onChange={(e) => updateField('ppe_shoe_size', e.target.value)} placeholder="42" />
+              {dictShoeSize.length > 0 ? (
+                <select className="gl-form-input" value={form.ppe_shoe_size || ''} onChange={(e) => updateField('ppe_shoe_size', e.target.value)}>
+                  <option value="">— Sélectionner —</option>
+                  {dictShoeSize.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              ) : (
+                <input type="text" className="gl-form-input" value={form.ppe_shoe_size || ''} onChange={(e) => updateField('ppe_shoe_size', e.target.value)} placeholder="42" />
+              )}
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="gl-label">Taille vêtement (haut)</label>
-              <input type="text" className="gl-form-input" value={form.ppe_clothing_size || ''} onChange={(e) => updateField('ppe_clothing_size', e.target.value)} placeholder="M, L, XL..." />
+              {dictClothingSize.length > 0 ? (
+                <select className="gl-form-input" value={form.ppe_clothing_size || ''} onChange={(e) => updateField('ppe_clothing_size', e.target.value)}>
+                  <option value="">— Sélectionner —</option>
+                  {dictClothingSize.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              ) : (
+                <input type="text" className="gl-form-input" value={form.ppe_clothing_size || ''} onChange={(e) => updateField('ppe_clothing_size', e.target.value)} placeholder="M, L, XL..." />
+              )}
             </div>
             <div>
               <label className="gl-label">Taille vêtement (bas)</label>
-              <input type="text" className="gl-form-input" value={form.ppe_clothing_size_bottom || ''} onChange={(e) => updateField('ppe_clothing_size_bottom', e.target.value)} placeholder="40, 42, 44..." />
+              {dictClothingSize.length > 0 ? (
+                <select className="gl-form-input" value={form.ppe_clothing_size_bottom || ''} onChange={(e) => updateField('ppe_clothing_size_bottom', e.target.value)}>
+                  <option value="">— Sélectionner —</option>
+                  {dictClothingSize.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              ) : (
+                <input type="text" className="gl-form-input" value={form.ppe_clothing_size_bottom || ''} onChange={(e) => updateField('ppe_clothing_size_bottom', e.target.value)} placeholder="40, 42, 44..." />
+              )}
             </div>
           </div>
         </div>

@@ -793,6 +793,18 @@ async def seed_dictionary_entries(db: AsyncSession) -> None:
         ("gender", "M", "Masculin", 1),
         ("gender", "F", "Féminin", 2),
         ("gender", "X", "Non spécifié", 3),
+        # ── User type ──
+        ("user_type", "internal", "Interne", 1),
+        ("user_type", "external", "Externe", 2),
+        # ── UI Languages ──
+        ("language", "fr", "Français", 1),
+        ("language", "en", "English", 2),
+        ("language", "es", "Español", 3),
+        ("language", "pt", "Português", 4),
+        ("language", "de", "Deutsch", 5),
+        ("language", "it", "Italiano", 6),
+        ("language", "ar", "العربية", 7),
+        ("language", "zh", "中文", 8),
         # ── Clothing sizes ──
         ("clothing_size", "XS", "XS", 1),
         ("clothing_size", "S", "S", 2),
@@ -801,6 +813,17 @@ async def seed_dictionary_entries(db: AsyncSession) -> None:
         ("clothing_size", "XL", "XL", 5),
         ("clothing_size", "XXL", "XXL", 6),
         ("clothing_size", "3XL", "3XL", 7),
+        # ── Shoe sizes (EU) ──
+        ("shoe_size", "38", "38", 1),
+        ("shoe_size", "39", "39", 2),
+        ("shoe_size", "40", "40", 3),
+        ("shoe_size", "41", "41", 4),
+        ("shoe_size", "42", "42", 5),
+        ("shoe_size", "43", "43", 6),
+        ("shoe_size", "44", "44", 7),
+        ("shoe_size", "45", "45", 8),
+        ("shoe_size", "46", "46", 9),
+        ("shoe_size", "47", "47", 10),
         # ── Health conditions ──
         ("health_condition", "diabetes", "Diabète", 1),
         ("health_condition", "hypertension", "Hypertension", 2),

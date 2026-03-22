@@ -12,8 +12,9 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Upload
 from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import Request
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, check_polymorphic_owner_access
 from app.core.database import get_db
 from app.models.common import Attachment, User
 from app.schemas.common import AttachmentRead
@@ -29,10 +30,12 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 async def list_attachments(
     owner_type: str = Query(..., description="Object type: user, tier, asset, entity"),
     owner_id: UUID = Query(..., description="UUID of the owning object"),
+    request: Request = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """List file attachments for a given owner."""
+    await check_polymorphic_owner_access(owner_type, owner_id, current_user, db, request, write=False)
     result = await db.execute(
         select(Attachment)
         .where(
@@ -46,6 +49,7 @@ async def list_attachments(
 
 @router.post("", response_model=AttachmentRead, status_code=201)
 async def upload_attachment(
+    request: Request,
     file: UploadFile = File(...),
     owner_type: str = Form(...),
     owner_id: str = Form(...),
@@ -54,6 +58,9 @@ async def upload_attachment(
     db: AsyncSession = Depends(get_db),
 ):
     """Upload a file attachment linked to any object."""
+    parsed_owner_id = UUID(owner_id)
+    await check_polymorphic_owner_access(owner_type, parsed_owner_id, current_user, db, request, write=True)
+
     # Generate unique filename
     ext = os.path.splitext(file.filename or "file")[1]
     unique_name = f"{uuid.uuid4().hex}{ext}"
@@ -72,7 +79,7 @@ async def upload_attachment(
 
     attachment = Attachment(
         owner_type=owner_type,
-        owner_id=UUID(owner_id),
+        owner_id=parsed_owner_id,
         filename=unique_name,
         original_name=file.filename or "file",
         content_type=file.content_type or "application/octet-stream",
@@ -90,6 +97,7 @@ async def upload_attachment(
 @router.get("/{attachment_id}/download")
 async def download_attachment(
     attachment_id: UUID,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -100,6 +108,8 @@ async def download_attachment(
     attachment = result.scalar_one_or_none()
     if not attachment:
         raise HTTPException(status_code=404, detail="Attachment not found")
+
+    await check_polymorphic_owner_access(attachment.owner_type, attachment.owner_id, current_user, db, request, write=False)
 
     base_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "static")
     file_path = os.path.join(base_dir, attachment.storage_path)
@@ -117,6 +127,7 @@ async def download_attachment(
 @router.delete("/{attachment_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_attachment(
     attachment_id: UUID,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -127,6 +138,8 @@ async def delete_attachment(
     attachment = result.scalar_one_or_none()
     if not attachment:
         raise HTTPException(status_code=404, detail="Attachment not found")
+
+    await check_polymorphic_owner_access(attachment.owner_type, attachment.owner_id, current_user, db, request, write=True)
 
     # Delete file from disk
     base_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "static")

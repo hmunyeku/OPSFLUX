@@ -182,6 +182,68 @@ async def has_user_permission(
     return permission_code in user_permissions or "*" in user_permissions
 
 
+# Permission mapping for polymorphic owner types
+_OWNER_PERMISSION_MAP: dict[str, tuple[str, str]] = {
+    # owner_type: (read_permission, write_permission)
+    "tier": ("tiers.read", "tiers.update"),
+    "tier_contact": ("tiers.read", "tiers.update"),
+    "entity": ("core.entity.read", "core.entity.update"),
+    "asset": ("assets.read", "assets.update"),
+}
+
+
+async def check_polymorphic_owner_access(
+    owner_type: str,
+    owner_id: UUID,
+    current_user: User,
+    db: AsyncSession,
+    request: Request | None = None,
+    *,
+    write: bool = False,
+) -> None:
+    """Validate current user has access to the polymorphic parent object.
+
+    For user-owned data: self-service or core.users.manage.
+    For other owner types: maps to the appropriate module permission.
+    """
+    if owner_type == "user":
+        await check_user_data_access(owner_id, current_user, db, request)
+        return
+
+    perms = _OWNER_PERMISSION_MAP.get(owner_type)
+    if not perms:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported owner type: {owner_type}",
+        )
+
+    permission_code = perms[1] if write else perms[0]
+
+    # Resolve entity context
+    entity_id: UUID | None = None
+    if request:
+        raw = request.headers.get("X-Entity-ID")
+        if raw:
+            try:
+                entity_id = UUID(raw)
+            except ValueError:
+                pass
+    if not entity_id and current_user.default_entity_id:
+        entity_id = current_user.default_entity_id
+
+    if not entity_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No entity context for permission check",
+        )
+
+    if not await has_user_permission(current_user, entity_id, permission_code, db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permission denied",
+        )
+
+
 async def check_user_data_access(
     user_id: UUID,
     current_user: User,

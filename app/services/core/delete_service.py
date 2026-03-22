@@ -7,14 +7,20 @@ Supports three delete modes per entity type, configurable by admin via Settings:
 
 Settings key convention: delete_policy.{entity_type}
 Settings value (JSONB): {"mode": "soft"|"soft_purge"|"hard", "retention_days": 90}
+
+The registry is built automatically from SQLAlchemy models at import time:
+  - Models with SoftDeleteMixin → category "main", default mode "soft"
+  - All other models → category "child", default mode "hard"
+  - Models can override via __delete_policy__ class attribute
 """
 
 import logging
+import re
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import delete, func, select, text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import record_audit
@@ -23,47 +29,141 @@ from app.models.common import Setting
 logger = logging.getLogger(__name__)
 
 
-# ─── Entity Type Registry ────────────────────────────────────────────────────
-# Maps entity_type keys to their table name, display label, category, and
-# default delete mode. The model class is resolved lazily to avoid circular imports.
+# ─── Auto-discovery helpers ───────────────────────────────────────────────────
 
-ENTITY_TYPE_REGISTRY: dict[str, dict[str, Any]] = {
-    # ── Main entities (default: soft delete) ──
-    "asset": {"table": "assets", "label": "Assets", "category": "main", "default_mode": "soft"},
-    "tier": {"table": "tiers", "label": "Tiers", "category": "main", "default_mode": "soft"},
-    "project": {"table": "projects", "label": "Projets", "category": "main", "default_mode": "soft"},
-    "workflow_definition": {"table": "workflow_definitions", "label": "Workflows", "category": "main", "default_mode": "soft"},
-    "pax_profile": {"table": "pax_profiles", "label": "Profils PAX", "category": "main", "default_mode": "soft"},
-    "ads": {"table": "ads", "label": "Avis de séjour", "category": "main", "default_mode": "soft"},
-    "transport_vector": {"table": "transport_vectors", "label": "Vecteurs", "category": "main", "default_mode": "soft"},
-    "voyage": {"table": "voyages", "label": "Voyages", "category": "main", "default_mode": "soft"},
-    "planner_activity": {"table": "planner_activities", "label": "Activités Planner", "category": "main", "default_mode": "soft"},
-    "pid_document": {"table": "pid_documents", "label": "Documents PID", "category": "main", "default_mode": "soft"},
-    "equipment": {"table": "equipment", "label": "Équipements", "category": "main", "default_mode": "soft"},
-    "dcs_tag": {"table": "dcs_tags", "label": "Tags DCS", "category": "main", "default_mode": "soft"},
-    "doc_type": {"table": "doc_types", "label": "Types de document", "category": "main", "default_mode": "soft"},
-    "document": {"table": "documents", "label": "Documents", "category": "main", "default_mode": "soft"},
-    "template": {"table": "templates", "label": "Modèles", "category": "main", "default_mode": "soft"},
-    "announcement": {"table": "announcements", "label": "Annonces", "category": "main", "default_mode": "soft"},
-    "dashboard": {"table": "dashboards", "label": "Dashboards", "category": "main", "default_mode": "soft"},
-    "dashboard_tab": {"table": "dashboard_tabs", "label": "Onglets dashboard", "category": "main", "default_mode": "soft"},
-    # ── Child / sub-entities (default: hard delete) ──
-    "address": {"table": "addresses", "label": "Adresses", "category": "child", "default_mode": "hard"},
-    "phone": {"table": "phones", "label": "Téléphones", "category": "child", "default_mode": "hard"},
-    "contact_email": {"table": "contact_emails", "label": "Emails contact", "category": "child", "default_mode": "hard"},
-    "tag": {"table": "tags", "label": "Tags", "category": "child", "default_mode": "hard"},
-    "note": {"table": "notes", "label": "Notes", "category": "child", "default_mode": "hard"},
-    "attachment": {"table": "attachments", "label": "Pièces jointes", "category": "child", "default_mode": "hard"},
-    "notification": {"table": "notifications", "label": "Notifications", "category": "child", "default_mode": "hard"},
-    "user_email": {"table": "user_emails", "label": "Emails utilisateur", "category": "child", "default_mode": "hard"},
-    "user_group_member": {"table": "user_group_members", "label": "Membres groupe", "category": "child", "default_mode": "hard"},
-    "email_template": {"table": "email_templates", "label": "Modèles email", "category": "child", "default_mode": "hard"},
-    "pdf_template": {"table": "pdf_templates", "label": "Modèles PDF", "category": "child", "default_mode": "hard"},
-    "tier_identifier": {"table": "tier_identifiers", "label": "Identifiants tiers", "category": "child", "default_mode": "hard"},
-    "external_reference": {"table": "external_references", "label": "Références ext.", "category": "child", "default_mode": "hard"},
-    "asset_type_config": {"table": "asset_type_configs", "label": "Config types assets", "category": "child", "default_mode": "hard"},
-    "planner_dependency": {"table": "planner_activity_dependencies", "label": "Dépendances planner", "category": "child", "default_mode": "hard"},
+def _camel_to_snake(name: str) -> str:
+    """Convert CamelCase to snake_case. E.g. 'PaxProfile' → 'pax_profile'."""
+    s1 = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", name)
+    return re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
+
+
+def _humanize(snake: str) -> str:
+    """Convert snake_case to a human label. E.g. 'pax_profile' → 'Pax profile'."""
+    return snake.replace("_", " ").capitalize()
+
+
+# Tables to exclude from the registry (system/internal tables)
+_EXCLUDE_TABLES = frozenset({
+    "alembic_version",
+})
+
+# Models that should never be managed by the delete service
+_EXCLUDE_MODELS = frozenset({
+    "Setting",         # configuration — never deleted via this service
+    "AuditLog",        # immutable audit trail
+    "RefreshToken",    # handled by auth service (TTL-based)
+    "Permission",      # RBAC definition — seeded, not user-deletable
+    "Role",            # RBAC definition
+    "RolePermission",  # RBAC junction
+})
+
+# Optional manual label overrides (entity_type → label)
+_LABEL_OVERRIDES: dict[str, str] = {
+    "asset": "Assets",
+    "tier": "Tiers",
+    "project": "Projets",
+    "ads": "Avis de séjour",
+    "pax_profile": "Profils PAX",
+    "transport_vector": "Vecteurs",
+    "voyage": "Voyages",
+    "planner_activity": "Activités Planner",
+    "pid_document": "Documents PID",
+    "equipment": "Équipements",
+    "dcs_tag": "Tags DCS",
+    "doc_type": "Types de document",
+    "document": "Documents",
+    "template": "Modèles",
+    "announcement": "Annonces",
+    "dashboard": "Dashboards",
+    "dashboard_tab": "Onglets dashboard",
+    "address": "Adresses",
+    "phone": "Téléphones",
+    "contact_email": "Emails contact",
+    "tag": "Tags",
+    "note": "Notes",
+    "attachment": "Pièces jointes",
+    "notification": "Notifications",
+    "legal_identifier": "Identifiants légaux",
+    "medical_check": "Visites médicales",
+    "external_reference": "Références ext.",
+    "user_passport": "Passeports",
+    "user_visa": "Visas",
+    "emergency_contact": "Contacts urgence",
+    "social_security": "Sécu sociale",
+    "user_vaccine": "Vaccins",
+    "user_language": "Langues",
+    "driving_license": "Permis conduire",
 }
+
+
+def _build_registry() -> dict[str, dict[str, Any]]:
+    """Auto-discover all SQLAlchemy models and build the entity type registry.
+
+    Detection rules:
+      - Models with SoftDeleteMixin → category="main", default_mode="soft"
+      - All other models → category="child", default_mode="hard"
+      - Models can override via __delete_policy__ = {"category": ..., "default_mode": ...}
+    """
+    from app.models.base import Base, SoftDeleteMixin
+
+    registry: dict[str, dict[str, Any]] = {}
+
+    for mapper in Base.registry.mappers:
+        cls = mapper.class_
+        class_name = cls.__name__
+
+        # Skip excluded models
+        if class_name in _EXCLUDE_MODELS:
+            continue
+
+        # Skip models without __tablename__ (abstract or mixin)
+        table_name = getattr(cls, "__tablename__", None)
+        if not table_name or table_name in _EXCLUDE_TABLES:
+            continue
+
+        entity_type = _camel_to_snake(class_name)
+
+        # Check for SoftDeleteMixin
+        has_soft_delete = issubclass(cls, SoftDeleteMixin)
+
+        # Default category/mode based on mixin
+        category = "main" if has_soft_delete else "child"
+        default_mode = "soft" if has_soft_delete else "hard"
+
+        # Allow per-model override via class attribute
+        override = getattr(cls, "__delete_policy__", None)
+        if override:
+            category = override.get("category", category)
+            default_mode = override.get("default_mode", default_mode)
+
+        label = _LABEL_OVERRIDES.get(entity_type, _humanize(entity_type))
+
+        registry[entity_type] = {
+            "table": table_name,
+            "label": label,
+            "category": category,
+            "default_mode": default_mode,
+        }
+
+    logger.debug("Delete registry: auto-discovered %d entity types (%d main, %d child)",
+                 len(registry),
+                 sum(1 for v in registry.values() if v["category"] == "main"),
+                 sum(1 for v in registry.values() if v["category"] == "child"))
+
+    return registry
+
+
+# Build at import time (after all models are loaded via app.models.common import above)
+ENTITY_TYPE_REGISTRY: dict[str, dict[str, Any]] = {}
+
+
+def _ensure_registry() -> dict[str, dict[str, Any]]:
+    """Lazily build the registry on first use to avoid circular imports."""
+    global ENTITY_TYPE_REGISTRY
+    if not ENTITY_TYPE_REGISTRY:
+        ENTITY_TYPE_REGISTRY = _build_registry()
+    return ENTITY_TYPE_REGISTRY
+
 
 # Default policy when no Setting exists
 DEFAULT_POLICY = {"mode": "soft", "retention_days": 0}
@@ -106,7 +206,8 @@ async def get_delete_policy(
         return setting.value
 
     # Fallback to registry default
-    reg = ENTITY_TYPE_REGISTRY.get(entity_type)
+    registry = _ensure_registry()
+    reg = registry.get(entity_type)
     if reg:
         default_mode = reg.get("default_mode", "soft")
         return {"mode": default_mode, "retention_days": 0}
@@ -181,7 +282,8 @@ async def purge_archived(
 
     Returns the number of purged records.
     """
-    reg = ENTITY_TYPE_REGISTRY.get(entity_type)
+    registry = _ensure_registry()
+    reg = registry.get(entity_type)
     if not reg:
         logger.warning("purge_archived: unknown entity type %s", entity_type)
         return 0
@@ -213,8 +315,11 @@ async def get_archived_counts(db: AsyncSession) -> dict[str, int]:
     Uses SAVEPOINTs so that a failed COUNT on a table without the archived
     column does not abort the entire transaction.
     """
+    registry = _ensure_registry()
     counts: dict[str, int] = {}
-    for entity_type, reg in ENTITY_TYPE_REGISTRY.items():
+    for entity_type, reg in registry.items():
+        if reg["category"] != "main":
+            continue  # Only main entities support soft-delete / archived
         table_name = reg["table"]
         try:
             async with db.begin_nested():
@@ -236,7 +341,8 @@ async def upsert_delete_policy(
     entity_id: UUID | None = None,
 ) -> None:
     """Create or update a delete policy Setting."""
-    if entity_type not in ENTITY_TYPE_REGISTRY:
+    registry = _ensure_registry()
+    if entity_type not in registry:
         raise ValueError(f"Unknown entity type: {entity_type}")
     if mode not in ("soft", "soft_purge", "hard"):
         raise ValueError(f"Invalid delete mode: {mode}")

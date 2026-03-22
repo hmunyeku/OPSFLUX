@@ -1025,3 +1025,190 @@ async def delete_exemption(
     await delete_entity(exemption, db, "compliance_exemption", entity_id=exemption.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Exemption archived"}
+
+
+# ── Verification / Validation workflow ───────────────────────────────────
+
+
+class PendingVerificationItem(BaseModel):
+    id: str
+    record_type: str  # passport, visa, medical_check, compliance_record, etc.
+    owner_type: str | None = None
+    owner_id: str | None = None
+    owner_name: str | None = None
+    description: str
+    submitted_at: str
+    verification_status: str
+
+
+class VerifyAction(BaseModel):
+    action: str = Field(..., pattern="^(verify|reject)$")
+    rejection_reason: str | None = None
+
+
+@router.get("/pending-verifications")
+async def list_pending_verifications(
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("conformite.verify"),
+    db: AsyncSession = Depends(get_db),
+):
+    """List all records across verifiable models that are pending verification."""
+    from app.models.common import (
+        UserPassport, UserVisa, SocialSecurity, UserVaccine,
+        MedicalCheck, DrivingLicense,
+    )
+
+    items: list[dict] = []
+
+    # ComplianceRecords (entity-scoped)
+    cr_result = await db.execute(
+        select(ComplianceRecord).where(
+            ComplianceRecord.entity_id == entity_id,
+            ComplianceRecord.active == True,
+            ComplianceRecord.verification_status == "pending",
+        ).order_by(ComplianceRecord.created_at.desc())
+    )
+    for rec in cr_result.scalars().all():
+        ct = await db.get(ComplianceType, rec.compliance_type_id)
+        items.append({
+            "id": str(rec.id),
+            "record_type": "compliance_record",
+            "owner_type": rec.owner_type,
+            "owner_id": str(rec.owner_id),
+            "owner_name": None,
+            "description": f"{ct.name if ct else rec.compliance_type_id} — {rec.issuer or 'N/A'}",
+            "submitted_at": rec.created_at.isoformat(),
+            "verification_status": rec.verification_status,
+        })
+
+    # User sub-models (not entity-scoped, all pending)
+    sub_models = [
+        (UserPassport, "passport", lambda r: f"Passeport {r.number} — {r.country}"),
+        (UserVisa, "visa", lambda r: f"Visa {r.visa_type} — {r.country}"),
+        (SocialSecurity, "social_security", lambda r: f"Sécu sociale {r.country} — {r.number}"),
+        (UserVaccine, "vaccine", lambda r: f"Vaccin {r.vaccine_type}"),
+        (DrivingLicense, "driving_license", lambda r: f"Permis {r.license_type} — {r.country}"),
+    ]
+
+    for Model, rtype, desc_fn in sub_models:
+        result = await db.execute(
+            select(Model).where(Model.verification_status == "pending").order_by(Model.created_at.desc())
+        )
+        for rec in result.scalars().all():
+            items.append({
+                "id": str(rec.id),
+                "record_type": rtype,
+                "owner_type": "user",
+                "owner_id": str(rec.user_id),
+                "owner_name": None,
+                "description": desc_fn(rec),
+                "submitted_at": rec.created_at.isoformat(),
+                "verification_status": rec.verification_status,
+            })
+
+    # MedicalChecks (polymorphic)
+    mc_result = await db.execute(
+        select(MedicalCheck).where(MedicalCheck.verification_status == "pending").order_by(MedicalCheck.created_at.desc())
+    )
+    for rec in mc_result.scalars().all():
+        items.append({
+            "id": str(rec.id),
+            "record_type": "medical_check",
+            "owner_type": rec.owner_type,
+            "owner_id": str(rec.owner_id),
+            "owner_name": None,
+            "description": f"Visite {rec.check_type} — {rec.provider or 'N/A'}",
+            "submitted_at": rec.created_at.isoformat(),
+            "verification_status": rec.verification_status,
+        })
+
+    # Enrich owner names
+    user_ids = set()
+    for item in items:
+        if item["owner_type"] == "user" and item["owner_id"]:
+            user_ids.add(item["owner_id"])
+    if user_ids:
+        users_result = await db.execute(
+            select(User.id, User.first_name, User.last_name).where(
+                User.id.in_([UUID(uid) for uid in user_ids])
+            )
+        )
+        user_names = {str(r[0]): f"{r[1]} {r[2]}" for r in users_result.all()}
+        for item in items:
+            if item["owner_type"] == "user":
+                item["owner_name"] = user_names.get(item["owner_id"])
+
+    # Sort by submitted_at desc
+    items.sort(key=lambda x: x["submitted_at"], reverse=True)
+
+    return {"items": items, "total": len(items)}
+
+
+@router.post("/verify/{record_type}/{record_id}")
+async def verify_record(
+    record_type: str,
+    record_id: UUID,
+    body: VerifyAction,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("conformite.verify"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Verify or reject a pending record."""
+    from app.models.common import (
+        UserPassport, UserVisa, SocialSecurity, UserVaccine,
+        MedicalCheck, DrivingLicense,
+    )
+
+    MODEL_MAP = {
+        "compliance_record": ComplianceRecord,
+        "passport": UserPassport,
+        "visa": UserVisa,
+        "social_security": SocialSecurity,
+        "vaccine": UserVaccine,
+        "driving_license": DrivingLicense,
+        "medical_check": MedicalCheck,
+    }
+
+    Model = MODEL_MAP.get(record_type)
+    if not Model:
+        raise HTTPException(400, f"Unknown record type: {record_type}")
+
+    result = await db.execute(select(Model).where(Model.id == record_id))
+    record = result.scalar_one_or_none()
+    if not record:
+        raise HTTPException(404, "Record not found")
+
+    if record.verification_status != "pending":
+        raise HTTPException(400, f"Record is already {record.verification_status}")
+
+    now = datetime.now(timezone.utc)
+
+    if body.action == "verify":
+        record.verification_status = "verified"
+        record.verified_by = current_user.id
+        record.verified_at = now
+        record.rejection_reason = None
+        await emit_event(db, "conformite.record.verified", {
+            "record_type": record_type, "record_id": str(record_id),
+            "verified_by": str(current_user.id),
+        }, entity_id=entity_id, user_id=current_user.id)
+    else:
+        if not body.rejection_reason:
+            raise HTTPException(400, "rejection_reason is required when rejecting")
+        record.verification_status = "rejected"
+        record.verified_by = current_user.id
+        record.verified_at = now
+        record.rejection_reason = body.rejection_reason
+        await emit_event(db, "conformite.record.rejected", {
+            "record_type": record_type, "record_id": str(record_id),
+            "rejected_by": str(current_user.id),
+            "reason": body.rejection_reason,
+        }, entity_id=entity_id, user_id=current_user.id)
+
+    await db.commit()
+    return {
+        "detail": f"Record {body.action}d",
+        "verification_status": record.verification_status,
+    }

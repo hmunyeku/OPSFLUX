@@ -50,9 +50,8 @@ export function useDeleteComplianceType() {
 
 export function useComplianceRules(complianceTypeId?: string) {
   return useQuery({
-    queryKey: ['compliance-rules', complianceTypeId],
+    queryKey: ['compliance-rules', complianceTypeId ?? 'all'],
     queryFn: () => conformiteService.listRules(complianceTypeId),
-    enabled: complianceTypeId !== undefined,
   })
 }
 
@@ -224,6 +223,32 @@ export function useCreateTransfer() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transfers'] })
       qc.invalidateQueries({ queryKey: ['tier-contacts'] })
+    },
+  })
+}
+
+// ── Verification ──
+
+export function usePendingVerifications() {
+  return useQuery({
+    queryKey: ['pending-verifications'],
+    queryFn: () => conformiteService.listPendingVerifications(),
+  })
+}
+
+export function useVerifyRecord() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ recordType, recordId, action, rejectionReason }: {
+      recordType: string; recordId: string; action: 'verify' | 'reject'; rejectionReason?: string
+    }) => conformiteService.verifyRecord(recordType, recordId, action, rejectionReason),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pending-verifications'] })
+      qc.invalidateQueries({ queryKey: ['compliance-records'] })
+      qc.invalidateQueries({ queryKey: ['user-passports'] })
+      qc.invalidateQueries({ queryKey: ['user-visas'] })
+      qc.invalidateQueries({ queryKey: ['user-vaccines'] })
+      qc.invalidateQueries({ queryKey: ['medical-checks'] })
     },
   })
 }

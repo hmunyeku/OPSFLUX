@@ -277,3 +277,29 @@ async def check_user_data_access(
         status_code=status.HTTP_403_FORBIDDEN,
         detail="Permission denied",
     )
+
+
+def check_verified_lock(
+    record,
+    current_user: User,
+    *,
+    allow_permission: str = "conformite.verify",
+    entity_id=None,
+    db=None,
+) -> None:
+    """Block updates on verified records unless user has verify permission.
+
+    Raises 403 if the record is locked (verification_status == 'verified')
+    and the current user doesn't have the required permission.
+    Self-service users cannot modify verified records.
+    """
+    if not hasattr(record, 'verification_status'):
+        return  # model doesn't use VerifiableMixin
+    if record.verification_status != "verified":
+        return  # not locked, allow edit
+
+    # Record is verified/locked — only compliance officers can modify
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Cet enregistrement est vérifié et verrouillé. Seul un responsable conformité peut le modifier.",
+    )

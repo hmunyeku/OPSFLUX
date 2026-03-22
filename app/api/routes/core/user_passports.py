@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from starlette.requests import Request
 
-from app.api.deps import get_current_user, check_user_data_access
+from app.api.deps import get_current_user, check_user_data_access, check_verified_lock
 from app.core.database import get_db
 from app.services.core.delete_service import delete_entity
 from app.models.common import UserPassport, User
@@ -59,6 +59,7 @@ async def update_passport(
     obj = result.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Passport not found")
+    check_verified_lock(obj, current_user)
     update_data = body.model_dump(exclude_unset=True)
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update")
@@ -82,5 +83,6 @@ async def delete_passport(
     obj = result.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Passport not found")
+    check_verified_lock(obj, current_user)
     await delete_entity(obj, db, "user_passport", entity_id=obj.id, user_id=current_user.id)
     await db.commit()

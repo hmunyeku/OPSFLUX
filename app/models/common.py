@@ -20,7 +20,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin
+from app.models.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin, VerifiableMixin
 
 
 # ─── Entities ────────────────────────────────────────────────────────────────
@@ -1175,7 +1175,7 @@ class ComplianceRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     compliance_type: Mapped["ComplianceType"] = relationship(back_populates="rules")
 
 
-class ComplianceRecord(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+class ComplianceRecord(UUIDPrimaryKeyMixin, TimestampMixin, VerifiableMixin, Base):
     """Instance: enregistrement de conformite lie a un employe, tiers, asset, ou user."""
     __tablename__ = "compliance_records"
     __table_args__ = (
@@ -1655,7 +1655,7 @@ class ImportMapping(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
 
 # ─── User Sub-Models (direct FK — exclusively user-owned) ────────────────────
 
-class UserPassport(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+class UserPassport(UUIDPrimaryKeyMixin, TimestampMixin, VerifiableMixin, Base):
     """User passport document."""
     __tablename__ = "user_passports"
     __table_args__ = (
@@ -1674,7 +1674,7 @@ class UserPassport(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     user: Mapped["User"] = relationship()
 
 
-class UserVisa(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+class UserVisa(UUIDPrimaryKeyMixin, TimestampMixin, VerifiableMixin, Base):
     """User visa document."""
     __tablename__ = "user_visas"
     __table_args__ = (
@@ -1708,7 +1708,7 @@ class EmergencyContact(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     user: Mapped["User"] = relationship()
 
 
-class SocialSecurity(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+class SocialSecurity(UUIDPrimaryKeyMixin, TimestampMixin, VerifiableMixin, Base):
     """User social security number per country."""
     __tablename__ = "social_securities"
     __table_args__ = (
@@ -1723,7 +1723,7 @@ class SocialSecurity(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     user: Mapped["User"] = relationship()
 
 
-class UserVaccine(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+class UserVaccine(UUIDPrimaryKeyMixin, TimestampMixin, VerifiableMixin, Base):
     """User vaccination record."""
     __tablename__ = "user_vaccines"
     __table_args__ = (
@@ -1739,7 +1739,7 @@ class UserVaccine(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     user: Mapped["User"] = relationship()
 
 
-class MedicalCheck(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+class MedicalCheck(UUIDPrimaryKeyMixin, TimestampMixin, VerifiableMixin, Base):
     """Polymorphic medical check record — applicable to users, tiers, assets, etc."""
     __tablename__ = "medical_checks"
     __table_args__ = (
@@ -1771,7 +1771,7 @@ class UserLanguage(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     user: Mapped["User"] = relationship()
 
 
-class DrivingLicense(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+class DrivingLicense(UUIDPrimaryKeyMixin, TimestampMixin, VerifiableMixin, Base):
     """User driving license."""
     __tablename__ = "driving_licenses"
     __table_args__ = (

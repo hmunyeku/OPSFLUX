@@ -3,7 +3,7 @@
 from datetime import datetime
 from uuid import UUID as PyUUID, uuid4
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -46,6 +46,34 @@ class AuditUserMixin:
     updated_by: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
+
+
+class VerifiableMixin:
+    """Mixin for records that require verification before being considered valid.
+
+    Workflow:
+    - User creates/updates record → verification_status = 'pending'
+    - Compliance officer reviews → 'verified' or 'rejected'
+    - Once verified, record is locked (user cannot edit until expiry)
+    - Only users with conformite.verify permission can modify verified records
+    """
+    verification_status: Mapped[str] = mapped_column(
+        String(20), default="pending", server_default="pending", nullable=False,
+    )  # pending | verified | rejected
+    verified_by: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True,
+    )
+    verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+    rejection_reason: Mapped[str | None] = mapped_column(
+        String(500), nullable=True,
+    )
+
+    @property
+    def is_locked(self) -> bool:
+        """A record is locked once verified — user cannot modify it."""
+        return self.verification_status == "verified"
 
 
 class UUIDPrimaryKeyMixin:

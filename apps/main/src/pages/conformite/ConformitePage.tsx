@@ -7,7 +7,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ShieldCheck, Plus, Loader2, Trash2, FileCheck, ClipboardList,
-  Briefcase, GitBranch, Scale, ShieldOff, Check, X,
+  Briefcase, GitBranch, Scale, ShieldOff, Check, X, ClipboardCheck,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -46,6 +46,7 @@ import {
   useJobPositions, useCreateJobPosition, useUpdateJobPosition, useDeleteJobPosition,
   useTransfers,
   useExemptions, useCreateExemption, useApproveExemption, useRejectExemption, useDeleteExemption,
+  usePendingVerifications, useVerifyRecord,
 } from '@/hooks/useConformite'
 import type {
   ComplianceType, ComplianceTypeCreate,
@@ -89,14 +90,15 @@ const RULE_TARGET_OPTIONS = [
   { value: 'job_position', label: 'Fiche de poste' },
 ]
 
-type ConformiteTab = 'referentiel' | 'enregistrements' | 'exemptions' | 'fiches' | 'regles' | 'transferts'
+type ConformiteTab = 'referentiel' | 'enregistrements' | 'verifications' | 'exemptions' | 'fiches' | 'regles' | 'transferts'
 
 const TABS: { id: ConformiteTab; label: string; icon: typeof ShieldCheck }[] = [
-  { id: 'referentiel', label: 'Referentiel', icon: ClipboardList },
+  { id: 'referentiel', label: 'Référentiel', icon: ClipboardList },
   { id: 'enregistrements', label: 'Enregistrements', icon: FileCheck },
+  { id: 'verifications', label: 'Vérifications', icon: ClipboardCheck },
   { id: 'exemptions', label: 'Exemptions', icon: ShieldOff },
   { id: 'fiches', label: 'Fiches de poste', icon: Briefcase },
-  { id: 'regles', label: 'Regles', icon: Scale },
+  { id: 'regles', label: 'Règles', icon: Scale },
   { id: 'transferts', label: 'Transferts', icon: GitBranch },
 ]
 
@@ -913,6 +915,8 @@ export function ConformitePage() {
             storageKey="conformite-records"
           />
         )
+      case 'verifications':
+        return <VerificationsTab />
       case 'exemptions':
         return (
           <DataTable<ComplianceExemption>
@@ -1017,6 +1021,109 @@ export function ConformitePage() {
       {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'job-position' && <JobPositionDetailPanel id={dynamicPanel.id} />}
       {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'exemption' && <CreateExemptionPanel />}
       {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'exemption' && <ExemptionDetailPanel id={dynamicPanel.id} />}
+    </div>
+  )
+}
+
+// ── Verifications Tab ────────────────────────────────────────────────────
+
+const RECORD_TYPE_LABELS: Record<string, string> = {
+  compliance_record: 'Référentiel',
+  passport: 'Passeport',
+  visa: 'Visa',
+  social_security: 'Sécu sociale',
+  vaccine: 'Vaccin',
+  driving_license: 'Permis',
+  medical_check: 'Visite médicale',
+}
+
+function VerificationsTab() {
+  const { data, isLoading } = usePendingVerifications()
+  const verifyRecord = useVerifyRecord()
+  const { toast } = useToast()
+  const [rejectingId, setRejectingId] = useState<string | null>(null)
+  const [rejectReason, setRejectReason] = useState('')
+
+  const handleVerify = async (recordType: string, recordId: string) => {
+    try {
+      await verifyRecord.mutateAsync({ recordType, recordId, action: 'verify' })
+      toast({ title: 'Vérifié', description: 'L\'enregistrement a été validé.', variant: 'success' })
+    } catch {
+      toast({ title: 'Erreur', variant: 'error' })
+    }
+  }
+
+  const handleReject = async (recordType: string, recordId: string) => {
+    if (!rejectReason.trim()) return
+    try {
+      await verifyRecord.mutateAsync({ recordType, recordId, action: 'reject', rejectionReason: rejectReason })
+      toast({ title: 'Rejeté', description: 'L\'enregistrement a été rejeté.', variant: 'success' })
+      setRejectingId(null)
+      setRejectReason('')
+    } catch {
+      toast({ title: 'Erreur', variant: 'error' })
+    }
+  }
+
+  if (isLoading) return <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+
+  const items = data?.items ?? []
+
+  if (items.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+        <ClipboardCheck size={32} className="mb-3 text-green-500/50" />
+        <p className="text-sm font-medium">Aucune vérification en attente</p>
+        <p className="text-xs mt-1">Tous les enregistrements sont vérifiés ou en cours de saisie.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-muted-foreground px-1">{items.length} enregistrement{items.length > 1 ? 's' : ''} en attente de vérification</p>
+      {items.map((item) => (
+        <div key={`${item.record_type}-${item.id}`} className="border border-border rounded-lg p-3 hover:bg-muted/20 transition-colors">
+          <div className="flex items-center gap-2">
+            <span className="gl-badge gl-badge-warning text-[9px] shrink-0">{RECORD_TYPE_LABELS[item.record_type] || item.record_type}</span>
+            <span className="text-sm font-medium flex-1 truncate">{item.description}</span>
+            <span className="text-[10px] text-muted-foreground tabular-nums">
+              {new Date(item.submitted_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })}
+            </span>
+          </div>
+          {item.owner_name && (
+            <p className="text-xs text-muted-foreground mt-1">Soumis par : <span className="text-foreground font-medium">{item.owner_name}</span></p>
+          )}
+
+          {rejectingId === item.id ? (
+            <div className="mt-2 space-y-1.5">
+              <input
+                type="text"
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Motif du rejet..."
+                className="w-full text-xs border border-border rounded px-2 py-1 bg-background"
+                autoFocus
+              />
+              <div className="flex gap-1.5 justify-end">
+                <button onClick={() => { setRejectingId(null); setRejectReason('') }} className="px-2 py-0.5 text-[10px] rounded border border-border hover:bg-muted text-muted-foreground">Annuler</button>
+                <button onClick={() => handleReject(item.record_type, item.id)} disabled={!rejectReason.trim() || verifyRecord.isPending} className="px-2 py-0.5 text-[10px] rounded bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-40">
+                  {verifyRecord.isPending ? <Loader2 size={10} className="animate-spin inline mr-1" /> : null}Rejeter
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-1.5 mt-2 justify-end">
+              <button onClick={() => setRejectingId(item.id)} className="gl-button-sm gl-button-danger flex items-center gap-1 text-[10px]">
+                <X size={10} /> Rejeter
+              </button>
+              <button onClick={() => handleVerify(item.record_type, item.id)} disabled={verifyRecord.isPending} className="gl-button-sm gl-button-confirm flex items-center gap-1 text-[10px]">
+                {verifyRecord.isPending ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />} Vérifier & Valider
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   )
 }

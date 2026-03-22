@@ -150,4 +150,29 @@ export const conformiteService = {
     const { data } = await api.post('/api/v1/conformite/transfers', payload)
     return data
   },
+
+  // ── Verification ──
+
+  listPendingVerifications: async (): Promise<{ items: PendingVerificationItem[]; total: number }> => {
+    const { data } = await api.get('/api/v1/conformite/pending-verifications')
+    return data
+  },
+
+  verifyRecord: async (recordType: string, recordId: string, action: 'verify' | 'reject', rejectionReason?: string): Promise<unknown> => {
+    const { data } = await api.post(`/api/v1/conformite/verify/${recordType}/${recordId}`, {
+      action, rejection_reason: rejectionReason || null,
+    })
+    return data
+  },
+}
+
+export interface PendingVerificationItem {
+  id: string
+  record_type: string
+  owner_type: string | null
+  owner_id: string | null
+  owner_name: string | null
+  description: string
+  submitted_at: string
+  verification_status: string
 }

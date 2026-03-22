@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, check_verified_lock
 from app.core.database import get_db
 from app.services.core.delete_service import delete_entity
 from app.models.common import MedicalCheck, User
@@ -56,6 +56,7 @@ async def update_medical_check(
     obj = result.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Medical check not found")
+    check_verified_lock(obj, current_user)
     update_data = body.model_dump(exclude_unset=True)
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update")
@@ -76,5 +77,6 @@ async def delete_medical_check(
     obj = result.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Medical check not found")
+    check_verified_lock(obj, current_user)
     await delete_entity(obj, db, "medical_check", entity_id=obj.id, user_id=current_user.id)
     await db.commit()

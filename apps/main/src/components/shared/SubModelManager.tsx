@@ -5,7 +5,7 @@
  * that follows the {id, user_id, created_at, ...} pattern.
  */
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
-import { Plus, X, Loader2, Trash2, Pencil, Check, ChevronDown, type LucideIcon } from 'lucide-react'
+import { Plus, X, Loader2, Trash2, Pencil, Check, ChevronDown, ShieldCheck, Lock, type LucideIcon } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { panelInputClass } from '@/components/layout/DynamicPanel'
 
@@ -345,8 +345,19 @@ export function SubModelManager<TRead extends { id: string }, TCreate>({
               ) : (
                 <div
                   className="flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-accent/50 group cursor-pointer transition-colors"
-                  onDoubleClick={() => handleEdit(item)}
+                  onDoubleClick={() => {
+                    const vs = (item as Record<string, unknown>).verification_status
+                    if (vs !== 'verified') handleEdit(item)
+                  }}
                 >
+                  {/* Verification badge */}
+                  {(() => {
+                    const vs = (item as Record<string, unknown>).verification_status as string | undefined
+                    if (vs === 'verified') return <span className="shrink-0"><ShieldCheck size={12} className="text-green-500" /></span>
+                    if (vs === 'rejected') return <span className="shrink-0"><X size={12} className="text-red-500" /></span>
+                    if (vs === 'pending') return <span className="shrink-0"><Lock size={12} className="text-amber-500/50" /></span>
+                    return null
+                  })()}
                   <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-3 gap-y-0.5">
                     {displayColumns.map((col, i) => {
                       const raw = (item as Record<string, unknown>)[col.key]
@@ -363,14 +374,18 @@ export function SubModelManager<TRead extends { id: string }, TCreate>({
                       )
                     })}
                   </div>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => handleEdit(item)} className="h-6 w-6 flex items-center justify-center rounded hover:bg-accent">
-                      <Pencil size={11} className="text-muted-foreground" />
-                    </button>
-                    <button onClick={() => setDeletingId(item.id)} className="h-6 w-6 flex items-center justify-center rounded hover:bg-destructive/10">
-                      <Trash2 size={11} className="text-destructive" />
-                    </button>
-                  </div>
+                  {(item as Record<string, unknown>).verification_status !== 'verified' ? (
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => handleEdit(item)} className="h-6 w-6 flex items-center justify-center rounded hover:bg-accent">
+                        <Pencil size={11} className="text-muted-foreground" />
+                      </button>
+                      <button onClick={() => setDeletingId(item.id)} className="h-6 w-6 flex items-center justify-center rounded hover:bg-destructive/10">
+                        <Trash2 size={11} className="text-destructive" />
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-[9px] text-green-600 font-medium shrink-0">Vérifié</span>
+                  )}
                 </div>
               )}
             </div>

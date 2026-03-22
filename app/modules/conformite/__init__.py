@@ -28,6 +28,7 @@ MANIFEST = ModuleManifest(
         "conformite.transfer.create",
         "conformite.transfer.update",
         "conformite.transfer.delete",
+        "conformite.verify",
         "conformite.import",
         "conformite.export",
     ],
@@ -43,6 +44,7 @@ MANIFEST = ModuleManifest(
                 "conformite.check",
                 "conformite.jobposition.read", "conformite.jobposition.create", "conformite.jobposition.update", "conformite.jobposition.delete",
                 "conformite.transfer.read", "conformite.transfer.create", "conformite.transfer.update", "conformite.transfer.delete",
+                "conformite.verify",
             ],
         },
         {

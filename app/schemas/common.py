@@ -1179,10 +1179,14 @@ class ComplianceRecordRead(OpsFluxSchema):
     issuer: str | None = None
     reference_number: str | None = None
     notes: str | None = None
-    verified_by: UUID | None = None
     created_by: UUID
     active: bool
     created_at: datetime
+    # Verification (VerifiableMixin)
+    verification_status: str = "pending"
+    verified_by: UUID | None = None
+    verified_at: datetime | None = None
+    rejection_reason: str | None = None
     # Enriched
     type_name: str | None = None
     type_category: str | None = None
@@ -1738,6 +1742,11 @@ class UserPassportRead(BaseModel):
     document_url: str | None = None
     created_at: datetime
     updated_at: datetime
+    # Verification
+    verification_status: str = "pending"
+    verified_by: UUID | None = None
+    verified_at: datetime | None = None
+    rejection_reason: str | None = None
 
 # UserVisa
 class UserVisaCreate(BaseModel):
@@ -1769,6 +1778,11 @@ class UserVisaRead(BaseModel):
     document_url: str | None = None
     created_at: datetime
     updated_at: datetime
+    # Verification
+    verification_status: str = "pending"
+    verified_by: UUID | None = None
+    verified_at: datetime | None = None
+    rejection_reason: str | None = None
 
 # EmergencyContact
 class EmergencyContactCreate(BaseModel):
@@ -1813,6 +1827,10 @@ class SocialSecurityRead(BaseModel):
     number: str
     created_at: datetime
     updated_at: datetime
+    verification_status: str = "pending"
+    verified_by: UUID | None = None
+    verified_at: datetime | None = None
+    rejection_reason: str | None = None
 
 # UserVaccine
 class UserVaccineCreate(BaseModel):
@@ -1838,6 +1856,10 @@ class UserVaccineRead(BaseModel):
     batch_number: str | None = None
     created_at: datetime
     updated_at: datetime
+    verification_status: str = "pending"
+    verified_by: UUID | None = None
+    verified_at: datetime | None = None
+    rejection_reason: str | None = None
 
 # UserLanguage
 class UserLanguageCreate(BaseModel):
@@ -1882,6 +1904,10 @@ class DrivingLicenseRead(BaseModel):
     document_url: str | None = None
     created_at: datetime
     updated_at: datetime
+    verification_status: str = "pending"
+    verified_by: UUID | None = None
+    verified_at: datetime | None = None
+    rejection_reason: str | None = None
 
 
 # ─── MedicalCheck (polymorphic) ──────────────────────────────────────────
@@ -1915,6 +1941,10 @@ class MedicalCheckRead(BaseModel):
     document_url: str | None = None
     created_at: datetime
     updated_at: datetime
+    verification_status: str = "pending"
+    verified_by: UUID | None = None
+    verified_at: datetime | None = None
+    rejection_reason: str | None = None
 
 
 # ─── UserSSOProvider ─────────────────────────────────────────────────────

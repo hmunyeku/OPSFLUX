@@ -128,13 +128,66 @@ async def send_email_verification(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Send verification link for a contact email (stub)."""
+    """Generate a verification token and send verification email via template."""
+    import secrets
+    from datetime import datetime, timezone, timedelta
+
     result = await db.execute(select(ContactEmail).where(ContactEmail.id == email_id))
     contact_email = result.scalar_one_or_none()
     if not contact_email:
         raise HTTPException(status_code=404, detail="Contact email not found")
-    # Stub: in production, send verification email
-    return {"message": "Verification email sent (stub)", "email_id": str(email_id)}
+
+    if contact_email.verified:
+        return {"message": "Email already verified", "email_id": str(email_id)}
+
+    # Generate secure token (48-char URL-safe)
+    token = secrets.token_urlsafe(36)
+    contact_email.verification_token = token
+    contact_email.verification_expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
+    await db.commit()
+
+    # Build verification URL
+    from app.core.config import settings
+    verification_url = f"{settings.FRONTEND_URL}/verify-email?token={token}&id={email_id}"
+
+    # Send via email template system
+    from app.api.deps import get_current_entity
+    from starlette.requests import Request
+    entity_id = getattr(current_user, "current_entity_id", None)
+    if entity_id:
+        from app.core.email_templates import render_and_send_email
+        sent = await render_and_send_email(
+            db,
+            slug="email_verification",
+            entity_id=entity_id,
+            language="fr",
+            to=contact_email.email,
+            variables={
+                "verification_url": verification_url,
+                "user": {
+                    "first_name": current_user.first_name or "",
+                    "last_name": current_user.last_name or "",
+                    "email": current_user.email,
+                },
+                "entity": {"name": "OpsFlux"},
+            },
+        )
+        if not sent:
+            # Template not configured — send raw email as fallback
+            from app.core.notifications import send_email
+            await send_email(
+                to=contact_email.email,
+                subject="OpsFlux — Vérification de votre adresse email",
+                body_html=(
+                    f"<p>Bonjour,</p>"
+                    f"<p>Veuillez cliquer sur le lien ci-dessous pour vérifier votre adresse email :</p>"
+                    f'<p><a href="{verification_url}">{verification_url}</a></p>'
+                    f"<p>Ce lien expire dans 24 heures.</p>"
+                    f"<p>Merci,<br/>OpsFlux</p>"
+                ),
+            )
+
+    return {"message": "Verification email sent", "email_id": str(email_id)}
 
 
 @router.post("/{email_id}/verify", status_code=200)
@@ -144,15 +197,64 @@ async def verify_contact_email(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Verify a contact email with token (stub)."""
+    """Verify a contact email with the token from the verification link."""
+    from datetime import datetime, timezone
+
+    token = body.get("token", "")
+    if not token:
+        raise HTTPException(status_code=400, detail="Token is required")
+
     result = await db.execute(select(ContactEmail).where(ContactEmail.id == email_id))
     contact_email = result.scalar_one_or_none()
     if not contact_email:
         raise HTTPException(status_code=404, detail="Contact email not found")
-    # Stub: accept any token for now
-    from datetime import datetime, timezone
+
+    if contact_email.verified:
+        return {"message": "Email already verified", "email_id": str(email_id)}
+
+    # Validate token
+    if not contact_email.verification_token or contact_email.verification_token != token:
+        raise HTTPException(status_code=400, detail="Invalid verification token")
+
+    # Check expiry
+    if contact_email.verification_expires_at and contact_email.verification_expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Verification token expired")
+
     contact_email.verified = True
     contact_email.verified_at = datetime.now(timezone.utc)
+    contact_email.verification_token = None
+    contact_email.verification_expires_at = None
     await db.commit()
     await db.refresh(contact_email)
     return {"message": "Contact email verified", "email_id": str(email_id)}
+
+
+@router.get("/verify-callback", status_code=200)
+async def verify_email_callback(
+    token: str = Query(..., description="Verification token"),
+    id: UUID = Query(..., description="Contact email ID"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Public callback for email verification links — no auth required."""
+    from datetime import datetime, timezone
+
+    result = await db.execute(select(ContactEmail).where(ContactEmail.id == id))
+    contact_email = result.scalar_one_or_none()
+    if not contact_email:
+        raise HTTPException(status_code=404, detail="Contact email not found")
+
+    if contact_email.verified:
+        return {"message": "Email already verified", "verified": True}
+
+    if not contact_email.verification_token or contact_email.verification_token != token:
+        raise HTTPException(status_code=400, detail="Invalid verification token")
+
+    if contact_email.verification_expires_at and contact_email.verification_expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Verification token expired")
+
+    contact_email.verified = True
+    contact_email.verified_at = datetime.now(timezone.utc)
+    contact_email.verification_token = None
+    contact_email.verification_expires_at = None
+    await db.commit()
+    return {"message": "Email verified successfully", "verified": True}

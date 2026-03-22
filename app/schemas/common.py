@@ -1933,6 +1933,7 @@ class DictionaryEntryCreate(BaseModel):
     sort_order: int = 0
     active: bool = True
     metadata_json: dict | None = None
+    translations: dict | None = None
 
 class DictionaryEntryUpdate(BaseModel):
     code: str | None = None
@@ -1940,6 +1941,7 @@ class DictionaryEntryUpdate(BaseModel):
     sort_order: int | None = None
     active: bool | None = None
     metadata_json: dict | None = None
+    translations: dict | None = None
 
 class DictionaryEntryRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -1950,6 +1952,7 @@ class DictionaryEntryRead(BaseModel):
     sort_order: int
     active: bool
     metadata_json: dict | None = None
+    translations: dict | None = None
     created_at: datetime
     updated_at: datetime
 

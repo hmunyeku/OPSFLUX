@@ -22,9 +22,16 @@ interface DictionaryEntry {
   sort_order: number
   active: boolean
   metadata_json: Record<string, unknown> | null
+  translations: Record<string, string> | null
   created_at: string
   updated_at: string
 }
+
+/** Available languages for dictionary translations */
+const AVAILABLE_LANGUAGES = [
+  { code: 'fr', label: 'Fran\u00E7ais' },
+  { code: 'en', label: 'English' },
+]
 
 /** Extra metadata columns per category */
 interface MetaColumn { key: string; label: string; placeholder?: string }
@@ -49,6 +56,7 @@ const CATEGORIES = [
   { value: 'gender', label: 'Genre' },
   { value: 'nationality', label: 'Pays / Nationalités' },
   { value: 'address_type', label: "Type d'adresse" },
+  { value: 'airport', label: 'Aéroports (IATA)' },
 ]
 
 function useDictionary(category: string | null) {
@@ -66,7 +74,7 @@ function useDictionary(category: string | null) {
 function useCreateDictionaryEntry() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (payload: { category: string; code: string; label: string; sort_order?: number; metadata_json?: Record<string, unknown> | null }) => {
+    mutationFn: async (payload: { category: string; code: string; label: string; sort_order?: number; metadata_json?: Record<string, unknown> | null; translations?: Record<string, string> | null }) => {
       const { data } = await api.post('/api/v1/dictionary', payload)
       return data
     },
@@ -77,7 +85,7 @@ function useCreateDictionaryEntry() {
 function useUpdateDictionaryEntry() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, payload }: { id: string; payload: Partial<{ code: string; label: string; sort_order: number; active: boolean; metadata_json: Record<string, unknown> | null }> }) => {
+    mutationFn: async ({ id, payload }: { id: string; payload: Partial<{ code: string; label: string; sort_order: number; active: boolean; metadata_json: Record<string, unknown> | null; translations: Record<string, string> | null }> }) => {
       const { data } = await api.patch(`/api/v1/dictionary/${id}`, payload)
       return data
     },
@@ -100,22 +108,36 @@ interface DraftState {
   label: string
   sort_order: string
   meta: Record<string, string>
+  translations: Record<string, string>
 }
 
-const emptyDraft = (): DraftState => ({ code: '', label: '', sort_order: '0', meta: {} })
+const emptyDraft = (): DraftState => ({ code: '', label: '', sort_order: '0', meta: {}, translations: {} })
 
 function draftFromEntry(entry: DictionaryEntry, metaCols: MetaColumn[]): DraftState {
   const meta: Record<string, string> = {}
   for (const col of metaCols) {
     meta[col.key] = (entry.metadata_json?.[col.key] as string) ?? ''
   }
-  return { code: entry.code, label: entry.label, sort_order: String(entry.sort_order), meta }
+  const translations: Record<string, string> = {}
+  for (const lang of AVAILABLE_LANGUAGES) {
+    translations[lang.code] = (entry.translations?.[lang.code] as string) ?? ''
+  }
+  return { code: entry.code, label: entry.label, sort_order: String(entry.sort_order), meta, translations }
 }
 
 function buildMetadataJson(meta: Record<string, string>): Record<string, unknown> | null {
   const out: Record<string, unknown> = {}
   let hasValue = false
   for (const [k, v] of Object.entries(meta)) {
+    if (v.trim()) { out[k] = v.trim(); hasValue = true }
+  }
+  return hasValue ? out : null
+}
+
+function buildTranslations(translations: Record<string, string>): Record<string, string> | null {
+  const out: Record<string, string> = {}
+  let hasValue = false
+  for (const [k, v] of Object.entries(translations)) {
     if (v.trim()) { out[k] = v.trim(); hasValue = true }
   }
   return hasValue ? out : null
@@ -151,11 +173,12 @@ export default function DictionaryTab() {
   const handleSave = useCallback(() => {
     if (!draft.code.trim() || !draft.label.trim()) return
     const metadata_json = buildMetadataJson(draft.meta)
+    const translations = buildTranslations(draft.translations)
     if (editingId) {
-      updateEntry.mutate({ id: editingId, payload: { code: draft.code.trim(), label: draft.label.trim(), sort_order: parseInt(draft.sort_order) || 0, metadata_json } })
+      updateEntry.mutate({ id: editingId, payload: { code: draft.code.trim(), label: draft.label.trim(), sort_order: parseInt(draft.sort_order) || 0, metadata_json, translations } })
       setEditingId(null)
     } else {
-      createEntry.mutate({ category: selectedCategory, code: draft.code.trim(), label: draft.label.trim(), sort_order: parseInt(draft.sort_order) || 0, metadata_json })
+      createEntry.mutate({ category: selectedCategory, code: draft.code.trim(), label: draft.label.trim(), sort_order: parseInt(draft.sort_order) || 0, metadata_json, translations })
       setShowForm(false)
     }
     setDraft(emptyDraft())
@@ -217,6 +240,23 @@ export default function DictionaryTab() {
           ))}
         </div>
       )}
+      {/* Translations per language */}
+      <div className="border-t border-border/40 pt-2 mt-1">
+        <label className="text-[10px] font-medium text-muted-foreground uppercase mb-1 block">Traductions</label>
+        <div className="flex gap-2">
+          {AVAILABLE_LANGUAGES.map((lang) => (
+            <div key={lang.code} className="flex-1">
+              <label className="text-[9px] text-muted-foreground">{lang.label} ({lang.code})</label>
+              <input
+                value={draft.translations[lang.code] ?? ''}
+                onChange={(e) => setDraft(d => ({ ...d, translations: { ...d.translations, [lang.code]: e.target.value } }))}
+                placeholder={draft.label || `Traduction ${lang.code}`}
+                className={panelInputClass + ' h-7 text-xs'}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
       <div className="flex justify-end gap-2">
         <button onClick={handleCancel} className="gl-button-sm gl-button-default flex items-center gap-1"><X size={12} /> Annuler</button>
         <button onClick={handleSave} disabled={createEntry.isPending || updateEntry.isPending} className="gl-button-sm gl-button-confirm flex items-center gap-1">

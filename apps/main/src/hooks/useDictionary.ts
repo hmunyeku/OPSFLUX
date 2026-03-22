@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 
 export interface DictionaryEntry {
@@ -9,6 +10,7 @@ export interface DictionaryEntry {
   sort_order: number
   active: boolean
   metadata_json?: Record<string, unknown> | null
+  translations?: Record<string, string> | null
 }
 
 /**
@@ -28,12 +30,20 @@ export function useDictionary(category: string | null) {
   })
 }
 
+/** Resolve the label for a dictionary entry based on current language. */
+function resolveLabel(entry: DictionaryEntry, lang: string): string {
+  return entry.translations?.[lang] || entry.label
+}
+
 /**
  * Returns dictionary entries as {value, label} options for select fields.
+ * Uses the translation for the current language if available, falls back to main label.
  */
 export function useDictionaryOptions(category: string) {
+  const { i18n } = useTranslation()
+  const lang = i18n.language
   const { data } = useDictionary(category)
-  return (data ?? []).map((e) => ({ value: e.code, label: e.label }))
+  return (data ?? []).map((e) => ({ value: e.code, label: resolveLabel(e, lang) }))
 }
 
 /**

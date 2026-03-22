@@ -9,9 +9,10 @@
  *   <ContactEmailManager ownerType="tier" ownerId={tier.id} />
  */
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { Plus, X, Loader2, Mail, Star, Check } from 'lucide-react'
+import { Plus, X, Loader2, Mail, Star, Check, ShieldCheck, Send } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useContactEmails, useCreateContactEmail, useUpdateContactEmail, useDeleteContactEmail } from '@/hooks/useSettings'
+import { useSendEmailVerification } from '@/hooks/useUserSubModels'
 import { useToast } from '@/components/ui/Toast'
 import { panelInputClass } from '@/components/layout/DynamicPanel'
 import { useDictionaryOptions } from '@/hooks/useDictionary'
@@ -35,6 +36,7 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
   const createEmail = useCreateContactEmail()
   const updateEmail = useUpdateContactEmail()
   const deleteEmail = useDeleteContactEmail()
+  const sendVerification = useSendEmailVerification()
   const dictEmailLabels = useDictionaryOptions('email_label')
   const EMAIL_LABELS = dictEmailLabels.length > 0 ? dictEmailLabels : FALLBACK_EMAIL_LABELS
 
@@ -134,6 +136,21 @@ export function ContactEmailManager({ ownerType, ownerId, compact }: ContactEmai
                 </span>
                 {ce.is_default && (
                   <Star size={10} className="text-yellow-500 fill-yellow-500 shrink-0" />
+                )}
+                {ce.verified ? (
+                  <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-emerald-600 dark:text-emerald-400 shrink-0" title={ce.verified_at ? `Vérifié le ${new Date(ce.verified_at).toLocaleDateString()}` : 'Vérifié'}>
+                    <ShieldCheck size={10} />
+                  </span>
+                ) : (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); sendVerification.mutate(ce.id, { onSuccess: () => toast({ title: 'Email de vérification envoyé', variant: 'success' }), onError: () => toast({ title: 'Erreur d\'envoi', variant: 'error' }) }) }}
+                    className="inline-flex items-center gap-0.5 text-[9px] font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 shrink-0"
+                    title="Envoyer un email de vérification"
+                    disabled={sendVerification.isPending}
+                  >
+                    {sendVerification.isPending ? <Loader2 size={9} className="animate-spin" /> : <Send size={9} />}
+                    <span>Vérifier</span>
+                  </button>
                 )}
                 <div className="flex items-center gap-0.5 ml-auto opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                   {!ce.is_default && (

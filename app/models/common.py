@@ -855,6 +855,8 @@ class Phone(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    verification_code: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    verification_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 # ─── ContactEmails (polymorphic — linked to any object) ──────────────────────
@@ -881,6 +883,8 @@ class ContactEmail(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    verification_token: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    verification_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 # ─── Tags (polymorphic — linked to any object) ──────────────────────────────
@@ -1808,6 +1812,7 @@ class DictionaryEntry(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     metadata_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    translations: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
 
 # ─── User Health Conditions ───────────────────────────────────────────────────

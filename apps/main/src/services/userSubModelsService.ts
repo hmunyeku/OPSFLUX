@@ -46,8 +46,9 @@ export const ssoProvidersService = crudService<UserSSOProviderRead, UserSSOProvi
 
 // Phone/Email verification
 export const verificationService = {
-  sendPhoneVerification: async (phoneId: string): Promise<void> => {
-    await api.post(`/api/v1/phones/${phoneId}/send-verification`)
+  sendPhoneVerification: async (phoneId: string): Promise<{ message: string; debug_code?: string }> => {
+    const { data } = await api.post(`/api/v1/phones/${phoneId}/send-verification`)
+    return data
   },
   verifyPhone: async (phoneId: string, code: string): Promise<void> => {
     await api.post(`/api/v1/phones/${phoneId}/verify`, { code })

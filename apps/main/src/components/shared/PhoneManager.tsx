@@ -13,9 +13,10 @@
  *   <PhoneManager ownerType="tier" ownerId={tier.id} />
  */
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
-import { Plus, X, Loader2, Phone as PhoneIcon, Star, Check, ChevronDown } from 'lucide-react'
+import { Plus, X, Loader2, Phone as PhoneIcon, Star, Check, ChevronDown, ShieldCheck, Send } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { usePhones, useCreatePhone, useUpdatePhone, useDeletePhone } from '@/hooks/useSettings'
+import { useSendPhoneVerification, useVerifyPhone } from '@/hooks/useUserSubModels'
 import { useToast } from '@/components/ui/Toast'
 import { panelInputClass } from '@/components/layout/DynamicPanel'
 import { COUNTRIES } from '@/components/shared/CountrySelect'
@@ -260,6 +261,8 @@ export function PhoneManager({ ownerType, ownerId, compact }: PhoneManagerProps)
   const createPhone = useCreatePhone()
   const updatePhone = useUpdatePhone()
   const deletePhone = useDeletePhone()
+  const sendVerification = useSendPhoneVerification()
+  const verifyPhone = useVerifyPhone()
   const dictPhoneLabels = useDictionaryOptions('phone_label')
   const PHONE_LABELS = dictPhoneLabels.length > 0 ? dictPhoneLabels : FALLBACK_PHONE_LABELS
 
@@ -269,6 +272,8 @@ export function PhoneManager({ ownerType, ownerId, compact }: PhoneManagerProps)
   const [countryCode, setCountryCode] = useState('+33')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [verifyingPhoneId, setVerifyingPhoneId] = useState<string | null>(null)
+  const [otpCode, setOtpCode] = useState('')
 
   const phones: Phone[] = data ?? []
 
@@ -366,6 +371,55 @@ export function PhoneManager({ ownerType, ownerId, compact }: PhoneManagerProps)
                 </span>
                 {phone.is_default && (
                   <Star size={10} className="text-yellow-500 fill-yellow-500 shrink-0" />
+                )}
+                {phone.verified ? (
+                  <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-emerald-600 dark:text-emerald-400 shrink-0" title={phone.verified_at ? `Vérifié le ${new Date(phone.verified_at).toLocaleDateString()}` : 'Vérifié'}>
+                    <ShieldCheck size={10} />
+                  </span>
+                ) : verifyingPhoneId === phone.id ? (
+                  <div className="inline-flex items-center gap-1 shrink-0">
+                    <input
+                      type="text"
+                      maxLength={6}
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && otpCode.length === 6) verifyPhone.mutate({ phoneId: phone.id, code: otpCode }, { onSuccess: () => { setVerifyingPhoneId(null); setOtpCode(''); toast({ title: 'Téléphone vérifié', variant: 'success' }) }, onError: () => toast({ title: 'Code invalide', variant: 'error' }) }) }}
+                      placeholder="000000"
+                      className="w-14 px-1 py-0.5 text-[10px] font-mono rounded border border-border/60 bg-card focus:outline-none text-center"
+                      autoFocus
+                    />
+                    <button
+                      onClick={() => verifyPhone.mutate({ phoneId: phone.id, code: otpCode }, { onSuccess: () => { setVerifyingPhoneId(null); setOtpCode(''); toast({ title: 'Téléphone vérifié', variant: 'success' }) }, onError: () => toast({ title: 'Code invalide', variant: 'error' }) })}
+                      disabled={otpCode.length !== 6 || verifyPhone.isPending}
+                      className="p-0.5 rounded hover:bg-green-100 text-green-600 disabled:opacity-40"
+                    >
+                      {verifyPhone.isPending ? <Loader2 size={9} className="animate-spin" /> : <Check size={9} />}
+                    </button>
+                    <button onClick={() => { setVerifyingPhoneId(null); setOtpCode('') }} className="p-0.5 rounded hover:bg-accent text-muted-foreground">
+                      <X size={9} />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      sendVerification.mutate(phone.id, {
+                        onSuccess: (data: any) => {
+                          setVerifyingPhoneId(phone.id)
+                          setOtpCode('')
+                          const msg = data?.debug_code ? `Code : ${data.debug_code} (SMS non configuré)` : 'Code envoyé par SMS'
+                          toast({ title: msg, variant: 'success' })
+                        },
+                        onError: () => toast({ title: "Erreur d'envoi", variant: 'error' }),
+                      })
+                    }}
+                    className="inline-flex items-center gap-0.5 text-[9px] font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 shrink-0"
+                    title="Envoyer un code de vérification par SMS"
+                    disabled={sendVerification.isPending}
+                  >
+                    {sendVerification.isPending ? <Loader2 size={9} className="animate-spin" /> : <Send size={9} />}
+                    <span>Vérifier</span>
+                  </button>
                 )}
                 <div className="flex items-center gap-0.5 ml-auto opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                   {!phone.is_default && (

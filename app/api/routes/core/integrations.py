@@ -228,6 +228,47 @@ async def _test_sms_vonage(cfg: dict[str, str]) -> tuple[str, str]:
         return "error", f"Échec vérification Vonage: {str(e)}"
 
 
+async def _test_sms_ovh(cfg: dict[str, str]) -> tuple[str, str]:
+    """Test OVH SMS credentials by fetching account credits."""
+    import hashlib
+    import time as _time
+
+    app_key = cfg.get("application_key", "")
+    app_secret = cfg.get("application_secret", "")
+    consumer_key = cfg.get("consumer_key", "")
+    service_name = cfg.get("service_name", "")
+
+    if not app_key or not consumer_key:
+        return "error", "Application Key ou Consumer Key non configuré"
+    if not service_name:
+        return "error", "Nom du service SMS non configuré"
+
+    try:
+        import httpx
+
+        url = f"https://eu.api.ovh.com/1.0/sms/{service_name}"
+        timestamp = str(int(_time.time()))
+        to_sign = f"{app_secret}+{consumer_key}+GET+{url}++{timestamp}"
+        signature = "$1$" + hashlib.sha1(to_sign.encode("utf-8")).hexdigest()
+
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(url, headers={
+                "X-Ovh-Application": app_key,
+                "X-Ovh-Consumer": consumer_key,
+                "X-Ovh-Timestamp": timestamp,
+                "X-Ovh-Signature": signature,
+            })
+            if resp.status_code == 200:
+                data = resp.json()
+                credits_left = data.get("creditsLeft", "?")
+                return "ok", f"OVH SMS connecté — {credits_left} crédits restants"
+            return "error", f"OVH SMS: HTTP {resp.status_code} — {resp.text[:200]}"
+    except ImportError:
+        return "error", "httpx non installé"
+    except Exception as e:
+        return "error", f"Échec vérification OVH SMS: {str(e)[:300]}"
+
+
 async def _test_ai(cfg: dict[str, str]) -> tuple[str, str]:
     """Test AI provider connection (Claude, OpenAI, Ollama, etc.)."""
     provider = cfg.get("provider", "anthropic")
@@ -360,6 +401,7 @@ CONNECTOR_TESTERS = {
     "okta": ("integration.okta", lambda cfg: _test_oauth_generic(cfg, "Okta")),
     "keycloak": ("integration.keycloak", lambda cfg: _test_oauth_generic(cfg, "Keycloak")),
     "ldap": ("integration.ldap", _test_ldap),
+    "sms_ovh": ("integration.sms_ovh", _test_sms_ovh),
     "sms_twilio": ("integration.sms_twilio", _test_sms_twilio),
     "sms_vonage": ("integration.sms_vonage", _test_sms_vonage),
     "webhook": ("integration.webhook", _test_webhook),

@@ -128,13 +128,43 @@ async def send_phone_verification(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Send OTP verification code for a phone number (stub)."""
+    """Generate a 6-digit OTP and send it via the configured SMS provider."""
+    import secrets
+    from datetime import datetime, timezone, timedelta
+
     result = await db.execute(select(Phone).where(Phone.id == phone_id))
     phone = result.scalar_one_or_none()
     if not phone:
         raise HTTPException(status_code=404, detail="Phone not found")
-    # Stub: in production, integrate SMS gateway
-    return {"message": "Verification code sent (stub)", "phone_id": str(phone_id)}
+
+    if phone.verified:
+        return {"message": "Phone already verified", "phone_id": str(phone_id)}
+
+    # Generate 6-digit OTP
+    code = f"{secrets.randbelow(1000000):06d}"
+    phone.verification_code = code
+    phone.verification_expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+    await db.commit()
+
+    # Build full phone number
+    full_number = f"{phone.country_code or ''}{phone.number}".strip()
+
+    # Send via SMS service
+    from app.core.sms_service import send_sms
+    sent = await send_sms(
+        db,
+        to=full_number,
+        body=f"OpsFlux — Votre code de vérification : {code}",
+    )
+
+    if not sent:
+        return {
+            "message": "SMS provider not configured — code generated for manual verification",
+            "phone_id": str(phone_id),
+            "debug_code": code,  # Only returned when no SMS provider is configured
+        }
+
+    return {"message": "Verification code sent", "phone_id": str(phone_id)}
 
 
 @router.post("/{phone_id}/verify", status_code=200)
@@ -144,15 +174,33 @@ async def verify_phone(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Verify a phone number with OTP code (stub)."""
+    """Verify a phone number with the 6-digit OTP code."""
+    from datetime import datetime, timezone
+
+    code = body.get("code", "")
+    if not code:
+        raise HTTPException(status_code=400, detail="Code is required")
+
     result = await db.execute(select(Phone).where(Phone.id == phone_id))
     phone = result.scalar_one_or_none()
     if not phone:
         raise HTTPException(status_code=404, detail="Phone not found")
-    # Stub: accept any code for now
-    from datetime import datetime, timezone
+
+    if phone.verified:
+        return {"message": "Phone already verified", "phone_id": str(phone_id)}
+
+    # Validate code
+    if not phone.verification_code or phone.verification_code != code:
+        raise HTTPException(status_code=400, detail="Invalid verification code")
+
+    # Check expiry (10 minutes)
+    if phone.verification_expires_at and phone.verification_expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Verification code expired")
+
     phone.verified = True
     phone.verified_at = datetime.now(timezone.utc)
+    phone.verification_code = None
+    phone.verification_expires_at = None
     await db.commit()
     await db.refresh(phone)
     return {"message": "Phone verified", "phone_id": str(phone_id)}

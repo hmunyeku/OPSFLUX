@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.database import get_db
+from app.services.core.delete_service import delete_entity
 from app.core.pagination import PaginationParams, paginate
 from app.models.common import Department, CostCenter, User
 from app.schemas.common import (
@@ -82,6 +83,7 @@ async def update_department(
 async def delete_department(
     dept_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("department.delete"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -91,7 +93,7 @@ async def delete_department(
     dept = result.scalar_one_or_none()
     if not dept:
         raise HTTPException(status_code=404, detail="Department not found")
-    dept.active = False
+    await delete_entity(dept, db, "department", entity_id=dept.id, user_id=current_user.id)
     await db.commit()
 
 
@@ -160,6 +162,7 @@ async def update_cost_center(
 async def delete_cost_center(
     cc_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("cost_center.delete"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -169,5 +172,5 @@ async def delete_cost_center(
     cc = result.scalar_one_or_none()
     if not cc:
         raise HTTPException(status_code=404, detail="Cost center not found")
-    cc.active = False
+    await delete_entity(cc, db, "cost_center", entity_id=cc.id, user_id=current_user.id)
     await db.commit()

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.database import get_db
+from app.services.core.delete_service import delete_entity as delete_entity_service
 from app.core.pagination import PaginationParams
 from app.models.common import (
     Entity,
@@ -426,7 +427,7 @@ async def delete_entity_endpoint(
     if not entity:
         raise HTTPException(status_code=404, detail="Entity not found")
 
-    entity.active = False
+    await delete_entity_service(entity, db, "entity", entity_id=entity.id, user_id=current_user.id)
     await db.commit()
 
     return {"detail": "Entity archived", "id": str(entity_id)}
@@ -599,6 +600,6 @@ async def remove_user_from_entity(
         raise HTTPException(status_code=404, detail="User not found in this entity")
 
     for membership in memberships:
-        await db.delete(membership)
+        await delete_entity_service(membership, db, "user_group_member", entity_id=membership.id, user_id=current_user.id)
 
     await db.commit()

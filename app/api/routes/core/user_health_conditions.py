@@ -5,11 +5,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import Request
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, check_user_data_access
 from app.core.database import get_db
 from app.models.common import UserHealthCondition, User
 from app.schemas.common import UserHealthConditionCreate, UserHealthConditionRead
+from app.services.core.delete_service import delete_entity
 
 router = APIRouter(prefix="/api/v1/users/{user_id}/health-conditions", tags=["user-health-conditions"])
 
@@ -32,9 +34,11 @@ async def list_health_conditions(
 async def add_health_condition(
     user_id: UUID,
     body: UserHealthConditionCreate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    await check_user_data_access(user_id, current_user, db, request)
     # Check uniqueness
     existing = await db.execute(
         select(UserHealthCondition).where(
@@ -56,9 +60,11 @@ async def add_health_condition(
 async def remove_health_condition(
     user_id: UUID,
     condition_id: UUID,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    await check_user_data_access(user_id, current_user, db, request)
     result = await db.execute(
         select(UserHealthCondition).where(
             UserHealthCondition.id == condition_id,
@@ -68,5 +74,4 @@ async def remove_health_condition(
     hc = result.scalar_one_or_none()
     if not hc:
         raise HTTPException(status_code=404, detail="Health condition not found")
-    await db.delete(hc)
-    await db.commit()
+    await delete_entity(hc, db, "user_health_condition", entity_id=hc.id, user_id=current_user.id)

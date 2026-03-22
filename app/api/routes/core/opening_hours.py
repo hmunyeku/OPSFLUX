@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.core.database import get_db
+from app.services.core.delete_service import delete_entity
 from app.models.common import OpeningHour, User
 from app.schemas.common import OpeningHourCreate, OpeningHourRead, OpeningHourUpdate
 
@@ -70,5 +71,5 @@ async def delete_opening_hour(
     oh = result.scalar_one_or_none()
     if not oh:
         raise HTTPException(status_code=404, detail="Opening hour not found")
-    await db.delete(oh)
+    await delete_entity(oh, db, "opening_hour", entity_id=oh.id, user_id=current_user.id)
     await db.commit()

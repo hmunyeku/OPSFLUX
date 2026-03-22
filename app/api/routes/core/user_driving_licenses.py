@@ -5,9 +5,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import Request
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, check_user_data_access
 from app.core.database import get_db
+from app.services.core.delete_service import delete_entity
 from app.models.common import DrivingLicense, User
 from app.schemas.common import DrivingLicenseCreate, DrivingLicenseRead, DrivingLicenseUpdate
 
@@ -30,9 +32,11 @@ async def list_driving_licenses(
 async def create_driving_license(
     user_id: UUID,
     body: DrivingLicenseCreate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    await check_user_data_access(user_id, current_user, db, request)
     obj = DrivingLicense(**body.model_dump(exclude={"user_id"}), user_id=user_id)
     db.add(obj)
     await db.commit()
@@ -42,11 +46,14 @@ async def create_driving_license(
 
 @router.patch("/{driving_license_id}", response_model=DrivingLicenseRead)
 async def update_driving_license(
+    user_id: UUID,
     driving_license_id: UUID,
     body: DrivingLicenseUpdate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    await check_user_data_access(user_id, current_user, db, request)
     result = await db.execute(select(DrivingLicense).where(DrivingLicense.id == driving_license_id))
     obj = result.scalar_one_or_none()
     if not obj:
@@ -63,13 +70,15 @@ async def update_driving_license(
 
 @router.delete("/{driving_license_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_driving_license(
+    user_id: UUID,
     driving_license_id: UUID,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    await check_user_data_access(user_id, current_user, db, request)
     result = await db.execute(select(DrivingLicense).where(DrivingLicense.id == driving_license_id))
     obj = result.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Driving license not found")
-    await db.delete(obj)
-    await db.commit()
+    await delete_entity(obj, db, "driving_license", entity_id=obj.id, user_id=current_user.id)

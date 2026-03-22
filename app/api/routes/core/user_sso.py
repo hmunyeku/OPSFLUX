@@ -5,11 +5,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import Request
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, check_user_data_access
 from app.core.database import get_db
 from app.models.common import UserSSOProvider, User
 from app.schemas.common import UserSSOProviderCreate, UserSSOProviderRead
+from app.services.core.delete_service import delete_entity
 
 router = APIRouter(prefix="/api/v1/users/{user_id}/sso-providers", tags=["user-sso"])
 
@@ -31,10 +33,12 @@ async def list_sso_providers(
 async def create_sso_provider(
     user_id: UUID,
     body: UserSSOProviderCreate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Link an SSO provider to a user."""
+    await check_user_data_access(user_id, current_user, db, request)
     obj = UserSSOProvider(**body.model_dump(), user_id=user_id)
     db.add(obj)
     await db.commit()
@@ -44,14 +48,16 @@ async def create_sso_provider(
 
 @router.delete("/{provider_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_sso_provider(
+    user_id: UUID,
     provider_id: UUID,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Unlink an SSO provider from a user."""
+    await check_user_data_access(user_id, current_user, db, request)
     result = await db.execute(select(UserSSOProvider).where(UserSSOProvider.id == provider_id))
     obj = result.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="SSO provider link not found")
-    await db.delete(obj)
-    await db.commit()
+    await delete_entity(obj, db, "user_sso_provider", entity_id=obj.id, user_id=current_user.id)

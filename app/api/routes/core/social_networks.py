@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.core.database import get_db
+from app.services.core.delete_service import delete_entity
 from app.models.common import SocialNetwork, User
 from app.schemas.common import SocialNetworkCreate, SocialNetworkRead, SocialNetworkUpdate
 
@@ -70,5 +71,5 @@ async def delete_social_network(
     sn = result.scalar_one_or_none()
     if not sn:
         raise HTTPException(status_code=404, detail="Social network not found")
-    await db.delete(sn)
+    await delete_entity(sn, db, "social_network", entity_id=sn.id, user_id=current_user.id)
     await db.commit()

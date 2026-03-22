@@ -87,7 +87,7 @@ async def seed_dev_data(db: AsyncSession) -> None:
             UserGroup.name == "Super Administrators",
         )
     )
-    admin_group = result.scalar_one_or_none()
+    admin_group = result.scalars().first()
     if not admin_group:
         admin_group = UserGroup(
             entity_id=entity.id,
@@ -298,7 +298,7 @@ async def seed_dev_data(db: AsyncSession) -> None:
                 UserGroup.name == f"Groupe {role_code}",
             )
         )
-        group = result.scalar_one_or_none()
+        group = result.scalars().first()
         if not group:
             group = UserGroup(
                 entity_id=entity.id,

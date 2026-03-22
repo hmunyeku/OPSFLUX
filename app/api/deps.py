@@ -180,3 +180,38 @@ async def has_user_permission(
         await redis.expire(cache_key, 300)
 
     return permission_code in user_permissions or "*" in user_permissions
+
+
+async def check_user_data_access(
+    user_id: UUID,
+    current_user: User,
+    db: AsyncSession,
+    request: Request | None = None,
+) -> None:
+    """Ensure current user can access target user's personal data.
+
+    Self-service (user_id == current_user.id) is always allowed.
+    Managing another user's data requires core.users.manage permission.
+    """
+    if current_user.id == user_id:
+        return  # self-service always allowed
+
+    # Resolve entity context for RBAC check
+    entity_id: UUID | None = None
+    if request:
+        raw = request.headers.get("X-Entity-ID")
+        if raw:
+            try:
+                entity_id = UUID(raw)
+            except ValueError:
+                pass
+    if not entity_id and current_user.default_entity_id:
+        entity_id = current_user.default_entity_id
+
+    if entity_id and await has_user_permission(current_user, entity_id, "core.users.manage", db):
+        return
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Permission denied",
+    )

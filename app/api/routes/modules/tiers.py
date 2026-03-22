@@ -153,12 +153,12 @@ async def update_tier(
 async def archive_tier(
     tier_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("tier.delete"),
     db: AsyncSession = Depends(get_db),
 ):
     tier = await _get_tier_or_404(db, tier_id, entity_id)
-    tier.archived = True
-    tier.active = False
+    await delete_entity(tier, db, "tier", entity_id=tier.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Tier archived"}
 
@@ -333,12 +333,13 @@ async def update_tier_contact(
 async def delete_tier_contact(
     tier_id: UUID, contact_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("tier.update"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_tier_or_404(db, tier_id, entity_id)
     contact = await _get_contact_or_404(db, contact_id, tier_id)
-    contact.active = False
+    await delete_entity(contact, db, "tier_contact", entity_id=contact.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Contact deleted"}
 
@@ -516,7 +517,7 @@ async def delete_external_ref(
     ref = result.scalar_one_or_none()
     if not ref:
         raise HTTPException(status_code=404, detail="External reference not found")
-    await db.delete(ref)
+    await delete_entity(ref, db, "external_reference", entity_id=ref.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "External reference deleted"}
 

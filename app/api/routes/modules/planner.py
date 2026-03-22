@@ -479,11 +479,12 @@ async def update_activity(
 async def delete_activity(
     activity_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("planner.activity.delete"),
     db: AsyncSession = Depends(get_db),
 ):
     activity = await _get_activity_or_404(db, activity_id, entity_id)
-    activity.active = False
+    await delete_entity(activity, db, "planner_activity", entity_id=activity.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Activity deleted"}
 

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.database import get_db
+from app.services.core.delete_service import delete_entity
 from app.core.events import emit_event
 from app.core.pagination import PaginationParams, paginate
 from app.models.common import (
@@ -95,6 +96,7 @@ async def update_compliance_type(
 async def delete_compliance_type(
     type_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("conformite.type.delete"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -104,7 +106,7 @@ async def delete_compliance_type(
     ct = result.scalars().first()
     if not ct:
         raise HTTPException(404, "Compliance type not found")
-    ct.active = False
+    await delete_entity(ct, db, "compliance_type", entity_id=ct.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Compliance type archived"}
 
@@ -147,6 +149,7 @@ async def create_compliance_rule(
 async def delete_compliance_rule(
     rule_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("conformite.rule.delete"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -156,7 +159,7 @@ async def delete_compliance_rule(
     rule = result.scalars().first()
     if not rule:
         raise HTTPException(404, "Rule not found")
-    rule.active = False
+    await delete_entity(rule, db, "compliance_rule", entity_id=rule.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Rule deleted"}
 
@@ -288,6 +291,7 @@ async def update_compliance_record(
 async def delete_compliance_record(
     record_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("conformite.record.delete"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -297,7 +301,7 @@ async def delete_compliance_record(
     rec = result.scalars().first()
     if not rec:
         raise HTTPException(404, "Record not found")
-    rec.active = False
+    await delete_entity(rec, db, "compliance_record", entity_id=rec.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Record archived"}
 
@@ -615,6 +619,7 @@ async def update_job_position(
 async def delete_job_position(
     jp_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("conformite.jobposition.delete"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -624,7 +629,7 @@ async def delete_job_position(
     jp = result.scalars().first()
     if not jp:
         raise HTTPException(404, "Job position not found")
-    jp.active = False
+    await delete_entity(jp, db, "job_position", entity_id=jp.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Job position archived"}
 
@@ -957,6 +962,7 @@ async def reject_exemption(
 async def delete_exemption(
     exemption_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("conformite.exemption.delete"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -970,6 +976,6 @@ async def delete_exemption(
     exemption = result.scalars().first()
     if not exemption:
         raise HTTPException(404, "Exemption not found")
-    exemption.active = False
+    await delete_entity(exemption, db, "compliance_exemption", entity_id=exemption.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Exemption archived"}

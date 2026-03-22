@@ -210,6 +210,7 @@ async def update_asset(
 async def delete_asset(
     asset_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("asset.delete"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -221,8 +222,7 @@ async def delete_asset(
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    asset.active = False
-    asset.archived = True
+    await delete_entity(asset, db, "asset", entity_id=asset.id, user_id=current_user.id)
     await db.commit()
 
 

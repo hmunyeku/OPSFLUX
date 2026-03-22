@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, has_user_permission, require_permission
 from app.core.database import get_db
+from app.services.core.delete_service import delete_entity
 from app.core.pagination import PaginationParams, paginate
 from app.models.common import Asset, Tier, User
 from app.services.core.fsm_service import fsm_service, FSMError
@@ -285,12 +286,12 @@ async def update_vector(
 async def archive_vector(
     vector_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("travelwiz.vector.delete"),
     db: AsyncSession = Depends(get_db),
 ):
     vector = await _get_vector_or_404(db, vector_id, entity_id)
-    vector.archived = True
-    vector.active = False
+    await delete_entity(vector, db, "transport_vector", entity_id=vector.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Vector archived"}
 
@@ -360,6 +361,7 @@ async def delete_vector_zone(
     vector_id: UUID,
     zone_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("travelwiz.deck.manage"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -372,7 +374,7 @@ async def delete_vector_zone(
     zone = result.scalars().first()
     if not zone:
         raise HTTPException(404, "Zone not found")
-    zone.active = False
+    await delete_entity(zone, db, "transport_vector_zone", entity_id=zone.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Zone deleted"}
 
@@ -792,12 +794,12 @@ async def update_voyage_status(
 async def archive_voyage(
     voyage_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("travelwiz.voyage.delete"),
     db: AsyncSession = Depends(get_db),
 ):
     voyage = await _get_voyage_or_404(db, voyage_id, entity_id)
-    voyage.archived = True
-    voyage.active = False
+    await delete_entity(voyage, db, "voyage", entity_id=voyage.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Voyage archived"}
 
@@ -876,6 +878,7 @@ async def delete_voyage_stop(
     voyage_id: UUID,
     stop_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("travelwiz.voyage.update"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -886,7 +889,7 @@ async def delete_voyage_stop(
     stop = result.scalars().first()
     if not stop:
         raise HTTPException(404, "Stop not found")
-    stop.active = False
+    await delete_entity(stop, db, "voyage_stop", entity_id=stop.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Stop deleted"}
 
@@ -1173,6 +1176,7 @@ async def remove_passenger(
     manifest_id: UUID,
     passenger_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("travelwiz.manifest.create"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -1185,7 +1189,7 @@ async def remove_passenger(
     pax = result.scalars().first()
     if not pax:
         raise HTTPException(404, "Passenger not found")
-    pax.active = False
+    await delete_entity(pax, db, "manifest_passenger", entity_id=pax.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Passenger removed"}
 

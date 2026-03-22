@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.database import get_db
+from app.services.core.delete_service import delete_entity
 from app.core.events import emit_event
 from app.core.pagination import PaginationParams, paginate
 from app.models.common import (
@@ -318,12 +319,12 @@ async def update_project(
 async def archive_project(
     project_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("project.delete"),
     db: AsyncSession = Depends(get_db),
 ):
     project = await _get_project_or_404(db, project_id, entity_id)
-    project.archived = True
-    project.active = False
+    await delete_entity(project, db, "project", entity_id=project.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Project archived"}
 
@@ -380,6 +381,7 @@ async def remove_project_member(
     project_id: UUID,
     member_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("project.member.manage"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -390,7 +392,7 @@ async def remove_project_member(
     member = result.scalars().first()
     if not member:
         raise HTTPException(404, "Member not found")
-    member.active = False
+    await delete_entity(member, db, "project_member", entity_id=member.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Member removed"}
 
@@ -508,6 +510,7 @@ async def delete_project_task(
     project_id: UUID,
     task_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("project.task.delete"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -518,7 +521,7 @@ async def delete_project_task(
     task = result.scalars().first()
     if not task:
         raise HTTPException(404, "Task not found")
-    task.active = False
+    await delete_entity(task, db, "project_task", entity_id=task.id, user_id=current_user.id)
     await db.commit()
     await _update_project_progress(db, project_id)
     await db.commit()
@@ -611,6 +614,7 @@ async def delete_project_milestone(
     project_id: UUID,
     milestone_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("project.milestone.delete"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -621,7 +625,7 @@ async def delete_project_milestone(
     ms = result.scalars().first()
     if not ms:
         raise HTTPException(404, "Milestone not found")
-    ms.active = False
+    await delete_entity(ms, db, "project_milestone", entity_id=ms.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Milestone deleted"}
 
@@ -822,6 +826,7 @@ async def delete_revision(
     project_id: UUID,
     revision_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("project.revision.delete"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -832,7 +837,7 @@ async def delete_revision(
     rev = result.scalars().first()
     if not rev:
         raise HTTPException(404, "Revision not found")
-    rev.active = False
+    await delete_entity(rev, db, "planning_revision", entity_id=rev.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Revision deleted"}
 
@@ -904,6 +909,7 @@ async def delete_deliverable(
     task_id: UUID,
     deliverable_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("project.deliverable.delete"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -914,7 +920,7 @@ async def delete_deliverable(
     deliv = result.scalars().first()
     if not deliv:
         raise HTTPException(404, "Deliverable not found")
-    deliv.active = False
+    await delete_entity(deliv, db, "task_deliverable", entity_id=deliv.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Deliverable deleted"}
 
@@ -1006,6 +1012,7 @@ async def delete_action(
     task_id: UUID,
     action_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("project.action.delete"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -1016,7 +1023,7 @@ async def delete_action(
     action = result.scalars().first()
     if not action:
         raise HTTPException(404, "Action not found")
-    action.active = False
+    await delete_entity(action, db, "task_action", entity_id=action.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Action deleted"}
 
@@ -1136,6 +1143,7 @@ async def create_task_dependency(
 async def delete_task_dependency(
     project_id: UUID,
     dep_id: UUID,
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("project.update"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -1146,5 +1154,5 @@ async def delete_task_dependency(
     dep = result.scalar_one_or_none()
     if not dep:
         raise HTTPException(status_code=404, detail="Dependency not found")
-    dep.active = False
+    await delete_entity(dep, db, "project_task_dependency", entity_id=dep.id, user_id=current_user.id)
     await db.commit()

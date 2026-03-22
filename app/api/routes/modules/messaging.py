@@ -4,7 +4,7 @@ from datetime import datetime, UTC
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, delete, func, or_, select, update
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import (
@@ -14,6 +14,7 @@ from app.api.deps import (
     require_permission,
 )
 from app.core.database import get_db
+from app.services.core.delete_service import delete_entity
 from app.models.common import User
 from app.models.messaging import (
     Announcement,
@@ -273,6 +274,7 @@ async def update_announcement(
 )
 async def delete_announcement(
     announcement_id: UUID,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Delete an announcement."""
@@ -283,7 +285,7 @@ async def delete_announcement(
     if not announcement:
         raise HTTPException(status_code=404, detail="Annonce non trouvée")
 
-    announcement.active = False
+    await delete_entity(announcement, db, "announcement", entity_id=announcement.id, user_id=current_user.id)
     await db.commit()
 
 
@@ -594,14 +596,16 @@ async def update_security_rule(
 )
 async def delete_security_rule(
     rule_id: UUID,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a security rule."""
     result = await db.execute(
         select(SecurityRule).where(SecurityRule.id == rule_id)
     )
-    if not result.scalar_one_or_none():
+    rule = result.scalar_one_or_none()
+    if not rule:
         raise HTTPException(status_code=404, detail="Règle non trouvée")
 
-    await db.execute(delete(SecurityRule).where(SecurityRule.id == rule_id))
+    await delete_entity(rule, db, "security_rule", entity_id=rule.id, user_id=current_user.id)
     await db.commit()

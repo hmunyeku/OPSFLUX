@@ -30,8 +30,11 @@ async def seed_dev_data(db: AsyncSession) -> None:
     """Seed development data — idempotent."""
 
     # ── Entity: Perenco Cameroun ─────────────────────────────────
-    result = await db.execute(select(Entity).where(Entity.code == "PER_CMR"))
-    entity = result.scalar_one_or_none()
+    # Look for existing entity by multiple possible codes (handles legacy "CM" or new "PER_CMR")
+    result = await db.execute(
+        select(Entity).where(Entity.code.in_(["PER_CMR", "CM"])).order_by(Entity.created_at)
+    )
+    entity = result.scalars().first()
     if not entity:
         entity = Entity(
             code="PER_CMR",

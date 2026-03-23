@@ -3,6 +3,7 @@
 import hashlib
 import logging
 from datetime import datetime, UTC
+from typing import Any
 
 import httpx
 from fastapi import HTTPException, Request, status
@@ -14,22 +15,39 @@ logger = logging.getLogger(__name__)
 
 # ── Rate Limiting ──────────────────────────────────────────────
 
-async def check_login_rate_limit(request: Request, email: str | None = None) -> None:
-    """Enforce per-IP and per-email rate limits on login attempts."""
+async def check_login_rate_limit(
+    request: Request,
+    email: str | None = None,
+    *,
+    config: dict[str, Any] | None = None,
+) -> None:
+    """Enforce per-IP and per-email rate limits on login attempts.
+
+    If *config* is provided, rate limits are read from it (DB-driven).
+    Otherwise falls back to env var defaults.
+    """
     redis = get_redis()
     ip = request.client.host if request.client else "unknown"
+
+    limit_ip = (config or {}).get("rate_limit_per_ip", settings.AUTH_LOGIN_RATE_LIMIT_PER_IP)
+    limit_email = (config or {}).get("rate_limit_per_email", settings.AUTH_LOGIN_RATE_LIMIT_PER_EMAIL)
 
     # Per-IP rate limit
     ip_key = f"auth:ratelimit:ip:{ip}"
     ip_count = await redis.incr(ip_key)
     if ip_count == 1:
         await redis.expire(ip_key, 60)
-    if ip_count > settings.AUTH_LOGIN_RATE_LIMIT_PER_IP:
+    if ip_count > limit_ip:
+        ttl = await redis.ttl(ip_key)
         logger.warning("Login rate limit exceeded for IP %s (%d attempts)", ip, ip_count)
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many login attempts. Please try again later.",
-            headers={"Retry-After": "60"},
+            detail={
+                "code": "RATE_LIMITED",
+                "message": f"Trop de tentatives depuis cette adresse. Réessayez dans {max(ttl, 1)} seconde(s).",
+                "retry_after_seconds": max(ttl, 1),
+            },
+            headers={"Retry-After": str(max(ttl, 1))},
         )
 
     # Per-email rate limit
@@ -39,20 +57,34 @@ async def check_login_rate_limit(request: Request, email: str | None = None) -> 
         email_count = await redis.incr(email_key)
         if email_count == 1:
             await redis.expire(email_key, 60)
-        if email_count > settings.AUTH_LOGIN_RATE_LIMIT_PER_EMAIL:
+        if email_count > limit_email:
+            ttl = await redis.ttl(email_key)
             logger.warning("Login rate limit exceeded for email %s (%d attempts)", email, email_count)
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Too many login attempts for this account. Please try again later.",
-                headers={"Retry-After": "60"},
+                detail={
+                    "code": "RATE_LIMITED",
+                    "message": f"Trop de tentatives pour ce compte. Réessayez dans {max(ttl, 1)} seconde(s).",
+                    "retry_after_seconds": max(ttl, 1),
+                },
+                headers={"Retry-After": str(max(ttl, 1))},
             )
 
 
 # ── CAPTCHA Verification ──────────────────────────────────────
 
-async def verify_captcha(token: str | None) -> bool:
-    """Verify CAPTCHA token with the configured provider."""
-    if not settings.AUTH_CAPTCHA_ENABLED:
+async def verify_captcha(
+    token: str | None,
+    *,
+    config: dict[str, Any] | None = None,
+) -> bool:
+    """Verify CAPTCHA token with the configured provider.
+
+    If *config* is provided, CAPTCHA settings are read from it (DB-driven).
+    """
+    captcha_enabled = (config or {}).get("captcha_enabled", settings.AUTH_CAPTCHA_ENABLED)
+
+    if not captcha_enabled:
         return True
 
     if not token:
@@ -61,8 +93,8 @@ async def verify_captcha(token: str | None) -> bool:
             detail="CAPTCHA verification required.",
         )
 
-    provider = settings.AUTH_CAPTCHA_PROVIDER.lower()
-    secret = settings.AUTH_CAPTCHA_SECRET_KEY
+    provider = (config or {}).get("captcha_provider", settings.AUTH_CAPTCHA_PROVIDER).lower()
+    secret = (config or {}).get("captcha_secret_key", settings.AUTH_CAPTCHA_SECRET_KEY)
 
     if not secret:
         logger.warning("CAPTCHA enabled but no secret key configured — skipping verification")
@@ -99,16 +131,3 @@ async def verify_captcha(token: str | None) -> bool:
     except Exception as e:
         logger.error("CAPTCHA verification error: %s", e)
         return True  # fail open
-
-
-# ── Login Config Endpoint Data ────────────────────────────────
-
-def get_login_config() -> dict:
-    """Return public login configuration for the frontend."""
-    return {
-        "captcha_enabled": settings.AUTH_CAPTCHA_ENABLED,
-        "captcha_provider": settings.AUTH_CAPTCHA_PROVIDER if settings.AUTH_CAPTCHA_ENABLED else None,
-        "captcha_site_key": settings.AUTH_CAPTCHA_SITE_KEY if settings.AUTH_CAPTCHA_ENABLED else None,
-        "max_failed_attempts": settings.AUTH_MAX_FAILED_ATTEMPTS,
-        "lockout_duration_min": settings.AUTH_LOCKOUT_DURATION_MIN,
-    }

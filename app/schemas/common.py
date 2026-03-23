@@ -125,6 +125,12 @@ class UserRead(OpsFluxSchema):
     updated_at: datetime | None = None
 
 
+class UserAdminRead(UserRead):
+    """Extended user view for admin user management — adds computed lock status."""
+    is_locked: bool = False
+    lock_remaining_minutes: int | None = None
+
+
 class UserCreate(BaseModel):
     email: EmailStr
     first_name: str = Field(..., min_length=1, max_length=100)

@@ -31,7 +31,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_entity, get_current_user
 from app.core.audit import record_audit
 from app.core.config import settings
-from app.core.login_security import check_login_rate_limit, verify_captcha, get_login_config
+from app.core.auth_settings import get_security_settings
+from app.core.login_security import check_login_rate_limit, verify_captcha
 from app.core.database import get_db
 from app.core.security import (
     JWTError,
@@ -58,24 +59,27 @@ router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 logger = logging.getLogger(__name__)
 
 
-def _validate_password_strength(password: str) -> None:
+def _validate_password_strength(password: str, *, config: dict | None = None) -> None:
     """Validate password against configurable policy (AUTH.md §7).
 
+    If *config* is provided (DB-driven settings), those values are used.
+    Otherwise falls back to env var defaults.
     Raises HTTPException 400 with specific detail if validation fails.
     """
     import re
 
+    cfg = config or {}
     errors: list[str] = []
-    min_len = settings.AUTH_PASSWORD_MIN_LENGTH
+    min_len = cfg.get("password_min_length", settings.AUTH_PASSWORD_MIN_LENGTH)
 
     if len(password) < min_len:
-        errors.append(f"Password must be at least {min_len} characters")
-    if settings.AUTH_PASSWORD_REQUIRE_UPPERCASE and not re.search(r"[A-Z]", password):
-        errors.append("Password must contain at least one uppercase letter")
-    if settings.AUTH_PASSWORD_REQUIRE_DIGIT and not re.search(r"\d", password):
-        errors.append("Password must contain at least one digit")
-    if settings.AUTH_PASSWORD_REQUIRE_SPECIAL and not re.search(r"[^A-Za-z0-9]", password):
-        errors.append("Password must contain at least one special character")
+        errors.append(f"Le mot de passe doit contenir au moins {min_len} caractères")
+    if cfg.get("password_require_uppercase", settings.AUTH_PASSWORD_REQUIRE_UPPERCASE) and not re.search(r"[A-Z]", password):
+        errors.append("Le mot de passe doit contenir au moins une majuscule")
+    if cfg.get("password_require_digit", settings.AUTH_PASSWORD_REQUIRE_DIGIT) and not re.search(r"\d", password):
+        errors.append("Le mot de passe doit contenir au moins un chiffre")
+    if cfg.get("password_require_special", settings.AUTH_PASSWORD_REQUIRE_SPECIAL) and not re.search(r"[^A-Za-z0-9]", password):
+        errors.append("Le mot de passe doit contenir au moins un caractère spécial")
 
     if errors:
         raise HTTPException(status_code=400, detail="; ".join(errors))
@@ -215,17 +219,20 @@ async def login(body: LoginRequest, request: Request, db: AsyncSession = Depends
     If MFA is enabled, returns ``{mfa_required: true, mfa_token: "..."}``
     instead of full tokens.  The client must then call ``/mfa-verify``.
 
-    Account lockout: after 5 failed attempts, account is locked for 15 min (AUTH.md §7).
+    Account lockout: configurable via admin settings (AUTH.md §7).
     """
+    # Load DB-driven security settings (with env fallback)
+    auth_cfg = await get_security_settings(db)
+
     # Bot protection: rate limiting
-    await check_login_rate_limit(request, body.email)
+    await check_login_rate_limit(request, body.email, config=auth_cfg)
 
     # Bot protection: CAPTCHA verification
-    await verify_captcha(body.captcha_token)
+    await verify_captcha(body.captcha_token, config=auth_cfg)
 
-    # Configurable lockout settings (AUTH.md §7-8)
-    MAX_FAILED_ATTEMPTS = settings.AUTH_MAX_FAILED_ATTEMPTS
-    LOCKOUT_DURATION_MIN = settings.AUTH_LOCKOUT_DURATION_MIN
+    # Configurable lockout settings
+    MAX_FAILED_ATTEMPTS = auth_cfg["max_failed_attempts"]
+    LOCKOUT_DURATION_MIN = auth_cfg["lockout_duration_min"]
 
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
@@ -233,21 +240,29 @@ async def login(body: LoginRequest, request: Request, db: AsyncSession = Depends
     if not user or not user.hashed_password:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
+            detail={"code": "INVALID_CREDENTIALS", "message": "Email ou mot de passe incorrect."},
         )
 
     if not user.active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is inactive",
+            detail={"code": "ACCOUNT_INACTIVE", "message": "Ce compte est désactivé. Contactez un administrateur."},
         )
 
     # ── Account lockout check (AUTH.md §7) ──────────────────────
     if user.locked_until:
         if user.locked_until > datetime.now(UTC):
+            remaining = user.locked_until - datetime.now(UTC)
+            remaining_min = max(1, int(remaining.total_seconds() / 60))
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Account temporarily locked. Try again later.",
+                detail={
+                    "code": "ACCOUNT_LOCKED",
+                    "message": f"Compte verrouillé suite à trop de tentatives. Réessayez dans {remaining_min} minute(s).",
+                    "remaining_minutes": remaining_min,
+                    "locked_until": user.locked_until.isoformat(),
+                },
+                headers={"Retry-After": str(int(remaining.total_seconds()))},
             )
         else:
             # Lockout expired — reset counters
@@ -258,7 +273,7 @@ async def login(body: LoginRequest, request: Request, db: AsyncSession = Depends
     if user.account_expires_at and user.account_expires_at < datetime.now(UTC):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account has expired",
+            detail={"code": "ACCOUNT_EXPIRED", "message": "Ce compte a expiré. Contactez un administrateur."},
         )
 
     # ── Password verification ────────────────────────────────────
@@ -291,10 +306,31 @@ async def login(body: LoginRequest, request: Request, db: AsyncSession = Depends
                 ip_address=request.client.host if request.client else None,
                 user_agent=request.headers.get("user-agent"),
             )
+            await db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail={
+                    "code": "ACCOUNT_JUST_LOCKED",
+                    "message": f"Trop de tentatives échouées. Compte verrouillé pour {LOCKOUT_DURATION_MIN} minute(s).",
+                    "lockout_duration_minutes": LOCKOUT_DURATION_MIN,
+                    "locked_until": user.locked_until.isoformat(),
+                },
+            )
+
+        remaining_attempts = MAX_FAILED_ATTEMPTS - user.failed_login_count
         await db.commit()
+
+        detail: dict = {
+            "code": "INVALID_CREDENTIALS",
+            "message": "Email ou mot de passe incorrect.",
+            "remaining_attempts": remaining_attempts,
+        }
+        if remaining_attempts <= 2:
+            detail["warning"] = f"Attention : {remaining_attempts} tentative(s) restante(s) avant verrouillage du compte."
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
+            detail=detail,
         )
 
     # ── Successful auth — reset failed count + record IP ─────
@@ -314,9 +350,16 @@ async def login(body: LoginRequest, request: Request, db: AsyncSession = Depends
 
 
 @router.get("/login/config")
-async def login_config():
+async def login_config(db: AsyncSession = Depends(get_db)):
     """Return public login configuration (CAPTCHA settings, etc.)."""
-    return get_login_config()
+    auth_cfg = await get_security_settings(db)
+    return {
+        "captcha_enabled": auth_cfg["captcha_enabled"],
+        "captcha_provider": auth_cfg["captcha_provider"] if auth_cfg["captcha_enabled"] else None,
+        "captcha_site_key": auth_cfg["captcha_site_key"] if auth_cfg["captcha_enabled"] else None,
+        "max_failed_attempts": auth_cfg["max_failed_attempts"],
+        "lockout_duration_min": auth_cfg["lockout_duration_min"],
+    }
 
 
 # ── MFA verification (second login step) ─────────────────────────────────────
@@ -667,7 +710,8 @@ async def reset_password(body: ResetPasswordRequest, db: AsyncSession = Depends(
         raise HTTPException(status_code=400, detail="Invalid reset token")
 
     # Validate password strength (AUTH.md §7 configurable policy)
-    _validate_password_strength(body.new_password)
+    auth_cfg = await get_security_settings(db)
+    _validate_password_strength(body.new_password, config=auth_cfg)
 
     user.hashed_password = hash_password(body.new_password)
     user.password_changed_at = datetime.now(UTC)
@@ -701,7 +745,8 @@ async def change_password(
     if body.current_password == body.new_password:
         raise HTTPException(status_code=400, detail="New password must be different from current password")
 
-    _validate_password_strength(body.new_password)
+    auth_cfg = await get_security_settings(db)
+    _validate_password_strength(body.new_password, config=auth_cfg)
 
     current_user.hashed_password = hash_password(body.new_password)
     current_user.password_changed_at = datetime.now(UTC)

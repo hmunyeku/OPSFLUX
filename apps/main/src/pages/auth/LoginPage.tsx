@@ -72,6 +72,9 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
+  const [errorCode, setErrorCode] = useState<string | null>(null)
+  const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null)
+  const [, setLockoutMinutes] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
 
   // Step 2 — MFA
@@ -136,16 +139,49 @@ export function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setErrorCode(null)
+    setRemainingAttempts(null)
+    setLockoutMinutes(null)
     setLoading(true)
     try {
       await login(email, password)
       navigate('/dashboard')
-    } catch (err) {
+    } catch (err: any) {
       if (err instanceof MFARequiredError) {
-        // MFA step will show automatically via mfaPending state
         setError('')
       } else {
-        setError(t('auth.invalid_credentials'))
+        // Parse structured error detail from backend
+        const detail = err?.response?.data?.detail
+        if (detail && typeof detail === 'object' && detail.code) {
+          setErrorCode(detail.code)
+          switch (detail.code) {
+            case 'ACCOUNT_LOCKED':
+              setError(detail.message || `Compte verrouillé. Réessayez dans ${detail.remaining_minutes} minute(s).`)
+              setLockoutMinutes(detail.remaining_minutes ?? null)
+              break
+            case 'ACCOUNT_JUST_LOCKED':
+              setError(detail.message || `Trop de tentatives. Compte verrouillé pour ${detail.lockout_duration_minutes} minute(s).`)
+              setLockoutMinutes(detail.lockout_duration_minutes ?? null)
+              break
+            case 'INVALID_CREDENTIALS':
+              setRemainingAttempts(detail.remaining_attempts ?? null)
+              setError(detail.warning || detail.message || t('auth.invalid_credentials'))
+              break
+            case 'RATE_LIMITED':
+              setError(detail.message || 'Trop de tentatives. Veuillez patienter.')
+              break
+            case 'ACCOUNT_INACTIVE':
+              setError(detail.message || 'Ce compte est désactivé.')
+              break
+            case 'ACCOUNT_EXPIRED':
+              setError(detail.message || 'Ce compte a expiré.')
+              break
+            default:
+              setError(detail.message || t('auth.invalid_credentials'))
+          }
+        } else {
+          setError(t('auth.invalid_credentials'))
+        }
       }
     } finally {
       setLoading(false)
@@ -213,7 +249,16 @@ export function LoginPage() {
 
             <form onSubmit={handleSubmit} className="space-y-3">
               {error && (
-                <div className="rounded border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                <div className={cn(
+                  'rounded border px-3 py-2 text-sm',
+                  errorCode === 'INVALID_CREDENTIALS' && remainingAttempts != null && remainingAttempts > 2
+                    ? 'border-destructive/30 bg-destructive/5 text-destructive'
+                    : errorCode === 'INVALID_CREDENTIALS' && remainingAttempts != null && remainingAttempts <= 2
+                    ? 'border-amber-500/30 bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400'
+                    : errorCode === 'ACCOUNT_LOCKED' || errorCode === 'ACCOUNT_JUST_LOCKED' || errorCode === 'RATE_LIMITED'
+                    ? 'border-amber-500/30 bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400'
+                    : 'border-destructive/30 bg-destructive/5 text-destructive'
+                )}>
                   {error}
                 </div>
               )}

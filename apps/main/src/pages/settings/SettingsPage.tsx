@@ -19,7 +19,7 @@ import {
   Monitor, Bell, Key, AppWindow, KeyRound,
   ChevronRight, ChevronDown,
   Globe, Plug, FileText, FileOutput, Trash2,
-  ScrollText, Activity, Hash, BookOpen,
+  ScrollText, Activity, Hash, BookOpen, Users, ShieldCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PanelHeader, PanelContent } from '@/components/layout/PanelHeader'
@@ -88,6 +88,14 @@ const SECTION_TAB_MAP: Record<string, string> = {
   'pdf-templates-modules': 'pdf-templates',
   // NumberingTab sections
   'numbering-patterns': 'numbering',
+  // SecurityPolicyTab sections
+  'password-policy': 'security-policy',
+  'account-lockout': 'security-policy',
+  'rate-limiting': 'security-policy',
+  'bot-protection': 'security-policy',
+  'sessions-notifications': 'security-policy',
+  // UserManagementTab sections
+  'admin-users-list': 'user-management',
   // DeletePoliciesTab sections
   'delete-policies-main': 'delete-policies',
   'delete-policies-child': 'delete-policies',
@@ -120,6 +128,8 @@ import { NumberingTab } from './tabs/NumberingTab'
 import { DeletePoliciesTab } from './tabs/DeletePoliciesTab'
 import { SchedulerTab } from './tabs/SchedulerTab'
 import DictionaryTab from './tabs/DictionaryTab'
+import { SecurityPolicyTab } from './tabs/SecurityPolicyTab'
+import { UserManagementTab } from './tabs/UserManagementTab'
 // EntitiesTab moved to dedicated /entities sidebar page
 
 // ── Import dynamic panel forms ──────────────────────────────
@@ -154,6 +164,8 @@ registerSettingsSection({ id: 'email-templates', label: 'Modèles d\'emails', ic
 registerSettingsSection({ id: 'pdf-templates', label: 'Modèles PDF', icon: FileOutput, component: PdfTemplatesTab, category: 'general', order: 16, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'numbering', label: 'Numérotation', icon: Hash, component: NumberingTab, category: 'general', order: 17, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'dictionnaire', label: 'Dictionnaire', icon: BookOpen, component: DictionaryTab, category: 'general', order: 18, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'security-policy', label: 'Sécurité & Authentification', icon: ShieldCheck, component: SecurityPolicyTab, category: 'general', order: 21, requiredPermission: 'admin.system' })
+registerSettingsSection({ id: 'user-management', label: 'Gestion des comptes', icon: Users, component: UserManagementTab, category: 'general', order: 22, requiredPermission: 'admin.system' })
 registerSettingsSection({ id: 'delete-policies', label: 'Politiques de suppression', icon: Trash2, component: DeletePoliciesTab, category: 'general', order: 25, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'audit-log', label: 'Journal d\'audit', icon: ScrollText, component: AuditTab, category: 'general', order: 30, requiredPermission: 'core.audit.read' })
 registerSettingsSection({ id: 'system-health', label: 'Santé système', icon: Activity, component: SystemHealthTab, category: 'general', order: 40, requiredPermission: 'core.settings.manage' })

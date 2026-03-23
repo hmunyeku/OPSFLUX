@@ -4,7 +4,7 @@
 import api from '@/lib/api'
 import type {
   ComplianceType, ComplianceTypeCreate, ComplianceTypeUpdate,
-  ComplianceRule, ComplianceRuleCreate,
+  ComplianceRule, ComplianceRuleCreate, ComplianceRuleHistory,
   ComplianceRecord, ComplianceRecordCreate, ComplianceRecordUpdate,
   ComplianceCheckResult,
   ComplianceExemption, ComplianceExemptionCreate, ComplianceExemptionUpdate,
@@ -65,8 +65,13 @@ export const conformiteService = {
     return data
   },
 
-  deleteRule: async (id: string): Promise<void> => {
-    await api.delete(`/api/v1/conformite/rules/${id}`)
+  deleteRule: async (id: string, force?: boolean): Promise<void> => {
+    await api.delete(`/api/v1/conformite/rules/${id}`, { params: force ? { force: true } : undefined })
+  },
+
+  getRuleHistory: async (ruleId: string): Promise<ComplianceRuleHistory[]> => {
+    const { data } = await api.get(`/api/v1/conformite/rules/${ruleId}/history`)
+    return data
   },
 
   // ── Records ──

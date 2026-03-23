@@ -837,7 +837,7 @@ export function ConformitePage() {
     }},
     { accessorKey: 'description', header: 'Description', cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.description || '--'}</span> },
     { id: 'actions', header: '', size: 50, cell: ({ row }) => (
-      <button onClick={(e) => { e.stopPropagation(); deleteRule.mutate(row.original.id) }} className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+      <button onClick={(e) => { e.stopPropagation(); deleteRule.mutate({ id: row.original.id }) }} className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
         <Trash2 size={12} />
       </button>
     )},
@@ -978,7 +978,7 @@ export function ConformitePage() {
             jobPositions={jobPositionsData?.items ?? []}
             isLoading={rulesLoading}
             onCreateRule={(payload) => createRule.mutate(payload as ComplianceRuleCreate)}
-            onDeleteRule={(id) => deleteRule.mutate(id)}
+            onDeleteRule={(id) => deleteRule.mutate({ id })}
           />
         )
       case 'transferts':
@@ -1434,7 +1434,7 @@ function EditRulePanel() {
 
   const handleDelete = async () => {
     try {
-      await deleteRule.mutateAsync(rule.id)
+      await deleteRule.mutateAsync({ id: rule.id })
       toast({ title: 'Règle supprimée', variant: 'success' })
       closeDynamicPanel()
     } catch {

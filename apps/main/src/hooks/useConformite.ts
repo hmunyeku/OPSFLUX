@@ -75,8 +75,17 @@ export function useUpdateComplianceRule() {
 export function useDeleteComplianceRule() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => conformiteService.deleteRule(id),
+    mutationFn: ({ id, force }: { id: string; force?: boolean }) =>
+      conformiteService.deleteRule(id, force),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['compliance-rules'] }) },
+  })
+}
+
+export function useRuleHistory(ruleId?: string) {
+  return useQuery({
+    queryKey: ['compliance-rule-history', ruleId],
+    queryFn: () => conformiteService.getRuleHistory(ruleId!),
+    enabled: !!ruleId,
   })
 }
 

@@ -253,6 +253,12 @@ async def get_rule_history(
     db: AsyncSession = Depends(get_db),
 ):
     """Get the change history for a specific compliance rule."""
+    # Verify the rule belongs to this entity
+    rule_check = await db.execute(
+        select(ComplianceRule.id).where(ComplianceRule.id == rule_id, ComplianceRule.entity_id == entity_id)
+    )
+    if not rule_check.scalar_one_or_none():
+        raise HTTPException(404, "Rule not found")
     result = await db.execute(
         select(ComplianceRuleHistory)
         .where(ComplianceRuleHistory.rule_id == rule_id)
@@ -326,11 +332,17 @@ async def list_compliance_records(
             await emit_event("conformite.record.expired", {"record_id": str(eid), "entity_id": str(entity_id)})
 
     def _transform(row):
-        rec = row[0] if hasattr(row, '__getitem__') else row.ComplianceRecord
-        d = {c.key: getattr(rec, c.key) for c in rec.__table__.columns}
-        d["type_name"] = row[1] if hasattr(row, '__getitem__') else row.type_name
-        d["type_category"] = row[2] if hasattr(row, '__getitem__') else row.type_category
-        return d
+        try:
+            rec = row[0] if hasattr(row, '__getitem__') else getattr(row, 'ComplianceRecord', row)
+            d = {c.key: getattr(rec, c.key) for c in rec.__table__.columns}
+            d["type_name"] = row[1] if hasattr(row, '__getitem__') else getattr(row, 'type_name', None)
+            d["type_category"] = row[2] if hasattr(row, '__getitem__') else getattr(row, 'type_category', None)
+            return d
+        except (IndexError, AttributeError):
+            # Fallback: return the record as-is if row format is unexpected
+            if hasattr(row, '__table__'):
+                return {c.key: getattr(row, c.key) for c in row.__table__.columns}
+            return row
 
     return await paginate(db, query, pagination, transform=_transform)
 
@@ -1287,10 +1299,10 @@ async def verify_record(
         record.verified_by = current_user.id
         record.verified_at = now
         record.rejection_reason = None
-        await emit_event(db, "conformite.record.verified", {
+        await emit_event("conformite.record.verified", {
             "record_type": record_type, "record_id": str(record_id),
-            "verified_by": str(current_user.id),
-        }, entity_id=entity_id, user_id=current_user.id)
+            "verified_by": str(current_user.id), "entity_id": str(entity_id),
+        })
     else:
         if not body.rejection_reason:
             raise HTTPException(400, "rejection_reason is required when rejecting")
@@ -1298,11 +1310,11 @@ async def verify_record(
         record.verified_by = current_user.id
         record.verified_at = now
         record.rejection_reason = body.rejection_reason
-        await emit_event(db, "conformite.record.rejected", {
+        await emit_event("conformite.record.rejected", {
             "record_type": record_type, "record_id": str(record_id),
-            "rejected_by": str(current_user.id),
-            "reason": body.rejection_reason,
-        }, entity_id=entity_id, user_id=current_user.id)
+            "rejected_by": str(current_user.id), "reason": body.rejection_reason,
+            "entity_id": str(entity_id),
+        })
 
     await db.commit()
     return {

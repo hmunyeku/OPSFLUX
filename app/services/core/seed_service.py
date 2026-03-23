@@ -1326,7 +1326,7 @@ async def seed_compliance_matrix(db: AsyncSession, entity_id) -> None:
                     ComplianceRule.target_value == str(jp.id),
                 )
             )
-            if not result.scalar_one_or_none():
+            if not result.scalars().first():
                 db.add(ComplianceRule(
                     entity_id=entity_id,
                     compliance_type_id=ct.id,

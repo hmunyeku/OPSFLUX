@@ -340,84 +340,38 @@ export function ProfileTab() {
 
   return (
     <>
-      {/* Section: Avatar */}
-      <CollapsibleSection
-        id="avatar"
-        title="Avatar"
-        description="Votre photo de profil est visible par les autres utilisateurs."
-        storageKey="settings.profile.collapse"
-        defaultExpanded
-      >
-        <div className="mt-2 flex items-center gap-5">
-          <div className="relative group">
-            {user?.avatar_url ? (
-              <img src={user.avatar_url} alt={`${user.first_name} ${user.last_name}`} className="h-20 w-20 rounded-full object-cover" />
-            ) : (
-              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary text-2xl font-semibold text-primary-foreground">{initials}</div>
-            )}
-            <button
-              className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-              title="Changer l'avatar"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploadAvatar.isPending}
-            >
-              {uploadAvatar.isPending ? <Loader2 size={20} className="animate-spin" /> : <Camera size={20} />}
-            </button>
-            <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleAvatarChange} />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-foreground">{user?.first_name} {user?.last_name}</p>
-            <p className="text-sm text-muted-foreground">@{user?.email?.split('@')[0]}</p>
-            <button className="mt-2 gl-button-sm gl-button-default" onClick={() => fileInputRef.current?.click()} disabled={uploadAvatar.isPending}>
-              Changer l'avatar
-            </button>
-          </div>
+      {/* Section: Profil — avatar + nom/prénom */}
+      <div className="flex items-start gap-5 mb-6">
+        <div className="relative group shrink-0">
+          {user?.avatar_url ? (
+            <img src={user.avatar_url} alt={`${user.first_name} ${user.last_name}`} className="h-20 w-20 rounded-full object-cover" />
+          ) : (
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary text-2xl font-semibold text-primary-foreground">{initials}</div>
+          )}
+          <button
+            className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+            title="Changer l'avatar"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadAvatar.isPending}
+          >
+            {uploadAvatar.isPending ? <Loader2 size={20} className="animate-spin" /> : <Camera size={20} />}
+          </button>
+          <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleAvatarChange} />
         </div>
-      </CollapsibleSection>
-
-      {/* Section: Main settings */}
-      <CollapsibleSection
-        id="main-settings"
-        title="Paramètres principaux"
-        description="Ces informations apparaissent sur votre profil."
-        storageKey="settings.profile.collapse"
-        defaultExpanded
-        showSeparator={false}
-      >
-        <div className="mt-2 space-y-5">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-[640px]">
-          <div>
-            <label className="gl-label">{t('users.first_name')}</label>
-            <input type="text" className="gl-form-input" value={form.first_name || ''} onChange={(e) => updateField('first_name', e.target.value)} />
+        <div className="flex-1 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-[400px]">
+            <div>
+              <label className="gl-label">{t('users.first_name')}</label>
+              <input type="text" className="gl-form-input" value={form.first_name || ''} onChange={(e) => updateField('first_name', e.target.value)} />
+            </div>
+            <div>
+              <label className="gl-label">{t('users.last_name')}</label>
+              <input type="text" className="gl-form-input" value={form.last_name || ''} onChange={(e) => updateField('last_name', e.target.value)} />
+            </div>
           </div>
-          <div>
-            <label className="gl-label">{t('users.last_name')}</label>
-            <input type="text" className="gl-form-input" value={form.last_name || ''} onChange={(e) => updateField('last_name', e.target.value)} />
-          </div>
-        </div>
-
-        <div>
-          <label className="gl-label">{t('settings.language')}</label>
-          <div className="flex gap-2 mt-2">
-            {languageOptions.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => updateField('language', opt.value)}
-                className={`inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
-                  form.language === opt.value
-                    ? 'bg-primary/10 border-primary/40 text-primary shadow-sm'
-                    : 'bg-background border-border text-muted-foreground hover:bg-accent hover:text-foreground'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">La langue de l'interface pour votre compte.</p>
+          <p className="text-xs text-muted-foreground">{user?.email}</p>
         </div>
       </div>
-      </CollapsibleSection>
 
       {/* Section: Coordonnées */}
       <EmailsTab />

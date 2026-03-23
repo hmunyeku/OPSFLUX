@@ -1184,6 +1184,7 @@ class ComplianceRuleCreate(BaseModel):
     description: str | None = None
     # V2 optional fields
     effective_from: date | None = None
+    effective_to: date | None = None
     priority: str = "normal"
     override_validity_days: int | None = None
     grace_period_days: int | None = None

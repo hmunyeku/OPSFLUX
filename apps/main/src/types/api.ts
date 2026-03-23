@@ -965,11 +965,27 @@ export interface ComplianceRuleCreate {
   description?: string | null
   // V2 optional fields
   effective_from?: string | null
+  effective_to?: string | null
   priority?: string
   override_validity_days?: number | null
   grace_period_days?: number | null
   renewal_reminder_days?: number | null
   condition_json?: Record<string, unknown> | null
+}
+
+export interface ComplianceRuleUpdate {
+  target_type?: string | null
+  target_value?: string | null
+  description?: string | null
+  active?: boolean | null
+  effective_from?: string | null
+  effective_to?: string | null
+  priority?: string | null
+  override_validity_days?: number | null
+  grace_period_days?: number | null
+  renewal_reminder_days?: number | null
+  condition_json?: Record<string, unknown> | null
+  change_reason?: string | null
 }
 
 export interface ComplianceRuleHistory {

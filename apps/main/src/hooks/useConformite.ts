@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { conformiteService } from '@/services/conformiteService'
 import type {
   ComplianceTypeCreate, ComplianceTypeUpdate,
-  ComplianceRuleCreate,
+  ComplianceRuleCreate, ComplianceRuleUpdate,
   ComplianceRecordCreate, ComplianceRecordUpdate,
   ComplianceExemptionCreate, ComplianceExemptionUpdate,
   JobPositionCreate, JobPositionUpdate,
@@ -66,7 +66,7 @@ export function useCreateComplianceRule() {
 export function useUpdateComplianceRule() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: Partial<ComplianceRuleCreate> }) =>
+    mutationFn: ({ id, payload }: { id: string; payload: ComplianceRuleUpdate }) =>
       conformiteService.updateRule(id, payload),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['compliance-rules'] }) },
   })

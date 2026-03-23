@@ -3,7 +3,7 @@
  *
  * Onglets: Referentiel | Enregistrements | Exemptions | Fiches de poste | Regles | Transferts
  */
-import { useState, useCallback, useMemo, useEffect } from 'react'
+import React, { useState, useCallback, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ShieldCheck, Plus, Loader2, Trash2, FileCheck, ClipboardList,
@@ -43,6 +43,7 @@ import {
   useComplianceTypes, useCreateComplianceType, useUpdateComplianceType, useDeleteComplianceType,
   useComplianceRecords,
   useComplianceRules, useCreateComplianceRule, useUpdateComplianceRule, useDeleteComplianceRule,
+  useRuleHistory,
   useJobPositions, useCreateJobPosition, useUpdateJobPosition, useDeleteJobPosition,
   useTransfers,
   useExemptions, useCreateExemption, useApproveExemption, useRejectExemption, useDeleteExemption,
@@ -987,6 +988,8 @@ export function ConformitePage() {
             isLoading={rulesLoading}
             onCreateRule={(payload) => createRule.mutate(payload as ComplianceRuleCreate)}
             onDeleteRule={(id) => deleteRule.mutate({ id })}
+            onEditRule={(rule) => openDynamicPanel({ type: 'edit', module: 'conformite', id: rule.id, meta: { subtype: 'rule' }, data: { rule } })}
+            onCreateRulePanel={(prefill) => openDynamicPanel({ type: 'create', module: 'conformite', meta: { subtype: 'rule', prefill_type_id: prefill.type_id, prefill_target_type: prefill.target_type, prefill_target_value: prefill.target_value || '' } })}
           />
         )
       case 'transferts':
@@ -1088,6 +1091,8 @@ function RulesMatrixView({
   isLoading,
   onCreateRule,
   onDeleteRule,
+  onEditRule,
+  onCreateRulePanel,
 }: {
   rules: ComplianceRule[]
   types: ComplianceType[]
@@ -1095,6 +1100,8 @@ function RulesMatrixView({
   isLoading: boolean
   onCreateRule: (payload: { compliance_type_id: string; target_type: string; target_value?: string }) => void
   onDeleteRule: (id: string) => void
+  onEditRule?: (rule: ComplianceRule) => void
+  onCreateRulePanel?: (prefill: { type_id: string; target_type: string; target_value?: string }) => void
 }) {
   const [searchFilter, setSearchFilter] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
@@ -1168,12 +1175,19 @@ function RulesMatrixView({
       ? `${typeId}::all::__all__`
       : `${typeId}::${activeTargetTab}::${rowId}`
     const existing = ruleMap.get(key)
-    if (existing) {
+    if (existing && onEditRule) {
+      // Click on existing rule → open edit panel
+      onEditRule(existing)
+    } else if (existing) {
+      // Fallback: toggle delete if no edit handler
       onDeleteRule(existing.id)
+    } else if (onCreateRulePanel) {
+      // Click on empty cell → open create panel pre-filled
+      onCreateRulePanel({ type_id: typeId, target_type: targetType, target_value: targetValue })
     } else {
       onCreateRule({ compliance_type_id: typeId, target_type: targetType, target_value: targetValue })
     }
-  }, [ruleMap, onCreateRule, onDeleteRule, activeTargetTab])
+  }, [ruleMap, onCreateRule, onDeleteRule, onEditRule, onCreateRulePanel, activeTargetTab])
 
   if (isLoading) {
     return <div className="flex items-center justify-center py-16"><Loader2 size={20} className="animate-spin text-muted-foreground" /></div>
@@ -1380,7 +1394,10 @@ function RulesMatrixView({
                             key={t.id}
                             className="border-r border-border/30 text-center cursor-pointer hover:bg-primary/10 transition-colors"
                             onClick={() => handleCellClick(t.id, row.id === '__all__' ? '__all__' : row.id)}
-                            title={rule ? `Cliquer pour supprimer` : `Cliquer pour ajouter`}
+                            title={rule
+                              ? `${t.name} (${t.category})\nValidité: ${rule.override_validity_days ?? t.validity_days ?? '∞'}j${rule.grace_period_days ? ` · Grâce: ${rule.grace_period_days}j` : ''}${rule.renewal_reminder_days ? ` · Rappel: ${rule.renewal_reminder_days}j` : ''}\nPriorité: ${rule.priority === 'high' ? 'Haute' : rule.priority === 'low' ? 'Basse' : 'Normale'}${rule.effective_from ? `\nDepuis: ${new Date(rule.effective_from).toLocaleDateString('fr-FR')}` : ''}\nCliquer pour modifier`
+                              : `Cliquer pour ajouter une règle ${t.name}`
+                            }
                           >
                             {rule ? (
                               <Check size={14} className="mx-auto text-emerald-600 dark:text-emerald-400" />
@@ -1407,6 +1424,178 @@ function RulesMatrixView({
   )
 }
 
+// ── Searchable Select (local) ────────────────────────────────────────────
+
+function SearchableSelect({ value, onChange, options, placeholder, disabled }: {
+  value: string
+  onChange: (v: string) => void
+  options: { value: string; label: string; group?: string }[]
+  placeholder?: string
+  disabled?: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const ref = React.useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const filtered = options.filter(o => o.label.toLowerCase().includes(search.toLowerCase()))
+  const selected = options.find(o => o.value === value)
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen(!open)}
+        className={cn(panelInputClass, 'text-left flex items-center justify-between w-full', !value && 'text-muted-foreground')}
+      >
+        <span className="truncate">{selected?.label || placeholder || '— Sélectionner —'}</span>
+        <svg className="w-3 h-3 shrink-0 ml-1" viewBox="0 0 12 12"><path d="M3 5l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
+      </button>
+      {open && (
+        <div className="absolute z-50 mt-1 w-full max-h-56 overflow-auto rounded-md border border-border bg-popover shadow-md">
+          <div className="sticky top-0 bg-popover p-1.5 border-b border-border">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Rechercher..."
+              className={cn(panelInputClass, 'h-7 text-xs')}
+              autoFocus
+            />
+          </div>
+          {filtered.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">Aucun résultat</div>}
+          {filtered.map(o => (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => { onChange(o.value); setOpen(false); setSearch('') }}
+              className={cn('w-full text-left px-3 py-1.5 text-xs hover:bg-accent transition-colors', o.value === value && 'bg-primary/5 text-primary font-medium')}
+            >
+              {o.group && <span className="text-muted-foreground mr-1">[{o.group}]</span>}
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Rule Form Fields (shared between Create and Edit) ────────────────────
+
+function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly }: {
+  form: Record<string, any>
+  setForm: (f: Record<string, any>) => void
+  typesData: any
+  jpData: any
+  typeReadOnly?: boolean
+}) {
+  const typeOptions = useMemo(() =>
+    (typesData?.items ?? []).map((t: any) => ({ value: t.id, label: `${t.code} — ${t.name}`, group: t.category })),
+  [typesData])
+
+  const jpOptions = useMemo(() =>
+    (jpData?.items ?? []).map((jp: any) => ({ value: jp.id, label: `${jp.code} — ${jp.name}`, group: jp.department })),
+  [jpData])
+
+  const ct = typesData?.items?.find((t: any) => t.id === form.compliance_type_id)
+
+  return (
+    <PanelContentLayout>
+      <FormSection title="Général">
+        <FormGrid>
+          <DynamicPanelField label="Type de conformité" required span="full">
+            {typeReadOnly ? (
+              <div className={cn(panelInputClass, 'bg-accent/30 cursor-default')}>
+                {ct ? `[${ct.category}] ${ct.code} — ${ct.name}` : '—'}
+              </div>
+            ) : (
+              <SearchableSelect
+                value={form.compliance_type_id}
+                onChange={(v) => setForm({ ...form, compliance_type_id: v })}
+                options={typeOptions}
+                placeholder="Rechercher un type..."
+              />
+            )}
+          </DynamicPanelField>
+          <DynamicPanelField label="Cible" required>
+            <TagSelector
+              options={RULE_TARGET_OPTIONS}
+              value={form.target_type}
+              onChange={(v: string) => setForm({ ...form, target_type: v, target_value: '' })}
+            />
+          </DynamicPanelField>
+          {form.target_type === 'job_position' && (
+            <DynamicPanelField label="Fiche de poste">
+              <SearchableSelect
+                value={form.target_value}
+                onChange={(v) => setForm({ ...form, target_value: v })}
+                options={[{ value: '', label: '— Tous les postes —' }, ...jpOptions]}
+                placeholder="Rechercher un poste..."
+              />
+            </DynamicPanelField>
+          )}
+          {(form.target_type === 'asset' || form.target_type === 'tier_type' || form.target_type === 'department') && (
+            <DynamicPanelField label="Valeur">
+              <input type="text" value={form.target_value} onChange={(e) => setForm({ ...form, target_value: e.target.value })} className={panelInputClass} placeholder={form.target_type === 'department' ? 'Nom du département...' : 'Valeur...'} />
+            </DynamicPanelField>
+          )}
+          <DynamicPanelField label="Description" span="full">
+            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className={`${panelInputClass} min-h-[48px] resize-y`} placeholder="Description de la règle..." rows={2} />
+          </DynamicPanelField>
+          <DynamicPanelField label="Priorité">
+            <TagSelector
+              options={[{ value: 'normal', label: 'Normale' }, { value: 'high', label: 'Haute' }, { value: 'low', label: 'Basse' }]}
+              value={form.priority}
+              onChange={(v: string) => setForm({ ...form, priority: v })}
+            />
+          </DynamicPanelField>
+        </FormGrid>
+      </FormSection>
+
+      <FormSection title="Validité & Rappels" defaultExpanded={false}>
+        <FormGrid>
+          <DynamicPanelField label="Entrée en vigueur">
+            <input type="date" value={form.effective_from ?? ''} onChange={(e) => setForm({ ...form, effective_from: e.target.value || null })} className={panelInputClass} />
+          </DynamicPanelField>
+          <DynamicPanelField label="Fin de validité">
+            <input type="date" value={form.effective_to ?? ''} onChange={(e) => setForm({ ...form, effective_to: e.target.value || null })} className={panelInputClass} />
+          </DynamicPanelField>
+          <DynamicPanelField label="Validité override (jours)">
+            <input type="number" value={form.override_validity_days ?? ''} onChange={(e) => setForm({ ...form, override_validity_days: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} placeholder="Vide = utilise la valeur du type" />
+          </DynamicPanelField>
+          <DynamicPanelField label="Période de grâce (jours)">
+            <input type="number" value={form.grace_period_days ?? ''} onChange={(e) => setForm({ ...form, grace_period_days: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} placeholder="0" />
+          </DynamicPanelField>
+          <DynamicPanelField label="Rappel renouvellement (jours avant)">
+            <input type="number" value={form.renewal_reminder_days ?? ''} onChange={(e) => setForm({ ...form, renewal_reminder_days: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} placeholder="60" />
+          </DynamicPanelField>
+        </FormGrid>
+      </FormSection>
+
+      <FormSection title="Conditions avancées" defaultExpanded={false}>
+        <DynamicPanelField label="Conditions (JSON)" span="full">
+          <textarea
+            value={form.condition_json ? JSON.stringify(form.condition_json, null, 2) : ''}
+            onChange={(e) => {
+              try { setForm({ ...form, condition_json: e.target.value ? JSON.parse(e.target.value) : null }) } catch { /* invalid JSON — ignore until valid */ }
+            }}
+            className={`${panelInputClass} min-h-[60px] resize-y font-mono text-xs`}
+            placeholder='{"min_experience_years": 2}'
+            rows={3}
+          />
+        </DynamicPanelField>
+      </FormSection>
+    </PanelContentLayout>
+  )
+}
+
 // ── Edit Rule Panel ──────────────────────────────────────────────────────
 
 function EditRulePanel() {
@@ -1414,22 +1603,38 @@ function EditRulePanel() {
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const updateRule = useUpdateComplianceRule()
   const deleteRule = useDeleteComplianceRule()
+  const { hasPermission } = usePermission()
+  const canUpdate = hasPermission('conformite.rule.update')
+  const canDelete = hasPermission('conformite.rule.delete')
   const { toast } = useToast()
   const { data: typesData } = useComplianceTypes({ page_size: 200 })
   const { data: jpData } = useJobPositions({ page_size: 200 })
-  const rule = dynamicPanel?.meta?.rule as ComplianceRule | undefined
+  const rule = dynamicPanel?.data?.rule as ComplianceRule | undefined
+  const { data: historyData } = useRuleHistory(rule?.id)
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<Record<string, any>>({
     target_type: rule?.target_type ?? 'all',
     target_value: rule?.target_value ?? '',
     description: rule?.description ?? '',
+    priority: rule?.priority ?? 'normal',
+    effective_from: rule?.effective_from ?? null,
+    effective_to: rule?.effective_to ?? null,
+    override_validity_days: rule?.override_validity_days ?? null,
+    grace_period_days: rule?.grace_period_days ?? null,
+    renewal_reminder_days: rule?.renewal_reminder_days ?? null,
+    condition_json: rule?.condition_json ?? null,
+    compliance_type_id: rule?.compliance_type_id ?? '',
   })
+  const [changeReason, setChangeReason] = useState('')
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   if (!rule) return null
 
-  const ct = typesData?.items?.find(t => t.id === rule.compliance_type_id)
-
   const handleSave = async () => {
+    if (!changeReason.trim()) {
+      toast({ title: 'Veuillez indiquer la raison de la modification', variant: 'error' })
+      return
+    }
     try {
       await updateRule.mutateAsync({
         id: rule.id,
@@ -1437,6 +1642,14 @@ function EditRulePanel() {
           target_type: form.target_type,
           target_value: form.target_value || undefined,
           description: form.description || undefined,
+          priority: form.priority,
+          effective_from: form.effective_from || undefined,
+          effective_to: form.effective_to || undefined,
+          override_validity_days: form.override_validity_days,
+          grace_period_days: form.grace_period_days,
+          renewal_reminder_days: form.renewal_reminder_days,
+          condition_json: form.condition_json,
+          change_reason: changeReason,
         },
       })
       toast({ title: 'Règle mise à jour', variant: 'success' })
@@ -1457,56 +1670,77 @@ function EditRulePanel() {
   }
 
   return (
-    <DynamicPanelShell title="Modifier la règle" icon={<Scale size={14} className="text-primary" />}>
-      <div className="p-4 space-y-4">
-        {/* Read-only type info */}
-        <div>
-          <label className="gl-label">Type de référentiel</label>
-          <div className="gl-form-input bg-accent/30 text-foreground text-sm cursor-default">
-            {ct ? `[${ct.category}] ${ct.code} — ${ct.name}` : rule.compliance_type_id.slice(0, 8)}
-          </div>
+    <DynamicPanelShell
+      title="Modifier la règle"
+      subtitle={`v${rule.version ?? 1}`}
+      icon={<Scale size={14} className="text-primary" />}
+      actions={
+        <>
+          <PanelActionButton onClick={closeDynamicPanel}>Annuler</PanelActionButton>
+          {canUpdate && (
+            <PanelActionButton variant="primary" disabled={updateRule.isPending || !changeReason.trim()} onClick={handleSave}>
+              {updateRule.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Enregistrer'}
+            </PanelActionButton>
+          )}
+        </>
+      }
+    >
+      <RuleFormFields form={form} setForm={canUpdate ? setForm : () => {}} typesData={typesData} jpData={jpData} typeReadOnly />
+
+      {/* Change reason (required) */}
+      {canUpdate && (
+        <div className="px-4 pb-2">
+          <FormSection title="Modification">
+            <DynamicPanelField label="Raison de la modification" required>
+              <input type="text" value={changeReason} onChange={(e) => setChangeReason(e.target.value)} className={panelInputClass} placeholder="Ex: Mise à jour durée de validité..." />
+            </DynamicPanelField>
+          </FormSection>
         </div>
+      )}
 
-        <div>
-          <label className="gl-label">Cible *</label>
-          <select value={form.target_type} onChange={(e) => setForm({ ...form, target_type: e.target.value, target_value: '' })} className="gl-form-input">
-            {RULE_TARGET_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-        </div>
-
-        {form.target_type === 'job_position' && (
-          <div>
-            <label className="gl-label">Fiche de poste</label>
-            <select value={form.target_value} onChange={(e) => setForm({ ...form, target_value: e.target.value })} className="gl-form-input">
-              <option value="">— Tous les postes —</option>
-              {jpData?.items?.map(jp => <option key={jp.id} value={jp.id}>{jp.code} — {jp.name}</option>)}
-            </select>
-          </div>
-        )}
-
-        {(form.target_type === 'asset' || form.target_type === 'tier_type' || form.target_type === 'department') && (
-          <div>
-            <label className="gl-label">Valeur</label>
-            <input type="text" value={form.target_value} onChange={(e) => setForm({ ...form, target_value: e.target.value })} className="gl-form-input" />
-          </div>
-        )}
-
-        <div>
-          <label className="gl-label">Description</label>
-          <input type="text" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="gl-form-input" placeholder="Description de la règle..." />
-        </div>
-
-        <div className="flex gap-2 pt-2">
-          <button onClick={handleSave} disabled={updateRule.isPending} className="gl-button gl-button-confirm">
-            {updateRule.isPending ? <Loader2 size={14} className="animate-spin mr-1" /> : null}Enregistrer
-          </button>
-          <button onClick={closeDynamicPanel} className="gl-button gl-button-default">Annuler</button>
-          <button onClick={handleDelete} disabled={deleteRule.isPending} className="gl-button gl-button-default text-red-600 dark:text-red-400 ml-auto">
-            <Trash2 size={12} />
-            Supprimer
-          </button>
-        </div>
+      {/* History timeline */}
+      <div className="px-4 pb-4">
+        <FormSection title="Historique" defaultExpanded={false}>
+          {!historyData || historyData.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-2">Aucun historique disponible.</p>
+          ) : (
+            <div className="border-l-2 border-border ml-2 space-y-0">
+              {historyData.map((h: any, i: number) => (
+                <div key={i} className="relative pl-5 py-2">
+                  <div className="absolute left-[-5px] top-3 w-2 h-2 rounded-full bg-primary" />
+                  <div className="text-xs">
+                    <span className="font-medium text-foreground">v{h.version}</span>
+                    <span className="text-muted-foreground ml-1.5">
+                      {h.action === 'created' ? 'Création' : h.action === 'updated' ? 'Modification' : h.action === 'archived' ? 'Archivé' : h.action}
+                    </span>
+                    <span className="text-muted-foreground ml-1.5">· {new Date(h.changed_at).toLocaleDateString('fr-FR')}</span>
+                  </div>
+                  {h.change_reason && <p className="text-xs text-muted-foreground mt-0.5 italic">{h.change_reason}</p>}
+                </div>
+              ))}
+            </div>
+          )}
+        </FormSection>
       </div>
+
+      {/* Delete button */}
+      {canDelete && (
+        <div className="px-4 pb-4 border-t border-border pt-3">
+          {!showDeleteConfirm ? (
+            <button onClick={() => setShowDeleteConfirm(true)} className="gl-button-sm gl-button-danger flex items-center gap-1.5">
+              <Trash2 size={12} /> Supprimer cette règle
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-destructive">Confirmer ?</span>
+              <button onClick={handleDelete} disabled={deleteRule.isPending} className="gl-button-sm gl-button-danger">
+                {deleteRule.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Oui, supprimer'}
+              </button>
+              <button onClick={() => setShowDeleteConfirm(false)} className="gl-button-sm gl-button-default">Non</button>
+            </div>
+          )}
+        </div>
+      )}
     </DynamicPanelShell>
   )
 }
@@ -1514,12 +1748,31 @@ function EditRulePanel() {
 // ── Create Rule Panel ────────────────────────────────────────────────────
 
 function CreateRulePanel() {
+  const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const createRule = useCreateComplianceRule()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { toast } = useToast()
   const { data: typesData } = useComplianceTypes({ page_size: 200 })
   const { data: jpData } = useJobPositions({ page_size: 200 })
-  const [form, setForm] = useState({ compliance_type_id: '', target_type: 'job_position', target_value: '', description: '' })
+
+  // Pre-fill from matrix click context
+  const preType = dynamicPanel?.meta?.prefill_type_id ?? ''
+  const preTarget = dynamicPanel?.meta?.prefill_target_type ?? 'job_position'
+  const preTargetValue = dynamicPanel?.meta?.prefill_target_value ?? ''
+
+  const [form, setForm] = useState<Record<string, any>>({
+    compliance_type_id: preType,
+    target_type: preTarget,
+    target_value: preTargetValue,
+    description: '',
+    priority: 'normal',
+    effective_from: null,
+    effective_to: null,
+    override_validity_days: null,
+    grace_period_days: null,
+    renewal_reminder_days: null,
+    condition_json: null,
+  })
 
   const handleCreate = async () => {
     if (!form.compliance_type_id) return
@@ -1529,6 +1782,13 @@ function CreateRulePanel() {
         target_type: form.target_type,
         target_value: form.target_value || undefined,
         description: form.description || undefined,
+        priority: form.priority,
+        effective_from: form.effective_from || undefined,
+        effective_to: form.effective_to || undefined,
+        override_validity_days: form.override_validity_days,
+        grace_period_days: form.grace_period_days,
+        renewal_reminder_days: form.renewal_reminder_days,
+        condition_json: form.condition_json,
       })
       toast({ title: 'Règle créée', variant: 'success' })
       closeDynamicPanel()
@@ -1538,47 +1798,20 @@ function CreateRulePanel() {
   }
 
   return (
-    <DynamicPanelShell title="Nouvelle règle" icon={<Scale size={14} className="text-primary" />}>
-      <div className="p-4 space-y-4">
-        <div>
-          <label className="gl-label">Type de référentiel *</label>
-          <select value={form.compliance_type_id} onChange={(e) => setForm({ ...form, compliance_type_id: e.target.value })} className="gl-form-input">
-            <option value="">— Sélectionner —</option>
-            {typesData?.items?.map(t => <option key={t.id} value={t.id}>[{t.category}] {t.code} — {t.name}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="gl-label">Cible *</label>
-          <select value={form.target_type} onChange={(e) => setForm({ ...form, target_type: e.target.value, target_value: '' })} className="gl-form-input">
-            {RULE_TARGET_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-        </div>
-        {form.target_type === 'job_position' && (
-          <div>
-            <label className="gl-label">Fiche de poste</label>
-            <select value={form.target_value} onChange={(e) => setForm({ ...form, target_value: e.target.value })} className="gl-form-input">
-              <option value="">— Tous les postes —</option>
-              {jpData?.items?.map(jp => <option key={jp.id} value={jp.id}>{jp.code} — {jp.name}</option>)}
-            </select>
-          </div>
-        )}
-        {(form.target_type === 'asset' || form.target_type === 'tier_type' || form.target_type === 'department') && (
-          <div>
-            <label className="gl-label">Valeur</label>
-            <input type="text" value={form.target_value} onChange={(e) => setForm({ ...form, target_value: e.target.value })} className="gl-form-input" placeholder={form.target_type === 'asset' ? 'ID de l\'asset...' : form.target_type === 'department' ? 'Nom du département...' : 'Type de tiers...'} />
-          </div>
-        )}
-        <div>
-          <label className="gl-label">Description</label>
-          <input type="text" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="gl-form-input" placeholder="Description de la règle..." />
-        </div>
-        <div className="flex gap-2 pt-2">
-          <button onClick={handleCreate} disabled={!form.compliance_type_id || createRule.isPending} className="gl-button gl-button-confirm">
-            {createRule.isPending ? <Loader2 size={14} className="animate-spin mr-1" /> : null}Créer la règle
-          </button>
-          <button onClick={closeDynamicPanel} className="gl-button gl-button-default">Annuler</button>
-        </div>
-      </div>
+    <DynamicPanelShell
+      title="Nouvelle règle"
+      subtitle="Conformité"
+      icon={<Scale size={14} className="text-primary" />}
+      actions={
+        <>
+          <PanelActionButton onClick={closeDynamicPanel}>Annuler</PanelActionButton>
+          <PanelActionButton variant="primary" disabled={!form.compliance_type_id || createRule.isPending} onClick={handleCreate}>
+            {createRule.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Créer'}
+          </PanelActionButton>
+        </>
+      }
+    >
+      <RuleFormFields form={form} setForm={setForm} typesData={typesData} jpData={jpData} />
     </DynamicPanelShell>
   )
 }

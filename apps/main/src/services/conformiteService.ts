@@ -4,7 +4,7 @@
 import api from '@/lib/api'
 import type {
   ComplianceType, ComplianceTypeCreate, ComplianceTypeUpdate,
-  ComplianceRule, ComplianceRuleCreate, ComplianceRuleHistory,
+  ComplianceRule, ComplianceRuleCreate, ComplianceRuleUpdate, ComplianceRuleHistory,
   ComplianceRecord, ComplianceRecordCreate, ComplianceRecordUpdate,
   ComplianceCheckResult,
   ComplianceExemption, ComplianceExemptionCreate, ComplianceExemptionUpdate,
@@ -60,7 +60,7 @@ export const conformiteService = {
     return data
   },
 
-  updateRule: async (id: string, payload: Partial<ComplianceRuleCreate>): Promise<ComplianceRule> => {
+  updateRule: async (id: string, payload: ComplianceRuleUpdate): Promise<ComplianceRule> => {
     const { data } = await api.patch(`/api/v1/conformite/rules/${id}`, payload)
     return data
   },

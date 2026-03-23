@@ -243,16 +243,17 @@ export function SubModelManager<TRead extends { id: string }, TCreate>({
 
   return (
     <div className="space-y-2">
-      {/* Add button */}
-      <div className="flex justify-end">
-        <button
-          onClick={handleAdd}
-          className="gl-button-sm gl-button-confirm flex items-center gap-1"
-          disabled={showForm}
-        >
-          <Plus size={12} /> Ajouter
-        </button>
-      </div>
+      {/* Add button — compact, right-aligned */}
+      {!showForm && !editingId && (
+        <div className="flex justify-end">
+          <button
+            onClick={handleAdd}
+            className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-medium transition-colors"
+          >
+            <Plus size={12} /> Ajouter
+          </button>
+        </div>
+      )}
 
       {/* Inline create form */}
       {showForm && (

@@ -26,7 +26,7 @@ export default function VerifyEmailPage() {
 
     const verify = async () => {
       try {
-        const apiBase = import.meta.env.VITE_API_URL || ''
+        const apiBase = import.meta.env.VITE_API_URL || window.location.origin.replace('app.', 'api.')
         // Two systems: contact-emails (with id) and user emails (token only)
         const url = id
           ? `${apiBase}/api/v1/contact-emails/verify-callback`

@@ -84,6 +84,19 @@ def _register_jobs() -> None:
         max_instances=1,
     )
 
+    # ── Compliance expiry check ────────────────────────────────────────
+    from app.tasks.jobs.compliance_expiry import check_compliance_expiry
+
+    # Check compliance record expiry + send renewal reminders — daily at 06:00
+    scheduler.add_job(
+        check_compliance_expiry,
+        trigger=CronTrigger(hour=6, minute=0),
+        id="compliance_expiry",
+        name="Vérifier expiration conformité et envoyer rappels",
+        replace_existing=True,
+        max_instances=1,
+    )
+
     # ── Archived records purge ──────────────────────────────────────────
     from app.tasks.jobs.archived_purge import purge_archived_records
 

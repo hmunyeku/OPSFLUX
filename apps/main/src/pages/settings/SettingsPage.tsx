@@ -118,6 +118,7 @@ import { AuditTab } from './tabs/AuditTab'
 import { SystemHealthTab } from './tabs/SystemHealthTab'
 import { NumberingTab } from './tabs/NumberingTab'
 import { DeletePoliciesTab } from './tabs/DeletePoliciesTab'
+import { SchedulerTab } from './tabs/SchedulerTab'
 import DictionaryTab from './tabs/DictionaryTab'
 // EntitiesTab moved to dedicated /entities sidebar page
 
@@ -156,6 +157,7 @@ registerSettingsSection({ id: 'dictionnaire', label: 'Dictionnaire', icon: BookO
 registerSettingsSection({ id: 'delete-policies', label: 'Politiques de suppression', icon: Trash2, component: DeletePoliciesTab, category: 'general', order: 25, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'audit-log', label: 'Journal d\'audit', icon: ScrollText, component: AuditTab, category: 'general', order: 30, requiredPermission: 'core.audit.read' })
 registerSettingsSection({ id: 'system-health', label: 'Santé système', icon: Activity, component: SystemHealthTab, category: 'general', order: 40, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'scheduler', label: 'Tâches planifiées', icon: Clock, component: SchedulerTab, category: 'general', order: 45, requiredPermission: 'core.settings.manage' })
 
 /* ── Main Settings Page ── */
 export function SettingsPage() {

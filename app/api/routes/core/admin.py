@@ -238,3 +238,59 @@ async def delete_policy_stats(
     """Get archived record counts per entity type."""
     counts = await get_archived_counts(db)
     return counts
+
+
+# ── Scheduler Admin ──────────────────────────────────────────────────────
+
+
+@router.get(
+    "/scheduler/jobs",
+    dependencies=[require_permission("admin.system")],
+)
+async def list_scheduler_jobs(
+    current_user: User = Depends(get_current_user),
+):
+    """List all registered scheduled jobs with status."""
+    from app.tasks.scheduler import scheduler
+
+    jobs = []
+    for job in scheduler.get_jobs():
+        next_run = job.next_run_time
+        jobs.append({
+            "id": job.id,
+            "name": job.name,
+            "trigger": str(job.trigger),
+            "next_run_at": next_run.isoformat() if next_run else None,
+            "pending": job.pending,
+        })
+    return {"jobs": jobs, "total": len(jobs)}
+
+
+class RunJobRequest(BaseModel):
+    job_id: str
+
+
+@router.post(
+    "/scheduler/run",
+    dependencies=[require_permission("admin.system")],
+)
+async def run_scheduler_job(
+    body: RunJobRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Manually trigger a scheduled job to run now."""
+    from app.tasks.scheduler import scheduler
+
+    job = scheduler.get_job(body.job_id)
+    if not job:
+        raise HTTPException(404, f"Job '{body.job_id}' not found")
+
+    # Run the job function directly (async)
+    import asyncio
+    func = job.func
+    if asyncio.iscoroutinefunction(func):
+        asyncio.create_task(func())
+    else:
+        func()
+
+    return {"detail": f"Job '{body.job_id}' triggered", "job_id": body.job_id}

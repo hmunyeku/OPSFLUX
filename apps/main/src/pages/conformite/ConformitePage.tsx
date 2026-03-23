@@ -7,9 +7,10 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ShieldCheck, Plus, Loader2, Trash2, FileCheck, ClipboardList,
-  Briefcase, GitBranch, Scale, ShieldOff, Check, X, ClipboardCheck, Search, Grid3X3, List,
+  Briefcase, GitBranch, Scale, ShieldOff, Check, X, ClipboardCheck, Grid3X3, List,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
+import { DataTableToolbar } from '@/components/ui/DataTable/Toolbar'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTablePagination, DataTableFilterDef } from '@/components/ui/DataTable/types'
 import { cn } from '@/lib/utils'
@@ -1141,7 +1142,8 @@ function RulesMatrixView({
   onCreateRulePanel?: (prefill: { type_id: string; target_type: string; target_value?: string }) => void
 }) {
   const [searchFilter, setSearchFilter] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState<string>('all')
+  const [activeRuleFilters, setActiveRuleFilters] = useState<Record<string, unknown>>({})
+  const selectedCategory = (activeRuleFilters.category as string) || 'all'
   const [activeTargetTab, setActiveTargetTab] = useState<TargetTab>('job_position')
   const [viewMode, setViewMode] = useState<'matrix' | 'list'>('matrix')
   const [hoveredCol, setHoveredCol] = useState<string | null>(null)
@@ -1149,11 +1151,28 @@ function RulesMatrixView({
   const [listGroupBy, setListGroupBy] = useState<'target_type' | 'category' | 'applicability' | 'none'>('target_type')
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
 
+  const handleRuleFilterChange = useCallback((filterId: string, value: unknown) => {
+    setActiveRuleFilters(prev => {
+      const next = { ...prev }
+      if (value === undefined || value === null) delete next[filterId]
+      else next[filterId] = value
+      return next
+    })
+  }, [])
+
   // Available categories (only those with at least 1 type)
   const availableCategories = useMemo(() => {
     const cats = new Set<string>(types.filter(t => t.active).map(t => t.category))
     return CATEGORY_ORDER.filter(c => cats.has(c))
   }, [types])
+
+  // Visual query search filter definitions
+  const ruleFilterDefs = useMemo<DataTableFilterDef[]>(() => [
+    { id: 'category', label: 'Catégorie', type: 'select', options: availableCategories.map(cat => ({ value: cat, label: CATEGORY_FULL_LABELS[cat] ?? cat })) },
+    { id: 'target_type', label: 'Cible', type: 'select', options: RULE_TARGET_OPTIONS.map(o => ({ value: o.value, label: o.label })) },
+    { id: 'applicability', label: 'Applicabilité', type: 'select', options: [{ value: 'permanent', label: 'Permanente' }, { value: 'contextual', label: 'Contextuelle' }] },
+    { id: 'priority', label: 'Priorité', type: 'select', options: [{ value: 'normal', label: 'Normale' }, { value: 'high', label: 'Haute' }, { value: 'low', label: 'Basse' }] },
+  ], [availableCategories])
 
   // Filtered types by selected category
   const filteredTypes = useMemo(() => {
@@ -1234,16 +1253,28 @@ function RulesMatrixView({
     return <div className="flex items-center justify-center py-16"><Loader2 size={20} className="animate-spin text-muted-foreground" /></div>
   }
 
-  // List view (DataTable-like)
+  // List view — apply visual query filters + text search
   const filteredRulesForList = useMemo(() => {
     let filtered = rules
-    if (selectedCategory !== 'all') {
+
+    // Token-based filters from visual query bar
+    const catFilter = activeRuleFilters.category as string | undefined
+    if (catFilter) {
+      const typeIds = new Set(types.filter(t => t.category === catFilter).map(t => t.id))
+      filtered = filtered.filter(r => typeIds.has(r.compliance_type_id))
+    } else if (selectedCategory !== 'all') {
+      // Fallback to legacy dropdown (used by matrix view)
       const typeIds = new Set(types.filter(t => t.category === selectedCategory).map(t => t.id))
       filtered = filtered.filter(r => typeIds.has(r.compliance_type_id))
     }
-    if (activeTargetTab !== 'job_position' || activeTargetTab !== 'job_position') {
-      // No additional filtering needed for list — show all target types
-    }
+    const targetFilter = activeRuleFilters.target_type as string | undefined
+    if (targetFilter) filtered = filtered.filter(r => r.target_type === targetFilter)
+    const appFilter = activeRuleFilters.applicability as string | undefined
+    if (appFilter) filtered = filtered.filter(r => r.applicability === appFilter)
+    const prioFilter = activeRuleFilters.priority as string | undefined
+    if (prioFilter) filtered = filtered.filter(r => r.priority === prioFilter)
+
+    // Text search
     if (searchFilter) {
       const q = searchFilter.toLowerCase()
       filtered = filtered.filter(r => {
@@ -1255,64 +1286,45 @@ function RulesMatrixView({
       })
     }
     return filtered
-  }, [rules, types, selectedCategory, searchFilter, jobPositions, activeTargetTab])
+  }, [rules, types, selectedCategory, searchFilter, jobPositions, activeRuleFilters])
 
   return (
     <div className="p-4 space-y-4">
-      {/* ── Toolbar ── */}
-      <div className="flex items-center gap-3 flex-wrap">
-        {/* Category dropdown */}
-        <select
-          value={selectedCategory}
-          onChange={(e) => setSelectedCategory(e.target.value)}
-          className="gl-form-input text-xs h-8 w-auto pr-8"
-        >
-          <option value="all">Toutes les catégories</option>
-          {availableCategories.map(cat => (
-            <option key={cat} value={cat}>{CATEGORY_FULL_LABELS[cat] ?? cat}</option>
-          ))}
-        </select>
-
-        {/* Search */}
-        <div className="relative flex-1 max-w-xs">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-          <input
-            type="text"
-            value={searchFilter}
-            onChange={(e) => setSearchFilter(e.target.value)}
-            placeholder="Rechercher..."
-            className="gl-form-input text-xs w-full pl-8 h-8"
-          />
-          {searchFilter && (
-            <button onClick={() => setSearchFilter('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-              <X size={12} />
-            </button>
-          )}
-        </div>
-
-        {/* View toggle */}
-        <div className="flex items-center gap-0.5 bg-accent rounded-lg p-0.5 ml-auto">
-          <button
-            onClick={() => setViewMode('matrix')}
-            className={cn('p-1.5 rounded-md transition-colors', viewMode === 'matrix' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground')}
-            title="Vue matrice"
-          >
-            <Grid3X3 size={14} />
-          </button>
-          <button
-            onClick={() => setViewMode('list')}
-            className={cn('p-1.5 rounded-md transition-colors', viewMode === 'list' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground')}
-            title="Vue liste"
-          >
-            <List size={14} />
-          </button>
-        </div>
-
-        {/* Summary */}
-        <span className="text-[11px] text-muted-foreground">
-          {rules.length} règle(s)
-        </span>
-      </div>
+      {/* ── Toolbar — visual query search ── */}
+      <DataTableToolbar
+        searchValue={searchFilter}
+        onSearchChange={setSearchFilter}
+        searchPlaceholder="Rechercher par type, poste, description..."
+        filters={ruleFilterDefs}
+        activeFilters={activeRuleFilters}
+        onFilterChange={handleRuleFilterChange}
+        currentViewMode="table"
+        onViewModeChange={() => {}}
+        toolbarRight={
+          <div className="flex items-center gap-2">
+            {/* View toggle */}
+            <div className="flex items-center gap-0.5 bg-accent rounded-lg p-0.5">
+              <button
+                onClick={() => setViewMode('matrix')}
+                className={cn('p-1.5 rounded-md transition-colors', viewMode === 'matrix' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground')}
+                title="Vue matrice"
+              >
+                <Grid3X3 size={14} />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={cn('p-1.5 rounded-md transition-colors', viewMode === 'list' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground')}
+                title="Vue liste"
+              >
+                <List size={14} />
+              </button>
+            </div>
+            <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+              {filteredRulesForList.length}/{rules.length} règle(s)
+            </span>
+          </div>
+        }
+      />
 
       {viewMode === 'list' ? (
         /* ── List view with grouping ── */

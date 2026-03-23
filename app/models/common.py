@@ -1160,11 +1160,13 @@ class ComplianceType(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     rules: Mapped[list["ComplianceRule"]] = relationship(back_populates="compliance_type", cascade="all, delete-orphan")
 
 
-class ComplianceRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+class ComplianceRule(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     """Regle d'obligation: a qui s'applique un ComplianceType.
 
     V2: versioning, effective dates, per-rule constraints, audit trail.
+    Uses SoftDeleteMixin for configurable delete policy (archive vs hard delete).
     """
+    __delete_policy__ = {"category": "main", "default_mode": "soft"}
     __tablename__ = "compliance_rules"
     __table_args__ = (Index("idx_compliance_rules_type", "compliance_type_id"),)
 

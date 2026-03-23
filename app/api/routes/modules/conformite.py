@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.database import get_db
-from app.services.core.delete_service import delete_entity
+from app.services.core.delete_service import delete_entity, get_delete_policy
 from app.core.events import emit_event
 from app.core.pagination import PaginationParams, paginate
 from app.models.common import (
@@ -222,20 +222,34 @@ async def delete_compliance_rule(
     if not rule:
         raise HTTPException(404, "Rule not found")
 
-    # Draft rules (version 1, never updated) can be hard-deleted
+    # Determine if this is a draft (v1, never modified, no children) — can always be hard-deleted
     is_draft = rule.version <= 1 and not rule.change_reason
 
     if is_draft or force:
-        # Hard delete — no history needed for unused drafts
+        # Draft/force: hard delete — no history needed for unused errors/drafts
         await delete_entity(rule, db, "compliance_rule", entity_id=rule.id, user_id=current_user.id)
         await db.commit()
         return {"detail": "Rule deleted"}
-    else:
-        # Archive — soft delete with history snapshot
+
+    # Published rule: respect configurable delete policy
+    policy = await get_delete_policy("compliance_rule", db, entity_id=entity_id)
+    mode = policy.get("mode", "soft")
+
+    if mode == "hard":
+        # Policy says hard delete even for published rules
         db.add(ComplianceRuleHistory(
             rule_id=rule.id, version=rule.version, action="archived",
-            snapshot=_snapshot_rule(rule),
-            changed_by=current_user.id,
+            snapshot=_snapshot_rule(rule), changed_by=current_user.id,
+        ))
+        await db.flush()
+        await delete_entity(rule, db, "compliance_rule", entity_id=rule.id, user_id=current_user.id)
+        await db.commit()
+        return {"detail": "Rule deleted (with history snapshot)"}
+    else:
+        # soft / soft_purge: archive with history snapshot
+        db.add(ComplianceRuleHistory(
+            rule_id=rule.id, version=rule.version, action="archived",
+            snapshot=_snapshot_rule(rule), changed_by=current_user.id,
         ))
         rule.active = False
         rule.effective_to = datetime.now(timezone.utc).date()

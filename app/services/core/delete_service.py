@@ -93,6 +93,11 @@ _LABEL_OVERRIDES: dict[str, str] = {
     "user_vaccine": "Vaccins",
     "user_language": "Langues",
     "driving_license": "Permis conduire",
+    "compliance_rule": "Règles conformité",
+    "compliance_type": "Types conformité",
+    "compliance_record": "Enregistrements conformité",
+    "compliance_exemption": "Exemptions",
+    "job_position": "Fiches de poste",
 }
 
 

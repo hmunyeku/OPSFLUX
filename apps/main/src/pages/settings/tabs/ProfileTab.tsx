@@ -397,14 +397,6 @@ export function ProfileTab() {
         </div>
 
         <div>
-          <label className="gl-label">Email</label>
-          <input type="email" className="gl-form-input max-w-sm" value={user?.email || ''} disabled />
-          <p className="mt-1 text-sm text-muted-foreground">
-            L'adresse email est gérée dans l'onglet <span className="text-primary">Emails</span>.
-          </p>
-        </div>
-
-        <div>
           <label className="gl-label">{t('settings.language')}</label>
           <div className="flex gap-2 mt-2">
             {languageOptions.map((opt) => (
@@ -835,14 +827,17 @@ export function ProfileTab() {
         </div>
       </CollapsibleSection>
 
-      {/* Save / Cancel bar (sticky for all profile fields above) */}
-      <div className="flex items-center gap-3 py-4 border-t border-border mt-2">
-        <button className="gl-button gl-button-confirm" onClick={handleSubmit} disabled={!isDirty || updateProfile.isPending}>
-          {updateProfile.isPending && <Loader2 size={14} className="animate-spin mr-1" />}
-          Mettre à jour le profil
-        </button>
-        <button className="gl-button gl-button-default" onClick={handleCancel} disabled={!isDirty}>Annuler</button>
-      </div>
+      {/* Floating save bar — only visible when there are unsaved changes */}
+      {isDirty && (
+        <div className="sticky bottom-0 z-30 -mx-6 px-6 py-3 bg-card/95 backdrop-blur border-t border-border shadow-lg flex items-center gap-3">
+          <div className="flex-1 text-xs text-muted-foreground">Modifications non enregistrées</div>
+          <button className="gl-button-sm gl-button-default" onClick={handleCancel}>Annuler</button>
+          <button className="gl-button-sm gl-button-confirm" onClick={handleSubmit} disabled={updateProfile.isPending}>
+            {updateProfile.isPending && <Loader2 size={12} className="animate-spin mr-1" />}
+            Enregistrer
+          </button>
+        </div>
+      )}
 
       {/* Image editor modal for avatar crop/rotate */}
       <ImageEditor

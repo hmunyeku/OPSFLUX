@@ -16,7 +16,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Settings, User, Lock, Shield, Clock, Palette,
-  Monitor, Bell, Key, AppWindow,
+  Bell,
   ChevronRight, ChevronDown,
   Globe, Plug, FileText, FileOutput, Trash2,
   ScrollText, Activity, Hash, BookOpen, Users, ShieldCheck,
@@ -108,10 +108,7 @@ const SECTION_TAB_MAP: Record<string, string> = {
 
 // ── Import tab components ───────────────────────────────────
 import { ProfileTab } from './tabs/ProfileTab'
-import { SecurityTab } from './tabs/SecurityTab'
-import { AccessTokensTab } from './tabs/AccessTokensTab'
-import { ApplicationsTab } from './tabs/ApplicationsTab'
-import { SessionsTab } from './tabs/SessionsTab'
+import { AccessTab } from './tabs/AccessTab'
 import { NotificationsTab } from './tabs/NotificationsTab'
 import { RolesTab } from './tabs/RolesTab'
 import { ActivityTab } from './tabs/ActivityTab'
@@ -141,11 +138,8 @@ import { EditEmailTemplatePanel } from './panels/EditEmailTemplatePanel'
 // Top-level items (no parentId)
 registerSettingsSection({ id: 'profile', label: 'Profil', icon: User, component: ProfileTab, category: 'user', order: 10 })
 
-// Access-related sections — flat (no sub-group)
-registerSettingsSection({ id: 'security', label: 'Mot de passe', icon: Lock, component: SecurityTab, category: 'user', order: 20 })
-registerSettingsSection({ id: 'tokens', label: 'Jetons d\'accès', icon: Key, component: AccessTokensTab, category: 'user', order: 25 })
-registerSettingsSection({ id: 'applications', label: 'Applications', icon: AppWindow, component: ApplicationsTab, category: 'user', order: 28 })
-registerSettingsSection({ id: 'sessions', label: 'Sessions actives', icon: Monitor, component: SessionsTab, category: 'user', order: 30 })
+// Access — single tab with collapsible sections inside
+registerSettingsSection({ id: 'access', label: 'Accès', icon: Lock, component: AccessTab, category: 'user', order: 20 })
 
 // More top-level items
 // Emails and Addresses are now integrated into the ProfileTab directly

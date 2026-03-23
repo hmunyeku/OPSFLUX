@@ -1146,6 +1146,8 @@ function RulesMatrixView({
   const [viewMode, setViewMode] = useState<'matrix' | 'list'>('matrix')
   const [hoveredCol, setHoveredCol] = useState<string | null>(null)
   const [hoveredRow, setHoveredRow] = useState<string | null>(null)
+  const [listGroupBy, setListGroupBy] = useState<'target_type' | 'category' | 'applicability' | 'none'>('target_type')
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
 
   // Available categories (only those with at least 1 type)
   const availableCategories = useMemo(() => {
@@ -1313,55 +1315,123 @@ function RulesMatrixView({
       </div>
 
       {viewMode === 'list' ? (
-        /* ── List view ── */
-        <div className="border border-border rounded-lg overflow-hidden">
-          <table className="text-xs w-full">
-            <thead>
-              <tr className="bg-accent/60 border-b border-border">
-                <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Type</th>
-                <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Catégorie</th>
-                <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Cible</th>
-                <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Valeur</th>
-                <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Description</th>
-                <th className="px-2 py-2 w-8"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/30">
-              {filteredRulesForList.map(rule => {
-                const ct = types.find(t => t.id === rule.compliance_type_id)
-                const jp = rule.target_type === 'job_position' && rule.target_value
-                  ? jobPositions?.find(p => p.id === rule.target_value) : null
-                return (
-                  <tr key={rule.id} className="hover:bg-accent/30 transition-colors group">
-                    <td className="px-3 py-2 font-medium text-foreground">{ct?.code ?? '?'}</td>
-                    <td className="px-3 py-2">
-                      <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold text-white ${CATEGORY_COLORS_MAP[ct?.category ?? ''] ?? 'bg-zinc-500'}`}>
-                        {CATEGORY_FULL_LABELS[ct?.category ?? ''] ?? ct?.category}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground">
-                      {RULE_TARGET_OPTIONS.find(o => o.value === rule.target_type)?.label ?? rule.target_type}
-                    </td>
-                    <td className="px-3 py-2 text-foreground">
-                      {rule.target_type === 'all' ? '—' : jp ? `${jp.code} — ${jp.name}` : rule.target_value ?? '—'}
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground truncate max-w-[200px]">{rule.description || '—'}</td>
-                    <td className="px-2 py-2">
-                      <button
-                        onClick={() => onDeleteRule(rule.id)}
-                        className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    </td>
-                  </tr>
-                )
-              })}
-              {filteredRulesForList.length === 0 && (
-                <tr><td colSpan={6} className="text-center py-8 text-muted-foreground">Aucune règle trouvée.</td></tr>
-              )}
-            </tbody>
-          </table>
+        /* ── List view with grouping ── */
+        <div className="space-y-2">
+          {/* Grouping selector */}
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-muted-foreground">Grouper par :</span>
+            {([['target_type', 'Cible'], ['category', 'Catégorie'], ['applicability', 'Applicabilité'], ['none', 'Aucun']] as const).map(([val, label]) => (
+              <button
+                key={val}
+                onClick={() => { setListGroupBy(val); setCollapsedGroups(new Set()) }}
+                className={cn('px-2 py-0.5 rounded text-xs transition-colors', listGroupBy === val ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-accent')}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Grouped table */}
+          {(() => {
+            // Build groups
+            const groupedRules = new Map<string, typeof filteredRulesForList>()
+            for (const rule of filteredRulesForList) {
+              const ct = types.find(t => t.id === rule.compliance_type_id)
+              let groupKey: string
+              if (listGroupBy === 'target_type') {
+                groupKey = RULE_TARGET_OPTIONS.find(o => o.value === rule.target_type)?.label ?? rule.target_type
+              } else if (listGroupBy === 'category') {
+                groupKey = CATEGORY_FULL_LABELS[ct?.category ?? ''] ?? ct?.category ?? 'Autre'
+              } else if (listGroupBy === 'applicability') {
+                groupKey = rule.applicability === 'contextual' ? 'Contextuelle' : 'Permanente'
+              } else {
+                groupKey = '__all__'
+              }
+              if (!groupedRules.has(groupKey)) groupedRules.set(groupKey, [])
+              groupedRules.get(groupKey)!.push(rule)
+            }
+
+            const groups = listGroupBy === 'none' ? [['__all__', filteredRulesForList] as const] : [...groupedRules.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+
+            const toggleGroup = (key: string) => {
+              setCollapsedGroups(prev => {
+                const next = new Set(prev)
+                next.has(key) ? next.delete(key) : next.add(key)
+                return next
+              })
+            }
+
+            return groups.map(([groupKey, groupRules]) => (
+              <div key={groupKey} className="border border-border rounded-lg overflow-hidden">
+                {listGroupBy !== 'none' && (
+                  <button
+                    onClick={() => toggleGroup(groupKey)}
+                    className="w-full flex items-center gap-2 px-3 py-2 bg-accent/50 border-b border-border text-xs font-semibold text-foreground hover:bg-accent/70 transition-colors"
+                  >
+                    <svg className={cn('w-3 h-3 transition-transform', collapsedGroups.has(groupKey) ? '' : 'rotate-90')} viewBox="0 0 12 12"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
+                    {groupKey}
+                    <span className="text-[10px] text-muted-foreground font-normal ml-1">({groupRules.length})</span>
+                  </button>
+                )}
+                {!collapsedGroups.has(groupKey) && (
+                  <table className="text-xs w-full">
+                    <thead>
+                      <tr className="bg-muted/30 border-b border-border/50">
+                        <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Type</th>
+                        <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Catégorie</th>
+                        <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Cible</th>
+                        <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Valeur</th>
+                        <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Priorité</th>
+                        <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Applic.</th>
+                        <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Description</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/30">
+                      {groupRules.map(rule => {
+                        const ct = types.find(t => t.id === rule.compliance_type_id)
+                        const jp = rule.target_type === 'job_position' && rule.target_value
+                          ? jobPositions?.find(p => p.id === rule.target_value) : null
+                        return (
+                          <tr
+                            key={rule.id}
+                            className="hover:bg-accent/30 transition-colors cursor-pointer group"
+                            onClick={() => onEditRule?.(rule)}
+                          >
+                            <td className="px-3 py-2 font-medium text-foreground">{ct ? `${ct.code} — ${ct.name}` : '?'}</td>
+                            <td className="px-3 py-2">
+                              <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold text-white ${CATEGORY_COLORS_MAP[ct?.category ?? ''] ?? 'bg-zinc-500'}`}>
+                                {CATEGORY_FULL_LABELS[ct?.category ?? ''] ?? ct?.category}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-muted-foreground">
+                              {RULE_TARGET_OPTIONS.find(o => o.value === rule.target_type)?.label ?? rule.target_type}
+                            </td>
+                            <td className="px-3 py-2 text-foreground">
+                              {rule.target_type === 'all' ? '—' : jp ? `${jp.code} — ${jp.name}` : rule.target_value ?? '—'}
+                            </td>
+                            <td className="px-3 py-2">
+                              <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold text-white ${PRIORITY_COLORS[rule.priority] ?? 'bg-zinc-500'}`}>
+                                {PRIORITY_LABELS[rule.priority] ?? rule.priority}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2">
+                              <span className={cn('text-[10px] font-medium', rule.applicability === 'contextual' ? 'text-blue-500' : 'text-emerald-600')}>
+                                {rule.applicability === 'contextual' ? 'Contextuelle' : 'Permanente'}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-muted-foreground truncate max-w-[200px]">{rule.description || '—'}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            ))
+          })()}
+          {filteredRulesForList.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground text-xs border border-border rounded-lg">Aucune règle trouvée.</div>
+          )}
         </div>
       ) : (
         /* ── Matrix view ── */

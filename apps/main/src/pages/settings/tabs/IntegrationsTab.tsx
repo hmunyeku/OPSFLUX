@@ -156,6 +156,9 @@ interface ConnectorDef {
   fields: ConnectorField[]
 }
 
+// SSO callback URL shown in help text for all OAuth2 providers
+const SSO_CALLBACK_URL = (typeof window !== 'undefined' ? window.location.origin.replace('app.', 'api.') : 'https://api.opsflux.io') + '/api/v1/auth/sso/callback'
+
 const CONNECTORS_CATALOG: ConnectorDef[] = [
   // ── OAuth2 / Identity ──
   {
@@ -163,7 +166,7 @@ const CONNECTORS_CATALOG: ConnectorDef[] = [
     name: 'Google OAuth2',
     category: 'oauth2',
     description: 'Accès Google Workspace (Gmail, Drive, Calendar, Meet). Permet l\'authentification SSO et l\'accès aux services Google.',
-    helpText: 'Créez un projet dans Google Cloud Console, activez les API nécessaires (Gmail, Drive, Calendar), puis créez des identifiants OAuth2 de type "Application Web". Ajoutez votre domaine OpsFlux aux URI de redirection autorisées.',
+    helpText: `Créez un projet dans Google Cloud Console, activez les API nécessaires, puis créez des identifiants OAuth2 de type "Application Web". URI de redirection autorisée à ajouter : ${SSO_CALLBACK_URL}`,
     consoleUrl: 'https://console.cloud.google.com/apis/credentials',
     consoleName: 'Google Cloud Console',
     icon: '🔵',
@@ -180,7 +183,7 @@ const CONNECTORS_CATALOG: ConnectorDef[] = [
     name: 'Microsoft Azure AD',
     category: 'oauth2',
     description: 'Accès Microsoft 365 (Outlook, OneDrive, Teams, SharePoint). SSO via Azure Active Directory / Entra ID.',
-    helpText: 'Inscrivez une application dans Azure Portal → App registrations. Notez le Tenant ID et Client ID. Créez un secret client dans "Certificates & secrets". Configurez les URI de redirection.',
+    helpText: `Inscrivez une application dans Azure Portal → App registrations. Notez le Tenant ID et Client ID. Créez un secret client dans "Certificates & secrets". URI de redirection à ajouter : ${SSO_CALLBACK_URL}`,
     consoleUrl: 'https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade',
     consoleName: 'Azure Portal',
     icon: '🟦',
@@ -197,7 +200,7 @@ const CONNECTORS_CATALOG: ConnectorDef[] = [
     name: 'Okta',
     category: 'oauth2',
     description: 'Authentification SSO via Okta. Prend en charge SAML 2.0 et OpenID Connect.',
-    helpText: 'Dans Okta Admin Console, créez une nouvelle application (type Web). Copiez le Client ID et Secret. L\'URL de l\'émetteur est de la forme https://your-domain.okta.com.',
+    helpText: `Dans Okta Admin Console, créez une nouvelle application (type Web). Copiez le Client ID et Secret. URI de redirection : ${SSO_CALLBACK_URL}`,
     consoleUrl: 'https://login.okta.com/',
     consoleName: 'Okta Admin Console',
     icon: '🔒',
@@ -214,7 +217,7 @@ const CONNECTORS_CATALOG: ConnectorDef[] = [
     name: 'Keycloak',
     category: 'oauth2',
     description: 'Serveur d\'identité open-source. SSO via OpenID Connect. Idéal pour les déploiements on-premise.',
-    helpText: 'Dans Keycloak Admin Console, créez un nouveau client dans votre realm. Définissez l\'Access Type sur "confidential" et notez le secret. L\'URL du serveur est typiquement https://keycloak.example.com/auth.',
+    helpText: `Dans Keycloak Admin Console, créez un nouveau client dans votre realm. Access Type : "confidential". URI de redirection : ${SSO_CALLBACK_URL}`,
     consoleUrl: '',
     consoleName: 'Keycloak Admin',
     icon: '🛡️',

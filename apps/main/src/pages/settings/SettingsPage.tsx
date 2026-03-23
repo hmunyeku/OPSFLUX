@@ -16,7 +16,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Settings, User, Lock, Shield, Clock, Palette,
-  Monitor, Bell, Key, AppWindow, KeyRound,
+  Monitor, Bell, Key, AppWindow,
   ChevronRight, ChevronDown,
   Globe, Plug, FileText, FileOutput, Trash2,
   ScrollText, Activity, Hash, BookOpen, Users, ShieldCheck,
@@ -27,7 +27,6 @@ import { useUIStore } from '@/stores/uiStore'
 import { usePermission } from '@/hooks/usePermission'
 import {
   registerSettingsSection,
-  registerSettingsGroup,
   useSettingsSections,
   useSettingsGroups,
   useGroupChildren,
@@ -142,12 +141,11 @@ import { EditEmailTemplatePanel } from './panels/EditEmailTemplatePanel'
 // Top-level items (no parentId)
 registerSettingsSection({ id: 'profile', label: 'Profil', icon: User, component: ProfileTab, category: 'user', order: 10 })
 
-// Collapsible group: Access (like GitLab's "Access" with chevron)
-registerSettingsGroup({ id: 'access', label: 'Accès', icon: KeyRound, category: 'user', order: 20 })
-registerSettingsSection({ id: 'security', label: 'Mot de passe', icon: Lock, component: SecurityTab, category: 'user', order: 10, parentId: 'access' })
-registerSettingsSection({ id: 'tokens', label: 'Jetons d\'accès', icon: Key, component: AccessTokensTab, category: 'user', order: 20, parentId: 'access' })
-registerSettingsSection({ id: 'applications', label: 'Applications', icon: AppWindow, component: ApplicationsTab, category: 'user', order: 30, parentId: 'access' })
-registerSettingsSection({ id: 'sessions', label: 'Sessions actives', icon: Monitor, component: SessionsTab, category: 'user', order: 40, parentId: 'access' })
+// Access-related sections — flat (no sub-group)
+registerSettingsSection({ id: 'security', label: 'Mot de passe', icon: Lock, component: SecurityTab, category: 'user', order: 20 })
+registerSettingsSection({ id: 'tokens', label: 'Jetons d\'accès', icon: Key, component: AccessTokensTab, category: 'user', order: 25 })
+registerSettingsSection({ id: 'applications', label: 'Applications', icon: AppWindow, component: ApplicationsTab, category: 'user', order: 28 })
+registerSettingsSection({ id: 'sessions', label: 'Sessions actives', icon: Monitor, component: SessionsTab, category: 'user', order: 30 })
 
 // More top-level items
 // Emails and Addresses are now integrated into the ProfileTab directly

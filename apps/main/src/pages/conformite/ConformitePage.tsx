@@ -589,6 +589,9 @@ function CreateJobPositionPanel() {
 
 // -- Job Position Detail Panel ------------------------------------------------
 
+const PRIORITY_LABELS: Record<string, string> = { high: 'Haute', normal: 'Normale', low: 'Basse' }
+const PRIORITY_COLORS: Record<string, string> = { high: 'bg-red-600', normal: 'bg-zinc-500', low: 'bg-sky-500' }
+
 function JobPositionDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
@@ -598,8 +601,9 @@ function JobPositionDetailPanel({ id }: { id: string }) {
   const deleteJP = useDeleteJobPosition()
   const { toast } = useToast()
 
-  // Rules linked to this job position
+  // Rules linked to this job position + global rules
   const { data: allRules } = useComplianceRules(undefined)
+  const { data: typesData } = useComplianceTypes({ page: 1, page_size: 200 })
 
   const handleSave = useCallback((field: string, value: string) => {
     updateJP.mutate({ id, payload: normalizeNames({ [field]: value }) })
@@ -611,6 +615,13 @@ function JobPositionDetailPanel({ id }: { id: string }) {
     toast({ title: 'Fiche de poste archivee', variant: 'success' })
   }, [id, deleteJP, closeDynamicPanel, toast])
 
+  // Helper to resolve a type from its ID
+  const typesMap = useMemo(() => {
+    const m = new Map<string, ComplianceType>()
+    for (const ct of typesData?.items ?? []) m.set(ct.id, ct)
+    return m
+  }, [typesData?.items])
+
   if (!jp) {
     return (
       <DynamicPanelShell title={t('common.loading')} icon={<Briefcase size={14} className="text-primary" />}>
@@ -619,7 +630,13 @@ function JobPositionDetailPanel({ id }: { id: string }) {
     )
   }
 
-  const linkedRules = allRules?.filter(r => r.target_type === 'job_position' && r.target_value === jp.code) ?? []
+  // Rules targeting this specific job position OR targeting 'all'
+  const linkedRules = allRules?.filter(
+    r => r.active && (
+      (r.target_type === 'job_position' && (r.target_value === jp.code || r.target_value === jp.id)) ||
+      r.target_type === 'all'
+    )
+  ) ?? []
 
   return (
     <DynamicPanelShell
@@ -645,18 +662,38 @@ function JobPositionDetailPanel({ id }: { id: string }) {
           <InlineEditableRow label="Description" value={jp.description || ''} onSave={(v) => handleSave('description', v)} />
         </FormSection>
 
-        <FormSection title={`Exigences de conformite (${linkedRules.length})`} collapsible defaultExpanded>
+        <FormSection title={`Exigences de conformité (${linkedRules.length})`} collapsible defaultExpanded>
           {linkedRules.length > 0 ? (
-            <div className="space-y-1">
-              {linkedRules.map(r => (
-                <div key={r.id} className="flex items-center gap-2 text-xs py-1 px-2 bg-muted/30 rounded">
-                  <Scale size={10} className="text-muted-foreground" />
-                  <span className="flex-1">{r.description || r.compliance_type_id}</span>
-                </div>
-              ))}
+            <div className="space-y-1.5">
+              {linkedRules.map(r => {
+                const ct = typesMap.get(r.compliance_type_id)
+                const validityDays = r.override_validity_days ?? ct?.validity_days
+                return (
+                  <div key={r.id} className="flex items-center gap-2 text-xs py-1.5 px-2.5 bg-muted/30 rounded border border-border/50">
+                    <Scale size={10} className="text-muted-foreground shrink-0" />
+                    <span className="flex-1 font-medium text-foreground truncate">
+                      {ct ? ct.name : r.description || r.compliance_type_id}
+                    </span>
+                    {ct && (
+                      <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold text-white shrink-0 ${CATEGORY_COLORS_MAP[ct.category] ?? 'bg-zinc-500'}`}>
+                        {CATEGORY_FULL_LABELS[ct.category] ?? ct.category}
+                      </span>
+                    )}
+                    {validityDays != null && (
+                      <span className="text-[10px] text-muted-foreground shrink-0 whitespace-nowrap">{validityDays}j</span>
+                    )}
+                    <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold text-white shrink-0 ${PRIORITY_COLORS[r.priority] ?? 'bg-zinc-500'}`}>
+                      {PRIORITY_LABELS[r.priority] ?? r.priority}
+                    </span>
+                    {r.target_type === 'all' && (
+                      <span className="text-[10px] text-muted-foreground italic shrink-0">(global)</span>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground">Aucune regle de conformite liee a ce poste. Ajoutez des regles dans l&apos;onglet Regles.</p>
+            <p className="text-xs text-muted-foreground">Aucune exigence de conformité définie pour ce poste.</p>
           )}
         </FormSection>
       </PanelContentLayout>

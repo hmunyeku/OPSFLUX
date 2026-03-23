@@ -19,8 +19,6 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { useAddresses, useDeleteAddress, useCreateAddress, useUpdateAddress } from '@/hooks/useSettings'
 import { useToast } from '@/components/ui/Toast'
 import {
-  DynamicPanelField,
-  FormSection,
   panelInputClass,
 } from '@/components/layout/DynamicPanel'
 import { MapPickerModal, forwardGeocode } from '@/components/shared/MapPicker'
@@ -205,121 +203,74 @@ function AddressForm({ ownerType, ownerId, initial, onClose, labelOptions }: Add
 
   return (
     <>
-      <form onSubmit={handleSubmit} className="border border-border/60 rounded-lg bg-card p-4 space-y-4">
-        <FormSection title="Type d'adresse">
-          <select className="gl-form-select text-sm" value={label} onChange={(e) => setLabel(e.target.value)}>
+      <form onSubmit={handleSubmit} className="border border-border/60 rounded-lg bg-card p-3 space-y-2.5">
+        {/* Row 1: Type + Default checkbox */}
+        <div className="flex items-center gap-2">
+          <select className="gl-form-select text-xs h-8 flex-1" value={label} onChange={(e) => setLabel(e.target.value)}>
             {labelOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
-        </FormSection>
-
-        <div className="space-y-3">
-          <DynamicPanelField label="Adresse ligne 1" required>
-            <input type="text" required className={panelInputClass} placeholder="Numéro et nom de rue" value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} />
-          </DynamicPanelField>
-
-          <DynamicPanelField label="Ville" required>
-            <input type="text" required className={panelInputClass} placeholder="Ex: Douala" value={city} onChange={(e) => setCity(e.target.value)} />
-          </DynamicPanelField>
-
-          <DynamicPanelField label="Pays" required>
-            <CountrySelect value={country} onChange={setCountry} />
-          </DynamicPanelField>
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap cursor-pointer">
+            <input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} className="h-3.5 w-3.5 accent-primary" />
+            Par défaut
+          </label>
         </div>
+
+        {/* Row 2: Address + City on same line */}
+        <div className="grid grid-cols-2 gap-2">
+          <input type="text" required className={`${panelInputClass} !text-xs !h-8`} placeholder="Adresse *" value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} />
+          <input type="text" required className={`${panelInputClass} !text-xs !h-8`} placeholder="Ville *" value={city} onChange={(e) => setCity(e.target.value)} />
+        </div>
+
+        {/* Row 3: Country */}
+        <CountrySelect value={country} onChange={setCountry} />
 
         {/* Expand toggle for optional fields */}
         <button
           type="button"
           onClick={() => setExpanded(!expanded)}
-          className="flex items-center gap-1.5 text-sm text-primary hover:text-primary/80 font-medium transition-colors"
+          className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-medium transition-colors"
         >
-          <ChevronsUpDown size={14} />
+          <ChevronsUpDown size={12} />
           {expanded ? 'Moins d\'options' : 'Plus d\'options'}
         </button>
 
         {expanded && (
-          <div className="space-y-3">
-            <DynamicPanelField label="Adresse ligne 2">
-              <input type="text" className={panelInputClass} placeholder="Bâtiment, étage..." value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)} />
-            </DynamicPanelField>
-
-            <DynamicPanelField label="État / Province">
-              <input type="text" className={panelInputClass} placeholder="Région (optionnel)" value={stateProvince} onChange={(e) => setStateProvince(e.target.value)} />
-            </DynamicPanelField>
-
-            <DynamicPanelField label="Code postal">
-              <input type="text" className={panelInputClass} placeholder="Code postal (optionnel)" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} />
-            </DynamicPanelField>
-
-            {/* GPS with geolocation + geocoding + map picker */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="gl-label-sm">Coordonnées GPS</span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <input type="number" step="any" className={panelInputClass} placeholder="Latitude" value={latitude} onChange={(e) => setLatitude(e.target.value)} />
-                <input type="number" step="any" className={panelInputClass} placeholder="Longitude" value={longitude} onChange={(e) => setLongitude(e.target.value)} />
-              </div>
-
-              {/* Action buttons row */}
-              <div className="flex flex-wrap items-center gap-1.5">
-                {/* GPS device position */}
-                <button
-                  type="button"
-                  onClick={handleGeolocate}
-                  disabled={geoLoading}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 border border-primary/30 transition-all"
-                >
-                  {geoLoading ? <Loader2 size={12} className="animate-spin" /> : <LocateFixed size={12} />}
-                  Ma position
-                </button>
-
-                {/* Geocode address → coords */}
-                <button
-                  type="button"
-                  onClick={handleGeocode}
-                  disabled={geocodeLoading}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 dark:text-emerald-300 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/50 dark:border-emerald-700 transition-all"
-                >
-                  {geocodeLoading ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />}
-                  Géocoder l'adresse
-                </button>
-
-                {/* Pick on map */}
-                <button
-                  type="button"
-                  onClick={() => setShowMapPicker(true)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-300 dark:text-amber-300 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 dark:border-amber-700 transition-all"
-                >
-                  <Map size={12} />
-                  Choisir sur la carte
-                </button>
-              </div>
-
-              <p className="text-xs text-muted-foreground">
-                <strong>Ma position</strong> : GPS de votre appareil. <strong>Géocoder</strong> : convertit l'adresse saisie en coordonnées. <strong>Carte</strong> : choisissez un point manuellement.
-              </p>
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <input type="text" className={`${panelInputClass} !text-xs !h-8`} placeholder="Ligne 2 (bâtiment...)" value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)} />
+              <input type="text" className={`${panelInputClass} !text-xs !h-8`} placeholder="État / Province" value={stateProvince} onChange={(e) => setStateProvince(e.target.value)} />
             </div>
+            <input type="text" className={`${panelInputClass} !text-xs !h-8`} placeholder="Code postal" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} />
 
-            <label className="flex items-start gap-2.5 cursor-pointer">
-              <input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} className="h-4 w-4 accent-primary mt-0.5" />
-              <div>
-                <span className="text-sm font-medium text-foreground">Adresse par défaut</span>
-                <p className="text-xs text-muted-foreground">Sera utilisée comme adresse principale.</p>
+            {/* GPS compact */}
+            <div className="space-y-1.5">
+              <div className="grid grid-cols-2 gap-2">
+                <input type="number" step="any" className={`${panelInputClass} !text-xs !h-8`} placeholder="Latitude" value={latitude} onChange={(e) => setLatitude(e.target.value)} />
+                <input type="number" step="any" className={`${panelInputClass} !text-xs !h-8`} placeholder="Longitude" value={longitude} onChange={(e) => setLongitude(e.target.value)} />
               </div>
-            </label>
+              <div className="flex flex-wrap items-center gap-1">
+                <button type="button" onClick={handleGeolocate} disabled={geoLoading} className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-primary bg-primary/10 hover:bg-primary/20 border border-primary/30 transition-all">
+                  {geoLoading ? <Loader2 size={10} className="animate-spin" /> : <LocateFixed size={10} />} GPS
+                </button>
+                <button type="button" onClick={handleGeocode} disabled={geocodeLoading} className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 dark:text-emerald-300 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/50 dark:border-emerald-700 transition-all">
+                  {geocodeLoading ? <Loader2 size={10} className="animate-spin" /> : <Search size={10} />} Géocoder
+                </button>
+                <button type="button" onClick={() => setShowMapPicker(true)} className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-300 dark:text-amber-300 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 dark:border-amber-700 transition-all">
+                  <Map size={10} /> Carte
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
-        <div className="flex items-center justify-end gap-2 pt-2">
-          <button type="button" onClick={onClose} className="gl-button-sm gl-button-default">Annuler</button>
-          <button type="submit" disabled={!canSubmit} className="gl-button-sm gl-button-confirm">
-            {isPending ? <Loader2 size={12} className="animate-spin" /> : initial ? 'Enregistrer' : 'Ajouter'}
+        <div className="flex items-center justify-end gap-1.5 pt-1">
+          <button type="button" onClick={onClose} className="gl-button-sm gl-button-default text-xs">Annuler</button>
+          <button type="submit" disabled={!canSubmit} className="gl-button-sm gl-button-confirm text-xs">
+            {isPending ? <Loader2 size={10} className="animate-spin" /> : initial ? 'Enregistrer' : 'Ajouter'}
           </button>
         </div>
       </form>
 
-      {/* Map Picker Modal */}
       <MapPickerModal
         open={showMapPicker}
         onClose={() => setShowMapPicker(false)}

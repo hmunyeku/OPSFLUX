@@ -50,9 +50,9 @@ export function EmergencyContactManager({ userId, compact }: { userId: string; c
       displayColumns={DISPLAY_COLUMNS}
       emptyLabel="Aucun contact d'urgence"
       emptyIcon={Heart}
-      onCreate={(p) => create.mutate({ userId, payload: p })}
-      onUpdate={(itemId, p) => update.mutate({ userId, itemId, payload: p })}
-      onDelete={(itemId) => del.mutate({ userId, itemId })}
+      onCreate={(p) => create.mutateAsync({ userId, payload: p })}
+      onUpdate={(itemId, p) => update.mutateAsync({ userId, itemId, payload: p })}
+      onDelete={(itemId) => del.mutateAsync({ userId, itemId })}
       createPending={create.isPending}
       compact={compact}
     />

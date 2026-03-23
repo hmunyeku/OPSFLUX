@@ -139,9 +139,9 @@ interface SubModelManagerProps<TRead extends { id: string }, TCreate> {
   displayColumns: { key: keyof TRead & string; label: string; format?: (v: unknown) => string; render?: (v: unknown, item: TRead) => React.ReactNode }[]
   emptyLabel: string
   emptyIcon: LucideIcon
-  onCreate: (payload: TCreate) => void
-  onUpdate: (itemId: string, payload: Partial<TCreate>) => void
-  onDelete: (itemId: string) => void
+  onCreate: (payload: TCreate) => void | Promise<unknown>
+  onUpdate: (itemId: string, payload: Partial<TCreate>) => void | Promise<unknown>
+  onDelete: (itemId: string) => void | Promise<unknown>
   createPending?: boolean
   compact?: boolean
 }
@@ -184,23 +184,34 @@ export function SubModelManager<TRead extends { id: string }, TCreate>({
     setShowForm(false)
   }, [fields, initDraft])
 
-  const handleSave = useCallback(() => {
+  const [saveError, setSaveError] = useState<string | null>(null)
+
+  const handleSave = useCallback(async () => {
+    setSaveError(null)
     // Build payload, only include non-empty values
     const payload: Record<string, string | null> = {}
     for (const f of fields) {
       const val = draft[f.key]?.trim()
-      if (f.required && !val) return // skip if required field empty
+      if (f.required && !val) {
+        setSaveError(`Le champ "${f.label}" est requis.`)
+        return
+      }
       payload[f.key] = val || null
     }
 
-    if (editingId) {
-      onUpdate(editingId, payload as Partial<TCreate>)
-      setEditingId(null)
-    } else {
-      onCreate(payload as TCreate)
-      setShowForm(false)
+    try {
+      if (editingId) {
+        await Promise.resolve(onUpdate(editingId, payload as Partial<TCreate>))
+        setEditingId(null)
+      } else {
+        await Promise.resolve(onCreate(payload as TCreate))
+        setShowForm(false)
+      }
+      setDraft({})
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail
+      setSaveError(typeof detail === 'string' ? detail : Array.isArray(detail) ? detail.map((d: any) => d.msg).join(', ') : 'Erreur lors de l\'enregistrement.')
     }
-    setDraft({})
   }, [draft, fields, editingId, onCreate, onUpdate])
 
   const handleCancel = useCallback(() => {
@@ -278,6 +289,9 @@ export function SubModelManager<TRead extends { id: string }, TCreate>({
               </div>
             ))}
           </div>
+          {saveError && (
+            <p className="text-xs text-red-600 dark:text-red-400 px-1">{saveError}</p>
+          )}
           <div className="flex items-center gap-2 justify-end">
             <button onClick={handleCancel} className="gl-button-sm gl-button-default flex items-center gap-1">
               <X size={12} /> Annuler

@@ -1264,7 +1264,7 @@ class ComplianceRecordCreate(BaseModel):
     compliance_type_id: UUID
     owner_type: str = Field(..., pattern=r'^(tier_contact|tier|asset|user)$')
     owner_id: UUID
-    status: str = "valid"
+    status: str = "pending"  # starts pending, becomes valid after verification
     issued_at: datetime | None = None
     expires_at: datetime | None = None
     issuer: str | None = None

@@ -1498,6 +1498,9 @@ async def verify_record(
         record.verified_by = current_user.id
         record.verified_at = now
         record.rejection_reason = None
+        # For ComplianceRecord: promote status from pending to valid
+        if record_type == "compliance_record" and hasattr(record, 'status') and record.status == "pending":
+            record.status = "valid"
         await emit_event("conformite.record.verified", {
             "record_type": record_type, "record_id": str(record_id),
             "verified_by": str(current_user.id), "entity_id": str(entity_id),
@@ -1509,6 +1512,9 @@ async def verify_record(
         record.verified_by = current_user.id
         record.verified_at = now
         record.rejection_reason = body.rejection_reason
+        # For ComplianceRecord: mark status as rejected too
+        if record_type == "compliance_record" and hasattr(record, 'status'):
+            record.status = "rejected"
         await emit_event("conformite.record.rejected", {
             "record_type": record_type, "record_id": str(record_id),
             "rejected_by": str(current_user.id), "reason": body.rejection_reason,

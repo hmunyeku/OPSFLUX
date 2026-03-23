@@ -915,12 +915,22 @@ async def sso_authorize(
 @router.get("/sso/callback")
 async def sso_callback(
     request: Request,
-    code: str = Query(...),
-    state: str = Query(...),
+    code: str = Query(None),
+    state: str = Query(None),
+    error: str = Query(None),
+    error_description: str = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     """Handle OAuth2 callback: exchange code for tokens, find/create user, redirect to frontend."""
     import httpx
+
+    # Handle OAuth2 error response (e.g. user denied, PKCE required)
+    if error:
+        logger.warning("SSO callback error: %s — %s", error, error_description or "")
+        return RedirectResponse(f"{settings.APP_URL}/login?sso_error={error}")
+
+    if not code or not state:
+        return RedirectResponse(f"{settings.APP_URL}/login?sso_error=missing_code")
 
     # Validate state token
     try:

@@ -1065,9 +1065,21 @@ async def sso_callback(
         logger.info("SSO linked: user %s → provider %s (%s)", user.email, provider_id, email)
         return RedirectResponse(f"{settings.APP_URL}/settings#securite?sso_link=success&provider={provider_id}")
 
-    # ── LOGIN MODE: Find or create user ──
+    # ── LOGIN MODE: Find user by email OR linked SSO provider ──
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
+
+    # Also check if this SSO identity is already linked to a user (different email)
+    if not user:
+        linked = await db.execute(
+            select(UserSSOProvider).where(
+                UserSSOProvider.provider == provider_id,
+                UserSSOProvider.sso_subject == str(sso_id),
+            )
+        )
+        linked_provider = linked.scalar_one_or_none()
+        if linked_provider:
+            user = await db.get(User, linked_provider.user_id)
 
     if not user:
         # Auto-provision new SSO user (JIT provisioning)

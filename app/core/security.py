@@ -77,15 +77,21 @@ def create_password_reset_token(user_id: UUID, email: str) -> str:
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 
-def create_sso_state_token(provider: str) -> str:
-    """Create a short-lived state token for OAuth2 CSRF protection (10 minutes)."""
+def create_sso_state_token(provider: str, *, mode: str = "login", user_id: str | None = None) -> str:
+    """Create a short-lived state token for OAuth2 CSRF protection (10 minutes).
+
+    mode='login' for SSO login, mode='link' for linking SSO to existing account.
+    """
     now = datetime.now(UTC)
     payload = {
         "provider": provider,
+        "mode": mode,
         "iat": now,
         "exp": now + timedelta(minutes=10),
         "type": "sso_state",
     }
+    if user_id:
+        payload["user_id"] = user_id
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 

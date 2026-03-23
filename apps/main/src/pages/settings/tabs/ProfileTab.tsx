@@ -791,6 +791,19 @@ export function ProfileTab() {
         </div>
       </CollapsibleSection>
 
+      {/* Section: Comptes liés (SSO) */}
+      <CollapsibleSection
+        id="sso-accounts"
+        title="Comptes liés"
+        description="Associez vos comptes Google, Microsoft ou autre pour vous connecter facilement."
+        storageKey="settings.profile.collapse"
+        showSeparator={false}
+      >
+        <div className="mt-2">
+          <LinkedSSOAccounts />
+        </div>
+      </CollapsibleSection>
+
       {/* Save / Cancel bar (sticky for all profile fields above) */}
       <div className="flex items-center gap-3 py-4 border-t border-border mt-2">
         <button className="gl-button gl-button-confirm" onClick={handleSubmit} disabled={!isDirty || updateProfile.isPending}>
@@ -842,5 +855,139 @@ export function ProfileTab() {
         outputFormat="image/png"
       />
     </>
+  )
+}
+
+
+// ─── Linked SSO Accounts ─────────────────────────────────────────────────────
+
+const SSO_PROVIDER_META: Record<string, { name: string; color: string; icon: string }> = {
+  google_oauth: { name: 'Google', color: 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800', icon: 'G' },
+  azure_ad: { name: 'Microsoft', color: 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800', icon: 'M' },
+  okta: { name: 'Okta', color: 'bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-800', icon: 'O' },
+  keycloak: { name: 'Keycloak', color: 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-900/20 dark:text-gray-400 dark:border-gray-800', icon: 'K' },
+}
+
+function LinkedSSOAccounts() {
+  const { toast } = useToast()
+  const [linked, setLinked] = useState<Array<{ id: string; provider: string; email: string | null; display_name: string | null; linked_at: string | null }>>([])
+  const [available, setAvailable] = useState<Array<{ id: string; name: string; icon: string }>>([])
+  const [loading, setLoading] = useState(true)
+  const [unlinkingId, setUnlinkingId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const { default: api } = await import('@/lib/api')
+        const [linkedRes, availableRes] = await Promise.all([
+          api.get('/api/v1/auth/sso/linked-providers'),
+          api.get('/api/v1/auth/sso/providers'),
+        ])
+        setLinked(linkedRes.data)
+        setAvailable(availableRes.data)
+      } catch {
+        // SSO not configured — ignore
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+
+    // Check URL for SSO link result
+    const params = new URLSearchParams(window.location.search)
+    const ssoLink = params.get('sso_link')
+    if (ssoLink === 'success') {
+      toast({ title: 'Compte lié avec succès', variant: 'success' })
+      window.history.replaceState({}, '', window.location.pathname + window.location.hash)
+    } else if (ssoLink === 'already_linked') {
+      toast({ title: 'Ce fournisseur est déjà lié', variant: 'warning' })
+      window.history.replaceState({}, '', window.location.pathname + window.location.hash)
+    } else if (ssoLink === 'error') {
+      toast({ title: 'Erreur lors du lien SSO', variant: 'error' })
+      window.history.replaceState({}, '', window.location.pathname + window.location.hash)
+    }
+  }, [toast])
+
+  const handleLink = async (providerId: string) => {
+    try {
+      const { default: api } = await import('@/lib/api')
+      const res = await api.get(`/api/v1/auth/sso/link?provider=${providerId}`)
+      window.location.href = res.data.authorize_url
+    } catch {
+      toast({ title: 'Erreur', description: 'Impossible de démarrer le lien SSO.', variant: 'error' })
+    }
+  }
+
+  const handleUnlink = async (linkId: string) => {
+    try {
+      const { default: api } = await import('@/lib/api')
+      await api.delete(`/api/v1/auth/sso/linked-providers/${linkId}`)
+      setLinked((prev) => prev.filter((p) => p.id !== linkId))
+      setUnlinkingId(null)
+      toast({ title: 'Compte dissocié', variant: 'success' })
+    } catch {
+      toast({ title: 'Erreur', variant: 'error' })
+    }
+  }
+
+  if (loading) return <div className="flex items-center justify-center py-4"><Loader2 size={14} className="animate-spin text-muted-foreground" /></div>
+  if (available.length === 0) return <p className="text-xs text-muted-foreground">Aucun fournisseur SSO configuré par l'administrateur.</p>
+
+  const linkedProviderIds = new Set(linked.map((l) => l.provider))
+
+  return (
+    <div className="space-y-3">
+      {/* Linked accounts */}
+      {linked.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          {linked.map((l) => {
+            const meta = SSO_PROVIDER_META[l.provider] ?? { name: l.provider, color: 'bg-gray-50 text-gray-600 border-gray-200', icon: '?' }
+            return (
+              <div key={l.id} className={`flex items-center gap-3 py-2.5 px-3 rounded-lg border ${meta.color} group`}>
+                <div className="h-8 w-8 rounded-full bg-white dark:bg-gray-800 border border-border/40 flex items-center justify-center text-sm font-bold shrink-0">
+                  {meta.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{meta.name}</p>
+                  <p className="text-xs opacity-70 truncate">{l.email || l.display_name}</p>
+                </div>
+                {unlinkingId === l.id ? (
+                  <div className="flex items-center gap-1 shrink-0 text-xs">
+                    <button onClick={() => handleUnlink(l.id)} className="px-2 py-0.5 rounded bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400">Oui</button>
+                    <button onClick={() => setUnlinkingId(null)} className="px-2 py-0.5 rounded bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400">Non</button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setUnlinkingId(l.id)}
+                    className="text-[10px] text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                  >
+                    Dissocier
+                  </button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Available to link */}
+      {available.filter((a) => !linkedProviderIds.has(a.id)).length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {available.filter((a) => !linkedProviderIds.has(a.id)).map((a) => {
+            const meta = SSO_PROVIDER_META[a.id] ?? { name: a.name, color: 'bg-gray-50 text-gray-600 border-gray-200', icon: '?' }
+            return (
+              <button
+                key={a.id}
+                onClick={() => handleLink(a.id)}
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border/60 bg-card hover:bg-accent/50 hover:border-border text-sm font-medium transition-all"
+              >
+                <span className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold">{meta.icon}</span>
+                Lier {meta.name}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }

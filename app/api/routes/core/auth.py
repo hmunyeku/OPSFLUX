@@ -45,7 +45,7 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
-from app.models.common import Entity, RefreshToken, Setting, User, UserGroup, UserGroupMember, UserGroupRole, UserSession
+from app.models.common import Entity, RefreshToken, Setting, User, UserGroup, UserGroupMember, UserGroupRole, UserSession, UserSSOProvider
 from app.schemas.common import (
     LoginRequest,
     LoginResponse,
@@ -1018,13 +1018,49 @@ async def sso_callback(
         or email
     )
 
-    # ── Step 4: Find or create user ──
+    # ── Step 4: Mode-dependent logic ──
+    link_mode = state_payload.get("mode", "login")
+
+    if link_mode == "link":
+        # ── LINK MODE: Associate SSO identity to an existing logged-in user ──
+        link_user_id = state_payload.get("user_id")
+        if not link_user_id:
+            return RedirectResponse(f"{settings.APP_URL}/settings#securite?sso_link=error&reason=missing_user")
+
+        from uuid import UUID as PyUUID
+        user = await db.get(User, PyUUID(link_user_id))
+        if not user:
+            return RedirectResponse(f"{settings.APP_URL}/settings#securite?sso_link=error&reason=user_not_found")
+
+        # Check if this provider is already linked to this user
+        existing = await db.execute(
+            select(UserSSOProvider).where(
+                UserSSOProvider.user_id == user.id,
+                UserSSOProvider.provider == provider_id,
+            )
+        )
+        if existing.scalar_one_or_none():
+            return RedirectResponse(f"{settings.APP_URL}/settings#securite?sso_link=already_linked&provider={provider_id}")
+
+        # Create the SSO link
+        sso_link = UserSSOProvider(
+            user_id=user.id,
+            provider=provider_id,
+            sso_subject=str(sso_id),
+            email=email,
+            display_name=f"{first_name} {last_name}".strip() or email,
+        )
+        db.add(sso_link)
+        await db.commit()
+        logger.info("SSO linked: user %s → provider %s (%s)", user.email, provider_id, email)
+        return RedirectResponse(f"{settings.APP_URL}/settings#securite?sso_link=success&provider={provider_id}")
+
+    # ── LOGIN MODE: Find or create user ──
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
 
     if not user:
-        # Auto-provision new SSO user (JIT provisioning per AUTH.md §2.2)
-        # Find default entity for this tenant
+        # Auto-provision new SSO user (JIT provisioning)
         default_entity_result = await db.execute(
             select(Entity).where(Entity.active == True).order_by(Entity.created_at).limit(1)  # noqa: E712
         )
@@ -1042,24 +1078,122 @@ async def sso_callback(
             default_entity_id=default_entity.id if default_entity else None,
         )
         db.add(user)
-        await db.flush()  # get the user.id
+        await db.flush()
         logger.info("SSO auto-provisioned new user: %s (provider: %s, entity: %s)",
                      email, provider_id, default_entity.code if default_entity else "none")
     else:
-        # Update intranet_id if not set
         if not user.intranet_id:
             user.intranet_id = str(sso_id)
-
         if not user.active:
             return RedirectResponse(f"{settings.APP_URL}/login?sso_error=account_inactive")
+
+    # Auto-link SSO provider on login if not already linked
+    existing_link = await db.execute(
+        select(UserSSOProvider).where(
+            UserSSOProvider.user_id == user.id,
+            UserSSOProvider.provider == provider_id,
+        )
+    )
+    if not existing_link.scalar_one_or_none():
+        db.add(UserSSOProvider(
+            user_id=user.id,
+            provider=provider_id,
+            sso_subject=str(sso_id),
+            email=email,
+            display_name=f"{first_name} {last_name}".strip() or email,
+        ))
 
     # ── Step 5: Issue OpsFlux tokens ──
     login_response = await _issue_tokens(user, request, db)
 
-    # Redirect to frontend with tokens
     import urllib.parse
     params = urllib.parse.urlencode({
         "sso_access_token": login_response.access_token,
         "sso_refresh_token": login_response.refresh_token,
     })
     return RedirectResponse(f"{settings.APP_URL}/login?{params}")
+
+
+# ─── SSO Account Linking (from profile) ──────────────────────────────────────
+
+@router.get("/sso/link")
+async def sso_link_authorize(
+    provider: str = Query(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Initiate OAuth2 flow to link an SSO provider to the current user's account."""
+    if provider not in SSO_PROVIDERS:
+        raise HTTPException(400, f"Unknown SSO provider: {provider}")
+
+    provider_def = SSO_PROVIDERS[provider]
+    cfg = await _get_sso_settings(db, provider_def["settings_prefix"])
+    client_id = cfg.get("client_id", "")
+    if not client_id:
+        raise HTTPException(400, f"SSO provider '{provider}' is not configured")
+
+    urls = _build_provider_urls(provider, cfg)
+    if not urls:
+        raise HTTPException(400, f"Cannot build URLs for provider '{provider}'")
+
+    callback_url = f"{settings.API_URL}/api/v1/auth/sso/callback"
+    state = create_sso_state_token(provider, mode="link", user_id=str(current_user.id))
+    scopes = cfg.get("scopes", "") or provider_def.get("default_scopes", "openid email profile")
+
+    import urllib.parse
+    params = {
+        "client_id": client_id,
+        "redirect_uri": callback_url,
+        "response_type": "code",
+        "scope": scopes,
+        "state": state,
+        "access_type": "offline",
+        "prompt": "select_account",
+    }
+    authorize_url = f"{urls['authorize_url']}?{urllib.parse.urlencode(params)}"
+    return {"authorize_url": authorize_url, "provider": provider}
+
+
+@router.get("/sso/linked-providers")
+async def list_linked_providers(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return SSO providers linked to the current user."""
+    result = await db.execute(
+        select(UserSSOProvider).where(UserSSOProvider.user_id == current_user.id)
+    )
+    providers = result.scalars().all()
+    return [
+        {
+            "id": str(p.id),
+            "provider": p.provider,
+            "email": p.email,
+            "display_name": p.display_name,
+            "linked_at": p.linked_at.isoformat() if p.linked_at else None,
+            "last_used_at": p.last_used_at.isoformat() if p.last_used_at else None,
+        }
+        for p in providers
+    ]
+
+
+@router.delete("/sso/linked-providers/{provider_id}")
+async def unlink_sso_provider(
+    provider_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Unlink an SSO provider from the current user."""
+    from uuid import UUID as PyUUID
+    result = await db.execute(
+        select(UserSSOProvider).where(
+            UserSSOProvider.id == PyUUID(provider_id),
+            UserSSOProvider.user_id == current_user.id,
+        )
+    )
+    provider = result.scalar_one_or_none()
+    if not provider:
+        raise HTTPException(404, "Linked provider not found")
+    await db.delete(provider)
+    await db.commit()
+    return {"detail": "Provider unlinked"}

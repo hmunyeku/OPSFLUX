@@ -1790,7 +1790,7 @@ class PdfPreviewRequest(BaseModel):
 
 # UserPassport
 class UserPassportCreate(BaseModel):
-    user_id: UUID
+    user_id: UUID | None = None  # injected from URL path
     passport_type: str | None = None
     number: str
     country: str
@@ -1829,7 +1829,7 @@ class UserPassportRead(BaseModel):
 
 # UserVisa
 class UserVisaCreate(BaseModel):
-    user_id: UUID
+    user_id: UUID | None = None  # injected from URL path
     visa_type: str
     number: str | None = None
     country: str
@@ -1865,7 +1865,7 @@ class UserVisaRead(BaseModel):
 
 # EmergencyContact
 class EmergencyContactCreate(BaseModel):
-    user_id: UUID
+    user_id: UUID | None = None  # injected from URL path
     relationship_type: str
     name: str
     phone_number: str | None = None
@@ -1890,7 +1890,7 @@ class EmergencyContactRead(BaseModel):
 
 # SocialSecurity
 class SocialSecurityCreate(BaseModel):
-    user_id: UUID
+    user_id: UUID | None = None  # injected from URL path
     country: str
     number: str
 
@@ -1913,7 +1913,7 @@ class SocialSecurityRead(BaseModel):
 
 # UserVaccine
 class UserVaccineCreate(BaseModel):
-    user_id: UUID
+    user_id: UUID | None = None  # injected from URL path
     vaccine_type: str
     date_administered: date | None = None
     expiry_date: date | None = None
@@ -1942,7 +1942,7 @@ class UserVaccineRead(BaseModel):
 
 # UserLanguage
 class UserLanguageCreate(BaseModel):
-    user_id: UUID
+    user_id: UUID | None = None  # injected from URL path
     language_code: str
     proficiency_level: str | None = None
 
@@ -1961,7 +1961,7 @@ class UserLanguageRead(BaseModel):
 
 # DrivingLicense
 class DrivingLicenseCreate(BaseModel):
-    user_id: UUID
+    user_id: UUID | None = None  # injected from URL path
     license_type: str
     country: str
     expiry_date: date | None = None

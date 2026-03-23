@@ -246,6 +246,11 @@ async def _send_ovh(cfg: dict[str, str], to: str, body: str) -> bool:
         logger.error("OVH SMS: service_name not configured")
         return False
 
+    # Normalize phone number: remove spaces/dashes, ensure E.164 format
+    normalized = to.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+    if not normalized.startswith("+"):
+        normalized = "+" + normalized
+
     url = f"https://eu.api.ovh.com/1.0/sms/{service_name}/jobs"
     timestamp = str(int(time.time()))
 
@@ -256,7 +261,7 @@ async def _send_ovh(cfg: dict[str, str], to: str, body: str) -> bool:
         "message": body,
         "noStopClause": True,
         "priority": "high",
-        "receivers": [to],
+        "receivers": [normalized],
         "sender": sender,
         "senderForResponse": False,
     }
@@ -297,12 +302,16 @@ async def _send_twilio(cfg: dict[str, str], to: str, body: str) -> bool:
         logger.error("Twilio SMS: from_number not configured")
         return False
 
+    normalized = to.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+    if not normalized.startswith("+"):
+        normalized = "+" + normalized
+
     url = f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json"
 
     async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.post(
             url,
-            data={"To": to, "From": from_number, "Body": body},
+            data={"To": normalized, "From": from_number, "Body": body},
             auth=(account_sid, auth_token),
         )
         if resp.status_code in (200, 201):
@@ -320,13 +329,15 @@ async def _send_vonage(cfg: dict[str, str], to: str, body: str) -> bool:
     api_secret = cfg["api_secret"]
     sender = cfg.get("sender", "OpsFlux")
 
+    normalized = to.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+
     url = "https://rest.nexmo.com/sms/json"
 
     async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.post(url, json={
             "api_key": api_key,
             "api_secret": api_secret,
-            "to": to.replace("+", ""),
+            "to": normalized.replace("+", ""),
             "from": sender,
             "text": body,
         })

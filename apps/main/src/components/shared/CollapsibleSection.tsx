@@ -110,6 +110,8 @@ export interface CollapsibleSectionProps {
   className?: string
   /** Show the bottom separator (default: true) */
   showSeparator?: boolean
+  /** Optional action element rendered in the header (e.g. + button), visible on hover */
+  headerAction?: ReactNode
   /** Children content */
   children: ReactNode
 }
@@ -122,6 +124,7 @@ export function CollapsibleSection({
   storageKey,
   className,
   showSeparator = true,
+  headerAction,
   children,
 }: CollapsibleSectionProps) {
   const { focusedSection, clearFocus, onSectionFocus } = useCollapsibleContext()
@@ -189,20 +192,27 @@ export function CollapsibleSection({
   return (
     <div ref={sectionRef} id={id} className={cn('scroll-mt-4', className)}>
       {/* Header — clickable to toggle */}
-      <button
-        type="button"
-        onClick={toggle}
-        className="settings-sticky-header w-full flex items-center gap-2 group cursor-pointer select-none"
-      >
-        <ChevronRight
-          size={16}
-          className={cn(
-            'shrink-0 text-muted-foreground transition-transform duration-200',
-            expanded && 'rotate-90',
-          )}
-        />
-        <h2 className="gl-heading-2 flex-1 text-left">{title}</h2>
-      </button>
+      <div className="settings-sticky-header flex items-center gap-2 group">
+        <button
+          type="button"
+          onClick={toggle}
+          className="flex items-center gap-2 flex-1 cursor-pointer select-none"
+        >
+          <ChevronRight
+            size={16}
+            className={cn(
+              'shrink-0 text-muted-foreground transition-transform duration-200',
+              expanded && 'rotate-90',
+            )}
+          />
+          <h2 className="gl-heading-2 flex-1 text-left">{title}</h2>
+        </button>
+        {headerAction && expanded && (
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0" onClick={(e) => e.stopPropagation()}>
+            {headerAction}
+          </div>
+        )}
+      </div>
 
       {description && (
         <p
@@ -215,7 +225,7 @@ export function CollapsibleSection({
         </p>
       )}
 
-      {/* Content with animated expand/collapse */}
+      {/* Content with animated expand/collapse — indented to align with title */}
       <div
         ref={contentRef}
         className={cn(
@@ -223,10 +233,10 @@ export function CollapsibleSection({
           expanded ? 'max-h-[5000px] opacity-100 overflow-visible' : 'max-h-0 opacity-0 overflow-hidden',
         )}
       >
-        <div className="pt-2 pb-2">{children}</div>
+        <div className="pt-2 pb-2 ml-6">{children}</div>
       </div>
 
-      {showSeparator && <hr className="border-border my-6" />}
+      {showSeparator && <hr className="border-border my-6 ml-6" />}
     </div>
   )
 }

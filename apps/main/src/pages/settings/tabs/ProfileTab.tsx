@@ -8,11 +8,10 @@
  * - API-backed: PATCH /api/v1/profile, POST /api/v1/profile/avatar
  */
 import { useState, useRef, useEffect } from 'react'
-import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/authStore'
 import { useUpdateProfile, useUploadAvatar } from '@/hooks/useSettings'
 import { useToast } from '@/components/ui/Toast'
-import { Camera, Loader2 } from 'lucide-react'
+import { Camera, Loader2, Pencil, Check } from 'lucide-react'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 import { ImageEditor } from '@/components/shared/ImageEditor'
 import { PhoneManager } from '@/components/shared/PhoneManager'
@@ -119,7 +118,6 @@ function DictCombobox({ value, options, onChange, placeholder }: {
 }
 
 export function ProfileTab() {
-  const { t } = useTranslation()
   const { user } = useAuthStore()
   const { toast } = useToast()
   const updateProfile = useUpdateProfile()
@@ -333,13 +331,13 @@ export function ProfileTab() {
 
   return (
     <>
-      {/* Section: Profil — avatar + nom/prénom */}
-      <div className="flex items-start gap-5 mb-6">
+      {/* Section: Profil — avatar + nom inline editable + compliance */}
+      <div className="flex items-start gap-5 mb-4">
         <div className="relative group shrink-0">
           {user?.avatar_url ? (
-            <img src={user.avatar_url} alt={`${user.first_name} ${user.last_name}`} className="h-20 w-20 rounded-full object-cover" />
+            <img src={user.avatar_url} alt={`${user.first_name} ${user.last_name}`} className="h-16 w-16 rounded-full object-cover" />
           ) : (
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary text-2xl font-semibold text-primary-foreground">{initials}</div>
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-xl font-semibold text-primary-foreground">{initials}</div>
           )}
           <button
             className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
@@ -347,22 +345,32 @@ export function ProfileTab() {
             onClick={() => fileInputRef.current?.click()}
             disabled={uploadAvatar.isPending}
           >
-            {uploadAvatar.isPending ? <Loader2 size={20} className="animate-spin" /> : <Camera size={20} />}
+            {uploadAvatar.isPending ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
           </button>
           <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleAvatarChange} />
         </div>
-        <div className="flex-1 space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-[400px]">
-            <div>
-              <label className="gl-label">{t('users.first_name')}</label>
-              <input type="text" className="gl-form-input" value={form.first_name || ''} onChange={(e) => updateField('first_name', e.target.value)} />
+        <div className="flex-1 min-w-0">
+          <InlineNameEditor
+            firstName={form.first_name || ''}
+            lastName={form.last_name || ''}
+            onFirstNameChange={(v) => updateField('first_name', v)}
+            onLastNameChange={(v) => updateField('last_name', v)}
+          />
+          <p className="text-xs text-muted-foreground mt-0.5">{user?.email}</p>
+          {/* Compliance badge inline */}
+          {!complianceLoading && complianceCheck && (
+            <div className="flex items-center gap-2 mt-2">
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold text-white ${complianceCheck.is_compliant ? 'bg-emerald-600' : 'bg-amber-600'}`}>
+                {complianceCheck.is_compliant ? 'Conforme' : 'Non conforme'}
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                {complianceCheck.total_valid}/{complianceCheck.total_required} exigences
+              </span>
+              {complianceCheck.account_verified === false && (
+                <span className="text-[10px] text-red-500 font-medium">Compte non vérifié</span>
+              )}
             </div>
-            <div>
-              <label className="gl-label">{t('users.last_name')}</label>
-              <input type="text" className="gl-form-input" value={form.last_name || ''} onChange={(e) => updateField('last_name', e.target.value)} />
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground">{user?.email}</p>
+          )}
         </div>
       </div>
 
@@ -808,6 +816,51 @@ const SSO_PROVIDER_META: Record<string, { name: string; color: string; icon: str
   okta: { name: 'Okta', color: 'bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-800', icon: 'O' },
   keycloak: { name: 'Keycloak', color: 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-900/20 dark:text-gray-400 dark:border-gray-800', icon: 'K' },
 }
+
+// ─── Inline Name Editor ──────────────────────────────────────────────────────
+
+function InlineNameEditor({ firstName, lastName, onFirstNameChange, onLastNameChange }: {
+  firstName: string; lastName: string
+  onFirstNameChange: (v: string) => void; onLastNameChange: (v: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          className="gl-form-input h-8 text-sm w-32"
+          value={firstName}
+          onChange={(e) => onFirstNameChange(e.target.value)}
+          placeholder="Prénom"
+          autoFocus
+        />
+        <input
+          type="text"
+          className="gl-form-input h-8 text-sm w-32"
+          value={lastName}
+          onChange={(e) => onLastNameChange(e.target.value)}
+          placeholder="Nom"
+        />
+        <button onClick={() => setEditing(false)} className="text-muted-foreground hover:text-foreground p-1">
+          <Check size={14} />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <button
+      onClick={() => setEditing(true)}
+      className="group flex items-center gap-1.5 text-left"
+    >
+      <span className="text-base font-semibold text-foreground">{firstName} {lastName}</span>
+      <Pencil size={12} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+    </button>
+  )
+}
+
 
 function LinkedSSOAccounts() {
   const { toast } = useToast()

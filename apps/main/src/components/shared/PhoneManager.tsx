@@ -326,7 +326,7 @@ export function PhoneManager({ ownerType, ownerId, compact }: PhoneManagerProps)
       )}
 
       {!isLoading && phones.length > 0 && (
-        <div className="space-y-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {phones.map((phone) => {
             if (editingId === phone.id) {
               return (
@@ -354,27 +354,35 @@ export function PhoneManager({ ownerType, ownerId, compact }: PhoneManagerProps)
             return (
               <div
                 key={phone.id}
-                className="flex items-center gap-2 text-sm group"
+                className="flex items-center gap-2 py-2 px-3 rounded-lg border border-border/40 bg-card hover:border-border hover:shadow-sm group cursor-pointer transition-all"
                 onDoubleClick={() => setEditingId(phone.id)}
                 title="Double-cliquez pour modifier"
               >
-                {flag ? (
-                  <span className="text-sm leading-none shrink-0">{flag}</span>
-                ) : (
-                  <PhoneIcon size={12} className="text-muted-foreground shrink-0" />
-                )}
-                <span className="text-[10px] font-medium text-muted-foreground uppercase w-12 shrink-0">
-                  {PHONE_LABELS.find((l) => l.value === phone.label)?.label ?? phone.label}
-                </span>
-                <span className="text-foreground font-mono text-xs">
-                  {phone.country_code ? `${phone.country_code} ` : ''}{phone.number}
-                </span>
-                {phone.is_default && (
-                  <Star size={10} className="text-yellow-500 fill-yellow-500 shrink-0" />
-                )}
+                <div className="shrink-0 h-7 w-7 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
+                  {flag ? (
+                    <span className="text-xs leading-none">{flag}</span>
+                  ) : (
+                    <PhoneIcon size={12} className="text-blue-500" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground font-mono truncate">
+                    {phone.country_code ? `${phone.country_code} ` : ''}{phone.number}
+                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-medium text-muted-foreground uppercase">
+                      {PHONE_LABELS.find((l) => l.value === phone.label)?.label ?? phone.label}
+                    </span>
+                    {phone.is_default && (
+                      <span className="inline-flex items-center gap-0.5 text-[9px] text-yellow-600 dark:text-yellow-400">
+                        <Star size={8} className="fill-yellow-500 text-yellow-500" /> défaut
+                      </span>
+                    )}
+                  </div>
+                </div>
                 {phone.verified ? (
-                  <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-emerald-600 dark:text-emerald-400 shrink-0" title={phone.verified_at ? `Vérifié le ${new Date(phone.verified_at).toLocaleDateString()}` : 'Vérifié'}>
-                    <ShieldCheck size={10} />
+                  <span className="shrink-0 h-5 w-5 rounded-full bg-green-50 dark:bg-green-900/20 flex items-center justify-center" title={phone.verified_at ? `Vérifié le ${new Date(phone.verified_at).toLocaleDateString()}` : 'Vérifié'}>
+                    <ShieldCheck size={10} className="text-green-500" />
                   </span>
                 ) : verifyingPhoneId === phone.id ? (
                   <div className="inline-flex items-center gap-1 shrink-0">
@@ -421,7 +429,7 @@ export function PhoneManager({ ownerType, ownerId, compact }: PhoneManagerProps)
                     <span>Vérifier</span>
                   </button>
                 )}
-                <div className="flex items-center gap-0.5 ml-auto opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                   {!phone.is_default && (
                     <button
                       onClick={() => handleSetDefault(phone.id)}

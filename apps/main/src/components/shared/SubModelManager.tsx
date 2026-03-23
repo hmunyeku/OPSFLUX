@@ -312,7 +312,7 @@ export function SubModelManager<TRead extends { id: string }, TCreate>({
       {!hasItems && !showForm ? (
         <EmptyState icon={EmptyIcon} title={emptyLabel} size={compact ? 'compact' : 'default'} />
       ) : (
-        <div className="space-y-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {items?.map((item) => (
             <div key={item.id}>
               {editingId === item.id ? (
@@ -358,7 +358,7 @@ export function SubModelManager<TRead extends { id: string }, TCreate>({
                 </div>
               ) : (
                 <div
-                  className="flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-accent/50 group cursor-pointer transition-colors"
+                  className="flex items-center gap-2.5 py-2 px-3 rounded-lg border border-border/40 bg-card hover:border-border hover:shadow-sm group cursor-pointer transition-all"
                   onDoubleClick={() => {
                     const vs = (item as Record<string, unknown>).verification_status
                     if (vs !== 'verified') handleEdit(item)
@@ -367,12 +367,12 @@ export function SubModelManager<TRead extends { id: string }, TCreate>({
                   {/* Verification badge */}
                   {(() => {
                     const vs = (item as Record<string, unknown>).verification_status as string | undefined
-                    if (vs === 'verified') return <span className="shrink-0"><ShieldCheck size={12} className="text-green-500" /></span>
-                    if (vs === 'rejected') return <span className="shrink-0"><X size={12} className="text-red-500" /></span>
-                    if (vs === 'pending') return <span className="shrink-0"><Lock size={12} className="text-amber-500/50" /></span>
+                    if (vs === 'verified') return <span className="shrink-0 h-7 w-7 rounded-full bg-green-50 dark:bg-green-900/20 flex items-center justify-center"><ShieldCheck size={13} className="text-green-500" /></span>
+                    if (vs === 'rejected') return <span className="shrink-0 h-7 w-7 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center"><X size={13} className="text-red-500" /></span>
+                    if (vs === 'pending') return <span className="shrink-0 h-7 w-7 rounded-full bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center"><Lock size={13} className="text-amber-500" /></span>
                     return null
                   })()}
-                  <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                  <div className="flex-1 min-w-0">
                     {displayColumns.map((col, i) => {
                       const raw = (item as Record<string, unknown>)[col.key]
                       const content = col.render
@@ -380,16 +380,18 @@ export function SubModelManager<TRead extends { id: string }, TCreate>({
                         : col.format
                           ? col.format(raw)
                           : (typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}/.test(raw) ? formatDate(raw) : String(raw ?? '—'))
-                      return (
-                        <span key={col.key} className={i === 0 ? 'text-sm font-medium text-foreground' : 'text-xs text-muted-foreground'}>
-                          {i > 0 && <span className="text-muted-foreground/40 mr-1">·</span>}
+                      return i === 0 ? (
+                        <p key={col.key} className="text-sm font-medium text-foreground truncate">{content}</p>
+                      ) : (
+                        <span key={col.key} className="text-xs text-muted-foreground">
+                          {i > 1 && <span className="text-muted-foreground/40 mx-1">·</span>}
                           {content}
                         </span>
                       )
                     })}
                   </div>
                   {(item as Record<string, unknown>).verification_status !== 'verified' ? (
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                       <button onClick={() => handleEdit(item)} className="h-6 w-6 flex items-center justify-center rounded hover:bg-accent">
                         <Pencil size={11} className="text-muted-foreground" />
                       </button>
@@ -398,7 +400,7 @@ export function SubModelManager<TRead extends { id: string }, TCreate>({
                       </button>
                     </div>
                   ) : (
-                    <span className="text-[9px] text-green-600 font-medium shrink-0">Vérifié</span>
+                    <span className="text-[9px] text-green-600 font-medium shrink-0 px-1.5 py-0.5 rounded-full bg-green-50 dark:bg-green-900/20">Vérifié</span>
                   )}
                 </div>
               )}

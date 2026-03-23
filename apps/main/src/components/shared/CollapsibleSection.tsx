@@ -219,8 +219,8 @@ export function CollapsibleSection({
       <div
         ref={contentRef}
         className={cn(
-          'overflow-hidden transition-all duration-300 ease-in-out',
-          expanded ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0',
+          'transition-all duration-300 ease-in-out',
+          expanded ? 'max-h-[5000px] opacity-100 overflow-visible' : 'max-h-0 opacity-0 overflow-hidden',
         )}
       >
         <div className="pt-2 pb-2">{children}</div>

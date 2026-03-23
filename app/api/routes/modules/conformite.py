@@ -306,14 +306,17 @@ async def list_compliance_records(
         .join(ComplianceType, ComplianceRecord.compliance_type_id == ComplianceType.id)
         .where(ComplianceRecord.entity_id == entity_id, ComplianceRecord.active == True)
     )
+    # Exclude rejected records by default (unless explicitly filtered)
+    if status:
+        query = query.where(ComplianceRecord.status == status)
+    else:
+        query = query.where(ComplianceRecord.status != "rejected")
     if owner_type:
         query = query.where(ComplianceRecord.owner_type == owner_type)
     if owner_id:
         query = query.where(ComplianceRecord.owner_id == owner_id)
     if compliance_type_id:
         query = query.where(ComplianceRecord.compliance_type_id == compliance_type_id)
-    if status:
-        query = query.where(ComplianceRecord.status == status)
     if category:
         query = query.where(ComplianceType.category == category)
     if search:
@@ -369,10 +372,14 @@ async def create_compliance_record(
     _: None = require_permission("conformite.record.create"),
     db: AsyncSession = Depends(get_db),
 ):
+    data = body.model_dump()
+    # Security: force status to pending at creation — only verification promotes to valid
+    data["status"] = "pending"
+    data["verification_status"] = "pending"
     rec = ComplianceRecord(
         entity_id=entity_id,
         created_by=current_user.id,
-        **body.model_dump(),
+        **data,
     )
     db.add(rec)
     await db.commit()
@@ -402,8 +409,16 @@ async def update_compliance_record(
         raise HTTPException(404, "Record not found")
     # Block updates on verified records unless user has conformite.verify permission
     await check_verified_lock(rec, current_user, entity_id=entity_id, db=db)
-    for field, value in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    for field, value in updates.items():
         setattr(rec, field, value)
+    # Auto-fix status when expiry date is corrected
+    if "expires_at" in updates and rec.status == "expired":
+        new_expires = updates["expires_at"]
+        now = datetime.now(timezone.utc)
+        if new_expires is None or new_expires > now:
+            # Date corrected to future — restore to valid (if verified) or pending
+            rec.status = "valid" if rec.verification_status == "verified" else "pending"
     await db.commit()
     await db.refresh(rec)
     ct = await db.get(ComplianceType, rec.compliance_type_id)

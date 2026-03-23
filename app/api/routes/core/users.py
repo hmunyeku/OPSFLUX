@@ -61,10 +61,12 @@ async def list_users(
 @router.post("", response_model=UserRead, status_code=201)
 async def create_user(
     body: UserCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("user.create"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a new user."""
+    """Create a new user and send an invitation email."""
     # Check email uniqueness
     existing = await db.execute(select(User).where(User.email == body.email))
     if existing.scalar_one_or_none():
@@ -75,12 +77,43 @@ async def create_user(
         first_name=body.first_name,
         last_name=body.last_name,
         hashed_password=hash_password(body.password) if body.password else None,
-        default_entity_id=body.default_entity_id,
+        default_entity_id=body.default_entity_id or entity_id,
         language=body.language,
     )
     db.add(user)
     await db.commit()
     await db.refresh(user)
+
+    # Send invitation email (non-blocking — don't fail creation if email fails)
+    try:
+        from app.core.security import create_password_reset_token
+        from app.core.email_templates import render_and_send_email
+        from app.core.config import settings as app_settings
+
+        reset_token = create_password_reset_token(user_id=user.id, email=user.email)
+        invitation_url = f"{app_settings.FRONTEND_URL}/reset-password?token={reset_token}"
+
+        # Fetch entity name for template
+        from app.models.common import Entity
+        entity = await db.get(Entity, entity_id)
+
+        await render_and_send_email(
+            db=db,
+            slug="user_invitation",
+            entity_id=entity_id,
+            language=user.language or "fr",
+            to=user.email,
+            context={
+                "invitation_url": invitation_url,
+                "user": {"first_name": user.first_name, "last_name": user.last_name, "email": user.email},
+                "inviter": {"first_name": current_user.first_name, "last_name": current_user.last_name},
+                "entity": {"name": entity.name if entity else "OpsFlux"},
+            },
+        )
+    except Exception:
+        import logging
+        logging.getLogger(__name__).warning("Failed to send invitation email to %s", user.email, exc_info=True)
+
     return user
 
 

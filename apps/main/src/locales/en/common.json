@@ -213,7 +213,9 @@
     "no_entity": "No entity assigned",
     "no_entity_available": "No entity available",
     "no_group": "No group",
-    "no_role": "No role assigned"
+    "no_role": "No role assigned",
+    "created_success": "User created successfully",
+    "create_error": "Error creating user"
   },
   "conformite": {
     "title": "Compliance",

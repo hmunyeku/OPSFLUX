@@ -213,7 +213,9 @@
     "no_entity": "Aucune entité assignée",
     "no_entity_available": "Aucune entité disponible",
     "no_group": "Aucun groupe",
-    "no_role": "Aucun rôle attribué"
+    "no_role": "Aucun rôle attribué",
+    "created_success": "Utilisateur créé avec succès",
+    "create_error": "Erreur lors de la création"
   },
   "conformite": {
     "title": "Conformité",

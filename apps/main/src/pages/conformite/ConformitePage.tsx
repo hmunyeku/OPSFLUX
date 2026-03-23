@@ -263,6 +263,10 @@ function TypeDetailPanel({ id }: { id: string }) {
         <FormSection title="Description" collapsible defaultExpanded={false}>
           <InlineEditableRow label="Description" value={ct.description || ''} onSave={(v) => handleSave('description', v)} />
         </FormSection>
+
+        <FormSection title="Pièces jointes" collapsible defaultExpanded={false}>
+          <AttachmentManager ownerType="compliance_type" ownerId={ct.id} compact />
+        </FormSection>
       </PanelContentLayout>
     </DynamicPanelShell>
   )
@@ -515,6 +519,10 @@ function ExemptionDetailPanel({ id }: { id: string }) {
             )}
           </FormSection>
         )}
+
+        <FormSection title="Pièces jointes" collapsible defaultExpanded={false}>
+          <AttachmentManager ownerType="compliance_exemption" ownerId={exemption.id} compact />
+        </FormSection>
       </PanelContentLayout>
     </DynamicPanelShell>
   )
@@ -701,6 +709,10 @@ function JobPositionDetailPanel({ id }: { id: string }) {
           ) : (
             <p className="text-xs text-muted-foreground">Aucune exigence de conformité définie pour ce poste.</p>
           )}
+        </FormSection>
+
+        <FormSection title="Pièces jointes" collapsible defaultExpanded={false}>
+          <AttachmentManager ownerType="job_position" ownerId={jp.id} compact />
         </FormSection>
       </PanelContentLayout>
     </DynamicPanelShell>

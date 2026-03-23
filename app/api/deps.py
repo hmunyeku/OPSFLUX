@@ -190,6 +190,10 @@ _OWNER_PERMISSION_MAP: dict[str, tuple[str, str]] = {
     "entity": ("core.entity.read", "core.entity.update"),
     "asset": ("assets.read", "assets.update"),
     "compliance_rule": ("conformite.rule.read", "conformite.rule.update"),
+    "compliance_type": ("conformite.type.read", "conformite.type.update"),
+    "compliance_record": ("conformite.record.read", "conformite.record.update"),
+    "compliance_exemption": ("conformite.exemption.read", "conformite.exemption.approve"),
+    "job_position": ("conformite.jobposition.read", "conformite.jobposition.update"),
 }
 
 

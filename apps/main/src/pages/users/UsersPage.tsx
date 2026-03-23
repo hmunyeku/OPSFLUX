@@ -46,6 +46,7 @@ import { useUsers, useUser, useCreateUser, useUpdateUser, useRevokeAllSessions, 
 import { useAllEntities } from '@/hooks/useEntities'
 import { usePageSize } from '@/hooks/usePageSize'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { useToast } from '@/components/ui/Toast'
 import { RolesTab, GroupsTab, GroupDetailPanel, RoleDetailPanel, CreateGroupForm } from '@/pages/settings/tabs/RbacAdminTab'
 import { useRoles, useGroups, useUserEffectivePermissions, useModules, useUserPermissionOverrides, useSetUserPermissionOverrides, useAddGroupMembers } from '@/hooks/useRbac'
 import { usePermission } from '@/hooks/usePermission'
@@ -445,6 +446,7 @@ function UserCard({ row: user, selected, onSelect, onClick }: CardRendererProps<
 function CreateUserPanel() {
   const { t } = useTranslation()
   const createUser = useCreateUser()
+  const { toast } = useToast()
   const { data: allEntitiesData } = useAllEntities({ page: 1, page_size: 200 })
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const dictLanguageOptions = useDictionaryOptions('language')
@@ -458,11 +460,20 @@ function CreateUserPanel() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const { account_expires_at, ...rest } = form
-    const payload = normalizeNames(rest) as UserCreate & { account_expires_at?: string }
-    if (account_expires_at) payload.account_expires_at = account_expires_at
-    await createUser.mutateAsync(payload as UserCreate)
-    closeDynamicPanel()
+    try {
+      const { account_expires_at, password, ...rest } = form
+      const payload = normalizeNames(rest) as UserCreate & { account_expires_at?: string }
+      // Send null instead of empty string for optional password (min_length=8 validation)
+      payload.password = password && password.length >= 8 ? password : undefined
+      if (account_expires_at) payload.account_expires_at = account_expires_at
+      await createUser.mutateAsync(payload as UserCreate)
+      toast({ title: t('users.created_success'), variant: 'success' })
+      closeDynamicPanel()
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail
+      const msg = typeof detail === 'string' ? detail : Array.isArray(detail) ? detail.map((d: any) => d.msg).join(', ') : t('common.error_generic')
+      toast({ title: t('users.create_error'), description: msg, variant: 'error' })
+    }
   }
 
   const entities = allEntitiesData?.items?.filter((e) => e.active) ?? []

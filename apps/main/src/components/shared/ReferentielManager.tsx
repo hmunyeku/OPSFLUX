@@ -72,7 +72,7 @@ type FormData = {
 
 const EMPTY_FORM: FormData = {
   compliance_type_id: '',
-  status: 'valid',
+  status: 'pending',
   issued_at: '',
   expires_at: '',
   issuer: '',

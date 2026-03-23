@@ -42,7 +42,7 @@ export function ComplianceRecordManager({ ownerType, ownerId, compact }: Complia
   const deleteRecord = useDeleteComplianceRecord()
 
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ compliance_type_id: '', status: 'valid', issued_at: '', expires_at: '', issuer: '', reference_number: '' })
+  const [form, setForm] = useState({ compliance_type_id: '', status: 'pending', issued_at: '', expires_at: '', issuer: '', reference_number: '' })
 
   const handleCreate = async () => {
     if (!form.compliance_type_id || !ownerId) return

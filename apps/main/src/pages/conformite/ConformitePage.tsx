@@ -1044,6 +1044,8 @@ export function ConformitePage() {
       {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'job-position' && <JobPositionDetailPanel id={dynamicPanel.id} />}
       {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'exemption' && <CreateExemptionPanel />}
       {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'exemption' && <ExemptionDetailPanel id={dynamicPanel.id} />}
+      {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'rule' && <CreateRulePanel />}
+      {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'edit' && dynamicPanel.meta?.subtype === 'rule' && <EditRulePanel />}
     </div>
   )
 }

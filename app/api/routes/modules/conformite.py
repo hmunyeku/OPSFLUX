@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select, func as sqla_func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_entity, get_current_user, require_permission
+from app.api.deps import check_verified_lock, get_current_entity, get_current_user, require_permission
 from app.core.database import get_db
 from app.services.core.delete_service import delete_entity, get_delete_policy
 from app.core.events import emit_event
@@ -54,7 +54,7 @@ router = APIRouter(prefix="/api/v1/conformite", tags=["conformite"])
 # ── Compliance Types (referentiel) ────────────────────────────────────────
 
 
-@router.get("/types", response_model=PaginatedResponse[ComplianceTypeRead])
+@router.get("/types", response_model=PaginatedResponse[ComplianceTypeRead], dependencies=[require_permission("conformite.type.read")])
 async def list_compliance_types(
     category: str | None = None,
     search: str | None = None,
@@ -133,7 +133,7 @@ async def delete_compliance_type(
 # ── Compliance Rules ──────────────────────────────────────────────────────
 
 
-@router.get("/rules", response_model=list[ComplianceRuleRead])
+@router.get("/rules", response_model=list[ComplianceRuleRead], dependencies=[require_permission("conformite.rule.read")])
 async def list_compliance_rules(
     compliance_type_id: UUID | None = None,
     entity_id: UUID = Depends(get_current_entity),
@@ -259,7 +259,7 @@ async def delete_compliance_rule(
         return {"detail": "Rule archived"}
 
 
-@router.get("/rules/{rule_id}/history", response_model=list[ComplianceRuleHistoryRead])
+@router.get("/rules/{rule_id}/history", response_model=list[ComplianceRuleHistoryRead], dependencies=[require_permission("conformite.rule.read")])
 async def get_rule_history(
     rule_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
@@ -284,7 +284,7 @@ async def get_rule_history(
 # ── Compliance Records ────────────────────────────────────────────────────
 
 
-@router.get("/records", response_model=PaginatedResponse[ComplianceRecordRead])
+@router.get("/records", response_model=PaginatedResponse[ComplianceRecordRead], dependencies=[require_permission("conformite.record.read")])
 async def list_compliance_records(
     owner_type: str | None = None,
     owner_id: UUID | None = None,
@@ -390,6 +390,7 @@ async def update_compliance_record(
     record_id: UUID,
     body: ComplianceRecordUpdate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("conformite.record.update"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -399,6 +400,8 @@ async def update_compliance_record(
     rec = result.scalars().first()
     if not rec:
         raise HTTPException(404, "Record not found")
+    # Block updates on verified records unless user has conformite.verify permission
+    check_verified_lock(rec, current_user)
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(rec, field, value)
     await db.commit()
@@ -447,7 +450,7 @@ class ExpiringRecordRead(BaseModel):
     days_remaining: int | None = None
 
 
-@router.get("/expiring", response_model=list[ExpiringRecordRead])
+@router.get("/expiring", response_model=list[ExpiringRecordRead], dependencies=[require_permission("conformite.record.read")])
 async def list_expiring_records(
     days: int = 30,
     entity_id: UUID = Depends(get_current_entity),
@@ -520,7 +523,7 @@ async def list_expiring_records(
     return items
 
 
-@router.get("/non-compliant", response_model=list[ExpiringRecordRead])
+@router.get("/non-compliant", response_model=list[ExpiringRecordRead], dependencies=[require_permission("conformite.record.read")])
 async def list_non_compliant_records(
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
@@ -584,7 +587,7 @@ async def list_non_compliant_records(
 # ── Compliance Check ──────────────────────────────────────────────────────
 
 
-@router.get("/check/{owner_type}/{owner_id}", response_model=ComplianceCheckResult)
+@router.get("/check/{owner_type}/{owner_id}", response_model=ComplianceCheckResult, dependencies=[require_permission("conformite.check")])
 async def check_compliance(
     owner_type: str,
     owner_id: UUID,
@@ -727,7 +730,7 @@ async def check_compliance(
 # ── Job Positions (fiches de poste) ─────────────────────────────────────
 
 
-@router.get("/job-positions", response_model=PaginatedResponse[JobPositionRead])
+@router.get("/job-positions", response_model=PaginatedResponse[JobPositionRead], dependencies=[require_permission("conformite.jobposition.read")])
 async def list_job_positions(
     department: str | None = None,
     search: str | None = None,
@@ -806,7 +809,7 @@ async def delete_job_position(
 # ── Employee Transfers ───────────────────────────────────────────────────
 
 
-@router.get("/transfers", response_model=PaginatedResponse[TierContactTransferRead])
+@router.get("/transfers", response_model=PaginatedResponse[TierContactTransferRead], dependencies=[require_permission("conformite.transfer.read")])
 async def list_transfers(
     contact_id: UUID | None = None,
     from_tier_id: UUID | None = None,
@@ -930,7 +933,7 @@ async def _enrich_exemption(db: AsyncSession, exemption) -> dict:
     return d
 
 
-@router.get("/exemptions", response_model=PaginatedResponse[ComplianceExemptionRead])
+@router.get("/exemptions", response_model=PaginatedResponse[ComplianceExemptionRead], dependencies=[require_permission("conformite.exemption.read")])
 async def list_exemptions(
     status: str | None = None,
     compliance_type_id: UUID | None = None,

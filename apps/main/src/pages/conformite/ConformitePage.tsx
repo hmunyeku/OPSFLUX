@@ -681,6 +681,14 @@ export function ConformitePage() {
   const { hasPermission } = usePermission()
   const canImport = hasPermission('conformite.import')
   const canExport = hasPermission('conformite.export') || hasPermission('conformite.record.read')
+  // Granular permission checks for toolbar buttons, tab visibility, inline actions
+  const canCreateType = hasPermission('conformite.type.create')
+  const canCreateRule = hasPermission('conformite.rule.create')
+  const canDeleteRule = hasPermission('conformite.rule.delete')
+  const canCreateJP = hasPermission('conformite.jobposition.create')
+  const canCreateExemption = hasPermission('conformite.exemption.create')
+  const canApproveExemption = hasPermission('conformite.exemption.approve')
+  const canVerify = hasPermission('conformite.verify')
 
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
@@ -836,12 +844,12 @@ export function ConformitePage() {
       return <span className="text-muted-foreground text-xs">{val}</span>
     }},
     { accessorKey: 'description', header: 'Description', cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.description || '--'}</span> },
-    { id: 'actions', header: '', size: 50, cell: ({ row }) => (
+    { id: 'actions', header: '', size: 50, cell: ({ row }) => canDeleteRule ? (
       <button onClick={(e) => { e.stopPropagation(); deleteRule.mutate({ id: row.original.id }) }} className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
         <Trash2 size={12} />
       </button>
-    )},
-  ], [typesData?.items, jobPositionsData?.items, deleteRule])
+    ) : null},
+  ], [typesData?.items, jobPositionsData?.items, deleteRule, canDeleteRule])
 
   // Transfer columns
   const transferColumns = useMemo<ColumnDef<TierContactTransfer, unknown>[]>(() => [
@@ -866,14 +874,14 @@ export function ConformitePage() {
 
   const isFullPanel = panelMode === 'full' && dynamicPanel !== null && dynamicPanel.module === 'conformite'
 
-  // Toolbar action button per tab
+  // Toolbar action button per tab (permission-gated)
   const toolbarAction = useMemo(() => {
-    if (activeTab === 'referentiel') return <ToolbarButton icon={Plus} label="Nouveau type" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite' })} />
-    if (activeTab === 'fiches') return <ToolbarButton icon={Plus} label="Nouvelle fiche" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite', meta: { subtype: 'job-position' } })} />
-    if (activeTab === 'exemptions') return <ToolbarButton icon={Plus} label="Nouvelle exemption" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite', meta: { subtype: 'exemption' } })} />
-    if (activeTab === 'regles') return <ToolbarButton icon={Plus} label="Nouvelle règle" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite', meta: { subtype: 'rule' } })} />
+    if (activeTab === 'referentiel' && canCreateType) return <ToolbarButton icon={Plus} label="Nouveau type" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite' })} />
+    if (activeTab === 'fiches' && canCreateJP) return <ToolbarButton icon={Plus} label="Nouvelle fiche" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite', meta: { subtype: 'job-position' } })} />
+    if (activeTab === 'exemptions' && canCreateExemption) return <ToolbarButton icon={Plus} label="Nouvelle exemption" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite', meta: { subtype: 'exemption' } })} />
+    if (activeTab === 'regles' && canCreateRule) return <ToolbarButton icon={Plus} label="Nouvelle règle" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite', meta: { subtype: 'rule' } })} />
     return null
-  }, [activeTab, openDynamicPanel])
+  }, [activeTab, openDynamicPanel, canCreateType, canCreateJP, canCreateExemption, canCreateRule])
 
   // Render active tab content
   const renderTabContent = () => {
@@ -1006,7 +1014,11 @@ export function ConformitePage() {
         </PanelHeader>
 
         <div className="flex items-center gap-1 px-4 border-b border-border shrink-0 overflow-x-auto">
-          {TABS.map((tab) => {
+          {TABS.filter((tab) => {
+            if (tab.id === 'verifications') return canVerify
+            if (tab.id === 'exemptions') return canCreateExemption || canApproveExemption || hasPermission('conformite.exemption.read')
+            return true
+          }).map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
             return (

@@ -918,6 +918,9 @@ export interface ComplianceType {
   validity_days: number | null
   is_mandatory: boolean
   active: boolean
+  compliance_source: 'opsflux' | 'external' | 'both'
+  external_provider: string | null
+  external_mapping: Record<string, string> | null
   created_at: string
 }
 
@@ -928,6 +931,9 @@ export interface ComplianceTypeCreate {
   description?: string | null
   validity_days?: number | null
   is_mandatory?: boolean
+  compliance_source?: string
+  external_provider?: string | null
+  external_mapping?: Record<string, string> | null
 }
 
 export interface ComplianceTypeUpdate {
@@ -938,6 +944,9 @@ export interface ComplianceTypeUpdate {
   validity_days?: number | null
   is_mandatory?: boolean
   active?: boolean
+  compliance_source?: string
+  external_provider?: string | null
+  external_mapping?: Record<string, string> | null
 }
 
 export interface ComplianceRule {

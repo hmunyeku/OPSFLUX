@@ -1137,6 +1137,9 @@ class ComplianceTypeRead(OpsFluxSchema):
     validity_days: int | None = None
     is_mandatory: bool
     active: bool
+    compliance_source: str = "opsflux"
+    external_provider: str | None = None
+    external_mapping: dict | None = None
     created_at: datetime
 
 
@@ -1147,6 +1150,9 @@ class ComplianceTypeCreate(BaseModel):
     description: str | None = None
     validity_days: int | None = None
     is_mandatory: bool = False
+    compliance_source: str = "opsflux"
+    external_provider: str | None = None
+    external_mapping: dict | None = None
 
 
 class ComplianceTypeUpdate(BaseModel):
@@ -1157,6 +1163,9 @@ class ComplianceTypeUpdate(BaseModel):
     validity_days: int | None = None
     is_mandatory: bool | None = None
     active: bool | None = None
+    compliance_source: str | None = None
+    external_provider: str | None = None
+    external_mapping: dict | None = None
 
 
 class ComplianceRuleRead(OpsFluxSchema):

@@ -1162,6 +1162,13 @@ class ComplianceType(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     is_mandatory: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
+    # External compliance source configuration
+    compliance_source: Mapped[str] = mapped_column(
+        String(20), default="opsflux", nullable=False
+    )  # opsflux | external | both
+    external_provider: Mapped[str | None] = mapped_column(String(50))  # riseup | intranet_medical | ...
+    external_mapping: Mapped[dict | None] = mapped_column(JSONB)  # {"certificate_id": "42", ...}
+
     rules: Mapped[list["ComplianceRule"]] = relationship(back_populates="compliance_type", cascade="all, delete-orphan")
 
 

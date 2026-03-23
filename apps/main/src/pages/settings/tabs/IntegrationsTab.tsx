@@ -135,7 +135,7 @@ function ConnectorStatus({ status, lastTestedAt, lastError }: {
 interface ConnectorField {
   key: string
   label: string
-  placeholder: string
+  placeholder?: string
   type: 'text' | 'secret' | 'select'
   options?: { value: string; label: string }[]
   helpText?: string
@@ -144,7 +144,7 @@ interface ConnectorField {
 interface ConnectorDef {
   id: string
   name: string
-  category: 'oauth2' | 'storage' | 'communication' | 'other'
+  category: 'oauth2' | 'storage' | 'communication' | 'compliance' | 'other'
   description: string
   helpText: string
   consoleUrl?: string
@@ -433,12 +433,51 @@ const CONNECTORS_CATALOG: ConnectorDef[] = [
       { key: 'entity_code', label: 'Code entité', type: 'text' as const, placeholder: 'Ex: P3R3NCOD3' },
     ],
   },
+  // ── Rise Up (LMS / Compliance) ──
+  {
+    id: 'riseup',
+    name: 'Rise Up',
+    category: 'compliance',
+    description: 'Plateforme LMS Rise Up — synchronisation des formations, certifications et compliance.',
+    helpText: 'Connectez OpsFlux à Rise Up pour vérifier automatiquement les formations et certifications des employés. Les clés API se trouvent dans Rise Up > Paramètres > Développeur > API.',
+    consoleUrl: 'https://api.riseup.ai/documentation',
+    icon: '🎓',
+    settingsPrefix: 'integration.riseup',
+    enabledKey: 'integration.riseup.public_key',
+    fields: [
+      { key: 'base_url', label: 'URL de l\'API', type: 'text' as const, placeholder: 'https://api.riseup.ai' },
+      { key: 'public_key', label: 'Clé publique', type: 'text' as const, placeholder: 'Clé API publique Rise Up' },
+      { key: 'secret_key', label: 'Clé secrète', type: 'secret' as const, placeholder: '••••••' },
+      { key: 'match_field', label: 'Champ de liaison utilisateur', type: 'select' as const, options: [
+        { value: 'email', label: 'Email (par défaut)' },
+        { value: 'rhid', label: 'Matricule RH (intranet_id → rhid)' },
+        { value: 'both', label: 'Matricule RH puis email (fallback)' },
+      ]},
+    ],
+  },
+  // ── Intranet Medical ──
+  {
+    id: 'intranet_medical',
+    name: 'Intranet Médical',
+    category: 'compliance',
+    description: 'API intranet pour les visites médicales et certificats d\'aptitude.',
+    helpText: 'Connectez OpsFlux à votre système intranet médical pour synchroniser les visites médicales et certificats d\'aptitude.',
+    icon: '🏥',
+    settingsPrefix: 'integration.intranet_medical',
+    enabledKey: 'integration.intranet_medical.base_url',
+    fields: [
+      { key: 'base_url', label: 'URL de l\'API', type: 'text' as const, placeholder: 'https://intranet.example.com/api' },
+      { key: 'api_key', label: 'Clé API', type: 'secret' as const, placeholder: '••••••' },
+      { key: 'tenant_id', label: 'Tenant / Entreprise', type: 'text' as const, placeholder: 'Code entreprise' },
+    ],
+  },
 ]
 
 const CATEGORY_LABELS: Record<string, { label: string; icon: React.ReactNode }> = {
   oauth2: { label: 'Authentification & Identity', icon: <Shield size={16} /> },
   storage: { label: 'Stockage', icon: <Cloud size={16} /> },
   communication: { label: 'Communication', icon: <Key size={16} /> },
+  compliance: { label: 'Conformité & Formation', icon: <Shield size={16} /> },
   other: { label: 'Autres', icon: <Settings2 size={16} /> },
 }
 
@@ -545,7 +584,7 @@ function ConnectorCard({
                   {field.type === 'secret' ? (
                     <SecretField
                       value={currentValue}
-                      placeholder={field.placeholder}
+                      placeholder={field.placeholder || ''}
                       onSave={(v) => save(settingKey, v)}
                     />
                   ) : field.type === 'select' && field.options ? (

@@ -729,15 +729,94 @@ async def check_compliance(
         elif rec.status == "valid":
             valid_type_ids.add(rec.compliance_type_id)
 
+    # ── Step 4b: Check external sources for types with external provider ──
+    external_valid_type_ids: set = set()
+    external_results: dict[str, str] = {}  # type_id → external status
+
+    # Preload all required ComplianceType objects (need compliance_source field)
+    type_objects: dict = {}
+    for type_id in required_type_ids:
+        type_obj = await db.get(ComplianceType, type_id)
+        if type_obj:
+            type_objects[type_id] = type_obj
+
+    # Group types that need external checking
+    external_types = [
+        (tid, tobj) for tid, tobj in type_objects.items()
+        if tobj.compliance_source in ("external", "both") and tobj.external_provider
+    ]
+
+    if external_types and owner_type == "user":
+        # Resolve user info for external matching
+        user_obj = await db.get(User, owner_id)
+        if user_obj:
+            # Group by provider to minimize API calls
+            by_provider: dict[str, list[tuple]] = {}
+            for tid, tobj in external_types:
+                prov = tobj.external_provider
+                if prov not in by_provider:
+                    by_provider[prov] = []
+                by_provider[prov].append((tid, tobj))
+
+            for provider_id, types_for_provider in by_provider.items():
+                try:
+                    from app.services.connectors.compliance_connector import create_connector
+                    from app.api.routes.core.integrations import _get_connector_settings
+
+                    cfg = await _get_connector_settings(db, f"integration.{provider_id}")
+                    connector = await create_connector(provider_id, cfg)
+                    if not connector:
+                        continue
+
+                    # Match user
+                    match = await connector.match_user(
+                        email=user_obj.email,
+                        intranet_id=user_obj.intranet_id,
+                    )
+                    if not match:
+                        continue
+
+                    # Build type mapping
+                    type_mapping = {}
+                    for tid, tobj in types_for_provider:
+                        if tobj.external_mapping:
+                            ext_id = tobj.external_mapping.get("certificate_id") or tobj.external_mapping.get("training_id")
+                            if ext_id:
+                                type_mapping[str(tid)] = str(ext_id)
+
+                    # Fetch compliance from external
+                    ext_records = await connector.get_user_compliance(
+                        external_user_id=match.external_user_id,
+                        type_mapping=type_mapping if type_mapping else None,
+                    )
+
+                    # Map external results back to OpsFlux type IDs
+                    for tid, tobj in types_for_provider:
+                        if not tobj.external_mapping:
+                            continue
+                        ext_id = str(tobj.external_mapping.get("certificate_id") or tobj.external_mapping.get("training_id") or "")
+                        matching_ext = [r for r in ext_records if r.type_external_id == ext_id]
+                        if any(r.status == "valid" for r in matching_ext):
+                            external_valid_type_ids.add(tid)
+                            external_results[str(tid)] = "valid"
+                        elif any(r.status == "expired" for r in matching_ext):
+                            external_results[str(tid)] = "expired"
+                        elif any(r.status == "pending" for r in matching_ext):
+                            external_results[str(tid)] = "pending"
+
+                except Exception:
+                    logger.exception("External compliance check failed for provider %s", provider_id)
+
     # ── Step 5: Build details per required type ──
     details: list[dict] = []
     for type_id in required_type_ids:
-        type_obj = await db.get(ComplianceType, type_id)
+        type_obj = type_objects.get(type_id) or await db.get(ComplianceType, type_id)
         matching = [r for r in records if r.compliance_type_id == type_id]
         is_exempted = type_id in exempted_type_ids
+        source = type_obj.compliance_source if type_obj else "opsflux"
 
-        # Only count verified records as valid
-        valid_match = any(
+        # Local OpsFlux check
+        local_valid = any(
             r.status == "valid"
             and not (r.expires_at and r.expires_at < now)
             and getattr(r, 'verification_status', 'verified') == 'verified'
@@ -749,18 +828,37 @@ async def check_compliance(
             for r in matching
         )
 
+        # External check result
+        ext_status = external_results.get(str(type_id))
+        ext_valid = type_id in external_valid_type_ids
+
+        # Combine based on source mode
+        if source == "external":
+            # Only external counts
+            valid_match = ext_valid
+        elif source == "both":
+            # Either local OR external is enough
+            valid_match = local_valid or ext_valid
+        else:
+            # OpsFlux only
+            valid_match = local_valid
+
         if is_exempted:
             detail_status = "exempted"
         elif valid_match:
             detail_status = "valid"
+            if valid_match and not local_valid:
+                valid_type_ids.add(type_id)  # Count external valid in totals
         elif has_unverified:
             detail_status = "unverified"
-        elif any(r.expires_at and r.expires_at < now for r in matching):
+        elif ext_status == "expired" or any(r.expires_at and r.expires_at < now for r in matching):
             detail_status = "expired"
+        elif ext_status == "pending":
+            detail_status = "unverified"
         else:
             detail_status = "missing"
 
-        details.append({
+        detail_entry = {
             "compliance_type_id": str(type_id),
             "type_id": str(type_id),
             "type_name": type_obj.name if type_obj else None,
@@ -768,11 +866,15 @@ async def check_compliance(
             "category": type_obj.category if type_obj else None,
             "status": detail_status,
             "record_count": len(matching),
-        })
+            "source": source,
+        }
+        if ext_status:
+            detail_entry["external_status"] = ext_status
+        details.append(detail_entry)
 
     # ── Step 6: Compute final compliance status ──
-    compliant_type_ids = (valid_type_ids | exempted_type_ids) & required_type_ids
-    missing_type_ids = required_type_ids - valid_type_ids - exempted_type_ids
+    compliant_type_ids = (valid_type_ids | external_valid_type_ids | exempted_type_ids) & required_type_ids
+    missing_type_ids = required_type_ids - valid_type_ids - external_valid_type_ids - exempted_type_ids
     await db.commit()
 
     return ComplianceCheckResult(

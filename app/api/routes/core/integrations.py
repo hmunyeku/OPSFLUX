@@ -420,6 +420,13 @@ async def _test_gouti(settings: dict[str, Any]) -> tuple[str, str]:
 
 # ── Connector test dispatcher ────────────────────────────────
 
+async def _test_riseup(cfg: dict[str, str]) -> tuple[str, str]:
+    """Test Rise Up LMS API connection."""
+    from app.services.connectors.riseup_connector import RiseUpConnector
+    connector = RiseUpConnector(cfg)
+    return await connector.test_connection()
+
+
 CONNECTOR_TESTERS = {
     "smtp": ("integration.smtp", _test_smtp),
     "s3_storage": ("integration.storage", _test_s3),
@@ -435,6 +442,7 @@ CONNECTOR_TESTERS = {
     "webhook": ("integration.webhook", _test_webhook),
     "gouti": ("integration.gouti", _test_gouti),
     "ai": ("integration.ai", _test_ai),
+    "riseup": ("integration.riseup", _test_riseup),
 }
 
 

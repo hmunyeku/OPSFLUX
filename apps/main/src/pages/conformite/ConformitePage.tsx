@@ -1107,6 +1107,8 @@ function RulesMatrixView({
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [activeTargetTab, setActiveTargetTab] = useState<TargetTab>('job_position')
   const [viewMode, setViewMode] = useState<'matrix' | 'list'>('matrix')
+  const [hoveredCol, setHoveredCol] = useState<string | null>(null)
+  const [hoveredRow, setHoveredRow] = useState<string | null>(null)
 
   // Available categories (only those with at least 1 type)
   const availableCategories = useMemo(() => {
@@ -1364,7 +1366,10 @@ function RulesMatrixView({
                     {filteredTypes.map(t => (
                       <th
                         key={t.id}
-                        className={`border-b border-r border-border px-1 py-2 text-center font-medium text-foreground min-w-[50px] max-w-[70px] cursor-help ${selectedCategory === 'all' ? '' : ''}`}
+                        className={cn(
+                          'border-b border-r border-border px-1 py-2 text-center font-medium min-w-[50px] max-w-[70px] cursor-help transition-colors',
+                          hoveredCol === t.id ? 'bg-primary/10 text-primary' : 'text-foreground',
+                        )}
                         title={`${t.name}\n${CATEGORY_FULL_LABELS[t.category]} · ${t.validity_days ? `${t.validity_days}j` : 'Permanent'}${t.is_mandatory ? ' · Obligatoire' : ''}`}
                       >
                         <div className="flex flex-col items-center gap-0.5">
@@ -1380,8 +1385,11 @@ function RulesMatrixView({
                 <tbody>
                   {rows.map((row, idx) => (
                     <tr key={row.id} className={idx % 2 === 0 ? 'bg-card' : 'bg-accent/20'}>
-                      <td className={`sticky left-0 z-10 ${idx % 2 === 0 ? 'bg-card' : 'bg-accent/40'} border-r border-border px-3 py-2`}>
-                        <span className="font-medium text-foreground">{row.label}</span>
+                      <td className={cn(
+                        'sticky left-0 z-10 border-r border-border px-3 py-2 transition-colors',
+                        hoveredRow === row.id ? 'bg-primary/10' : idx % 2 === 0 ? 'bg-card' : 'bg-accent/40',
+                      )}>
+                        <span className={cn('font-medium', hoveredRow === row.id ? 'text-primary' : 'text-foreground')}>{row.label}</span>
                         {row.sub && <span className="text-muted-foreground ml-1.5 text-[10px]">{row.sub}</span>}
                       </td>
                       {filteredTypes.map(t => {
@@ -1392,7 +1400,13 @@ function RulesMatrixView({
                         return (
                           <td
                             key={t.id}
-                            className="border-r border-border/30 text-center cursor-pointer hover:bg-primary/10 transition-colors"
+                            className={cn(
+                              'border-r border-border/30 text-center cursor-pointer transition-colors',
+                              (hoveredCol === t.id || hoveredRow === row.id) ? 'bg-primary/5' : '',
+                              'hover:bg-primary/10',
+                            )}
+                            onMouseEnter={() => { setHoveredCol(t.id); setHoveredRow(row.id) }}
+                            onMouseLeave={() => { setHoveredCol(null); setHoveredRow(null) }}
                             onClick={() => handleCellClick(t.id, row.id === '__all__' ? '__all__' : row.id)}
                             title={rule
                               ? `${t.name} (${t.category})\nValidité: ${rule.override_validity_days ?? t.validity_days ?? '∞'}j${rule.grace_period_days ? ` · Grâce: ${rule.grace_period_days}j` : ''}${rule.renewal_reminder_days ? ` · Rappel: ${rule.renewal_reminder_days}j` : ''}\nPriorité: ${rule.priority === 'high' ? 'Haute' : rule.priority === 'low' ? 'Basse' : 'Normale'}${rule.effective_from ? `\nDepuis: ${new Date(rule.effective_from).toLocaleDateString('fr-FR')}` : ''}\nCliquer pour modifier`

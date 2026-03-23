@@ -12,6 +12,7 @@ import { useThemeStore } from '@/stores/themeStore'
 import { useUpdateProfile } from '@/hooks/useSettings'
 import { useToast } from '@/components/ui/Toast'
 import { Sun, Moon, Monitor, Loader2, ZoomIn, Table2 } from 'lucide-react'
+import { useAuthStore } from '@/stores/authStore'
 import { usePageSize } from '@/hooks/usePageSize'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 import {
@@ -84,6 +85,15 @@ export function PreferencesTab() {
             </label>
           ))}
         </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        id="messaging-channel"
+        title="Canal de messagerie"
+        description="Choisissez comment recevoir les notifications, codes de vérification et alertes."
+        storageKey="settings.preferences.collapse"
+      >
+        <MessagingChannelSection />
       </CollapsibleSection>
 
       <CollapsibleSection id="language-pref" title="Langue" description="Définissez la langue de l'interface utilisateur." storageKey="settings.preferences.collapse" showSeparator={false}>
@@ -253,6 +263,57 @@ function UIScaleSection() {
           {t('settings.ui_scale_reset')} ({DEFAULT_SCALE}%)
         </button>
       )}
+    </div>
+  )
+}
+
+// ── Messaging channel preference ────────────────────────────
+
+const CHANNEL_OPTIONS = [
+  { value: 'auto', label: 'Automatique', description: 'Selon la configuration admin' },
+  { value: 'whatsapp', label: 'WhatsApp', description: 'Messages WhatsApp si disponible' },
+  { value: 'sms', label: 'SMS', description: 'SMS classique (Twilio, OVH, Vonage)' },
+  { value: 'email', label: 'Email', description: 'Notifications par email uniquement' },
+]
+
+function MessagingChannelSection() {
+  const { toast } = useToast()
+  const updateProfile = useUpdateProfile()
+  const user = useAuthStore((s) => s.user)
+  const currentChannel = user?.preferred_messaging_channel || 'auto'
+
+  const handleChange = async (value: string) => {
+    try {
+      await updateProfile.mutateAsync({ preferred_messaging_channel: value })
+      toast({ title: 'Préférence de canal mise à jour', variant: 'success' })
+    } catch {
+      toast({ title: 'Erreur', variant: 'error' })
+    }
+  }
+
+  return (
+    <div className="mt-2 space-y-2">
+      {CHANNEL_OPTIONS.map((opt) => (
+        <label key={opt.value} className="flex items-start gap-3 cursor-pointer py-1">
+          <input
+            type="radio"
+            name="messaging-channel"
+            checked={currentChannel === opt.value}
+            onChange={() => handleChange(opt.value)}
+            disabled={updateProfile.isPending}
+            className="h-4 w-4 accent-primary mt-0.5"
+          />
+          <div>
+            <span className="text-sm font-medium text-foreground">{opt.label}</span>
+            <p className="text-xs text-muted-foreground">{opt.description}</p>
+          </div>
+        </label>
+      ))}
+      {updateProfile.isPending && <Loader2 size={14} className="animate-spin text-muted-foreground" />}
+      <p className="text-xs text-muted-foreground mt-1">
+        Ce choix détermine le canal utilisé pour les codes de vérification (OTP), notifications et alertes.
+        Le canal « Automatique » utilise la configuration définie par l'administrateur.
+      </p>
     </div>
   )
 }

@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Utility: hide scrollbar but keep scroll functionality ── */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 /* ═══════════════════════════════════════════════════════════════
  * OpsFlux — GitLab Pajamas Design Tokens
  *
@@ -271,6 +280,67 @@
   }
   .gl-badge-info {
     @apply bg-primary-light text-primary;
+  }
+  .gl-badge-warning {
+    @apply bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400;
+  }
+  .gl-badge-danger {
+    @apply bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400;
+  }
+
+  /* ── Tabs ────────────────────────────────────────────────────
+   * .gl-tab-bar         → horizontal scroll container for tab buttons
+   * .gl-tab-button      → individual tab (icon + label hidden on mobile)
+   * .gl-tab-active      → selected tab state
+   * .gl-tab-inactive    → unselected tab state
+   * .gl-tab-badge       → count badge next to a tab label
+   * .gl-subtab-bar      → secondary/nested tab container (smaller)
+   * .gl-subtab-button   → secondary tab button
+   * ──────────────────────────────────────────────────────────── */
+  .gl-tab-bar {
+    @apply flex items-center gap-0.5 sm:gap-1 px-2 sm:px-4
+           border-b border-border shrink-0 overflow-x-auto;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .gl-tab-bar::-webkit-scrollbar { display: none; }
+  .gl-tab-button {
+    @apply flex items-center gap-1.5 px-2 sm:px-3 py-2 text-sm font-medium
+           border-b-2 -mb-px transition-colors whitespace-nowrap;
+  }
+  .gl-tab-active {
+    @apply border-primary text-primary;
+  }
+  .gl-tab-inactive {
+    @apply border-transparent text-muted-foreground;
+  }
+  .gl-tab-inactive:hover {
+    @apply text-foreground border-border;
+  }
+  .gl-tab-badge {
+    @apply text-[10px] font-semibold px-1.5 py-0.5 rounded-full min-w-[18px] text-center;
+  }
+
+  /* Sub-tabs (secondary, smaller variant) */
+  .gl-subtab-bar {
+    @apply flex items-center gap-0.5 sm:gap-1
+           border-b border-border pb-0 overflow-x-auto;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .gl-subtab-bar::-webkit-scrollbar { display: none; }
+  .gl-subtab-button {
+    @apply px-2 sm:px-3 py-1.5 text-xs font-medium rounded-t-lg
+           border border-b-0 transition-colors -mb-px whitespace-nowrap;
+  }
+  .gl-subtab-active {
+    @apply bg-background border-border text-foreground;
+  }
+  .gl-subtab-inactive {
+    @apply bg-transparent border-transparent text-muted-foreground;
+  }
+  .gl-subtab-inactive:hover {
+    @apply text-foreground bg-accent/50;
   }
 }
 

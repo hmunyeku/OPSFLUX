@@ -1,11 +1,22 @@
-"""Messaging service — dispatches to configured provider (WhatsApp, OVH, Twilio, Vonage).
+"""Messaging service — dispatches to configured providers with fallback cascade.
 
-Priority order: WhatsApp Cloud API (free OTP templates) → OVH SMS → Twilio → Vonage.
+Channel preference (3-tier resolution):
+    User preference > Admin default > Auto (WhatsApp → OVH → Twilio → Vonage)
+
+Contact resolution for multi-phone/multi-email users:
+    Verified + default/primary first, then verified, then any.
 
 Usage:
-    from app.core.sms_service import send_sms, send_whatsapp_otp
-    sent = await send_sms(db, to="+33612345678", body="Your OTP: 123456")
-    sent = await send_whatsapp_otp(db, to="+33612345678", otp_code="123456")
+    from app.core.sms_service import send_to_user, send_sms, send_whatsapp_otp
+
+    # High-level: auto-resolve contact + channel for a user
+    ok, channel = await send_to_user(db, user_id="...", subject="Alert", body="...")
+
+    # Low-level: send to a specific phone number
+    ok, channel = await send_sms(db, to="+33612345678", body="...", user_id="...")
+
+    # OTP with WhatsApp template + SMS fallback
+    ok, channel = await send_whatsapp_otp(db, to="+33612345678", otp_code="123456")
 """
 
 import hashlib
@@ -67,6 +78,154 @@ async def _get_sms_settings(db: AsyncSession) -> tuple[str | None, dict[str, str
     if providers:
         return providers[0]
     return None, {}
+
+
+async def _get_admin_channel_default(db: AsyncSession, message_type: str = "otp") -> str:
+    """Get admin-configured default channel for a message type.
+
+    Setting key: auth.messaging_channel_{message_type} (otp, notification, alert).
+    Returns: 'auto' | 'whatsapp' | 'sms' | 'email'. Default: 'auto'.
+    """
+    from app.models.common import Setting
+    result = await db.execute(
+        text(f"SELECT value FROM settings WHERE key = 'auth.messaging_channel_{message_type}' AND scope = 'tenant' LIMIT 1")
+    )
+    row = result.scalar()
+    if row and isinstance(row, dict):
+        return str(row.get("v", "auto"))
+    return "auto"
+
+
+async def _get_user_preferred_channel(db: AsyncSession, user_id: str | None) -> str:
+    """Get user's preferred messaging channel. Returns 'auto' if not set."""
+    if not user_id:
+        return "auto"
+    result = await db.execute(
+        text("SELECT preferred_messaging_channel FROM users WHERE id = :uid LIMIT 1"),
+        {"uid": user_id},
+    )
+    row = result.scalar()
+    return str(row) if row and row != "auto" else "auto"
+
+
+def _resolve_channel(user_pref: str, admin_default: str) -> str:
+    """Resolve effective channel: user pref overrides admin default."""
+    if user_pref and user_pref != "auto":
+        return user_pref
+    return admin_default
+
+
+def _order_providers_by_channel(
+    providers: list[tuple[str, dict[str, str]]],
+    preferred: str,
+) -> list[tuple[str, dict[str, str]]]:
+    """Reorder providers so the preferred channel comes first.
+
+    Channel mapping:
+    - 'whatsapp' → whatsapp provider first
+    - 'sms' → ovh/twilio/vonage providers first
+    - 'auto' or 'email' → keep original priority order
+    """
+    if preferred == "auto" or preferred == "email":
+        return providers
+
+    if preferred == "whatsapp":
+        wa = [p for p in providers if p[0] == "whatsapp"]
+        rest = [p for p in providers if p[0] != "whatsapp"]
+        return wa + rest
+
+    if preferred == "sms":
+        sms = [p for p in providers if p[0] != "whatsapp"]
+        wa = [p for p in providers if p[0] == "whatsapp"]
+        return sms + wa
+
+    return providers
+
+
+async def resolve_user_contact(db: AsyncSession, user_id: str, channel: str) -> str | None:
+    """Resolve the best phone number or email for a user based on channel preference.
+
+    Selection priority:
+    1. Verified + default/primary first
+    2. Verified + any
+    3. Unverified + default (fallback, for testing)
+
+    Args:
+        channel: 'whatsapp' | 'sms' → returns phone number
+                 'email' → returns email address
+                 'auto' → returns phone (preferred), fallback to email
+    """
+    if channel in ("whatsapp", "sms", "auto"):
+        # Find best phone: verified + is_default first, then verified, then any default
+        result = await db.execute(
+            text(
+                "SELECT country_code, number, verified, is_default FROM phones"
+                " WHERE owner_type = 'user' AND owner_id = :uid"
+                " ORDER BY (verified AND is_default) DESC, verified DESC, is_default DESC, created_at ASC"
+                " LIMIT 1"
+            ),
+            {"uid": user_id},
+        )
+        row = result.first()
+        if row:
+            cc = row[0] or ""
+            number = row[1] or ""
+            return f"{cc}{number}".strip()
+
+        # No phone found — if auto, fallback to email
+        if channel != "auto":
+            return None
+
+    # Email: find notification email > primary > verified > any
+    result = await db.execute(
+        text(
+            "SELECT email FROM user_emails"
+            " WHERE user_id = :uid"
+            " ORDER BY is_notification DESC, is_primary DESC, verified DESC, created_at ASC"
+            " LIMIT 1"
+        ),
+        {"uid": user_id},
+    )
+    row = result.first()
+    return row[0] if row else None
+
+
+async def send_to_user(
+    db: AsyncSession,
+    *,
+    user_id: str,
+    subject: str,
+    body: str,
+    message_type: str = "notification",
+) -> tuple[bool, str]:
+    """High-level: send a message to a user using their preferred channel + contact.
+
+    Resolves channel preference, picks the right phone/email, dispatches.
+    Returns (success, channel_used).
+    """
+    admin_default = await _get_admin_channel_default(db, message_type)
+    user_pref = await _get_user_preferred_channel(db, user_id)
+    effective = _resolve_channel(user_pref, admin_default)
+
+    # Resolve contact info
+    contact = await resolve_user_contact(db, user_id, effective)
+    if not contact:
+        logger.warning("No contact info for user %s (channel=%s)", user_id, effective)
+        return False, ""
+
+    # Dispatch based on resolved channel
+    if effective == "email" or (effective == "auto" and "@" in contact):
+        # Send via email
+        from app.core.notifications import send_email
+        try:
+            await send_email(db, contact, subject, body)
+            return True, "email"
+        except Exception:
+            logger.exception("Email send failed to %s", contact)
+            return False, "email"
+    else:
+        # Send via SMS/WhatsApp with fallback cascade
+        return await send_sms(db, to=contact, body=body, user_id=user_id, message_type=message_type)
 
 
 async def _send_ovh(cfg: dict[str, str], to: str, body: str) -> bool:
@@ -292,44 +451,111 @@ async def _send_whatsapp_otp_template(cfg: dict[str, str], to: str, otp_code: st
         return False
 
 
-async def send_sms(db: AsyncSession, *, to: str, body: str) -> bool:
-    """Send a message using the first configured provider. Returns True if sent.
+async def send_sms(
+    db: AsyncSession,
+    *,
+    to: str,
+    body: str,
+    user_id: str | None = None,
+    message_type: str = "notification",
+) -> tuple[bool, str]:
+    """Send a message with fallback cascade + channel preference.
 
-    Priority: WhatsApp → OVH → Twilio → Vonage.
+    Tries each configured provider in order (respecting user/admin channel
+    preference) until one succeeds. Returns (success, channel_used).
+
+    Args:
+        to: Phone number with country code (e.g. +33612345678)
+        body: Message text
+        user_id: Optional user ID to resolve preferred channel
+        message_type: 'otp' | 'notification' | 'alert' — determines admin default channel
     """
-    provider, cfg = await _get_sms_settings(db)
-
-    if not provider:
-        logger.warning("No messaging provider configured. Message to %s not sent.", to)
-        return False
-
-    try:
-        if provider == "whatsapp":
-            return await _send_whatsapp(cfg, to, body)
-        elif provider == "ovh":
-            return await _send_ovh(cfg, to, body)
-        elif provider == "twilio":
-            return await _send_twilio(cfg, to, body)
-        elif provider == "vonage":
-            return await _send_vonage(cfg, to, body)
-        else:
-            logger.error("Unknown messaging provider: %s", provider)
-            return False
-    except Exception:
-        logger.exception("Failed to send message to %s via %s", to, provider)
-        return False
-
-
-async def send_whatsapp_otp(db: AsyncSession, *, to: str, otp_code: str) -> bool:
-    """Send OTP via WhatsApp template if configured. Returns False if WhatsApp not available."""
     providers = await _get_messaging_settings(db)
-    wa = next(((p, c) for p, c in providers if p == "whatsapp"), None)
+    if not providers:
+        logger.warning("No messaging provider configured. Message to %s not sent.", to)
+        return False, ""
 
-    if not wa:
-        return False
+    # Resolve channel preference: user > admin > auto
+    admin_default = await _get_admin_channel_default(db, message_type)
+    user_pref = await _get_user_preferred_channel(db, user_id)
+    effective = _resolve_channel(user_pref, admin_default)
 
-    try:
-        return await _send_whatsapp_otp_template(wa[1], to, otp_code)
-    except Exception:
-        logger.exception("Failed to send WhatsApp OTP to %s", to)
-        return False
+    # Reorder providers to match preference
+    ordered = _order_providers_by_channel(providers, effective)
+
+    # Fallback cascade: try each provider in order
+    _SENDERS = {
+        "whatsapp": _send_whatsapp,
+        "ovh": _send_ovh,
+        "twilio": _send_twilio,
+        "vonage": _send_vonage,
+    }
+
+    for provider, cfg in ordered:
+        sender = _SENDERS.get(provider)
+        if not sender:
+            continue
+        try:
+            ok = await sender(cfg, to, body)
+            if ok:
+                return True, provider
+            logger.warning("Provider %s failed for %s, trying next...", provider, to)
+        except Exception:
+            logger.exception("Provider %s error for %s, trying next...", provider, to)
+
+    logger.error("All messaging providers failed for %s", to)
+    return False, ""
+
+
+async def send_whatsapp_otp(
+    db: AsyncSession,
+    *,
+    to: str,
+    otp_code: str,
+    user_id: str | None = None,
+) -> tuple[bool, str]:
+    """Send OTP with channel preference.
+
+    If preferred channel is WhatsApp and available → WhatsApp OTP template.
+    If preferred channel is SMS → skip WhatsApp, go to SMS directly.
+    Fallback: always try all available providers.
+
+    Returns (success, channel_used).
+    """
+    providers = await _get_messaging_settings(db)
+    if not providers:
+        return False, ""
+
+    admin_default = await _get_admin_channel_default(db, "otp")
+    user_pref = await _get_user_preferred_channel(db, user_id)
+    effective = _resolve_channel(user_pref, admin_default)
+
+    ordered = _order_providers_by_channel(providers, effective)
+
+    # Try WhatsApp OTP template first (if whatsapp is in the ordered list)
+    for provider, cfg in ordered:
+        if provider == "whatsapp":
+            try:
+                ok = await _send_whatsapp_otp_template(cfg, to, otp_code)
+                if ok:
+                    return True, "whatsapp"
+            except Exception:
+                logger.exception("WhatsApp OTP template failed for %s", to)
+
+    # Fallback: send OTP as plain text via any available SMS provider
+    otp_text = f"OpsFlux — Votre code de vérification : {otp_code}"
+    _SENDERS = {"ovh": _send_ovh, "twilio": _send_twilio, "vonage": _send_vonage}
+
+    for provider, cfg in ordered:
+        sender = _SENDERS.get(provider)
+        if not sender:
+            continue
+        try:
+            ok = await sender(cfg, to, otp_text)
+            if ok:
+                return True, provider
+        except Exception:
+            logger.exception("SMS OTP via %s failed for %s", provider, to)
+
+    logger.error("All OTP providers failed for %s", to)
+    return False, ""

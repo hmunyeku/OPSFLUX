@@ -285,7 +285,38 @@
     "search_type": "Rechercher par code ou nom...",
     "search_record": "Rechercher par type, émetteur...",
     "search_job_position": "Rechercher par code ou intitulé...",
-    "search_rule": "Rechercher..."
+    "search_rule": "Rechercher...",
+    "verifications": {
+      "title": "Vérifications",
+      "pending": "En attente de vérification",
+      "verified": "Vérifié",
+      "rejected": "Rejeté",
+      "verify_button": "Vérifier & Valider",
+      "reject_button": "Rejeter",
+      "reject_reason": "Motif du rejet"
+    },
+    "exemptions": {
+      "title": "Exemptions",
+      "create": "Nouvelle exemption",
+      "approved": "Approuvée",
+      "pending": "En attente",
+      "rejected": "Rejetée",
+      "expired": "Expirée",
+      "approve_button": "Approuver",
+      "reject_button": "Rejeter"
+    },
+    "conditions": {
+      "title": "Conditions d'application",
+      "visual_mode": "Visuel",
+      "advanced_mode": "Avancé",
+      "add_condition": "Ajouter une condition",
+      "no_condition": "Aucune condition. La règle s'applique sans restriction.",
+      "legacy_warning": "Format ancien détecté. Utilisez le mode avancé pour modifier."
+    },
+    "account_not_verified": "Compte non vérifié — veuillez vérifier votre email ou téléphone.",
+    "records_pending_validation": "enregistrement(s) en attente de validation par le chargé de conformité.",
+    "unverified": "En attente",
+    "no_requirements": "Aucune exigence de conformité applicable."
   },
   "projets": {
     "title": "Projets",

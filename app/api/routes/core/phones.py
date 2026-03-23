@@ -159,26 +159,20 @@ async def send_phone_verification(
     # Build full phone number
     full_number = f"{phone.country_code or ''}{phone.number}".strip()
 
-    # Try WhatsApp OTP template first (free + better UX), then fall back to SMS
-    from app.core.sms_service import send_whatsapp_otp, send_sms
+    # Send OTP via preferred channel (user pref > admin default > auto fallback cascade)
+    from app.core.sms_service import send_whatsapp_otp
 
-    sent_via = None
-    sent = await send_whatsapp_otp(db, to=full_number, otp_code=code)
-    if sent:
-        sent_via = "whatsapp"
-    else:
-        sent = await send_sms(db, to=full_number, body=f"OpsFlux — Votre code de vérification : {code}")
-        if sent:
-            sent_via = "sms"
+    user_id = str(current_user.id) if phone.owner_type == "user" else None
+    sent, channel = await send_whatsapp_otp(db, to=full_number, otp_code=code, user_id=user_id)
 
-    if not sent_via:
+    if not sent:
         return {
             "message": "Aucun fournisseur configuré — code généré pour vérification manuelle",
             "phone_id": str(phone_id),
             "debug_code": code,  # Only returned when no provider is configured
         }
 
-    return {"message": f"Code de vérification envoyé via {sent_via}", "phone_id": str(phone_id), "channel": sent_via}
+    return {"message": f"Code de vérification envoyé via {channel}", "phone_id": str(phone_id), "channel": channel}
 
 
 @router.post("/{phone_id}/verify", status_code=200)

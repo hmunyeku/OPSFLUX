@@ -285,7 +285,38 @@
     "search_type": "Search by code or name...",
     "search_record": "Search by type, issuer...",
     "search_job_position": "Search by code or title...",
-    "search_rule": "Search..."
+    "search_rule": "Search...",
+    "verifications": {
+      "title": "Verifications",
+      "pending": "Pending verification",
+      "verified": "Verified",
+      "rejected": "Rejected",
+      "verify_button": "Verify & Approve",
+      "reject_button": "Reject",
+      "reject_reason": "Rejection reason"
+    },
+    "exemptions": {
+      "title": "Exemptions",
+      "create": "New exemption",
+      "approved": "Approved",
+      "pending": "Pending",
+      "rejected": "Rejected",
+      "expired": "Expired",
+      "approve_button": "Approve",
+      "reject_button": "Reject"
+    },
+    "conditions": {
+      "title": "Application conditions",
+      "visual_mode": "Visual",
+      "advanced_mode": "Advanced",
+      "add_condition": "Add a condition",
+      "no_condition": "No conditions. The rule applies without restriction.",
+      "legacy_warning": "Legacy format detected. Use advanced mode to edit."
+    },
+    "account_not_verified": "Account not verified — please verify your email or phone.",
+    "records_pending_validation": "record(s) pending validation by compliance officer.",
+    "unverified": "Pending",
+    "no_requirements": "No applicable compliance requirements."
   },
   "projets": {
     "title": "Projects",

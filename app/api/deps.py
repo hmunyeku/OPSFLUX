@@ -189,6 +189,7 @@ _OWNER_PERMISSION_MAP: dict[str, tuple[str, str]] = {
     "tier_contact": ("tiers.read", "tiers.update"),
     "entity": ("core.entity.read", "core.entity.update"),
     "asset": ("assets.read", "assets.update"),
+    "compliance_rule": ("conformite.rule.read", "conformite.rule.update"),
 }
 
 
@@ -279,7 +280,7 @@ async def check_user_data_access(
     )
 
 
-def check_verified_lock(
+async def check_verified_lock(
     record,
     current_user: User,
     *,
@@ -287,18 +288,22 @@ def check_verified_lock(
     entity_id=None,
     db=None,
 ) -> None:
-    """Block updates on verified records unless user has verify permission.
+    """Block updates on verified records unless user has the allow_permission.
 
     Raises 403 if the record is locked (verification_status == 'verified')
     and the current user doesn't have the required permission.
-    Self-service users cannot modify verified records.
     """
     if not hasattr(record, 'verification_status'):
         return  # model doesn't use VerifiableMixin
     if record.verification_status != "verified":
         return  # not locked, allow edit
 
-    # Record is verified/locked — only compliance officers can modify
+    # Record is verified/locked — check if user has override permission
+    if entity_id and db:
+        has_perm = await _has_permission(current_user, allow_permission, entity_id, db)
+        if has_perm:
+            return  # user has override permission, allow edit
+
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
         detail="Cet enregistrement est vérifié et verrouillé. Seul un responsable conformité peut le modifier.",

@@ -56,7 +56,7 @@ async def update_medical_check(
     obj = result.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Medical check not found")
-    check_verified_lock(obj, current_user)
+    await check_verified_lock(obj, current_user, db=db)
     update_data = body.model_dump(exclude_unset=True)
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update")
@@ -77,6 +77,6 @@ async def delete_medical_check(
     obj = result.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Medical check not found")
-    check_verified_lock(obj, current_user)
+    await check_verified_lock(obj, current_user, db=db)
     await delete_entity(obj, db, "medical_check", entity_id=obj.id, user_id=current_user.id)
     await db.commit()

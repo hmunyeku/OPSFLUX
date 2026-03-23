@@ -142,10 +142,10 @@ export function ProfileTab() {
   const { data: jobPositionsData } = useJobPositions({ page_size: 200 })
   const jobPositionOptions = (jobPositionsData?.items ?? []).map(jp => ({ value: jp.id, label: `${jp.code} — ${jp.name}` }))
 
-  // Compliance check for current user (only when job_position_id is assigned)
+  // Compliance check for current user (always, rules target_type=all apply to everyone)
   const { data: complianceCheck, isLoading: complianceLoading } = useComplianceCheck(
-    user?.job_position_id ? 'user' : undefined,
-    user?.job_position_id ? user?.id : undefined,
+    user ? 'user' : undefined,
+    user?.id,
   )
 
   const genderOptions = dictGender.length > 0 ? dictGender : FALLBACK_GENDER
@@ -488,70 +488,90 @@ export function ProfileTab() {
             </div>
           </div>
 
-          {/* Compliance status for assigned job position */}
-          {user?.job_position_id && (
-            <div className="mt-4 rounded-lg border border-border bg-muted/20 p-3">
-              <h4 className="text-xs font-semibold text-muted-foreground mb-2">Statut de conformité</h4>
-              {complianceLoading ? (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Loader2 size={12} className="animate-spin" />
-                  <span>Vérification en cours...</span>
-                </div>
-              ) : complianceCheck ? (
-                <div className="space-y-2">
-                  {/* Summary bar */}
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between text-xs mb-1">
-                        <span className="font-medium text-foreground">
-                          {complianceCheck.total_valid}/{complianceCheck.total_required} exigences satisfaites
-                        </span>
-                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold text-white ${complianceCheck.is_compliant ? 'bg-emerald-600' : 'bg-amber-600'}`}>
-                          {complianceCheck.is_compliant ? 'Conforme' : 'Non conforme'}
-                        </span>
-                      </div>
-                      {/* Progress bar */}
-                      <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all ${complianceCheck.is_compliant ? 'bg-emerald-500' : 'bg-amber-500'}`}
-                          style={{ width: `${complianceCheck.total_required > 0 ? Math.round((complianceCheck.total_valid / complianceCheck.total_required) * 100) : 0}%` }}
-                        />
-                      </div>
+          {/* Compliance status */}
+          <div className="mt-4 rounded-lg border border-border bg-muted/20 p-3">
+            <h4 className="text-xs font-semibold text-muted-foreground mb-2">Statut de conformité</h4>
+            {complianceLoading ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 size={12} className="animate-spin" />
+                <span>Vérification en cours...</span>
+              </div>
+            ) : complianceCheck ? (
+              <div className="space-y-2">
+                {/* Account verification warning */}
+                {complianceCheck.account_verified === false && (
+                  <div className="flex items-center gap-2 text-xs py-1.5 px-2.5 rounded bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40 text-red-700 dark:text-red-400">
+                    <span className="font-bold shrink-0">{'\u26A0'}</span>
+                    <span>Compte non vérifié — veuillez vérifier votre email ou téléphone pour être déclaré conforme.</span>
+                  </div>
+                )}
+
+                {/* Unverified records warning */}
+                {(complianceCheck.total_unverified ?? 0) > 0 && (
+                  <div className="flex items-center gap-2 text-xs py-1.5 px-2.5 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 text-amber-700 dark:text-amber-400">
+                    <span className="font-bold shrink-0">{'\u23F3'}</span>
+                    <span>{complianceCheck.total_unverified} enregistrement(s) en attente de validation par le chargé de conformité.</span>
+                  </div>
+                )}
+
+                {/* Summary bar */}
+                <div className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="font-medium text-foreground">
+                        {complianceCheck.total_valid}/{complianceCheck.total_required} exigences satisfaites
+                      </span>
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold text-white ${complianceCheck.is_compliant ? 'bg-emerald-600' : 'bg-amber-600'}`}>
+                        {complianceCheck.is_compliant ? 'Conforme' : 'Non conforme'}
+                      </span>
+                    </div>
+                    {/* Progress bar */}
+                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${complianceCheck.is_compliant ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                        style={{ width: `${complianceCheck.total_required > 0 ? Math.round((complianceCheck.total_valid / complianceCheck.total_required) * 100) : 0}%` }}
+                      />
                     </div>
                   </div>
-
-                  {/* Details list */}
-                  {Array.isArray(complianceCheck.details) && complianceCheck.details.length > 0 && (
-                    <div className="space-y-1 mt-2">
-                      {complianceCheck.details.map((detail, idx) => {
-                        const d = detail as Record<string, unknown>
-                        const status = d.status as string
-                        const statusIcon = status === 'valid' || status === 'exempted' ? '\u2713' : status === 'expired' ? '\u26A0' : '\u2717'
-                        const statusColor = status === 'valid' || status === 'exempted'
-                          ? 'text-emerald-600'
-                          : status === 'expired'
-                            ? 'text-amber-600'
-                            : 'text-red-500'
-                        const statusLabel = status === 'valid' ? 'Valide' : status === 'exempted' ? 'Exempté' : status === 'expired' ? 'Expiré' : 'Manquant'
-                        return (
-                          <div key={idx} className="flex items-center gap-2 text-xs py-1 px-2 rounded bg-background/60">
-                            <span className={`font-bold ${statusColor} shrink-0`}>{statusIcon}</span>
-                            <span className="flex-1 text-foreground truncate">{(d.type_name as string) || (d.compliance_type_id as string)}</span>
-                            {d.category ? (
-                              <span className="text-[10px] text-muted-foreground capitalize shrink-0">{String(d.category)}</span>
-                            ) : null}
-                            <span className={`text-[10px] font-medium ${statusColor} shrink-0`}>{statusLabel}</span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
                 </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">Impossible de charger le statut de conformité.</p>
-              )}
-            </div>
-          )}
+
+                {/* Details list */}
+                {Array.isArray(complianceCheck.details) && complianceCheck.details.length > 0 && (
+                  <div className="space-y-1 mt-2">
+                    {complianceCheck.details.map((detail, idx) => {
+                      const d = detail as Record<string, unknown>
+                      const status = d.status as string
+                      const statusIcon = status === 'valid' || status === 'exempted' ? '\u2713' : status === 'expired' ? '\u26A0' : status === 'unverified' ? '\u23F3' : '\u2717'
+                      const statusColor = status === 'valid' || status === 'exempted'
+                        ? 'text-emerald-600'
+                        : status === 'expired'
+                          ? 'text-amber-600'
+                          : status === 'unverified'
+                            ? 'text-blue-500'
+                            : 'text-red-500'
+                      const statusLabel = status === 'valid' ? 'Valide' : status === 'exempted' ? 'Exempté' : status === 'expired' ? 'Expiré' : status === 'unverified' ? 'En attente' : 'Manquant'
+                      return (
+                        <div key={idx} className="flex items-center gap-2 text-xs py-1 px-2 rounded bg-background/60">
+                          <span className={`font-bold ${statusColor} shrink-0`}>{statusIcon}</span>
+                          <span className="flex-1 text-foreground truncate">{(d.type_name as string) || (d.compliance_type_id as string)}</span>
+                          {d.category ? (
+                            <span className="text-[10px] text-muted-foreground capitalize shrink-0">{String(d.category)}</span>
+                          ) : null}
+                          <span className={`text-[10px] font-medium ${statusColor} shrink-0`}>{statusLabel}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {complianceCheck.total_required === 0 && (
+                  <p className="text-xs text-muted-foreground">Aucune exigence de conformité applicable.</p>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">Impossible de charger le statut de conformité.</p>
+            )}
+          </div>
         </div>
       </CollapsibleSection>
 

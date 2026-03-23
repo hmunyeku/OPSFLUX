@@ -39,6 +39,12 @@ _DEFAULTS: dict[str, tuple[str, type, Any]] = {
     "captcha_site_key":          ("AUTH_CAPTCHA_SITE_KEY", str, ""),
     "captcha_secret_key":        ("AUTH_CAPTCHA_SECRET_KEY", str, ""),
     "suspicious_login_notify":   ("AUTH_SUSPICIOUS_LOGIN_NOTIFY", bool, True),
+    # Compliance: require verified email/phone to be declared compliant
+    "require_account_verification": ("CONFORMITE_REQUIRE_ACCOUNT_VERIFICATION", bool, True),
+    # Messaging: default channel per message type (auto | whatsapp | sms | email)
+    "messaging_channel_otp":          ("MESSAGING_CHANNEL_OTP", str, "auto"),
+    "messaging_channel_notification": ("MESSAGING_CHANNEL_NOTIFICATION", str, "auto"),
+    "messaging_channel_alert":        ("MESSAGING_CHANNEL_ALERT", str, "auto"),
 }
 
 # Keys that are allowed to be set via admin API

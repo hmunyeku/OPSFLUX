@@ -469,3 +469,142 @@ async def test_connector(
         message=message,
         tested_at=datetime.now(timezone.utc).isoformat(),
     )
+
+
+# ── Real send test — actually sends a message ────────────────
+
+class SendTestRequest(BaseModel):
+    connector_id: str  # smtp | sms_twilio | sms_vonage | sms_ovh | whatsapp
+    recipient: str     # email address, or phone number (with country code)
+
+
+class SendTestResult(BaseModel):
+    connector_id: str
+    status: str  # "ok" | "error"
+    message: str
+    channel: str  # email | sms | whatsapp
+    sent_at: str  # ISO datetime
+
+
+@router.post("/test-send", response_model=SendTestResult)
+async def test_send_real(
+    body: SendTestRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Send a real test message (email, SMS or WhatsApp) to verify the integration works end-to-end.
+
+    This is NOT a connectivity test — it actually delivers a message to the recipient.
+    """
+    connector_id = body.connector_id
+    recipient = body.recipient.strip()
+    now_iso = datetime.now(timezone.utc).isoformat()
+    sender_name = f"{current_user.first_name} {current_user.last_name}".strip() or current_user.email or "Admin"
+
+    if not recipient:
+        return SendTestResult(connector_id=connector_id, status="error", message="Destinataire requis", channel="", sent_at=now_iso)
+
+    try:
+        if connector_id == "smtp":
+            return await _send_test_email(db, recipient, sender_name, now_iso)
+        elif connector_id in ("sms_twilio", "sms_vonage", "sms_ovh"):
+            return await _send_test_sms(db, connector_id, recipient, sender_name, now_iso)
+        elif connector_id == "whatsapp":
+            return await _send_test_whatsapp(db, recipient, sender_name, now_iso)
+        else:
+            return SendTestResult(connector_id=connector_id, status="error", message=f"Envoi de test non supporté pour: {connector_id}", channel="", sent_at=now_iso)
+    except Exception as e:
+        logger.exception(f"Test send failed for {connector_id}")
+        return SendTestResult(connector_id=connector_id, status="error", message=f"Erreur: {str(e)[:300]}", channel=connector_id, sent_at=now_iso)
+
+
+async def _send_test_email(db: AsyncSession, recipient: str, sender_name: str, now_iso: str) -> SendTestResult:
+    """Send a real test email via the configured SMTP."""
+    from app.core.notifications import send_email
+
+    subject = "OpsFlux — Test de configuration email"
+    body_html = f"""
+    <div style="font-family: -apple-system, system-ui, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+      <div style="background: #1f2937; color: white; padding: 16px 20px; border-radius: 8px 8px 0 0;">
+        <h2 style="margin: 0; font-size: 16px;">OpsFlux — Test Email</h2>
+      </div>
+      <div style="border: 1px solid #e5e7eb; border-top: 0; padding: 20px; border-radius: 0 0 8px 8px;">
+        <p style="margin: 0 0 12px; font-size: 14px; color: #374151;">
+          Ce message est un test de configuration. Si vous le recevez, votre service d'envoi d'emails fonctionne correctement.
+        </p>
+        <table style="font-size: 13px; color: #6b7280; border-collapse: collapse;">
+          <tr><td style="padding: 4px 12px 4px 0; font-weight: 600;">Envoyé par</td><td>{sender_name}</td></tr>
+          <tr><td style="padding: 4px 12px 4px 0; font-weight: 600;">Date</td><td>{now_iso[:19].replace('T', ' ')} UTC</td></tr>
+          <tr><td style="padding: 4px 12px 4px 0; font-weight: 600;">Destinataire</td><td>{recipient}</td></tr>
+        </table>
+        <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 16px 0;" />
+        <p style="margin: 0; font-size: 11px; color: #9ca3af;">
+          Ceci est un message automatique de test. Aucune action requise.
+        </p>
+      </div>
+    </div>
+    """
+
+    try:
+        await send_email(db, recipient, subject, body_html)
+        return SendTestResult(connector_id="smtp", status="ok", message=f"Email envoyé à {recipient}", channel="email", sent_at=now_iso)
+    except Exception as e:
+        return SendTestResult(connector_id="smtp", status="error", message=f"Échec envoi email: {str(e)[:300]}", channel="email", sent_at=now_iso)
+
+
+async def _send_test_sms(db: AsyncSession, connector_id: str, recipient: str, sender_name: str, now_iso: str) -> SendTestResult:
+    """Send a real test SMS via the specified provider."""
+    from app.core.sms_service import _send_twilio, _send_vonage, _send_ovh
+
+    cfg = await _get_connector_settings(db, f"integration.{connector_id}")
+    message = f"OpsFlux — Test SMS par {sender_name}. Si vous recevez ce message, la configuration fonctionne. ({now_iso[:16]})"
+
+    try:
+        if connector_id == "sms_twilio":
+            ok = await _send_twilio(recipient, message, cfg)
+        elif connector_id == "sms_vonage":
+            ok = await _send_vonage(recipient, message, cfg)
+        elif connector_id == "sms_ovh":
+            ok = await _send_ovh(recipient, message, cfg)
+        else:
+            return SendTestResult(connector_id=connector_id, status="error", message="Provider SMS inconnu", channel="sms", sent_at=now_iso)
+
+        if ok:
+            return SendTestResult(connector_id=connector_id, status="ok", message=f"SMS envoyé à {recipient}", channel="sms", sent_at=now_iso)
+        return SendTestResult(connector_id=connector_id, status="error", message=f"Échec envoi SMS à {recipient} — vérifiez les logs", channel="sms", sent_at=now_iso)
+    except Exception as e:
+        return SendTestResult(connector_id=connector_id, status="error", message=f"Erreur SMS: {str(e)[:300]}", channel="sms", sent_at=now_iso)
+
+
+async def _send_test_whatsapp(db: AsyncSession, recipient: str, sender_name: str, now_iso: str) -> SendTestResult:
+    """Send a real test WhatsApp message via Cloud API."""
+    cfg = await _get_connector_settings(db, "integration.whatsapp")
+    phone_number_id = cfg.get("phone_number_id", "")
+    access_token = cfg.get("access_token", "")
+    api_version = cfg.get("api_version", "v21.0")
+
+    if not phone_number_id or not access_token:
+        return SendTestResult(connector_id="whatsapp", status="error", message="WhatsApp non configuré", channel="whatsapp", sent_at=now_iso)
+
+    # Normalize phone number
+    to_number = recipient.lstrip("+").replace(" ", "").replace("-", "")
+    message = f"OpsFlux — Test WhatsApp par {sender_name}. Configuration OK. ({now_iso[:16]})"
+
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(
+                f"https://graph.facebook.com/{api_version}/{phone_number_id}/messages",
+                headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+                json={
+                    "messaging_product": "whatsapp",
+                    "to": to_number,
+                    "type": "text",
+                    "text": {"body": message},
+                },
+            )
+            if resp.status_code in (200, 201):
+                return SendTestResult(connector_id="whatsapp", status="ok", message=f"WhatsApp envoyé à {recipient}", channel="whatsapp", sent_at=now_iso)
+            return SendTestResult(connector_id="whatsapp", status="error", message=f"WhatsApp: HTTP {resp.status_code} — {resp.text[:200]}", channel="whatsapp", sent_at=now_iso)
+    except Exception as e:
+        return SendTestResult(connector_id="whatsapp", status="error", message=f"Erreur WhatsApp: {str(e)[:300]}", channel="whatsapp", sent_at=now_iso)

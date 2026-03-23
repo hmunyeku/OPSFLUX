@@ -84,6 +84,7 @@ import {
   type CardRendererProps,
 } from '@/components/ui/DataTable'
 import { relativeTime, getAvatarColor } from '@/components/ui/DataTable/utils'
+import { TabBar, TabButton } from '@/components/ui/Tabs'
 
 const FALLBACK_LANGUAGE_OPTIONS = [
   { value: 'fr', label: 'Français' },
@@ -1208,40 +1209,14 @@ function UserDetailPanel({ id }: { id: string }) {
         </div>
 
         {/* Detail tabs */}
-        <div className="border-b border-border -mx-4 px-4">
-          <div className="flex items-center gap-1">
-            {([
-              { key: 'fiche' as const, label: 'Fiche', icon: Users },
-              { key: 'entities' as const, label: 'Entités & Rôles', icon: Building2 },
-              { key: 'securite' as const, label: 'Sécurité', icon: Shield },
-              { key: 'journal' as const, label: 'Journal', icon: Clock },
-              { key: 'permissions' as const, label: 'Permissions', icon: ShieldCheck },
-            ]).map(({ key, label, icon: Icon }) => (
-              <button
-                key={key}
-                onClick={() => setDetailTab(key)}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
-                  detailTab === key
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-muted-foreground hover:text-foreground',
-                )}
-              >
-                <Icon size={13} />
-                {label}
-                {key === 'entities' && entitiesCount > 0 && (
-                  <span className={cn(
-                    'text-[10px] font-semibold px-1.5 py-0.5 rounded-full min-w-[18px] text-center',
-                    detailTab === 'entities'
-                      ? 'bg-primary/10 text-primary'
-                      : 'bg-accent text-muted-foreground',
-                  )}>
-                    {entitiesCount}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
+        <div className="-mx-4">
+          <TabBar>
+            <TabButton icon={Users} label="Fiche" active={detailTab === 'fiche'} onClick={() => setDetailTab('fiche')} />
+            <TabButton icon={Building2} label="Entités & Rôles" active={detailTab === 'entities'} badge={entitiesCount || undefined} onClick={() => setDetailTab('entities')} />
+            <TabButton icon={Shield} label="Sécurité" active={detailTab === 'securite'} onClick={() => setDetailTab('securite')} />
+            <TabButton icon={Clock} label="Journal" active={detailTab === 'journal'} onClick={() => setDetailTab('journal')} />
+            <TabButton icon={ShieldCheck} label="Permissions" active={detailTab === 'permissions'} onClick={() => setDetailTab('permissions')} />
+          </TabBar>
         </div>
 
         {detailTab === 'fiche' ? (
@@ -2478,28 +2453,16 @@ export function UsersPage() {
           </PanelHeader>
 
           {/* Tab bar */}
-          <div className="flex items-center gap-1 border-b border-border px-4">
-            {([
-              { key: 'overview' as const, label: 'Vue d\'ensemble', icon: LayoutDashboard },
-              { key: 'users' as const, label: t('users.title'), icon: Users },
-              { key: 'groups' as const, label: 'Groupes', icon: KeyRound },
-              { key: 'roles' as const, label: 'Rôles', icon: Shield },
-            ]).map(({ key, label, icon: Icon }) => (
-              <button
-                key={key}
-                onClick={() => setActiveTab(key)}
-                className={cn(
-                  'px-3 py-1.5 text-sm font-medium border-b-2 transition-colors -mb-px',
-                  activeTab === key
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-muted-foreground hover:text-foreground',
-                )}
-              >
-                <Icon size={14} className="inline mr-1.5 -mt-0.5" />
-                {label}
-              </button>
-            ))}
-          </div>
+          <TabBar
+            items={[
+              { id: 'overview' as const, label: 'Vue d\'ensemble', icon: LayoutDashboard },
+              { id: 'users' as const, label: t('users.title'), icon: Users },
+              { id: 'groups' as const, label: 'Groupes', icon: KeyRound },
+              { id: 'roles' as const, label: 'Rôles', icon: Shield },
+            ]}
+            activeId={activeTab}
+            onTabChange={setActiveTab}
+          />
 
           <div className="flex-1 min-h-0">
           {activeTab === 'overview' ? (

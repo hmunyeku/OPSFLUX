@@ -48,6 +48,8 @@ interface User {
   // Job position (conformité)
   job_position_id: string | null
   job_position_name: string | null
+  // Messaging preference
+  preferred_messaging_channel: string
 }
 
 /** Custom error thrown when MFA is required after password step. */

@@ -279,6 +279,8 @@ export interface UserRead {
   // Job position (conformité)
   job_position_id: string | null
   job_position_name: string | null
+  // Messaging preference
+  preferred_messaging_channel: string
   // Timestamps
   last_login_at: string | null
   created_at: string
@@ -573,6 +575,8 @@ export interface ProfileUpdate {
   extension_number?: string | null
   // Job position (conformité)
   job_position_id?: string | null
+  // Messaging preference
+  preferred_messaging_channel?: string
 }
 
 export interface ChangePasswordRequest {
@@ -1046,10 +1050,12 @@ export interface ComplianceRecordUpdate {
 export interface ComplianceCheckResult {
   owner_type: string
   owner_id: string
+  account_verified: boolean
   total_required: number
   total_valid: number
   total_expired: number
   total_missing: number
+  total_unverified: number
   is_compliant: boolean
   details: Record<string, unknown>[]
 }

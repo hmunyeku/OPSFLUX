@@ -119,6 +119,8 @@ class UserRead(OpsFluxSchema):
     # Job position (conformité)
     job_position_id: UUID | None = None
     job_position_name: str | None = None
+    # Messaging preference
+    preferred_messaging_channel: str = "auto"
     # Timestamps
     last_login_at: datetime | None
     created_at: datetime
@@ -956,6 +958,8 @@ class ProfileUpdate(BaseModel):
     extension_number: str | None = None
     # Job position (conformité)
     job_position_id: UUID | None = None
+    # Messaging preference
+    preferred_messaging_channel: str | None = Field(None, pattern="^(auto|whatsapp|sms|email)$")
 
 
 class ChangePasswordRequest(BaseModel):
@@ -1269,13 +1273,24 @@ class ComplianceRecordUpdate(BaseModel):
 
 
 class ComplianceCheckResult(BaseModel):
-    """Result of checking compliance for an object."""
+    """Result of checking compliance for an object.
+
+    Compliance hierarchy:
+    1. Account must be verified (email or phone) → account_verified
+    2. Permanent rules must be satisfied
+    3. Contextual rules checked only when include_contextual=true
+    4. is_compliant = account_verified AND no missing AND no expired
+    """
     owner_type: str
     owner_id: UUID
+    account_verified: bool = True
+    """Whether the owner has at least one verified email or phone."""
     total_required: int
     total_valid: int
     total_expired: int
     total_missing: int
+    total_unverified: int = 0
+    """Records with verification_status != 'verified' (pending/rejected)."""
     is_compliant: bool
     details: list[dict] = Field(default_factory=list)
 

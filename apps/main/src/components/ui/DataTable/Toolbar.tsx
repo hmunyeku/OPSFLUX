@@ -650,11 +650,11 @@ export function DataTableToolbar({
 
         {toolbarLeft}
 
-        <span className="text-[11px] text-muted-foreground tabular-nums shrink-0 whitespace-nowrap">
+        <span className="text-[11px] text-muted-foreground tabular-nums shrink-0 whitespace-nowrap hidden sm:inline">
           {totalCount.toLocaleString('fr-FR')} résultat{totalCount !== 1 ? 's' : ''}
         </span>
 
-        <div className="w-px h-4 bg-border shrink-0" />
+        <div className="w-px h-4 bg-border shrink-0 hidden sm:block" />
 
         {/* View mode toggle */}
         {viewModes && viewModes.length > 1 && (

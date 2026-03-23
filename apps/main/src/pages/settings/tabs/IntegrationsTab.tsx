@@ -13,7 +13,7 @@ import {
   Loader2, Key, Eye, EyeOff,
   Cloud, Shield, Plus, X, ExternalLink,
   Check, Settings2, ChevronDown, ChevronRight, Trash2,
-  AlertCircle, Zap,
+  AlertCircle, Zap, Send,
 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
@@ -444,22 +444,30 @@ const CATEGORY_LABELS: Record<string, { label: string; icon: React.ReactNode }> 
 
 // ── Connector Card (configured) ────────────────────────────
 
+const SENDABLE_CONNECTORS = new Set(['smtp', 'sms_twilio', 'sms_vonage', 'sms_ovh', 'whatsapp'])
+
 function ConnectorCard({
   connector,
   settings,
   save,
   onRemove,
   onTest,
+  onTestSend,
   testingConnectorId,
+  sendingConnectorId,
 }: {
   connector: ConnectorDef
   settings: Record<string, unknown>
   save: (key: string, value: unknown) => void
   onRemove: () => void
   onTest: (id: string) => void
+  onTestSend: (id: string, recipient: string) => void
   testingConnectorId: string | null
+  sendingConnectorId: string | null
 }) {
   const [expanded, setExpanded] = useState(false)
+  const [testRecipient, setTestRecipient] = useState('')
+  const [showSendTest, setShowSendTest] = useState(false)
   const [confirmRemove, setConfirmRemove] = useState(false)
 
   const isConfigured = !!(settings[connector.enabledKey] as string)
@@ -475,6 +483,8 @@ function ConnectorCard({
   }
 
   const isTesting = testingConnectorId === connector.id
+  const isSending = sendingConnectorId === connector.id
+  const canSendTest = SENDABLE_CONNECTORS.has(connector.id) && connectorStatus === 'connected'
 
   const borderClass = {
     idle: 'border-border/60 bg-card',
@@ -579,6 +589,49 @@ function ConnectorCard({
               )}
               {lastTestStatus === 'ok' && (
                 <p className="text-xs text-emerald-600 dark:text-emerald-400">Connexion réussie</p>
+              )}
+            </div>
+          )}
+
+          {/* Real send test — only for email/SMS/WhatsApp after successful connection test */}
+          {canSendTest && (
+            <div className="pt-2 border-t border-border/30 space-y-2">
+              {!showSendTest ? (
+                <button
+                  className="gl-button-sm gl-button-default"
+                  onClick={() => setShowSendTest(true)}
+                >
+                  <Send size={12} />
+                  Envoyer un test réel
+                </button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <input
+                    type={connector.id === 'smtp' ? 'email' : 'tel'}
+                    value={testRecipient}
+                    onChange={(e) => setTestRecipient(e.target.value)}
+                    placeholder={connector.id === 'smtp' ? 'email@exemple.com' : '+33612345678'}
+                    className="gl-form-input h-7 text-xs flex-1 min-w-0"
+                  />
+                  <button
+                    className="gl-button-sm gl-button-confirm shrink-0"
+                    onClick={() => {
+                      if (testRecipient.trim()) {
+                        onTestSend(connector.id, testRecipient.trim())
+                      }
+                    }}
+                    disabled={isSending || !testRecipient.trim()}
+                  >
+                    {isSending ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                    Envoyer
+                  </button>
+                  <button
+                    className="gl-button-sm gl-button-default shrink-0"
+                    onClick={() => { setShowSendTest(false); setTestRecipient('') }}
+                  >
+                    Annuler
+                  </button>
+                </div>
               )}
             </div>
           )}
@@ -767,6 +820,29 @@ export function IntegrationsTab() {
     onError: () => {
       toast({ title: 'Erreur', description: 'Impossible de tester la connexion.', variant: 'error' })
       setTestingConnectorId(null)
+    },
+  })
+
+  // Real send test mutation
+  const [sendingConnectorId, setSendingConnectorId] = useState<string | null>(null)
+
+  const sendTestMutation = useMutation({
+    mutationFn: async ({ connectorId, recipient }: { connectorId: string; recipient: string }) => {
+      setSendingConnectorId(connectorId)
+      const { data } = await api.post('/api/v1/integrations/test-send', { connector_id: connectorId, recipient })
+      return data as { status: string; message?: string; channel?: string }
+    },
+    onSuccess: (data) => {
+      if (data.status === 'ok') {
+        toast({ title: 'Test envoyé', description: data.message, variant: 'success' })
+      } else {
+        toast({ title: 'Échec d\'envoi', description: data.message, variant: 'error' })
+      }
+      setSendingConnectorId(null)
+    },
+    onError: () => {
+      toast({ title: 'Erreur', description: 'Impossible d\'envoyer le test.', variant: 'error' })
+      setSendingConnectorId(null)
     },
   })
 
@@ -997,7 +1073,9 @@ export function IntegrationsTab() {
                       save={save}
                       onRemove={() => handleRemoveConnector(c.id)}
                       onTest={(id) => testMutation.mutate(id)}
+                      onTestSend={(id, recipient) => sendTestMutation.mutate({ connectorId: id, recipient })}
                       testingConnectorId={testingConnectorId}
+                      sendingConnectorId={sendingConnectorId}
                     />
                   ))}
                 </div>

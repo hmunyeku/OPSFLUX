@@ -8,9 +8,14 @@ import { useTranslation } from 'react-i18next'
 import {
   ShieldCheck, Plus, Loader2, Trash2, FileCheck, ClipboardList,
   Briefcase, GitBranch, Scale, ShieldOff, Check, X, ClipboardCheck, Grid3X3, List,
+  Download, Paperclip,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import { DataTableToolbar } from '@/components/ui/DataTable/Toolbar'
+import { ExportWizard } from '@/components/shared/ExportWizard'
+import { AttachmentManager } from '@/components/shared/AttachmentManager'
+import { ConditionBuilder } from '@/components/shared/ConditionBuilder'
+import { TabBar, SubTabBar } from '@/components/ui/Tabs'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTablePagination, DataTableFilterDef } from '@/components/ui/DataTable/types'
 import { cn } from '@/lib/utils'
@@ -1054,25 +1059,15 @@ export function ConformitePage() {
           {toolbarAction}
         </PanelHeader>
 
-        <div className="flex items-center gap-1 px-4 border-b border-border shrink-0 overflow-x-auto">
-          {TABS.filter((tab) => {
+        <TabBar
+          items={TABS.filter((tab) => {
             if (tab.id === 'verifications') return canVerify
             if (tab.id === 'exemptions') return canCreateExemption || canApproveExemption || hasPermission('conformite.exemption.read')
             return true
-          }).map((tab) => {
-            const Icon = tab.icon
-            const isActive = activeTab === tab.id
-            return (
-              <button key={tab.id} onClick={() => handleTabChange(tab.id)} className={cn(
-                'flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap',
-                isActive ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border',
-              )}>
-                <Icon size={13} />
-                {tab.label}
-              </button>
-            )
           })}
-        </div>
+          activeId={activeTab}
+          onTabChange={handleTabChange}
+        />
 
         <PanelContent>
           {renderTabContent()}
@@ -1146,6 +1141,7 @@ function RulesMatrixView({
   const selectedCategory = (activeRuleFilters.category as string) || 'all'
   const [activeTargetTab, setActiveTargetTab] = useState<TargetTab>('job_position')
   const [viewMode, setViewMode] = useState<'matrix' | 'list'>('matrix')
+  const [exportOpen, setExportOpen] = useState(false)
   const [hoveredCol, setHoveredCol] = useState<string | null>(null)
   const [hoveredRow, setHoveredRow] = useState<string | null>(null)
   const [listGroupBy, setListGroupBy] = useState<'target_type' | 'category' | 'applicability' | 'none'>('target_type')
@@ -1182,13 +1178,19 @@ function RulesMatrixView({
   }, [types, selectedCategory])
 
   // Build rule lookup: "typeId::targetType::targetValue" → ComplianceRule
+  // Multi-target rules (comma-separated) get an entry per target value
   const ruleMap = useMemo(() => {
     const map = new Map<string, ComplianceRule>()
     for (const r of rules) {
-      const key = r.target_type === 'all'
-        ? `${r.compliance_type_id}::all::__all__`
-        : `${r.compliance_type_id}::${r.target_type}::${r.target_value}`
-      map.set(key, r)
+      if (r.target_type === 'all') {
+        map.set(`${r.compliance_type_id}::all::__all__`, r)
+      } else if (r.target_value?.includes(',')) {
+        for (const v of r.target_value.split(',')) {
+          map.set(`${r.compliance_type_id}::${r.target_type}::${v.trim()}`, r)
+        }
+      } else {
+        map.set(`${r.compliance_type_id}::${r.target_type}::${r.target_value}`, r)
+      }
     }
     return map
   }, [rules])
@@ -1289,7 +1291,7 @@ function RulesMatrixView({
   }, [rules, types, selectedCategory, searchFilter, jobPositions, activeRuleFilters])
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="p-2 sm:p-4 space-y-3 sm:space-y-4">
       {/* ── Toolbar — visual query search ── */}
       <DataTableToolbar
         searchValue={searchFilter}
@@ -1319,7 +1321,14 @@ function RulesMatrixView({
                 <List size={14} />
               </button>
             </div>
-            <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+            <button
+              onClick={() => setExportOpen(true)}
+              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              title="Exporter les règles"
+            >
+              <Download size={14} />
+            </button>
+            <span className="text-[11px] text-muted-foreground whitespace-nowrap hidden sm:inline">
               {filteredRulesForList.length}/{rules.length} règle(s)
             </span>
           </div>
@@ -1330,13 +1339,13 @@ function RulesMatrixView({
         /* ── List view with grouping ── */
         <div className="space-y-2">
           {/* Grouping selector */}
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-muted-foreground">Grouper par :</span>
+          <div className="flex items-center gap-1.5 sm:gap-2 text-xs overflow-x-auto scrollbar-none">
+            <span className="text-muted-foreground shrink-0">Grouper par :</span>
             {([['target_type', 'Cible'], ['category', 'Catégorie'], ['applicability', 'Applicabilité'], ['none', 'Aucun']] as const).map(([val, label]) => (
               <button
                 key={val}
                 onClick={() => { setListGroupBy(val); setCollapsedGroups(new Set()) }}
-                className={cn('px-2 py-0.5 rounded text-xs transition-colors', listGroupBy === val ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-accent')}
+                className={cn('px-2 py-1 sm:py-0.5 rounded text-xs transition-colors whitespace-nowrap', listGroupBy === val ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-accent')}
               >
                 {label}
               </button>
@@ -1386,57 +1395,103 @@ function RulesMatrixView({
                   </button>
                 )}
                 {!collapsedGroups.has(groupKey) && (
-                  <table className="text-xs w-full">
-                    <thead>
-                      <tr className="bg-muted/30 border-b border-border/50">
-                        <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Type</th>
-                        <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Catégorie</th>
-                        <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Cible</th>
-                        <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Valeur</th>
-                        <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Priorité</th>
-                        <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Applic.</th>
-                        <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Description</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/30">
+                  <>
+                    {/* Desktop: table layout */}
+                    <table className="text-xs w-full hidden sm:table">
+                      <thead>
+                        <tr className="bg-muted/30 border-b border-border/50">
+                          <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Type</th>
+                          <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Catégorie</th>
+                          <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Cible</th>
+                          <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Valeur</th>
+                          <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Priorité</th>
+                          <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Applic.</th>
+                          <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Description</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/30">
+                        {groupRules.map(rule => {
+                          const ct = types.find(t => t.id === rule.compliance_type_id)
+                          const jpNames = rule.target_type === 'job_position' && rule.target_value
+                            ? rule.target_value.split(',').map(v => jobPositions?.find(p => p.id === v.trim())).filter(Boolean).map((p: any) => p.name)
+                            : []
+                          return (
+                            <tr
+                              key={rule.id}
+                              className="hover:bg-accent/30 transition-colors cursor-pointer group"
+                              onClick={() => onEditRule?.(rule)}
+                            >
+                              <td className="px-3 py-2 font-medium text-foreground">{ct ? `${ct.code} — ${ct.name}` : '?'}</td>
+                              <td className="px-3 py-2">
+                                <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold text-white ${CATEGORY_COLORS_MAP[ct?.category ?? ''] ?? 'bg-zinc-500'}`}>
+                                  {CATEGORY_FULL_LABELS[ct?.category ?? ''] ?? ct?.category}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 text-muted-foreground">
+                                {RULE_TARGET_OPTIONS.find(o => o.value === rule.target_type)?.label ?? rule.target_type}
+                              </td>
+                              <td className="px-3 py-2 text-foreground">
+                                {rule.target_type === 'all' ? '—' : jpNames.length > 0 ? jpNames.join(', ') : rule.target_value ?? '—'}
+                              </td>
+                              <td className="px-3 py-2">
+                                <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold text-white ${PRIORITY_COLORS[rule.priority] ?? 'bg-zinc-500'}`}>
+                                  {PRIORITY_LABELS[rule.priority] ?? rule.priority}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2">
+                                <span className={cn('text-[10px] font-medium', rule.applicability === 'contextual' ? 'text-blue-500' : 'text-emerald-600')}>
+                                  {rule.applicability === 'contextual' ? 'Contextuelle' : 'Permanente'}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 text-muted-foreground truncate max-w-[200px]">{rule.description || '—'}</td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                    {/* Mobile: card layout */}
+                    <div className="sm:hidden divide-y divide-border/30">
                       {groupRules.map(rule => {
                         const ct = types.find(t => t.id === rule.compliance_type_id)
-                        const jp = rule.target_type === 'job_position' && rule.target_value
-                          ? jobPositions?.find(p => p.id === rule.target_value) : null
+                        const jpNames = rule.target_type === 'job_position' && rule.target_value
+                          ? rule.target_value.split(',').map(v => jobPositions?.find(p => p.id === v.trim())).filter(Boolean).map((p: any) => p.name)
+                          : []
                         return (
-                          <tr
+                          <div
                             key={rule.id}
-                            className="hover:bg-accent/30 transition-colors cursor-pointer group"
+                            className="p-3 active:bg-accent/30 transition-colors cursor-pointer"
                             onClick={() => onEditRule?.(rule)}
                           >
-                            <td className="px-3 py-2 font-medium text-foreground">{ct ? `${ct.code} — ${ct.name}` : '?'}</td>
-                            <td className="px-3 py-2">
-                              <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold text-white ${CATEGORY_COLORS_MAP[ct?.category ?? ''] ?? 'bg-zinc-500'}`}>
-                                {CATEGORY_FULL_LABELS[ct?.category ?? ''] ?? ct?.category}
+                            <div className="flex items-start gap-2 mb-1.5">
+                              <span className="text-xs font-medium text-foreground flex-1 leading-snug">
+                                {ct ? `${ct.code} — ${ct.name}` : '?'}
                               </span>
-                            </td>
-                            <td className="px-3 py-2 text-muted-foreground">
-                              {RULE_TARGET_OPTIONS.find(o => o.value === rule.target_type)?.label ?? rule.target_type}
-                            </td>
-                            <td className="px-3 py-2 text-foreground">
-                              {rule.target_type === 'all' ? '—' : jp ? `${jp.code} — ${jp.name}` : rule.target_value ?? '—'}
-                            </td>
-                            <td className="px-3 py-2">
-                              <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold text-white ${PRIORITY_COLORS[rule.priority] ?? 'bg-zinc-500'}`}>
+                              <span className={`shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold text-white ${PRIORITY_COLORS[rule.priority] ?? 'bg-zinc-500'}`}>
                                 {PRIORITY_LABELS[rule.priority] ?? rule.priority}
                               </span>
-                            </td>
-                            <td className="px-3 py-2">
-                              <span className={cn('text-[10px] font-medium', rule.applicability === 'contextual' ? 'text-blue-500' : 'text-emerald-600')}>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                              <span className={`inline-block px-1.5 py-0.5 rounded font-semibold text-white ${CATEGORY_COLORS_MAP[ct?.category ?? ''] ?? 'bg-zinc-500'}`}>
+                                {CATEGORY_FULL_LABELS[ct?.category ?? ''] ?? ct?.category}
+                              </span>
+                              <span className="text-muted-foreground">
+                                {RULE_TARGET_OPTIONS.find(o => o.value === rule.target_type)?.label ?? rule.target_type}
+                                {rule.target_type !== 'all' && (
+                                  <> : <span className="text-foreground">{jpNames.length > 0 ? jpNames.join(', ') : rule.target_value ?? '—'}</span></>
+                                )}
+                              </span>
+                              <span className={cn('font-medium', rule.applicability === 'contextual' ? 'text-blue-500' : 'text-emerald-600')}>
                                 {rule.applicability === 'contextual' ? 'Contextuelle' : 'Permanente'}
                               </span>
-                            </td>
-                            <td className="px-3 py-2 text-muted-foreground truncate max-w-[200px]">{rule.description || '—'}</td>
-                          </tr>
+                            </div>
+                            {rule.description && (
+                              <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2">{rule.description}</p>
+                            )}
+                          </div>
                         )
                       })}
-                    </tbody>
-                  </table>
+                    </div>
+                  </>
                 )}
               </div>
             ))
@@ -1449,25 +1504,12 @@ function RulesMatrixView({
         /* ── Matrix view ── */
         <>
           {/* Target type tabs */}
-          <div className="flex items-center gap-1 border-b border-border pb-0">
-            {TARGET_TABS.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTargetTab(tab.id)}
-                className={cn(
-                  'px-3 py-1.5 text-xs font-medium rounded-t-lg border border-b-0 transition-colors -mb-px',
-                  activeTargetTab === tab.id
-                    ? 'bg-background border-border text-foreground'
-                    : 'bg-transparent border-transparent text-muted-foreground hover:text-foreground hover:bg-accent/50',
-                )}
-              >
-                {tab.label}
-                {tabCounts[tab.id] > 0 && (
-                  <span className="ml-1.5 text-[10px] bg-primary/15 text-primary rounded-full px-1.5">{tabCounts[tab.id]}</span>
-                )}
-              </button>
-            ))}
-          </div>
+          <SubTabBar
+            items={TARGET_TABS.map(t => ({ ...t, icon: Scale }))}
+            activeId={activeTargetTab}
+            onTabChange={setActiveTargetTab}
+            counts={tabCounts}
+          />
 
           {/* Matrix table */}
           {filteredTypes.length === 0 ? (
@@ -1475,11 +1517,11 @@ function RulesMatrixView({
               Aucun référentiel dans cette catégorie.
             </div>
           ) : (
-            <div className="border border-border rounded-lg overflow-auto max-h-[calc(100vh-340px)]">
+            <div className="border border-border rounded-lg overflow-auto max-h-[calc(100vh-340px)] -mx-2 sm:mx-0 touch-pan-x touch-pan-y">
               <table className="text-xs w-full border-collapse">
                 <thead className="sticky top-0 z-20">
                   <tr className="bg-chrome">
-                    <th className="sticky left-0 z-30 bg-chrome border-b border-r border-border px-3 py-2 text-left font-semibold text-muted-foreground min-w-[200px]">
+                    <th className="sticky left-0 z-30 bg-chrome border-b border-r border-border px-2 sm:px-3 py-2 text-left font-semibold text-muted-foreground min-w-[120px] sm:min-w-[200px]">
                       {activeTargetTab === 'all' ? 'Portée' : activeTargetTab === 'job_position' ? 'Fiche de poste' : activeTargetTab === 'department' ? 'Département' : 'Asset'}
                     </th>
                     {filteredTypes.map(t => (
@@ -1505,11 +1547,11 @@ function RulesMatrixView({
                   {rows.map((row, idx) => (
                     <tr key={row.id} className={idx % 2 === 0 ? 'bg-card' : 'bg-accent/20'}>
                       <td className={cn(
-                        'sticky left-0 z-10 border-r border-border px-3 py-2 transition-colors',
+                        'sticky left-0 z-10 border-r border-border px-2 sm:px-3 py-2 transition-colors min-w-[120px] sm:min-w-[200px]',
                         hoveredRow === row.id ? 'bg-primary/10' : idx % 2 === 0 ? 'bg-card' : 'bg-accent/40',
                       )}>
-                        <span className={cn('font-medium', hoveredRow === row.id ? 'text-primary' : 'text-foreground')}>{row.label}</span>
-                        {row.sub && <span className="text-muted-foreground ml-1.5 text-[10px]">{row.sub}</span>}
+                        <span className={cn('font-medium text-[11px] sm:text-xs', hoveredRow === row.id ? 'text-primary' : 'text-foreground')}>{row.label}</span>
+                        {row.sub && <span className="text-muted-foreground ml-1 sm:ml-1.5 text-[9px] sm:text-[10px] hidden sm:inline">{row.sub}</span>}
                       </td>
                       {filteredTypes.map(t => {
                         const key = activeTargetTab === 'all'
@@ -1520,9 +1562,9 @@ function RulesMatrixView({
                           <td
                             key={t.id}
                             className={cn(
-                              'border-r border-border/30 text-center cursor-pointer transition-colors',
+                              'border-r border-border/30 text-center cursor-pointer transition-colors min-w-[40px] sm:min-w-[50px] py-1 sm:py-0',
                               (hoveredCol === t.id || hoveredRow === row.id) ? 'bg-primary/5' : '',
-                              'hover:bg-primary/10',
+                              'hover:bg-primary/10 active:bg-primary/15',
                             )}
                             onMouseEnter={() => { setHoveredCol(t.id); setHoveredRow(row.id) }}
                             onMouseLeave={() => { setHoveredCol(null); setHoveredRow(null) }}
@@ -1553,6 +1595,43 @@ function RulesMatrixView({
           )}
         </>
       )}
+
+      {/* Export wizard */}
+      <ExportWizard
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        data={filteredRulesForList.map(rule => {
+          const ct = types.find(t => t.id === rule.compliance_type_id)
+          const jpVals = rule.target_type === 'job_position' && rule.target_value
+            ? rule.target_value.split(',').map(v => jobPositions?.find(p => p.id === v.trim())).filter(Boolean)
+            : []
+          return {
+            type_code: ct?.code ?? '',
+            type_name: ct?.name ?? '',
+            category: CATEGORY_FULL_LABELS[ct?.category ?? ''] ?? ct?.category ?? '',
+            target_type: RULE_TARGET_OPTIONS.find(o => o.value === rule.target_type)?.label ?? rule.target_type,
+            target_value_display: rule.target_type === 'all' ? 'Tous' : jpVals.length > 0 ? jpVals.map((p: any) => `${p.code} - ${p.name}`).join(', ') : rule.target_value ?? '',
+            priority: PRIORITY_LABELS[rule.priority] ?? rule.priority,
+            applicability: rule.applicability === 'contextual' ? 'Contextuelle' : 'Permanente',
+            description: rule.description ?? '',
+            effective_from: rule.effective_from ?? '',
+            effective_to: rule.effective_to ?? '',
+          }
+        })}
+        columns={[
+          { id: 'type_code', header: 'Code Type' },
+          { id: 'type_name', header: 'Nom Type' },
+          { id: 'category', header: 'Categorie' },
+          { id: 'target_type', header: 'Cible' },
+          { id: 'target_value_display', header: 'Valeur Cible' },
+          { id: 'priority', header: 'Priorite' },
+          { id: 'applicability', header: 'Applicabilite' },
+          { id: 'description', header: 'Description' },
+          { id: 'effective_from', header: 'Depuis' },
+          { id: 'effective_to', header: "Jusqu'a" },
+        ]}
+        filenamePrefix="conformite-regles"
+      />
     </div>
   )
 }
@@ -1591,14 +1670,14 @@ function SearchableSelect({ value, onChange, options, placeholder, disabled }: {
         <svg className="w-3 h-3 shrink-0 ml-1" viewBox="0 0 12 12"><path d="M3 5l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
       </button>
       {open && (
-        <div className="absolute z-50 mt-1 w-full max-h-56 overflow-auto rounded-md border border-border bg-popover shadow-md">
+        <div className="absolute z-50 mt-1 w-full max-h-56 sm:max-h-56 overflow-auto rounded-md border border-border bg-popover shadow-md">
           <div className="sticky top-0 bg-popover p-1.5 border-b border-border">
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Rechercher..."
-              className={cn(panelInputClass, 'h-7 text-xs')}
+              className={cn(panelInputClass, 'h-8 sm:h-7 text-xs')}
               autoFocus
             />
           </div>
@@ -1608,7 +1687,78 @@ function SearchableSelect({ value, onChange, options, placeholder, disabled }: {
               key={o.value}
               type="button"
               onClick={() => { onChange(o.value); setOpen(false); setSearch('') }}
-              className={cn('w-full text-left px-3 py-1.5 text-xs hover:bg-accent transition-colors', o.value === value && 'bg-primary/5 text-primary font-medium')}
+              className={cn('w-full text-left px-3 py-2 sm:py-1.5 text-xs hover:bg-accent active:bg-accent/80 transition-colors', o.value === value && 'bg-primary/5 text-primary font-medium')}
+            >
+              {o.group && <span className="text-muted-foreground mr-1">[{o.group}]</span>}
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Multi Searchable Select (local) ─────────────────────────────────────
+
+function MultiSearchableSelect({ values, onChange, options, placeholder, disabled }: {
+  values: string[]
+  onChange: (vs: string[]) => void
+  options: { value: string; label: string; group?: string }[]
+  placeholder?: string
+  disabled?: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const ref = React.useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const filtered = options.filter(o =>
+    !values.includes(o.value) && o.label.toLowerCase().includes(search.toLowerCase())
+  )
+  const selectedItems = values.map(v => options.find(o => o.value === v)).filter(Boolean) as typeof options
+
+  return (
+    <div ref={ref} className="relative">
+      <div
+        className={cn(panelInputClass, 'min-h-[32px] h-auto flex flex-wrap items-center gap-1 cursor-text py-1', disabled && 'opacity-50 pointer-events-none')}
+        onClick={() => { if (!disabled) setOpen(true) }}
+      >
+        {selectedItems.map(item => (
+          <span key={item.value} className="inline-flex items-center gap-0.5 bg-primary/10 text-primary text-[11px] font-medium px-1.5 py-0.5 rounded">
+            <span className="truncate max-w-[150px]">{item.label}</span>
+            <button type="button" onClick={(e) => { e.stopPropagation(); onChange(values.filter(v => v !== item.value)) }} className="hover:text-destructive">
+              <X size={10} />
+            </button>
+          </span>
+        ))}
+        {selectedItems.length === 0 && <span className="text-muted-foreground text-xs">{placeholder || '— Sélectionner —'}</span>}
+        <svg className="w-3 h-3 shrink-0 ml-auto text-muted-foreground" viewBox="0 0 12 12"><path d="M3 5l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
+      </div>
+      {open && (
+        <div className="absolute z-50 mt-1 w-full max-h-56 overflow-auto rounded-md border border-border bg-popover shadow-md">
+          <div className="sticky top-0 bg-popover p-1.5 border-b border-border">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Rechercher..."
+              className={cn(panelInputClass, 'h-8 sm:h-7 text-xs')}
+              autoFocus
+            />
+          </div>
+          {filtered.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">Aucun résultat</div>}
+          {filtered.map(o => (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => { onChange([...values, o.value]); setSearch('') }}
+              className="w-full text-left px-3 py-2 sm:py-1.5 text-xs hover:bg-accent active:bg-accent/80 transition-colors"
             >
               {o.group && <span className="text-muted-foreground mr-1">[{o.group}]</span>}
               {o.label}
@@ -1665,12 +1815,12 @@ function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly }: {
             />
           </DynamicPanelField>
           {form.target_type === 'job_position' && (
-            <DynamicPanelField label="Fiche de poste">
-              <SearchableSelect
-                value={form.target_value}
-                onChange={(v) => setForm({ ...form, target_value: v })}
-                options={[{ value: '', label: '— Tous les postes —' }, ...jpOptions]}
-                placeholder="Rechercher un poste..."
+            <DynamicPanelField label="Fiche(s) de poste" span="full">
+              <MultiSearchableSelect
+                values={(form.target_value || '').split(',').filter(Boolean)}
+                onChange={(vs) => setForm({ ...form, target_value: vs.join(',') })}
+                options={jpOptions}
+                placeholder="Rechercher et ajouter des postes..."
               />
             </DynamicPanelField>
           )}
@@ -1719,18 +1869,11 @@ function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly }: {
         </FormGrid>
       </FormSection>
 
-      <FormSection title="Conditions avancées" defaultExpanded={false}>
-        <DynamicPanelField label="Conditions (JSON)" span="full">
-          <textarea
-            value={form.condition_json ? JSON.stringify(form.condition_json, null, 2) : ''}
-            onChange={(e) => {
-              try { setForm({ ...form, condition_json: e.target.value ? JSON.parse(e.target.value) : null }) } catch { /* invalid JSON — ignore until valid */ }
-            }}
-            className={`${panelInputClass} min-h-[60px] resize-y font-mono text-xs`}
-            placeholder='{"min_experience_years": 2}'
-            rows={3}
-          />
-        </DynamicPanelField>
+      <FormSection title="Conditions d'application" defaultExpanded={false} collapsible>
+        <ConditionBuilder
+          value={form.condition_json}
+          onChange={(v) => setForm({ ...form, condition_json: v })}
+        />
       </FormSection>
     </PanelContentLayout>
   )
@@ -1767,7 +1910,6 @@ function EditRulePanel() {
     compliance_type_id: rule?.compliance_type_id ?? '',
   })
   const [changeReason, setChangeReason] = useState('')
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   if (!rule) return null
 
@@ -1818,6 +1960,11 @@ function EditRulePanel() {
       icon={<Scale size={14} className="text-primary" />}
       actions={
         <>
+          {canDelete && (
+            <DangerConfirmButton icon={<Trash2 size={12} />} onConfirm={handleDelete} confirmLabel="Supprimer ?">
+              Supprimer
+            </DangerConfirmButton>
+          )}
           <PanelActionButton onClick={closeDynamicPanel}>Annuler</PanelActionButton>
           {canUpdate && (
             <PanelActionButton variant="primary" disabled={updateRule.isPending || !changeReason.trim()} onClick={handleSave}>
@@ -1839,6 +1986,13 @@ function EditRulePanel() {
           </FormSection>
         </div>
       )}
+
+      {/* Attachments */}
+      <div className="px-4 pb-2">
+        <FormSection title="Pièces jointes" defaultExpanded={false} collapsible>
+          <AttachmentManager ownerType="compliance_rule" ownerId={rule.id} compact />
+        </FormSection>
+      </div>
 
       {/* History timeline */}
       <div className="px-4 pb-4">
@@ -1865,24 +2019,6 @@ function EditRulePanel() {
         </FormSection>
       </div>
 
-      {/* Delete button */}
-      {canDelete && (
-        <div className="px-4 pb-4 border-t border-border pt-3">
-          {!showDeleteConfirm ? (
-            <button onClick={() => setShowDeleteConfirm(true)} className="gl-button-sm gl-button-danger flex items-center gap-1.5">
-              <Trash2 size={12} /> Supprimer cette règle
-            </button>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-destructive">Confirmer ?</span>
-              <button onClick={handleDelete} disabled={deleteRule.isPending} className="gl-button-sm gl-button-danger">
-                {deleteRule.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Oui, supprimer'}
-              </button>
-              <button onClick={() => setShowDeleteConfirm(false)} className="gl-button-sm gl-button-default">Non</button>
-            </div>
-          )}
-        </div>
-      )}
     </DynamicPanelShell>
   )
 }
@@ -1956,6 +2092,11 @@ function CreateRulePanel() {
       }
     >
       <RuleFormFields form={form} setForm={setForm} typesData={typesData} jpData={jpData} />
+      <div className="px-4 pb-2">
+        <p className="text-xs text-muted-foreground italic flex items-center gap-1.5">
+          <Paperclip size={11} /> Les pièces jointes pourront être ajoutées après la création de la règle.
+        </p>
+      </div>
     </DynamicPanelShell>
   )
 }
@@ -2015,14 +2156,14 @@ function VerificationsTab() {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 sm:space-y-2">
       <p className="text-xs text-muted-foreground px-1">{items.length} enregistrement{items.length > 1 ? 's' : ''} en attente de vérification</p>
       {items.map((item) => (
         <div key={`${item.record_type}-${item.id}`} className="border border-border rounded-lg p-3 hover:bg-muted/20 transition-colors">
-          <div className="flex items-center gap-2">
-            <span className="gl-badge gl-badge-warning text-[9px] shrink-0">{RECORD_TYPE_LABELS[item.record_type] || item.record_type}</span>
-            <span className="text-sm font-medium flex-1 truncate">{item.description}</span>
-            <span className="text-[10px] text-muted-foreground tabular-nums">
+          <div className="flex items-start sm:items-center gap-2">
+            <span className="gl-badge gl-badge-warning text-[9px] shrink-0 mt-0.5 sm:mt-0">{RECORD_TYPE_LABELS[item.record_type] || item.record_type}</span>
+            <span className="text-sm font-medium flex-1 break-words sm:truncate">{item.description}</span>
+            <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
               {new Date(item.submitted_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })}
             </span>
           </div>
@@ -2031,29 +2172,29 @@ function VerificationsTab() {
           )}
 
           {rejectingId === item.id ? (
-            <div className="mt-2 space-y-1.5">
+            <div className="mt-2 space-y-2">
               <input
                 type="text"
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 placeholder="Motif du rejet..."
-                className="w-full text-xs border border-border rounded px-2 py-1 bg-background"
+                className="w-full text-xs border border-border rounded px-2 py-1.5 sm:py-1 bg-background"
                 autoFocus
               />
-              <div className="flex gap-1.5 justify-end">
-                <button onClick={() => { setRejectingId(null); setRejectReason('') }} className="px-2 py-0.5 text-[10px] rounded border border-border hover:bg-muted text-muted-foreground">Annuler</button>
-                <button onClick={() => handleReject(item.record_type, item.id)} disabled={!rejectReason.trim() || verifyRecord.isPending} className="px-2 py-0.5 text-[10px] rounded bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-40">
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => { setRejectingId(null); setRejectReason('') }} className="px-3 py-1.5 sm:px-2 sm:py-0.5 text-[11px] sm:text-[10px] rounded border border-border hover:bg-muted text-muted-foreground">Annuler</button>
+                <button onClick={() => handleReject(item.record_type, item.id)} disabled={!rejectReason.trim() || verifyRecord.isPending} className="px-3 py-1.5 sm:px-2 sm:py-0.5 text-[11px] sm:text-[10px] rounded bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-40">
                   {verifyRecord.isPending ? <Loader2 size={10} className="animate-spin inline mr-1" /> : null}Rejeter
                 </button>
               </div>
             </div>
           ) : (
-            <div className="flex gap-1.5 mt-2 justify-end">
-              <button onClick={() => setRejectingId(item.id)} className="gl-button-sm gl-button-danger flex items-center gap-1 text-[10px]">
-                <X size={10} /> Rejeter
+            <div className="flex gap-2 mt-2 justify-end">
+              <button onClick={() => setRejectingId(item.id)} className="gl-button-sm gl-button-danger flex items-center gap-1 text-[11px] sm:text-[10px] py-1.5 sm:py-1 px-2.5 sm:px-2">
+                <X size={12} className="sm:w-2.5 sm:h-2.5" /> Rejeter
               </button>
-              <button onClick={() => handleVerify(item.record_type, item.id)} disabled={verifyRecord.isPending} className="gl-button-sm gl-button-confirm flex items-center gap-1 text-[10px]">
-                {verifyRecord.isPending ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />} Vérifier & Valider
+              <button onClick={() => handleVerify(item.record_type, item.id)} disabled={verifyRecord.isPending} className="gl-button-sm gl-button-confirm flex items-center gap-1 text-[11px] sm:text-[10px] py-1.5 sm:py-1 px-2.5 sm:px-2">
+                {verifyRecord.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} className="sm:w-2.5 sm:h-2.5" />} Vérifier & Valider
               </button>
             </div>
           )}

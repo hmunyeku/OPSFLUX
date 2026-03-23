@@ -58,7 +58,7 @@ async def update_social_security(
     obj = result.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Social security record not found")
-    check_verified_lock(obj, current_user)
+    await check_verified_lock(obj, current_user, db=db)
     update_data = body.model_dump(exclude_unset=True)
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update")
@@ -82,5 +82,5 @@ async def delete_social_security(
     obj = result.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Social security record not found")
-    check_verified_lock(obj, current_user)
+    await check_verified_lock(obj, current_user, db=db)
     await delete_entity(obj, db, "social_security", entity_id=obj.id, user_id=current_user.id)

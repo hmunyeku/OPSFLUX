@@ -65,6 +65,7 @@ import {
   type DataTableFilterDef,
   type DataTableBatchAction,
 } from '@/components/ui/DataTable'
+import { TabBar } from '@/components/ui/Tabs'
 import { useDictionaryOptions } from '@/hooks/useDictionary'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { AddressManager } from '@/components/shared/AddressManager'
@@ -648,23 +649,12 @@ function EntityDetailPanel({ id }: { id: string }) {
       </div>
 
       {/* Tab navigation */}
-      <div className="flex border-b border-border bg-muted/30 px-4 gap-0.5 overflow-x-auto">
-        {TABS.map((tb) => (
-          <button
-            key={tb.id}
-            onClick={() => setTab(tb.id)}
-            className={cn(
-              'flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors whitespace-nowrap',
-              tab === tb.id
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border',
-            )}
-          >
-            <tb.icon size={12} />
-            {tb.label}
-          </button>
-        ))}
-      </div>
+      <TabBar
+        items={TABS}
+        activeId={tab}
+        onTabChange={setTab}
+        variant="muted"
+      />
 
       {/* Tab content */}
       <PanelContentLayout>

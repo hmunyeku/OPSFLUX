@@ -192,6 +192,11 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         String(20), default="internal", nullable=False
     )  # internal | external
 
+    # Messaging preferences — user can override admin defaults
+    preferred_messaging_channel: Mapped[str] = mapped_column(
+        String(20), default="auto", nullable=False
+    )  # auto | whatsapp | sms | email
+
     # Job position (linked to conformité — determines required referentiels)
     job_position_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("job_positions.id"), nullable=True

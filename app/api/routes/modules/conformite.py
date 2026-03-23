@@ -5,7 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import select, func as sqla_func
+from sqlalchemy import select, func as sqla_func, literal, any_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import check_verified_lock, get_current_entity, get_current_user, require_permission
@@ -16,7 +16,7 @@ from app.core.pagination import PaginationParams, paginate
 from app.models.common import (
     ComplianceType, ComplianceRule, ComplianceRuleHistory, ComplianceRecord, ComplianceExemption,
     JobPosition, TierContactTransfer, TierContact, Tier,
-    User,
+    User, UserEmail, Phone, Setting,
 )
 from app.schemas.common import (
     PaginatedResponse,
@@ -401,7 +401,7 @@ async def update_compliance_record(
     if not rec:
         raise HTTPException(404, "Record not found")
     # Block updates on verified records unless user has conformite.verify permission
-    check_verified_lock(rec, current_user)
+    await check_verified_lock(rec, current_user, entity_id=entity_id, db=db)
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(rec, field, value)
     await db.commit()
@@ -596,23 +596,51 @@ async def check_compliance(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Check compliance status for an object — returns required, valid, expired, missing counts.
+    """Check compliance status for an object.
 
-    By default, only **permanent** rules are checked (profile/dashboard view).
-    Pass ``include_contextual=true`` to also check contextual rules (e.g. site access request).
+    Compliance hierarchy:
+    1. Account must be verified (at least one verified email or phone)
+    2. Permanent rules must be satisfied (records with verification_status='verified')
+    3. Contextual rules checked only when include_contextual=true
+    4. is_compliant = account_verified AND no missing AND no expired AND no unverified records
 
-    Resolves rules by target_type:
-    - 'all': applies to everyone
-    - 'job_position': applies to contacts with a specific job_position_id
+    Records with verification_status != 'verified' count as unverified — they don't
+    contribute to compliance even if their status is 'valid'.
     """
     now = datetime.now(timezone.utc)
 
-    # Base filter: active rules, optionally filter by applicability
+    # ── Step 0: Check account verification (email or phone verified) ──
+    # Configurable via admin setting 'auth.require_account_verification' (default: True)
+    account_verified = True
+    if owner_type == "user":
+        require_acct_verif_row = await db.execute(
+            select(Setting.value).where(Setting.key == "auth.require_account_verification", Setting.scope == "tenant")
+        )
+        require_acct_verif = require_acct_verif_row.scalar()
+        # Default: enabled (True). Admin can disable via settings.
+        require_verification = True
+        if require_acct_verif is not None:
+            require_verification = bool(require_acct_verif.get("v", True) if isinstance(require_acct_verif, dict) else require_acct_verif)
+
+        if require_verification:
+            email_verified = await db.execute(
+                select(sqla_func.count()).select_from(UserEmail)
+                .where(UserEmail.user_id == owner_id, UserEmail.verified == True)
+            )
+            phone_verified = await db.execute(
+                select(sqla_func.count()).select_from(Phone)
+                .where(Phone.owner_type == "user", Phone.owner_id == owner_id, Phone.verified == True)
+            )
+            has_verified_email = (email_verified.scalar() or 0) > 0
+            has_verified_phone = (phone_verified.scalar() or 0) > 0
+            account_verified = has_verified_email or has_verified_phone
+
+    # ── Step 1: Resolve required compliance types from active rules ──
     applicability_filter = True  # noqa: E712 — include all
     if not include_contextual:
         applicability_filter = ComplianceRule.applicability == "permanent"
 
-    # 1) Rules with target_type='all' — applies to everyone
+    # 1a) Rules with target_type='all' — applies to everyone
     all_rules = await db.execute(
         select(ComplianceRule.compliance_type_id)
         .where(ComplianceRule.entity_id == entity_id, ComplianceRule.active == True)
@@ -621,7 +649,7 @@ async def check_compliance(
     )
     required_type_ids = set(r[0] for r in all_rules.all())
 
-    # 2) Rules with target_type='job_position' — resolve via owner's job_position_id
+    # 1b) Rules with target_type='job_position' — resolve via owner's job_position_id
     job_position_id = None
     if owner_type == "tier_contact":
         contact_result = await db.execute(
@@ -635,19 +663,22 @@ async def check_compliance(
         job_position_id = user_result.scalar()
 
     if job_position_id:
+        jp_id_str = str(job_position_id)
         jp_rules = await db.execute(
             select(ComplianceRule.compliance_type_id)
             .where(
                 ComplianceRule.entity_id == entity_id,
                 ComplianceRule.active == True,
                 ComplianceRule.target_type == "job_position",
-                ComplianceRule.target_value == str(job_position_id),
+                literal(jp_id_str) == any_(
+                    sqla_func.string_to_array(ComplianceRule.target_value, ",")
+                ),
                 applicability_filter,
             )
         )
         required_type_ids |= set(r[0] for r in jp_rules.all())
 
-    # Get existing records for this owner
+    # ── Step 2: Get existing records for this owner ──
     records_result = await db.execute(
         select(ComplianceRecord)
         .where(
@@ -659,7 +690,7 @@ async def check_compliance(
     )
     records = records_result.scalars().all()
 
-    # Get active approved exemptions for this owner's records
+    # ── Step 3: Get active approved exemptions ──
     record_ids = [r.id for r in records]
     exempted_record_ids: set = set()
     if record_ids:
@@ -676,41 +707,59 @@ async def check_compliance(
         )
         exempted_record_ids = set(r[0] for r in exemptions_result.all())
 
+    # ── Step 4: Evaluate each record ──
     valid_type_ids = set()
     exempted_type_ids = set()
     expired_count = 0
-    details: list[dict] = []
+    unverified_count = 0
 
     for rec in records:
         is_expired = rec.expires_at and rec.expires_at < now
         is_exempted = rec.id in exempted_record_ids
+        is_record_verified = getattr(rec, 'verification_status', 'verified') == 'verified'
+
         if is_exempted:
-            # Exemption overrides expired status — treat as compliant
             exempted_type_ids.add(rec.compliance_type_id)
+        elif not is_record_verified:
+            # Record not yet verified by compliance officer — doesn't count
+            unverified_count += 1
         elif is_expired:
             expired_count += 1
             rec.status = "expired"
         elif rec.status == "valid":
             valid_type_ids.add(rec.compliance_type_id)
 
-    # Build details for each required type
+    # ── Step 5: Build details per required type ──
+    details: list[dict] = []
     for type_id in required_type_ids:
         type_obj = await db.get(ComplianceType, type_id)
         matching = [r for r in records if r.compliance_type_id == type_id]
         is_exempted = type_id in exempted_type_ids
+
+        # Only count verified records as valid
         valid_match = any(
-            r.compliance_type_id == type_id
-            for r in records
-            if r.status == "valid" and not (r.expires_at and r.expires_at < now)
+            r.status == "valid"
+            and not (r.expires_at and r.expires_at < now)
+            and getattr(r, 'verification_status', 'verified') == 'verified'
+            for r in matching
         )
+        has_unverified = any(
+            getattr(r, 'verification_status', 'verified') != 'verified'
+            and r.status == "valid"
+            for r in matching
+        )
+
         if is_exempted:
             detail_status = "exempted"
         elif valid_match:
             detail_status = "valid"
+        elif has_unverified:
+            detail_status = "unverified"
         elif any(r.expires_at and r.expires_at < now for r in matching):
             detail_status = "expired"
         else:
             detail_status = "missing"
+
         details.append({
             "compliance_type_id": str(type_id),
             "type_id": str(type_id),
@@ -721,7 +770,7 @@ async def check_compliance(
             "record_count": len(matching),
         })
 
-    # Exempted types count as compliant
+    # ── Step 6: Compute final compliance status ──
     compliant_type_ids = (valid_type_ids | exempted_type_ids) & required_type_ids
     missing_type_ids = required_type_ids - valid_type_ids - exempted_type_ids
     await db.commit()
@@ -729,11 +778,13 @@ async def check_compliance(
     return ComplianceCheckResult(
         owner_type=owner_type,
         owner_id=owner_id,
+        account_verified=account_verified,
         total_required=len(required_type_ids),
         total_valid=len(compliant_type_ids),
         total_expired=expired_count,
         total_missing=len(missing_type_ids),
-        is_compliant=len(missing_type_ids) == 0 and expired_count == 0,
+        total_unverified=unverified_count,
+        is_compliant=account_verified and len(missing_type_ids) == 0 and expired_count == 0 and unverified_count == 0,
         details=details,
     )
 
@@ -1190,15 +1241,27 @@ async def list_pending_verifications(
     _: None = require_permission("conformite.verify"),
     db: AsyncSession = Depends(get_db),
 ):
-    """List all records across verifiable models that are pending verification."""
+    """List all records across verifiable models that are pending verification.
+
+    Scoped to current entity: ComplianceRecords by entity_id,
+    user sub-models by users belonging to the entity via group membership.
+    """
     from app.models.common import (
         UserPassport, UserVisa, SocialSecurity, UserVaccine,
-        MedicalCheck, DrivingLicense,
+        MedicalCheck, DrivingLicense, UserGroup, UserGroupMember,
     )
 
     items: list[dict] = []
 
-    # ComplianceRecords (entity-scoped)
+    # Subquery: user IDs belonging to the current entity
+    entity_user_ids = (
+        select(UserGroupMember.user_id)
+        .join(UserGroup, UserGroup.id == UserGroupMember.group_id)
+        .where(UserGroup.entity_id == entity_id, UserGroup.active == True)
+        .distinct()
+    )
+
+    # ComplianceRecords (entity-scoped directly)
     cr_result = await db.execute(
         select(ComplianceRecord).where(
             ComplianceRecord.entity_id == entity_id,
@@ -1219,7 +1282,7 @@ async def list_pending_verifications(
             "verification_status": rec.verification_status,
         })
 
-    # User sub-models (not entity-scoped, all pending)
+    # User sub-models — scoped to users in current entity
     sub_models = [
         (UserPassport, "passport", lambda r: f"Passeport {r.number} — {r.country}"),
         (UserVisa, "visa", lambda r: f"Visa {r.visa_type} — {r.country}"),
@@ -1230,7 +1293,10 @@ async def list_pending_verifications(
 
     for Model, rtype, desc_fn in sub_models:
         result = await db.execute(
-            select(Model).where(Model.verification_status == "pending").order_by(Model.created_at.desc())
+            select(Model).where(
+                Model.verification_status == "pending",
+                Model.user_id.in_(entity_user_ids),
+            ).order_by(Model.created_at.desc())
         )
         for rec in result.scalars().all():
             items.append({
@@ -1244,9 +1310,12 @@ async def list_pending_verifications(
                 "verification_status": rec.verification_status,
             })
 
-    # MedicalChecks (polymorphic)
+    # MedicalChecks (polymorphic) — scope owner to entity users
     mc_result = await db.execute(
-        select(MedicalCheck).where(MedicalCheck.verification_status == "pending").order_by(MedicalCheck.created_at.desc())
+        select(MedicalCheck).where(
+            MedicalCheck.verification_status == "pending",
+            MedicalCheck.owner_id.in_(entity_user_ids),
+        ).order_by(MedicalCheck.created_at.desc())
     )
     for rec in mc_result.scalars().all():
         items.append({

@@ -17,6 +17,7 @@ import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTablePagination, DataTableFilterDef } from '@/components/ui/DataTable/types'
 import { cn } from '@/lib/utils'
+import { TabBar, TabButton } from '@/components/ui/Tabs'
 import { normalizeNames } from '@/lib/normalize'
 import { useDebounce } from '@/hooks/useDebounce'
 import { usePageSize } from '@/hooks/usePageSize'
@@ -382,41 +383,25 @@ function AssetDetailPanel({ id }: { id: string }) {
 
         {/* ── Secondary tabs: Adresses | Fichiers | Notes ── */}
         <div className="border-t border-border pt-4">
-          <div className="flex items-center gap-1 border-b border-border mb-4">
+          <TabBar className="mb-4">
             {DETAIL_TABS.map((tab) => {
-              const Icon = tab.icon
               const count = tabCounts[tab.id as keyof typeof tabCounts] ?? 0
               const isActive = activeTab === tab.id
 
               return (
-                <div
-                  key={tab.id}
-                  className={cn(
-                    'group/tab flex items-center gap-1.5 px-3 py-2 border-b-2 -mb-px transition-colors cursor-pointer select-none',
-                    isActive
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border',
-                  )}
-                  onClick={() => setActiveTab(tab.id)}
-                >
-                  <Icon size={13} />
-                  <span className="text-sm font-medium">{tab.label}</span>
-                  {count > 0 && (
-                    <span className={cn(
-                      'text-[10px] font-semibold px-1.5 py-0.5 rounded-full min-w-[18px] text-center',
-                      isActive
-                        ? 'bg-primary/10 text-primary'
-                        : 'bg-accent text-muted-foreground',
-                    )}>
-                      {count}
-                    </span>
-                  )}
+                <div key={tab.id} className="group/tab flex items-center">
+                  <TabButton
+                    icon={tab.icon}
+                    label={tab.label}
+                    active={isActive}
+                    badge={count || undefined}
+                    onClick={() => setActiveTab(tab.id)}
+                  />
                   {/* + button appears on hover — click opens add form */}
                   <button
-                    className="p-0.5 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all opacity-0 group-hover/tab:opacity-100 ml-0.5"
+                    className="p-0.5 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all opacity-0 group-hover/tab:opacity-100 -ml-1 mr-1"
                     title={`Ajouter (${tab.label})`}
-                    onClick={(e) => {
-                      e.stopPropagation()
+                    onClick={() => {
                       setActiveTab(tab.id)
                       setAddTrigger((v) => v + 1)
                     }}
@@ -426,7 +411,7 @@ function AssetDetailPanel({ id }: { id: string }) {
                 </div>
               )
             })}
-          </div>
+          </TabBar>
 
           {/* Tab content — key includes addTrigger to force re-render with form open */}
           {activeTab === 'addresses' && (

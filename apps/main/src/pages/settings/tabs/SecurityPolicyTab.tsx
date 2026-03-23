@@ -258,6 +258,62 @@ export function SecurityPolicyTab() {
           </SettingRow>
         </div>
       </CollapsibleSection>
+
+      {/* ── Conformité ── */}
+      <CollapsibleSection
+        id="compliance-policy"
+        title="Conformité"
+        description="Critères de vérification pour déclarer un compte conforme."
+        storageKey="settings.security-policy.collapse"
+      >
+        <div className="mt-2 space-y-0">
+          <SettingRow
+            label="Exiger la vérification du compte"
+            description="Un utilisateur doit avoir au moins un email ou téléphone vérifié pour être déclaré conforme. Si désactivé, seules les règles de conformité (records vérifiés par le chargé) sont prises en compte."
+          >
+            <Toggle checked={s.require_account_verification ?? true} onChange={(v) => save('require_account_verification', v)} />
+          </SettingRow>
+        </div>
+      </CollapsibleSection>
+
+      {/* ── Canaux de messagerie ── */}
+      <CollapsibleSection
+        id="messaging-channels"
+        title="Canaux de messagerie (défaut)"
+        description="Canal par défaut pour chaque type de message. Les utilisateurs peuvent personnaliser dans leurs préférences."
+        storageKey="settings.security-policy.collapse"
+      >
+        <div className="mt-2 space-y-0">
+          <SettingRow label="Codes de vérification (OTP)" description="Canal utilisé pour envoyer les codes de vérification téléphone.">
+            <TagSelector
+              options={MESSAGING_CHANNEL_OPTIONS}
+              value={s.messaging_channel_otp ?? 'auto'}
+              onChange={(v: string) => save('messaging_channel_otp', v)}
+            />
+          </SettingRow>
+          <SettingRow label="Notifications" description="Canal utilisé pour les notifications système (rappels conformité, alertes, etc.).">
+            <TagSelector
+              options={MESSAGING_CHANNEL_OPTIONS}
+              value={s.messaging_channel_notification ?? 'auto'}
+              onChange={(v: string) => save('messaging_channel_notification', v)}
+            />
+          </SettingRow>
+          <SettingRow label="Alertes critiques" description="Canal utilisé pour les alertes urgentes (expiration imminente, incidents).">
+            <TagSelector
+              options={MESSAGING_CHANNEL_OPTIONS}
+              value={s.messaging_channel_alert ?? 'auto'}
+              onChange={(v: string) => save('messaging_channel_alert', v)}
+            />
+          </SettingRow>
+        </div>
+      </CollapsibleSection>
     </>
   )
 }
+
+const MESSAGING_CHANNEL_OPTIONS = [
+  { value: 'auto', label: 'Auto' },
+  { value: 'whatsapp', label: 'WhatsApp' },
+  { value: 'sms', label: 'SMS' },
+  { value: 'email', label: 'Email' },
+]

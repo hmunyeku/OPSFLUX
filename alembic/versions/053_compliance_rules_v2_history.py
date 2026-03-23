@@ -11,7 +11,7 @@ from sqlalchemy.dialects.postgresql import UUID, JSONB
 from alembic import op
 
 revision = "053"
-down_revision = "052"
+down_revision = "052_add_verifiable"
 branch_labels = None
 depends_on = None
 

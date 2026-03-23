@@ -1157,14 +1157,59 @@ class ComplianceRuleRead(OpsFluxSchema):
     target_value: str | None = None
     description: str | None = None
     active: bool
+    # V2 fields
+    version: int = 1
+    effective_from: date | None = None
+    effective_to: date | None = None
+    priority: str = "normal"
+    override_validity_days: int | None = None
+    grace_period_days: int | None = None
+    renewal_reminder_days: int | None = None
+    condition_json: dict | None = None
+    change_reason: str | None = None
+    changed_by: UUID | None = None
     created_at: datetime
 
 
 class ComplianceRuleCreate(BaseModel):
     compliance_type_id: UUID
-    target_type: str = Field(..., pattern=r'^(tier_type|asset|department|all)$')
+    target_type: str = Field(..., pattern=r'^(tier_type|asset|department|job_position|all)$')
     target_value: str | None = None
     description: str | None = None
+    # V2 optional fields
+    effective_from: date | None = None
+    priority: str = "normal"
+    override_validity_days: int | None = None
+    grace_period_days: int | None = None
+    renewal_reminder_days: int | None = None
+    condition_json: dict | None = None
+
+
+class ComplianceRuleUpdate(BaseModel):
+    target_type: str | None = Field(None, pattern=r'^(tier_type|asset|department|job_position|all)$')
+    target_value: str | None = None
+    description: str | None = None
+    active: bool | None = None
+    # V2 fields
+    effective_from: date | None = None
+    effective_to: date | None = None
+    priority: str | None = None
+    override_validity_days: int | None = None
+    grace_period_days: int | None = None
+    renewal_reminder_days: int | None = None
+    condition_json: dict | None = None
+    change_reason: str | None = None
+
+
+class ComplianceRuleHistoryRead(OpsFluxSchema):
+    id: UUID
+    rule_id: UUID
+    version: int
+    action: str
+    snapshot: dict
+    change_reason: str | None = None
+    changed_by: UUID | None = None
+    changed_at: datetime
 
 
 class ComplianceRecordRead(OpsFluxSchema):

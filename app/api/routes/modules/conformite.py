@@ -14,20 +14,39 @@ from app.services.core.delete_service import delete_entity
 from app.core.events import emit_event
 from app.core.pagination import PaginationParams, paginate
 from app.models.common import (
-    ComplianceType, ComplianceRule, ComplianceRecord, ComplianceExemption,
+    ComplianceType, ComplianceRule, ComplianceRuleHistory, ComplianceRecord, ComplianceExemption,
     JobPosition, TierContactTransfer, TierContact, Tier,
     User,
 )
 from app.schemas.common import (
     PaginatedResponse,
     ComplianceTypeCreate, ComplianceTypeRead, ComplianceTypeUpdate,
-    ComplianceRuleCreate, ComplianceRuleRead,
+    ComplianceRuleCreate, ComplianceRuleRead, ComplianceRuleUpdate, ComplianceRuleHistoryRead,
     ComplianceRecordCreate, ComplianceRecordRead, ComplianceRecordUpdate,
     ComplianceCheckResult,
     ComplianceExemptionCreate, ComplianceExemptionRead, ComplianceExemptionUpdate,
     JobPositionCreate, JobPositionRead, JobPositionUpdate,
     TierContactTransferCreate, TierContactTransferRead,
 )
+
+
+def _snapshot_rule(rule: ComplianceRule) -> dict:
+    """Create a JSON snapshot of a rule's current state for history."""
+    return {
+        "compliance_type_id": str(rule.compliance_type_id),
+        "target_type": rule.target_type,
+        "target_value": rule.target_value,
+        "description": rule.description,
+        "active": rule.active,
+        "version": rule.version,
+        "priority": rule.priority,
+        "override_validity_days": rule.override_validity_days,
+        "grace_period_days": rule.grace_period_days,
+        "renewal_reminder_days": rule.renewal_reminder_days,
+        "effective_from": str(rule.effective_from) if rule.effective_from else None,
+        "effective_to": str(rule.effective_to) if rule.effective_to else None,
+        "condition_json": rule.condition_json,
+    }
 
 router = APIRouter(prefix="/api/v1/conformite", tags=["conformite"])
 
@@ -135,11 +154,53 @@ async def list_compliance_rules(
 async def create_compliance_rule(
     body: ComplianceRuleCreate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("conformite.rule.create"),
     db: AsyncSession = Depends(get_db),
 ):
-    rule = ComplianceRule(entity_id=entity_id, **body.model_dump())
+    rule = ComplianceRule(entity_id=entity_id, changed_by=current_user.id, **body.model_dump())
     db.add(rule)
+    await db.flush()
+    # Log creation in history
+    db.add(ComplianceRuleHistory(
+        rule_id=rule.id, version=1, action="created",
+        snapshot=_snapshot_rule(rule),
+        changed_by=current_user.id,
+    ))
+    await db.commit()
+    await db.refresh(rule)
+    return rule
+
+
+@router.patch("/rules/{rule_id}", response_model=ComplianceRuleRead)
+async def update_compliance_rule(
+    rule_id: UUID,
+    body: ComplianceRuleUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("conformite.rule.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(ComplianceRule).where(ComplianceRule.id == rule_id, ComplianceRule.entity_id == entity_id)
+    )
+    rule = result.scalars().first()
+    if not rule:
+        raise HTTPException(404, "Rule not found")
+    # Snapshot before update
+    db.add(ComplianceRuleHistory(
+        rule_id=rule.id, version=rule.version, action="updated",
+        snapshot=_snapshot_rule(rule),
+        change_reason=body.change_reason,
+        changed_by=current_user.id,
+    ))
+    # Apply changes
+    update_data = body.model_dump(exclude_unset=True, exclude={"change_reason"})
+    for field, value in update_data.items():
+        setattr(rule, field, value)
+    rule.version += 1
+    rule.changed_by = current_user.id
+    rule.change_reason = body.change_reason
     await db.commit()
     await db.refresh(rule)
     return rule
@@ -148,6 +209,7 @@ async def create_compliance_rule(
 @router.delete("/rules/{rule_id}")
 async def delete_compliance_rule(
     rule_id: UUID,
+    force: bool = False,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("conformite.rule.delete"),
@@ -159,9 +221,44 @@ async def delete_compliance_rule(
     rule = result.scalars().first()
     if not rule:
         raise HTTPException(404, "Rule not found")
-    await delete_entity(rule, db, "compliance_rule", entity_id=rule.id, user_id=current_user.id)
-    await db.commit()
-    return {"detail": "Rule deleted"}
+
+    # Draft rules (version 1, never updated) can be hard-deleted
+    is_draft = rule.version <= 1 and not rule.change_reason
+
+    if is_draft or force:
+        # Hard delete — no history needed for unused drafts
+        await delete_entity(rule, db, "compliance_rule", entity_id=rule.id, user_id=current_user.id)
+        await db.commit()
+        return {"detail": "Rule deleted"}
+    else:
+        # Archive — soft delete with history snapshot
+        db.add(ComplianceRuleHistory(
+            rule_id=rule.id, version=rule.version, action="archived",
+            snapshot=_snapshot_rule(rule),
+            changed_by=current_user.id,
+        ))
+        rule.active = False
+        rule.effective_to = datetime.now(timezone.utc).date()
+        rule.changed_by = current_user.id
+        rule.change_reason = "Archived"
+        await db.commit()
+        return {"detail": "Rule archived"}
+
+
+@router.get("/rules/{rule_id}/history", response_model=list[ComplianceRuleHistoryRead])
+async def get_rule_history(
+    rule_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get the change history for a specific compliance rule."""
+    result = await db.execute(
+        select(ComplianceRuleHistory)
+        .where(ComplianceRuleHistory.rule_id == rule_id)
+        .order_by(ComplianceRuleHistory.changed_at.desc())
+    )
+    return result.scalars().all()
 
 
 # ── Compliance Records ────────────────────────────────────────────────────

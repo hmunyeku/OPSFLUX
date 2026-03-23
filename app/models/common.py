@@ -1161,7 +1161,10 @@ class ComplianceType(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 
 class ComplianceRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """Regle d'obligation: a qui s'applique un ComplianceType."""
+    """Regle d'obligation: a qui s'applique un ComplianceType.
+
+    V2: versioning, effective dates, per-rule constraints, audit trail.
+    """
     __tablename__ = "compliance_rules"
     __table_args__ = (Index("idx_compliance_rules_type", "compliance_type_id"),)
 
@@ -1172,7 +1175,42 @@ class ComplianceRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(Text)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
+    # ── V2: Versioning & audit ──
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
+    effective_from: Mapped[date | None] = mapped_column(Date)
+    effective_to: Mapped[date | None] = mapped_column(Date)
+    superseded_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("compliance_rules.id", ondelete="SET NULL"))
+    change_reason: Mapped[str | None] = mapped_column(String(500))
+    changed_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
+
+    # ── V2: Per-rule constraint overrides ──
+    override_validity_days: Mapped[int | None] = mapped_column(Integer)
+    grace_period_days: Mapped[int | None] = mapped_column(Integer)
+    renewal_reminder_days: Mapped[int | None] = mapped_column(Integer)
+    priority: Mapped[str] = mapped_column(String(20), default="normal", server_default="normal", nullable=False)
+    condition_json: Mapped[dict | None] = mapped_column(JSONB)  # structured conditions
+
     compliance_type: Mapped["ComplianceType"] = relationship(back_populates="rules")
+    history: Mapped[list["ComplianceRuleHistory"]] = relationship(back_populates="rule", cascade="all, delete-orphan")
+
+
+class ComplianceRuleHistory(UUIDPrimaryKeyMixin, Base):
+    """Audit log for compliance rule changes."""
+    __tablename__ = "compliance_rule_history"
+    __table_args__ = (
+        Index("idx_rule_history_rule_id", "rule_id"),
+        Index("idx_rule_history_changed_at", "changed_at"),
+    )
+
+    rule_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("compliance_rules.id", ondelete="CASCADE"), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    action: Mapped[str] = mapped_column(String(20), nullable=False)  # created, updated, archived, restored
+    snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)  # full state at this point
+    change_reason: Mapped[str | None] = mapped_column(String(500))
+    changed_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
+    changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    rule: Mapped["ComplianceRule"] = relationship(back_populates="history")
 
 
 class ComplianceRecord(UUIDPrimaryKeyMixin, TimestampMixin, VerifiableMixin, Base):

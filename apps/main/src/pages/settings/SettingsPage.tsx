@@ -12,7 +12,7 @@
  * - Deep linking: URL hash → activates tab + expands specific section
  *   e.g. /settings#cartographie → activates general-config tab, expands Cartographie section
  */
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Settings, User, Lock, Shield, Clock, Palette,
@@ -255,10 +255,78 @@ export function SettingsPage() {
   const userItems = buildSidebarItems(userSections, userGroups)
   const generalItems = buildSidebarItems(generalSections, generalGroups)
 
+  // Flatten all sections for mobile tab strip (skip groups, show children inline)
+  const userGroupChildren = useGroupChildren('access')
+  const allFlatSections = useMemo(() => {
+    const flat: { section: SettingsSection; category: 'user' | 'general' }[] = []
+    const addItems = (items: typeof userItems, cat: 'user' | 'general', groupChildrenMap: Record<string, SettingsSection[]>) => {
+      for (const entry of items) {
+        if (entry.type === 'section') {
+          flat.push({ section: entry.item, category: cat })
+        } else {
+          // Group: add children inline
+          const children = groupChildrenMap[entry.item.id] ?? []
+          for (const child of children) {
+            flat.push({ section: child, category: cat })
+          }
+        }
+      }
+    }
+    addItems(userItems, 'user', { access: userGroupChildren })
+    addItems(generalItems, 'general', {})
+    return flat
+  }, [userItems, generalItems, userGroupChildren])
+
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
   return (
-    <div className="flex h-full">
-      {/* ── Settings sub-sidebar ── */}
-      <div className="w-[240px] shrink-0 border-r border-border bg-background overflow-y-auto">
+    <div className="flex flex-col md:flex-row h-full">
+      {/* ── Mobile tab selector (md and below) ── */}
+      <div className="md:hidden shrink-0 border-b border-border bg-background">
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="flex items-center justify-between w-full px-4 py-2.5 text-sm font-medium text-foreground"
+        >
+          <span className="flex items-center gap-2">
+            {(() => {
+              const Icon = activeSection?.icon ?? Settings
+              return <Icon size={15} />
+            })()}
+            {activeSection?.label ?? t('settings.title')}
+          </span>
+          <ChevronDown size={14} className={cn('text-muted-foreground transition-transform', mobileMenuOpen && 'rotate-180')} />
+        </button>
+        {mobileMenuOpen && (
+          <nav className="px-2 pb-2 space-y-0.5 max-h-[50vh] overflow-y-auto">
+            {allFlatSections.map(({ section }, i) => {
+              // Show separator before first general section
+              const prevCat = i > 0 ? allFlatSections[i - 1].category : null
+              const showSep = prevCat === 'user' && allFlatSections[i].category === 'general'
+              const Icon = section.icon
+              return (
+                <div key={section.id}>
+                  {showSep && <div className="my-1.5 mx-2 h-px bg-border" />}
+                  <button
+                    onClick={() => { handleTabChange(section.id); setMobileMenuOpen(false) }}
+                    className={cn(
+                      'flex w-full items-center gap-2.5 rounded-lg h-8 px-3 text-sm transition-colors',
+                      activeTab === section.id
+                        ? 'bg-primary/[0.16] text-foreground font-medium'
+                        : 'text-foreground hover:bg-accent',
+                    )}
+                  >
+                    <Icon size={15} className="shrink-0" />
+                    <span className="truncate">{section.label}</span>
+                  </button>
+                </div>
+              )
+            })}
+          </nav>
+        )}
+      </div>
+
+      {/* ── Desktop settings sub-sidebar ── */}
+      <div className="hidden md:block w-[240px] shrink-0 border-r border-border bg-background overflow-y-auto">
         {/* User settings group */}
         <div className="px-5 pt-3 pb-2">
           <span className="text-sm font-semibold text-foreground">{t('settings.title')}</span>
@@ -326,7 +394,7 @@ export function SettingsPage() {
             subtitle={subtitleOverride || activeSection?.label}
           />
 
-          <PanelContent className="px-6 py-4">
+          <PanelContent className="px-3 sm:px-6 py-4">
             <CollapsibleProvider
               key={activeTab}
               focusedSection={focusedSection}

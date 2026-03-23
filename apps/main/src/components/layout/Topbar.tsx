@@ -330,7 +330,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
         </div>
 
         {/* ── Center: Contextual search input ── */}
-        <div className="flex-1 flex justify-center px-4">
+        <div className="flex-1 flex justify-center px-2 sm:px-4">
           <div className="relative w-full max-w-lg">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <input
@@ -364,19 +364,23 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
         <div className="flex items-center shrink-0">
           <TopbarIconButton icon={Plus} label={t('common.create')} />
 
-          <div className="mx-1.5 h-4 w-px bg-border" />
+          <div className="mx-1.5 h-4 w-px bg-border hidden sm:block" />
 
-          <TopbarIconButton icon={FileText} label={t('common.actions')} badge={0} />
-          <TopbarIconButton icon={GitPullRequest} label={t('workflow.title')} badge={0} />
+          <span className="hidden sm:flex items-center">
+            <TopbarIconButton icon={FileText} label={t('common.actions')} badge={0} />
+            <TopbarIconButton icon={GitPullRequest} label={t('workflow.title')} badge={0} />
+          </span>
           <NotificationCenter />
 
-          <div className="mx-1.5 h-4 w-px bg-border" />
+          <div className="mx-1.5 h-4 w-px bg-border hidden sm:block" />
 
-          <ThemeMenu />
+          <span className="hidden sm:flex items-center">
+            <ThemeMenu />
+          </span>
 
           <button
             onClick={toggleLanguage}
-            className="flex h-7 items-center rounded-lg px-1.5 text-xs font-medium text-muted-foreground hover:bg-chrome-hover hover:text-foreground transition-colors uppercase"
+            className="hidden sm:flex h-7 items-center rounded-lg px-1.5 text-xs font-medium text-muted-foreground hover:bg-chrome-hover hover:text-foreground transition-colors uppercase"
             title={i18n.language === 'fr' ? 'English' : 'Français'}
           >
             {i18n.language}

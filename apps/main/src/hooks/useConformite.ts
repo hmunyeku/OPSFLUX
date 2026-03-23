@@ -63,6 +63,15 @@ export function useCreateComplianceRule() {
   })
 }
 
+export function useUpdateComplianceRule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Partial<ComplianceRuleCreate> }) =>
+      conformiteService.updateRule(id, payload),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['compliance-rules'] }) },
+  })
+}
+
 export function useDeleteComplianceRule() {
   const qc = useQueryClient()
   return useMutation({

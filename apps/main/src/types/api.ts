@@ -944,6 +944,17 @@ export interface ComplianceRule {
   target_value: string | null
   description: string | null
   active: boolean
+  // V2 fields
+  version: number
+  effective_from: string | null
+  effective_to: string | null
+  priority: string
+  override_validity_days: number | null
+  grace_period_days: number | null
+  renewal_reminder_days: number | null
+  condition_json: Record<string, unknown> | null
+  change_reason: string | null
+  changed_by: string | null
   created_at: string
 }
 
@@ -952,6 +963,24 @@ export interface ComplianceRuleCreate {
   target_type: string
   target_value?: string | null
   description?: string | null
+  // V2 optional fields
+  effective_from?: string | null
+  priority?: string
+  override_validity_days?: number | null
+  grace_period_days?: number | null
+  renewal_reminder_days?: number | null
+  condition_json?: Record<string, unknown> | null
+}
+
+export interface ComplianceRuleHistory {
+  id: string
+  rule_id: string
+  version: number
+  action: string
+  snapshot: Record<string, unknown>
+  change_reason: string | null
+  changed_by: string | null
+  changed_at: string
 }
 
 export interface ComplianceRecord {

@@ -138,7 +138,7 @@ async def send_phone_verification(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Generate a 6-digit OTP and send it via the configured SMS provider."""
+    """Generate a 6-digit OTP and send it via WhatsApp (preferred) or SMS."""
     import secrets
     from datetime import datetime, timezone, timedelta
 
@@ -159,22 +159,26 @@ async def send_phone_verification(
     # Build full phone number
     full_number = f"{phone.country_code or ''}{phone.number}".strip()
 
-    # Send via SMS service
-    from app.core.sms_service import send_sms
-    sent = await send_sms(
-        db,
-        to=full_number,
-        body=f"OpsFlux — Votre code de vérification : {code}",
-    )
+    # Try WhatsApp OTP template first (free + better UX), then fall back to SMS
+    from app.core.sms_service import send_whatsapp_otp, send_sms
 
-    if not sent:
+    sent_via = None
+    sent = await send_whatsapp_otp(db, to=full_number, otp_code=code)
+    if sent:
+        sent_via = "whatsapp"
+    else:
+        sent = await send_sms(db, to=full_number, body=f"OpsFlux — Votre code de vérification : {code}")
+        if sent:
+            sent_via = "sms"
+
+    if not sent_via:
         return {
-            "message": "SMS provider not configured — code generated for manual verification",
+            "message": "Aucun fournisseur configuré — code généré pour vérification manuelle",
             "phone_id": str(phone_id),
-            "debug_code": code,  # Only returned when no SMS provider is configured
+            "debug_code": code,  # Only returned when no provider is configured
         }
 
-    return {"message": "Verification code sent", "phone_id": str(phone_id)}
+    return {"message": f"Code de vérification envoyé via {sent_via}", "phone_id": str(phone_id), "channel": sent_via}
 
 
 @router.post("/{phone_id}/verify", status_code=200)

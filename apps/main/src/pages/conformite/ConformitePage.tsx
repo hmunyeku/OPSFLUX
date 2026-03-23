@@ -7,7 +7,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ShieldCheck, Plus, Loader2, Trash2, FileCheck, ClipboardList,
-  Briefcase, GitBranch, Scale, ShieldOff, Check, X, ClipboardCheck,
+  Briefcase, GitBranch, Scale, ShieldOff, Check, X, ClipboardCheck, Search, Grid3X3, List,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -42,7 +42,7 @@ import { useToast } from '@/components/ui/Toast'
 import {
   useComplianceTypes, useCreateComplianceType, useUpdateComplianceType, useDeleteComplianceType,
   useComplianceRecords,
-  useComplianceRules, useCreateComplianceRule, useDeleteComplianceRule,
+  useComplianceRules, useCreateComplianceRule, useUpdateComplianceRule, useDeleteComplianceRule,
   useJobPositions, useCreateJobPosition, useUpdateJobPosition, useDeleteJobPosition,
   useTransfers,
   useExemptions, useCreateExemption, useApproveExemption, useRejectExemption, useDeleteExemption,
@@ -51,7 +51,7 @@ import {
 import type {
   ComplianceType, ComplianceTypeCreate,
   ComplianceRecord,
-  ComplianceRule,
+  ComplianceRule, ComplianceRuleCreate,
   ComplianceExemption, ComplianceExemptionCreate,
   JobPosition, JobPositionCreate,
   TierContactTransfer,
@@ -703,7 +703,7 @@ export function ConformitePage() {
 
   const { data: typesData, isLoading: typesLoading } = useComplianceTypes({
     page: activeTab === 'referentiel' ? page : 1,
-    page_size: activeTab === 'referentiel' ? pageSize : 1,
+    page_size: activeTab === 'referentiel' ? pageSize : (activeTab === 'regles' ? 200 : 1),
     category: activeTab === 'referentiel' ? categoryFilter : undefined,
     search: activeTab === 'referentiel' ? (debouncedSearch || undefined) : undefined,
   })
@@ -738,6 +738,8 @@ export function ConformitePage() {
     page_size: activeTab === 'transferts' ? pageSize : 1,
   })
 
+  const createRule = useCreateComplianceRule()
+  const updateRule = useUpdateComplianceRule()
   const deleteRule = useDeleteComplianceRule()
 
   useEffect(() => {
@@ -970,14 +972,13 @@ export function ConformitePage() {
         )
       case 'regles':
         return (
-          <DataTable<ComplianceRule>
-            columns={ruleColumns}
-            data={rulesData ?? []}
+          <RulesMatrixView
+            rules={rulesData ?? []}
+            types={typesData?.items ?? []}
+            jobPositions={jobPositionsData?.items ?? []}
             isLoading={rulesLoading}
-            emptyIcon={Scale}
-            emptyTitle="Aucune regle de conformite"
-            columnResizing
-            storageKey="conformite-regles"
+            onCreateRule={(payload) => createRule.mutate(payload as ComplianceRuleCreate)}
+            onDeleteRule={(id) => deleteRule.mutate(id)}
           />
         )
       case 'transferts':
@@ -1032,6 +1033,467 @@ export function ConformitePage() {
       {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'exemption' && <CreateExemptionPanel />}
       {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'exemption' && <ExemptionDetailPanel id={dynamicPanel.id} />}
     </div>
+  )
+}
+
+// ── Rules Cross-Matrix ────────────────────────────────────────────────────
+
+const CATEGORY_COLORS_MAP: Record<string, string> = {
+  formation: 'bg-blue-600',
+  certification: 'bg-emerald-600',
+  habilitation: 'bg-violet-600',
+  audit: 'bg-amber-600',
+  medical: 'bg-rose-600',
+  epi: 'bg-cyan-600',
+}
+
+const CATEGORY_FULL_LABELS: Record<string, string> = {
+  formation: 'Formations',
+  certification: 'Certifications',
+  habilitation: 'Habilitations',
+  audit: 'Audits',
+  medical: 'Médical',
+  epi: 'EPI',
+}
+
+const CATEGORY_ORDER = ['formation', 'certification', 'habilitation', 'medical', 'epi', 'audit']
+
+type TargetTab = 'job_position' | 'department' | 'asset' | 'all'
+
+const TARGET_TABS: { id: TargetTab; label: string }[] = [
+  { id: 'job_position', label: 'Par poste' },
+  { id: 'all', label: 'Globales' },
+  { id: 'department', label: 'Par département' },
+  { id: 'asset', label: 'Par asset' },
+]
+
+function RulesMatrixView({
+  rules,
+  types,
+  jobPositions,
+  isLoading,
+  onCreateRule,
+  onDeleteRule,
+}: {
+  rules: ComplianceRule[]
+  types: ComplianceType[]
+  jobPositions: JobPosition[] | undefined
+  isLoading: boolean
+  onCreateRule: (payload: { compliance_type_id: string; target_type: string; target_value?: string }) => void
+  onDeleteRule: (id: string) => void
+}) {
+  const [searchFilter, setSearchFilter] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState<string>('all')
+  const [activeTargetTab, setActiveTargetTab] = useState<TargetTab>('job_position')
+  const [viewMode, setViewMode] = useState<'matrix' | 'list'>('matrix')
+
+  // Available categories (only those with at least 1 type)
+  const availableCategories = useMemo(() => {
+    const cats = new Set(types.filter(t => t.active).map(t => t.category))
+    return CATEGORY_ORDER.filter(c => cats.has(c))
+  }, [types])
+
+  // Filtered types by selected category
+  const filteredTypes = useMemo(() => {
+    return types
+      .filter(t => t.active && (selectedCategory === 'all' || t.category === selectedCategory))
+      .sort((a, b) => a.code.localeCompare(b.code))
+  }, [types, selectedCategory])
+
+  // Build rule lookup: "typeId::targetType::targetValue" → ComplianceRule
+  const ruleMap = useMemo(() => {
+    const map = new Map<string, ComplianceRule>()
+    for (const r of rules) {
+      const key = r.target_type === 'all'
+        ? `${r.compliance_type_id}::all::__all__`
+        : `${r.compliance_type_id}::${r.target_type}::${r.target_value}`
+      map.set(key, r)
+    }
+    return map
+  }, [rules])
+
+  // Rows depend on active target tab
+  const rows = useMemo(() => {
+    if (activeTargetTab === 'all') return [{ id: '__all__', label: 'Tous les employés', sub: '' }]
+    if (activeTargetTab === 'job_position') {
+      const allJps = jobPositions ?? []
+      const filtered = searchFilter
+        ? allJps.filter(jp =>
+            jp.code.toLowerCase().includes(searchFilter.toLowerCase()) ||
+            jp.name.toLowerCase().includes(searchFilter.toLowerCase()) ||
+            (jp.department ?? '').toLowerCase().includes(searchFilter.toLowerCase())
+          )
+        : allJps
+      return filtered.map(jp => ({ id: jp.id, label: `${jp.code}`, sub: `${jp.name}${jp.department ? ` (${jp.department})` : ''}` }))
+    }
+    // For department/asset: extract unique values from existing rules
+    const vals = new Set<string>()
+    for (const r of rules) {
+      if (r.target_type === activeTargetTab && r.target_value) vals.add(r.target_value)
+    }
+    const items = Array.from(vals).sort()
+    const filtered = searchFilter
+      ? items.filter(v => v.toLowerCase().includes(searchFilter.toLowerCase()))
+      : items
+    return filtered.map(v => ({ id: v, label: v, sub: '' }))
+  }, [activeTargetTab, jobPositions, rules, searchFilter])
+
+  // Count rules per target tab
+  const tabCounts = useMemo(() => {
+    const counts: Record<string, number> = { job_position: 0, all: 0, department: 0, asset: 0 }
+    for (const r of rules) {
+      if (r.target_type in counts) counts[r.target_type]++
+    }
+    return counts
+  }, [rules])
+
+  const handleCellClick = useCallback((typeId: string, rowId: string) => {
+    const targetType = activeTargetTab === 'all' ? 'all' : activeTargetTab
+    const targetValue = activeTargetTab === 'all' ? undefined : rowId
+    const key = activeTargetTab === 'all'
+      ? `${typeId}::all::__all__`
+      : `${typeId}::${activeTargetTab}::${rowId}`
+    const existing = ruleMap.get(key)
+    if (existing) {
+      onDeleteRule(existing.id)
+    } else {
+      onCreateRule({ compliance_type_id: typeId, target_type: targetType, target_value: targetValue })
+    }
+  }, [ruleMap, onCreateRule, onDeleteRule, activeTargetTab])
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center py-16"><Loader2 size={20} className="animate-spin text-muted-foreground" /></div>
+  }
+
+  // List view (DataTable-like)
+  const filteredRulesForList = useMemo(() => {
+    let filtered = rules
+    if (selectedCategory !== 'all') {
+      const typeIds = new Set(types.filter(t => t.category === selectedCategory).map(t => t.id))
+      filtered = filtered.filter(r => typeIds.has(r.compliance_type_id))
+    }
+    if (activeTargetTab !== 'job_position' || activeTargetTab !== 'job_position') {
+      // No additional filtering needed for list — show all target types
+    }
+    if (searchFilter) {
+      const q = searchFilter.toLowerCase()
+      filtered = filtered.filter(r => {
+        const ct = types.find(t => t.id === r.compliance_type_id)
+        const jp = r.target_type === 'job_position' && r.target_value ? jobPositions?.find(p => p.id === r.target_value) : null
+        return (ct?.code.toLowerCase().includes(q) || ct?.name.toLowerCase().includes(q) ||
+          r.target_value?.toLowerCase().includes(q) || jp?.name.toLowerCase().includes(q) ||
+          r.description?.toLowerCase().includes(q))
+      })
+    }
+    return filtered
+  }, [rules, types, selectedCategory, searchFilter, jobPositions, activeTargetTab])
+
+  return (
+    <div className="p-4 space-y-4">
+      {/* ── Toolbar ── */}
+      <div className="flex items-center gap-3 flex-wrap">
+        {/* Category dropdown */}
+        <select
+          value={selectedCategory}
+          onChange={(e) => setSelectedCategory(e.target.value)}
+          className="gl-form-input text-xs h-8 w-auto pr-8"
+        >
+          <option value="all">Toutes les catégories</option>
+          {availableCategories.map(cat => (
+            <option key={cat} value={cat}>{CATEGORY_FULL_LABELS[cat] ?? cat}</option>
+          ))}
+        </select>
+
+        {/* Search */}
+        <div className="relative flex-1 max-w-xs">
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <input
+            type="text"
+            value={searchFilter}
+            onChange={(e) => setSearchFilter(e.target.value)}
+            placeholder="Rechercher..."
+            className="gl-form-input text-xs w-full pl-8 h-8"
+          />
+          {searchFilter && (
+            <button onClick={() => setSearchFilter('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <X size={12} />
+            </button>
+          )}
+        </div>
+
+        {/* View toggle */}
+        <div className="flex items-center gap-0.5 bg-accent rounded-lg p-0.5 ml-auto">
+          <button
+            onClick={() => setViewMode('matrix')}
+            className={cn('p-1.5 rounded-md transition-colors', viewMode === 'matrix' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground')}
+            title="Vue matrice"
+          >
+            <Grid3X3 size={14} />
+          </button>
+          <button
+            onClick={() => setViewMode('list')}
+            className={cn('p-1.5 rounded-md transition-colors', viewMode === 'list' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground')}
+            title="Vue liste"
+          >
+            <List size={14} />
+          </button>
+        </div>
+
+        {/* Summary */}
+        <span className="text-[11px] text-muted-foreground">
+          {rules.length} règle(s)
+        </span>
+      </div>
+
+      {viewMode === 'list' ? (
+        /* ── List view ── */
+        <div className="border border-border rounded-lg overflow-hidden">
+          <table className="text-xs w-full">
+            <thead>
+              <tr className="bg-accent/60 border-b border-border">
+                <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Type</th>
+                <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Catégorie</th>
+                <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Cible</th>
+                <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Valeur</th>
+                <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Description</th>
+                <th className="px-2 py-2 w-8"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/30">
+              {filteredRulesForList.map(rule => {
+                const ct = types.find(t => t.id === rule.compliance_type_id)
+                const jp = rule.target_type === 'job_position' && rule.target_value
+                  ? jobPositions?.find(p => p.id === rule.target_value) : null
+                return (
+                  <tr key={rule.id} className="hover:bg-accent/30 transition-colors group">
+                    <td className="px-3 py-2 font-medium text-foreground">{ct?.code ?? '?'}</td>
+                    <td className="px-3 py-2">
+                      <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold text-white ${CATEGORY_COLORS_MAP[ct?.category ?? ''] ?? 'bg-zinc-500'}`}>
+                        {CATEGORY_FULL_LABELS[ct?.category ?? ''] ?? ct?.category}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {RULE_TARGET_OPTIONS.find(o => o.value === rule.target_type)?.label ?? rule.target_type}
+                    </td>
+                    <td className="px-3 py-2 text-foreground">
+                      {rule.target_type === 'all' ? '—' : jp ? `${jp.code} — ${jp.name}` : rule.target_value ?? '—'}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground truncate max-w-[200px]">{rule.description || '—'}</td>
+                    <td className="px-2 py-2">
+                      <button
+                        onClick={() => onDeleteRule(rule.id)}
+                        className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
+              {filteredRulesForList.length === 0 && (
+                <tr><td colSpan={6} className="text-center py-8 text-muted-foreground">Aucune règle trouvée.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        /* ── Matrix view ── */
+        <>
+          {/* Target type tabs */}
+          <div className="flex items-center gap-1 border-b border-border pb-0">
+            {TARGET_TABS.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTargetTab(tab.id)}
+                className={cn(
+                  'px-3 py-1.5 text-xs font-medium rounded-t-lg border border-b-0 transition-colors -mb-px',
+                  activeTargetTab === tab.id
+                    ? 'bg-background border-border text-foreground'
+                    : 'bg-transparent border-transparent text-muted-foreground hover:text-foreground hover:bg-accent/50',
+                )}
+              >
+                {tab.label}
+                {tabCounts[tab.id] > 0 && (
+                  <span className="ml-1.5 text-[10px] bg-primary/15 text-primary rounded-full px-1.5">{tabCounts[tab.id]}</span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Matrix table */}
+          {filteredTypes.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground text-xs">
+              Aucun référentiel dans cette catégorie.
+            </div>
+          ) : (
+            <div className="border border-border rounded-lg overflow-auto max-h-[calc(100vh-340px)]">
+              <table className="text-xs w-full border-collapse">
+                <thead className="sticky top-0 z-20">
+                  <tr className="bg-chrome">
+                    <th className="sticky left-0 z-30 bg-chrome border-b border-r border-border px-3 py-2 text-left font-semibold text-muted-foreground min-w-[200px]">
+                      {activeTargetTab === 'all' ? 'Portée' : activeTargetTab === 'job_position' ? 'Fiche de poste' : activeTargetTab === 'department' ? 'Département' : 'Asset'}
+                    </th>
+                    {filteredTypes.map(t => (
+                      <th
+                        key={t.id}
+                        className={`border-b border-r border-border px-1 py-2 text-center font-medium text-foreground min-w-[50px] max-w-[70px] cursor-help ${selectedCategory === 'all' ? '' : ''}`}
+                        title={`${t.name}\n${CATEGORY_FULL_LABELS[t.category]} · ${t.validity_days ? `${t.validity_days}j` : 'Permanent'}${t.is_mandatory ? ' · Obligatoire' : ''}`}
+                      >
+                        <div className="flex flex-col items-center gap-0.5">
+                          {selectedCategory === 'all' && (
+                            <span className={`w-2 h-2 rounded-full ${CATEGORY_COLORS_MAP[t.category] ?? 'bg-zinc-500'}`} title={CATEGORY_FULL_LABELS[t.category]} />
+                          )}
+                          <span className="text-[9px] leading-tight block truncate px-0.5">{t.code}</span>
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, idx) => (
+                    <tr key={row.id} className={idx % 2 === 0 ? 'bg-card' : 'bg-accent/20'}>
+                      <td className={`sticky left-0 z-10 ${idx % 2 === 0 ? 'bg-card' : 'bg-accent/40'} border-r border-border px-3 py-2`}>
+                        <span className="font-medium text-foreground">{row.label}</span>
+                        {row.sub && <span className="text-muted-foreground ml-1.5 text-[10px]">{row.sub}</span>}
+                      </td>
+                      {filteredTypes.map(t => {
+                        const key = activeTargetTab === 'all'
+                          ? `${t.id}::all::__all__`
+                          : `${t.id}::${activeTargetTab}::${row.id}`
+                        const rule = ruleMap.get(key)
+                        return (
+                          <td
+                            key={t.id}
+                            className="border-r border-border/30 text-center cursor-pointer hover:bg-primary/10 transition-colors"
+                            onClick={() => handleCellClick(t.id, row.id === '__all__' ? '__all__' : row.id)}
+                            title={rule ? `Cliquer pour supprimer` : `Cliquer pour ajouter`}
+                          >
+                            {rule ? (
+                              <Check size={14} className="mx-auto text-emerald-600 dark:text-emerald-400" />
+                            ) : null}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
+                  {rows.length === 0 && (
+                    <tr>
+                      <td colSpan={filteredTypes.length + 1} className="text-center py-8 text-muted-foreground text-xs">
+                        {searchFilter ? 'Aucun résultat.' : activeTargetTab === 'job_position' ? 'Aucune fiche de poste.' : 'Aucune entrée. Ajoutez des règles via le bouton "+ Nouvelle règle".'}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+// ── Edit Rule Panel ──────────────────────────────────────────────────────
+
+function EditRulePanel() {
+  const dynamicPanel = useUIStore((s) => s.dynamicPanel)
+  const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const updateRule = useUpdateComplianceRule()
+  const deleteRule = useDeleteComplianceRule()
+  const { toast } = useToast()
+  const { data: typesData } = useComplianceTypes({ page_size: 200 })
+  const { data: jpData } = useJobPositions({ page_size: 200 })
+  const rule = dynamicPanel?.meta?.rule as ComplianceRule | undefined
+
+  const [form, setForm] = useState({
+    target_type: rule?.target_type ?? 'all',
+    target_value: rule?.target_value ?? '',
+    description: rule?.description ?? '',
+  })
+
+  if (!rule) return null
+
+  const ct = typesData?.items?.find(t => t.id === rule.compliance_type_id)
+
+  const handleSave = async () => {
+    try {
+      await updateRule.mutateAsync({
+        id: rule.id,
+        payload: {
+          target_type: form.target_type,
+          target_value: form.target_value || undefined,
+          description: form.description || undefined,
+        },
+      })
+      toast({ title: 'Règle mise à jour', variant: 'success' })
+      closeDynamicPanel()
+    } catch {
+      toast({ title: 'Erreur', variant: 'error' })
+    }
+  }
+
+  const handleDelete = async () => {
+    try {
+      await deleteRule.mutateAsync(rule.id)
+      toast({ title: 'Règle supprimée', variant: 'success' })
+      closeDynamicPanel()
+    } catch {
+      toast({ title: 'Erreur', variant: 'error' })
+    }
+  }
+
+  return (
+    <DynamicPanelShell title="Modifier la règle" icon={<Scale size={14} className="text-primary" />}>
+      <div className="p-4 space-y-4">
+        {/* Read-only type info */}
+        <div>
+          <label className="gl-label">Type de référentiel</label>
+          <div className="gl-form-input bg-accent/30 text-foreground text-sm cursor-default">
+            {ct ? `[${ct.category}] ${ct.code} — ${ct.name}` : rule.compliance_type_id.slice(0, 8)}
+          </div>
+        </div>
+
+        <div>
+          <label className="gl-label">Cible *</label>
+          <select value={form.target_type} onChange={(e) => setForm({ ...form, target_type: e.target.value, target_value: '' })} className="gl-form-input">
+            {RULE_TARGET_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+
+        {form.target_type === 'job_position' && (
+          <div>
+            <label className="gl-label">Fiche de poste</label>
+            <select value={form.target_value} onChange={(e) => setForm({ ...form, target_value: e.target.value })} className="gl-form-input">
+              <option value="">— Tous les postes —</option>
+              {jpData?.items?.map(jp => <option key={jp.id} value={jp.id}>{jp.code} — {jp.name}</option>)}
+            </select>
+          </div>
+        )}
+
+        {(form.target_type === 'asset' || form.target_type === 'tier_type' || form.target_type === 'department') && (
+          <div>
+            <label className="gl-label">Valeur</label>
+            <input type="text" value={form.target_value} onChange={(e) => setForm({ ...form, target_value: e.target.value })} className="gl-form-input" />
+          </div>
+        )}
+
+        <div>
+          <label className="gl-label">Description</label>
+          <input type="text" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="gl-form-input" placeholder="Description de la règle..." />
+        </div>
+
+        <div className="flex gap-2 pt-2">
+          <button onClick={handleSave} disabled={updateRule.isPending} className="gl-button gl-button-confirm">
+            {updateRule.isPending ? <Loader2 size={14} className="animate-spin mr-1" /> : null}Enregistrer
+          </button>
+          <button onClick={closeDynamicPanel} className="gl-button gl-button-default">Annuler</button>
+          <button onClick={handleDelete} disabled={deleteRule.isPending} className="gl-button gl-button-default text-red-600 dark:text-red-400 ml-auto">
+            <Trash2 size={12} />
+            Supprimer
+          </button>
+        </div>
+      </div>
+    </DynamicPanelShell>
   )
 }
 
@@ -1216,6 +1678,7 @@ registerPanelRenderer('conformite', (view) => {
   if (view.type === 'create' && view.meta?.subtype === 'job-position') return <CreateJobPositionPanel />
   if (view.type === 'detail' && 'id' in view && view.meta?.subtype === 'job-position') return <JobPositionDetailPanel id={view.id} />
   if (view.type === 'create' && view.meta?.subtype === 'rule') return <CreateRulePanel />
+  if (view.type === 'edit' && view.meta?.subtype === 'rule') return <EditRulePanel />
   if (view.type === 'create' && view.meta?.subtype === 'exemption') return <CreateExemptionPanel />
   if (view.type === 'detail' && 'id' in view && view.meta?.subtype === 'exemption') return <ExemptionDetailPanel id={view.id} />
   return null

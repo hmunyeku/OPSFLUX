@@ -269,6 +269,33 @@ async def _test_sms_ovh(cfg: dict[str, str]) -> tuple[str, str]:
         return "error", f"Échec vérification OVH SMS: {str(e)[:300]}"
 
 
+async def _test_whatsapp(cfg: dict[str, str]) -> tuple[str, str]:
+    """Test WhatsApp Cloud API credentials by fetching the phone number info."""
+    phone_number_id = cfg.get("phone_number_id", "")
+    access_token = cfg.get("access_token", "")
+    api_version = cfg.get("api_version", "v21.0")
+
+    if not phone_number_id or not access_token:
+        return "error", "Phone Number ID ou Access Token non configuré"
+
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(
+                f"https://graph.facebook.com/{api_version}/{phone_number_id}",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                display_name = data.get("verified_name", data.get("display_phone_number", "OK"))
+                return "ok", f"WhatsApp connecté — {display_name}"
+            return "error", f"WhatsApp: HTTP {resp.status_code} — {resp.text[:200]}"
+    except ImportError:
+        return "error", "httpx non installé"
+    except Exception as e:
+        return "error", f"Échec vérification WhatsApp: {str(e)[:300]}"
+
+
 async def _test_ai(cfg: dict[str, str]) -> tuple[str, str]:
     """Test AI provider connection (Claude, OpenAI, Ollama, etc.)."""
     provider = cfg.get("provider", "anthropic")
@@ -401,6 +428,7 @@ CONNECTOR_TESTERS = {
     "okta": ("integration.okta", lambda cfg: _test_oauth_generic(cfg, "Okta")),
     "keycloak": ("integration.keycloak", lambda cfg: _test_oauth_generic(cfg, "Keycloak")),
     "ldap": ("integration.ldap", _test_ldap),
+    "whatsapp": ("integration.whatsapp", _test_whatsapp),
     "sms_ovh": ("integration.sms_ovh", _test_sms_ovh),
     "sms_twilio": ("integration.sms_twilio", _test_sms_twilio),
     "sms_vonage": ("integration.sms_vonage", _test_sms_vonage),

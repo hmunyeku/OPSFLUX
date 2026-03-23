@@ -60,6 +60,11 @@ export const conformiteService = {
     return data
   },
 
+  updateRule: async (id: string, payload: Partial<ComplianceRuleCreate>): Promise<ComplianceRule> => {
+    const { data } = await api.patch(`/api/v1/conformite/rules/${id}`, payload)
+    return data
+  },
+
   deleteRule: async (id: string): Promise<void> => {
     await api.delete(`/api/v1/conformite/rules/${id}`)
   },

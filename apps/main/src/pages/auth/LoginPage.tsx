@@ -110,6 +110,7 @@ export function LoginPage() {
         no_email: t('auth.sso_error_no_email'),
         no_access_token: t('auth.sso_error_token_exchange'),
         account_inactive: t('auth.sso_error_inactive'),
+        no_account: 'Aucun compte OpsFlux associé à cette identité. Demandez à un administrateur de créer votre compte.',
       }
       setError(errorMessages[ssoError] || t('auth.sso_error_generic'))
       // Clean URL

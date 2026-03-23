@@ -1082,27 +1082,9 @@ async def sso_callback(
             user = await db.get(User, linked_provider.user_id)
 
     if not user:
-        # Auto-provision new SSO user (JIT provisioning)
-        default_entity_result = await db.execute(
-            select(Entity).where(Entity.active == True).order_by(Entity.created_at).limit(1)  # noqa: E712
-        )
-        default_entity = default_entity_result.scalar_one_or_none()
-
-        user = User(
-            email=email,
-            first_name=first_name,
-            last_name=last_name,
-            intranet_id=str(sso_id),
-            sso_subject=str(sso_id),
-            auth_type="sso",
-            active=True,
-            language="fr",
-            default_entity_id=default_entity.id if default_entity else None,
-        )
-        db.add(user)
-        await db.flush()
-        logger.info("SSO auto-provisioned new user: %s (provider: %s, entity: %s)",
-                     email, provider_id, default_entity.code if default_entity else "none")
+        # No auto-provisioning — users must be created manually or via API
+        logger.warning("SSO login rejected: no OpsFlux account found for email %s (provider: %s)", email, provider_id)
+        return RedirectResponse(f"{settings.APP_URL}/login?sso_error=no_account")
     else:
         if not user.intranet_id:
             user.intranet_id = str(sso_id)

@@ -504,12 +504,13 @@ function ConnectorCard({
   testingConnectorId: string | null
   sendingConnectorId: string | null
 }) {
-  const [expanded, setExpanded] = useState(false)
+  // Auto-expand only if not yet configured
+  const isConfigured = !!(settings[connector.enabledKey] as string)
+  const [expanded, setExpanded] = useState(!isConfigured)
   const [testRecipient, setTestRecipient] = useState('')
   const [showSendTest, setShowSendTest] = useState(false)
   const [confirmRemove, setConfirmRemove] = useState(false)
 
-  const isConfigured = !!(settings[connector.enabledKey] as string)
   const lastTestStatus = (settings[`integration.${connector.id}.last_test_status`] as string) ?? ''
   const lastTestAt = (settings[`integration.${connector.id}.last_test_at`] as string) ?? ''
   const lastTestError = (settings[`integration.${connector.id}.last_test_error`] as string) ?? ''
@@ -533,7 +534,7 @@ function ConnectorCard({
   }[connectorStatus]
 
   return (
-    <div className={`border rounded-lg transition-colors flex flex-col ${borderClass}`}>
+    <div className={`border rounded-lg transition-colors flex flex-col self-start ${borderClass}`}>
       {/* Card Header */}
       <button
         type="button"

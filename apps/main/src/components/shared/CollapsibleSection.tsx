@@ -120,7 +120,7 @@ export function CollapsibleSection({
   id,
   title,
   description,
-  defaultExpanded = true,
+  defaultExpanded = false,
   storageKey,
   className,
   showSeparator = true,

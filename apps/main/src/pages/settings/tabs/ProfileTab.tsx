@@ -346,6 +346,7 @@ export function ProfileTab() {
         title="Avatar"
         description="Votre photo de profil est visible par les autres utilisateurs."
         storageKey="settings.profile.collapse"
+        defaultExpanded
       >
         <div className="mt-2 flex items-center gap-5">
           <div className="relative group">
@@ -380,6 +381,7 @@ export function ProfileTab() {
         title="Paramètres principaux"
         description="Ces informations apparaissent sur votre profil."
         storageKey="settings.profile.collapse"
+        defaultExpanded
         showSeparator={false}
       >
         <div className="mt-2 space-y-5">
@@ -423,6 +425,35 @@ export function ProfileTab() {
           <p className="mt-1 text-sm text-muted-foreground">La langue de l'interface pour votre compte.</p>
         </div>
       </div>
+      </CollapsibleSection>
+
+      {/* Section: Coordonnées */}
+      <EmailsTab />
+
+      <CollapsibleSection
+        id="user-phones"
+        title="Téléphones"
+        description="Vos numéros de téléphone : mobile, bureau, domicile."
+        storageKey="settings.phones.collapse"
+        defaultExpanded={false}
+      >
+        <div className="mt-2">
+          <PhoneManager ownerType="user" ownerId={user?.id} />
+        </div>
+      </CollapsibleSection>
+
+      <AddressesTab />
+
+      <CollapsibleSection
+        id="user-emergency-contacts"
+        title="Contacts d'urgence"
+        description="Personnes à contacter en cas d'urgence lors de vos missions."
+        storageKey="settings.emergency.collapse"
+        defaultExpanded={false}
+      >
+        <div className="mt-2">
+          {user?.id && <EmergencyContactManager userId={user.id} />}
+        </div>
       </CollapsibleSection>
 
       {/* Section: HR Identity */}
@@ -812,38 +843,6 @@ export function ProfileTab() {
         </button>
         <button className="gl-button gl-button-default" onClick={handleCancel} disabled={!isDirty}>Annuler</button>
       </div>
-
-      {/* Emails section */}
-      <EmailsTab />
-
-      {/* Phones section */}
-      <CollapsibleSection
-        id="user-phones"
-        title="Téléphones"
-        description="Vos numéros de téléphone : mobile, bureau, domicile."
-        storageKey="settings.phones.collapse"
-        showSeparator={false}
-      >
-        <div className="mt-2">
-          <PhoneManager ownerType="user" ownerId={user?.id} />
-        </div>
-      </CollapsibleSection>
-
-      {/* Addresses section */}
-      <AddressesTab />
-
-      {/* Emergency contacts section */}
-      <CollapsibleSection
-        id="user-emergency-contacts"
-        title="Contacts d'urgence"
-        description="Personnes à contacter en cas d'urgence lors de vos missions."
-        storageKey="settings.emergency.collapse"
-        showSeparator={false}
-      >
-        <div className="mt-2">
-          {user?.id && <EmergencyContactManager userId={user.id} />}
-        </div>
-      </CollapsibleSection>
 
       {/* Image editor modal for avatar crop/rotate */}
       <ImageEditor

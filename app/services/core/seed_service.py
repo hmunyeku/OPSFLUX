@@ -70,18 +70,25 @@ async def seed_dev_data(db: AsyncSession) -> None:
     # ── Admin user ───────────────────────────────────────────────
     result = await db.execute(select(User).where(User.email == "admin@opsflux.io"))
     admin = result.scalar_one_or_none()
+    superuser_password = os.environ.get("FIRST_SUPERUSER_PASSWORD", "Admin@2026!")
     if not admin:
         admin = User(
             email="admin@opsflux.io",
             first_name="Admin",
             last_name="OpsFlux",
-            hashed_password=hash_password(os.environ.get("FIRST_SUPERUSER_PASSWORD", "Admin@2026!")),
+            hashed_password=hash_password(superuser_password),
             default_entity_id=entity.id,
             language="fr",
         )
         db.add(admin)
         await db.flush()
         logger.info("Seed: created admin user admin@opsflux.io")
+    else:
+        # Validate hash integrity — fix if corrupted (e.g. shell $ escaping)
+        pw_hash = admin.hashed_password or ""
+        if not pw_hash.startswith("$2b$") or len(pw_hash) != 60:
+            admin.hashed_password = hash_password(superuser_password)
+            logger.warning("Seed: admin password hash was corrupted — reset from FIRST_SUPERUSER_PASSWORD")
 
     # ── Assign SUPER_ADMIN role to admin ─────────────────────────
     result = await db.execute(

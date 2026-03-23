@@ -18,7 +18,7 @@ export default function VerifyEmailPage() {
   const [errorMsg, setErrorMsg] = useState('')
 
   useEffect(() => {
-    if (!token || !id) {
+    if (!token) {
       setStatus('error')
       setErrorMsg('Lien de vérification invalide — paramètres manquants.')
       return
@@ -27,9 +27,12 @@ export default function VerifyEmailPage() {
     const verify = async () => {
       try {
         const apiBase = import.meta.env.VITE_API_URL || ''
-        const res = await axios.get(`${apiBase}/api/v1/contact-emails/verify-callback`, {
-          params: { token, id },
-        })
+        // Two systems: contact-emails (with id) and user emails (token only)
+        const url = id
+          ? `${apiBase}/api/v1/contact-emails/verify-callback`
+          : `${apiBase}/api/v1/emails/verify-callback`
+        const params = id ? { token, id } : { token }
+        const res = await axios.get(url, { params })
         if (res.data?.verified && res.data?.message?.includes('already')) {
           setStatus('already')
         } else {

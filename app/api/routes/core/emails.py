@@ -9,7 +9,7 @@ import secrets
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -285,3 +285,26 @@ async def resend_verification(
     )
 
     return {"message": "Verification email sent"}
+
+
+@router.get("/verify-callback", status_code=200)
+async def verify_email_callback(
+    token: str = Query(..., description="Verification token"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Public callback for email verification links — no auth required."""
+    result = await db.execute(
+        select(UserEmail).where(UserEmail.verification_token == token)
+    )
+    user_email = result.scalar_one_or_none()
+    if not user_email:
+        raise HTTPException(status_code=404, detail="Invalid verification token")
+
+    if user_email.verified:
+        return {"message": "Email already verified", "verified": True}
+
+    user_email.verified = True
+    user_email.verified_at = datetime.now(UTC)
+    user_email.verification_token = None
+    await db.commit()
+    return {"message": "Email verified successfully", "verified": True}

@@ -1190,6 +1190,7 @@ class ComplianceRule(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base)
     grace_period_days: Mapped[int | None] = mapped_column(Integer)
     renewal_reminder_days: Mapped[int | None] = mapped_column(Integer)
     priority: Mapped[str] = mapped_column(String(20), default="normal", server_default="normal", nullable=False)
+    applicability: Mapped[str] = mapped_column(String(20), default="permanent", server_default="permanent", nullable=False)  # permanent | contextual
     condition_json: Mapped[dict | None] = mapped_column(JSONB)  # structured conditions
 
     compliance_type: Mapped["ComplianceType"] = relationship(back_populates="rules")

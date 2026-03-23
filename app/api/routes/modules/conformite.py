@@ -591,11 +591,15 @@ async def list_non_compliant_records(
 async def check_compliance(
     owner_type: str,
     owner_id: UUID,
+    include_contextual: bool = False,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Check compliance status for an object — returns required, valid, expired, missing counts.
+
+    By default, only **permanent** rules are checked (profile/dashboard view).
+    Pass ``include_contextual=true`` to also check contextual rules (e.g. site access request).
 
     Resolves rules by target_type:
     - 'all': applies to everyone
@@ -603,11 +607,17 @@ async def check_compliance(
     """
     now = datetime.now(timezone.utc)
 
+    # Base filter: active rules, optionally filter by applicability
+    applicability_filter = True  # noqa: E712 — include all
+    if not include_contextual:
+        applicability_filter = ComplianceRule.applicability == "permanent"
+
     # 1) Rules with target_type='all' — applies to everyone
     all_rules = await db.execute(
         select(ComplianceRule.compliance_type_id)
         .where(ComplianceRule.entity_id == entity_id, ComplianceRule.active == True)
         .where(ComplianceRule.target_type == "all")
+        .where(applicability_filter)
     )
     required_type_ids = set(r[0] for r in all_rules.all())
 
@@ -632,6 +642,7 @@ async def check_compliance(
                 ComplianceRule.active == True,
                 ComplianceRule.target_type == "job_position",
                 ComplianceRule.target_value == str(job_position_id),
+                applicability_filter,
             )
         )
         required_type_ids |= set(r[0] for r in jp_rules.all())

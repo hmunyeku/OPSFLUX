@@ -1168,6 +1168,7 @@ class ComplianceRuleRead(OpsFluxSchema):
     effective_from: date | None = None
     effective_to: date | None = None
     priority: str = "normal"
+    applicability: str = "permanent"  # permanent | contextual
     override_validity_days: int | None = None
     grace_period_days: int | None = None
     renewal_reminder_days: int | None = None
@@ -1186,6 +1187,7 @@ class ComplianceRuleCreate(BaseModel):
     effective_from: date | None = None
     effective_to: date | None = None
     priority: str = "normal"
+    applicability: str = "permanent"  # permanent | contextual
     override_validity_days: int | None = None
     grace_period_days: int | None = None
     renewal_reminder_days: int | None = None
@@ -1201,6 +1203,7 @@ class ComplianceRuleUpdate(BaseModel):
     effective_from: date | None = None
     effective_to: date | None = None
     priority: str | None = None
+    applicability: str | None = None  # permanent | contextual
     override_validity_days: int | None = None
     grace_period_days: int | None = None
     renewal_reminder_days: int | None = None

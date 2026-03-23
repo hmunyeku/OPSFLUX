@@ -949,6 +949,7 @@ export interface ComplianceRule {
   effective_from: string | null
   effective_to: string | null
   priority: string
+  applicability: string  // permanent | contextual
   override_validity_days: number | null
   grace_period_days: number | null
   renewal_reminder_days: number | null
@@ -967,6 +968,7 @@ export interface ComplianceRuleCreate {
   effective_from?: string | null
   effective_to?: string | null
   priority?: string
+  applicability?: string  // permanent | contextual
   override_validity_days?: number | null
   grace_period_days?: number | null
   renewal_reminder_days?: number | null
@@ -981,6 +983,7 @@ export interface ComplianceRuleUpdate {
   effective_from?: string | null
   effective_to?: string | null
   priority?: string | null
+  applicability?: string | null  // permanent | contextual
   override_validity_days?: number | null
   grace_period_days?: number | null
   renewal_reminder_days?: number | null

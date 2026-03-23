@@ -1451,7 +1451,7 @@ function RulesMatrixView({
                             }
                           >
                             {rule ? (
-                              <Check size={14} className="mx-auto text-emerald-600 dark:text-emerald-400" />
+                              <Check size={14} className={cn('mx-auto', rule.applicability === 'contextual' ? 'text-blue-500 dark:text-blue-400' : 'text-emerald-600 dark:text-emerald-400')} />
                             ) : null}
                           </td>
                         )
@@ -1607,6 +1607,13 @@ function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly }: {
               onChange={(v: string) => setForm({ ...form, priority: v })}
             />
           </DynamicPanelField>
+          <DynamicPanelField label="Applicabilité">
+            <TagSelector
+              options={[{ value: 'permanent', label: 'Permanente' }, { value: 'contextual', label: 'Contextuelle' }]}
+              value={form.applicability ?? 'permanent'}
+              onChange={(v: string) => setForm({ ...form, applicability: v })}
+            />
+          </DynamicPanelField>
         </FormGrid>
       </FormSection>
 
@@ -1668,6 +1675,7 @@ function EditRulePanel() {
     target_value: rule?.target_value ?? '',
     description: rule?.description ?? '',
     priority: rule?.priority ?? 'normal',
+    applicability: rule?.applicability ?? 'permanent',
     effective_from: rule?.effective_from ?? null,
     effective_to: rule?.effective_to ?? null,
     override_validity_days: rule?.override_validity_days ?? null,
@@ -1694,6 +1702,7 @@ function EditRulePanel() {
           target_value: form.target_value || undefined,
           description: form.description || undefined,
           priority: form.priority,
+          applicability: form.applicability,
           effective_from: form.effective_from || undefined,
           effective_to: form.effective_to || undefined,
           override_validity_days: form.override_validity_days,
@@ -1817,6 +1826,7 @@ function CreateRulePanel() {
     target_value: preTargetValue,
     description: '',
     priority: 'normal',
+    applicability: 'permanent',
     effective_from: null,
     effective_to: null,
     override_validity_days: null,
@@ -1834,6 +1844,7 @@ function CreateRulePanel() {
         target_value: form.target_value || undefined,
         description: form.description || undefined,
         priority: form.priority,
+        applicability: form.applicability,
         effective_from: form.effective_from || undefined,
         effective_to: form.effective_to || undefined,
         override_validity_days: form.override_validity_days,

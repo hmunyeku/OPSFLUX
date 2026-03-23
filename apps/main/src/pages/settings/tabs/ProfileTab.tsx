@@ -38,11 +38,6 @@ const FALLBACK_GENDER = [
   { value: 'X', label: 'Autre' },
 ]
 
-const FALLBACK_LANGUAGE = [
-  { value: 'fr', label: 'Français' },
-  { value: 'en', label: 'English' },
-]
-
 /** Searchable combobox for dictionary-driven fields */
 function DictCombobox({ value, options, onChange, placeholder }: {
   value: string
@@ -133,7 +128,6 @@ export function ProfileTab() {
 
   // Dictionary hooks
   const dictGender = useDictionaryOptions('gender')
-  const dictLanguage = useDictionaryOptions('language')
   const dictNationality = useDictionaryColumnOptions('nationality', 'nationality')
   const dictCountry = useDictionaryColumnOptions('nationality', 'country')
   const dictAirport = useDictionaryOptions('airport')
@@ -149,7 +143,6 @@ export function ProfileTab() {
   )
 
   const genderOptions = dictGender.length > 0 ? dictGender : FALLBACK_GENDER
-  const languageOptions = dictLanguage.length > 0 ? dictLanguage : FALLBACK_LANGUAGE
 
   const [form, setForm] = useState<ProfileUpdate>({
     first_name: user?.first_name || '',

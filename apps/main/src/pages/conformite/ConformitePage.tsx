@@ -747,7 +747,6 @@ export function ConformitePage() {
   })
 
   const createRule = useCreateComplianceRule()
-  const updateRule = useUpdateComplianceRule()
   const deleteRule = useDeleteComplianceRule()
 
   useEffect(() => {
@@ -828,6 +827,7 @@ export function ConformitePage() {
   ], [])
 
   // Rules columns (flat list -- not paginated)
+  // @ts-expect-error — ruleColumns kept for future DataTable integration
   const ruleColumns = useMemo<ColumnDef<ComplianceRule, unknown>[]>(() => [
     { accessorKey: 'compliance_type_id', header: 'Type', size: 200, cell: ({ row }) => {
       const ct = typesData?.items.find(t => t.id === row.original.compliance_type_id)
@@ -1068,7 +1068,7 @@ const CATEGORY_FULL_LABELS: Record<string, string> = {
   epi: 'EPI',
 }
 
-const CATEGORY_ORDER = ['formation', 'certification', 'habilitation', 'medical', 'epi', 'audit']
+const CATEGORY_ORDER: string[] = ['formation', 'certification', 'habilitation', 'medical', 'epi', 'audit']
 
 type TargetTab = 'job_position' | 'department' | 'asset' | 'all'
 
@@ -1101,7 +1101,7 @@ function RulesMatrixView({
 
   // Available categories (only those with at least 1 type)
   const availableCategories = useMemo(() => {
-    const cats = new Set(types.filter(t => t.active).map(t => t.category))
+    const cats = new Set<string>(types.filter(t => t.active).map(t => t.category))
     return CATEGORY_ORDER.filter(c => cats.has(c))
   }, [types])
 

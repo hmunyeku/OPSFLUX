@@ -19,7 +19,7 @@ import {
   Bell,
   ChevronRight, ChevronDown,
   Globe, Plug, FileText, FileOutput, Trash2,
-  ScrollText, Activity, Hash, BookOpen, Users, ShieldCheck, Database,
+  Activity, Hash, BookOpen, Users, ShieldCheck, Database,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PanelHeader, PanelContent } from '@/components/layout/PanelHeader'
@@ -118,7 +118,6 @@ import { IntegrationsTab } from './tabs/IntegrationsTab'
 import { EmailTemplatesTab } from './tabs/EmailTemplatesTab'
 import { PdfTemplatesTab } from './tabs/PdfTemplatesTab'
 // RbacAdminTab moved to UsersPage (Comptes)
-import { AuditTab } from './tabs/AuditTab'
 import { NumberingTab } from './tabs/NumberingTab'
 import { DeletePoliciesTab } from './tabs/DeletePoliciesTab'
 import DictionaryTab from './tabs/DictionaryTab'
@@ -159,8 +158,7 @@ registerSettingsSection({ id: 'numbering', label: 'Numérotation', icon: Hash, c
 registerSettingsSection({ id: 'user-management', label: 'Gestion des comptes', icon: Users, component: UserManagementTab, category: 'general', order: 40, requiredPermission: 'admin.system' })
 registerSettingsSection({ id: 'security-policy', label: 'Sécurité & Authentification', icon: ShieldCheck, component: SecurityPolicyTab, category: 'general', order: 45, requiredPermission: 'admin.system' })
 registerSettingsSection({ id: 'delete-policies', label: 'Politiques de suppression', icon: Trash2, component: DeletePoliciesTab, category: 'general', order: 50, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'audit-log', label: 'Journal d\'audit', icon: ScrollText, component: AuditTab, category: 'general', order: 60, requiredPermission: 'core.audit.read' })
-registerSettingsSection({ id: 'system', label: 'Système', icon: Activity, component: SystemTab, category: 'general', order: 70, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'system', label: 'Système', icon: Activity, component: SystemTab, category: 'general', order: 60, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'adminer', label: 'Base de données', icon: Database, component: AdminerTab, category: 'general', order: 80, requiredPermission: 'admin.system' })
 
 /* ── Main Settings Page ── */

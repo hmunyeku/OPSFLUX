@@ -199,6 +199,14 @@ _OWNER_PERMISSION_MAP: dict[str, tuple[str, str]] = {
     "compliance_record": ("conformite.record.read", "conformite.record.update"),
     "compliance_exemption": ("conformite.exemption.read", "conformite.exemption.approve"),
     "job_position": ("conformite.jobposition.read", "conformite.jobposition.update"),
+    # User sub-models (medical, passports, etc.) — accessed via user permissions
+    "medical_check": ("core.users.read", "core.users.manage"),
+    "passport": ("core.users.read", "core.users.manage"),
+    "visa": ("core.users.read", "core.users.manage"),
+    "social_security": ("core.users.read", "core.users.manage"),
+    "vaccine": ("core.users.read", "core.users.manage"),
+    "driving_license": ("core.users.read", "core.users.manage"),
+    "emergency_contact": ("core.users.read", "core.users.manage"),
 }
 
 

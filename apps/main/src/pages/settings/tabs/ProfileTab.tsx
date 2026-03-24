@@ -483,15 +483,13 @@ export function ProfileTab() {
               )}
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="gl-label">Poste / Fonction</label>
-              {jobPositionOptions.length > 0 ? (
-                <DictCombobox value={form.job_position_id as string || ''} options={jobPositionOptions} onChange={(v) => autoSaveField('job_position_id', v)} placeholder="Sélectionner un poste..." />
-              ) : (
-                <p className="text-xs text-muted-foreground py-2">Aucun poste défini (Conformité &gt; Fiches de poste)</p>
-              )}
-            </div>
+          <div>
+            <label className="gl-label">Poste / Fonction</label>
+            {jobPositionOptions.length > 0 ? (
+              <DictCombobox value={form.job_position_id as string || ''} options={jobPositionOptions} onChange={(v) => autoSaveField('job_position_id', v)} placeholder="Sélectionner un poste..." />
+            ) : (
+              <p className="text-xs text-muted-foreground py-2">Aucun poste défini (Conformité &gt; Fiches de poste)</p>
+            )}
           </div>
         </div>
       </CollapsibleSection>

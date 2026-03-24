@@ -28,6 +28,7 @@ import { offlineQueue } from '@/lib/offlineQueue'
 import { CommandPalette, useCommandPalette } from '@/components/ui/CommandPalette'
 import { EntitySwitcher } from '@/components/layout/EntitySwitcher'
 import { NotificationCenter } from '@/components/layout/NotificationCenter'
+import { AnnouncementCenter } from '@/components/layout/AnnouncementCenter'
 import { ThemeMenu } from '@/components/layout/ThemeMenu'
 
 interface TopbarProps {
@@ -372,6 +373,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
             <TopbarIconButton icon={FileText} label={t('common.actions')} badge={0} />
             <TopbarIconButton icon={GitPullRequest} label={t('workflow.title')} badge={0} />
           </span>
+          <AnnouncementCenter />
           <NotificationCenter />
 
           <div className="mx-1.5 h-4 w-px bg-border hidden sm:block" />

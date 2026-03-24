@@ -344,6 +344,8 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
                 }
               }}
               placeholder={placeholder}
+              autoComplete="off"
+              name="opsflux-global-search"
               className="w-full h-8 rounded-lg border border-border bg-chrome px-3 pl-9 pr-16 text-sm text-foreground placeholder:text-muted-foreground hover:bg-chrome-hover hover:border-border focus:bg-background focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-colors outline-none"
             />
             {globalSearch && (

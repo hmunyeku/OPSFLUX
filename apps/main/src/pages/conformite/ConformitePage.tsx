@@ -945,7 +945,7 @@ export function ConformitePage() {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <ComplianceDashboard />
+        return <div className="p-6"><ComplianceDashboard /></div>
       case 'referentiel':
         return (
           <DataTable<ComplianceType>
@@ -996,7 +996,7 @@ export function ConformitePage() {
           />
         )
       case 'verifications':
-        return <VerificationsTab />
+        return <div className="p-6"><VerificationsTab /></div>
       case 'exemptions':
         return (
           <DataTable<ComplianceExemption>
@@ -1091,7 +1091,7 @@ export function ConformitePage() {
           onTabChange={handleTabChange}
         />
 
-        <PanelContent className="p-6">
+        <PanelContent>
           {renderTabContent()}
         </PanelContent>
       </div>}

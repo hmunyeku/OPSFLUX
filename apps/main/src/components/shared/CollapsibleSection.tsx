@@ -123,7 +123,7 @@ export function CollapsibleSection({
   defaultExpanded = false,
   storageKey,
   className,
-  showSeparator = true,
+  showSeparator = false,
   headerAction,
   children,
 }: CollapsibleSectionProps) {

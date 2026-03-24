@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import { DataTableToolbar } from '@/components/ui/DataTable/Toolbar'
+import { GroupedDataTable } from '@/components/ui/GroupedDataTable'
 import { ExportWizard } from '@/components/shared/ExportWizard'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { ConditionBuilder } from '@/components/shared/ConditionBuilder'
@@ -2267,29 +2268,44 @@ function VerificationsTab() {
     },
   ], [rejectingId, rejectReason])
 
-  const verPagination: DataTablePagination = {
-    page: 1,
-    pageSize: items.length || 50,
-    total: items.length,
-    pages: 1,
-  }
+  // Group items by owner for nested display
+  type GroupedItem = VerItem & { subRows?: VerItem[] }
+  const groupedData = useMemo<GroupedItem[]>(() => {
+    const map = new Map<string, { parent: GroupedItem; children: VerItem[] }>()
+    for (const item of items) {
+      const key = item.owner_id || '_unknown'
+      if (!map.has(key)) {
+        map.set(key, {
+          parent: {
+            ...item,
+            // Parent row shows owner info, child columns empty
+            description: `${(items.filter(i => i.owner_id === key)).length} document(s) en attente`,
+            record_type: '',
+          } as GroupedItem,
+          children: [],
+        })
+      }
+      map.get(key)!.children.push(item)
+    }
+    return [...map.values()].map(({ parent, children }) => ({
+      ...parent,
+      subRows: children,
+    }))
+  }, [items])
 
   return (
-    <DataTable<VerItem>
-      columns={verColumns}
-      data={items}
+    <GroupedDataTable<GroupedItem>
+      data={groupedData}
+      columns={verColumns as any}
+      getSubRows={(row) => row.subRows}
       isLoading={isLoading}
-      pagination={verPagination}
       searchValue={verSearch}
       onSearchChange={setVerSearch}
       searchPlaceholder="Rechercher par personne, type, description..."
       emptyIcon={ClipboardCheck}
       emptyTitle="Aucune verification en attente"
-      columnResizing
-      storageKey="conformite-verifications"
     />
   )
-
 }
 
 // Old nested table code removed — now uses DataTable

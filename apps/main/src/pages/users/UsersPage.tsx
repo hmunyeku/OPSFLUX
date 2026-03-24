@@ -20,7 +20,6 @@ import {
   Phone, Mail, MapPin, MessageSquare, Paperclip, Camera,
   LayoutDashboard,
   FileText, Stamp, Heart, CreditCard, Syringe, Languages, Car, Wifi, Stethoscope,
-  Pencil, Check, Save,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CountryFlag } from '@/components/ui/CountryFlag'
@@ -48,9 +47,8 @@ import { usePageSize } from '@/hooks/usePageSize'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { useToast } from '@/components/ui/Toast'
 import { RolesTab, GroupsTab, GroupDetailPanel, RoleDetailPanel, CreateGroupForm } from '@/pages/settings/tabs/RbacAdminTab'
-import { useRoles, useGroups, useUserEffectivePermissions, useModules, useUserPermissionOverrides, useSetUserPermissionOverrides, useAddGroupMembers } from '@/hooks/useRbac'
+import { useRoles, useGroups, useAddGroupMembers } from '@/hooks/useRbac'
 import { usePermission } from '@/hooks/usePermission'
-import type { PermissionOverride } from '@/services/rbacService'
 import { useUserRoles, useUserGroups, useUploadAvatar, usePhones, useContactEmails, useAddresses, useNotes, useAttachments } from '@/hooks/useSettings'
 import { useSSOProviders, useDeleteSSOProvider, useUserIPLocation } from '@/hooks/useUserSubModels'
 import { useTiers } from '@/hooks/useTiers'
@@ -1762,190 +1760,12 @@ function UserJournalTab({ userId }: { userId: string }) {
   )
 }
 
-// ── Permissions Tab ───────────────────────────────────────
-// Source color: user override = orange, role = blue, group = violet
-const SOURCE_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  user: { bg: 'bg-amber-500', text: 'text-amber-500', label: 'Override' },
-  role: { bg: 'bg-blue-500', text: 'text-blue-500', label: 'Rôle' },
-  group: { bg: 'bg-violet-500', text: 'text-violet-500', label: 'Groupe' },
-}
+// ── Permissions Tab (uses shared PermissionMatrix) ────────
+import { PermissionMatrix } from '@/components/shared/PermissionMatrix'
 
 function UserPermissionsTab({ userId }: { userId: string }) {
-  const { hasPermission } = usePermission()
-  const canManage = hasPermission('core.rbac.manage')
-
-  const { data: effectivePerms, isLoading: permsLoading } = useUserEffectivePermissions(userId)
-  const { data: modules, isLoading: modulesLoading } = useModules()
-  const { data: overrides } = useUserPermissionOverrides(userId)
-  const setOverrides = useSetUserPermissionOverrides()
-
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState<Map<string, boolean>>(new Map())
-
-  // Build effective permission lookup: code → source
-  const effectiveMap = useMemo(() => {
-    const map = new Map<string, string>()
-    if (effectivePerms) {
-      for (const p of effectivePerms as { permission_code: string; source: string }[]) {
-        map.set(p.permission_code, p.source)
-      }
-    }
-    return map
-  }, [effectivePerms])
-
-  // Initialize draft from current overrides when entering edit mode
-  const handleStartEdit = useCallback(() => {
-    const map = new Map<string, boolean>()
-    if (overrides) {
-      for (const o of overrides) map.set(o.permission_code, o.granted)
-    }
-    setDraft(map)
-    setEditing(true)
-  }, [overrides])
-
-  const handleCancel = useCallback(() => {
-    setEditing(false)
-    setDraft(new Map())
-  }, [])
-
-  const handleSave = useCallback(() => {
-    const newOverrides: PermissionOverride[] = []
-    draft.forEach((granted, code) => {
-      newOverrides.push({ permission_code: code, granted })
-    })
-    setOverrides.mutate({ userId, overrides: newOverrides }, {
-      onSuccess: () => setEditing(false),
-    })
-  }, [draft, userId, setOverrides])
-
-  const handleToggle = useCallback((code: string) => {
-    setDraft(prev => {
-      const next = new Map(prev)
-      if (next.has(code)) {
-        // Cycle: granted → denied → remove override
-        if (next.get(code)) next.set(code, false)
-        else next.delete(code)
-      } else {
-        // Add as granted override
-        next.set(code, true)
-      }
-      return next
-    })
-  }, [])
-
-  const isLoading = permsLoading || modulesLoading
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 size={16} className="animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
-
-  if (!modules?.length) {
-    return <p className="text-sm text-muted-foreground text-center py-8">Aucun module configuré</p>
-  }
-
-  return (
-    <div className="space-y-2">
-      {/* Header with legend + edit button */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-blue-500 inline-block" /> Rôle</span>
-          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-violet-500 inline-block" /> Groupe</span>
-          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-500 inline-block" /> Override</span>
-          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-400 inline-block" /> Refusé</span>
-        </div>
-        {canManage && !editing && (
-          <button onClick={handleStartEdit} className="gl-button-sm gl-button-default flex items-center gap-1 text-xs">
-            <Pencil size={11} /> Modifier
-          </button>
-        )}
-        {editing && (
-          <div className="flex items-center gap-1.5">
-            <button onClick={handleCancel} className="gl-button-sm gl-button-default flex items-center gap-1 text-xs">
-              <X size={11} /> Annuler
-            </button>
-            <button onClick={handleSave} disabled={setOverrides.isPending} className="gl-button-sm gl-button-confirm flex items-center gap-1 text-xs">
-              {setOverrides.isPending ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />} Enregistrer
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Permission matrix */}
-      <div className="max-h-[450px] overflow-y-auto border border-border rounded-lg divide-y divide-border/50">
-        {modules.map((mod) => (
-          <div key={mod.module} className="px-3 py-2">
-            <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">{mod.module}</h4>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-0.5">
-              {mod.permissions.map((perm) => {
-                const code = perm.code
-                const source = effectiveMap.get(code)
-                const isGranted = !!source
-                const style = source ? SOURCE_STYLES[source] : null
-
-                // In edit mode, check draft overrides
-                const hasDraftOverride = editing && draft.has(code)
-                const draftGranted = hasDraftOverride ? draft.get(code) : undefined
-
-                return (
-                  <div
-                    key={code}
-                    className={cn(
-                      'flex items-center gap-1.5 py-1 rounded-sm',
-                      editing && 'cursor-pointer hover:bg-accent/40 px-1 -mx-1',
-                    )}
-                    onClick={editing ? () => handleToggle(code) : undefined}
-                    title={editing ? `${code} — cliquer pour changer` : `${code} — ${source ?? 'non accordé'}`}
-                  >
-                    {/* Status dot */}
-                    {editing ? (
-                      hasDraftOverride ? (
-                        draftGranted ? (
-                          <span className="h-3.5 w-3.5 rounded-sm bg-amber-500/20 border border-amber-500 flex items-center justify-center">
-                            <Check size={8} className="text-amber-500" />
-                          </span>
-                        ) : (
-                          <span className="h-3.5 w-3.5 rounded-sm bg-red-500/20 border border-red-400 flex items-center justify-center">
-                            <X size={8} className="text-red-400" />
-                          </span>
-                        )
-                      ) : isGranted ? (
-                        <span className={cn('h-3.5 w-3.5 rounded-sm border flex items-center justify-center', style?.bg + '/20', 'border-' + (source === 'user' ? 'amber-500' : source === 'role' ? 'blue-500' : 'violet-500'))}>
-                          <Check size={8} className={style?.text} />
-                        </span>
-                      ) : (
-                        <span className="h-3.5 w-3.5 rounded-sm border border-border bg-muted" />
-                      )
-                    ) : (
-                      isGranted ? (
-                        <span className={cn('h-2.5 w-2.5 rounded-full shrink-0', style?.bg)} />
-                      ) : (
-                        <span className="h-2.5 w-2.5 rounded-full shrink-0 bg-muted border border-border" />
-                      )
-                    )}
-
-                    {/* Permission name */}
-                    <span className={cn(
-                      'text-[11px] truncate',
-                      isGranted ? 'text-foreground' : 'text-muted-foreground',
-                      hasDraftOverride && draftGranted === false && 'line-through text-red-400',
-                    )}>
-                      {perm.name || code.split('.').pop()}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
+  return <PermissionMatrix userId={userId} editable />
 }
-
 // ── Overview Dashboard ─────────────────────────────────────
 function AccountsOverview({ onNavigate, onCreateGroup }: { onNavigate: (tab: AccountsTab) => void; onCreateGroup: () => void }) {
   const { t } = useTranslation()

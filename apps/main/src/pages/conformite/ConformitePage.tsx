@@ -2137,39 +2137,45 @@ const RECORD_TYPE_LABELS: Record<string, string> = {
 }
 
 function VerificationsTab() {
-  const [subTab, setSubTab] = useState<'pending' | 'history'>('pending')
-  const { data: pendingData } = usePendingVerifications()
-  const pendingCount = pendingData?.items?.length ?? 0
-
-  return (
-    <div className="flex flex-col h-full">
-      <div className="shrink-0 border-b border-border">
-        <SubTabBar
-          items={[
-            { id: 'pending' as const, label: 'En attente', icon: ClipboardCheck },
-            { id: 'history' as const, label: 'Historique', icon: ClipboardList },
-          ]}
-          activeId={subTab}
-          onTabChange={setSubTab}
-          counts={{ pending: pendingCount }}
-        />
-      </div>
-      <div className="flex-1 min-h-0">
-        {subTab === 'pending' ? <PendingVerificationsSubTab /> : <VerificationHistorySubTab />}
-      </div>
-    </div>
-  )
-}
-
-function PendingVerificationsSubTab() {
-  const { data, isLoading } = usePendingVerifications()
+  const { data: pendingData, isLoading: pendingLoading } = usePendingVerifications()
+  const { data: historyData, isLoading: historyLoading } = useVerificationHistory(1, 200)
   const verifyRecord = useVerifyRecord()
   const { toast } = useToast()
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [verSearch, setVerSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string>('pending')
+  const { openDynamicPanel } = useUIStore()
 
-  const items = data?.items ?? []
+  // Merge pending + history into a unified list
+  const allItems = useMemo(() => {
+    const pending = (pendingData?.items ?? []).map((item) => ({
+      ...item,
+      verification_status: 'pending' as string,
+      verified_by_name: null as string | null,
+      verified_at: null as string | null,
+      verification_notes: null as string | null,
+    }))
+    const history = (historyData?.items ?? []).map((item) => ({
+      ...item,
+      submitted_at: item.verified_at || '',
+      attachment_count: 0,
+    }))
+    // Deduplicate by id (pending takes priority)
+    const seen = new Set<string>()
+    const merged: typeof pending = []
+    for (const item of pending) { seen.add(item.id); merged.push(item) }
+    for (const item of history) { if (!seen.has(item.id)) merged.push(item as any) }
+    return merged
+  }, [pendingData, historyData])
+
+  // Filter by status
+  const filteredItems = useMemo(() => {
+    if (!statusFilter) return allItems
+    return allItems.filter((i) => i.verification_status === statusFilter)
+  }, [allItems, statusFilter])
+
+  const isLoading = pendingLoading || historyLoading
 
   const handleVerify = async (recordType: string, recordId: string) => {
     try {
@@ -2193,156 +2199,19 @@ function PendingVerificationsSubTab() {
     catch { return '—' }
   }
 
-  type VerItem = typeof items[number]
+  type VerItem = typeof allItems[number]
+
+  const VERIFICATION_STATUS_OPTIONS = [
+    { value: 'pending', label: 'En attente' },
+    { value: 'verified', label: 'Vérifié' },
+    { value: 'rejected', label: 'Rejeté' },
+  ]
+
+  const verFilters: DataTableFilterDef[] = useMemo(() => [
+    { id: 'verification_status', label: 'Statut', type: 'select', options: VERIFICATION_STATUS_OPTIONS },
+  ], [])
 
   const verColumns: ColumnDef<VerItem>[] = useMemo(() => [
-    {
-      accessorKey: 'owner_name',
-      header: 'Personne',
-      size: 160,
-      cell: ({ row }) => {
-        const name = row.original.owner_name || 'Inconnu'
-        const initials = name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
-        return (
-          <div className="flex items-center gap-2">
-            <div className="h-6 w-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-bold shrink-0">{initials}</div>
-            <span className="truncate">{name}</span>
-          </div>
-        )
-      },
-    },
-    {
-      accessorKey: 'record_type',
-      header: 'Type',
-      size: 120,
-      cell: ({ row }) => (
-        <span className="gl-badge gl-badge-warning text-[9px]">{RECORD_TYPE_LABELS[row.original.record_type] || row.original.record_type}</span>
-      ),
-    },
-    { accessorKey: 'description', header: 'Description', size: 220 },
-    {
-      accessorKey: 'issuer',
-      header: 'Emetteur',
-      size: 130,
-      cell: ({ row }) => <span className="truncate">{(row.original as any).issuer as string || '—'}</span>,
-    },
-    {
-      accessorKey: 'reference_number',
-      header: 'Reference',
-      size: 110,
-      cell: ({ row }) => <span className="font-mono truncate">{(row.original as any).reference_number as string || '—'}</span>,
-    },
-    {
-      accessorKey: 'submitted_at',
-      header: 'Date',
-      size: 100,
-      cell: ({ row }) => fmtDate((row.original as any).issued_at as string || row.original.submitted_at),
-    },
-    {
-      accessorKey: 'expires_at',
-      header: 'Expiration',
-      size: 100,
-      cell: ({ row }) => {
-        const exp = (row.original as any).expires_at as string | null
-        if (!exp) return <span className="text-muted-foreground">—</span>
-        const d = new Date(exp)
-        const now = new Date()
-        const days = Math.ceil((d.getTime() - now.getTime()) / 86400000)
-        const color = days < 0 ? 'text-red-500' : days < 30 ? 'text-orange-500' : 'text-foreground'
-        return <span className={color}>{fmtDate(exp)}</span>
-      },
-    },
-    {
-      accessorKey: 'attachment_count',
-      header: 'PJ',
-      size: 50,
-      cell: ({ row }) => {
-        const cnt = (row.original as any).attachment_count as number || 0
-        return cnt > 0
-          ? <span className="inline-flex items-center gap-0.5 text-primary"><Paperclip size={10} />{cnt}</span>
-          : <span className="text-muted-foreground">—</span>
-      },
-    },
-    {
-      id: 'actions',
-      header: 'Actions',
-      size: 80,
-      cell: ({ row }) => {
-        const item = row.original
-        const isRejecting = rejectingId === item.id
-        if (isRejecting) {
-          return (
-            <div className="flex items-center gap-1">
-              <input
-                type="text" value={rejectReason} onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="Motif..." className="text-[10px] border border-border rounded px-1.5 py-0.5 bg-background w-24" autoFocus
-                onKeyDown={(e) => { if (e.key === 'Enter') handleReject(item.record_type, item.id) }}
-              />
-              <button onClick={() => handleReject(item.record_type, item.id)} disabled={!rejectReason.trim()} className="p-0.5 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"><Check size={11} /></button>
-              <button onClick={() => { setRejectingId(null); setRejectReason('') }} className="p-0.5 rounded text-muted-foreground hover:bg-muted"><X size={11} /></button>
-            </div>
-          )
-        }
-        return (
-          <div className="flex items-center gap-1">
-            <button onClick={(e) => { e.stopPropagation(); handleVerify(item.record_type, item.id) }} className="p-1 rounded text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20" title="Verifier"><Check size={13} /></button>
-            <button onClick={(e) => { e.stopPropagation(); setRejectingId(item.id) }} className="p-1 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20" title="Rejeter"><X size={13} /></button>
-          </div>
-        )
-      },
-    },
-  ], [rejectingId, rejectReason])
-
-  const { openDynamicPanel } = useUIStore()
-
-  const verPagination: DataTablePagination = {
-    page: 1,
-    pageSize: items.length || 50,
-    total: items.length,
-    pages: 1,
-  }
-
-  return (
-    <DataTable<VerItem>
-      columns={verColumns}
-      data={items}
-      isLoading={isLoading}
-      pagination={verPagination}
-      searchValue={verSearch}
-      onSearchChange={setVerSearch}
-      searchPlaceholder="Rechercher par personne, type, description..."
-      onRowClick={(row) => openDynamicPanel({
-        type: 'detail',
-        module: 'conformite',
-        id: row.id,
-        meta: { subtype: 'verification', record_type: row.record_type },
-      })}
-      emptyIcon={ClipboardCheck}
-      emptyTitle="Aucune verification en attente"
-      columnResizing
-      columnVisibility
-      storageKey="conformite-verifications"
-    />
-  )
-}
-
-function VerificationHistorySubTab() {
-  const [histPage, setHistPage] = useState(1)
-  const { pageSize } = usePageSize()
-  const { data, isLoading } = useVerificationHistory(histPage, pageSize)
-  const [histSearch, setHistSearch] = useState('')
-
-  const items = data?.items ?? []
-
-  const fmtDate = (d: string | null | undefined) => {
-    if (!d) return '—'
-    try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) }
-    catch { return '—' }
-  }
-
-  type HistItem = typeof items[number]
-
-  const histColumns: ColumnDef<HistItem>[] = useMemo(() => [
     {
       accessorKey: 'owner_name',
       header: 'Personne',
@@ -2369,77 +2238,110 @@ function VerificationHistorySubTab() {
     { accessorKey: 'description', header: 'Description', size: 220 },
     {
       accessorKey: 'verification_status',
-      header: 'Decision',
+      header: 'Statut',
       size: 100,
       cell: ({ row }) => {
         const s = row.original.verification_status
-        return s === 'verified'
-          ? <span className="gl-badge gl-badge-success text-[9px]">Verifie</span>
-          : <span className="gl-badge gl-badge-danger text-[9px]">Rejete</span>
+        const cls = s === 'pending' ? 'gl-badge-warning' : s === 'verified' ? 'gl-badge-success' : 'gl-badge-danger'
+        const label = s === 'pending' ? 'En attente' : s === 'verified' ? 'Vérifié' : 'Rejeté'
+        return <span className={cn('gl-badge text-[9px]', cls)}>{label}</span>
       },
     },
     {
-      accessorKey: 'verified_by_name',
-      header: 'Par',
+      accessorKey: 'issuer',
+      header: 'Emetteur',
       size: 130,
-      cell: ({ row }) => <span className="text-muted-foreground">{row.original.verified_by_name || '—'}</span>,
+      cell: ({ row }) => <span className="truncate">{(row.original as any).issuer as string || '—'}</span>,
     },
     {
-      accessorKey: 'verified_at',
-      header: 'Date decision',
-      size: 110,
-      cell: ({ row }) => <span className="tabular-nums">{fmtDate(row.original.verified_at)}</span>,
-    },
-    {
-      accessorKey: 'verification_notes',
-      header: 'Notes',
-      size: 180,
-      cell: ({ row }) => <span className="text-muted-foreground truncate max-w-[180px] block">{row.original.verification_notes || '—'}</span>,
-    },
-    {
-      accessorKey: 'issued_at',
-      header: 'Emission',
+      accessorKey: 'submitted_at',
+      header: 'Date',
       size: 100,
-      cell: ({ row }) => <span className="tabular-nums">{fmtDate(row.original.issued_at)}</span>,
+      cell: ({ row }) => fmtDate((row.original as any).issued_at as string || row.original.submitted_at),
     },
     {
       accessorKey: 'expires_at',
       header: 'Expiration',
       size: 100,
       cell: ({ row }) => {
-        const exp = row.original.expires_at
+        const exp = (row.original as any).expires_at as string | null
         if (!exp) return <span className="text-muted-foreground">—</span>
         const d = new Date(exp)
         const now = new Date()
         const days = Math.ceil((d.getTime() - now.getTime()) / 86400000)
         const color = days < 0 ? 'text-red-500' : days < 30 ? 'text-orange-500' : 'text-foreground'
-        return <span className={cn('tabular-nums', color)}>{fmtDate(exp)}</span>
+        return <span className={color}>{fmtDate(exp)}</span>
       },
     },
-  ], [])
+    {
+      accessorKey: 'verified_by_name',
+      header: 'Par',
+      size: 120,
+      cell: ({ row }) => <span className="text-muted-foreground">{row.original.verified_by_name || '—'}</span>,
+    },
+    {
+      id: 'actions',
+      header: '',
+      size: 70,
+      cell: ({ row }) => {
+        const item = row.original
+        if (item.verification_status !== 'pending') return null
+        const isRejecting = rejectingId === item.id
+        if (isRejecting) {
+          return (
+            <div className="flex items-center gap-1">
+              <input
+                type="text" value={rejectReason} onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Motif..." className="text-[10px] border border-border rounded px-1.5 py-0.5 bg-background w-24" autoFocus
+                onKeyDown={(e) => { if (e.key === 'Enter') handleReject(item.record_type, item.id) }}
+              />
+              <button onClick={() => handleReject(item.record_type, item.id)} disabled={!rejectReason.trim()} className="p-0.5 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"><Check size={11} /></button>
+              <button onClick={() => { setRejectingId(null); setRejectReason('') }} className="p-0.5 rounded text-muted-foreground hover:bg-muted"><X size={11} /></button>
+            </div>
+          )
+        }
+        return (
+          <div className="flex items-center gap-1">
+            <button onClick={(e) => { e.stopPropagation(); handleVerify(item.record_type, item.id) }} className="p-1 rounded text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20" title="Verifier"><Check size={13} /></button>
+            <button onClick={(e) => { e.stopPropagation(); setRejectingId(item.id) }} className="p-1 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20" title="Rejeter"><X size={13} /></button>
+          </div>
+        )
+      },
+    },
+  ], [rejectingId, rejectReason])
 
-  const histPagination: DataTablePagination = {
-    page: histPage,
-    pageSize,
-    total: data?.total ?? 0,
-    pages: Math.ceil((data?.total ?? 0) / pageSize),
+  const verPagination: DataTablePagination = {
+    page: 1,
+    pageSize: filteredItems.length || 50,
+    total: filteredItems.length,
+    pages: 1,
   }
 
   return (
-    <DataTable<HistItem>
-      columns={histColumns}
-      data={items}
+    <DataTable<VerItem>
+      columns={verColumns}
+      data={filteredItems}
       isLoading={isLoading}
-      pagination={histPagination}
-      onPaginationChange={(p) => setHistPage(p)}
-      searchValue={histSearch}
-      onSearchChange={setHistSearch}
-      searchPlaceholder="Rechercher dans l'historique..."
-      emptyIcon={ClipboardList}
-      emptyTitle="Aucun historique de verification"
+      pagination={verPagination}
+      searchValue={verSearch}
+      onSearchChange={setVerSearch}
+      searchPlaceholder="Rechercher par personne, type, description..."
+      filters={verFilters}
+      activeFilters={{ verification_status: statusFilter || undefined }}
+      onFilterChange={(id, value) => { if (id === 'verification_status') setStatusFilter(value as string || '') }}
+      onRowClick={(row) => {
+        if (row.verification_status === 'pending') {
+          openDynamicPanel({
+            type: 'detail', module: 'conformite', id: row.id,
+            meta: { subtype: 'verification', record_type: row.record_type },
+          })
+        }
+      }}
+      emptyIcon={ClipboardCheck}
+      emptyTitle={statusFilter === 'pending' ? 'Aucune verification en attente' : 'Aucun resultat'}
       columnResizing
       columnVisibility
-      storageKey="conformite-verif-history"
+      storageKey="conformite-verifications"
     />
   )
 }

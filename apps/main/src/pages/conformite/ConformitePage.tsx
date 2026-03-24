@@ -12,7 +12,6 @@ import {
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import { DataTableToolbar } from '@/components/ui/DataTable/Toolbar'
-import { GroupedDataTable } from '@/components/ui/GroupedDataTable'
 import { ExportWizard } from '@/components/shared/ExportWizard'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { ConditionBuilder } from '@/components/shared/ConditionBuilder'
@@ -1105,6 +1104,7 @@ export function ConformitePage() {
       {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'exemption' && <ExemptionDetailPanel id={dynamicPanel.id} />}
       {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'rule' && <CreateRulePanel />}
       {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'edit' && dynamicPanel.meta?.subtype === 'rule' && <EditRulePanel />}
+      {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'verification' && <VerificationDetailPanel id={dynamicPanel.id} recordType={dynamicPanel.meta?.record_type as string || ''} />}
     </div>
   )
 }
@@ -2268,47 +2268,162 @@ function VerificationsTab() {
     },
   ], [rejectingId, rejectReason])
 
-  // Group items by owner for nested display
-  type GroupedItem = VerItem & { subRows?: VerItem[] }
-  const groupedData = useMemo<GroupedItem[]>(() => {
-    const map = new Map<string, { parent: GroupedItem; children: VerItem[] }>()
-    for (const item of items) {
-      const key = item.owner_id || '_unknown'
-      if (!map.has(key)) {
-        map.set(key, {
-          parent: {
-            ...item,
-            // Parent row shows owner info, child columns empty
-            description: `${(items.filter(i => i.owner_id === key)).length} document(s) en attente`,
-            record_type: '',
-          } as GroupedItem,
-          children: [],
-        })
-      }
-      map.get(key)!.children.push(item)
-    }
-    return [...map.values()].map(({ parent, children }) => ({
-      ...parent,
-      subRows: children,
-    }))
-  }, [items])
+  const { openDynamicPanel } = useUIStore()
+
+  const verPagination: DataTablePagination = {
+    page: 1,
+    pageSize: items.length || 50,
+    total: items.length,
+    pages: 1,
+  }
 
   return (
-    <GroupedDataTable<GroupedItem>
-      data={groupedData}
-      columns={verColumns as any}
-      getSubRows={(row) => row.subRows}
+    <DataTable<VerItem>
+      columns={verColumns}
+      data={items}
       isLoading={isLoading}
+      pagination={verPagination}
       searchValue={verSearch}
       onSearchChange={setVerSearch}
       searchPlaceholder="Rechercher par personne, type, description..."
+      onRowClick={(row) => openDynamicPanel({
+        type: 'detail',
+        module: 'conformite',
+        id: row.id,
+        meta: { subtype: 'verification', record_type: row.record_type },
+      })}
       emptyIcon={ClipboardCheck}
       emptyTitle="Aucune verification en attente"
+      columnResizing
+      columnVisibility
+      storageKey="conformite-verifications"
     />
   )
 }
 
-// Old nested table code removed — now uses DataTable
+// -- Verification Detail Panel ------------------------------------------------
+
+function VerificationDetailPanel({ id, recordType: _recordType }: { id: string; recordType: string }) {
+  const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const { data } = usePendingVerifications()
+  const verifyRecord = useVerifyRecord()
+  const { toast } = useToast()
+  const [rejectReason, setRejectReason] = useState('')
+  const [showReject, setShowReject] = useState(false)
+
+  const items = data?.items ?? []
+  const item = items.find((i) => i.id === id)
+  const currentIdx = items.findIndex((i) => i.id === id)
+
+  const { openDynamicPanel } = useUIStore()
+
+  const goTo = (idx: number) => {
+    const target = items[idx]
+    if (target) {
+      openDynamicPanel({
+        type: 'detail', module: 'conformite', id: target.id,
+        meta: { subtype: 'verification', record_type: target.record_type },
+      })
+    }
+  }
+
+  const fmtDate = (d: string | null | undefined) => {
+    if (!d) return '—'
+    try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) }
+    catch { return '—' }
+  }
+
+  const handleVerify = async () => {
+    if (!item) return
+    try {
+      await verifyRecord.mutateAsync({ recordType: item.record_type, recordId: item.id, action: 'verify' })
+      toast({ title: 'Document verifie', variant: 'success' })
+      // Navigate to next or close
+      if (currentIdx < items.length - 1) goTo(currentIdx + 1)
+      else closeDynamicPanel()
+    } catch { toast({ title: 'Erreur', variant: 'error' }) }
+  }
+
+  const handleReject = async () => {
+    if (!item || !rejectReason.trim()) return
+    try {
+      await verifyRecord.mutateAsync({ recordType: item.record_type, recordId: item.id, action: 'reject', rejectionReason: rejectReason })
+      toast({ title: 'Document rejete', variant: 'success' })
+      setShowReject(false); setRejectReason('')
+      if (currentIdx < items.length - 1) goTo(currentIdx + 1)
+      else closeDynamicPanel()
+    } catch { toast({ title: 'Erreur', variant: 'error' }) }
+  }
+
+  if (!item) {
+    return (
+      <DynamicPanelShell title="Verification" onClose={closeDynamicPanel}>
+        <p className="text-sm text-muted-foreground p-4">Document non trouve ou deja traite.</p>
+      </DynamicPanelShell>
+    )
+  }
+
+  return (
+    <DynamicPanelShell
+      title={`Verification — ${RECORD_TYPE_LABELS[item.record_type] || item.record_type}`}
+      onClose={closeDynamicPanel}
+
+    >
+      <PanelContentLayout>
+        {/* ── Record info ── */}
+        <DetailFieldGrid>
+          <ReadOnlyRow label="Personne" value={item.owner_name || 'Inconnu'} />
+          <ReadOnlyRow label="Type" value={RECORD_TYPE_LABELS[item.record_type] || item.record_type} />
+          <ReadOnlyRow label="Description" value={item.description} />
+          <ReadOnlyRow label="Emetteur" value={(item as any).issuer || '—'} />
+          <ReadOnlyRow label="Reference" value={(item as any).reference_number || '—'} />
+          <ReadOnlyRow label="Date emission" value={fmtDate((item as any).issued_at)} />
+          <ReadOnlyRow label="Expiration" value={fmtDate((item as any).expires_at)} />
+          <ReadOnlyRow label="Soumis le" value={fmtDate(item.submitted_at)} />
+          <ReadOnlyRow label="Pieces jointes" value={String((item as any).attachment_count || 0)} />
+        </DetailFieldGrid>
+
+        {/* ── Attachments ── */}
+        <FormSection title="Pieces jointes">
+          <AttachmentManager ownerType={item.record_type} ownerId={item.id} compact readOnly />
+        </FormSection>
+
+        {/* ── Reject form ── */}
+        {showReject && (
+          <div className="border border-red-200 dark:border-red-800/40 rounded-lg p-3 bg-red-50/50 dark:bg-red-900/10 space-y-2">
+            <label className="gl-label text-red-600">Motif du rejet</label>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Expliquez pourquoi ce document est rejete..."
+              className="gl-form-input min-h-[60px]"
+              autoFocus
+            />
+            <div className="flex items-center gap-2 justify-end">
+              <button onClick={() => { setShowReject(false); setRejectReason('') }} className="gl-button-sm gl-button-default">Annuler</button>
+              <button onClick={handleReject} disabled={!rejectReason.trim() || verifyRecord.isPending} className="gl-button-sm gl-button-danger">
+                {verifyRecord.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Confirmer le rejet'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Action buttons ── */}
+        {!showReject && (
+          <div className="flex items-center gap-2 pt-2">
+            <button onClick={handleVerify} disabled={verifyRecord.isPending} className="gl-button gl-button-confirm flex-1">
+              {verifyRecord.isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+              Verifier ce document
+            </button>
+            <button onClick={() => setShowReject(true)} className="gl-button gl-button-danger flex-1">
+              <X size={14} /> Rejeter
+            </button>
+          </div>
+        )}
+      </PanelContentLayout>
+    </DynamicPanelShell>
+  )
+}
 
 registerPanelRenderer('conformite', (view) => {
   if (view.type === 'create' && !view.meta?.subtype) return <CreateTypePanel />
@@ -2319,5 +2434,6 @@ registerPanelRenderer('conformite', (view) => {
   if (view.type === 'edit' && view.meta?.subtype === 'rule') return <EditRulePanel />
   if (view.type === 'create' && view.meta?.subtype === 'exemption') return <CreateExemptionPanel />
   if (view.type === 'detail' && 'id' in view && view.meta?.subtype === 'exemption') return <ExemptionDetailPanel id={view.id} />
+  if (view.type === 'detail' && 'id' in view && view.meta?.subtype === 'verification') return <VerificationDetailPanel id={view.id} recordType={view.meta?.record_type as string || ''} />
   return null
 })

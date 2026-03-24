@@ -645,6 +645,96 @@ async def on_compliance_rule_changed(event: OpsFluxEvent) -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Handler: on_compliance_record_verified
+# Notify the record owner when their document is verified or rejected
+# ═══════════════════════════════════════════════════════════════════════════
+
+async def on_compliance_record_verified(event: OpsFluxEvent) -> None:
+    """Notify the record owner (in-app) when their document is verified or rejected."""
+    payload = event.payload
+    record_type = payload.get("record_type")
+    record_id = payload.get("record_id")
+    entity_id = payload.get("entity_id")
+    is_rejected = "rejected" in event.event_type
+
+    if not record_id or not entity_id:
+        return
+
+    try:
+        from app.core.notifications import send_in_app
+        from app.core.notification_manager import broadcast_entity_message
+        from app.models.common import (
+            UserPassport, UserVisa, SocialSecurity, UserVaccine,
+            MedicalCheck, DrivingLicense,
+        )
+        from app.models.modules.conformite import ComplianceRecord
+
+        MODEL_MAP = {
+            "compliance_record": ComplianceRecord,
+            "passport": UserPassport,
+            "visa": UserVisa,
+            "social_security": SocialSecurity,
+            "vaccine": UserVaccine,
+            "driving_license": DrivingLicense,
+            "medical_check": MedicalCheck,
+        }
+
+        Model = MODEL_MAP.get(record_type)
+        if not Model:
+            return
+
+        async with async_session_factory() as db:
+            record = await db.get(Model, UUID(str(record_id)))
+            if not record:
+                return
+
+            # Determine owner user ID
+            owner_id = None
+            if record_type == "compliance_record":
+                if getattr(record, "owner_type", None) == "user":
+                    owner_id = getattr(record, "owner_id", None)
+            elif record_type == "medical_check":
+                owner_id = getattr(record, "owner_id", None)
+            else:
+                owner_id = getattr(record, "user_id", None)
+
+            if not owner_id:
+                return
+
+            action_label = "rejeté" if is_rejected else "vérifié"
+            type_labels = {
+                "compliance_record": "Conformité",
+                "passport": "Passeport",
+                "visa": "Visa",
+                "social_security": "Sécurité sociale",
+                "vaccine": "Vaccin",
+                "driving_license": "Permis de conduire",
+                "medical_check": "Visite médicale",
+            }
+            type_label = type_labels.get(record_type, record_type)
+
+            await send_in_app(
+                db,
+                user_id=owner_id,
+                entity_id=UUID(str(entity_id)),
+                title=f"Document {action_label}",
+                body=f"Votre {type_label} a été {action_label}.",
+                category="conformite",
+                link="/settings#roles",
+            )
+            await db.commit()
+
+        # Broadcast cache invalidate so the user's UI refreshes
+        await broadcast_entity_message(
+            str(entity_id),
+            {"type": "cache_invalidate", "data": {"keys": ["pending-verifications", "verification-history", "compliance-kpis"]}},
+        )
+        logger.info("conformite.record.%s handled: %s", "rejected" if is_rejected else "verified", record_id)
+    except Exception:
+        logger.exception("Error in on_compliance_record_verified for %s", record_id)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Handler: on_compliance_expired
 # Notify entity admins when a compliance record expires
 # ═══════════════════════════════════════════════════════════════════════════
@@ -791,6 +881,8 @@ def register_module_handlers(event_bus: EventBus) -> None:
     # Conformite & Projets events
     event_bus.subscribe("conformite.rule.created", on_compliance_rule_changed)
     event_bus.subscribe("conformite.rule.updated", on_compliance_rule_changed)
+    event_bus.subscribe("conformite.record.verified", on_compliance_record_verified)
+    event_bus.subscribe("conformite.record.rejected", on_compliance_record_verified)
     event_bus.subscribe("conformite.record.expired", on_compliance_expired)
     event_bus.subscribe("project.status.changed", on_project_status_changed)
     event_bus.subscribe("pax.credential.expiring", on_credential_expiring)

@@ -156,6 +156,24 @@ export function GeneralConfigTab() {
               ))}
             </select>
           </SettingRow>
+
+          <SettingRow label="Maximum lignes par page" description="Limite maximale que les utilisateurs peuvent configurer dans leurs préférences.">
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={50}
+                max={5000}
+                step={50}
+                className="gl-form-input w-24 text-sm text-right font-mono"
+                defaultValue={(s['datatable.max_page_size'] as number) ?? 500}
+                onBlur={(e) => {
+                  const val = Math.max(50, Math.min(5000, Math.round(Number(e.target.value) || 500)))
+                  save('datatable.max_page_size', val)
+                }}
+              />
+              <span className="text-xs text-muted-foreground">lignes</span>
+            </div>
+          </SettingRow>
         </div>
       </CollapsibleSection>
 

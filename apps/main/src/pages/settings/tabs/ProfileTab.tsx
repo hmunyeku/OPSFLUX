@@ -14,7 +14,7 @@ import { useToast } from '@/components/ui/Toast'
 import { Camera, Loader2, Pencil, Check, Plus } from 'lucide-react'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 import { ImageEditor } from '@/components/shared/ImageEditor'
-import { PermissionMatrix } from '@/components/shared/PermissionMatrix'
+
 import { PhoneManager } from '@/components/shared/PhoneManager'
 import { EmergencyContactManager } from '@/components/shared/EmergencyContactManager'
 import { MedicalCheckManager } from '@/components/shared/MedicalCheckManager'
@@ -782,22 +782,6 @@ export function ProfileTab() {
           <LinkedSSOAccounts />
         </div>
       </CollapsibleSection>
-
-      {/* Section: Permissions */}
-      {user?.id && (
-        <CollapsibleSection
-          id="permissions"
-          title="Permissions"
-          description="Vos permissions effectives par module, heritees de vos roles et groupes."
-          storageKey="settings.profile.collapse"
-          showSeparator={false}
-          defaultExpanded={false}
-        >
-          <div className="mt-2">
-            <PermissionMatrix userId={user.id} compact />
-          </div>
-        </CollapsibleSection>
-      )}
 
       {/* Floating save bar — only visible when there are unsaved changes */}
       {isDirty && (

@@ -21,8 +21,10 @@ COPY alembic/ ./alembic/
 COPY alembic.ini ./
 COPY tests/ ./tests/
 
-# Non-root user
-RUN useradd -m -r opsflux && chown -R opsflux:opsflux /opt/opsflux
+# Create static directories for volume mount + non-root user
+RUN mkdir -p /opt/opsflux/static/avatars /opt/opsflux/static/attachments \
+    && useradd -m -r opsflux \
+    && chown -R opsflux:opsflux /opt/opsflux
 USER opsflux
 
 EXPOSE 8000

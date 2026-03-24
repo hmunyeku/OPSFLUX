@@ -368,7 +368,7 @@ export function PhoneManager({ ownerType, ownerId, compact, hideAddButton }: Pho
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground font-mono">
+                  <p className="text-xs font-medium text-foreground font-mono whitespace-nowrap">
                     {phone.country_code ? `${phone.country_code} ` : ''}{phone.number}
                   </p>
                   <div className="flex items-center gap-1.5">

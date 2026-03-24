@@ -1764,7 +1764,7 @@ function UserJournalTab({ userId }: { userId: string }) {
 import { PermissionMatrix } from '@/components/shared/PermissionMatrix'
 
 function UserPermissionsTab({ userId }: { userId: string }) {
-  return <PermissionMatrix userId={userId} editable />
+  return <PermissionMatrix userId={userId} />
 }
 // ── Overview Dashboard ─────────────────────────────────────
 function AccountsOverview({ onNavigate, onCreateGroup }: { onNavigate: (tab: AccountsTab) => void; onCreateGroup: () => void }) {

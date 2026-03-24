@@ -1955,6 +1955,7 @@ function AccountsOverview({ onNavigate, onCreateGroup }: { onNavigate: (tab: Acc
   const { data: roles, isLoading: rolesLoading } = useRoles()
   const { data: groupsData, isLoading: groupsLoading } = useGroups({ page: 1, page_size: 1 })
   const { data: recentData } = useRecentActivity(5)
+  const { hasPermission: hasPerm } = usePermission()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const setDynamicPanelMode = useUIStore((s) => s.setDynamicPanelMode)
 
@@ -1981,7 +1982,7 @@ function AccountsOverview({ onNavigate, onCreateGroup }: { onNavigate: (tab: Acc
   ]
 
   const quickActions = [
-    { label: t('users.create'), icon: UserCheck, onClick: () => openFullScreen({ type: 'create', module: 'users' }) },
+    ...(hasPerm('user.create') || hasPerm('core.users.manage') ? [{ label: t('users.create'), icon: UserCheck, onClick: () => openFullScreen({ type: 'create', module: 'users' }) }] : []),
     { label: 'Nouveau groupe', icon: KeyRound, onClick: () => onCreateGroup() },
     { label: 'Voir les rôles', icon: Shield, onClick: () => onNavigate('roles') },
     { label: 'Voir les utilisateurs', icon: Users, onClick: () => onNavigate('users') },
@@ -2278,6 +2279,7 @@ export function UsersPage() {
   const confirm = useConfirm()
   const { hasPermission } = usePermission()
   const canManageUsers = hasPermission('core.users.manage')
+  const canCreateUser = hasPermission('user.create') || canManageUsers
   const canManageRbac = hasPermission('core.rbac.manage')
   const canManageEntities = hasPermission('core.entity.update')
   const [batchGroupUserIds, setBatchGroupUserIds] = useState<string[] | null>(null)
@@ -2437,7 +2439,7 @@ export function UsersPage() {
               : 'Gestion des rôles et permissions associées'
             }
           >
-            {activeTab === 'users' && (
+            {activeTab === 'users' && canCreateUser && (
               <ToolbarButton
                 icon={Plus}
                 label={t('users.create')}

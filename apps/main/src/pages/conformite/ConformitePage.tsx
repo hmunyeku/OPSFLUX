@@ -1075,6 +1075,11 @@ export function ConformitePage() {
           items={TABS.filter((tab) => {
             if (tab.id === 'verifications') return canVerify
             if (tab.id === 'exemptions') return canCreateExemption || canApproveExemption || hasPermission('conformite.exemption.read')
+            if (tab.id === 'referentiel') return hasPermission('conformite.type.read')
+            if (tab.id === 'enregistrements') return hasPermission('conformite.record.read')
+            if (tab.id === 'fiches') return hasPermission('conformite.jobposition.read')
+            if (tab.id === 'regles') return hasPermission('conformite.rule.read')
+            if (tab.id === 'transferts') return hasPermission('conformite.transfer.read')
             return true
           })}
           activeId={activeTab}

@@ -64,6 +64,8 @@ interface DynamicPanelShellProps {
   children: React.ReactNode
   /** Compact action buttons rendered in a sticky toolbar below the header. */
   actions?: React.ReactNode
+  /** Extra content rendered in the header bar (right side, before detach/close buttons). */
+  headerRight?: React.ReactNode
   /**
    * Inline mode — renders a lightweight panel without uiStore integration.
    * Use for embedded detail panels (e.g. settings inline detail, split pane).
@@ -78,7 +80,7 @@ interface DynamicPanelShellProps {
   className?: string
 }
 
-export function DynamicPanelShell({ title, subtitle, icon, children, actions, inline, onClose, inlineWidth = 360, className }: DynamicPanelShellProps) {
+export function DynamicPanelShell({ title, subtitle, icon, children, actions, headerRight, inline, onClose, inlineWidth = 360, className }: DynamicPanelShellProps) {
   const isFloating = useIsInsideFloatingPanel()
 
   // ── INLINE MODE — lightweight embedded panel ──
@@ -378,6 +380,9 @@ export function DynamicPanelShell({ title, subtitle, icon, children, actions, in
               </div>
             </>
           )}
+
+          {/* headerRight — custom content before panel controls */}
+          {headerRight}
 
           {/* Dock side toggle */}
           <button

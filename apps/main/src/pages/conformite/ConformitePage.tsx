@@ -2365,9 +2365,29 @@ function VerificationDetailPanel({ id, recordType: _recordType }: { id: string; 
 
   return (
     <DynamicPanelShell
-      title={`Verification — ${RECORD_TYPE_LABELS[item.record_type] || item.record_type}`}
+      title={`${RECORD_TYPE_LABELS[item.record_type] || item.record_type}`}
+      subtitle={item.owner_name || 'Inconnu'}
       onClose={closeDynamicPanel}
-
+      headerRight={
+        <div className="flex items-center gap-1">
+          {/* Navigation prev/next */}
+          <span className="text-[10px] text-muted-foreground tabular-nums mr-1">{currentIdx + 1}/{items.length}</span>
+          <button onClick={() => goTo(currentIdx - 1)} disabled={currentIdx <= 0} className="p-1 rounded hover:bg-muted disabled:opacity-30 text-muted-foreground">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <button onClick={() => goTo(currentIdx + 1)} disabled={currentIdx >= items.length - 1} className="p-1 rounded hover:bg-muted disabled:opacity-30 text-muted-foreground">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+          <div className="w-px h-4 bg-border/60 mx-1" />
+          {/* Action buttons */}
+          <button onClick={handleVerify} disabled={verifyRecord.isPending} className="gl-button-sm gl-button-confirm">
+            {verifyRecord.isPending ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />} Verifier
+          </button>
+          <button onClick={() => setShowReject(true)} className="gl-button-sm gl-button-danger">
+            <X size={11} /> Rejeter
+          </button>
+        </div>
+      }
     >
       <PanelContentLayout>
         {/* ── Record info ── */}
@@ -2380,7 +2400,6 @@ function VerificationDetailPanel({ id, recordType: _recordType }: { id: string; 
           <ReadOnlyRow label="Date emission" value={fmtDate((item as any).issued_at)} />
           <ReadOnlyRow label="Expiration" value={fmtDate((item as any).expires_at)} />
           <ReadOnlyRow label="Soumis le" value={fmtDate(item.submitted_at)} />
-          <ReadOnlyRow label="Pieces jointes" value={String((item as any).attachment_count || 0)} />
         </DetailFieldGrid>
 
         {/* ── Attachments ── */}
@@ -2388,7 +2407,7 @@ function VerificationDetailPanel({ id, recordType: _recordType }: { id: string; 
           <AttachmentManager ownerType={item.record_type} ownerId={item.id} compact readOnly />
         </FormSection>
 
-        {/* ── Reject form ── */}
+        {/* ── Reject form (shown inline when reject button clicked) ── */}
         {showReject && (
           <div className="border border-red-200 dark:border-red-800/40 rounded-lg p-3 bg-red-50/50 dark:bg-red-900/10 space-y-2">
             <label className="gl-label text-red-600">Motif du rejet</label>
@@ -2405,19 +2424,6 @@ function VerificationDetailPanel({ id, recordType: _recordType }: { id: string; 
                 {verifyRecord.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Confirmer le rejet'}
               </button>
             </div>
-          </div>
-        )}
-
-        {/* ── Action buttons ── */}
-        {!showReject && (
-          <div className="flex items-center gap-2 pt-2">
-            <button onClick={handleVerify} disabled={verifyRecord.isPending} className="gl-button gl-button-confirm flex-1">
-              {verifyRecord.isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-              Verifier ce document
-            </button>
-            <button onClick={() => setShowReject(true)} className="gl-button gl-button-danger flex-1">
-              <X size={14} /> Rejeter
-            </button>
           </div>
         )}
       </PanelContentLayout>

@@ -119,14 +119,13 @@ import { EmailTemplatesTab } from './tabs/EmailTemplatesTab'
 import { PdfTemplatesTab } from './tabs/PdfTemplatesTab'
 // RbacAdminTab moved to UsersPage (Comptes)
 import { AuditTab } from './tabs/AuditTab'
-import { SystemHealthTab } from './tabs/SystemHealthTab'
 import { NumberingTab } from './tabs/NumberingTab'
 import { DeletePoliciesTab } from './tabs/DeletePoliciesTab'
-import { SchedulerTab } from './tabs/SchedulerTab'
 import DictionaryTab from './tabs/DictionaryTab'
 import { SecurityPolicyTab } from './tabs/SecurityPolicyTab'
 import { UserManagementTab } from './tabs/UserManagementTab'
 import { AdminerTab } from './tabs/AdminerTab'
+import { SystemTab } from './tabs/SystemTab'
 // EntitiesTab moved to dedicated /entities sidebar page
 
 // ── Import dynamic panel forms ──────────────────────────────
@@ -161,8 +160,7 @@ registerSettingsSection({ id: 'user-management', label: 'Gestion des comptes', i
 registerSettingsSection({ id: 'security-policy', label: 'Sécurité & Authentification', icon: ShieldCheck, component: SecurityPolicyTab, category: 'general', order: 45, requiredPermission: 'admin.system' })
 registerSettingsSection({ id: 'delete-policies', label: 'Politiques de suppression', icon: Trash2, component: DeletePoliciesTab, category: 'general', order: 50, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'audit-log', label: 'Journal d\'audit', icon: ScrollText, component: AuditTab, category: 'general', order: 60, requiredPermission: 'core.audit.read' })
-registerSettingsSection({ id: 'scheduler', label: 'Tâches planifiées', icon: Clock, component: SchedulerTab, category: 'general', order: 65, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'system-health', label: 'Santé système', icon: Activity, component: SystemHealthTab, category: 'general', order: 70, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'system', label: 'Système', icon: Activity, component: SystemTab, category: 'general', order: 70, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'adminer', label: 'Base de données', icon: Database, component: AdminerTab, category: 'general', order: 80, requiredPermission: 'admin.system' })
 
 /* ── Main Settings Page ── */

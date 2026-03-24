@@ -266,6 +266,32 @@ def _safe_resolve(relative_path: str) -> Path | None:
     return target
 
 
+@router.get("/fs/list-all")
+async def fs_list_all(
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("core.settings.manage"),
+):
+    """List ALL files and directories recursively for the file manager tree."""
+    items: list[dict] = []
+    try:
+        for entry in sorted(STATIC_ROOT.rglob("*"), key=lambda e: str(e).lower()):
+            try:
+                item_path = "/" + str(entry.relative_to(STATIC_ROOT)).replace("\\", "/")
+                stat = entry.stat()
+                items.append({
+                    "name": entry.name,
+                    "isDirectory": entry.is_dir(),
+                    "path": item_path,
+                    "updatedAt": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
+                    "size": stat.st_size if entry.is_file() else 0,
+                })
+            except (PermissionError, OSError):
+                continue
+    except PermissionError:
+        pass
+    return items
+
+
 @router.get("/fs/list")
 async def fs_list(
     path: str = Query("/", description="Directory path relative to static root"),

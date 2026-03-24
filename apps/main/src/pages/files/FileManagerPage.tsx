@@ -22,7 +22,6 @@ interface FSItem {
   size?: number
 }
 
-// Map i18n language code to jfvilas locale format
 const LANG_MAP: Record<string, string> = {
   fr: 'fr-FR', en: 'en-US', es: 'es-ES', pt: 'pt-PT', de: 'de-DE', it: 'it-IT', ar: 'ar-SA', zh: 'zh-CN',
 }
@@ -37,29 +36,30 @@ export default function FileManagerPage() {
   const apiBase = import.meta.env.VITE_API_URL || ''
   const token = localStorage.getItem('access_token') || ''
 
-  const loadFiles = useCallback(async (path: string) => {
+  // Load ALL files recursively for the tree sidebar
+  const loadAllFiles = useCallback(async () => {
     try {
-      const { data } = await api.get('/api/v1/admin/fs/list', { params: { path } })
+      const { data } = await api.get('/api/v1/admin/fs/list-all')
       setFiles(data)
-      setCurrentPath(path)
     } catch {
-      toast({ title: 'Erreur', description: 'Impossible de charger les fichiers.', variant: 'error' })
+      // Fallback: just load root
+      try {
+        const { data } = await api.get('/api/v1/admin/fs/list', { params: { path: '/' } })
+        setFiles(data)
+      } catch {
+        toast({ title: 'Erreur', description: 'Impossible de charger les fichiers.', variant: 'error' })
+      }
     }
   }, [toast])
 
   useEffect(() => {
-    loadFiles('/')
-  }, [loadFiles])
-
-  const handleFolderChange = useCallback((folder: any) => {
-    const path = folder?.path || '/'
-    loadFiles(path)
-  }, [loadFiles])
+    loadAllFiles()
+  }, [loadAllFiles])
 
   const handleFileUploaded = useCallback(() => {
-    loadFiles(currentPath)
+    loadAllFiles()
     toast({ title: 'Fichier uploadé', variant: 'success' })
-  }, [currentPath, loadFiles, toast])
+  }, [loadAllFiles, toast])
 
   const handleDelete = useCallback(async (items: any[]) => {
     for (const item of items) {
@@ -69,34 +69,38 @@ export default function FileManagerPage() {
         toast({ title: 'Erreur', description: `Impossible de supprimer ${item.name}`, variant: 'error' })
       }
     }
-    loadFiles(currentPath)
+    loadAllFiles()
     toast({ title: `${items.length} élément(s) supprimé(s)`, variant: 'success' })
-  }, [currentPath, loadFiles, toast])
+  }, [loadAllFiles, toast])
 
   const handleCreateFolder = useCallback(async (name: string) => {
     try {
       const newPath = currentPath === '/' ? `/${name}` : `${currentPath}/${name}`
       await api.post('/api/v1/admin/fs/mkdir', null, { params: { path: newPath } })
-      loadFiles(currentPath)
+      loadAllFiles()
       toast({ title: 'Dossier créé', variant: 'success' })
     } catch {
       toast({ title: 'Erreur', variant: 'error' })
     }
-  }, [currentPath, loadFiles, toast])
+  }, [currentPath, loadAllFiles, toast])
 
   const handleRename = useCallback(async (item: any, newName: string) => {
     try {
       await api.post('/api/v1/admin/fs/rename', null, { params: { path: item.path, new_name: newName } })
-      loadFiles(currentPath)
+      loadAllFiles()
       toast({ title: 'Renommé', variant: 'success' })
     } catch {
       toast({ title: 'Erreur', variant: 'error' })
     }
-  }, [currentPath, loadFiles, toast])
+  }, [loadAllFiles, toast])
 
   const handleRefresh = useCallback(() => {
-    loadFiles(currentPath)
-  }, [currentPath, loadFiles])
+    loadAllFiles()
+  }, [loadAllFiles])
+
+  const handleFolderChange = useCallback((folder: any) => {
+    setCurrentPath(folder?.path || '/')
+  }, [])
 
   return (
     <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

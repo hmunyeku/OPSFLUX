@@ -28,6 +28,12 @@ interface ComplianceRecordListParams extends PaginationParams {
 }
 
 export const conformiteService = {
+  // ── Dashboard KPIs ──
+  getKPIs: async (): Promise<ComplianceDashboardKPIs> => {
+    const { data } = await api.get('/api/v1/conformite/dashboard-kpis')
+    return data
+  },
+
   // ── Types (referentiel) ──
   listTypes: async (params: ComplianceTypeListParams = {}): Promise<PaginatedResponse<ComplianceType>> => {
     const { data } = await api.get('/api/v1/conformite/types', { params })
@@ -174,6 +180,19 @@ export const conformiteService = {
     })
     return data
   },
+}
+
+export interface ComplianceDashboardKPIs {
+  total_records: number
+  valid_count: number
+  expired_count: number
+  pending_count: number
+  expiring_soon_count: number
+  compliance_rate: number
+  by_category: { category: string; total: number; valid: number; expired: number; pending: number }[]
+  by_status: { status: string; count: number }[]
+  recent_expirations: { id: string; type_name: string; owner_type: string; expired_at: string | null; days_overdue: number }[]
+  upcoming_expirations: { id: string; type_name: string; owner_type: string; expires_at: string | null; days_remaining: number }[]
 }
 
 export interface PendingVerificationItem {

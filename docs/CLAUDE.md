@@ -81,8 +81,9 @@ docs/
 ## Domaines et URLs
 
 ```bash
+VITRINE_URL=https://www.opsflux.io         # Site vitrine (marketing)
 APP_URL=https://app.opsflux.io            # Application principale (tenant via sous-domaine)
-WEB_URL=https://web.opsflux.io            # Portail public (landing, ShareLinks)
+WEB_URL=https://web.opsflux.io            # Portail public (reset password, formulaires, liens publics)
 API_URL=https://api.opsflux.io            # Backend API
 # Portails terrain (v1.x)
 CAPTAIN_URL=https://captain.app.opsflux.io
@@ -109,13 +110,14 @@ cd apps/main && npm install && npm run dev
 
 ---
 
-## Architecture Docker (v1 core — 6 conteneurs)
+## Architecture Docker (v1 core — 7 conteneurs)
 
 | Conteneur | Image | Rôle |
 |---|---|---|
 | `backend` | opsflux-backend | FastAPI + APScheduler |
 | `frontend` | opsflux-frontend | React PWA (nginx) |
-| `web-portal` | opsflux-web-portal | web.opsflux.io |
+| `vitrine` | opsflux-vitrine | www.opsflux.io (site marketing) |
+| `web-portal` | opsflux-web-portal | web.opsflux.io (portail public) |
 | `postgres` | pgvector/pgvector:pg16 | DB (schemas par tenant) |
 | `redis` | redis:7-alpine | Cache + Pub/Sub + OTP |
 | `traefik` | traefik:v3 | Reverse proxy SSL |

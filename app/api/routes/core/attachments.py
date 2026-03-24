@@ -75,6 +75,10 @@ async def upload_attachment(
         content_type=file.content_type or "application/octet-stream",
     )
 
+    # Resolve entity_id: prefer explicit header, fall back to user default
+    raw_entity_id = request.headers.get("x-entity-id")
+    entity_id = UUID(raw_entity_id) if raw_entity_id else getattr(current_user, "default_entity_id", None)
+
     attachment = Attachment(
         owner_type=owner_type,
         owner_id=parsed_owner_id,
@@ -85,6 +89,7 @@ async def upload_attachment(
         storage_path=storage_path,
         description=description,
         uploaded_by=current_user.id,
+        entity_id=entity_id,
     )
     db.add(attachment)
     await db.commit()

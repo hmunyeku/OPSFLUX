@@ -12,6 +12,15 @@ import type {
   TierContactTransferCreate,
 } from '@/types/api'
 
+// ── Dashboard KPIs ──
+
+export function useComplianceKPIs() {
+  return useQuery({
+    queryKey: ['compliance-kpis'],
+    queryFn: () => conformiteService.getKPIs(),
+  })
+}
+
 // ── Types (referentiel) ──
 
 export function useComplianceTypes(params: { page?: number; page_size?: number; category?: string; search?: string } = {}) {

@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next'
 import {
   ShieldCheck, Plus, Loader2, Trash2, FileCheck, ClipboardList,
   Briefcase, GitBranch, Scale, ShieldOff, Check, X, ClipboardCheck, Grid3X3, List,
-  Download, Paperclip, ChevronRight,
+  Download, Paperclip, ChevronRight, LayoutDashboard,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import { DataTableToolbar } from '@/components/ui/DataTable/Toolbar'
@@ -39,6 +39,7 @@ import {
   DetailFieldGrid,
 } from '@/components/layout/DynamicPanel'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
+import { ComplianceDashboard } from './ComplianceDashboard'
 import { useDictionaryOptions } from '@/hooks/useDictionary'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { useUIStore } from '@/stores/uiStore'
@@ -97,9 +98,10 @@ const RULE_TARGET_OPTIONS = [
   { value: 'job_position', label: 'Fiche de poste' },
 ]
 
-type ConformiteTab = 'referentiel' | 'enregistrements' | 'verifications' | 'exemptions' | 'fiches' | 'regles' | 'transferts'
+type ConformiteTab = 'dashboard' | 'referentiel' | 'enregistrements' | 'verifications' | 'exemptions' | 'fiches' | 'regles' | 'transferts'
 
 const TABS: { id: ConformiteTab; label: string; icon: typeof ShieldCheck }[] = [
+  { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
   { id: 'referentiel', label: 'Référentiel', icon: ClipboardList },
   { id: 'enregistrements', label: 'Enregistrements', icon: FileCheck },
   { id: 'verifications', label: 'Vérifications', icon: ClipboardCheck },
@@ -723,7 +725,7 @@ function JobPositionDetailPanel({ id }: { id: string }) {
 
 export function ConformitePage() {
   useTranslation() // loaded for future i18n
-  const [activeTab, setActiveTab] = useState<ConformiteTab>('referentiel')
+  const [activeTab, setActiveTab] = useState<ConformiteTab>('dashboard')
   const [page, setPage] = useState(1)
   const { pageSize, setPageSize } = usePageSize()
   const [search, setSearch] = useState('')
@@ -942,6 +944,8 @@ export function ConformitePage() {
   // Render active tab content
   const renderTabContent = () => {
     switch (activeTab) {
+      case 'dashboard':
+        return <ComplianceDashboard />
       case 'referentiel':
         return (
           <DataTable<ComplianceType>
@@ -1073,6 +1077,7 @@ export function ConformitePage() {
 
         <TabBar
           items={TABS.filter((tab) => {
+            if (tab.id === 'dashboard') return hasPermission('conformite.record.read')
             if (tab.id === 'verifications') return canVerify
             if (tab.id === 'exemptions') return canCreateExemption || canApproveExemption || hasPermission('conformite.exemption.read')
             if (tab.id === 'referentiel') return hasPermission('conformite.type.read')

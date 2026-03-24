@@ -197,7 +197,7 @@ Portails supplementaires deployes plus tard :
 | D04 | Event bus | PostgreSQL LISTEN/NOTIFY + event_store | Persistance native, pas de dict Python en memoire. Redis pub/sub en fallback si scale requis. |
 | D05 | UI | shadcn/ui (Radix UI + Tailwind CSS) | Style visuel Pajamas. Composants accessibles, dark mode natif. |
 | D06 | Storage | S3-compatible (MinIO dev, AWS S3 prod) | Pas d'Azure. Backend `minio` ou `s3` uniquement. |
-| D07 | Domaines | *.opsflux.io | `app.opsflux.io` (PWA), `web.opsflux.io` (portail), `api.opsflux.io` (API) |
+| D07 | Domaines | *.opsflux.io | `www.opsflux.io` (vitrine), `app.opsflux.io` (PWA), `web.opsflux.io` (portail public), `api.opsflux.io` (API) |
 | D08 | MCP | Embarque dans le core, modules = plugins | Pas de serveur MCP separe. `mcp_registry` dans le core. |
 | D09 | RBAC | Permissions granulaires `resource.action` | Roles = groupements de permissions. Modules definissent leurs propres roles. User → Group → Roles → Permissions + scope optionnel (entity, asset). Roles core : `platform_admin`, `tenant_admin`. |
 | D10 | Module registration | ModuleRegistry au startup | Chaque module appelle `core.register_module()`. |

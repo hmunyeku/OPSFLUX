@@ -64,6 +64,31 @@ services:
         VITE_API_URL: https://api.${DOMAIN:-opsflux.io}
     restart: unless-stopped
 
+  # ─── Vitrine www.opsflux.io (marketing site) ────────────────
+  vitrine:
+    build:
+      context: ./apps/vitrine
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      # www.opsflux.io
+      - "traefik.http.routers.vitrine.rule=Host(`www.${DOMAIN:-opsflux.io}`)"
+      - "traefik.http.routers.vitrine.entrypoints=websecure"
+      - "traefik.http.routers.vitrine.tls.certresolver=letsencrypt"
+      - "traefik.http.services.vitrine.loadbalancer.server.port=80"
+      # opsflux.io naked domain → redirect to www
+      - "traefik.http.routers.vitrine-root.rule=Host(`${DOMAIN:-opsflux.io}`)"
+      - "traefik.http.routers.vitrine-root.entrypoints=websecure"
+      - "traefik.http.routers.vitrine-root.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.vitrine-root.middlewares=vitrine-www-redirect"
+      - "traefik.http.middlewares.vitrine-www-redirect.redirectregex.regex=^https://${DOMAIN:-opsflux.io}/(.*)"
+      - "traefik.http.middlewares.vitrine-www-redirect.redirectregex.replacement=https://www.${DOMAIN:-opsflux.io}/$${1}"
+      - "traefik.http.middlewares.vitrine-www-redirect.redirectregex.permanent=true"
+    networks:
+      - default
+      - dokploy-network
+
   # ─── Draw.io (self-hosted — module PID/PFD) ─────────────────
   drawio:
     image: jgraph/drawio:latest
@@ -87,3 +112,7 @@ services:
 volumes:
   pg_data:
   uploads_data:
+
+networks:
+  dokploy-network:
+    external: true

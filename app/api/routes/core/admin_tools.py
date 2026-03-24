@@ -3,10 +3,12 @@
 All endpoints require admin-level permissions.
 """
 import os
+import re
+import time
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, get_db, require_permission
@@ -113,6 +115,121 @@ async def adminer_proxy(
             if k.lower() not in ("transfer-encoding", "content-encoding", "content-length")
         },
     )
+
+
+# ── SQL Runner ───────────────────────────────────────────────────────────────
+
+# Statements that are NOT allowed — only SELECT / WITH / EXPLAIN / SHOW are safe.
+_FORBIDDEN_SQL_RE = re.compile(
+    r"\b(INSERT|UPDATE|DELETE|DROP|TRUNCATE|ALTER|CREATE|GRANT|REVOKE|EXEC|EXECUTE|CALL)\b",
+    re.IGNORECASE,
+)
+
+
+@router.post("/sql-runner")
+async def execute_sql(
+    body: dict,
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("admin.system"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Execute a read-only SQL query and return results.
+
+    Body: {"query": str, "max_rows": int (default 500, max 10000)}
+    """
+    query_str: str = (body.get("query") or "").strip()
+    max_rows: int = min(int(body.get("max_rows", 500)), 10000)
+
+    if not query_str:
+        return {
+            "columns": [],
+            "rows": [],
+            "row_count": 0,
+            "execution_time_ms": 0,
+            "error": "Empty query",
+            "truncated": False,
+        }
+
+    # Strip trailing semicolons for safety, then check for forbidden keywords
+    cleaned = query_str.rstrip(";").strip()
+
+    if _FORBIDDEN_SQL_RE.search(cleaned):
+        return {
+            "columns": [],
+            "rows": [],
+            "row_count": 0,
+            "execution_time_ms": 0,
+            "error": "Only SELECT / read-only queries are allowed. INSERT, UPDATE, DELETE, DROP, TRUNCATE, ALTER, CREATE, GRANT, REVOKE are forbidden.",
+            "truncated": False,
+        }
+
+    import asyncio
+
+    start = time.perf_counter()
+    try:
+        # Execute with a timeout of 30 seconds
+        result = await asyncio.wait_for(
+            db.execute(text(cleaned)),
+            timeout=30.0,
+        )
+        elapsed_ms = round((time.perf_counter() - start) * 1000, 2)
+
+        # Extract column names
+        columns: list[str] = list(result.keys()) if result.returns_rows else []
+
+        if not result.returns_rows:
+            return {
+                "columns": [],
+                "rows": [],
+                "row_count": 0,
+                "execution_time_ms": elapsed_ms,
+                "error": None,
+                "truncated": False,
+            }
+
+        # Fetch up to max_rows + 1 to detect truncation
+        raw_rows = result.fetchmany(max_rows + 1)
+        truncated = len(raw_rows) > max_rows
+        if truncated:
+            raw_rows = raw_rows[:max_rows]
+
+        # Convert rows to JSON-safe lists
+        rows = []
+        for row in raw_rows:
+            rows.append([
+                str(cell) if cell is not None and not isinstance(cell, (int, float, bool, str)) else cell
+                for cell in row
+            ])
+
+        return {
+            "columns": columns,
+            "rows": rows,
+            "row_count": len(rows),
+            "execution_time_ms": elapsed_ms,
+            "error": None,
+            "truncated": truncated,
+        }
+
+    except asyncio.TimeoutError:
+        elapsed_ms = round((time.perf_counter() - start) * 1000, 2)
+        return {
+            "columns": [],
+            "rows": [],
+            "row_count": 0,
+            "execution_time_ms": elapsed_ms,
+            "error": "Query timed out after 30 seconds.",
+            "truncated": False,
+        }
+    except Exception as exc:
+        elapsed_ms = round((time.perf_counter() - start) * 1000, 2)
+        return {
+            "columns": [],
+            "rows": [],
+            "row_count": 0,
+            "execution_time_ms": elapsed_ms,
+            "error": str(exc),
+            "truncated": False,
+        }
 
 
 # ── File Manager ─────────────────────────────────────────────────────────────

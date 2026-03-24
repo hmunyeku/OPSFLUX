@@ -844,6 +844,7 @@ class AttachmentRead(OpsFluxSchema):
     size_bytes: int
     description: str | None
     uploaded_by: UUID
+    entity_id: UUID | None
     created_at: datetime
 
 

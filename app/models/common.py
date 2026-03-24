@@ -982,6 +982,7 @@ class Attachment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "attachments"
     __table_args__ = (
         Index("idx_attachments_owner", "owner_type", "owner_id"),
+        Index("idx_attachments_entity", "entity_id"),
     )
 
     owner_type: Mapped[str] = mapped_column(String(50), nullable=False)
@@ -994,6 +995,9 @@ class Attachment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     uploaded_by: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    entity_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=True
     )
 
     uploader: Mapped["User"] = relationship(foreign_keys=[uploaded_by])

@@ -99,21 +99,201 @@ DEFAULT_TEMPLATES: list[dict] = [
             "fr": {
                 "subject": "OpsFlux — Vous êtes invité(e) à rejoindre {{ entity.name }}",
                 "body_html": (
-                    "<p>Bonjour {{ user.first_name }},</p>"
-                    "<p>{{ inviter.first_name }} {{ inviter.last_name }} vous invite à rejoindre "
-                    "<strong>{{ entity.name }}</strong> sur OpsFlux.</p>"
-                    '<p><a href="{{ invitation_url }}">Accepter l\'invitation</a></p>'
-                    "<p>Cordialement,<br/>L'équipe OpsFlux</p>"
+                    '<!DOCTYPE html>'
+                    '<html lang="fr">'
+                    "<head>"
+                    '<meta charset="UTF-8">'
+                    '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
+                    "<title>Invitation OpsFlux</title>"
+                    "</head>"
+                    '<body style="margin:0;padding:0;background-color:#f4f6f9;font-family:Arial,Helvetica,sans-serif;">'
+                    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f4f6f9;">'
+                    "<tr>"
+                    "<td align=\"center\" style=\"padding:32px 16px;\">"
+                    # ── Main container ──
+                    '<table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.07);">'
+                    # ── Header ──
+                    "<tr>"
+                    '<td style="background-color:#2563EB;padding:28px 40px;text-align:center;">'
+                    '<h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:700;letter-spacing:0.5px;">OpsFlux</h1>'
+                    "</td>"
+                    "</tr>"
+                    # ── Body ──
+                    "<tr>"
+                    '<td style="padding:40px 40px 16px 40px;">'
+                    '<p style="margin:0 0 20px 0;font-size:16px;color:#1f2937;line-height:1.6;">'
+                    "Bonjour {{ user.first_name }},"
+                    "</p>"
+                    '<p style="margin:0 0 20px 0;font-size:16px;color:#1f2937;line-height:1.6;">'
+                    "{{ inviter.first_name }} {{ inviter.last_name }} vous invite à rejoindre "
+                    "l'organisation <strong style=\"color:#2563EB;\">{{ entity.name }}</strong> sur OpsFlux."
+                    "</p>"
+                    '<p style="margin:0 0 24px 0;font-size:14px;color:#6b7280;line-height:1.6;">'
+                    "OpsFlux est une plateforme ERP moderne pour la gestion des opérations, "
+                    "de la conformité HSE, des ressources humaines et des projets."
+                    "</p>"
+                    # ── Entity badge ──
+                    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:28px;">'
+                    "<tr>"
+                    '<td align="center">'
+                    '<table role="presentation" cellspacing="0" cellpadding="0" border="0">'
+                    "<tr>"
+                    '<td style="background-color:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:12px 24px;">'
+                    '<p style="margin:0;font-size:13px;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">Organisation</p>'
+                    '<p style="margin:4px 0 0 0;font-size:18px;color:#1e40af;font-weight:600;">{{ entity.name }}</p>'
+                    "</td>"
+                    "</tr>"
+                    "</table>"
+                    "</td>"
+                    "</tr>"
+                    "</table>"
+                    # ── CTA button ──
+                    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:28px;">'
+                    "<tr>"
+                    '<td align="center">'
+                    '<a href="{{ invitation_url }}" target="_blank" style="display:inline-block;background-color:#2563EB;color:#ffffff;font-size:16px;font-weight:600;text-decoration:none;padding:14px 36px;border-radius:6px;mso-padding-alt:0;">'
+                    "<!--[if mso]><i style=\"mso-font-width:150%;mso-text-raise:24px;\">&#xA0;</i><![endif]-->"
+                    "Accepter l'invitation"
+                    "<!--[if mso]><i style=\"mso-font-width:150%;\">&#xA0;</i><![endif]-->"
+                    "</a>"
+                    "</td>"
+                    "</tr>"
+                    "</table>"
+                    # ── Next steps ──
+                    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:24px;background-color:#f9fafb;border-radius:6px;">'
+                    "<tr>"
+                    '<td style="padding:16px 20px;">'
+                    '<p style="margin:0 0 8px 0;font-size:14px;color:#374151;font-weight:600;">Prochaines étapes :</p>'
+                    '<p style="margin:0;font-size:14px;color:#6b7280;line-height:1.6;">'
+                    "1. Cliquez sur le bouton ci-dessus<br/>"
+                    "2. Créez votre mot de passe<br/>"
+                    "3. Accédez à votre espace {{ entity.name }}"
+                    "</p>"
+                    "</td>"
+                    "</tr>"
+                    "</table>"
+                    # ── Expiry notice ──
+                    '<p style="margin:0 0 8px 0;font-size:13px;color:#9ca3af;line-height:1.5;text-align:center;">'
+                    "Ce lien d'invitation expirera dans <strong>24 heures</strong>."
+                    "</p>"
+                    '<p style="margin:0;font-size:13px;color:#9ca3af;line-height:1.5;text-align:center;">'
+                    "Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet email."
+                    "</p>"
+                    "</td>"
+                    "</tr>"
+                    # ── Footer ──
+                    "<tr>"
+                    '<td style="padding:24px 40px;border-top:1px solid #e5e7eb;text-align:center;">'
+                    '<p style="margin:0 0 4px 0;font-size:13px;color:#9ca3af;">Cordialement,</p>'
+                    '<p style="margin:0;font-size:14px;color:#6b7280;font-weight:600;">L\'équipe OpsFlux</p>'
+                    "</td>"
+                    "</tr>"
+                    "</table>"
+                    "</td>"
+                    "</tr>"
+                    "</table>"
+                    "</body>"
+                    "</html>"
                 ),
             },
             "en": {
                 "subject": "OpsFlux — You're invited to join {{ entity.name }}",
                 "body_html": (
-                    "<p>Hello {{ user.first_name }},</p>"
-                    "<p>{{ inviter.first_name }} {{ inviter.last_name }} has invited you to join "
-                    "<strong>{{ entity.name }}</strong> on OpsFlux.</p>"
-                    '<p><a href="{{ invitation_url }}">Accept invitation</a></p>'
-                    "<p>Best regards,<br/>The OpsFlux Team</p>"
+                    '<!DOCTYPE html>'
+                    '<html lang="en">'
+                    "<head>"
+                    '<meta charset="UTF-8">'
+                    '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
+                    "<title>OpsFlux Invitation</title>"
+                    "</head>"
+                    '<body style="margin:0;padding:0;background-color:#f4f6f9;font-family:Arial,Helvetica,sans-serif;">'
+                    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f4f6f9;">'
+                    "<tr>"
+                    "<td align=\"center\" style=\"padding:32px 16px;\">"
+                    # ── Main container ──
+                    '<table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.07);">'
+                    # ── Header ──
+                    "<tr>"
+                    '<td style="background-color:#2563EB;padding:28px 40px;text-align:center;">'
+                    '<h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:700;letter-spacing:0.5px;">OpsFlux</h1>'
+                    "</td>"
+                    "</tr>"
+                    # ── Body ──
+                    "<tr>"
+                    '<td style="padding:40px 40px 16px 40px;">'
+                    '<p style="margin:0 0 20px 0;font-size:16px;color:#1f2937;line-height:1.6;">'
+                    "Hello {{ user.first_name }},"
+                    "</p>"
+                    '<p style="margin:0 0 20px 0;font-size:16px;color:#1f2937;line-height:1.6;">'
+                    "{{ inviter.first_name }} {{ inviter.last_name }} has invited you to join "
+                    "the organisation <strong style=\"color:#2563EB;\">{{ entity.name }}</strong> on OpsFlux."
+                    "</p>"
+                    '<p style="margin:0 0 24px 0;font-size:14px;color:#6b7280;line-height:1.6;">'
+                    "OpsFlux is a modern ERP platform for operations management, "
+                    "HSE compliance, human resources and project management."
+                    "</p>"
+                    # ── Entity badge ──
+                    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:28px;">'
+                    "<tr>"
+                    '<td align="center">'
+                    '<table role="presentation" cellspacing="0" cellpadding="0" border="0">'
+                    "<tr>"
+                    '<td style="background-color:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:12px 24px;">'
+                    '<p style="margin:0;font-size:13px;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">Organisation</p>'
+                    '<p style="margin:4px 0 0 0;font-size:18px;color:#1e40af;font-weight:600;">{{ entity.name }}</p>'
+                    "</td>"
+                    "</tr>"
+                    "</table>"
+                    "</td>"
+                    "</tr>"
+                    "</table>"
+                    # ── CTA button ──
+                    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:28px;">'
+                    "<tr>"
+                    '<td align="center">'
+                    '<a href="{{ invitation_url }}" target="_blank" style="display:inline-block;background-color:#2563EB;color:#ffffff;font-size:16px;font-weight:600;text-decoration:none;padding:14px 36px;border-radius:6px;mso-padding-alt:0;">'
+                    "<!--[if mso]><i style=\"mso-font-width:150%;mso-text-raise:24px;\">&#xA0;</i><![endif]-->"
+                    "Accept Invitation"
+                    "<!--[if mso]><i style=\"mso-font-width:150%;\">&#xA0;</i><![endif]-->"
+                    "</a>"
+                    "</td>"
+                    "</tr>"
+                    "</table>"
+                    # ── Next steps ──
+                    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:24px;background-color:#f9fafb;border-radius:6px;">'
+                    "<tr>"
+                    '<td style="padding:16px 20px;">'
+                    '<p style="margin:0 0 8px 0;font-size:14px;color:#374151;font-weight:600;">What happens next:</p>'
+                    '<p style="margin:0;font-size:14px;color:#6b7280;line-height:1.6;">'
+                    "1. Click the button above<br/>"
+                    "2. Set up your password<br/>"
+                    "3. Access your {{ entity.name }} workspace"
+                    "</p>"
+                    "</td>"
+                    "</tr>"
+                    "</table>"
+                    # ── Expiry notice ──
+                    '<p style="margin:0 0 8px 0;font-size:13px;color:#9ca3af;line-height:1.5;text-align:center;">'
+                    "This invitation link will expire in <strong>24 hours</strong>."
+                    "</p>"
+                    '<p style="margin:0;font-size:13px;color:#9ca3af;line-height:1.5;text-align:center;">'
+                    "If you did not expect this invitation, you can safely ignore this email."
+                    "</p>"
+                    "</td>"
+                    "</tr>"
+                    # ── Footer ──
+                    "<tr>"
+                    '<td style="padding:24px 40px;border-top:1px solid #e5e7eb;text-align:center;">'
+                    '<p style="margin:0 0 4px 0;font-size:13px;color:#9ca3af;">Best regards,</p>'
+                    '<p style="margin:0;font-size:14px;color:#6b7280;font-weight:600;">The OpsFlux Team</p>'
+                    "</td>"
+                    "</tr>"
+                    "</table>"
+                    "</td>"
+                    "</tr>"
+                    "</table>"
+                    "</body>"
+                    "</html>"
                 ),
             },
         },

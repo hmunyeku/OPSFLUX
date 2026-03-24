@@ -1,11 +1,11 @@
 """Conformite (compliance) module routes — types, rules, records."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import select, func as sqla_func, literal, any_
+from sqlalchemy import case, select, func as sqla_func, literal, any_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import check_verified_lock, get_current_entity, get_current_user, require_permission
@@ -49,6 +49,165 @@ def _snapshot_rule(rule: ComplianceRule) -> dict:
     }
 
 router = APIRouter(prefix="/api/v1/conformite", tags=["conformite"])
+
+
+# ── Dashboard KPIs ─────────────────────────────────────────────────────────
+
+
+@router.get("/dashboard-kpis", dependencies=[require_permission("conformite.record.read")])
+async def get_compliance_dashboard_kpis(
+    current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return aggregated compliance KPIs for the entity dashboard."""
+    now = datetime.now(timezone.utc)
+    soon = now + timedelta(days=30)
+
+    # ── Aggregate counts by status ──
+    status_q = (
+        select(
+            ComplianceRecord.status,
+            sqla_func.count().label("cnt"),
+        )
+        .where(
+            ComplianceRecord.entity_id == entity_id,
+            ComplianceRecord.active == True,
+        )
+        .group_by(ComplianceRecord.status)
+    )
+    status_rows = (await db.execute(status_q)).all()
+    counts = {row.status: row.cnt for row in status_rows}
+
+    total_records = sum(counts.values())
+    valid_count = counts.get("valid", 0)
+    expired_count = counts.get("expired", 0)
+    pending_count = counts.get("pending", 0)
+
+    # Compliance rate: valid / (valid + expired), avoid div-by-zero
+    denom = valid_count + expired_count
+    compliance_rate = round((valid_count / denom) * 100, 1) if denom > 0 else 0.0
+
+    # ── Expiring soon (valid records with expires_at in next 30 days) ──
+    expiring_soon_q = (
+        select(sqla_func.count())
+        .where(
+            ComplianceRecord.entity_id == entity_id,
+            ComplianceRecord.active == True,
+            ComplianceRecord.status == "valid",
+            ComplianceRecord.expires_at != None,  # noqa: E711
+            ComplianceRecord.expires_at >= now,
+            ComplianceRecord.expires_at <= soon,
+        )
+    )
+    expiring_soon_count = (await db.execute(expiring_soon_q)).scalar() or 0
+
+    # ── Breakdown by category ──
+    cat_q = (
+        select(
+            ComplianceType.category,
+            sqla_func.count().label("total"),
+            sqla_func.sum(case((ComplianceRecord.status == "valid", 1), else_=0)).label("valid"),
+            sqla_func.sum(case((ComplianceRecord.status == "expired", 1), else_=0)).label("expired"),
+            sqla_func.sum(case((ComplianceRecord.status == "pending", 1), else_=0)).label("pending"),
+        )
+        .join(ComplianceType, ComplianceRecord.compliance_type_id == ComplianceType.id)
+        .where(
+            ComplianceRecord.entity_id == entity_id,
+            ComplianceRecord.active == True,
+        )
+        .group_by(ComplianceType.category)
+        .order_by(ComplianceType.category)
+    )
+    cat_rows = (await db.execute(cat_q)).all()
+    by_category = [
+        {
+            "category": r.category,
+            "total": r.total,
+            "valid": r.valid or 0,
+            "expired": r.expired or 0,
+            "pending": r.pending or 0,
+        }
+        for r in cat_rows
+    ]
+
+    by_status = [
+        {"status": s, "count": counts.get(s, 0)}
+        for s in ("valid", "expired", "pending", "rejected")
+    ]
+
+    # ── Recent expirations (last 10 expired records) ──
+    recent_q = (
+        select(
+            ComplianceRecord.id,
+            ComplianceType.name.label("type_name"),
+            ComplianceRecord.owner_type,
+            ComplianceRecord.expires_at,
+        )
+        .join(ComplianceType, ComplianceRecord.compliance_type_id == ComplianceType.id)
+        .where(
+            ComplianceRecord.entity_id == entity_id,
+            ComplianceRecord.active == True,
+            ComplianceRecord.status == "expired",
+        )
+        .order_by(ComplianceRecord.expires_at.desc())
+        .limit(10)
+    )
+    recent_rows = (await db.execute(recent_q)).all()
+    recent_expirations = [
+        {
+            "id": str(r.id),
+            "type_name": r.type_name,
+            "owner_type": r.owner_type,
+            "expired_at": r.expires_at.isoformat() if r.expires_at else None,
+            "days_overdue": (now - r.expires_at).days if r.expires_at else 0,
+        }
+        for r in recent_rows
+    ]
+
+    # ── Upcoming expirations (next 10 to expire) ──
+    upcoming_q = (
+        select(
+            ComplianceRecord.id,
+            ComplianceType.name.label("type_name"),
+            ComplianceRecord.owner_type,
+            ComplianceRecord.expires_at,
+        )
+        .join(ComplianceType, ComplianceRecord.compliance_type_id == ComplianceType.id)
+        .where(
+            ComplianceRecord.entity_id == entity_id,
+            ComplianceRecord.active == True,
+            ComplianceRecord.status == "valid",
+            ComplianceRecord.expires_at != None,  # noqa: E711
+            ComplianceRecord.expires_at >= now,
+        )
+        .order_by(ComplianceRecord.expires_at.asc())
+        .limit(10)
+    )
+    upcoming_rows = (await db.execute(upcoming_q)).all()
+    upcoming_expirations = [
+        {
+            "id": str(r.id),
+            "type_name": r.type_name,
+            "owner_type": r.owner_type,
+            "expires_at": r.expires_at.isoformat() if r.expires_at else None,
+            "days_remaining": (r.expires_at - now).days if r.expires_at else 0,
+        }
+        for r in upcoming_rows
+    ]
+
+    return {
+        "total_records": total_records,
+        "valid_count": valid_count,
+        "expired_count": expired_count,
+        "pending_count": pending_count,
+        "expiring_soon_count": expiring_soon_count,
+        "compliance_rate": compliance_rate,
+        "by_category": by_category,
+        "by_status": by_status,
+        "recent_expirations": recent_expirations,
+        "upcoming_expirations": upcoming_expirations,
+    }
 
 
 # ── Compliance Types (referentiel) ────────────────────────────────────────

@@ -1985,6 +1985,37 @@ async def verify_record(
     if record.verification_status != "pending":
         raise HTTPException(400, f"Record is already {record.verification_status}")
 
+    # ── Check attachment_required rule before allowing verification ──
+    if body.action == "verify":
+        from app.models.common import Attachment
+        # Find applicable rule to check attachment_required
+        pj_required = True  # default: PJ required
+        if record_type == "compliance_record" and hasattr(record, "compliance_type_id"):
+            rule_q = await db.execute(
+                select(ComplianceRule).where(
+                    ComplianceRule.compliance_type_id == record.compliance_type_id,
+                    ComplianceRule.entity_id == entity_id,
+                    ComplianceRule.active == True,
+                ).limit(1)
+            )
+            rule = rule_q.scalar_one_or_none()
+            if rule:
+                pj_required = rule.attachment_required
+
+        if pj_required:
+            att_count = await db.scalar(
+                select(sqla_func.count()).select_from(Attachment).where(
+                    Attachment.owner_type == record_type,
+                    Attachment.owner_id == record_id,
+                    Attachment.active == True,
+                )
+            )
+            if not att_count:
+                raise HTTPException(
+                    422,
+                    "Impossible de vérifier : aucune pièce jointe. La règle exige au moins un document attaché."
+                )
+
     now = datetime.now(timezone.utc)
 
     if body.action == "verify":

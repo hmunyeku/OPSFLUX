@@ -1210,6 +1210,7 @@ class ComplianceRule(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base)
     override_validity_days: Mapped[int | None] = mapped_column(Integer)
     grace_period_days: Mapped[int | None] = mapped_column(Integer)
     renewal_reminder_days: Mapped[int | None] = mapped_column(Integer)
+    attachment_required: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
     priority: Mapped[str] = mapped_column(String(20), default="normal", server_default="normal", nullable=False)
     applicability: Mapped[str] = mapped_column(String(20), default="permanent", server_default="permanent", nullable=False)  # permanent | contextual
     condition_json: Mapped[dict | None] = mapped_column(JSONB)  # structured conditions

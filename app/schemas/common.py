@@ -1186,6 +1186,7 @@ class ComplianceRuleRead(OpsFluxSchema):
     override_validity_days: int | None = None
     grace_period_days: int | None = None
     renewal_reminder_days: int | None = None
+    attachment_required: bool = True
     condition_json: dict | None = None
     change_reason: str | None = None
     changed_by: UUID | None = None
@@ -1205,6 +1206,7 @@ class ComplianceRuleCreate(BaseModel):
     override_validity_days: int | None = None
     grace_period_days: int | None = None
     renewal_reminder_days: int | None = None
+    attachment_required: bool = True
     condition_json: dict | None = None
 
 
@@ -1221,6 +1223,7 @@ class ComplianceRuleUpdate(BaseModel):
     override_validity_days: int | None = None
     grace_period_days: int | None = None
     renewal_reminder_days: int | None = None
+    attachment_required: bool | None = None
     condition_json: dict | None = None
     change_reason: str | None = None
 
@@ -1265,7 +1268,7 @@ class ComplianceRecordCreate(BaseModel):
     compliance_type_id: UUID
     owner_type: str = Field(..., pattern=r'^(tier_contact|tier|asset|user)$')
     owner_id: UUID
-    status: str = "pending"  # starts pending, becomes valid after verification
+    # status is NOT user-settable — always starts as "pending", promoted by verification
     issued_at: datetime | None = None
     expires_at: datetime | None = None
     issuer: str | None = None
@@ -1274,7 +1277,7 @@ class ComplianceRecordCreate(BaseModel):
 
 
 class ComplianceRecordUpdate(BaseModel):
-    status: str | None = None
+    # status is NOT user-settable — managed by verification workflow
     issued_at: datetime | None = None
     expires_at: datetime | None = None
     issuer: str | None = None

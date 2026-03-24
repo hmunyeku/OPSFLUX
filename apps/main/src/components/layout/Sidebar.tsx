@@ -35,6 +35,7 @@ import {
   Ship,
   FileText,
   Workflow,
+  FolderOpen,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -78,6 +79,7 @@ const adminNavItems: NavItemDef[] = [
   { path: '/assets', icon: Landmark, labelKey: 'nav.assets', module: 'asset-registry', order: 85, requiredPermission: 'asset.read' },
   { path: '/entities', icon: Globe, labelKey: 'nav.entities', module: 'core', order: 88, requiredPermission: 'core.entity.read' },
   { path: '/users', icon: UserCog, labelKey: 'nav.accounts', module: 'core', order: 90, requiredPermission: 'core.users.read' },
+  { path: '/files', icon: FolderOpen, labelKey: 'nav.files', module: 'core', order: 95, requiredPermission: 'core.settings.manage' },
   { path: '/settings', icon: Settings, labelKey: 'nav.settings', module: 'core', order: 100 },
 ]
 

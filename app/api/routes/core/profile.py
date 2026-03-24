@@ -138,8 +138,9 @@ async def upload_avatar(
     with open(file_path, "wb") as f:
         f.write(contents)
 
-    # Update user avatar_url
-    avatar_url = f"/static/avatars/{filename}"
+    # Update user avatar_url — use API base URL for cross-domain access
+    api_url = getattr(settings, 'API_URL', '') or ''
+    avatar_url = f"{api_url}/static/avatars/{filename}" if api_url else f"/static/avatars/{filename}"
     current_user.avatar_url = avatar_url
     await db.commit()
     await db.refresh(current_user)

@@ -5,7 +5,7 @@ All endpoints require admin-level permissions.
 import os
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,12 +24,62 @@ async def get_adminer_config(
     _: None = require_permission("admin.system"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Return Adminer connection info for admin iframe embedding."""
+    """Return Adminer connection info and internal proxy URL."""
     return {
-        "adminer_url": "/adminer/",
+        "adminer_url": "/api/v1/admin/adminer-proxy/",
         "database": os.environ.get("POSTGRES_DB", "opsflux"),
         "driver": "pgsql",
     }
+
+
+@router.api_route("/adminer-proxy/{path:path}", methods=["GET", "POST"])
+async def adminer_proxy(
+    path: str,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("admin.system"),
+):
+    """Reverse proxy to Adminer container — admin.system only.
+
+    Proxies all requests to http://adminer:8080/ so Adminer doesn't need
+    its own Traefik route. Auth is handled by OpsFlux JWT.
+    """
+    import httpx
+    from starlette.responses import Response
+
+    target = f"http://adminer:8080/{path}"
+    if request.url.query:
+        target += f"?{request.url.query}"
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        body = await request.body()
+        resp = await client.request(
+            method=request.method,
+            url=target,
+            content=body,
+            headers={
+                k: v for k, v in request.headers.items()
+                if k.lower() not in ("host", "authorization", "cookie")
+            },
+        )
+
+    # Forward response, adjusting content for proxy path
+    content = resp.content
+    content_type = resp.headers.get("content-type", "")
+
+    # Rewrite Adminer's internal links to go through proxy
+    if "text/html" in content_type:
+        content = content.replace(b'action="/"', b'action="/api/v1/admin/adminer-proxy/"')
+        content = content.replace(b"action='/'", b"action='/api/v1/admin/adminer-proxy/'")
+
+    return Response(
+        content=content,
+        status_code=resp.status_code,
+        headers={
+            k: v for k, v in resp.headers.items()
+            if k.lower() not in ("transfer-encoding", "content-encoding", "content-length")
+        },
+    )
 
 
 # ── File Manager ─────────────────────────────────────────────────────────────

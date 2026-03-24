@@ -41,6 +41,8 @@ export function AdminerTab() {
     )
   }
 
+  const apiBase = import.meta.env.VITE_API_URL || window.location.origin.replace('app.', 'api.')
+
   const dbInfo = [
     { label: 'Moteur', value: 'PostgreSQL 16 + pgvector + PostGIS' },
     { label: 'Base', value: config?.database || 'opsflux' },
@@ -49,7 +51,7 @@ export function AdminerTab() {
   ]
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6">
       <div className="flex items-center gap-2">
         <Database size={16} className="text-primary" />
         <h3 className="text-sm font-semibold text-foreground">Base de données</h3>
@@ -73,24 +75,25 @@ export function AdminerTab() {
         ))}
       </div>
 
-      {/* Adminer access */}
-      <div className="border border-border rounded-lg p-4 bg-muted/20">
-        <h4 className="text-xs font-semibold text-foreground mb-2">Adminer (interface visuelle)</h4>
-        <p className="text-xs text-muted-foreground mb-3">
-          Adminer est disponible en tant que service Docker interne. Pour y accéder depuis le navigateur,
-          configurez un sous-domaine (ex: db.opsflux.io) dans Dokploy pointant vers le container <code className="text-primary">adminer</code> sur le port <code className="text-primary">8080</code>.
-        </p>
-        <div className="flex items-center gap-2">
+      {/* Adminer iframe — proxied via backend (auth protected) */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-xs font-semibold text-foreground">Adminer (interface visuelle)</h4>
           <a
-            href={`https://db.${window.location.hostname.replace('app.', '')}`}
+            href={`${apiBase}${config?.adminer_url || '/api/v1/admin/adminer-proxy/'}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-medium"
+            className="inline-flex items-center gap-1 text-[10px] text-primary hover:text-primary/80"
           >
-            <ExternalLink size={11} />
-            Ouvrir Adminer
+            <ExternalLink size={10} /> Nouvel onglet
           </a>
-          <span className="text-[10px] text-muted-foreground">(nécessite configuration Traefik)</span>
+        </div>
+        <div className="border border-border rounded-lg overflow-hidden" style={{ height: 'calc(100vh - 280px)' }}>
+          <iframe
+            src={`${apiBase}${config?.adminer_url || '/api/v1/admin/adminer-proxy/'}`}
+            className="w-full h-full border-0"
+            title="Adminer"
+          />
         </div>
       </div>
 

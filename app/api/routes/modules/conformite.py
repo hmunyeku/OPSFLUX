@@ -554,6 +554,56 @@ async def create_compliance_record(
     db: AsyncSession = Depends(get_db),
 ):
     data = body.model_dump()
+
+    # ── Pre-submission validation against ComplianceType + ComplianceRule ──
+    ct = await db.get(ComplianceType, data["compliance_type_id"])
+    if not ct:
+        raise HTTPException(400, "Type de conformité introuvable")
+
+    now = datetime.now(timezone.utc)
+    errors: list[str] = []
+
+    # 1. Already expired at submission?
+    if data.get("expires_at"):
+        expires = data["expires_at"]
+        if hasattr(expires, 'tzinfo') and expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+        if expires < now:
+            errors.append("Le document est déjà expiré à la date de soumission.")
+
+    # 2. Check validity_days from type (or rule override): issued_at + validity_days < now?
+    issued_at = data.get("issued_at")
+    if issued_at and ct.validity_days:
+        if hasattr(issued_at, 'tzinfo') and issued_at.tzinfo is None:
+            issued_at = issued_at.replace(tzinfo=timezone.utc)
+        # Find applicable rule for potential override
+        rule_q = await db.execute(
+            select(ComplianceRule).where(
+                ComplianceRule.compliance_type_id == ct.id,
+                ComplianceRule.entity_id == entity_id,
+                ComplianceRule.active == True,
+            ).limit(1)
+        )
+        rule = rule_q.scalar_one_or_none()
+        effective_validity = (rule.override_validity_days if rule and rule.override_validity_days else ct.validity_days)
+        grace_days = (rule.grace_period_days if rule and rule.grace_period_days else 0) or 0
+
+        from datetime import timedelta
+        max_expiry = issued_at + timedelta(days=effective_validity + grace_days)
+        if max_expiry < now:
+            errors.append(
+                f"Le document a dépassé la validité maximale ({effective_validity}j"
+                + (f" + {grace_days}j de grâce" if grace_days else "")
+                + f") depuis la date d'émission."
+            )
+
+        # 3. Auto-compute expires_at if not provided
+        if not data.get("expires_at") and effective_validity:
+            data["expires_at"] = issued_at + timedelta(days=effective_validity)
+
+    if errors:
+        raise HTTPException(422, detail={"message": "Validation échouée", "errors": errors})
+
     # Security: force status to pending at creation — only verification promotes to valid
     data["status"] = "pending"
     data["verification_status"] = "pending"

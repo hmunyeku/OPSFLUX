@@ -9,6 +9,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { FileManager } from '@jfvilas/react-file-manager'
 import '@jfvilas/react-file-manager/dist/style.css'
 import { FolderOpen } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { PanelHeader, PanelContent } from '@/components/layout/PanelHeader'
 import { useToast } from '@/components/ui/Toast'
@@ -21,10 +22,17 @@ interface FSItem {
   size?: number
 }
 
+// Map i18n language code to jfvilas locale format
+const LANG_MAP: Record<string, string> = {
+  fr: 'fr-FR', en: 'en-US', es: 'es-ES', pt: 'pt-PT', de: 'de-DE', it: 'it-IT', ar: 'ar-SA', zh: 'zh-CN',
+}
+
 export default function FileManagerPage() {
   const { toast } = useToast()
+  const { i18n } = useTranslation()
   const [files, setFiles] = useState<FSItem[]>([])
   const [currentPath, setCurrentPath] = useState('/')
+  const fmLang = LANG_MAP[i18n.language] || 'en-US'
 
   const apiBase = import.meta.env.VITE_API_URL || ''
   const token = localStorage.getItem('access_token') || ''
@@ -112,7 +120,7 @@ export default function FileManagerPage() {
             onRename={handleRename}
             onRefresh={handleRefresh}
             onFolderChange={handleFolderChange}
-            language="fr-FR"
+            language={fmLang}
             height="100%"
             width="100%"
             layout="list"

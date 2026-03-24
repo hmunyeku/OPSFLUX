@@ -20,7 +20,7 @@ import { EmergencyContactManager } from '@/components/shared/EmergencyContactMan
 import { MedicalCheckManager } from '@/components/shared/MedicalCheckManager'
 import { PassportManager } from '@/components/shared/PassportManager'
 import { VisaManager } from '@/components/shared/VisaManager'
-import { SocialSecurityManager } from '@/components/shared/SocialSecurityManager'
+
 import { DrivingLicenseManager } from '@/components/shared/DrivingLicenseManager'
 import { UserLanguageManager } from '@/components/shared/UserLanguageManager'
 import { VaccineManager } from '@/components/shared/VaccineManager'
@@ -130,7 +130,7 @@ export function ProfileTab() {
   const addEmergencyRef = useRef<(() => void) | null>(null)
   const addPassportRef = useRef<(() => void) | null>(null)
   const addVisaRef = useRef<(() => void) | null>(null)
-  const addSecuRef = useRef<(() => void) | null>(null)
+
   const addMedicalRef = useRef<(() => void) | null>(null)
   const addVaccineRef = useRef<(() => void) | null>(null)
   const addLanguageRef = useRef<(() => void) | null>(null)
@@ -177,9 +177,6 @@ export function ProfileTab() {
     ppe_clothing_size_bottom: user?.ppe_clothing_size_bottom || '',
     ppe_shoe_size: user?.ppe_shoe_size || '',
     // Misc
-    retirement_date: user?.retirement_date || '',
-    vantage_number: user?.vantage_number || '',
-    extension_number: user?.extension_number || '',
     // Job position
     job_position_id: user?.job_position_id || '',
   })
@@ -206,9 +203,6 @@ export function ProfileTab() {
         ppe_clothing_size: user.ppe_clothing_size || '',
         ppe_clothing_size_bottom: user.ppe_clothing_size_bottom || '',
         ppe_shoe_size: user.ppe_shoe_size || '',
-        retirement_date: user.retirement_date || '',
-        vantage_number: user.vantage_number || '',
-        extension_number: user.extension_number || '',
         job_position_id: user.job_position_id || '',
       })
     }
@@ -236,9 +230,7 @@ export function ProfileTab() {
     form.ppe_clothing_size !== (user.ppe_clothing_size || '') ||
     form.ppe_clothing_size_bottom !== (user.ppe_clothing_size_bottom || '') ||
     form.ppe_shoe_size !== (user.ppe_shoe_size || '') ||
-    form.retirement_date !== (user.retirement_date || '') ||
-    form.vantage_number !== (user.vantage_number || '') ||
-    form.extension_number !== (user.extension_number || '')
+    false
     // job_position_id, gender, nationality, birth_country are auto-saved — excluded from dirty check
   ) : false
 
@@ -266,9 +258,6 @@ export function ProfileTab() {
       if (form.ppe_clothing_size !== (user?.ppe_clothing_size || '')) payload.ppe_clothing_size = optStr(form.ppe_clothing_size as string)
       if (form.ppe_clothing_size_bottom !== (user?.ppe_clothing_size_bottom || '')) payload.ppe_clothing_size_bottom = optStr(form.ppe_clothing_size_bottom as string)
       if (form.ppe_shoe_size !== (user?.ppe_shoe_size || '')) payload.ppe_shoe_size = optStr(form.ppe_shoe_size as string)
-      if (form.retirement_date !== (user?.retirement_date || '')) payload.retirement_date = optStr(form.retirement_date as string)
-      if (form.vantage_number !== (user?.vantage_number || '')) payload.vantage_number = optStr(form.vantage_number as string)
-      if (form.extension_number !== (user?.extension_number || '')) payload.extension_number = optStr(form.extension_number as string)
       if (form.job_position_id !== (user?.job_position_id || '')) payload.job_position_id = (form.job_position_id as string) || null
 
       await updateProfile.mutateAsync(payload)
@@ -299,9 +288,6 @@ export function ProfileTab() {
         ppe_clothing_size: user.ppe_clothing_size || '',
         ppe_clothing_size_bottom: user.ppe_clothing_size_bottom || '',
         ppe_shoe_size: user.ppe_shoe_size || '',
-        retirement_date: user.retirement_date || '',
-        vantage_number: user.vantage_number || '',
-        extension_number: user.extension_number || '',
         job_position_id: user.job_position_id || '',
       })
     }
@@ -574,15 +560,6 @@ export function ProfileTab() {
                 </div>
                 <VisaManager userId={user.id} hideAddButton onAddRef={(fn) => { addVisaRef.current = fn }} />
               </div>
-              <div>
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <h4 className="text-xs font-semibold text-muted-foreground">Sécurité sociale</h4>
-                  <button onClick={() => addSecuRef.current?.()} className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter">
-                    <Plus size={12} />
-                  </button>
-                </div>
-                <SocialSecurityManager userId={user.id} hideAddButton onAddRef={(fn) => { addSecuRef.current = fn }} />
-              </div>
             </>
           )}
         </div>
@@ -770,31 +747,6 @@ export function ProfileTab() {
         </div>
       </CollapsibleSection>
 
-      {/* Section: Misc */}
-      <CollapsibleSection
-        id="misc-hr"
-        title="Divers"
-        description="Informations complémentaires RH."
-        storageKey="settings.profile.collapse"
-        showSeparator={false}
-      >
-        <div className="mt-2 space-y-4 max-w-[640px]">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="gl-label">Date de retraite</label>
-              <input type="date" className="gl-form-input" value={form.retirement_date || ''} onChange={(e) => updateField('retirement_date', e.target.value)} />
-            </div>
-            <div>
-              <label className="gl-label">N° Vantage</label>
-              <input type="text" className="gl-form-input" value={form.vantage_number || ''} onChange={(e) => updateField('vantage_number', e.target.value)} />
-            </div>
-            <div>
-              <label className="gl-label">N° poste</label>
-              <input type="text" className="gl-form-input" value={form.extension_number || ''} onChange={(e) => updateField('extension_number', e.target.value)} />
-            </div>
-          </div>
-        </div>
-      </CollapsibleSection>
 
       {/* Section: Comptes liés (SSO) */}
       <CollapsibleSection

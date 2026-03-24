@@ -10,7 +10,7 @@
  *   <AddressManager ownerType="user" ownerId={user.id} />
  *   <AddressManager ownerType="asset" ownerId={asset.id} />
  */
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import {
   MapPin, Plus, Trash2, Pencil, Loader2, Star,
   LocateFixed, ChevronsUpDown, Map, Search,
@@ -297,9 +297,10 @@ interface AddressManagerProps {
   initialShowForm?: boolean
   /** If true, hides all add buttons */
   hideAddButton?: boolean
+  onAddRef?: (fn: () => void) => void
 }
 
-export function AddressManager({ ownerType, ownerId, compact, initialShowForm, hideAddButton }: AddressManagerProps) {
+export function AddressManager({ ownerType, ownerId, compact, initialShowForm, hideAddButton, onAddRef }: AddressManagerProps) {
   const { toast } = useToast()
   const { data, isLoading } = useAddresses(ownerType, ownerId)
   const deleteAddress = useDeleteAddress()
@@ -311,6 +312,10 @@ export function AddressManager({ ownerType, ownerId, compact, initialShowForm, h
   const [showForm, setShowForm] = useState(initialShowForm ?? false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+
+  // Expose add trigger via ref callback
+  const handleAdd = useCallback(() => setShowForm(true), [])
+  useEffect(() => { onAddRef?.(handleAdd) }, [onAddRef, handleAdd])
 
   const addresses: Address[] = data ?? []
 

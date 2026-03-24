@@ -193,7 +193,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
         toast({ title: 'Enregistrement mis à jour', variant: 'success' })
       } else {
         if (!form.compliance_type_id) return
-        await createRecord.mutateAsync({
+        const created = await createRecord.mutateAsync({
           compliance_type_id: form.compliance_type_id,
           owner_type: ownerType,
           owner_id: ownerId,
@@ -203,8 +203,10 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
           issuer: form.issuer || null,
           reference_number: form.reference_number || null,
           notes: form.notes || null,
-        })
-        toast({ title: 'Référentiel ajouté', variant: 'success' })
+        }) as any
+        toast({ title: 'Référentiel ajouté — vous pouvez ajouter des pièces jointes', variant: 'success' })
+        // Auto-expand attachments for the new record
+        if (created?.id) setExpandedRecordId(created.id)
       }
       setShowForm(false)
       setEditingId(null)

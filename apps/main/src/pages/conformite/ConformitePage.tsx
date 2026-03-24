@@ -1091,7 +1091,7 @@ export function ConformitePage() {
           onTabChange={handleTabChange}
         />
 
-        <PanelContent>
+        <PanelContent className="p-6">
           {renderTabContent()}
         </PanelContent>
       </div>}

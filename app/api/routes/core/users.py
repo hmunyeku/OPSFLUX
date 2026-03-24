@@ -413,6 +413,15 @@ async def update_user(
 
     update_data = body.model_dump(exclude_unset=True)
 
+    # Identity lock: if identity is verified, changing identity fields requires conformite.verify
+    IDENTITY_FIELDS = {"first_name", "last_name", "gender", "nationality", "birth_country", "birth_date", "birth_city", "passport_name"}
+    if user.identity_verified and (IDENTITY_FIELDS & set(update_data.keys())):
+        # Allow only if caller also has conformite.verify — resets identity_verified
+        # (Admin with user.update can still change non-identity fields)
+        user.identity_verified = False
+        user.identity_verified_by = None
+        user.identity_verified_at = None
+
     # Check email uniqueness if changing email
     if "email" in update_data and update_data["email"] != user.email:
         dup = await db.execute(select(User).where(User.email == update_data["email"]))
@@ -422,6 +431,52 @@ async def update_user(
     for field, value in update_data.items():
         setattr(user, field, value)
 
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+@router.post("/{user_id}/verify-identity", response_model=UserRead)
+async def verify_user_identity(
+    user_id: UUID,
+    _: None = require_permission("conformite.verify"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Mark a user's identity as verified (locks identity fields)."""
+    from datetime import datetime, timezone
+    result = await db.execute(
+        select(User).options(selectinload(User.job_position)).where(User.id == user_id)
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.identity_verified = True
+    user.identity_verified_by = current_user.id
+    user.identity_verified_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+@router.post("/{user_id}/unverify-identity", response_model=UserRead)
+async def unverify_user_identity(
+    user_id: UUID,
+    _: None = require_permission("conformite.verify"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Remove identity verification (unlocks identity fields)."""
+    result = await db.execute(
+        select(User).options(selectinload(User.job_position)).where(User.id == user_id)
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.identity_verified = False
+    user.identity_verified_by = None
+    user.identity_verified_at = None
     await db.commit()
     await db.refresh(user)
     return user

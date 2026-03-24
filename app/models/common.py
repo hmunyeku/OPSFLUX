@@ -164,6 +164,11 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     birth_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     birth_city: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
+    # Identity verification — locks identity fields after admin verification
+    identity_verified: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    identity_verified_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    identity_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     # Travel
     contractual_airport: Mapped[str | None] = mapped_column(String(200), nullable=True)
     nearest_airport: Mapped[str | None] = mapped_column(String(200), nullable=True)

@@ -38,6 +38,16 @@ async def update_profile(
             detail="No fields to update",
         )
 
+    # ── Identity lock: block changes to identity fields when verified ──
+    IDENTITY_FIELDS = {"first_name", "last_name", "gender", "nationality", "birth_country", "birth_date", "birth_city", "passport_name"}
+    if current_user.identity_verified:
+        locked_fields = IDENTITY_FIELDS & set(update_data.keys())
+        if locked_fields:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Identité vérifiée — les champs suivants sont verrouillés : {', '.join(sorted(locked_fields))}. Contactez un administrateur.",
+            )
+
     for field, value in update_data.items():
         setattr(current_user, field, value)
 

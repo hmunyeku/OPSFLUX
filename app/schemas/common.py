@@ -95,6 +95,10 @@ class UserRead(OpsFluxSchema):
     birth_country: str | None = None
     birth_date: date | None = None
     birth_city: str | None = None
+    # Identity verification
+    identity_verified: bool = False
+    identity_verified_by: UUID | None = None
+    identity_verified_at: datetime | None = None
     # Travel
     contractual_airport: str | None = None
     nearest_airport: str | None = None

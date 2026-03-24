@@ -255,6 +255,10 @@ export interface UserRead {
   birth_country: string | null
   birth_date: string | null
   birth_city: string | null
+  // Identity verification
+  identity_verified: boolean
+  identity_verified_by: string | null
+  identity_verified_at: string | null
   // Travel
   contractual_airport: string | null
   nearest_airport: string | null

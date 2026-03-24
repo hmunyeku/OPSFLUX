@@ -420,36 +420,7 @@ export function ProfileTab() {
         </div>
       )}
 
-      {/* Section: Coordonnées */}
-      <EmailsTab />
-
-      <CollapsibleSection
-        id="user-phones"
-        title="Téléphones"
-        description="Vos numéros de téléphone : mobile, bureau, domicile."
-        storageKey="settings.phones.collapse"
-        defaultExpanded={false}
-      >
-        <div className="mt-2">
-          <PhoneManager ownerType="user" ownerId={user?.id} />
-        </div>
-      </CollapsibleSection>
-
-      <AddressesTab />
-
-      <CollapsibleSection
-        id="user-emergency-contacts"
-        title="Contacts d'urgence"
-        description="Personnes à contacter en cas d'urgence lors de vos missions."
-        storageKey="settings.emergency.collapse"
-        defaultExpanded={false}
-      >
-        <div className="mt-2">
-          {user?.id && <EmergencyContactManager userId={user.id} />}
-        </div>
-      </CollapsibleSection>
-
-      {/* Section: HR Identity */}
+      {/* Section: HR Identity — right after avatar */}
       <CollapsibleSection
         id="hr-identity"
         title="Identité"
@@ -511,8 +482,35 @@ export function ProfileTab() {
               )}
             </div>
           </div>
+        </div>
+      </CollapsibleSection>
 
-          {/* Compliance status moved to top of profile */}
+      {/* Section: Coordonnées */}
+      <EmailsTab />
+
+      <CollapsibleSection
+        id="user-phones"
+        title="Téléphones"
+        description="Vos numéros de téléphone : mobile, bureau, domicile."
+        storageKey="settings.phones.collapse"
+        defaultExpanded={false}
+      >
+        <div className="mt-2">
+          <PhoneManager ownerType="user" ownerId={user?.id} />
+        </div>
+      </CollapsibleSection>
+
+      <AddressesTab />
+
+      <CollapsibleSection
+        id="user-emergency-contacts"
+        title="Contacts d'urgence"
+        description="Personnes à contacter en cas d'urgence lors de vos missions."
+        storageKey="settings.emergency.collapse"
+        defaultExpanded={false}
+      >
+        <div className="mt-2">
+          {user?.id && <EmergencyContactManager userId={user.id} />}
         </div>
       </CollapsibleSection>
 

@@ -44,9 +44,10 @@ export function useWebSocket() {
 
     setStatus('connecting')
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const host = window.location.host
-    const url = `${protocol}//${host}/ws/notifications?token=${encodeURIComponent(accessToken)}`
+    // Use API URL for WebSocket (backend may be on a different host in production)
+    const apiBase = import.meta.env.VITE_API_URL || window.location.origin
+    const wsBase = apiBase.replace(/^http/, 'ws')
+    const url = `${wsBase}/ws/notifications?token=${encodeURIComponent(accessToken)}`
 
     const ws = new WebSocket(url)
     wsRef.current = ws

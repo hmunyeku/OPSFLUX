@@ -1,16 +1,15 @@
 """Admin tools routes — Adminer proxy, file manager API.
 
-These endpoints are restricted to users with admin.system permission.
+All endpoints require admin-level permissions.
 """
 import os
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import JSONResponse
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_entity, get_current_user, get_db
+from app.api.deps import get_current_entity, get_current_user, get_db, require_permission
 from app.core.config import settings
 from app.models.common import Attachment, User
 
@@ -22,29 +21,12 @@ router = APIRouter(prefix="/api/v1/admin", tags=["admin-tools"])
 @router.get("/adminer-config")
 async def get_adminer_config(
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("admin.system"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Return Adminer connection info for admin iframe embedding.
-
-    Only accessible to users with admin.system permission (checked via require_permission
-    on the frontend; backend just checks the user is authenticated + superadmin).
-    """
-    # Check if user has wildcard permission (superadmin)
-    from app.api.deps import has_user_permission
-    entity_id = current_user.default_entity_id
-    if entity_id:
-        has_perm = await has_user_permission(current_user, entity_id, "admin.system", db)
-    else:
-        has_perm = False
-
-    if not has_perm:
-        raise HTTPException(status_code=403, detail="Admin access required")
-
-    # Return adminer URL (internal docker network)
+    """Return Adminer connection info for admin iframe embedding."""
     return {
         "adminer_url": "/adminer/",
-        "server": "db",
-        "username": os.environ.get("POSTGRES_USER", "postgres"),
         "database": os.environ.get("POSTGRES_DB", "opsflux"),
         "driver": "pgsql",
     }
@@ -55,16 +37,12 @@ async def get_adminer_config(
 @router.get("/files/stats")
 async def get_storage_stats(
     current_user: User = Depends(get_current_user),
-    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("core.settings.manage"),
     db: AsyncSession = Depends(get_db),
 ):
     """Storage statistics for the file manager dashboard."""
-    # Total files and size
+    # Total files and size (global — admin sees all)
     total_result = await db.execute(
-        select(
-            func.count(Attachment.id).label("total_files"),
-            func.coalesce(func.sum(Attachment.size_bytes), 0).label("total_bytes"),
-        ).where(Attachment.entity_id == entity_id) if hasattr(Attachment, 'entity_id') else
         select(
             func.count(Attachment.id).label("total_files"),
             func.coalesce(func.sum(Attachment.size_bytes), 0).label("total_bytes"),
@@ -142,9 +120,10 @@ async def browse_files(
     page_size: int = Query(50, ge=1, le=200),
     search: str = Query(None),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("core.settings.manage"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Browse all files with optional filtering."""
+    """Browse all files with optional filtering. Admin only."""
     query = select(Attachment)
     count_query = select(func.count(Attachment.id))
 

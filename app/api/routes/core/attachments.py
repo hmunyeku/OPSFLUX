@@ -5,8 +5,6 @@ Upload via multipart/form-data, download via GET /:id/download.
 Storage backend (local/S3) is determined by STORAGE_BACKEND setting.
 """
 
-import os
-import uuid
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
@@ -16,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
 from app.api.deps import get_current_user, check_polymorphic_owner_access
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.storage_service import store_file, get_file_path, get_download_url, delete_stored_file
 from app.models.common import Attachment, User
@@ -61,6 +60,11 @@ async def upload_attachment(
     await check_polymorphic_owner_access(owner_type, parsed_owner_id, current_user, db, request, write=True)
 
     content = await file.read()
+
+    # Validate file size
+    max_size = getattr(settings, 'STORAGE_MAX_FILE_SIZE_MB', 50) * 1024 * 1024
+    if len(content) > max_size:
+        raise HTTPException(status_code=413, detail=f"File too large. Maximum: {getattr(settings, 'STORAGE_MAX_FILE_SIZE_MB', 50)} MB")
 
     # Store via abstracted storage service (local or S3)
     storage_path, unique_name = await store_file(

@@ -62,7 +62,11 @@ async def get_file_path(storage_path: str) -> str | None:
     """Get the absolute local file path, or None if using S3."""
     if _is_s3():
         return None  # Use presigned URL instead
-    full_path = os.path.join(STATIC_DIR, storage_path)
+    full_path = os.path.abspath(os.path.join(STATIC_DIR, storage_path))
+    # Prevent path traversal: resolved path must stay within STATIC_DIR
+    if not full_path.startswith(os.path.abspath(STATIC_DIR)):
+        logger.warning("Path traversal attempt blocked: %s", storage_path)
+        return None
     return full_path if os.path.exists(full_path) else None
 
 

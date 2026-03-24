@@ -2199,8 +2199,6 @@ function VerificationsTab() {
     catch { return '—' }
   }
 
-  type VerItem = typeof allItems[number]
-
   const VERIFICATION_STATUS_OPTIONS = [
     { value: 'pending', label: 'En attente' },
     { value: 'verified', label: 'Vérifié' },
@@ -2211,7 +2209,7 @@ function VerificationsTab() {
     { id: 'verification_status', label: 'Statut', type: 'select', options: VERIFICATION_STATUS_OPTIONS },
   ], [])
 
-  const verColumns: ColumnDef<VerItem>[] = useMemo(() => [
+  const verColumns: ColumnDef<Record<string, any>>[] = useMemo(() => [
     {
       accessorKey: 'owner_name',
       header: 'Personne',
@@ -2318,7 +2316,7 @@ function VerificationsTab() {
   }
 
   return (
-    <DataTable<VerItem>
+    <DataTable<Record<string, any>>
       columns={verColumns}
       data={filteredItems}
       isLoading={isLoading}

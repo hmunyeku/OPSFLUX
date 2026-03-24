@@ -19,7 +19,7 @@ import {
   Bell,
   ChevronRight, ChevronDown,
   Globe, Plug, FileText, FileOutput, Trash2,
-  ScrollText, Activity, Hash, BookOpen, Users, ShieldCheck, HardDrive, Database,
+  ScrollText, Activity, Hash, BookOpen, Users, ShieldCheck, Database,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PanelHeader, PanelContent } from '@/components/layout/PanelHeader'
@@ -126,7 +126,6 @@ import { SchedulerTab } from './tabs/SchedulerTab'
 import DictionaryTab from './tabs/DictionaryTab'
 import { SecurityPolicyTab } from './tabs/SecurityPolicyTab'
 import { UserManagementTab } from './tabs/UserManagementTab'
-import { FileManagerTab } from './tabs/FileManagerTab'
 import { AdminerTab } from './tabs/AdminerTab'
 // EntitiesTab moved to dedicated /entities sidebar page
 
@@ -150,22 +149,21 @@ registerSettingsSection({ id: 'preferences', label: 'Préférences', icon: Palet
 registerSettingsSection({ id: 'roles', label: 'Rôles & Permissions', icon: Shield, component: RolesTab, category: 'user', order: 60 })
 registerSettingsSection({ id: 'activity', label: 'Activité', icon: Clock, component: ActivityTab, category: 'user', order: 70 })
 
-// ── Register general (admin) settings ────────────────────────
-// All admin tabs require core.settings.manage permission
+// ── Register general (admin) settings — ordered by usage frequency ───
+// Most used first, system/advanced last
 registerSettingsSection({ id: 'general-config', label: 'Configuration', icon: Globe, component: GeneralConfigTab, category: 'general', order: 10, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'integrations', label: 'Intégrations', icon: Plug, component: IntegrationsTab, category: 'general', order: 20, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'email-templates', label: 'Modèles d\'emails', icon: FileText, component: EmailTemplatesTab, category: 'general', order: 15, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'pdf-templates', label: 'Modèles PDF', icon: FileOutput, component: PdfTemplatesTab, category: 'general', order: 16, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'numbering', label: 'Numérotation', icon: Hash, component: NumberingTab, category: 'general', order: 17, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'dictionnaire', label: 'Dictionnaire', icon: BookOpen, component: DictionaryTab, category: 'general', order: 18, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'security-policy', label: 'Sécurité & Authentification', icon: ShieldCheck, component: SecurityPolicyTab, category: 'general', order: 21, requiredPermission: 'admin.system' })
-registerSettingsSection({ id: 'user-management', label: 'Gestion des comptes', icon: Users, component: UserManagementTab, category: 'general', order: 22, requiredPermission: 'admin.system' })
-registerSettingsSection({ id: 'delete-policies', label: 'Politiques de suppression', icon: Trash2, component: DeletePoliciesTab, category: 'general', order: 25, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'audit-log', label: 'Journal d\'audit', icon: ScrollText, component: AuditTab, category: 'general', order: 30, requiredPermission: 'core.audit.read' })
-registerSettingsSection({ id: 'system-health', label: 'Santé système', icon: Activity, component: SystemHealthTab, category: 'general', order: 40, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'scheduler', label: 'Tâches planifiées', icon: Clock, component: SchedulerTab, category: 'general', order: 45, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'file-manager', label: 'Gestionnaire de fichiers', icon: HardDrive, component: FileManagerTab, category: 'general', order: 50, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'adminer', label: 'Base de données', icon: Database, component: AdminerTab, category: 'general', order: 55, requiredPermission: 'admin.system' })
+registerSettingsSection({ id: 'integrations', label: 'Intégrations', icon: Plug, component: IntegrationsTab, category: 'general', order: 15, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'email-templates', label: 'Modèles d\'emails', icon: FileText, component: EmailTemplatesTab, category: 'general', order: 20, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'pdf-templates', label: 'Modèles PDF', icon: FileOutput, component: PdfTemplatesTab, category: 'general', order: 25, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'dictionnaire', label: 'Dictionnaire', icon: BookOpen, component: DictionaryTab, category: 'general', order: 30, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'numbering', label: 'Numérotation', icon: Hash, component: NumberingTab, category: 'general', order: 35, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'user-management', label: 'Gestion des comptes', icon: Users, component: UserManagementTab, category: 'general', order: 40, requiredPermission: 'admin.system' })
+registerSettingsSection({ id: 'security-policy', label: 'Sécurité & Authentification', icon: ShieldCheck, component: SecurityPolicyTab, category: 'general', order: 45, requiredPermission: 'admin.system' })
+registerSettingsSection({ id: 'delete-policies', label: 'Politiques de suppression', icon: Trash2, component: DeletePoliciesTab, category: 'general', order: 50, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'audit-log', label: 'Journal d\'audit', icon: ScrollText, component: AuditTab, category: 'general', order: 60, requiredPermission: 'core.audit.read' })
+registerSettingsSection({ id: 'scheduler', label: 'Tâches planifiées', icon: Clock, component: SchedulerTab, category: 'general', order: 65, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'system-health', label: 'Santé système', icon: Activity, component: SystemHealthTab, category: 'general', order: 70, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'adminer', label: 'Base de données', icon: Database, component: AdminerTab, category: 'general', order: 80, requiredPermission: 'admin.system' })
 
 /* ── Main Settings Page ── */
 export function SettingsPage() {

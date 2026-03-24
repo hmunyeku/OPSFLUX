@@ -144,6 +144,10 @@ interface SubModelManagerProps<TRead extends { id: string }, TCreate> {
   onDelete: (itemId: string) => void | Promise<unknown>
   createPending?: boolean
   compact?: boolean
+  /** Hide the standalone add button (when parent provides its own trigger via headerAction) */
+  hideAddButton?: boolean
+  /** Ref callback to trigger add form from parent */
+  onAddRef?: (fn: () => void) => void
 }
 
 export function SubModelManager<TRead extends { id: string }, TCreate>({
@@ -158,6 +162,8 @@ export function SubModelManager<TRead extends { id: string }, TCreate>({
   onDelete,
   createPending,
   compact,
+  hideAddButton,
+  onAddRef,
 }: SubModelManagerProps<TRead, TCreate>) {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -172,11 +178,17 @@ export function SubModelManager<TRead extends { id: string }, TCreate>({
     return d
   }, [])
 
+  // Expose add trigger to parent via ref callback
   const handleAdd = useCallback(() => {
     setDraft(initDraft(fields))
     setShowForm(true)
     setEditingId(null)
   }, [fields, initDraft])
+
+  // Allow parent to trigger add form
+  useEffect(() => {
+    onAddRef?.(handleAdd)
+  }, [onAddRef, handleAdd])
 
   const handleEdit = useCallback((item: TRead) => {
     setDraft(initDraft(fields, item))
@@ -243,8 +255,8 @@ export function SubModelManager<TRead extends { id: string }, TCreate>({
 
   return (
     <div className="space-y-2">
-      {/* Add button — compact, right-aligned */}
-      {!showForm && !editingId && (
+      {/* Add button — compact, right-aligned (hidden when parent provides its own trigger) */}
+      {!hideAddButton && !showForm && !editingId && (
         <div className="flex justify-end">
           <button
             onClick={handleAdd}

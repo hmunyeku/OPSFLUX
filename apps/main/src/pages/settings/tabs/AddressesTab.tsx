@@ -18,7 +18,7 @@ export function AddressesTab() {
       showSeparator={false}
     >
       <div className="mt-2">
-        <AddressManager ownerType="user" ownerId={userId} />
+        <AddressManager ownerType="user" ownerId={userId} compact />
       </div>
     </CollapsibleSection>
   )

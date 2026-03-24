@@ -244,3 +244,145 @@ async def browse_files(
     ]
 
     return {"items": items, "total": total, "page": page, "page_size": page_size}
+
+
+# ── Filesystem API (for jfvilas/react-file-manager) ──────────────────────────
+
+import mimetypes
+from datetime import datetime, timezone
+from fastapi import UploadFile, File as FastAPIFile
+from fastapi.responses import FileResponse
+from pathlib import Path
+
+STATIC_ROOT = Path(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))).resolve() / "static"
+
+
+def _safe_resolve(relative_path: str) -> Path | None:
+    """Resolve a relative path within STATIC_ROOT, preventing traversal."""
+    target = (STATIC_ROOT / relative_path).resolve()
+    if not str(target).startswith(str(STATIC_ROOT)):
+        return None
+    return target
+
+
+@router.get("/fs/list")
+async def fs_list(
+    path: str = Query("/", description="Directory path relative to static root"),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("core.settings.manage"),
+):
+    """List files and directories for the file manager UI."""
+    rel_path = path.lstrip("/")
+    target = _safe_resolve(rel_path)
+    if not target or not target.exists():
+        target = STATIC_ROOT
+
+    items = []
+    try:
+        for entry in sorted(target.iterdir(), key=lambda e: (not e.is_dir(), e.name.lower())):
+            item_path = "/" + str(entry.relative_to(STATIC_ROOT)).replace("\\", "/")
+            stat = entry.stat()
+            items.append({
+                "name": entry.name,
+                "isDirectory": entry.is_dir(),
+                "path": item_path,
+                "updatedAt": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
+                "size": stat.st_size if entry.is_file() else 0,
+            })
+    except PermissionError:
+        pass
+
+    return items
+
+
+@router.post("/fs/upload")
+async def fs_upload(
+    file: UploadFile = FastAPIFile(...),
+    path: str = Query("/", description="Directory to upload into"),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("core.settings.manage"),
+):
+    """Upload a file to a specific directory."""
+    rel_path = path.lstrip("/")
+    target_dir = _safe_resolve(rel_path)
+    if not target_dir:
+        raise HTTPException(400, "Invalid path")
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    file_path = target_dir / (file.filename or "upload")
+    content = await file.read()
+    file_path.write_bytes(content)
+    return {"message": "Uploaded", "path": "/" + str(file_path.relative_to(STATIC_ROOT)).replace("\\", "/")}
+
+
+@router.get("/fs/download")
+async def fs_download(
+    path: str = Query(..., description="File path relative to static root"),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("core.settings.manage"),
+):
+    """Download a file from the filesystem."""
+    rel_path = path.lstrip("/")
+    target = _safe_resolve(rel_path)
+    if not target or not target.is_file():
+        raise HTTPException(404, "File not found")
+
+    content_type = mimetypes.guess_type(str(target))[0] or "application/octet-stream"
+    return FileResponse(str(target), media_type=content_type, filename=target.name)
+
+
+@router.delete("/fs/delete")
+async def fs_delete(
+    path: str = Query(..., description="File or directory path"),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("core.settings.manage"),
+):
+    """Delete a file or empty directory."""
+    import shutil
+    rel_path = path.lstrip("/")
+    target = _safe_resolve(rel_path)
+    if not target or not target.exists():
+        raise HTTPException(404, "Not found")
+    if target == STATIC_ROOT:
+        raise HTTPException(400, "Cannot delete root")
+
+    if target.is_dir():
+        shutil.rmtree(str(target))
+    else:
+        target.unlink()
+    return {"message": "Deleted"}
+
+
+@router.post("/fs/mkdir")
+async def fs_mkdir(
+    path: str = Query(..., description="New directory path"),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("core.settings.manage"),
+):
+    """Create a new directory."""
+    rel_path = path.lstrip("/")
+    target = _safe_resolve(rel_path)
+    if not target:
+        raise HTTPException(400, "Invalid path")
+    target.mkdir(parents=True, exist_ok=True)
+    return {"message": "Created", "path": "/" + str(target.relative_to(STATIC_ROOT)).replace("\\", "/")}
+
+
+@router.post("/fs/rename")
+async def fs_rename(
+    path: str = Query(..., description="Current path"),
+    new_name: str = Query(..., description="New name"),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("core.settings.manage"),
+):
+    """Rename a file or directory."""
+    rel_path = path.lstrip("/")
+    target = _safe_resolve(rel_path)
+    if not target or not target.exists():
+        raise HTTPException(404, "Not found")
+
+    new_target = target.parent / new_name
+    if new_target.exists():
+        raise HTTPException(400, "Name already exists")
+    target.rename(new_target)
+    return {"message": "Renamed", "path": "/" + str(new_target.relative_to(STATIC_ROOT)).replace("\\", "/")}

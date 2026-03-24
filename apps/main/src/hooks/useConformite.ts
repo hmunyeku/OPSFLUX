@@ -281,9 +281,9 @@ export function useVerifyRecord() {
   })
 }
 
-export function useVerificationHistory(page = 1, pageSize = 50) {
+export function useVerificationHistory(page = 1, pageSize = 50, filters?: { owner_id?: string; record_type?: string }) {
   return useQuery({
-    queryKey: ['verification-history', page, pageSize],
-    queryFn: () => conformiteService.listVerificationHistory({ page, page_size: pageSize }),
+    queryKey: ['verification-history', page, pageSize, filters?.owner_id, filters?.record_type],
+    queryFn: () => conformiteService.listVerificationHistory({ page, page_size: pageSize, ...filters }),
   })
 }

@@ -3,16 +3,18 @@
  *
  * API-backed: GET /api/v1/users/me/roles, /groups, /permissions
  */
-import { Shield, Users, Lock, Loader2 } from 'lucide-react'
-import { useUserRoles, useUserGroups, useUserPermissions } from '@/hooks/useSettings'
+import { Shield, Users, Loader2 } from 'lucide-react'
+import { useUserRoles, useUserGroups } from '@/hooks/useSettings'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
+import { PermissionMatrix } from '@/components/shared/PermissionMatrix'
+import { useAuthStore } from '@/stores/authStore'
 
 export function RolesTab() {
+  const { user } = useAuthStore()
   const { data: roles, isLoading: rolesLoading } = useUserRoles()
   const { data: groups, isLoading: groupsLoading } = useUserGroups()
-  const { data: permissions, isLoading: permsLoading } = useUserPermissions()
 
-  const isLoading = rolesLoading || groupsLoading || permsLoading
+  const isLoading = rolesLoading || groupsLoading
 
   if (isLoading) {
     return (
@@ -82,26 +84,10 @@ export function RolesTab() {
 
       {/* Section: Permissions */}
       <CollapsibleSection id="permissions-list" title="Permissions par module" description="Récapitulatif de vos permissions effectives par module." storageKey="settings.roles.collapse" showSeparator={false}>
-        {permissions && permissions.length > 0 ? (
-          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            {permissions.map((perm) => (
-              <div key={perm.module} className="border border-border/60 rounded-lg bg-card p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted/50 shrink-0">
-                    <Lock size={14} className="text-muted-foreground" />
-                  </div>
-                  <p className="text-sm font-semibold text-foreground">{perm.module}</p>
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {perm.permissions.map((p) => (
-                    <span key={p} className="gl-badge gl-badge-neutral">{p}</span>
-                  ))}
-                </div>
-              </div>
-            ))}
+        {user && (
+          <div className="mt-3">
+            <PermissionMatrix userId={user.id} compact />
           </div>
-        ) : (
-          <p className="py-4 text-sm text-muted-foreground">Aucune permission effective.</p>
         )}
       </CollapsibleSection>
     </>

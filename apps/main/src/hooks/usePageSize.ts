@@ -17,7 +17,9 @@ import api from '@/lib/api'
 import type { SettingRead } from '@/types/api'
 
 const SETTING_KEY = 'datatable.page_size'
+const MAX_PAGE_SIZE_KEY = 'datatable.max_page_size'
 const DEFAULT_PAGE_SIZE = 25
+const DEFAULT_MAX_PAGE_SIZE = 500
 const STALE_TIME = 5 * 60_000 // 5 minutes
 
 /** Fetch a single setting value from a given scope. */
@@ -85,4 +87,14 @@ export function usePageSize() {
   }
 
   return { pageSize, setPageSize }
+}
+
+/** Returns the admin-configured maximum page size (entity scope), or 500 as default. */
+export function useMaxPageSize() {
+  const { data: maxSize } = useQuery({
+    queryKey: ['settings', 'entity', MAX_PAGE_SIZE_KEY],
+    queryFn: () => fetchSettingValue('entity', MAX_PAGE_SIZE_KEY),
+    staleTime: STALE_TIME,
+  })
+  return maxSize ?? DEFAULT_MAX_PAGE_SIZE
 }

@@ -13,7 +13,7 @@ import { useUpdateProfile } from '@/hooks/useSettings'
 import { useToast } from '@/components/ui/Toast'
 import { Sun, Moon, Monitor, Loader2, ZoomIn, Table2, X } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
-import { usePageSize } from '@/hooks/usePageSize'
+import { usePageSize, useMaxPageSize } from '@/hooks/usePageSize'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 import {
   getUIScale,
@@ -131,11 +131,11 @@ export function PreferencesTab() {
 
 // ── Page Size configuration section ──────────────────────────────
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
-const MAX_PAGE_SIZE = 500 // TODO: fetch from admin settings (datatable.max_page_size)
 
 function PageSizeSection() {
   const { toast } = useToast()
   const { pageSize, setPageSize } = usePageSize()
+  const maxPageSize = useMaxPageSize()
   const [customValue, setCustomValue] = useState('')
   const [showCustom, setShowCustom] = useState(!PAGE_SIZE_OPTIONS.includes(pageSize))
 
@@ -149,8 +149,8 @@ function PageSizeSection() {
   const handleCustomSubmit = () => {
     const num = parseInt(customValue)
     if (!num || num < 1) return
-    if (num > MAX_PAGE_SIZE) {
-      toast({ title: `Maximum ${MAX_PAGE_SIZE} lignes`, variant: 'warning' })
+    if (num > maxPageSize) {
+      toast({ title: `Maximum ${maxPageSize} lignes`, variant: 'warning' })
       return
     }
     setPageSize(num)
@@ -189,7 +189,7 @@ function PageSizeSection() {
                 onKeyDown={(e) => { if (e.key === 'Enter') handleCustomSubmit() }}
                 placeholder="Custom"
                 min={1}
-                max={MAX_PAGE_SIZE}
+                max={maxPageSize}
                 className="gl-form-input w-20 h-8 text-sm text-center"
                 autoFocus
               />
@@ -211,7 +211,7 @@ function PageSizeSection() {
           )}
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          Nombre de lignes affichees par defaut dans tous les tableaux. Maximum : {MAX_PAGE_SIZE}.
+          Nombre de lignes affichees par defaut dans tous les tableaux. Maximum : {maxPageSize}.
         </p>
       </div>
     </div>

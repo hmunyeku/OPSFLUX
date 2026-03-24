@@ -331,22 +331,23 @@ export function PhoneManager({ ownerType, ownerId, compact, hideAddButton }: Pho
           {phones.map((phone) => {
             if (editingId === phone.id) {
               return (
-                <InlinePhoneEditor
-                  key={phone.id}
-                  phone={phone}
-                  labelOptions={PHONE_LABELS}
-                  onSave={async (updates) => {
-                    try {
-                      await updatePhone.mutateAsync({ id: phone.id, payload: updates })
-                      setEditingId(null)
-                      toast({ title: 'Téléphone modifié', variant: 'success' })
-                    } catch {
-                      toast({ title: 'Erreur', variant: 'error' })
-                    }
-                  }}
-                  onCancel={() => setEditingId(null)}
-                  isSaving={updatePhone.isPending}
-                />
+                <div key={phone.id} className="md:col-span-2">
+                  <InlinePhoneEditor
+                    phone={phone}
+                    labelOptions={PHONE_LABELS}
+                    onSave={async (updates) => {
+                      try {
+                        await updatePhone.mutateAsync({ id: phone.id, payload: updates })
+                        setEditingId(null)
+                        toast({ title: 'Téléphone modifié', variant: 'success' })
+                      } catch {
+                        toast({ title: 'Erreur', variant: 'error' })
+                      }
+                    }}
+                    onCancel={() => setEditingId(null)}
+                    isSaving={updatePhone.isPending}
+                  />
+                </div>
               )
             }
 
@@ -367,7 +368,7 @@ export function PhoneManager({ ownerType, ownerId, compact, hideAddButton }: Pho
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground font-mono truncate">
+                  <p className="text-sm font-medium text-foreground font-mono">
                     {phone.country_code ? `${phone.country_code} ` : ''}{phone.number}
                   </p>
                   <div className="flex items-center gap-1.5">
@@ -538,7 +539,7 @@ function InlinePhoneEditor({
   }
 
   return (
-    <div className="flex items-center gap-1.5 p-1.5 rounded-lg border border-primary/30 bg-card">
+    <div className="flex items-center gap-1.5 p-1.5 rounded-lg border border-primary/30 bg-card max-w-lg">
       <PhoneCountryCombobox
         value={editCode}
         onChange={setEditCode}
@@ -550,7 +551,7 @@ function InlinePhoneEditor({
         value={editNumber}
         onChange={(e) => setEditNumber(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onCancel() }}
-        className="flex-1 px-1 py-0.5 text-xs rounded border border-border/60 bg-card focus:outline-none"
+        className="w-36 px-1 py-0.5 text-xs rounded border border-border/60 bg-card focus:outline-none"
       />
       <select value={editLabel} onChange={(e) => setEditLabel(e.target.value)} className="text-[10px] px-1 py-0.5 rounded border border-border/60 bg-card">
         {labelOptions.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}

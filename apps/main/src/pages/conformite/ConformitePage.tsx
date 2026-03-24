@@ -54,7 +54,7 @@ import {
   useJobPositions, useCreateJobPosition, useUpdateJobPosition, useDeleteJobPosition,
   useTransfers,
   useExemptions, useCreateExemption, useApproveExemption, useRejectExemption, useDeleteExemption,
-  usePendingVerifications, useVerifyRecord,
+  usePendingVerifications, useVerifyRecord, useVerificationHistory,
 } from '@/hooks/useConformite'
 import type {
   ComplianceType, ComplianceTypeCreate,
@@ -2303,6 +2303,37 @@ function VerificationsTab() {
 
 // -- Verification Detail Panel ------------------------------------------------
 
+function VerificationHistorySection({ ownerId, recordType, currentId }: { ownerId: string; recordType: string; currentId: string }) {
+  const { data } = useVerificationHistory(1, 10, { owner_id: ownerId, record_type: recordType })
+  const items = (data?.items ?? []).filter((i) => i.id !== currentId)
+
+  const fmtDate = (d: string | null | undefined) => {
+    if (!d) return '—'
+    try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) }
+    catch { return '—' }
+  }
+
+  if (items.length === 0) return null
+
+  return (
+    <FormSection title="Historique">
+      <div className="space-y-1.5">
+        {items.map((h) => (
+          <div key={h.id} className="flex items-center gap-2 py-1.5 px-2 rounded-md bg-muted/30 text-xs">
+            <span className={cn(
+              'h-2 w-2 rounded-full shrink-0',
+              h.verification_status === 'verified' ? 'bg-emerald-500' : 'bg-red-400',
+            )} />
+            <span className="flex-1 min-w-0 truncate text-foreground">{h.description}</span>
+            <span className="text-muted-foreground tabular-nums shrink-0">{fmtDate(h.verified_at)}</span>
+            <span className="text-muted-foreground shrink-0">{h.verified_by_name || '—'}</span>
+          </div>
+        ))}
+      </div>
+    </FormSection>
+  )
+}
+
 function VerificationDetailPanel({ id, recordType: _recordType }: { id: string; recordType: string }) {
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { data } = usePendingVerifications()
@@ -2406,6 +2437,11 @@ function VerificationDetailPanel({ id, recordType: _recordType }: { id: string; 
         <FormSection title="Pieces jointes">
           <AttachmentManager ownerType={item.record_type} ownerId={item.id} compact readOnly />
         </FormSection>
+
+        {/* ── Historique ── */}
+        {item.owner_id && (
+          <VerificationHistorySection ownerId={item.owner_id} recordType={item.record_type} currentId={item.id} />
+        )}
 
         {/* ── Reject form (shown inline when reject button clicked) ── */}
         {showReject && (

@@ -1737,6 +1737,8 @@ async def list_pending_verifications(
 async def list_verification_history(
     page: int = 1,
     page_size: int = 50,
+    owner_id: UUID | None = None,
+    record_type: str | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -1772,6 +1774,11 @@ async def list_verification_history(
         .limit(page_size)
         .offset((page - 1) * page_size)
     )
+    if record_type and record_type != "compliance_record":
+        # Skip compliance records if filtering for a sub-model type
+        cr_q = cr_q.where(False)
+    if owner_id:
+        cr_q = cr_q.where(ComplianceRecord.owner_id == owner_id)
     for rec in (await db.execute(cr_q)).scalars().all():
         ct = await db.get(ComplianceType, rec.compliance_type_id)
         items.append({
@@ -1800,6 +1807,8 @@ async def list_verification_history(
         (DrivingLicense, "driving_license", lambda r: f"Permis {r.license_type} — {r.country}"),
     ]
     for Model, rtype, desc_fn in sub_models:
+        if record_type and record_type != rtype:
+            continue
         q = (
             select(Model)
             .where(
@@ -1809,6 +1818,8 @@ async def list_verification_history(
             .order_by(Model.verified_at.desc().nullslast())
             .limit(page_size)
         )
+        if owner_id:
+            q = q.where(Model.user_id == owner_id)
         for rec in (await db.execute(q)).scalars().all():
             items.append({
                 "id": str(rec.id),
@@ -1828,16 +1839,21 @@ async def list_verification_history(
             })
 
     # MedicalChecks
-    mc_q = (
-        select(MedicalCheck)
-        .where(
-            MedicalCheck.verification_status.in_(["verified", "rejected"]),
-            MedicalCheck.owner_id.in_(entity_user_ids),
+    if not record_type or record_type == "medical_check":
+        mc_q = (
+            select(MedicalCheck)
+            .where(
+                MedicalCheck.verification_status.in_(["verified", "rejected"]),
+                MedicalCheck.owner_id.in_(entity_user_ids),
+            )
+            .order_by(MedicalCheck.verified_at.desc().nullslast())
+            .limit(page_size)
         )
-        .order_by(MedicalCheck.verified_at.desc().nullslast())
-        .limit(page_size)
-    )
-    for rec in (await db.execute(mc_q)).scalars().all():
+        if owner_id:
+            mc_q = mc_q.where(MedicalCheck.owner_id == owner_id)
+    else:
+        mc_q = None
+    for rec in ((await db.execute(mc_q)).scalars().all() if mc_q is not None else []):
         items.append({
             "id": str(rec.id),
             "record_type": "medical_check",

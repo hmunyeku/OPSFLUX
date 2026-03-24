@@ -181,7 +181,7 @@ export const conformiteService = {
     return data
   },
 
-  listVerificationHistory: async (params: { page?: number; page_size?: number } = {}): Promise<{ items: VerificationHistoryItem[]; total: number; page: number; page_size: number }> => {
+  listVerificationHistory: async (params: { page?: number; page_size?: number; owner_id?: string; record_type?: string } = {}): Promise<{ items: VerificationHistoryItem[]; total: number; page: number; page_size: number }> => {
     const { data } = await api.get('/api/v1/conformite/verification-history', { params })
     return data
   },

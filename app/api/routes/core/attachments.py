@@ -2,6 +2,7 @@
 
 Query by owner_type + owner_id to list files for any entity.
 Upload via multipart/form-data, download via GET /:id/download.
+Storage backend (local/S3) is determined by STORAGE_BACKEND setting.
 """
 
 import os
@@ -9,21 +10,19 @@ import uuid
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
 from app.api.deps import get_current_user, check_polymorphic_owner_access
 from app.core.database import get_db
+from app.core.storage_service import store_file, get_file_path, get_download_url, delete_stored_file
 from app.models.common import Attachment, User
 from app.schemas.common import AttachmentRead
 from app.services.core.delete_service import delete_entity
 
 router = APIRouter(prefix="/api/v1/attachments", tags=["attachments"])
-
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "static", "attachments")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
 @router.get("", response_model=list[AttachmentRead])
@@ -61,21 +60,16 @@ async def upload_attachment(
     parsed_owner_id = UUID(owner_id)
     await check_polymorphic_owner_access(owner_type, parsed_owner_id, current_user, db, request, write=True)
 
-    # Generate unique filename
-    ext = os.path.splitext(file.filename or "file")[1]
-    unique_name = f"{uuid.uuid4().hex}{ext}"
-
-    # Organize by owner_type subdirectory
-    type_dir = os.path.join(UPLOAD_DIR, owner_type)
-    os.makedirs(type_dir, exist_ok=True)
-    file_path = os.path.join(type_dir, unique_name)
-
-    # Read and save file
     content = await file.read()
-    with open(file_path, "wb") as f:
-        f.write(content)
 
-    storage_path = f"attachments/{owner_type}/{unique_name}"
+    # Store via abstracted storage service (local or S3)
+    storage_path, unique_name = await store_file(
+        content=content,
+        owner_type=owner_type,
+        owner_id=owner_id,
+        original_filename=file.filename or "file",
+        content_type=file.content_type or "application/octet-stream",
+    )
 
     attachment = Attachment(
         owner_type=owner_type,
@@ -111,14 +105,18 @@ async def download_attachment(
 
     await check_polymorphic_owner_access(attachment.owner_type, attachment.owner_id, current_user, db, request, write=False)
 
-    base_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "static")
-    file_path = os.path.join(base_dir, attachment.storage_path)
+    # S3: redirect to presigned URL
+    presigned = await get_download_url(attachment.storage_path)
+    if presigned:
+        return RedirectResponse(presigned)
 
-    if not os.path.exists(file_path):
+    # Local: serve file directly
+    local_path = await get_file_path(attachment.storage_path)
+    if not local_path:
         raise HTTPException(status_code=404, detail="File not found on disk")
 
     return FileResponse(
-        file_path,
+        local_path,
         media_type=attachment.content_type,
         filename=attachment.original_name,
     )
@@ -141,11 +139,8 @@ async def delete_attachment(
 
     await check_polymorphic_owner_access(attachment.owner_type, attachment.owner_id, current_user, db, request, write=True)
 
-    # Delete file from disk
-    base_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "static")
-    file_path = os.path.join(base_dir, attachment.storage_path)
-    if os.path.exists(file_path):
-        os.remove(file_path)
+    # Delete from storage (local or S3)
+    await delete_stored_file(attachment.storage_path)
 
     await delete_entity(attachment, db, "attachment", entity_id=attachment_id, user_id=current_user.id)
     await db.commit()

@@ -19,6 +19,7 @@ import { DataTable } from '@/components/ui/DataTable/DataTable'
 import { cn } from '@/lib/utils'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTablePagination } from '@/components/ui/DataTable/types'
+import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -317,14 +318,16 @@ export function SchedulerTab() {
   }
 
   return (
-    <div className="space-y-6">
+    <CollapsibleSection
+      id="scheduler-jobs"
+      title="Tâches planifiées"
+      description="Jobs de fond exécutés automatiquement par le serveur. Vous pouvez les exécuter manuellement, les mettre en pause ou consulter l'historique."
+      storageKey="settings.scheduler.collapse"
+    >
+    <div className="mt-3 space-y-6">
       {/* ── Jobs DataTable ── */}
       <div>
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h3 className="text-sm font-semibold text-foreground">Tâches planifiées</h3>
-            <p className="text-xs text-muted-foreground">Jobs de fond exécutés automatiquement par le serveur.</p>
-          </div>
+        <div className="flex items-center justify-end mb-3">
           <button
             onClick={() => qc.invalidateQueries({ queryKey: ['admin-scheduler-jobs'] })}
             className="gl-button-sm gl-button-default"
@@ -372,5 +375,6 @@ export function SchedulerTab() {
         />
       </div>
     </div>
+    </CollapsibleSection>
   )
 }

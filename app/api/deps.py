@@ -6,6 +6,7 @@ from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.redis_client import get_redis
@@ -55,7 +56,11 @@ async def get_current_user(
             detail="Invalid token payload",
         )
 
-    result = await db.execute(select(User).where(User.id == UUID(user_id)))
+    result = await db.execute(
+        select(User)
+        .options(selectinload(User.job_position))
+        .where(User.id == UUID(user_id))
+    )
     user = result.scalar_one_or_none()
 
     if not user or not user.active:

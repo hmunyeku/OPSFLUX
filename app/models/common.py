@@ -217,7 +217,12 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     @property
     def job_position_name(self) -> str | None:
-        jp = self.job_position
+        """Safe access to job_position.name — returns None if relationship not loaded (async context)."""
+        from sqlalchemy.orm import InstanceState
+        state: InstanceState = self.__dict__.get("_sa_instance_state")  # type: ignore[assignment]
+        if state and "job_position" not in state.dict:
+            return None
+        jp = self.__dict__.get("job_position")
         return jp.name if jp else None
 
 

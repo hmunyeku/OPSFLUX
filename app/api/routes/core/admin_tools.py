@@ -254,7 +254,8 @@ from fastapi import UploadFile, File as FastAPIFile
 from fastapi.responses import FileResponse
 from pathlib import Path
 
-STATIC_ROOT = Path(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))).resolve() / "static"
+# Use the same static directory as main.py mounts
+STATIC_ROOT = Path(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))).resolve() / "static"
 
 
 def _safe_resolve(relative_path: str) -> Path | None:

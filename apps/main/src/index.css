@@ -361,3 +361,12 @@
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground) / 0.45);
 }
+
+/* File Manager wrapper — ensure jfvilas component renders correctly */
+.fm-wrapper {
+  position: relative;
+  overflow: hidden;
+}
+.fm-wrapper * {
+  box-sizing: border-box;
+}

@@ -103,7 +103,7 @@ export default function FileManagerPage() {
       <PanelHeader icon={FolderOpen} title="Gestionnaire de fichiers" subtitle="Documents, pièces jointes et médias" />
 
       <PanelContent>
-        <div style={{ height: 'calc(100vh - 100px)' }}>
+        <div className="fm-wrapper" style={{ height: 'calc(100vh - 100px)' }}>
           <FileManager
             files={files}
             fileUploadConfig={{

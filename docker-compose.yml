@@ -45,6 +45,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    volumes:
+      - uploads_data:/opt/opsflux/static
     command: >
       sh -c "
         alembic upgrade head &&
@@ -69,3 +71,4 @@ services:
 
 volumes:
   pg_data:
+  uploads_data:

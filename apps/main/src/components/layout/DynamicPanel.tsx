@@ -223,7 +223,11 @@ export function DynamicPanelShell({ title, subtitle, icon, children, actions, in
         {/* Navigation bar */}
         <div className="flex items-center gap-2 h-9 border-b border-border px-4 shrink-0 bg-background-subtle">
           <button
-            onClick={() => setMode('docked')}
+            onClick={() => {
+              // On mobile (< md), close panel entirely; on desktop, go back to docked mode
+              if (window.innerWidth < 768) closeDynamicPanel()
+              else setMode('docked')
+            }}
             className="inline-flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-medium transition-colors"
           >
             <ArrowLeft size={12} />

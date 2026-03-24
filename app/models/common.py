@@ -1906,3 +1906,26 @@ class UserHealthCondition(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     user_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     condition_code: Mapped[str] = mapped_column(String(100), nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Scheduler — Job execution log
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class JobExecution(UUIDPrimaryKeyMixin, Base):
+    """Log of each scheduled job execution — success, failure, duration, error."""
+    __tablename__ = "job_executions"
+    __table_args__ = (
+        Index("idx_job_executions_job_id", "job_id"),
+        Index("idx_job_executions_started_at", "started_at"),
+    )
+
+    job_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    job_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)  # running | success | error
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error_traceback: Mapped[str | None] = mapped_column(Text, nullable=True)
+    triggered_by: Mapped[str] = mapped_column(String(20), default="scheduler", server_default="scheduler", nullable=False)  # scheduler | manual

@@ -1,7 +1,16 @@
-"""APScheduler configuration and lifecycle."""
+"""APScheduler configuration, lifecycle, and execution logging."""
 
 import logging
+import traceback
+from datetime import datetime, timezone
 
+from apscheduler.events import (
+    EVENT_JOB_ERROR,
+    EVENT_JOB_EXECUTED,
+    EVENT_JOB_MISSED,
+    EVENT_JOB_SUBMITTED,
+    JobExecutionEvent,
+)
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
@@ -10,6 +19,97 @@ logger = logging.getLogger(__name__)
 
 scheduler = AsyncIOScheduler()
 
+# Track job start times for duration calculation
+_job_start_times: dict[str, datetime] = {}
+
+
+# ── Execution logging listeners ────────────────────────────────────────────
+
+def _on_job_submitted(event) -> None:
+    _job_start_times[event.job_id] = datetime.now(timezone.utc)
+
+
+def _on_job_executed(event: JobExecutionEvent) -> None:
+    import asyncio
+    asyncio.ensure_future(_log_execution(event, status="success"))
+
+
+def _on_job_error(event: JobExecutionEvent) -> None:
+    import asyncio
+    asyncio.ensure_future(_log_execution(event, status="error"))
+
+
+def _on_job_missed(event: JobExecutionEvent) -> None:
+    import asyncio
+    asyncio.ensure_future(_log_execution(event, status="missed"))
+
+
+async def _log_execution(event: JobExecutionEvent, status: str) -> None:
+    """Persist job execution record to the database."""
+    try:
+        from app.core.database import async_session_factory
+        from app.models.common import JobExecution
+
+        now = datetime.now(timezone.utc)
+        start_time = _job_start_times.pop(event.job_id, now)
+        duration_ms = int((now - start_time).total_seconds() * 1000) if status != "missed" else None
+
+        error_msg = None
+        error_tb = None
+        if hasattr(event, 'exception') and event.exception:
+            error_msg = str(event.exception)
+            error_tb = "".join(traceback.format_exception(type(event.exception), event.exception, event.exception.__traceback__))
+
+        job = scheduler.get_job(event.job_id)
+        job_name = job.name if job else event.job_id
+
+        async with async_session_factory() as db:
+            execution = JobExecution(
+                job_id=event.job_id,
+                job_name=job_name,
+                status=status,
+                started_at=start_time,
+                finished_at=now if status != "missed" else None,
+                duration_ms=duration_ms,
+                error_message=error_msg,
+                error_traceback=error_tb,
+                triggered_by="scheduler",
+            )
+            db.add(execution)
+            await db.commit()
+    except Exception:
+        logger.exception("Failed to log job execution for %s", event.job_id)
+
+
+async def log_manual_execution(job_id: str, job_name: str, started_at: datetime, finished_at: datetime, status: str = "success", error: Exception | None = None) -> None:
+    """Log a manually triggered job execution."""
+    try:
+        from app.core.database import async_session_factory
+        from app.models.common import JobExecution
+
+        duration_ms = int((finished_at - started_at).total_seconds() * 1000)
+        error_msg = str(error) if error else None
+        error_tb = "".join(traceback.format_exception(type(error), error, error.__traceback__)) if error else None
+
+        async with async_session_factory() as db:
+            execution = JobExecution(
+                job_id=job_id,
+                job_name=job_name,
+                status=status,
+                started_at=started_at,
+                finished_at=finished_at,
+                duration_ms=duration_ms,
+                error_message=error_msg,
+                error_traceback=error_tb,
+                triggered_by="manual",
+            )
+            db.add(execution)
+            await db.commit()
+    except Exception:
+        logger.exception("Failed to log manual execution for %s", job_id)
+
+
+# ── Job registration ───────────────────────────────────────────────────────
 
 def _register_jobs() -> None:
     """Register all scheduled jobs on the scheduler."""
@@ -18,106 +118,35 @@ def _register_jobs() -> None:
     from app.tasks.jobs.session_cleanup import cleanup_expired_sessions
     from app.tasks.jobs.stale_workflow_check import check_stale_workflows
 
-    # Process queued emails — every 2 minutes
-    scheduler.add_job(
-        process_email_queue,
-        trigger=IntervalTrigger(minutes=2),
-        id="email_queue",
-        name="Process queued emails",
-        replace_existing=True,
-        max_instances=1,
-    )
+    scheduler.add_job(process_email_queue, trigger=IntervalTrigger(minutes=2), id="email_queue", name="Process queued emails", replace_existing=True, max_instances=1)
+    scheduler.add_job(cleanup_expired_sessions, trigger=CronTrigger(hour=3, minute=0), id="session_cleanup", name="Clean expired sessions and refresh tokens", replace_existing=True, max_instances=1)
+    scheduler.add_job(send_notification_digest, trigger=CronTrigger(hour=8, minute=0), id="notification_digest", name="Send daily notification digest", replace_existing=True, max_instances=1)
+    scheduler.add_job(check_stale_workflows, trigger=IntervalTrigger(hours=6), id="stale_workflow_check", name="Check for stale workflow instances", replace_existing=True, max_instances=1)
 
-    # Clean expired sessions — daily at 03:00
-    scheduler.add_job(
-        cleanup_expired_sessions,
-        trigger=CronTrigger(hour=3, minute=0),
-        id="session_cleanup",
-        name="Clean expired sessions and refresh tokens",
-        replace_existing=True,
-        max_instances=1,
-    )
+    from app.core.scheduler import refresh_daily_pax_load_job, generate_recurring_activities_job
+    scheduler.add_job(refresh_daily_pax_load_job, trigger=IntervalTrigger(minutes=5), id="refresh_daily_pax_load", name="Refresh daily_pax_load materialized view", replace_existing=True, max_instances=1)
+    scheduler.add_job(generate_recurring_activities_job, trigger=CronTrigger(hour=2, minute=0), id="generate_recurring_activities", name="Generate recurring planner activities", replace_existing=True, max_instances=1)
 
-    # Send notification digest — daily at 08:00
-    scheduler.add_job(
-        send_notification_digest,
-        trigger=CronTrigger(hour=8, minute=0),
-        id="notification_digest",
-        name="Send daily notification digest",
-        replace_existing=True,
-        max_instances=1,
-    )
-
-    # Check stale workflows — every 6 hours
-    scheduler.add_job(
-        check_stale_workflows,
-        trigger=IntervalTrigger(hours=6),
-        id="stale_workflow_check",
-        name="Check for stale workflow instances",
-        replace_existing=True,
-        max_instances=1,
-    )
-
-    # ── Planner module jobs ──────────────────────────────────────────────
-    from app.core.scheduler import (
-        refresh_daily_pax_load_job,
-        generate_recurring_activities_job,
-    )
-
-    # Refresh daily_pax_load materialized view — every 5 minutes
-    scheduler.add_job(
-        refresh_daily_pax_load_job,
-        trigger=IntervalTrigger(minutes=5),
-        id="refresh_daily_pax_load",
-        name="Refresh daily_pax_load materialized view",
-        replace_existing=True,
-        max_instances=1,
-    )
-
-    # Generate recurring activities — daily at 02:00
-    scheduler.add_job(
-        generate_recurring_activities_job,
-        trigger=CronTrigger(hour=2, minute=0),
-        id="generate_recurring_activities",
-        name="Generate recurring planner activities",
-        replace_existing=True,
-        max_instances=1,
-    )
-
-    # ── Compliance expiry check ────────────────────────────────────────
     from app.tasks.jobs.compliance_expiry import check_compliance_expiry
+    scheduler.add_job(check_compliance_expiry, trigger=CronTrigger(hour=6, minute=0), id="compliance_expiry", name="Vérifier expiration conformité et envoyer rappels", replace_existing=True, max_instances=1)
 
-    # Check compliance record expiry + send renewal reminders — daily at 06:00
-    scheduler.add_job(
-        check_compliance_expiry,
-        trigger=CronTrigger(hour=6, minute=0),
-        id="compliance_expiry",
-        name="Vérifier expiration conformité et envoyer rappels",
-        replace_existing=True,
-        max_instances=1,
-    )
-
-    # ── Archived records purge ──────────────────────────────────────────
     from app.tasks.jobs.archived_purge import purge_archived_records
-
-    # Purge archived records past retention — weekly Sunday at 04:00
-    scheduler.add_job(
-        purge_archived_records,
-        trigger=CronTrigger(hour=4, minute=0, day_of_week="sun"),
-        id="archived_purge",
-        name="Purge archived records past retention period",
-        replace_existing=True,
-        max_instances=1,
-    )
+    scheduler.add_job(purge_archived_records, trigger=CronTrigger(hour=4, minute=0, day_of_week="sun"), id="archived_purge", name="Purge archived records past retention period", replace_existing=True, max_instances=1)
 
     logger.info("APScheduler: %d jobs registered", len(scheduler.get_jobs()))
 
 
+# ── Lifecycle ──────────────────────────────────────────────────────────────
+
 async def start_scheduler():
-    """Register jobs and start the APScheduler instance."""
+    """Register jobs, attach listeners, and start the APScheduler instance."""
     _register_jobs()
+    scheduler.add_listener(_on_job_submitted, EVENT_JOB_SUBMITTED)
+    scheduler.add_listener(_on_job_executed, EVENT_JOB_EXECUTED)
+    scheduler.add_listener(_on_job_error, EVENT_JOB_ERROR)
+    scheduler.add_listener(_on_job_missed, EVENT_JOB_MISSED)
     scheduler.start()
-    logger.info("APScheduler: started")
+    logger.info("APScheduler: started with execution logging")
 
 
 async def stop_scheduler():

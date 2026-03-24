@@ -314,19 +314,55 @@ async def delete_policy_stats(
 )
 async def list_scheduler_jobs(
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    """List all registered scheduled jobs with status."""
+    """List all registered scheduled jobs with status and last execution info."""
     from app.tasks.scheduler import scheduler
+    from app.models.common import JobExecution
+
+    # Fetch last execution per job
+    last_execs: dict[str, dict] = {}
+    try:
+        from sqlalchemy import func as sqla_func
+        sub = (
+            select(
+                JobExecution.job_id,
+                sqla_func.max(JobExecution.started_at).label("last_run_at"),
+            )
+            .group_by(JobExecution.job_id)
+            .subquery()
+        )
+        last_q = (
+            select(JobExecution)
+            .join(sub, (JobExecution.job_id == sub.c.job_id) & (JobExecution.started_at == sub.c.last_run_at))
+        )
+        result = await db.execute(last_q)
+        for ex in result.scalars().all():
+            last_execs[ex.job_id] = {
+                "last_run_at": ex.started_at.isoformat() if ex.started_at else None,
+                "last_status": ex.status,
+                "last_duration_ms": ex.duration_ms,
+                "last_error": ex.error_message,
+            }
+    except Exception:
+        pass  # graceful fallback if table doesn't exist yet
 
     jobs = []
     for job in scheduler.get_jobs():
         next_run = job.next_run_time
+        paused = next_run is None and not job.pending
+        last = last_execs.get(job.id, {})
         jobs.append({
             "id": job.id,
             "name": job.name,
             "trigger": str(job.trigger),
             "next_run_at": next_run.isoformat() if next_run else None,
             "pending": job.pending,
+            "paused": paused,
+            "last_run_at": last.get("last_run_at"),
+            "last_status": last.get("last_status"),
+            "last_duration_ms": last.get("last_duration_ms"),
+            "last_error": last.get("last_error"),
         })
     return {"jobs": jobs, "total": len(jobs)}
 
@@ -344,21 +380,108 @@ async def run_scheduler_job(
     current_user: User = Depends(get_current_user),
 ):
     """Manually trigger a scheduled job to run now."""
-    from app.tasks.scheduler import scheduler
+    from app.tasks.scheduler import scheduler, log_manual_execution
+    from datetime import datetime, timezone
 
     job = scheduler.get_job(body.job_id)
     if not job:
         raise HTTPException(404, f"Job '{body.job_id}' not found")
 
-    # Run the job function directly (async)
+    # Run the job function and log execution
     import asyncio
     func = job.func
-    if asyncio.iscoroutinefunction(func):
-        asyncio.create_task(func())
-    else:
-        func()
+    started_at = datetime.now(timezone.utc)
+    try:
+        if asyncio.iscoroutinefunction(func):
+            await func()
+        else:
+            func()
+        finished_at = datetime.now(timezone.utc)
+        await log_manual_execution(body.job_id, job.name, started_at, finished_at, "success")
+    except Exception as e:
+        finished_at = datetime.now(timezone.utc)
+        await log_manual_execution(body.job_id, job.name, started_at, finished_at, "error", e)
+        raise HTTPException(500, f"Job failed: {e}")
 
     return {"detail": f"Job '{body.job_id}' triggered", "job_id": body.job_id}
+
+
+@router.get(
+    "/scheduler/history",
+    dependencies=[require_permission("admin.system")],
+)
+async def list_scheduler_history(
+    job_id: str | None = None,
+    status: str | None = None,
+    page: int = 1,
+    page_size: int = 50,
+    db: AsyncSession = Depends(get_db),
+):
+    """List job execution history with optional filters."""
+    from app.models.common import JobExecution
+
+    q = select(JobExecution).order_by(JobExecution.started_at.desc())
+    if job_id:
+        q = q.where(JobExecution.job_id == job_id)
+    if status:
+        q = q.where(JobExecution.status == status)
+
+    # Count total
+    from sqlalchemy import func as sqla_func
+    count_q = select(sqla_func.count()).select_from(q.subquery())
+    total = await db.scalar(count_q) or 0
+
+    # Paginate
+    q = q.offset((page - 1) * page_size).limit(page_size)
+    result = await db.execute(q)
+    items = [
+        {
+            "id": str(ex.id),
+            "job_id": ex.job_id,
+            "job_name": ex.job_name,
+            "status": ex.status,
+            "started_at": ex.started_at.isoformat() if ex.started_at else None,
+            "finished_at": ex.finished_at.isoformat() if ex.finished_at else None,
+            "duration_ms": ex.duration_ms,
+            "error_message": ex.error_message,
+            "triggered_by": ex.triggered_by,
+        }
+        for ex in result.scalars().all()
+    ]
+
+    return {"items": items, "total": total, "page": page, "page_size": page_size}
+
+
+class PauseJobRequest(BaseModel):
+    job_id: str
+
+
+@router.post(
+    "/scheduler/pause",
+    dependencies=[require_permission("admin.system")],
+)
+async def pause_scheduler_job(body: PauseJobRequest):
+    """Pause a scheduled job (stops automatic execution)."""
+    from app.tasks.scheduler import scheduler
+    job = scheduler.get_job(body.job_id)
+    if not job:
+        raise HTTPException(404, f"Job '{body.job_id}' not found")
+    job.pause()
+    return {"detail": f"Job '{body.job_id}' paused", "job_id": body.job_id}
+
+
+@router.post(
+    "/scheduler/resume",
+    dependencies=[require_permission("admin.system")],
+)
+async def resume_scheduler_job(body: PauseJobRequest):
+    """Resume a paused scheduled job."""
+    from app.tasks.scheduler import scheduler
+    job = scheduler.get_job(body.job_id)
+    if not job:
+        raise HTTPException(404, f"Job '{body.job_id}' not found")
+    job.resume()
+    return {"detail": f"Job '{body.job_id}' resumed", "job_id": body.job_id}
 
 
 # ══════════════════════════════════════════════════════════════════════════════

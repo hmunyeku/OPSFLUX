@@ -45,9 +45,11 @@ interface AttachmentManagerProps {
   compact?: boolean
   /** If true, opens the file picker on mount */
   initialShowForm?: boolean
+  /** If true, hides upload and delete — only shows download links */
+  readOnly?: boolean
 }
 
-export function AttachmentManager({ ownerType, ownerId, compact, initialShowForm }: AttachmentManagerProps) {
+export function AttachmentManager({ ownerType, ownerId, compact, initialShowForm, readOnly }: AttachmentManagerProps) {
   const { toast } = useToast()
   const { data, isLoading } = useAttachments(ownerType, ownerId)
   const uploadAttachment = useUploadAttachment()
@@ -111,36 +113,38 @@ export function AttachmentManager({ ownerType, ownerId, compact, initialShowForm
 
   return (
     <div className="space-y-3">
-      {/* Hidden file input */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        className="hidden"
-        onChange={(e) => handleUpload(e.target.files)}
-      />
-
-      {/* Drop zone / Upload button */}
-      <div
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
-        className={`border-2 border-dashed rounded-lg px-4 py-4 text-center cursor-pointer transition-all ${
-          isDragging
-            ? 'border-primary bg-primary/5'
-            : 'border-border/60 hover:border-border hover:bg-accent/30'
-        }`}
-      >
-        {uploadAttachment.isPending ? (
-          <Loader2 size={20} className="mx-auto animate-spin text-muted-foreground mb-1" />
-        ) : (
-          <Plus size={20} className="mx-auto text-muted-foreground mb-1" />
-        )}
-        <p className="text-xs text-muted-foreground">
-          {compact ? 'Cliquez ou glissez pour ajouter' : 'Cliquez ou glissez-déposez des fichiers ici'}
-        </p>
-      </div>
+      {/* Hidden file input + Drop zone (hidden in readOnly mode) */}
+      {!readOnly && (
+        <>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(e) => handleUpload(e.target.files)}
+          />
+          <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+            className={`border-2 border-dashed rounded-lg px-4 py-4 text-center cursor-pointer transition-all ${
+              isDragging
+                ? 'border-primary bg-primary/5'
+                : 'border-border/60 hover:border-border hover:bg-accent/30'
+            }`}
+          >
+            {uploadAttachment.isPending ? (
+              <Loader2 size={20} className="mx-auto animate-spin text-muted-foreground mb-1" />
+            ) : (
+              <Plus size={20} className="mx-auto text-muted-foreground mb-1" />
+            )}
+            <p className="text-xs text-muted-foreground">
+              {compact ? 'Cliquez ou glissez pour ajouter' : 'Cliquez ou glissez-déposez des fichiers ici'}
+            </p>
+          </div>
+        </>
+      )}
 
       {/* Loading */}
       {isLoading && (
@@ -177,7 +181,7 @@ export function AttachmentManager({ ownerType, ownerId, compact, initialShowForm
                   <Download size={12} />
                 </a>
 
-                {isConfirming ? (
+                {!readOnly && (isConfirming ? (
                   <div className="flex items-center gap-1">
                     <button
                       className="gl-button-sm gl-button-danger"
@@ -198,7 +202,7 @@ export function AttachmentManager({ ownerType, ownerId, compact, initialShowForm
                   >
                     <Trash2 size={12} />
                   </button>
-                )}
+                ))}
               </div>
             </div>
           </div>

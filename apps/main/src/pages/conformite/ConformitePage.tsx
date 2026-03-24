@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next'
 import {
   ShieldCheck, Plus, Loader2, Trash2, FileCheck, ClipboardList,
   Briefcase, GitBranch, Scale, ShieldOff, Check, X, ClipboardCheck, Grid3X3, List,
-  Download, Paperclip,
+  Download, Paperclip, ChevronRight,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import { DataTableToolbar } from '@/components/ui/DataTable/Toolbar'
@@ -2129,13 +2129,63 @@ function VerificationsTab() {
   const { data, isLoading } = usePendingVerifications()
   const verifyRecord = useVerifyRecord()
   const { toast } = useToast()
+
+  // State
+  const [expandedOwners, setExpandedOwners] = useState<Set<string>>(new Set())
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState('')
+  const [batchRejectReason, setBatchRejectReason] = useState('')
+  const [batchAction, setBatchAction] = useState<'verify' | 'reject' | null>(null)
+  const [expandedPJ, setExpandedPJ] = useState<string | null>(null)
+  const [processing, setProcessing] = useState(false)
+
+  const items = data?.items ?? []
+
+  // Group items by owner
+  const grouped = useMemo(() => {
+    const map = new Map<string, { name: string; ownerType: string; items: typeof items }>()
+    for (const item of items) {
+      const key = item.owner_id || '_unknown'
+      if (!map.has(key)) {
+        map.set(key, { name: item.owner_name || 'Inconnu', ownerType: item.owner_type || '', items: [] })
+      }
+      map.get(key)!.items.push(item)
+    }
+    // Sort by item count desc
+    return [...map.entries()].sort((a, b) => b[1].items.length - a[1].items.length)
+  }, [items])
+
+  // Handlers
+  const toggleOwner = (ownerId: string) => {
+    setExpandedOwners((prev) => {
+      const next = new Set(prev)
+      if (next.has(ownerId)) next.delete(ownerId)
+      else next.add(ownerId)
+      return next
+    })
+  }
+
+  const toggleSelect = (itemId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(itemId)) next.delete(itemId)
+      else next.add(itemId)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === items.length) setSelectedIds(new Set())
+    else setSelectedIds(new Set(items.map((i) => `${i.record_type}::${i.id}`)))
+  }
 
   const handleVerify = async (recordType: string, recordId: string) => {
     try {
       await verifyRecord.mutateAsync({ recordType, recordId, action: 'verify' })
-      toast({ title: 'Vérifié', description: 'L\'enregistrement a été validé.', variant: 'success' })
+      toast({ title: 'Vérifié', variant: 'success' })
+      selectedIds.delete(`${recordType}::${recordId}`)
+      setSelectedIds(new Set(selectedIds))
     } catch {
       toast({ title: 'Erreur', variant: 'error' })
     }
@@ -2145,7 +2195,7 @@ function VerificationsTab() {
     if (!rejectReason.trim()) return
     try {
       await verifyRecord.mutateAsync({ recordType, recordId, action: 'reject', rejectionReason: rejectReason })
-      toast({ title: 'Rejeté', description: 'L\'enregistrement a été rejeté.', variant: 'success' })
+      toast({ title: 'Rejeté', variant: 'success' })
       setRejectingId(null)
       setRejectReason('')
     } catch {
@@ -2153,9 +2203,36 @@ function VerificationsTab() {
     }
   }
 
-  if (isLoading) return <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+  const handleBatchAction = async () => {
+    if (!batchAction || selectedIds.size === 0) return
+    if (batchAction === 'reject' && !batchRejectReason.trim()) return
+    setProcessing(true)
+    let ok = 0
+    let fail = 0
+    for (const key of selectedIds) {
+      const [recordType, recordId] = key.split('::')
+      try {
+        await verifyRecord.mutateAsync({
+          recordType,
+          recordId,
+          action: batchAction,
+          rejectionReason: batchAction === 'reject' ? batchRejectReason : undefined,
+        })
+        ok++
+      } catch { fail++ }
+    }
+    setProcessing(false)
+    setBatchAction(null)
+    setBatchRejectReason('')
+    setSelectedIds(new Set())
+    toast({
+      title: batchAction === 'verify' ? `${ok} vérifié(s)` : `${ok} rejeté(s)`,
+      description: fail > 0 ? `${fail} erreur(s)` : undefined,
+      variant: fail > 0 ? 'warning' : 'success',
+    })
+  }
 
-  const items = data?.items ?? []
+  if (isLoading) return <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
 
   if (items.length === 0) {
     return (
@@ -2168,50 +2245,176 @@ function VerificationsTab() {
   }
 
   return (
-    <div className="space-y-2 sm:space-y-2">
-      <p className="text-xs text-muted-foreground px-1">{items.length} enregistrement{items.length > 1 ? 's' : ''} en attente de vérification</p>
-      {items.map((item) => (
-        <div key={`${item.record_type}-${item.id}`} className="border border-border rounded-lg p-3 hover:bg-muted/20 transition-colors">
-          <div className="flex items-start sm:items-center gap-2">
-            <span className="gl-badge gl-badge-warning text-[9px] shrink-0 mt-0.5 sm:mt-0">{RECORD_TYPE_LABELS[item.record_type] || item.record_type}</span>
-            <span className="text-sm font-medium flex-1 break-words sm:truncate">{item.description}</span>
-            <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
-              {new Date(item.submitted_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })}
-            </span>
-          </div>
-          {item.owner_name && (
-            <p className="text-xs text-muted-foreground mt-1">Soumis par : <span className="text-foreground font-medium">{item.owner_name}</span></p>
-          )}
-
-          {rejectingId === item.id ? (
-            <div className="mt-2 space-y-2">
+    <div className="space-y-2">
+      {/* Batch action bar */}
+      {selectedIds.size > 0 && (
+        <div className="sticky top-0 z-20 bg-card/95 backdrop-blur border border-border rounded-lg px-3 py-2 flex items-center gap-2 shadow-sm">
+          <button onClick={toggleSelectAll} className="text-xs text-primary hover:text-primary/80 font-medium">
+            {selectedIds.size === items.length ? 'Tout décocher' : 'Tout sélectionner'}
+          </button>
+          <span className="text-xs text-muted-foreground flex-1">{selectedIds.size} sélectionné(s)</span>
+          {batchAction === 'reject' ? (
+            <div className="flex items-center gap-1.5">
               <input
                 type="text"
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
+                value={batchRejectReason}
+                onChange={(e) => setBatchRejectReason(e.target.value)}
                 placeholder="Motif du rejet..."
-                className="w-full text-xs border border-border rounded px-2 py-1.5 sm:py-1 bg-background"
+                className="text-xs border border-border rounded px-2 py-1 bg-background w-48"
                 autoFocus
               />
-              <div className="flex gap-2 justify-end">
-                <button onClick={() => { setRejectingId(null); setRejectReason('') }} className="px-3 py-1.5 sm:px-2 sm:py-0.5 text-[11px] sm:text-[10px] rounded border border-border hover:bg-muted text-muted-foreground">Annuler</button>
-                <button onClick={() => handleReject(item.record_type, item.id)} disabled={!rejectReason.trim() || verifyRecord.isPending} className="px-3 py-1.5 sm:px-2 sm:py-0.5 text-[11px] sm:text-[10px] rounded bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-40">
-                  {verifyRecord.isPending ? <Loader2 size={10} className="animate-spin inline mr-1" /> : null}Rejeter
-                </button>
-              </div>
+              <button onClick={handleBatchAction} disabled={!batchRejectReason.trim() || processing} className="gl-button-sm gl-button-danger text-[10px]">
+                {processing ? <Loader2 size={10} className="animate-spin" /> : 'Confirmer'}
+              </button>
+              <button onClick={() => { setBatchAction(null); setBatchRejectReason('') }} className="gl-button-sm gl-button-default text-[10px]">Annuler</button>
             </div>
           ) : (
-            <div className="flex gap-2 mt-2 justify-end">
-              <button onClick={() => setRejectingId(item.id)} className="gl-button-sm gl-button-danger flex items-center gap-1 text-[11px] sm:text-[10px] py-1.5 sm:py-1 px-2.5 sm:px-2">
-                <X size={12} className="sm:w-2.5 sm:h-2.5" /> Rejeter
+            <>
+              <button onClick={async () => {
+                setProcessing(true)
+                let ok = 0; let fail = 0
+                for (const key of selectedIds) {
+                  const [rt, rid] = key.split('::')
+                  try { await verifyRecord.mutateAsync({ recordType: rt, recordId: rid, action: 'verify' }); ok++ } catch { fail++ }
+                }
+                setProcessing(false); setSelectedIds(new Set())
+                toast({ title: `${ok} vérifié(s)`, description: fail > 0 ? `${fail} erreur(s)` : undefined, variant: fail > 0 ? 'warning' : 'success' })
+              }} disabled={processing} className="gl-button-sm gl-button-confirm text-[10px] flex items-center gap-1">
+                {processing ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />}
+                Vérifier ({selectedIds.size})
               </button>
-              <button onClick={() => handleVerify(item.record_type, item.id)} disabled={verifyRecord.isPending} className="gl-button-sm gl-button-confirm flex items-center gap-1 text-[11px] sm:text-[10px] py-1.5 sm:py-1 px-2.5 sm:px-2">
-                {verifyRecord.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} className="sm:w-2.5 sm:h-2.5" />} Vérifier & Valider
+              <button onClick={() => setBatchAction('reject')} className="gl-button-sm gl-button-danger text-[10px] flex items-center gap-1">
+                <X size={10} /> Rejeter
               </button>
-            </div>
+            </>
           )}
         </div>
-      ))}
+      )}
+
+      {/* Summary */}
+      <p className="text-xs text-muted-foreground px-1">{items.length} en attente · {grouped.length} personne{grouped.length > 1 ? 's' : ''}</p>
+
+      {/* Grouped by owner */}
+      <div className="border border-border rounded-lg overflow-hidden divide-y divide-border">
+        {grouped.map(([ownerId, group]) => {
+          const isExpanded = expandedOwners.has(ownerId)
+          const ownerSelected = group.items.every((i) => selectedIds.has(`${i.record_type}::${i.id}`))
+          const initials = group.name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
+
+          return (
+            <div key={ownerId}>
+              {/* Owner row */}
+              <div
+                className="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-muted/30 transition-colors"
+                onClick={() => toggleOwner(ownerId)}
+              >
+                <ChevronRight size={14} className={`shrink-0 text-muted-foreground transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
+                <div className="h-7 w-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold shrink-0">
+                  {initials}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-medium text-foreground">{group.name}</span>
+                  <span className="ml-2 text-[10px] text-muted-foreground">({group.items.length})</span>
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    const keys = group.items.map((i) => `${i.record_type}::${i.id}`)
+                    setSelectedIds((prev) => {
+                      const next = new Set(prev)
+                      if (ownerSelected) keys.forEach((k) => next.delete(k))
+                      else keys.forEach((k) => next.add(k))
+                      return next
+                    })
+                  }}
+                  className={`h-4 w-4 rounded border shrink-0 flex items-center justify-center transition-colors ${
+                    ownerSelected ? 'bg-primary border-primary text-white' : 'border-border hover:border-primary/50'
+                  }`}
+                >
+                  {ownerSelected && <Check size={10} />}
+                </button>
+              </div>
+
+              {/* Sub-rows */}
+              {isExpanded && (
+                <div className="bg-muted/10">
+                  {group.items.map((item) => {
+                    const itemKey = `${item.record_type}::${item.id}`
+                    const isSelected = selectedIds.has(itemKey)
+                    const isRejecting = rejectingId === item.id
+                    const isPJExpanded = expandedPJ === item.id
+
+                    return (
+                      <div key={itemKey}>
+                        <div className="flex items-center gap-2 pl-12 pr-3 py-2 border-t border-border/30 hover:bg-muted/20 transition-colors">
+                          <span className="gl-badge gl-badge-warning text-[9px] shrink-0">{RECORD_TYPE_LABELS[item.record_type] || item.record_type}</span>
+                          <span className="text-xs font-medium flex-1 truncate">{item.description}</span>
+                          <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
+                            {new Date(item.submitted_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                          </span>
+                          {/* PJ button */}
+                          <button
+                            onClick={() => setExpandedPJ(isPJExpanded ? null : item.id)}
+                            className={`p-1 rounded transition-colors shrink-0 ${isPJExpanded ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+                            title="Pièces jointes"
+                          >
+                            <Paperclip size={11} />
+                          </button>
+                          {/* Actions */}
+                          {isRejecting ? null : (
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button onClick={() => setRejectingId(item.id)} className="p-1 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20" title="Rejeter">
+                                <X size={12} />
+                              </button>
+                              <button onClick={() => handleVerify(item.record_type, item.id)} disabled={verifyRecord.isPending} className="p-1 rounded text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20" title="Vérifier">
+                                <Check size={12} />
+                              </button>
+                            </div>
+                          )}
+                          {/* Checkbox */}
+                          <button
+                            onClick={() => toggleSelect(itemKey)}
+                            className={`h-3.5 w-3.5 rounded border shrink-0 flex items-center justify-center transition-colors ${
+                              isSelected ? 'bg-primary border-primary text-white' : 'border-border hover:border-primary/50'
+                            }`}
+                          >
+                            {isSelected && <Check size={8} />}
+                          </button>
+                        </div>
+
+                        {/* Inline reject */}
+                        {isRejecting && (
+                          <div className="pl-12 pr-3 py-2 border-t border-border/20 bg-red-50/30 dark:bg-red-900/10 flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={rejectReason}
+                              onChange={(e) => setRejectReason(e.target.value)}
+                              placeholder="Motif du rejet..."
+                              className="flex-1 text-xs border border-border rounded px-2 py-1 bg-background"
+                              autoFocus
+                            />
+                            <button onClick={() => handleReject(item.record_type, item.id)} disabled={!rejectReason.trim() || verifyRecord.isPending} className="gl-button-sm gl-button-danger text-[10px]">
+                              {verifyRecord.isPending ? <Loader2 size={10} className="animate-spin" /> : 'Rejeter'}
+                            </button>
+                            <button onClick={() => { setRejectingId(null); setRejectReason('') }} className="gl-button-sm gl-button-default text-[10px]">Annuler</button>
+                          </div>
+                        )}
+
+                        {/* PJ expanded */}
+                        {isPJExpanded && (
+                          <div className="pl-12 pr-3 py-2 border-t border-border/20 bg-muted/20">
+                            <AttachmentManager ownerType={item.record_type} ownerId={item.id} compact readOnly />
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

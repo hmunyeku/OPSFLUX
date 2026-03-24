@@ -180,6 +180,11 @@ export const conformiteService = {
     })
     return data
   },
+
+  listVerificationHistory: async (params: { page?: number; page_size?: number } = {}): Promise<{ items: VerificationHistoryItem[]; total: number; page: number; page_size: number }> => {
+    const { data } = await api.get('/api/v1/conformite/verification-history', { params })
+    return data
+  },
 }
 
 export interface ComplianceDashboardKPIs {
@@ -204,4 +209,28 @@ export interface PendingVerificationItem {
   description: string
   submitted_at: string
   verification_status: string
+  issued_at?: string | null
+  expires_at?: string | null
+  issuer?: string | null
+  reference_number?: string | null
+  category?: string | null
+  type_name?: string | null
+  attachment_count?: number
+}
+
+export interface VerificationHistoryItem {
+  id: string
+  record_type: string
+  owner_type: string | null
+  owner_id: string | null
+  owner_name: string | null
+  description: string
+  verification_status: string
+  verified_by: string | null
+  verified_by_name: string | null
+  verified_at: string | null
+  verification_notes: string | null
+  issued_at: string | null
+  expires_at: string | null
+  reference_number: string | null
 }

@@ -271,11 +271,19 @@ export function useVerifyRecord() {
     }) => conformiteService.verifyRecord(recordType, recordId, action, rejectionReason),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['pending-verifications'] })
+      qc.invalidateQueries({ queryKey: ['verification-history'] })
       qc.invalidateQueries({ queryKey: ['compliance-records'] })
       qc.invalidateQueries({ queryKey: ['user-passports'] })
       qc.invalidateQueries({ queryKey: ['user-visas'] })
       qc.invalidateQueries({ queryKey: ['user-vaccines'] })
       qc.invalidateQueries({ queryKey: ['medical-checks'] })
     },
+  })
+}
+
+export function useVerificationHistory(page = 1, pageSize = 50) {
+  return useQuery({
+    queryKey: ['verification-history', page, pageSize],
+    queryFn: () => conformiteService.listVerificationHistory({ page, page_size: pageSize }),
   })
 }

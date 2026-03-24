@@ -1711,6 +1711,154 @@ async def list_pending_verifications(
     return {"items": items, "total": len(items)}
 
 
+@router.get("/verification-history", dependencies=[require_permission("conformite.verify")])
+async def list_verification_history(
+    page: int = 1,
+    page_size: int = 50,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return recently verified/rejected records across all verifiable models.
+
+    Shows the last N actions with verifier name, date, and action taken.
+    """
+    from app.models.common import (
+        UserPassport, UserVisa, SocialSecurity, UserVaccine,
+        MedicalCheck, DrivingLicense, UserGroup, UserGroupMember,
+    )
+
+    items: list[dict] = []
+
+    # Entity user IDs
+    entity_user_ids = (
+        select(UserGroupMember.user_id)
+        .join(UserGroup, UserGroup.id == UserGroupMember.group_id)
+        .where(UserGroup.entity_id == entity_id, UserGroup.active == True)
+        .distinct()
+    )
+
+    # ComplianceRecords — verified or rejected
+    cr_q = (
+        select(ComplianceRecord)
+        .where(
+            ComplianceRecord.entity_id == entity_id,
+            ComplianceRecord.active == True,
+            ComplianceRecord.verification_status.in_(["verified", "rejected"]),
+        )
+        .order_by(ComplianceRecord.verified_at.desc().nullslast())
+        .limit(page_size)
+        .offset((page - 1) * page_size)
+    )
+    for rec in (await db.execute(cr_q)).scalars().all():
+        ct = await db.get(ComplianceType, rec.compliance_type_id)
+        items.append({
+            "id": str(rec.id),
+            "record_type": "compliance_record",
+            "owner_type": rec.owner_type,
+            "owner_id": str(rec.owner_id),
+            "owner_name": None,
+            "description": f"{ct.name if ct else 'N/A'} — {rec.issuer or 'N/A'}",
+            "verification_status": rec.verification_status,
+            "verified_by": str(rec.verified_by) if rec.verified_by else None,
+            "verified_by_name": None,
+            "verified_at": rec.verified_at.isoformat() if rec.verified_at else None,
+            "verification_notes": rec.verification_notes,
+            "issued_at": rec.issued_at.isoformat() if rec.issued_at else None,
+            "expires_at": rec.expires_at.isoformat() if rec.expires_at else None,
+            "reference_number": rec.reference_number,
+        })
+
+    # User sub-models
+    sub_models = [
+        (UserPassport, "passport", lambda r: f"Passeport {r.number} — {r.country}"),
+        (UserVisa, "visa", lambda r: f"Visa {r.visa_type} — {r.country}"),
+        (SocialSecurity, "social_security", lambda r: f"Sécu {r.country} — {r.number}"),
+        (UserVaccine, "vaccine", lambda r: f"Vaccin {r.vaccine_type}"),
+        (DrivingLicense, "driving_license", lambda r: f"Permis {r.license_type} — {r.country}"),
+    ]
+    for Model, rtype, desc_fn in sub_models:
+        q = (
+            select(Model)
+            .where(
+                Model.verification_status.in_(["verified", "rejected"]),
+                Model.user_id.in_(entity_user_ids),
+            )
+            .order_by(Model.verified_at.desc().nullslast())
+            .limit(page_size)
+        )
+        for rec in (await db.execute(q)).scalars().all():
+            items.append({
+                "id": str(rec.id),
+                "record_type": rtype,
+                "owner_type": "user",
+                "owner_id": str(rec.user_id),
+                "owner_name": None,
+                "description": desc_fn(rec),
+                "verification_status": rec.verification_status,
+                "verified_by": str(rec.verified_by) if rec.verified_by else None,
+                "verified_by_name": None,
+                "verified_at": rec.verified_at.isoformat() if rec.verified_at else None,
+                "verification_notes": rec.verification_notes,
+                "issued_at": None,
+                "expires_at": None,
+                "reference_number": None,
+            })
+
+    # MedicalChecks
+    mc_q = (
+        select(MedicalCheck)
+        .where(
+            MedicalCheck.verification_status.in_(["verified", "rejected"]),
+            MedicalCheck.owner_id.in_(entity_user_ids),
+        )
+        .order_by(MedicalCheck.verified_at.desc().nullslast())
+        .limit(page_size)
+    )
+    for rec in (await db.execute(mc_q)).scalars().all():
+        items.append({
+            "id": str(rec.id),
+            "record_type": "medical_check",
+            "owner_type": rec.owner_type,
+            "owner_id": str(rec.owner_id),
+            "owner_name": None,
+            "description": f"Visite {rec.check_type} — {rec.provider or 'N/A'}",
+            "verification_status": rec.verification_status,
+            "verified_by": str(rec.verified_by) if rec.verified_by else None,
+            "verified_by_name": None,
+            "verified_at": rec.verified_at.isoformat() if rec.verified_at else None,
+            "verification_notes": rec.verification_notes,
+            "issued_at": rec.check_date.isoformat() if hasattr(rec, 'check_date') and rec.check_date else None,
+            "expires_at": rec.expiry_date.isoformat() if hasattr(rec, 'expiry_date') and rec.expiry_date else None,
+            "reference_number": None,
+        })
+
+    # Enrich owner names
+    user_ids = {i["owner_id"] for i in items if i["owner_type"] == "user" and i["owner_id"]}
+    verifier_ids = {i["verified_by"] for i in items if i["verified_by"]}
+    all_ids = user_ids | verifier_ids
+    if all_ids:
+        from sqlalchemy.dialects.postgresql import UUID as PgUUID
+        users_q = select(User.id, User.first_name, User.last_name).where(
+            User.id.in_([UUID(uid) for uid in all_ids])
+        )
+        user_map = {str(r.id): f"{r.first_name} {r.last_name}" for r in (await db.execute(users_q)).all()}
+        for item in items:
+            if item["owner_type"] == "user":
+                item["owner_name"] = user_map.get(item["owner_id"], "Inconnu")
+            if item["verified_by"]:
+                item["verified_by_name"] = user_map.get(item["verified_by"], "Inconnu")
+
+    # Sort by verified_at desc
+    items.sort(key=lambda x: x["verified_at"] or "", reverse=True)
+
+    # Paginate
+    total = len(items)
+    items = items[:page_size]
+
+    return {"items": items, "total": total, "page": page, "page_size": page_size}
+
+
 @router.post("/verify/{record_type}/{record_id}")
 async def verify_record(
     record_type: str,

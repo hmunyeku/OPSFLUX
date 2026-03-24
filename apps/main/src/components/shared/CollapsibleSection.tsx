@@ -196,7 +196,7 @@ export function CollapsibleSection({
         <button
           type="button"
           onClick={toggle}
-          className="flex items-center gap-2 flex-1 cursor-pointer select-none"
+          className="flex items-center gap-2 cursor-pointer select-none"
         >
           <ChevronRight
             size={16}
@@ -205,7 +205,7 @@ export function CollapsibleSection({
               expanded && 'rotate-90',
             )}
           />
-          <h2 className="gl-heading-2 flex-1 text-left">{title}</h2>
+          <h2 className="gl-heading-2 text-left">{title}</h2>
         </button>
         {headerAction && expanded && (
           <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0" onClick={(e) => e.stopPropagation()}>

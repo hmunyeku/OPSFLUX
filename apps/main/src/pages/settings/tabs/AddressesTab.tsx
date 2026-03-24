@@ -5,6 +5,7 @@
 import { useAuthStore } from '@/stores/authStore'
 import { AddressManager } from '@/components/shared/AddressManager'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
+import { Plus } from 'lucide-react'
 
 export function AddressesTab() {
   const userId = useAuthStore((s) => s.user?.id)
@@ -16,9 +17,14 @@ export function AddressesTab() {
       description="Gérez vos adresses personnelles : domicile, lieu de travail, points de ramassage et autres lieux fréquents."
       storageKey="settings.addresses.collapse"
       showSeparator={false}
+      headerAction={
+        <button className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter">
+          <Plus size={14} />
+        </button>
+      }
     >
       <div className="mt-2">
-        <AddressManager ownerType="user" ownerId={userId} compact />
+        <AddressManager ownerType="user" ownerId={userId} compact hideAddButton />
       </div>
     </CollapsibleSection>
   )

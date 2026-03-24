@@ -5,7 +5,7 @@ import { useDictionaryOptions, useDictionaryColumnOptions, useDictionary } from 
 import { CountryFlag } from '@/components/ui/CountryFlag'
 import type { UserPassportRead, UserPassportCreate } from '@/types/api'
 
-export function PassportManager({ userId, compact }: { userId: string; compact?: boolean }) {
+export function PassportManager({ userId, compact, hideAddButton }: { userId: string; compact?: boolean; hideAddButton?: boolean }) {
   const { data: items, isLoading } = usePassports(userId)
   const create = useCreatePassport()
   const update = useUpdatePassport()
@@ -55,6 +55,7 @@ export function PassportManager({ userId, compact }: { userId: string; compact?:
       onDelete={(itemId) => del.mutate({ userId, itemId })}
       createPending={create.isPending}
       compact={compact}
+      hideAddButton={hideAddButton}
     />
   )
 }

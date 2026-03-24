@@ -1123,6 +1123,211 @@ DEFAULT_TEMPLATES: list[dict] = [
             },
         },
     },
+    # ── Compliance verification templates ─────────────────────────────────────
+    {
+        "slug": "record_verified",
+        "name": "Document vérifié/rejeté",
+        "description": "Envoyé quand un document soumis est vérifié ou rejeté par un validateur.",
+        "object_type": "compliance",
+        "variables_schema": {
+            "user.first_name": "Prénom du propriétaire",
+            "user.email": "Email du propriétaire",
+            "record_type": "Type de document (Passeport, Visa, etc.)",
+            "record_description": "Description du document",
+            "action": "Action effectuée (vérifié/rejeté)",
+            "verifier_name": "Nom du vérificateur",
+            "rejection_reason": "Motif du rejet (si rejeté)",
+            "entity.name": "Nom de l'entité",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — Votre document a été {{ action }}",
+                "body_html": (
+                    '<!DOCTYPE html>'
+                    '<html lang="fr">'
+                    "<head>"
+                    '<meta charset="UTF-8">'
+                    '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
+                    "<title>Document {{ action }}</title>"
+                    "</head>"
+                    '<body style="margin:0;padding:0;background-color:#f4f6f9;font-family:Arial,Helvetica,sans-serif;">'
+                    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f4f6f9;">'
+                    "<tr>"
+                    "<td align=\"center\" style=\"padding:32px 16px;\">"
+                    # ── Main container ──
+                    '<table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.07);">'
+                    # ── Header ──
+                    "<tr>"
+                    '<td style="background-color:#2563EB;padding:28px 40px;text-align:center;">'
+                    '<h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:700;letter-spacing:0.5px;">OpsFlux</h1>'
+                    "</td>"
+                    "</tr>"
+                    # ── Body ──
+                    "<tr>"
+                    '<td style="padding:40px 40px 16px 40px;">'
+                    '<p style="margin:0 0 20px 0;font-size:16px;color:#1f2937;line-height:1.6;">'
+                    "Bonjour {{ user.first_name }},"
+                    "</p>"
+                    '<p style="margin:0 0 20px 0;font-size:16px;color:#1f2937;line-height:1.6;">'
+                    "Votre document <strong>{{ record_type }}</strong>"
+                    "{% if record_description %} ({{ record_description }}){% endif %}"
+                    " a été <strong>{{ action }}</strong> par {{ verifier_name }}."
+                    "</p>"
+                    # ── Verified: green success box ──
+                    "{% if action == 'vérifié' %}"
+                    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:24px;">'
+                    "<tr>"
+                    '<td style="background-color:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:16px 20px;">'
+                    '<p style="margin:0;font-size:14px;color:#166534;line-height:1.6;">'
+                    "&#10003; Votre document a été vérifié avec succès. Aucune action supplémentaire n'est requise."
+                    "</p>"
+                    "</td>"
+                    "</tr>"
+                    "</table>"
+                    "{% endif %}"
+                    # ── Rejected: red reason box ──
+                    "{% if action == 'rejeté' %}"
+                    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:24px;">'
+                    "<tr>"
+                    '<td style="background-color:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:16px 20px;">'
+                    '<p style="margin:0 0 8px 0;font-size:14px;color:#991b1b;font-weight:600;">Motif du rejet :</p>'
+                    '<p style="margin:0;font-size:14px;color:#991b1b;line-height:1.6;">'
+                    "{{ rejection_reason }}"
+                    "</p>"
+                    "</td>"
+                    "</tr>"
+                    "</table>"
+                    '<p style="margin:0 0 20px 0;font-size:14px;color:#6b7280;line-height:1.6;">'
+                    "Veuillez effectuer les corrections nécessaires et soumettre à nouveau votre document."
+                    "</p>"
+                    "{% endif %}"
+                    # ── Entity badge ──
+                    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:24px;">'
+                    "<tr>"
+                    '<td align="center">'
+                    '<table role="presentation" cellspacing="0" cellpadding="0" border="0">'
+                    "<tr>"
+                    '<td style="background-color:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:12px 24px;">'
+                    '<p style="margin:0;font-size:13px;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">Organisation</p>'
+                    '<p style="margin:4px 0 0 0;font-size:18px;color:#1e40af;font-weight:600;">{{ entity.name }}</p>'
+                    "</td>"
+                    "</tr>"
+                    "</table>"
+                    "</td>"
+                    "</tr>"
+                    "</table>"
+                    "</td>"
+                    "</tr>"
+                    # ── Footer ──
+                    "<tr>"
+                    '<td style="padding:24px 40px;border-top:1px solid #e5e7eb;text-align:center;">'
+                    '<p style="margin:0 0 4px 0;font-size:13px;color:#9ca3af;">Cordialement,</p>'
+                    '<p style="margin:0;font-size:14px;color:#6b7280;font-weight:600;">L\'équipe OpsFlux</p>'
+                    "</td>"
+                    "</tr>"
+                    "</table>"
+                    "</td>"
+                    "</tr>"
+                    "</table>"
+                    "</body>"
+                    "</html>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — Your document has been {{ action }}",
+                "body_html": (
+                    '<!DOCTYPE html>'
+                    '<html lang="en">'
+                    "<head>"
+                    '<meta charset="UTF-8">'
+                    '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
+                    "<title>Document {{ action }}</title>"
+                    "</head>"
+                    '<body style="margin:0;padding:0;background-color:#f4f6f9;font-family:Arial,Helvetica,sans-serif;">'
+                    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f4f6f9;">'
+                    "<tr>"
+                    "<td align=\"center\" style=\"padding:32px 16px;\">"
+                    # ── Main container ──
+                    '<table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.07);">'
+                    # ── Header ──
+                    "<tr>"
+                    '<td style="background-color:#2563EB;padding:28px 40px;text-align:center;">'
+                    '<h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:700;letter-spacing:0.5px;">OpsFlux</h1>'
+                    "</td>"
+                    "</tr>"
+                    # ── Body ──
+                    "<tr>"
+                    '<td style="padding:40px 40px 16px 40px;">'
+                    '<p style="margin:0 0 20px 0;font-size:16px;color:#1f2937;line-height:1.6;">'
+                    "Hello {{ user.first_name }},"
+                    "</p>"
+                    '<p style="margin:0 0 20px 0;font-size:16px;color:#1f2937;line-height:1.6;">'
+                    "Your document <strong>{{ record_type }}</strong>"
+                    "{% if record_description %} ({{ record_description }}){% endif %}"
+                    " has been <strong>{{ action }}</strong> by {{ verifier_name }}."
+                    "</p>"
+                    # ── Verified: green success box ──
+                    "{% if action == 'verified' %}"
+                    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:24px;">'
+                    "<tr>"
+                    '<td style="background-color:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:16px 20px;">'
+                    '<p style="margin:0;font-size:14px;color:#166534;line-height:1.6;">'
+                    "&#10003; Your document has been successfully verified. No further action is required."
+                    "</p>"
+                    "</td>"
+                    "</tr>"
+                    "</table>"
+                    "{% endif %}"
+                    # ── Rejected: red reason box ──
+                    "{% if action == 'rejected' %}"
+                    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:24px;">'
+                    "<tr>"
+                    '<td style="background-color:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:16px 20px;">'
+                    '<p style="margin:0 0 8px 0;font-size:14px;color:#991b1b;font-weight:600;">Rejection reason:</p>'
+                    '<p style="margin:0;font-size:14px;color:#991b1b;line-height:1.6;">'
+                    "{{ rejection_reason }}"
+                    "</p>"
+                    "</td>"
+                    "</tr>"
+                    "</table>"
+                    '<p style="margin:0 0 20px 0;font-size:14px;color:#6b7280;line-height:1.6;">'
+                    "Please make the necessary corrections and resubmit your document."
+                    "</p>"
+                    "{% endif %}"
+                    # ── Entity badge ──
+                    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:24px;">'
+                    "<tr>"
+                    '<td align="center">'
+                    '<table role="presentation" cellspacing="0" cellpadding="0" border="0">'
+                    "<tr>"
+                    '<td style="background-color:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:12px 24px;">'
+                    '<p style="margin:0;font-size:13px;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">Organisation</p>'
+                    '<p style="margin:4px 0 0 0;font-size:18px;color:#1e40af;font-weight:600;">{{ entity.name }}</p>'
+                    "</td>"
+                    "</tr>"
+                    "</table>"
+                    "</td>"
+                    "</tr>"
+                    "</table>"
+                    "</td>"
+                    "</tr>"
+                    # ── Footer ──
+                    "<tr>"
+                    '<td style="padding:24px 40px;border-top:1px solid #e5e7eb;text-align:center;">'
+                    '<p style="margin:0 0 4px 0;font-size:13px;color:#9ca3af;">Best regards,</p>'
+                    '<p style="margin:0;font-size:14px;color:#6b7280;font-weight:600;">The OpsFlux Team</p>'
+                    "</td>"
+                    "</tr>"
+                    "</table>"
+                    "</td>"
+                    "</tr>"
+                    "</table>"
+                    "</body>"
+                    "</html>"
+                ),
+            },
+        },
+    },
 ]
 
 

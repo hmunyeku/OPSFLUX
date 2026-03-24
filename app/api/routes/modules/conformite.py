@@ -15,7 +15,7 @@ from app.core.events import emit_event
 from app.core.pagination import PaginationParams, paginate
 from app.models.common import (
     ComplianceType, ComplianceRule, ComplianceRuleHistory, ComplianceRecord, ComplianceExemption,
-    JobPosition, TierContactTransfer, TierContact, Tier,
+    Entity, JobPosition, TierContactTransfer, TierContact, Tier,
     User, UserEmail, Phone, Setting,
 )
 from app.schemas.common import (
@@ -1556,18 +1556,71 @@ async def list_pending_verifications(
             "description": f"{ct.name if ct else rec.compliance_type_id} — {rec.issuer or 'N/A'}",
             "submitted_at": rec.created_at.isoformat(),
             "verification_status": rec.verification_status,
+            "issued_at": rec.issued_at.isoformat() if rec.issued_at else None,
+            "expires_at": rec.expires_at.isoformat() if rec.expires_at else None,
+            "issuer": rec.issuer or None,
+            "reference_number": rec.reference_number or None,
+            "category": ct.category if ct else None,
+            "type_name": ct.name if ct else None,
+            "attachment_count": 0,
         })
 
     # User sub-models — scoped to users in current entity
+    # Each entry: (Model, record_type, desc_fn, extra_fields_fn)
     sub_models = [
-        (UserPassport, "passport", lambda r: f"Passeport {r.number} — {r.country}"),
-        (UserVisa, "visa", lambda r: f"Visa {r.visa_type} — {r.country}"),
-        (SocialSecurity, "social_security", lambda r: f"Sécu sociale {r.country} — {r.number}"),
-        (UserVaccine, "vaccine", lambda r: f"Vaccin {r.vaccine_type}"),
-        (DrivingLicense, "driving_license", lambda r: f"Permis {r.license_type} — {r.country}"),
+        (
+            UserPassport, "passport",
+            lambda r: f"Passeport {r.number} — {r.country}",
+            lambda r: {
+                "issued_at": r.issue_date.isoformat() if r.issue_date else None,
+                "expires_at": r.expiry_date.isoformat() if r.expiry_date else None,
+                "issuer": r.country,
+                "reference_number": r.number,
+            },
+        ),
+        (
+            UserVisa, "visa",
+            lambda r: f"Visa {r.visa_type} — {r.country}",
+            lambda r: {
+                "issued_at": r.issue_date.isoformat() if r.issue_date else None,
+                "expires_at": r.expiry_date.isoformat() if r.expiry_date else None,
+                "issuer": r.country,
+                "reference_number": r.number or None,
+            },
+        ),
+        (
+            SocialSecurity, "social_security",
+            lambda r: f"Sécu sociale {r.country} — {r.number}",
+            lambda r: {
+                "issued_at": None,
+                "expires_at": None,
+                "issuer": r.country,
+                "reference_number": r.number,
+            },
+        ),
+        (
+            UserVaccine, "vaccine",
+            lambda r: f"Vaccin {r.vaccine_type}",
+            lambda r: {
+                "issued_at": r.date_administered.isoformat() if r.date_administered else None,
+                "expires_at": r.expiry_date.isoformat() if r.expiry_date else None,
+                "issuer": None,
+                "reference_number": r.batch_number or None,
+            },
+        ),
+        (
+            DrivingLicense, "driving_license",
+            lambda r: f"Permis {r.license_type} — {r.country}",
+            lambda r: {
+                "issued_at": None,
+                "expires_at": r.expiry_date.isoformat() if r.expiry_date else None,
+                "issuer": r.country,
+                "reference_number": None,
+            },
+        ),
     ]
 
-    for Model, rtype, desc_fn in sub_models:
+    for Model, rtype, desc_fn, extra_fn in sub_models:
         result = await db.execute(
             select(Model).where(
                 Model.verification_status == "pending",
@@ -1575,7 +1628,7 @@ async def list_pending_verifications(
             ).order_by(Model.created_at.desc())
         )
         for rec in result.scalars().all():
-            items.append({
+            item = {
                 "id": str(rec.id),
                 "record_type": rtype,
                 "owner_type": "user",
@@ -1584,7 +1637,12 @@ async def list_pending_verifications(
                 "description": desc_fn(rec),
                 "submitted_at": rec.created_at.isoformat(),
                 "verification_status": rec.verification_status,
-            })
+                "category": None,
+                "type_name": None,
+                "attachment_count": 0,
+            }
+            item.update(extra_fn(rec))
+            items.append(item)
 
     # MedicalChecks (polymorphic) — scope owner to entity users
     mc_result = await db.execute(
@@ -1603,6 +1661,13 @@ async def list_pending_verifications(
             "description": f"Visite {rec.check_type} — {rec.provider or 'N/A'}",
             "submitted_at": rec.created_at.isoformat(),
             "verification_status": rec.verification_status,
+            "issued_at": rec.check_date.isoformat() if rec.check_date else None,
+            "expires_at": rec.expiry_date.isoformat() if rec.expiry_date else None,
+            "issuer": rec.provider or None,
+            "reference_number": None,
+            "category": None,
+            "type_name": None,
+            "attachment_count": 0,
         })
 
     # Enrich owner names
@@ -1620,6 +1685,25 @@ async def list_pending_verifications(
         for item in items:
             if item["owner_type"] == "user":
                 item["owner_name"] = user_names.get(item["owner_id"])
+
+    # Bulk-count attachments per record
+    if items:
+        from app.models.common import Attachment
+
+        att_q = (
+            select(
+                Attachment.owner_type,
+                Attachment.owner_id,
+                sqla_func.count().label("cnt"),
+            )
+            .group_by(Attachment.owner_type, Attachment.owner_id)
+        )
+        att_result = await db.execute(att_q)
+        att_map = {(r.owner_type, str(r.owner_id)): r.cnt for r in att_result.all()}
+        for item in items:
+            item["attachment_count"] = att_map.get(
+                (item["record_type"], item["id"]), 0
+            )
 
     # Sort by submitted_at desc
     items.sort(key=lambda x: x["submitted_at"], reverse=True)
@@ -1696,6 +1780,76 @@ async def verify_record(
         })
 
     await db.commit()
+
+    # ── Send email notification to record owner ──────────────────────────────
+    try:
+        from app.core.email_templates import render_and_send_email
+
+        # Determine owner user
+        owner_user = None
+        if record_type == "compliance_record":
+            if record.owner_type == "user" and record.owner_id:
+                owner_user = await db.get(User, record.owner_id)
+        elif record_type == "medical_check":
+            if hasattr(record, "owner_id") and record.owner_id:
+                owner_user = await db.get(User, record.owner_id)
+        else:
+            # User sub-models (passport, visa, social_security, vaccine, driving_license)
+            if hasattr(record, "user_id") and record.user_id:
+                owner_user = await db.get(User, record.user_id)
+
+        if owner_user and owner_user.email:
+            # Build human-readable description
+            DESCRIPTION_MAP = {
+                "compliance_record": lambda r: f"{r.issuer or 'N/A'}",
+                "passport": lambda r: f"Passeport {getattr(r, 'number', '')} — {getattr(r, 'country', '')}",
+                "visa": lambda r: f"Visa {getattr(r, 'visa_type', '')} — {getattr(r, 'country', '')}",
+                "social_security": lambda r: f"Sécu sociale {getattr(r, 'country', '')} — {getattr(r, 'number', '')}",
+                "vaccine": lambda r: f"Vaccin {getattr(r, 'vaccine_type', '')}",
+                "driving_license": lambda r: f"Permis {getattr(r, 'license_type', '')} — {getattr(r, 'country', '')}",
+                "medical_check": lambda r: f"Visite {getattr(r, 'check_type', '')} — {getattr(r, 'provider', 'N/A')}",
+            }
+            desc_fn = DESCRIPTION_MAP.get(record_type, lambda r: "")
+            record_description = desc_fn(record)
+
+            # For compliance_record, fetch the type name
+            record_type_label = record_type.replace("_", " ").title()
+            if record_type == "compliance_record" and hasattr(record, "compliance_type_id"):
+                ct = await db.get(ComplianceType, record.compliance_type_id)
+                if ct:
+                    record_type_label = ct.name
+
+            # Get entity name
+            entity = await db.get(Entity, entity_id)
+            entity_name = entity.name if entity else "OpsFlux"
+
+            # Determine action labels (localized for FR, English for EN)
+            language = getattr(owner_user, "language", None) or "fr"
+            if language == "en":
+                action_label = "verified" if body.action == "verify" else "rejected"
+            else:
+                action_label = "vérifié" if body.action == "verify" else "rejeté"
+
+            await render_and_send_email(
+                db,
+                slug="record_verified",
+                entity_id=entity_id,
+                language=language,
+                to=owner_user.email,
+                variables={
+                    "user": {"first_name": owner_user.first_name, "email": owner_user.email},
+                    "record_type": record_type_label,
+                    "record_description": record_description,
+                    "action": action_label,
+                    "verifier_name": f"{current_user.first_name} {current_user.last_name}",
+                    "rejection_reason": body.rejection_reason or "",
+                    "entity": {"name": entity_name},
+                },
+            )
+    except Exception:
+        import logging
+        logging.getLogger(__name__).warning("Failed to send verification email", exc_info=True)
+
     return {
         "detail": f"Record {body.action}d",
         "verification_status": record.verification_status,

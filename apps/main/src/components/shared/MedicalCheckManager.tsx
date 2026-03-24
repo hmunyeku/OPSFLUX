@@ -8,9 +8,10 @@ interface MedicalCheckManagerProps {
   ownerType: string
   ownerId: string
   compact?: boolean
+  hideAddButton?: boolean
 }
 
-export function MedicalCheckManager({ ownerType, ownerId, compact }: MedicalCheckManagerProps) {
+export function MedicalCheckManager({ ownerType, ownerId, compact, hideAddButton }: MedicalCheckManagerProps) {
   const { data: items, isLoading } = useMedicalChecks(ownerType, ownerId)
   const create = useCreateMedicalCheck()
   const update = useUpdateMedicalCheck()
@@ -53,6 +54,7 @@ export function MedicalCheckManager({ ownerType, ownerId, compact }: MedicalChec
       onDelete={(itemId) => del.mutate({ ownerType, ownerId, checkId: itemId })}
       createPending={create.isPending}
       compact={compact}
+      hideAddButton={hideAddButton}
     />
   )
 }

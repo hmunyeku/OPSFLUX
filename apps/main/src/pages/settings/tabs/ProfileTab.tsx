@@ -11,7 +11,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import { useUpdateProfile, useUploadAvatar } from '@/hooks/useSettings'
 import { useToast } from '@/components/ui/Toast'
-import { Camera, Loader2, Pencil, Check } from 'lucide-react'
+import { Camera, Loader2, Pencil, Check, Plus } from 'lucide-react'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 import { ImageEditor } from '@/components/shared/ImageEditor'
 import { PhoneManager } from '@/components/shared/PhoneManager'
@@ -505,9 +505,14 @@ export function ProfileTab() {
         description="Vos numéros de téléphone : mobile, bureau, domicile."
         storageKey="settings.phones.collapse"
         defaultExpanded={false}
+        headerAction={
+          <button className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter">
+            <Plus size={14} />
+          </button>
+        }
       >
         <div className="mt-2">
-          <PhoneManager ownerType="user" ownerId={user?.id} />
+          <PhoneManager ownerType="user" ownerId={user?.id} hideAddButton />
         </div>
       </CollapsibleSection>
 
@@ -519,9 +524,14 @@ export function ProfileTab() {
         description="Personnes à contacter en cas d'urgence lors de vos missions."
         storageKey="settings.emergency.collapse"
         defaultExpanded={false}
+        headerAction={
+          <button className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter">
+            <Plus size={14} />
+          </button>
+        }
       >
         <div className="mt-2">
-          {user?.id && <EmergencyContactManager userId={user.id} />}
+          {user?.id && <EmergencyContactManager userId={user.id} hideAddButton />}
         </div>
       </CollapsibleSection>
 
@@ -532,21 +542,26 @@ export function ProfileTab() {
         description="Passeports, visas, sécurité sociale — gérés via sous-modèles."
         storageKey="settings.profile.collapse"
         showSeparator={false}
+        headerAction={
+          <button className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter">
+            <Plus size={14} />
+          </button>
+        }
       >
         <div className="mt-2 space-y-4">
           {user?.id && (
             <>
               <div>
                 <h4 className="text-xs font-semibold text-muted-foreground mb-1.5">Passeports</h4>
-                <PassportManager userId={user.id} />
+                <PassportManager userId={user.id} hideAddButton />
               </div>
               <div>
                 <h4 className="text-xs font-semibold text-muted-foreground mb-1.5">Visas</h4>
-                <VisaManager userId={user.id} />
+                <VisaManager userId={user.id} hideAddButton />
               </div>
               <div>
                 <h4 className="text-xs font-semibold text-muted-foreground mb-1.5">Sécurité sociale</h4>
-                <SocialSecurityManager userId={user.id} />
+                <SocialSecurityManager userId={user.id} hideAddButton />
               </div>
             </>
           )}
@@ -600,17 +615,22 @@ export function ProfileTab() {
         description="Visites médicales, vaccins et conditions de santé."
         storageKey="settings.profile.collapse"
         showSeparator={false}
+        headerAction={
+          <button className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter">
+            <Plus size={14} />
+          </button>
+        }
       >
         <div className="mt-2 space-y-4">
           {user?.id && (
             <>
               <div>
                 <h4 className="text-xs font-semibold text-muted-foreground mb-1.5">Visites médicales</h4>
-                <MedicalCheckManager ownerType="user" ownerId={user.id} />
+                <MedicalCheckManager ownerType="user" ownerId={user.id} hideAddButton />
               </div>
               <div>
                 <h4 className="text-xs font-semibold text-muted-foreground mb-1.5">Vaccins</h4>
-                <VaccineManager userId={user.id} />
+                <VaccineManager userId={user.id} hideAddButton />
               </div>
               <div>
                 <h4 className="text-xs font-semibold text-muted-foreground mb-1.5">Conditions de santé</h4>
@@ -685,17 +705,22 @@ export function ProfileTab() {
         description="Langues parlées et permis de conduire."
         storageKey="settings.profile.collapse"
         showSeparator={false}
+        headerAction={
+          <button className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter">
+            <Plus size={14} />
+          </button>
+        }
       >
         <div className="mt-2 space-y-4">
           {user?.id && (
             <>
               <div>
                 <h4 className="text-xs font-semibold text-muted-foreground mb-1.5">Langues</h4>
-                <UserLanguageManager userId={user.id} />
+                <UserLanguageManager userId={user.id} hideAddButton />
               </div>
               <div>
                 <h4 className="text-xs font-semibold text-muted-foreground mb-1.5">Permis de conduire</h4>
-                <DrivingLicenseManager userId={user.id} />
+                <DrivingLicenseManager userId={user.id} hideAddButton />
               </div>
             </>
           )}
@@ -709,6 +734,11 @@ export function ProfileTab() {
         description="Formations, certifications, habilitations, audits — suivi de conformité."
         storageKey="settings.profile.collapse"
         showSeparator={false}
+        headerAction={
+          <button className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter">
+            <Plus size={14} />
+          </button>
+        }
       >
         <div className="mt-2">
           {user?.id && <ReferentielManager ownerType="user" ownerId={user.id} />}

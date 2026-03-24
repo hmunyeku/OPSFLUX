@@ -253,9 +253,10 @@ interface PhoneManagerProps {
   ownerType: string
   ownerId: string | undefined
   compact?: boolean
+  hideAddButton?: boolean
 }
 
-export function PhoneManager({ ownerType, ownerId, compact }: PhoneManagerProps) {
+export function PhoneManager({ ownerType, ownerId, compact, hideAddButton }: PhoneManagerProps) {
   const { toast } = useToast()
   const { data, isLoading } = usePhones(ownerType, ownerId)
   const createPhone = useCreatePhone()
@@ -464,7 +465,7 @@ export function PhoneManager({ ownerType, ownerId, compact }: PhoneManagerProps)
         <EmptyState icon={PhoneIcon} title="Aucun téléphone" size="compact" />
       )}
 
-      {!showForm && (
+      {!hideAddButton && !showForm && (
         <button
           onClick={() => setShowForm(true)}
           className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-medium transition-colors"

@@ -295,9 +295,11 @@ interface AddressManagerProps {
   compact?: boolean
   /** If true, opens the add form immediately on mount */
   initialShowForm?: boolean
+  /** If true, hides all add buttons */
+  hideAddButton?: boolean
 }
 
-export function AddressManager({ ownerType, ownerId, compact, initialShowForm }: AddressManagerProps) {
+export function AddressManager({ ownerType, ownerId, compact, initialShowForm, hideAddButton }: AddressManagerProps) {
   const { toast } = useToast()
   const { data, isLoading } = useAddresses(ownerType, ownerId)
   const deleteAddress = useDeleteAddress()
@@ -335,7 +337,7 @@ export function AddressManager({ ownerType, ownerId, compact, initialShowForm }:
               Gérez les adresses associées à cet enregistrement.
             </p>
           </div>
-          {!showForm && !editingId && (
+          {!hideAddButton && !showForm && !editingId && (
             <button
               className="gl-button-sm gl-button-confirm"
               onClick={() => setShowForm(true)}
@@ -348,7 +350,7 @@ export function AddressManager({ ownerType, ownerId, compact, initialShowForm }:
       )}
 
       {/* Compact mode: text link style (same as PhoneManager/ContactEmailManager) */}
-      {compact && !showForm && !editingId && (
+      {compact && !hideAddButton && !showForm && !editingId && (
         <div className="flex justify-end">
           <button
             onClick={() => setShowForm(true)}

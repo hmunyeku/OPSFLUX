@@ -12,7 +12,7 @@ const FALLBACK_PROFICIENCY_OPTIONS = [
   { value: 'beginner', label: 'Débutant' },
 ]
 
-export function UserLanguageManager({ userId, compact }: { userId: string; compact?: boolean }) {
+export function UserLanguageManager({ userId, compact, hideAddButton }: { userId: string; compact?: boolean; hideAddButton?: boolean }) {
   const { data: items, isLoading } = useUserLanguages(userId)
   const create = useCreateUserLanguage()
   const update = useUpdateUserLanguage()
@@ -58,6 +58,7 @@ export function UserLanguageManager({ userId, compact }: { userId: string; compa
       onDelete={(itemId) => del.mutate({ userId, itemId })}
       createPending={create.isPending}
       compact={compact}
+      hideAddButton={hideAddButton}
     />
   )
 }

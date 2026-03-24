@@ -13,7 +13,7 @@ const FALLBACK_RELATIONSHIP_OPTIONS = [
   { value: 'other', label: 'Autre' },
 ]
 
-export function EmergencyContactManager({ userId, compact }: { userId: string; compact?: boolean }) {
+export function EmergencyContactManager({ userId, compact, hideAddButton }: { userId: string; compact?: boolean; hideAddButton?: boolean }) {
   const { data: items, isLoading } = useEmergencyContacts(userId)
   const create = useCreateEmergencyContact()
   const update = useUpdateEmergencyContact()
@@ -55,6 +55,7 @@ export function EmergencyContactManager({ userId, compact }: { userId: string; c
       onDelete={(itemId) => del.mutateAsync({ userId, itemId })}
       createPending={create.isPending}
       compact={compact}
+      hideAddButton={hideAddButton}
     />
   )
 }

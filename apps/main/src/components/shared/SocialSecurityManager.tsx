@@ -5,7 +5,7 @@ import { useDictionaryColumnOptions } from '@/hooks/useDictionary'
 import { CountryFlag } from '@/components/ui/CountryFlag'
 import type { SocialSecurityRead, SocialSecurityCreate } from '@/types/api'
 
-export function SocialSecurityManager({ userId, compact }: { userId: string; compact?: boolean }) {
+export function SocialSecurityManager({ userId, compact, hideAddButton }: { userId: string; compact?: boolean; hideAddButton?: boolean }) {
   const { data: items, isLoading } = useSocialSecurities(userId)
   const create = useCreateSocialSecurity()
   const update = useUpdateSocialSecurity()
@@ -47,6 +47,7 @@ export function SocialSecurityManager({ userId, compact }: { userId: string; com
       onDelete={(itemId) => del.mutate({ userId, itemId })}
       createPending={create.isPending}
       compact={compact}
+      hideAddButton={hideAddButton}
     />
   )
 }

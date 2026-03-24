@@ -5,7 +5,7 @@ import { useDictionaryOptions, useDictionaryColumnOptions, useDictionary } from 
 import { CountryFlag } from '@/components/ui/CountryFlag'
 import type { DrivingLicenseRead, DrivingLicenseCreate } from '@/types/api'
 
-export function DrivingLicenseManager({ userId, compact }: { userId: string; compact?: boolean }) {
+export function DrivingLicenseManager({ userId, compact, hideAddButton }: { userId: string; compact?: boolean; hideAddButton?: boolean }) {
   const { data: items, isLoading } = useDrivingLicenses(userId)
   const create = useCreateDrivingLicense()
   const update = useUpdateDrivingLicense()
@@ -48,6 +48,7 @@ export function DrivingLicenseManager({ userId, compact }: { userId: string; com
       onDelete={(itemId) => del.mutate({ userId, itemId })}
       createPending={create.isPending}
       compact={compact}
+      hideAddButton={hideAddButton}
     />
   )
 }

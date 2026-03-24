@@ -4,7 +4,7 @@ import { useVaccines, useCreateVaccine, useUpdateVaccine, useDeleteVaccine } fro
 import { useDictionaryOptions, useDictionary } from '@/hooks/useDictionary'
 import type { UserVaccineRead, UserVaccineCreate } from '@/types/api'
 
-export function VaccineManager({ userId, compact }: { userId: string; compact?: boolean }) {
+export function VaccineManager({ userId, compact, hideAddButton }: { userId: string; compact?: boolean; hideAddButton?: boolean }) {
   const { data: items, isLoading } = useVaccines(userId)
   const create = useCreateVaccine()
   const update = useUpdateVaccine()
@@ -45,6 +45,7 @@ export function VaccineManager({ userId, compact }: { userId: string; compact?: 
       onDelete={(itemId) => del.mutate({ userId, itemId })}
       createPending={create.isPending}
       compact={compact}
+      hideAddButton={hideAddButton}
     />
   )
 }

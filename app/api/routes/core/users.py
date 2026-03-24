@@ -84,6 +84,30 @@ async def create_user(
     await db.commit()
     await db.refresh(user)
 
+    # Auto-assign user to entity's default group (if entity has one)
+    target_entity_id = body.default_entity_id or entity_id
+    if target_entity_id:
+        from app.models.common import UserGroup, UserGroupMember, EntityUserAssignment
+        # Find entity's default group (first group linked to this entity)
+        default_group = await db.execute(
+            select(UserGroup).where(
+                UserGroup.entity_id == target_entity_id,
+                UserGroup.active == True,
+            ).limit(1)
+        )
+        group = default_group.scalar_one_or_none()
+        if group:
+            # Check if already member
+            existing_member = await db.execute(
+                select(UserGroupMember).where(
+                    UserGroupMember.user_id == user.id,
+                    UserGroupMember.group_id == group.id,
+                )
+            )
+            if not existing_member.scalar_one_or_none():
+                db.add(UserGroupMember(user_id=user.id, group_id=group.id))
+                await db.commit()
+
     # Send invitation email (non-blocking — don't fail creation if email fails)
     try:
         from app.core.security import create_password_reset_token
@@ -103,7 +127,7 @@ async def create_user(
             entity_id=entity_id,
             language=user.language or "fr",
             to=user.email,
-            context={
+            variables={
                 "invitation_url": invitation_url,
                 "user": {"first_name": user.first_name, "last_name": user.last_name, "email": user.email},
                 "inviter": {"first_name": current_user.first_name, "last_name": current_user.last_name},

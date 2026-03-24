@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next'
 import {
   ShieldCheck, Plus, Loader2, Trash2, FileCheck, ClipboardList,
   Briefcase, GitBranch, Scale, ShieldOff, Check, X, ClipboardCheck, Grid3X3, List,
-  Download, Paperclip, ChevronRight, LayoutDashboard,
+  Download, Paperclip, LayoutDashboard,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import { DataTableToolbar } from '@/components/ui/DataTable/Toolbar'
@@ -996,7 +996,7 @@ export function ConformitePage() {
           />
         )
       case 'verifications':
-        return <div className="p-6"><VerificationsTab /></div>
+        return <VerificationsTab />
       case 'exemptions':
         return (
           <DataTable<ComplianceExemption>
@@ -2139,408 +2139,160 @@ function VerificationsTab() {
   const { data, isLoading } = usePendingVerifications()
   const verifyRecord = useVerifyRecord()
   const { toast } = useToast()
-
-  // State
-  const [expandedOwners, setExpandedOwners] = useState<Set<string>>(new Set())
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState('')
-  const [batchRejectReason, setBatchRejectReason] = useState('')
-  const [batchAction, setBatchAction] = useState<'verify' | 'reject' | null>(null)
-  const [confirmBatch, setConfirmBatch] = useState(false)
-  const [expandedPJ, setExpandedPJ] = useState<string | null>(null)
-  const [processing, setProcessing] = useState(false)
+  const [verSearch, setVerSearch] = useState('')
 
   const items = data?.items ?? []
-
-  // Group items by owner
-  const grouped = useMemo(() => {
-    const map = new Map<string, { name: string; ownerType: string; items: typeof items }>()
-    for (const item of items) {
-      const key = item.owner_id || '_unknown'
-      if (!map.has(key)) {
-        map.set(key, { name: item.owner_name || 'Inconnu', ownerType: item.owner_type || '', items: [] })
-      }
-      map.get(key)!.items.push(item)
-    }
-    return [...map.entries()].sort((a, b) => b[1].items.length - a[1].items.length)
-  }, [items])
-
-  // Column count for colSpan on expanded rows
-  const COL_COUNT = 10
-
-  // Handlers
-  const toggleOwner = (ownerId: string) => {
-    setExpandedOwners((prev) => {
-      const next = new Set(prev)
-      if (next.has(ownerId)) next.delete(ownerId)
-      else next.add(ownerId)
-      return next
-    })
-  }
-
-  const toggleSelect = (itemId: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(itemId)) next.delete(itemId)
-      else next.add(itemId)
-      return next
-    })
-  }
-
-  const toggleSelectAll = () => {
-    if (selectedIds.size === items.length) setSelectedIds(new Set())
-    else setSelectedIds(new Set(items.map((i) => `${i.record_type}::${i.id}`)))
-  }
 
   const handleVerify = async (recordType: string, recordId: string) => {
     try {
       await verifyRecord.mutateAsync({ recordType, recordId, action: 'verify' })
-      toast({ title: 'Vérifié', variant: 'success' })
-      selectedIds.delete(`${recordType}::${recordId}`)
-      setSelectedIds(new Set(selectedIds))
-    } catch {
-      toast({ title: 'Erreur', variant: 'error' })
-    }
+      toast({ title: 'Verifie', variant: 'success' })
+    } catch { toast({ title: 'Erreur', variant: 'error' }) }
   }
 
   const handleReject = async (recordType: string, recordId: string) => {
     if (!rejectReason.trim()) return
     try {
       await verifyRecord.mutateAsync({ recordType, recordId, action: 'reject', rejectionReason: rejectReason })
-      toast({ title: 'Rejeté', variant: 'success' })
-      setRejectingId(null)
-      setRejectReason('')
-    } catch {
-      toast({ title: 'Erreur', variant: 'error' })
-    }
+      toast({ title: 'Rejete', variant: 'success' })
+      setRejectingId(null); setRejectReason('')
+    } catch { toast({ title: 'Erreur', variant: 'error' }) }
   }
 
-  const executeBatchVerify = async () => {
-    setProcessing(true)
-    let ok = 0; let fail = 0
-    for (const key of selectedIds) {
-      const [rt, rid] = key.split('::')
-      try { await verifyRecord.mutateAsync({ recordType: rt, recordId: rid, action: 'verify' }); ok++ } catch { fail++ }
-    }
-    setProcessing(false); setSelectedIds(new Set()); setConfirmBatch(false)
-    toast({ title: `${ok} vérifié(s)`, description: fail > 0 ? `${fail} erreur(s)` : undefined, variant: fail > 0 ? 'warning' : 'success' })
-  }
-
-  const executeBatchReject = async () => {
-    if (!batchRejectReason.trim()) return
-    setProcessing(true)
-    let ok = 0; let fail = 0
-    for (const key of selectedIds) {
-      const [rt, rid] = key.split('::')
-      try { await verifyRecord.mutateAsync({ recordType: rt, recordId: rid, action: 'reject', rejectionReason: batchRejectReason }); ok++ } catch { fail++ }
-    }
-    setProcessing(false); setBatchAction(null); setBatchRejectReason(''); setSelectedIds(new Set())
-    toast({ title: `${ok} rejeté(s)`, description: fail > 0 ? `${fail} erreur(s)` : undefined, variant: fail > 0 ? 'warning' : 'success' })
-  }
-
-  // Helper: format date in fr-FR short
   const fmtDate = (d: string | null | undefined) => {
     if (!d) return '—'
-    return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })
+    try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) }
+    catch { return '—' }
   }
 
-  // Helper: expiration color coding
-  const expirationClass = (expiresAt: string | null | undefined) => {
-    if (!expiresAt) return 'text-muted-foreground'
-    const now = Date.now()
-    const exp = new Date(expiresAt).getTime()
-    if (exp < now) return 'text-red-600 font-semibold'
-    if (exp - now < 30 * 24 * 60 * 60 * 1000) return 'text-orange-500 font-medium'
-    return 'text-muted-foreground'
-  }
+  type VerItem = typeof items[number]
 
-  if (isLoading) return <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+  const verColumns: ColumnDef<VerItem>[] = useMemo(() => [
+    {
+      accessorKey: 'owner_name',
+      header: 'Personne',
+      size: 160,
+      cell: ({ row }) => {
+        const name = row.original.owner_name || 'Inconnu'
+        const initials = name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
+        return (
+          <div className="flex items-center gap-2">
+            <div className="h-6 w-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-bold shrink-0">{initials}</div>
+            <span className="truncate">{name}</span>
+          </div>
+        )
+      },
+    },
+    {
+      accessorKey: 'record_type',
+      header: 'Type',
+      size: 120,
+      cell: ({ row }) => (
+        <span className="gl-badge gl-badge-warning text-[9px]">{RECORD_TYPE_LABELS[row.original.record_type] || row.original.record_type}</span>
+      ),
+    },
+    { accessorKey: 'description', header: 'Description', size: 220 },
+    {
+      accessorKey: 'issuer',
+      header: 'Emetteur',
+      size: 130,
+      cell: ({ row }) => <span className="truncate">{(row.original as any).issuer as string || '—'}</span>,
+    },
+    {
+      accessorKey: 'reference_number',
+      header: 'Reference',
+      size: 110,
+      cell: ({ row }) => <span className="font-mono truncate">{(row.original as any).reference_number as string || '—'}</span>,
+    },
+    {
+      accessorKey: 'submitted_at',
+      header: 'Date',
+      size: 100,
+      cell: ({ row }) => fmtDate((row.original as any).issued_at as string || row.original.submitted_at),
+    },
+    {
+      accessorKey: 'expires_at',
+      header: 'Expiration',
+      size: 100,
+      cell: ({ row }) => {
+        const exp = (row.original as any).expires_at as string | null
+        if (!exp) return <span className="text-muted-foreground">—</span>
+        const d = new Date(exp)
+        const now = new Date()
+        const days = Math.ceil((d.getTime() - now.getTime()) / 86400000)
+        const color = days < 0 ? 'text-red-500' : days < 30 ? 'text-orange-500' : 'text-foreground'
+        return <span className={color}>{fmtDate(exp)}</span>
+      },
+    },
+    {
+      accessorKey: 'attachment_count',
+      header: 'PJ',
+      size: 50,
+      cell: ({ row }) => {
+        const cnt = (row.original as any).attachment_count as number || 0
+        return cnt > 0
+          ? <span className="inline-flex items-center gap-0.5 text-primary"><Paperclip size={10} />{cnt}</span>
+          : <span className="text-muted-foreground">—</span>
+      },
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      size: 80,
+      cell: ({ row }) => {
+        const item = row.original
+        const isRejecting = rejectingId === item.id
+        if (isRejecting) {
+          return (
+            <div className="flex items-center gap-1">
+              <input
+                type="text" value={rejectReason} onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Motif..." className="text-[10px] border border-border rounded px-1.5 py-0.5 bg-background w-24" autoFocus
+                onKeyDown={(e) => { if (e.key === 'Enter') handleReject(item.record_type, item.id) }}
+              />
+              <button onClick={() => handleReject(item.record_type, item.id)} disabled={!rejectReason.trim()} className="p-0.5 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"><Check size={11} /></button>
+              <button onClick={() => { setRejectingId(null); setRejectReason('') }} className="p-0.5 rounded text-muted-foreground hover:bg-muted"><X size={11} /></button>
+            </div>
+          )
+        }
+        return (
+          <div className="flex items-center gap-1">
+            <button onClick={(e) => { e.stopPropagation(); handleVerify(item.record_type, item.id) }} className="p-1 rounded text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20" title="Verifier"><Check size={13} /></button>
+            <button onClick={(e) => { e.stopPropagation(); setRejectingId(item.id) }} className="p-1 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20" title="Rejeter"><X size={13} /></button>
+          </div>
+        )
+      },
+    },
+  ], [rejectingId, rejectReason])
 
-  if (items.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-        <ClipboardCheck size={32} className="mb-3 text-green-500/50" />
-        <p className="text-sm font-medium">Aucune vérification en attente</p>
-        <p className="text-xs mt-1">Tous les enregistrements sont vérifiés ou en cours de saisie.</p>
-      </div>
-    )
+  const verPagination: DataTablePagination = {
+    page: 1,
+    pageSize: items.length || 50,
+    total: items.length,
+    pages: 1,
   }
 
   return (
-    <div className="space-y-3">
-      {/* ── Header bar ── */}
-      <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-card border border-border">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40">
-            <span className="text-sm font-bold text-amber-600 tabular-nums">{items.length}</span>
-            <span className="text-xs text-amber-600/80">en attente</span>
-          </div>
-          <span className="text-xs text-muted-foreground">{grouped.length} personne{grouped.length > 1 ? 's' : ''}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          {selectedIds.size > 0 && (
-            <>
-              <button onClick={toggleSelectAll} className="text-xs text-muted-foreground hover:text-foreground">
-                {selectedIds.size === items.length ? 'Tout décocher' : 'Tout cocher'}
-              </button>
-              <span className="text-xs text-foreground font-medium">{selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''}</span>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* ── Batch action bar ── */}
-      {selectedIds.size > 0 && (
-        <div className="sticky top-0 z-20 bg-card/95 backdrop-blur border border-border rounded-lg px-4 py-2.5 flex items-center gap-3 shadow-sm">
-          {batchAction === 'reject' ? (
-            <div className="flex items-center gap-2 flex-1">
-              <input
-                type="text"
-                value={batchRejectReason}
-                onChange={(e) => setBatchRejectReason(e.target.value)}
-                placeholder="Motif du rejet..."
-                className="flex-1 text-xs border border-border rounded-md px-3 py-1.5 bg-background"
-                autoFocus
-              />
-              <button onClick={executeBatchReject} disabled={!batchRejectReason.trim() || processing} className="gl-button-sm gl-button-danger">
-                {processing ? <Loader2 size={12} className="animate-spin" /> : 'Confirmer le rejet'}
-              </button>
-              <button onClick={() => { setBatchAction(null); setBatchRejectReason('') }} className="gl-button-sm gl-button-default">Annuler</button>
-            </div>
-          ) : confirmBatch ? (
-            <div className="flex items-center gap-2 flex-1">
-              <span className="text-xs text-foreground flex-1">Vérifier {selectedIds.size} enregistrement{selectedIds.size > 1 ? 's' : ''} ?</span>
-              <button onClick={executeBatchVerify} disabled={processing} className="gl-button-sm gl-button-confirm">
-                {processing ? <Loader2 size={12} className="animate-spin" /> : 'Oui, vérifier'}
-              </button>
-              <button onClick={() => setConfirmBatch(false)} className="gl-button-sm gl-button-default">Annuler</button>
-            </div>
-          ) : (
-            <>
-              <span className="text-xs text-muted-foreground flex-1">{selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''}</span>
-              <button onClick={() => setConfirmBatch(true)} className="gl-button-sm gl-button-confirm">
-                <Check size={12} /> Vérifier ({selectedIds.size})
-              </button>
-              <button onClick={() => setBatchAction('reject')} className="gl-button-sm gl-button-danger">
-                <X size={12} /> Rejeter
-              </button>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* ── Table ── */}
-      <div className="border border-border rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs border-collapse">
-            <thead>
-              <tr className="bg-muted/50 border-b border-border sticky top-0 z-10">
-                <th className="w-8 px-2 py-2 text-center">
-                  <button
-                    onClick={toggleSelectAll}
-                    className={`h-3.5 w-3.5 rounded border inline-flex items-center justify-center transition-colors ${
-                      selectedIds.size === items.length && items.length > 0
-                        ? 'bg-primary border-primary text-white'
-                        : 'border-border hover:border-primary/50'
-                    }`}
-                  >
-                    {selectedIds.size === items.length && items.length > 0 && <Check size={8} />}
-                  </button>
-                </th>
-                <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Personne</th>
-                <th className="px-2 py-2 text-left font-semibold text-muted-foreground">Type</th>
-                <th className="px-2 py-2 text-left font-semibold text-muted-foreground">Description</th>
-                <th className="px-2 py-2 text-left font-semibold text-muted-foreground">Émetteur</th>
-                <th className="px-2 py-2 text-left font-semibold text-muted-foreground">Référence</th>
-                <th className="px-2 py-2 text-left font-semibold text-muted-foreground">Date</th>
-                <th className="px-2 py-2 text-left font-semibold text-muted-foreground">Expiration</th>
-                <th className="w-10 px-2 py-2 text-center font-semibold text-muted-foreground">PJ</th>
-                <th className="w-20 px-2 py-2 text-center font-semibold text-muted-foreground">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {grouped.map(([ownerId, group]) => {
-                const isExpanded = expandedOwners.has(ownerId)
-                const ownerSelected = group.items.every((i) => selectedIds.has(`${i.record_type}::${i.id}`))
-                const initials = group.name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
-
-                return (
-                  <React.Fragment key={ownerId}>
-                    {/* ── Parent row (owner) ── */}
-                    <tr
-                      className="bg-muted/30 border-b border-border cursor-pointer hover:bg-muted/50 transition-colors"
-                      onClick={() => toggleOwner(ownerId)}
-                    >
-                      <td className="px-2 py-2 text-center" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => {
-                            const keys = group.items.map((i) => `${i.record_type}::${i.id}`)
-                            setSelectedIds((prev) => {
-                              const next = new Set(prev)
-                              if (ownerSelected) keys.forEach((k) => next.delete(k))
-                              else keys.forEach((k) => next.add(k))
-                              return next
-                            })
-                          }}
-                          className={`h-4 w-4 rounded border inline-flex items-center justify-center transition-colors ${
-                            ownerSelected ? 'bg-primary border-primary text-white' : 'border-border hover:border-primary/50'
-                          }`}
-                        >
-                          {ownerSelected && <Check size={10} />}
-                        </button>
-                      </td>
-                      <td className="px-3 py-2" colSpan={COL_COUNT - 1}>
-                        <div className="flex items-center gap-2.5">
-                          <ChevronRight size={14} className={`shrink-0 text-muted-foreground transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
-                          <div className="h-7 w-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold shrink-0">
-                            {initials}
-                          </div>
-                          <span className="text-sm font-medium text-foreground">{group.name}</span>
-                          <span className="ml-1 inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-[10px] font-bold text-amber-700 dark:text-amber-400 tabular-nums">
-                            {group.items.length}
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-
-                    {/* ── Child rows (records) ── */}
-                    {isExpanded && group.items.map((item, idx) => {
-                      const itemKey = `${item.record_type}::${item.id}`
-                      const isSelected = selectedIds.has(itemKey)
-                      const isRejecting = rejectingId === item.id
-                      const isPJExpanded = expandedPJ === item.id
-                      const displayDate = (item as any).issued_at || item.submitted_at
-                      const expiresAt = (item as any).expires_at
-
-                      return (
-                        <React.Fragment key={itemKey}>
-                          <tr className={`border-b border-border/30 hover:bg-muted/20 transition-colors ${idx % 2 === 1 ? 'bg-muted/10' : ''}`}>
-                            {/* Checkbox */}
-                            <td className="px-2 py-1.5 text-center">
-                              <button
-                                onClick={() => toggleSelect(itemKey)}
-                                className={`h-3.5 w-3.5 rounded border inline-flex items-center justify-center transition-colors ${
-                                  isSelected ? 'bg-primary border-primary text-white' : 'border-border hover:border-primary/50'
-                                }`}
-                              >
-                                {isSelected && <Check size={8} />}
-                              </button>
-                            </td>
-                            {/* Personne (indent) */}
-                            <td className="px-3 py-1.5">
-                              <span className="pl-6 text-muted-foreground">—</span>
-                            </td>
-                            {/* Type */}
-                            <td className="px-2 py-1.5">
-                              <span className="gl-badge gl-badge-warning text-[9px] whitespace-nowrap">{RECORD_TYPE_LABELS[item.record_type] || item.record_type}</span>
-                            </td>
-                            {/* Description */}
-                            <td className="px-2 py-1.5 max-w-[200px]">
-                              <span className="font-medium truncate block">{item.description}</span>
-                            </td>
-                            {/* Émetteur */}
-                            <td className="px-2 py-1.5 text-muted-foreground whitespace-nowrap">
-                              {(item as any).issuer || '—'}
-                            </td>
-                            {/* Référence */}
-                            <td className="px-2 py-1.5 text-muted-foreground font-mono whitespace-nowrap">
-                              {(item as any).reference_number || '—'}
-                            </td>
-                            {/* Date */}
-                            <td className="px-2 py-1.5 text-muted-foreground tabular-nums whitespace-nowrap">
-                              {fmtDate(displayDate)}
-                            </td>
-                            {/* Expiration */}
-                            <td className={`px-2 py-1.5 tabular-nums whitespace-nowrap ${expirationClass(expiresAt)}`}>
-                              {fmtDate(expiresAt)}
-                            </td>
-                            {/* PJ */}
-                            <td className="px-2 py-1.5 text-center">
-                              <button
-                                onClick={() => setExpandedPJ(isPJExpanded ? null : item.id)}
-                                className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded transition-colors ${
-                                  isPJExpanded
-                                    ? 'bg-primary/10 text-primary'
-                                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                                }`}
-                                title="Pièces jointes"
-                              >
-                                <Paperclip size={11} />
-                                {(item as any).attachment_count > 0 && (
-                                  <span className="text-[9px] font-bold tabular-nums">{(item as any).attachment_count}</span>
-                                )}
-                              </button>
-                            </td>
-                            {/* Actions */}
-                            <td className="px-2 py-1.5 text-center">
-                              {isRejecting ? null : (
-                                <div className="flex items-center justify-center gap-1">
-                                  <button
-                                    onClick={() => handleVerify(item.record_type, item.id)}
-                                    disabled={verifyRecord.isPending}
-                                    className="p-1 rounded text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
-                                    title="Vérifier"
-                                  >
-                                    <Check size={13} />
-                                  </button>
-                                  <button
-                                    onClick={() => setRejectingId(item.id)}
-                                    className="p-1 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                                    title="Rejeter"
-                                  >
-                                    <X size={13} />
-                                  </button>
-                                </div>
-                              )}
-                            </td>
-                          </tr>
-
-                          {/* Inline reject row */}
-                          {isRejecting && (
-                            <tr className="border-b border-border/20 bg-red-50/30 dark:bg-red-900/10">
-                              <td colSpan={COL_COUNT} className="px-3 py-2">
-                                <div className="flex items-center gap-2 pl-6">
-                                  <input
-                                    type="text"
-                                    value={rejectReason}
-                                    onChange={(e) => setRejectReason(e.target.value)}
-                                    placeholder="Motif du rejet..."
-                                    className="flex-1 text-xs border border-border rounded px-2 py-1 bg-background"
-                                    autoFocus
-                                  />
-                                  <button onClick={() => handleReject(item.record_type, item.id)} disabled={!rejectReason.trim() || verifyRecord.isPending} className="gl-button-sm gl-button-danger text-[10px]">
-                                    {verifyRecord.isPending ? <Loader2 size={10} className="animate-spin" /> : 'Rejeter'}
-                                  </button>
-                                  <button onClick={() => { setRejectingId(null); setRejectReason('') }} className="gl-button-sm gl-button-default text-[10px]">Annuler</button>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-
-                          {/* PJ expanded row */}
-                          {isPJExpanded && (
-                            <tr className="border-b border-border/20 bg-muted/20">
-                              <td colSpan={COL_COUNT} className="px-3 py-2">
-                                <div className="pl-6">
-                                  <AttachmentManager ownerType={item.record_type} ownerId={item.id} compact readOnly />
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                        </React.Fragment>
-                      )
-                    })}
-                  </React.Fragment>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+    <DataTable<VerItem>
+      columns={verColumns}
+      data={items}
+      isLoading={isLoading}
+      pagination={verPagination}
+      searchValue={verSearch}
+      onSearchChange={setVerSearch}
+      searchPlaceholder="Rechercher par personne, type, description..."
+      emptyIcon={ClipboardCheck}
+      emptyTitle="Aucune verification en attente"
+      columnResizing
+      storageKey="conformite-verifications"
+    />
   )
+
 }
+
+// Old nested table code removed — now uses DataTable
 
 registerPanelRenderer('conformite', (view) => {
   if (view.type === 'create' && !view.meta?.subtype) return <CreateTypePanel />

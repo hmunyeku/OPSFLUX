@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next'
 import { useThemeStore } from '@/stores/themeStore'
 import { useUpdateProfile } from '@/hooks/useSettings'
 import { useToast } from '@/components/ui/Toast'
-import { Sun, Moon, Monitor, Loader2, ZoomIn, Table2 } from 'lucide-react'
+import { Sun, Moon, Monitor, Loader2, ZoomIn, Table2, X } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { usePageSize } from '@/hooks/usePageSize'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
@@ -131,14 +131,30 @@ export function PreferencesTab() {
 
 // ── Page Size configuration section ──────────────────────────────
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
+const MAX_PAGE_SIZE = 500 // TODO: fetch from admin settings (datatable.max_page_size)
 
 function PageSizeSection() {
   const { toast } = useToast()
   const { pageSize, setPageSize } = usePageSize()
+  const [customValue, setCustomValue] = useState('')
+  const [showCustom, setShowCustom] = useState(!PAGE_SIZE_OPTIONS.includes(pageSize))
 
   const handleChange = (value: number) => {
     setPageSize(value)
+    setShowCustom(false)
+    setCustomValue('')
     toast({ title: `Affichage: ${value} lignes par page`, variant: 'success' })
+  }
+
+  const handleCustomSubmit = () => {
+    const num = parseInt(customValue)
+    if (!num || num < 1) return
+    if (num > MAX_PAGE_SIZE) {
+      toast({ title: `Maximum ${MAX_PAGE_SIZE} lignes`, variant: 'warning' })
+      return
+    }
+    setPageSize(num)
+    toast({ title: `Affichage: ${num} lignes par page`, variant: 'success' })
   }
 
   return (
@@ -148,14 +164,14 @@ function PageSizeSection() {
           <Table2 size={12} className="text-muted-foreground" />
           Lignes par page
         </label>
-        <div className="flex items-center gap-2 mt-2">
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
           {PAGE_SIZE_OPTIONS.map((size) => (
             <button
               key={size}
               type="button"
               onClick={() => handleChange(size)}
               className={`inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
-                pageSize === size
+                pageSize === size && !showCustom
                   ? 'bg-primary/10 border-primary/40 text-primary shadow-sm'
                   : 'bg-background border-border text-muted-foreground hover:bg-accent hover:text-foreground'
               }`}
@@ -163,9 +179,39 @@ function PageSizeSection() {
               {size}
             </button>
           ))}
+          {/* Custom value input */}
+          {showCustom || !PAGE_SIZE_OPTIONS.includes(pageSize) ? (
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                value={customValue || (!PAGE_SIZE_OPTIONS.includes(pageSize) ? String(pageSize) : '')}
+                onChange={(e) => setCustomValue(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleCustomSubmit() }}
+                placeholder="Custom"
+                min={1}
+                max={MAX_PAGE_SIZE}
+                className="gl-form-input w-20 h-8 text-sm text-center"
+                autoFocus
+              />
+              <button onClick={handleCustomSubmit} className="gl-button-sm gl-button-confirm h-8 px-2">OK</button>
+              {PAGE_SIZE_OPTIONS.includes(pageSize) && (
+                <button onClick={() => setShowCustom(false)} className="gl-button-sm gl-button-default h-8 px-2">
+                  <X size={11} />
+                </button>
+              )}
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowCustom(true)}
+              className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-all border bg-background border-border text-muted-foreground hover:bg-accent hover:text-foreground border-dashed"
+            >
+              Autre...
+            </button>
+          )}
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          Nombre de lignes affichées par défaut dans tous les tableaux de données.
+          Nombre de lignes affichees par defaut dans tous les tableaux. Maximum : {MAX_PAGE_SIZE}.
         </p>
       </div>
     </div>

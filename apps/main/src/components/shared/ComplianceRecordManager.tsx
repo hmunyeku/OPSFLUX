@@ -9,7 +9,8 @@
  *   <ComplianceRecordManager ownerType="tier" ownerId={tier.id} />
  */
 import { useState } from 'react'
-import { ShieldCheck, ShieldAlert, Plus, Trash2, Check, X, Loader2, AlertTriangle } from 'lucide-react'
+import { ShieldCheck, ShieldAlert, Plus, Trash2, Check, X, Loader2, AlertTriangle, Paperclip } from 'lucide-react'
+import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useToast } from '@/components/ui/Toast'
 import {
@@ -42,6 +43,7 @@ export function ComplianceRecordManager({ ownerType, ownerId, compact }: Complia
   const deleteRecord = useDeleteComplianceRecord()
 
   const [showForm, setShowForm] = useState(false)
+  const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null)
   const [form, setForm] = useState({ compliance_type_id: '', status: 'pending', issued_at: '', expires_at: '', issuer: '', reference_number: '' })
 
   const handleCreate = async () => {
@@ -125,16 +127,29 @@ export function ComplianceRecordManager({ ownerType, ownerId, compact }: Complia
       ) : records?.items && records.items.length > 0 ? (
         <div className="border border-border rounded-md overflow-hidden">
           {records.items.map((rec) => (
-            <div key={rec.id} className="group flex items-center gap-2 px-2.5 py-1.5 text-xs border-b border-border/50 last:border-0 hover:bg-muted/30">
-              <span className={cn('gl-badge text-[9px]', STATUS_STYLES[rec.status] || 'gl-badge-neutral')}>{rec.status}</span>
-              <span className="flex-1 truncate font-medium">{rec.type_name || rec.compliance_type_id}</span>
-              {rec.expires_at && (
-                <span className="text-[10px] text-muted-foreground tabular-nums">
-                  exp. {new Date(rec.expires_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })}
-                </span>
+            <div key={rec.id}>
+              <div
+                className="group flex items-center gap-2 px-2.5 py-1.5 text-xs border-b border-border/50 last:border-0 hover:bg-muted/30 cursor-pointer"
+                onClick={() => setExpandedRecordId(expandedRecordId === rec.id ? null : rec.id)}
+              >
+                <span className={cn('gl-badge text-[9px]', STATUS_STYLES[rec.status] || 'gl-badge-neutral')}>{rec.status}</span>
+                <span className="flex-1 truncate font-medium">{rec.type_name || rec.compliance_type_id}</span>
+                {rec.expires_at && (
+                  <span className="text-[10px] text-muted-foreground tabular-nums">
+                    exp. {new Date(rec.expires_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })}
+                  </span>
+                )}
+                {rec.issuer && <span className="text-[10px] text-muted-foreground truncate max-w-[80px]">{rec.issuer}</span>}
+                <button onClick={(e) => { e.stopPropagation(); setExpandedRecordId(expandedRecordId === rec.id ? null : rec.id) }} className="p-0.5 rounded hover:bg-muted text-muted-foreground shrink-0" title="Pièces jointes">
+                  <Paperclip size={10} />
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); handleDelete(rec.id) }} className="p-0.5 rounded hover:bg-muted text-muted-foreground opacity-0 group-hover:opacity-100"><Trash2 size={10} /></button>
+              </div>
+              {expandedRecordId === rec.id && (
+                <div className="px-3 py-2 bg-muted/20 border-b border-border/50">
+                  <AttachmentManager ownerType="compliance_record" ownerId={rec.id} compact />
+                </div>
               )}
-              {rec.issuer && <span className="text-[10px] text-muted-foreground truncate max-w-[80px]">{rec.issuer}</span>}
-              <button onClick={() => handleDelete(rec.id)} className="p-0.5 rounded hover:bg-muted text-muted-foreground opacity-0 group-hover:opacity-100"><Trash2 size={10} /></button>
             </div>
           ))}
         </div>

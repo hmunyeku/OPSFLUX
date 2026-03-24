@@ -12,8 +12,9 @@
 import { useState, useMemo } from 'react'
 import {
   ShieldCheck, ShieldAlert, Plus, Trash2, X,
-  Loader2, AlertTriangle, Pencil, GraduationCap,
+  Loader2, AlertTriangle, Pencil, GraduationCap, Paperclip,
 } from 'lucide-react'
+import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/components/ui/Toast'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -93,6 +94,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
 
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null)
   const [form, setForm] = useState<FormData>(EMPTY_FORM)
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
 
@@ -304,33 +306,47 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
                 </div>
                 <div className="border border-border rounded-md overflow-hidden">
                   {catRecords.map((rec) => (
-                    <div
-                      key={rec.id}
-                      className="group flex items-center gap-2 px-2.5 py-1.5 text-xs border-b border-border/50 last:border-0 hover:bg-muted/30"
-                    >
-                      <span className={cn('gl-badge text-[9px] shrink-0', STATUS_STYLES[rec.status] || 'gl-badge-neutral')}>
-                        {STATUS_LABELS[rec.status] || rec.status}
-                      </span>
-                      <span className="flex-1 truncate font-medium">{rec.type_name || rec.compliance_type_id}</span>
-                      {rec.issued_at && (
-                        <span className="text-[10px] text-muted-foreground tabular-nums shrink-0" title="Date émission">
-                          {formatDate(rec.issued_at)}
+                    <div key={rec.id}>
+                      <div
+                        className="group flex items-center gap-2 px-2.5 py-1.5 text-xs border-b border-border/50 last:border-0 hover:bg-muted/30 cursor-pointer"
+                        onClick={() => setExpandedRecordId(expandedRecordId === rec.id ? null : rec.id)}
+                      >
+                        <span className={cn('gl-badge text-[9px] shrink-0', STATUS_STYLES[rec.status] || 'gl-badge-neutral')}>
+                          {STATUS_LABELS[rec.status] || rec.status}
                         </span>
-                      )}
-                      {rec.expires_at && (
-                        <span className="text-[10px] text-muted-foreground tabular-nums shrink-0" title="Date expiration">
-                          → {formatDate(rec.expires_at)}
-                        </span>
-                      )}
-                      {rec.issuer && <span className="text-[10px] text-muted-foreground truncate max-w-[80px]" title={rec.issuer}>{rec.issuer}</span>}
-                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                        <button onClick={() => openEdit(rec)} className="p-0.5 rounded hover:bg-muted text-muted-foreground" title="Modifier">
-                          <Pencil size={10} />
+                        <span className="flex-1 truncate font-medium">{rec.type_name || rec.compliance_type_id}</span>
+                        {rec.issued_at && (
+                          <span className="text-[10px] text-muted-foreground tabular-nums shrink-0" title="Date émission">
+                            {formatDate(rec.issued_at)}
+                          </span>
+                        )}
+                        {rec.expires_at && (
+                          <span className="text-[10px] text-muted-foreground tabular-nums shrink-0" title="Date expiration">
+                            → {formatDate(rec.expires_at)}
+                          </span>
+                        )}
+                        {rec.issuer && <span className="text-[10px] text-muted-foreground truncate max-w-[80px]" title={rec.issuer}>{rec.issuer}</span>}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setExpandedRecordId(expandedRecordId === rec.id ? null : rec.id) }}
+                          className="p-0.5 rounded hover:bg-muted text-muted-foreground shrink-0"
+                          title="Pièces jointes"
+                        >
+                          <Paperclip size={10} />
                         </button>
-                        <button onClick={() => handleDelete(rec.id)} className="p-0.5 rounded hover:bg-muted text-muted-foreground" title="Supprimer">
-                          <Trash2 size={10} />
-                        </button>
+                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                          <button onClick={(e) => { e.stopPropagation(); openEdit(rec) }} className="p-0.5 rounded hover:bg-muted text-muted-foreground" title="Modifier">
+                            <Pencil size={10} />
+                          </button>
+                          <button onClick={(e) => { e.stopPropagation(); handleDelete(rec.id) }} className="p-0.5 rounded hover:bg-muted text-muted-foreground" title="Supprimer">
+                            <Trash2 size={10} />
+                          </button>
+                        </div>
                       </div>
+                      {expandedRecordId === rec.id && (
+                        <div className="px-3 py-2 bg-muted/20 border-b border-border/50">
+                          <AttachmentManager ownerType="compliance_record" ownerId={rec.id} compact />
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

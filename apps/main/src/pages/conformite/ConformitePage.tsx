@@ -2147,6 +2147,7 @@ function VerificationsTab() {
   const [rejectReason, setRejectReason] = useState('')
   const [batchRejectReason, setBatchRejectReason] = useState('')
   const [batchAction, setBatchAction] = useState<'verify' | 'reject' | null>(null)
+  const [confirmBatch, setConfirmBatch] = useState(false)
   const [expandedPJ, setExpandedPJ] = useState<string | null>(null)
   const [processing, setProcessing] = useState(false)
 
@@ -2162,7 +2163,6 @@ function VerificationsTab() {
       }
       map.get(key)!.items.push(item)
     }
-    // Sort by item count desc
     return [...map.entries()].sort((a, b) => b[1].items.length - a[1].items.length)
   }, [items])
 
@@ -2213,33 +2213,27 @@ function VerificationsTab() {
     }
   }
 
-  const handleBatchAction = async () => {
-    if (!batchAction || selectedIds.size === 0) return
-    if (batchAction === 'reject' && !batchRejectReason.trim()) return
+  const executeBatchVerify = async () => {
     setProcessing(true)
-    let ok = 0
-    let fail = 0
+    let ok = 0; let fail = 0
     for (const key of selectedIds) {
-      const [recordType, recordId] = key.split('::')
-      try {
-        await verifyRecord.mutateAsync({
-          recordType,
-          recordId,
-          action: batchAction,
-          rejectionReason: batchAction === 'reject' ? batchRejectReason : undefined,
-        })
-        ok++
-      } catch { fail++ }
+      const [rt, rid] = key.split('::')
+      try { await verifyRecord.mutateAsync({ recordType: rt, recordId: rid, action: 'verify' }); ok++ } catch { fail++ }
     }
-    setProcessing(false)
-    setBatchAction(null)
-    setBatchRejectReason('')
-    setSelectedIds(new Set())
-    toast({
-      title: batchAction === 'verify' ? `${ok} vérifié(s)` : `${ok} rejeté(s)`,
-      description: fail > 0 ? `${fail} erreur(s)` : undefined,
-      variant: fail > 0 ? 'warning' : 'success',
-    })
+    setProcessing(false); setSelectedIds(new Set()); setConfirmBatch(false)
+    toast({ title: `${ok} vérifié(s)`, description: fail > 0 ? `${fail} erreur(s)` : undefined, variant: fail > 0 ? 'warning' : 'success' })
+  }
+
+  const executeBatchReject = async () => {
+    if (!batchRejectReason.trim()) return
+    setProcessing(true)
+    let ok = 0; let fail = 0
+    for (const key of selectedIds) {
+      const [rt, rid] = key.split('::')
+      try { await verifyRecord.mutateAsync({ recordType: rt, recordId: rid, action: 'reject', rejectionReason: batchRejectReason }); ok++ } catch { fail++ }
+    }
+    setProcessing(false); setBatchAction(null); setBatchRejectReason(''); setSelectedIds(new Set())
+    toast({ title: `${ok} rejeté(s)`, description: fail > 0 ? `${fail} erreur(s)` : undefined, variant: fail > 0 ? 'warning' : 'success' })
   }
 
   if (isLoading) return <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
@@ -2255,54 +2249,65 @@ function VerificationsTab() {
   }
 
   return (
-    <div className="space-y-2">
-      {/* Batch action bar */}
+    <div className="space-y-3">
+      {/* Summary bar — always visible at top */}
+      <div className="flex items-center justify-between px-1">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40">
+            <span className="text-sm font-bold text-amber-600 tabular-nums">{items.length}</span>
+            <span className="text-xs text-amber-600/80">en attente</span>
+          </div>
+          <span className="text-xs text-muted-foreground">{grouped.length} personne{grouped.length > 1 ? 's' : ''}</span>
+        </div>
+        {selectedIds.size > 0 && (
+          <div className="flex items-center gap-2">
+            <button onClick={toggleSelectAll} className="text-xs text-muted-foreground hover:text-foreground">
+              {selectedIds.size === items.length ? 'Tout décocher' : 'Tout cocher'}
+            </button>
+            <span className="text-xs text-foreground font-medium">{selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Batch action bar — only when selection exists */}
       {selectedIds.size > 0 && (
-        <div className="sticky top-0 z-20 bg-card/95 backdrop-blur border border-border rounded-lg px-3 py-2 flex items-center gap-2 shadow-sm">
-          <button onClick={toggleSelectAll} className="text-xs text-primary hover:text-primary/80 font-medium">
-            {selectedIds.size === items.length ? 'Tout décocher' : 'Tout sélectionner'}
-          </button>
-          <span className="text-xs text-muted-foreground flex-1">{selectedIds.size} sélectionné(s)</span>
+        <div className="sticky top-0 z-20 bg-card/95 backdrop-blur border border-border rounded-lg px-4 py-2.5 flex items-center gap-3 shadow-sm">
           {batchAction === 'reject' ? (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2 flex-1">
               <input
                 type="text"
                 value={batchRejectReason}
                 onChange={(e) => setBatchRejectReason(e.target.value)}
                 placeholder="Motif du rejet..."
-                className="text-xs border border-border rounded px-2 py-1 bg-background w-48"
+                className="flex-1 text-xs border border-border rounded-md px-3 py-1.5 bg-background"
                 autoFocus
               />
-              <button onClick={handleBatchAction} disabled={!batchRejectReason.trim() || processing} className="gl-button-sm gl-button-danger text-[10px]">
-                {processing ? <Loader2 size={10} className="animate-spin" /> : 'Confirmer'}
+              <button onClick={executeBatchReject} disabled={!batchRejectReason.trim() || processing} className="gl-button-sm gl-button-danger">
+                {processing ? <Loader2 size={12} className="animate-spin" /> : 'Confirmer le rejet'}
               </button>
-              <button onClick={() => { setBatchAction(null); setBatchRejectReason('') }} className="gl-button-sm gl-button-default text-[10px]">Annuler</button>
+              <button onClick={() => { setBatchAction(null); setBatchRejectReason('') }} className="gl-button-sm gl-button-default">Annuler</button>
+            </div>
+          ) : confirmBatch ? (
+            <div className="flex items-center gap-2 flex-1">
+              <span className="text-xs text-foreground flex-1">Vérifier {selectedIds.size} enregistrement{selectedIds.size > 1 ? 's' : ''} ?</span>
+              <button onClick={executeBatchVerify} disabled={processing} className="gl-button-sm gl-button-confirm">
+                {processing ? <Loader2 size={12} className="animate-spin" /> : 'Oui, vérifier'}
+              </button>
+              <button onClick={() => setConfirmBatch(false)} className="gl-button-sm gl-button-default">Annuler</button>
             </div>
           ) : (
             <>
-              <button onClick={async () => {
-                setProcessing(true)
-                let ok = 0; let fail = 0
-                for (const key of selectedIds) {
-                  const [rt, rid] = key.split('::')
-                  try { await verifyRecord.mutateAsync({ recordType: rt, recordId: rid, action: 'verify' }); ok++ } catch { fail++ }
-                }
-                setProcessing(false); setSelectedIds(new Set())
-                toast({ title: `${ok} vérifié(s)`, description: fail > 0 ? `${fail} erreur(s)` : undefined, variant: fail > 0 ? 'warning' : 'success' })
-              }} disabled={processing} className="gl-button-sm gl-button-confirm text-[10px] flex items-center gap-1">
-                {processing ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />}
-                Vérifier ({selectedIds.size})
+              <span className="text-xs text-muted-foreground flex-1">{selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''}</span>
+              <button onClick={() => setConfirmBatch(true)} className="gl-button-sm gl-button-confirm">
+                <Check size={12} /> Vérifier ({selectedIds.size})
               </button>
-              <button onClick={() => setBatchAction('reject')} className="gl-button-sm gl-button-danger text-[10px] flex items-center gap-1">
-                <X size={10} /> Rejeter
+              <button onClick={() => setBatchAction('reject')} className="gl-button-sm gl-button-danger">
+                <X size={12} /> Rejeter
               </button>
             </>
           )}
         </div>
       )}
-
-      {/* Summary */}
-      <p className="text-xs text-muted-foreground px-1">{items.length} en attente · {grouped.length} personne{grouped.length > 1 ? 's' : ''}</p>
 
       {/* Grouped by owner */}
       <div className="border border-border rounded-lg overflow-hidden divide-y divide-border">

@@ -123,6 +123,9 @@ class UserRead(OpsFluxSchema):
     # Job position (conformité)
     job_position_id: UUID | None = None
     job_position_name: str | None = None
+    # Business unit
+    business_unit_id: UUID | None = None
+    business_unit_name: str | None = None
     # Messaging preference
     preferred_messaging_channel: str = "auto"
     # Timestamps
@@ -216,23 +219,35 @@ class EntityCreate(BaseModel):
 
 # ─── Department schemas ─────────────────────────────────────────────────────
 
-class DepartmentRead(OpsFluxSchema):
+class BusinessUnitRead(OpsFluxSchema):
     id: UUID
     entity_id: UUID
     code: str
     name: str
+    description: str | None = None
+    manager_id: UUID | None = None
+    manager_name: str | None = None
     active: bool
     created_at: datetime | None = None
 
-class DepartmentCreate(BaseModel):
+class BusinessUnitCreate(BaseModel):
     code: str = Field(..., max_length=50)
     name: str = Field(..., max_length=200)
+    description: str | None = None
+    manager_id: UUID | None = None
     active: bool = True
 
-class DepartmentUpdate(BaseModel):
+class BusinessUnitUpdate(BaseModel):
     code: str | None = None
     name: str | None = None
+    description: str | None = None
+    manager_id: UUID | None = None
     active: bool | None = None
+
+# Backward compatibility aliases
+DepartmentRead = BusinessUnitRead
+DepartmentCreate = BusinessUnitCreate
+DepartmentUpdate = BusinessUnitUpdate
 
 class CostCenterRead(OpsFluxSchema):
     id: UUID

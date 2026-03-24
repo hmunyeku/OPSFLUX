@@ -79,16 +79,18 @@ class Entity(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     children: Mapped[list["Entity"]] = relationship(
         "Entity", back_populates="parent"
     )
-    departments: Mapped[list["Department"]] = relationship(back_populates="entity")
+    business_units: Mapped[list["BusinessUnit"]] = relationship(back_populates="entity")
+    departments = business_units  # alias for backward compatibility
     cost_centers: Mapped[list["CostCenter"]] = relationship(back_populates="entity")
 
 
-# ─── Departments ─────────────────────────────────────────────────────────────
+# ─── Business Units ──────────────────────────────────────────────────────────
 
-class Department(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    __tablename__ = "departments"
+class BusinessUnit(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Business Unit — subdivision organisationnelle d'une entité."""
+    __tablename__ = "business_units"
     __table_args__ = (
-        Index("uq_department_entity_code", "entity_id", "code", unique=True),
+        Index("uq_business_unit_entity_code", "entity_id", "code", unique=True),
     )
 
     entity_id: Mapped[PyUUID] = mapped_column(
@@ -96,9 +98,17 @@ class Department(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     code: Mapped[str] = mapped_column(String(50), nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    manager_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
-    entity: Mapped["Entity"] = relationship(back_populates="departments")
+    entity: Mapped["Entity"] = relationship(back_populates="business_units")
+    manager: Mapped["User | None"] = relationship(foreign_keys=[manager_id])
+
+# Keep Department as alias for backward compatibility
+Department = BusinessUnit
 
 
 # ─── Cost Centers ────────────────────────────────────────────────────────────
@@ -206,8 +216,12 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     job_position_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("job_positions.id"), nullable=True
     )
+    business_unit_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("business_units.id"), nullable=True
+    )
 
     job_position: Mapped["JobPosition | None"] = relationship(foreign_keys=[job_position_id])
+    business_unit: Mapped["BusinessUnit | None"] = relationship(foreign_keys=[business_unit_id])
 
     group_memberships: Mapped[list["UserGroupMember"]] = relationship(back_populates="user")
     tier_links: Mapped[list["UserTierLink"]] = relationship(back_populates="user")
@@ -229,6 +243,16 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             return None
         jp = self.__dict__.get("job_position")
         return jp.name if jp else None
+
+    @property
+    def business_unit_name(self) -> str | None:
+        """Safe access to business_unit.name."""
+        from sqlalchemy.orm import InstanceState
+        state: InstanceState = self.__dict__.get("_sa_instance_state")  # type: ignore[assignment]
+        if state and "business_unit" not in state.dict:
+            return None
+        bu = self.__dict__.get("business_unit")
+        return bu.name if bu else None
 
 
 # ─── Roles ───────────────────────────────────────────────────────────────────

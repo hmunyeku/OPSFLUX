@@ -259,6 +259,9 @@ export interface UserRead {
   identity_verified: boolean
   identity_verified_by: string | null
   identity_verified_at: string | null
+  // Business unit
+  business_unit_id: string | null
+  business_unit_name: string | null
   // Travel
   contractual_airport: string | null
   nearest_airport: string | null

@@ -1,99 +1,117 @@
-"""Department and Cost Center management routes."""
+"""Business Unit (formerly Department) and Cost Center management routes."""
 
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.database import get_db
 from app.services.core.delete_service import delete_entity
 from app.core.pagination import PaginationParams, paginate
-from app.models.common import Department, CostCenter, User
+from app.models.common import BusinessUnit, CostCenter, User
 from app.schemas.common import (
     PaginatedResponse,
-    DepartmentCreate, DepartmentRead, DepartmentUpdate,
+    BusinessUnitCreate, BusinessUnitRead, BusinessUnitUpdate,
     CostCenterCreate, CostCenterRead, CostCenterUpdate,
 )
 
 router = APIRouter(prefix="/api/v1", tags=["organization"])
 
+Department = BusinessUnit  # backward compat
 
-# ── Departments ──
 
-@router.get("/departments", response_model=PaginatedResponse[DepartmentRead])
-async def list_departments(
+def _enrich_bu(bu: BusinessUnit) -> dict:
+    """Enrich a BusinessUnit with manager_name for API response."""
+    data = {c.key: getattr(bu, c.key) for c in bu.__table__.columns}
+    manager = getattr(bu, 'manager', None)
+    data['manager_name'] = f"{manager.first_name} {manager.last_name}" if manager else None
+    return data
+
+
+# ── Business Units (aliased as /departments for backward compat) ──
+
+@router.get("/business-units", response_model=PaginatedResponse[BusinessUnitRead])
+@router.get("/departments", response_model=PaginatedResponse[BusinessUnitRead], include_in_schema=False)
+async def list_business_units(
     search: str | None = None,
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(Department).where(Department.entity_id == entity_id, Department.active == True)
+    query = (
+        select(BusinessUnit)
+        .options(selectinload(BusinessUnit.manager))
+        .where(BusinessUnit.entity_id == entity_id, BusinessUnit.active == True)
+    )
     if search:
-        query = query.where(Department.name.ilike(f"%{search}%") | Department.code.ilike(f"%{search}%"))
-    query = query.order_by(Department.name)
+        query = query.where(BusinessUnit.name.ilike(f"%{search}%") | BusinessUnit.code.ilike(f"%{search}%"))
+    query = query.order_by(BusinessUnit.name)
     return await paginate(db, query, pagination)
 
 
-@router.post("/departments", response_model=DepartmentRead, status_code=201)
-async def create_department(
-    body: DepartmentCreate,
+@router.post("/business-units", response_model=BusinessUnitRead, status_code=201)
+@router.post("/departments", response_model=BusinessUnitRead, status_code=201, include_in_schema=False)
+async def create_business_unit(
+    body: BusinessUnitCreate,
     entity_id: UUID = Depends(get_current_entity),
     _: None = require_permission("department.create"),
     db: AsyncSession = Depends(get_db),
 ):
-    # Check code uniqueness within entity
     existing = await db.execute(
-        select(Department).where(Department.entity_id == entity_id, Department.code == body.code)
+        select(BusinessUnit).where(BusinessUnit.entity_id == entity_id, BusinessUnit.code == body.code)
     )
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail="Department code already exists")
+        raise HTTPException(status_code=409, detail="Business unit code already exists")
 
-    dept = Department(entity_id=entity_id, **body.model_dump())
-    db.add(dept)
+    bu = BusinessUnit(entity_id=entity_id, **body.model_dump())
+    db.add(bu)
     await db.commit()
-    await db.refresh(dept)
-    return dept
+    await db.refresh(bu, attribute_names=["manager"])
+    return _enrich_bu(bu)
 
 
-@router.patch("/departments/{dept_id}", response_model=DepartmentRead)
-async def update_department(
-    dept_id: UUID,
-    body: DepartmentUpdate,
+@router.patch("/business-units/{bu_id}", response_model=BusinessUnitRead)
+@router.patch("/departments/{bu_id}", response_model=BusinessUnitRead, include_in_schema=False)
+async def update_business_unit(
+    bu_id: UUID,
+    body: BusinessUnitUpdate,
     entity_id: UUID = Depends(get_current_entity),
     _: None = require_permission("department.update"),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(Department).where(Department.id == dept_id, Department.entity_id == entity_id)
+        select(BusinessUnit).options(selectinload(BusinessUnit.manager)).where(BusinessUnit.id == bu_id, BusinessUnit.entity_id == entity_id)
     )
-    dept = result.scalar_one_or_none()
-    if not dept:
-        raise HTTPException(status_code=404, detail="Department not found")
+    bu = result.scalar_one_or_none()
+    if not bu:
+        raise HTTPException(status_code=404, detail="Business unit not found")
     for field, value in body.model_dump(exclude_unset=True).items():
-        setattr(dept, field, value)
+        setattr(bu, field, value)
     await db.commit()
-    await db.refresh(dept)
-    return dept
+    await db.refresh(bu, attribute_names=["manager"])
+    return _enrich_bu(bu)
 
 
-@router.delete("/departments/{dept_id}", status_code=204)
-async def delete_department(
-    dept_id: UUID,
+@router.delete("/business-units/{bu_id}", status_code=204)
+@router.delete("/departments/{bu_id}", status_code=204, include_in_schema=False)
+async def delete_business_unit(
+    bu_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("department.delete"),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(Department).where(Department.id == dept_id, Department.entity_id == entity_id)
+        select(BusinessUnit).where(BusinessUnit.id == bu_id, BusinessUnit.entity_id == entity_id)
     )
-    dept = result.scalar_one_or_none()
-    if not dept:
-        raise HTTPException(status_code=404, detail="Department not found")
-    await delete_entity(dept, db, "department", entity_id=dept.id, user_id=current_user.id)
+    bu = result.scalar_one_or_none()
+    if not bu:
+        raise HTTPException(status_code=404, detail="Business unit not found")
+    await delete_entity(bu, db, "business_unit", entity_id=bu.id, user_id=current_user.id)
     await db.commit()
 
 

@@ -19,7 +19,7 @@ import {
   Bell,
   ChevronRight, ChevronDown,
   Globe, Plug, FileText, FileOutput, Trash2,
-  ScrollText, Activity, Hash, BookOpen, Users, ShieldCheck,
+  ScrollText, Activity, Hash, BookOpen, Users, ShieldCheck, HardDrive, Database,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PanelHeader, PanelContent } from '@/components/layout/PanelHeader'
@@ -126,6 +126,8 @@ import { SchedulerTab } from './tabs/SchedulerTab'
 import DictionaryTab from './tabs/DictionaryTab'
 import { SecurityPolicyTab } from './tabs/SecurityPolicyTab'
 import { UserManagementTab } from './tabs/UserManagementTab'
+import { FileManagerTab } from './tabs/FileManagerTab'
+import { AdminerTab } from './tabs/AdminerTab'
 // EntitiesTab moved to dedicated /entities sidebar page
 
 // ── Import dynamic panel forms ──────────────────────────────
@@ -162,6 +164,8 @@ registerSettingsSection({ id: 'delete-policies', label: 'Politiques de suppressi
 registerSettingsSection({ id: 'audit-log', label: 'Journal d\'audit', icon: ScrollText, component: AuditTab, category: 'general', order: 30, requiredPermission: 'core.audit.read' })
 registerSettingsSection({ id: 'system-health', label: 'Santé système', icon: Activity, component: SystemHealthTab, category: 'general', order: 40, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'scheduler', label: 'Tâches planifiées', icon: Clock, component: SchedulerTab, category: 'general', order: 45, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'file-manager', label: 'Gestionnaire de fichiers', icon: HardDrive, component: FileManagerTab, category: 'general', order: 50, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'adminer', label: 'Base de données', icon: Database, component: AdminerTab, category: 'general', order: 55, requiredPermission: 'admin.system' })
 
 /* ── Main Settings Page ── */
 export function SettingsPage() {

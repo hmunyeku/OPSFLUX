@@ -71,6 +71,17 @@ services:
     environment:
       DRAWIO_SELF_CONTAINED: "1"
 
+  # ─── Adminer (DB management — admin only) ──────────────────
+  adminer:
+    image: adminer:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ADMINER_DEFAULT_SERVER: db
+      ADMINER_DESIGN: "pepa-linha-dark"
+
 volumes:
   pg_data:
   uploads_data:

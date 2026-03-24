@@ -58,6 +58,7 @@ from app.api.routes.core.search import router as search_router
 from app.api.routes.core.tags import router as tags_router
 from app.api.routes.core.notes import router as notes_router
 from app.api.routes.core.attachments import router as attachments_router
+from app.api.routes.core.admin_tools import router as admin_tools_router
 from app.api.routes.core.email_templates import router as email_templates_router
 from app.api.routes.core.pdf_templates import router as pdf_templates_router
 from app.api.routes.core.phones import router as phones_router
@@ -216,6 +217,7 @@ app.include_router(search_router)
 app.include_router(tags_router)
 app.include_router(notes_router)
 app.include_router(attachments_router)
+app.include_router(admin_tools_router)
 app.include_router(email_templates_router)
 app.include_router(pdf_templates_router)
 app.include_router(phones_router)

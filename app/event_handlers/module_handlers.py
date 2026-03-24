@@ -524,6 +524,127 @@ async def on_travelwiz_manifest_closed(event: OpsFluxEvent) -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Handler: on_compliance_rule_changed
+# Notify affected users when a compliance rule is created or updated
+# ═══════════════════════════════════════════════════════════════════════════
+
+async def _get_affected_user_ids(entity_id: str | UUID, target_type: str, target_value: str | None) -> list[UUID]:
+    """Return user IDs affected by a compliance rule based on its target_type.
+
+    - 'all': every active user in the entity
+    - 'department': users in the specified department (by department name)
+    - 'job_position': users with the specified job_position_id
+    """
+    from sqlalchemy import text
+
+    eid = str(entity_id)
+    try:
+        async with async_session_factory() as db:
+            if target_type == "all":
+                result = await db.execute(
+                    text(
+                        "SELECT DISTINCT ugm.user_id "
+                        "FROM user_group_members ugm "
+                        "JOIN user_groups ug ON ug.id = ugm.group_id "
+                        "JOIN users u ON u.id = ugm.user_id "
+                        "WHERE ug.entity_id = :entity_id "
+                        "AND ug.active = true AND u.active = true"
+                    ),
+                    {"entity_id": eid},
+                )
+            elif target_type == "department" and target_value:
+                result = await db.execute(
+                    text(
+                        "SELECT DISTINCT ugm.user_id "
+                        "FROM user_group_members ugm "
+                        "JOIN user_groups ug ON ug.id = ugm.group_id "
+                        "JOIN users u ON u.id = ugm.user_id "
+                        "JOIN departments d ON d.entity_id = ug.entity_id "
+                        "WHERE ug.entity_id = :entity_id "
+                        "AND ug.active = true AND u.active = true "
+                        "AND d.name = :dept_name"
+                    ),
+                    {"entity_id": eid, "dept_name": target_value},
+                )
+            elif target_type == "job_position" and target_value:
+                result = await db.execute(
+                    text(
+                        "SELECT DISTINCT u.id AS user_id "
+                        "FROM users u "
+                        "JOIN user_group_members ugm ON ugm.user_id = u.id "
+                        "JOIN user_groups ug ON ug.id = ugm.group_id "
+                        "WHERE ug.entity_id = :entity_id "
+                        "AND ug.active = true AND u.active = true "
+                        "AND u.job_position_id = CAST(:jp_id AS uuid)"
+                    ),
+                    {"entity_id": eid, "jp_id": target_value},
+                )
+            else:
+                # Unsupported target_type — fall back to admins only
+                from app.event_handlers.core_handlers import _get_admin_user_ids
+                return await _get_admin_user_ids(entity_id)
+
+            return [row.user_id for row in result.fetchall()]
+    except Exception:
+        logger.exception("Failed to fetch affected user IDs for entity %s, target %s/%s", entity_id, target_type, target_value)
+        return []
+
+
+async def on_compliance_rule_changed(event: OpsFluxEvent) -> None:
+    """Notify affected users when a compliance rule is created or updated,
+    and broadcast cache invalidation via Redis pub/sub."""
+    payload = event.payload
+    rule_id = payload.get("rule_id")
+    entity_id = payload.get("entity_id")
+    target_type = payload.get("target_type", "all")
+    target_value = payload.get("target_value")
+    description = payload.get("description", "")
+
+    if not rule_id or not entity_id:
+        return
+
+    is_new = event.event_type == "conformite.rule.created"
+    action_label = "Nouvelle exigence" if is_new else "Exigence mise à jour"
+
+    try:
+        from app.core.notifications import send_in_app_bulk
+
+        user_ids = await _get_affected_user_ids(entity_id, target_type, target_value)
+        if not user_ids:
+            logger.info("%s: no affected users for rule %s", event.event_type, rule_id)
+            return
+
+        eid = UUID(str(entity_id))
+        body_text = f"{action_label} : {description}" if description else action_label
+
+        async with async_session_factory() as db:
+            await send_in_app_bulk(
+                db,
+                user_ids=user_ids,
+                entity_id=eid,
+                title=f"{action_label} de conformité",
+                body=body_text,
+                category="conformite",
+                link="/conformite",
+            )
+            await db.commit()
+
+        # Broadcast cache invalidation via Redis pub/sub
+        import json
+        from app.core.redis_client import get_redis
+        from app.core.notification_manager import notification_manager
+
+        await notification_manager.broadcast_to_entity(eid, {
+            "type": "cache_invalidate",
+            "data": {"keys": ["compliance-rules", "compliance-records", "pending-verifications", "compliance-kpis"]},
+        })
+
+        logger.info("%s handled: rule=%s, notified %d users", event.event_type, rule_id, len(user_ids))
+    except Exception:
+        logger.exception("Error in on_compliance_rule_changed for rule %s", rule_id)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Handler: on_compliance_expired
 # Notify entity admins when a compliance record expires
 # ═══════════════════════════════════════════════════════════════════════════
@@ -668,6 +789,8 @@ def register_module_handlers(event_bus: EventBus) -> None:
     event_bus.subscribe("ads.approved", on_ads_approved)
     event_bus.subscribe("travelwiz.manifest.closed", on_travelwiz_manifest_closed)
     # Conformite & Projets events
+    event_bus.subscribe("conformite.rule.created", on_compliance_rule_changed)
+    event_bus.subscribe("conformite.rule.updated", on_compliance_rule_changed)
     event_bus.subscribe("conformite.record.expired", on_compliance_expired)
     event_bus.subscribe("project.status.changed", on_project_status_changed)
     event_bus.subscribe("pax.credential.expiring", on_credential_expiring)

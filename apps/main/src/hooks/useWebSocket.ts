@@ -13,14 +13,15 @@ import { useToast } from '@/components/ui/Toast'
 type WSStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
 
 interface WSNotification {
-  type: 'notification' | 'pong' | 'read_ack'
+  type: 'notification' | 'pong' | 'read_ack' | 'cache_invalidate'
   data?: {
-    id: string
-    title: string
+    id?: string
+    title?: string
     body?: string
-    category: string
+    category?: string
     link?: string
-    created_at: string
+    created_at?: string
+    keys?: string[]
   }
 }
 
@@ -76,12 +77,22 @@ export function useWebSocket() {
 
           // Show toast for the notification
           toast({
-            title: msg.data.title,
+            title: msg.data.title!,
             description: msg.data.body || undefined,
             variant: msg.data.category === 'error' ? 'error'
               : msg.data.category === 'warning' ? 'warning'
                 : 'default',
           })
+        }
+
+        // Cache invalidation broadcast — invalidate specific React Query keys
+        if (msg.type === 'cache_invalidate') {
+          const keys = msg.data?.keys as string[] | undefined
+          if (keys) {
+            for (const key of keys) {
+              qc.invalidateQueries({ queryKey: [key] })
+            }
+          }
         }
         // pong and read_ack are silently handled
       } catch {

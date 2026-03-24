@@ -328,6 +328,17 @@ async def create_compliance_rule(
     ))
     await db.commit()
     await db.refresh(rule)
+
+    # Emit event for notification handlers (after commit)
+    await emit_event("conformite.rule.created", {
+        "rule_id": str(rule.id),
+        "entity_id": str(entity_id),
+        "target_type": rule.target_type,
+        "target_value": rule.target_value,
+        "description": rule.description or "",
+        "created_by": str(current_user.id),
+    })
+
     return rule
 
 
@@ -362,6 +373,17 @@ async def update_compliance_rule(
     rule.change_reason = body.change_reason
     await db.commit()
     await db.refresh(rule)
+
+    # Emit event for notification handlers (after commit)
+    await emit_event("conformite.rule.updated", {
+        "rule_id": str(rule.id),
+        "entity_id": str(entity_id),
+        "target_type": rule.target_type,
+        "target_value": rule.target_value,
+        "description": rule.description or "",
+        "updated_by": str(current_user.id),
+    })
+
     return rule
 
 

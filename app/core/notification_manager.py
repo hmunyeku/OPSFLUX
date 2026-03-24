@@ -39,13 +39,23 @@ class NotificationConnectionManager:
     def __init__(self) -> None:
         # user_id -> set of WebSocket connections
         self._connections: dict[UUID, set[WebSocket]] = {}
-        # asyncio tasks for Redis subscription listeners
+        # asyncio tasks for Redis subscription listeners (per-user)
         self._listener_tasks: dict[UUID, asyncio.Task] = {}
+        # entity_id -> set of WebSocket connections (for entity-level broadcasts)
+        self._entity_connections: dict[UUID, set[WebSocket]] = {}
+        # asyncio tasks for Redis entity subscription listeners
+        self._entity_listener_tasks: dict[UUID, asyncio.Task] = {}
+        # websocket -> entity_id mapping (for cleanup on disconnect)
+        self._ws_entity_map: dict[WebSocket, UUID] = {}
 
     # ── Connection lifecycle ────────────────────────────────────────────
 
-    async def connect(self, user_id: UUID, websocket: WebSocket) -> None:
-        """Accept and register a WebSocket connection for *user_id*."""
+    async def connect(self, user_id: UUID, websocket: WebSocket, *, entity_id: UUID | None = None) -> None:
+        """Accept and register a WebSocket connection for *user_id*.
+
+        If *entity_id* is provided, also subscribe to entity-level broadcasts
+        (e.g. cache invalidation events).
+        """
         await websocket.accept()
 
         if user_id not in self._connections:
@@ -64,6 +74,18 @@ class NotificationConnectionManager:
                 self._redis_listener(user_id)
             )
 
+        # Subscribe to entity-level broadcasts if entity_id provided
+        if entity_id:
+            self._ws_entity_map[websocket] = entity_id
+            if entity_id not in self._entity_connections:
+                self._entity_connections[entity_id] = set()
+            self._entity_connections[entity_id].add(websocket)
+
+            if entity_id not in self._entity_listener_tasks or self._entity_listener_tasks[entity_id].done():
+                self._entity_listener_tasks[entity_id] = asyncio.create_task(
+                    self._redis_entity_listener(entity_id)
+                )
+
     async def disconnect(self, user_id: UUID, websocket: WebSocket) -> None:
         """Remove a WebSocket connection. Cleans up Redis listener when last
         connection for a user is removed."""
@@ -80,6 +102,22 @@ class NotificationConnectionManager:
                         await task
                     except asyncio.CancelledError:
                         pass
+
+        # Clean up entity-level subscription
+        entity_id = self._ws_entity_map.pop(websocket, None)
+        if entity_id:
+            entity_conns = self._entity_connections.get(entity_id)
+            if entity_conns:
+                entity_conns.discard(websocket)
+                if not entity_conns:
+                    del self._entity_connections[entity_id]
+                    task = self._entity_listener_tasks.pop(entity_id, None)
+                    if task and not task.done():
+                        task.cancel()
+                        try:
+                            await task
+                        except asyncio.CancelledError:
+                            pass
 
         logger.info(
             "WS disconnected: user=%s remaining=%d",
@@ -166,6 +204,48 @@ class NotificationConnectionManager:
         finally:
             try:
                 await pubsub.unsubscribe(user_channel)
+                await pubsub.aclose()
+            except Exception:
+                pass
+
+    async def _redis_entity_listener(self, entity_id: UUID) -> None:
+        """Subscribe to the entity broadcast channel and forward messages
+        to all local WebSocket connections for that entity."""
+        redis = get_redis()
+        pubsub = redis.pubsub()
+        entity_channel = _channel_for_entity(entity_id)
+
+        try:
+            await pubsub.subscribe(entity_channel)
+            logger.debug("Redis entity subscribed: %s", entity_channel)
+
+            async for message in pubsub.listen():
+                if message["type"] != "message":
+                    continue
+                try:
+                    data = json.loads(message["data"])
+                except (json.JSONDecodeError, TypeError):
+                    continue
+
+                # Forward to all local WebSocket connections for this entity
+                conns = self._entity_connections.get(entity_id, set()).copy()
+                dead: list[WebSocket] = []
+                for ws in conns:
+                    if not await self._send_json_safe(ws, data):
+                        dead.append(ws)
+
+                # Prune dead connections
+                for ws in dead:
+                    entity_conns = self._entity_connections.get(entity_id)
+                    if entity_conns:
+                        entity_conns.discard(ws)
+        except asyncio.CancelledError:
+            logger.debug("Redis entity listener cancelled: %s", entity_channel)
+        except Exception:
+            logger.exception("Redis entity listener error: %s", entity_channel)
+        finally:
+            try:
+                await pubsub.unsubscribe(entity_channel)
                 await pubsub.aclose()
             except Exception:
                 pass

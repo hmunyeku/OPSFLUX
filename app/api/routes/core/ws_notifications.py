@@ -180,7 +180,7 @@ async def ws_notifications(
         return
 
     # ── Register connection ───────────────────────────────────────
-    await notification_manager.connect(user_id, websocket)
+    await notification_manager.connect(user_id, websocket, entity_id=entity_id)
     keepalive_task: asyncio.Task | None = None
 
     try:

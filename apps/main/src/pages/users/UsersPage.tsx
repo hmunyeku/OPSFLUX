@@ -49,7 +49,7 @@ import { useToast } from '@/components/ui/Toast'
 import { RolesTab, GroupsTab, GroupDetailPanel, RoleDetailPanel, CreateGroupForm } from '@/pages/settings/tabs/RbacAdminTab'
 import { useRoles, useGroups, useAddGroupMembers } from '@/hooks/useRbac'
 import { usePermission } from '@/hooks/usePermission'
-import { useUserRoles, useUserGroups, useUploadAvatar, usePhones, useContactEmails, useAddresses, useNotes, useAttachments } from '@/hooks/useSettings'
+import { useUploadAvatar, usePhones, useContactEmails, useAddresses, useNotes, useAttachments } from '@/hooks/useSettings'
 import { useSSOProviders, useDeleteSSOProvider, useUserIPLocation } from '@/hooks/useUserSubModels'
 import { useTiers } from '@/hooks/useTiers'
 import { AddressManager } from '@/components/shared/AddressManager'
@@ -1044,9 +1044,18 @@ function UserDetailPanel({ id }: { id: string }) {
   const revokeAllSessions = useRevokeAllSessions()
   const sendPasswordReset = useSendPasswordReset()
   const uploadAvatar = useUploadAvatar()
-  const { data: roles } = useUserRoles()
-  const { data: groups } = useUserGroups()
   const { data: userEntities } = useUserEntities(id)
+
+  // Derive this user's groups/roles from their entity memberships (not the logged-in user's /me data)
+  const userGroups = useMemo(() => {
+    if (!userEntities?.length) return []
+    return userEntities.flatMap(e => e.groups)
+  }, [userEntities])
+  const userRoleNames = useMemo(() => {
+    const set = new Set<string>()
+    for (const g of userGroups) for (const r of g.role_names) set.add(r)
+    return [...set]
+  }, [userGroups])
   const { data: phones } = usePhones('user', id)
   const { data: contactEmails } = useContactEmails('user', id)
   const { data: addresses } = useAddresses('user', id)
@@ -1315,16 +1324,10 @@ function UserDetailPanel({ id }: { id: string }) {
                 <SectionHeader>
                   <span className="flex items-center gap-1.5"><Shield size={12} /> Rôles attribués</span>
                 </SectionHeader>
-                {roles && roles.length > 0 ? (
+                {userRoleNames.length > 0 ? (
                   <div className="flex flex-wrap gap-1.5 mt-1">
-                    {roles.map((role) => (
-                      <button
-                        key={role.code}
-                        onClick={() => openDynamicPanel({ type: 'detail', module: 'roles', id: role.code })}
-                        className="gl-badge gl-badge-info text-[10px] cursor-pointer hover:ring-1 hover:ring-primary/30 transition-all"
-                      >
-                        {role.name}
-                      </button>
+                    {userRoleNames.map((roleName) => (
+                      <span key={roleName} className="gl-badge gl-badge-info text-[10px]">{roleName}</span>
                     ))}
                   </div>
                 ) : (
@@ -1334,15 +1337,15 @@ function UserDetailPanel({ id }: { id: string }) {
                 <SectionHeader>
                   <span className="flex items-center gap-1.5 mt-3"><KeyRound size={12} /> Groupes</span>
                 </SectionHeader>
-                {groups && groups.length > 0 ? (
+                {userGroups.length > 0 ? (
                   <div className="flex flex-wrap gap-1.5 mt-1">
-                    {groups.map((group) => (
+                    {userGroups.map((group) => (
                       <button
-                        key={group.id}
-                        onClick={() => openDynamicPanel({ type: 'detail', module: 'groups', id: group.id })}
+                        key={group.group_id}
+                        onClick={() => openDynamicPanel({ type: 'detail', module: 'groups', id: group.group_id })}
                         className="gl-badge gl-badge-neutral text-[10px] cursor-pointer hover:ring-1 hover:ring-primary/30 transition-all"
                       >
-                        {group.name} ({group.role_codes.join(', ')})
+                        {group.group_name} ({group.role_names.join(', ') || group.role_codes.join(', ')})
                       </button>
                     ))}
                   </div>

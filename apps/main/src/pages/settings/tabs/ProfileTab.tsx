@@ -226,8 +226,8 @@ export function ProfileTab() {
     form.ppe_shoe_size !== (user.ppe_shoe_size || '') ||
     form.retirement_date !== (user.retirement_date || '') ||
     form.vantage_number !== (user.vantage_number || '') ||
-    form.extension_number !== (user.extension_number || '') ||
-    form.job_position_id !== (user.job_position_id || '')
+    form.extension_number !== (user.extension_number || '')
+    // job_position_id, gender, nationality, birth_country are auto-saved — excluded from dirty check
   ) : false
 
   const handleSubmit = async () => {
@@ -327,6 +327,17 @@ export function ProfileTab() {
 
   const updateField = (field: keyof ProfileUpdate, value: string | number | null) => {
     setForm((prev) => ({ ...prev, [field]: value }))
+  }
+
+  /** Auto-save a single field immediately (no save bar needed). */
+  const autoSaveField = async (field: keyof ProfileUpdate, value: string | number | null) => {
+    setForm((prev) => ({ ...prev, [field]: value }))
+    try {
+      const optStr = (v: string | number | null) => (typeof v === 'string' && v === '') ? null : v
+      await updateProfile.mutateAsync({ [field]: optStr(value) })
+    } catch {
+      toast({ title: 'Erreur', description: 'Impossible de sauvegarder.', variant: 'error' })
+    }
   }
 
   return (
@@ -436,7 +447,7 @@ export function ProfileTab() {
             </div>
             <div>
               <label className="gl-label">Genre</label>
-              <select className="gl-form-input" value={form.gender || ''} onChange={(e) => updateField('gender', e.target.value)}>
+              <select className="gl-form-input" value={form.gender || ''} onChange={(e) => autoSaveField('gender', e.target.value)}>
                 <option value="">— Sélectionner —</option>
                 {genderOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -448,7 +459,7 @@ export function ProfileTab() {
             <div>
               <label className="gl-label">Nationalité</label>
               {dictNationality.length > 0 ? (
-                <DictCombobox value={form.nationality as string || ''} options={dictNationality} onChange={(v) => updateField('nationality', v)} placeholder="Rechercher une nationalité..." />
+                <DictCombobox value={form.nationality as string || ''} options={dictNationality} onChange={(v) => autoSaveField('nationality', v)} placeholder="Rechercher une nationalité..." />
               ) : (
                 <input type="text" className="gl-form-input" value={form.nationality || ''} onChange={(e) => updateField('nationality', e.target.value)} placeholder="ex: FR, GB, US" />
               )}
@@ -466,7 +477,7 @@ export function ProfileTab() {
             <div>
               <label className="gl-label">Pays de naissance</label>
               {dictCountry.length > 0 ? (
-                <DictCombobox value={form.birth_country as string || ''} options={dictCountry} onChange={(v) => updateField('birth_country', v)} placeholder="Rechercher un pays..." />
+                <DictCombobox value={form.birth_country as string || ''} options={dictCountry} onChange={(v) => autoSaveField('birth_country', v)} placeholder="Rechercher un pays..." />
               ) : (
                 <input type="text" className="gl-form-input" value={form.birth_country || ''} onChange={(e) => updateField('birth_country', e.target.value)} placeholder="ex: FR, GB, US" />
               )}
@@ -476,7 +487,7 @@ export function ProfileTab() {
             <div>
               <label className="gl-label">Poste / Fonction</label>
               {jobPositionOptions.length > 0 ? (
-                <DictCombobox value={form.job_position_id as string || ''} options={jobPositionOptions} onChange={(v) => updateField('job_position_id', v)} placeholder="Sélectionner un poste..." />
+                <DictCombobox value={form.job_position_id as string || ''} options={jobPositionOptions} onChange={(v) => autoSaveField('job_position_id', v)} placeholder="Sélectionner un poste..." />
               ) : (
                 <p className="text-xs text-muted-foreground py-2">Aucun poste défini (Conformité &gt; Fiches de poste)</p>
               )}

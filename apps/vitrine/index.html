@@ -5,16 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OpsFlux — Plateforme ERP pour les op&eacute;rations industrielles</title>
   <meta name="description" content="OpsFlux est une plateforme ERP moderne pour la gestion des op&eacute;rations, la conformit&eacute; HSE, les ressources humaines et la gestion de projets." />
-  <meta name="theme-color" content="#2563EB" />
+  <meta name="theme-color" content="#0B1120" />
+  <meta property="og:title" content="OpsFlux — Plateforme ERP op&eacute;rations industrielles" />
+  <meta property="og:description" content="Centralisez, automatisez et s&eacute;curisez vos processus m&eacute;tier." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://www.opsflux.io" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
   <!-- ─── Navbar ─────────────────────────────────────────────────────────── -->
-  <nav class="navbar">
+  <nav class="navbar" id="navbar">
     <div class="container navbar-inner">
       <a href="/" class="logo">
         <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
@@ -30,8 +34,8 @@
         <a href="#contact">Contact</a>
       </div>
       <div class="nav-actions">
-        <a href="https://app.opsflux.io/login" class="btn btn-ghost">Connexion</a>
-        <a href="#contact" class="btn btn-primary">Demander une d&eacute;mo</a>
+        <a href="https://app.opsflux.io/login" class="btn btn-ghost">Se connecter</a>
+        <a href="#contact" class="btn btn-primary">D&eacute;mo gratuite</a>
         <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Menu">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
         </button>
@@ -39,23 +43,23 @@
     </div>
   </nav>
 
-  <!-- ─── Hero ───────────────────────────────────────────────────────────── -->
+  <!-- ─── Hero (Dark) ────────────────────────────────────────────────────── -->
   <section class="hero">
+    <div class="hero-grid"></div>
     <div class="container">
-      <div class="hero-badge">Plateforme ERP nouvelle g&eacute;n&eacute;ration</div>
-      <h1>Pilotez vos op&eacute;rations<br/>industrielles avec <span class="gradient-text">OpsFlux</span></h1>
-      <p class="hero-subtitle">
-        Gestion des op&eacute;rations, conformit&eacute; HSE, ressources humaines et projets.
-        Une seule plateforme pour centraliser, automatiser et s&eacute;curiser vos processus m&eacute;tier.
+      <div class="hero-badge fade-up"><span class="dot"></span> Plateforme ERP nouvelle g&eacute;n&eacute;ration</div>
+      <h1 class="fade-up fade-up-d1">Pilotez vos op&eacute;rations<br/>industrielles avec <span class="gradient-text">OpsFlux</span></h1>
+      <p class="hero-subtitle fade-up fade-up-d2">
+        Une seule plateforme pour centraliser, automatiser et s&eacute;curiser la gestion de vos op&eacute;rations, conformit&eacute; HSE, ressources humaines et projets.
       </p>
-      <div class="hero-actions">
+      <div class="hero-actions fade-up fade-up-d3">
         <a href="#contact" class="btn btn-primary btn-lg">Demander une d&eacute;mo gratuite</a>
-        <a href="#features" class="btn btn-outline btn-lg">D&eacute;couvrir les fonctionnalit&eacute;s</a>
+        <a href="#features" class="btn btn-outline btn-lg">D&eacute;couvrir</a>
       </div>
-      <div class="hero-stats">
+      <div class="hero-stats fade-up fade-up-d4">
         <div class="stat">
           <span class="stat-value">12+</span>
-          <span class="stat-label">Modules int&eacute;gr&eacute;s</span>
+          <span class="stat-label">Modules</span>
         </div>
         <div class="stat">
           <span class="stat-value">100%</span>
@@ -71,6 +75,21 @@
         </div>
       </div>
     </div>
+    <div class="hero-fade"></div>
+  </section>
+
+  <!-- ─── Trusted By ─────────────────────────────────────────────────────── -->
+  <section class="trusted-section">
+    <div class="container">
+      <p class="trusted-header">Fait pour les entreprises industrielles</p>
+      <div class="trusted-logos">
+        <span>Oil &amp; Gas</span>
+        <span>Mining</span>
+        <span>Energy</span>
+        <span>Construction</span>
+        <span>Maritime</span>
+      </div>
+    </div>
   </section>
 
   <!-- ─── Features ───────────────────────────────────────────────────────── -->
@@ -83,46 +102,46 @@
       </div>
       <div class="features-grid">
         <div class="feature-card">
-          <div class="feature-icon" style="background:#EFF6FF;color:#2563EB;">
+          <div class="feature-icon" style="background:linear-gradient(135deg,#EFF6FF,#DBEAFE);color:#2563EB;">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/></svg>
           </div>
           <h3>Conformit&eacute; HSE</h3>
-          <p>Suivi des formations, certifications, habilitations et &eacute;quipements. Alertes automatiques avant expiration. V&eacute;rification et validation des donn&eacute;es sensibles.</p>
+          <p>Suivi des formations, certifications, habilitations. Alertes automatiques avant expiration. V&eacute;rification et validation des donn&eacute;es sensibles.</p>
         </div>
         <div class="feature-card">
-          <div class="feature-icon" style="background:#F0FDF4;color:#16A34A;">
+          <div class="feature-icon" style="background:linear-gradient(135deg,#F0FDF4,#DCFCE7);color:#16A34A;">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
           </div>
           <h3>Ressources Humaines</h3>
-          <p>Profils employ&eacute;s complets, gestion des documents d'identit&eacute;, passeports, visas, dossiers m&eacute;dicaux. Historique et tra&ccedil;abilit&eacute; compl&egrave;te.</p>
+          <p>Profils employ&eacute;s complets, passeports, visas, dossiers m&eacute;dicaux. Historique et tra&ccedil;abilit&eacute; compl&egrave;te.</p>
         </div>
         <div class="feature-card">
-          <div class="feature-icon" style="background:#FFF7ED;color:#EA580C;">
+          <div class="feature-icon" style="background:linear-gradient(135deg,#FFF7ED,#FFEDD5);color:#EA580C;">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h20"/><path d="M5 20V4h14v16"/><path d="M9 8h2"/><path d="M9 12h2"/><path d="M13 8h2"/><path d="M13 12h2"/><path d="M9 16h6"/></svg>
           </div>
           <h3>Gestion des Actifs</h3>
-          <p>Registre complet de vos actifs industriels, maintenance pr&eacute;ventive, diagrammes P&amp;ID/PFD, suivi du cycle de vie et co&ucirc;ts associ&eacute;s.</p>
+          <p>Registre complet, maintenance pr&eacute;ventive, diagrammes P&amp;ID/PFD, suivi du cycle de vie et co&ucirc;ts.</p>
         </div>
         <div class="feature-card">
-          <div class="feature-icon" style="background:#FAF5FF;color:#9333EA;">
+          <div class="feature-icon" style="background:linear-gradient(135deg,#FAF5FF,#EDE9FE);color:#7C3AED;">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
           </div>
           <h3>Tableaux de bord</h3>
-          <p>Dashboards personnalisables avec widgets drag &amp; drop, KPIs en temps r&eacute;el, requ&ecirc;tes SQL custom, mode TV pour affichage permanent.</p>
+          <p>Dashboards personnalisables, widgets drag &amp; drop, KPIs temps r&eacute;el, requ&ecirc;tes SQL, mode TV.</p>
         </div>
         <div class="feature-card">
-          <div class="feature-icon" style="background:#FEF2F2;color:#DC2626;">
+          <div class="feature-icon" style="background:linear-gradient(135deg,#FEF2F2,#FECACA);color:#DC2626;">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
           </div>
           <h3>Workflows</h3>
-          <p>Mod&eacute;lisez vos processus m&eacute;tier avec un &eacute;diteur visuel. D&eacute;clencheurs automatiques, approbations, notifications et int&eacute;grations.</p>
+          <p>&Eacute;diteur visuel de processus m&eacute;tier. D&eacute;clencheurs, approbations, notifications et int&eacute;grations.</p>
         </div>
         <div class="feature-card">
-          <div class="feature-icon" style="background:#ECFEFF;color:#0891B2;">
+          <div class="feature-icon" style="background:linear-gradient(135deg,#ECFEFF,#CFFAFE);color:#0891B2;">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0022 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05"/><path d="M12 22.08V12"/></svg>
           </div>
           <h3>Gestion de Projets</h3>
-          <p>Planification, suivi d'avancement, diagrammes de Gantt, allocation des ressources. Int&eacute;gration compl&egrave;te avec les autres modules.</p>
+          <p>Planification, Gantt, jalons, allocation des ressources. Int&eacute;gration avec tous les modules.</p>
         </div>
       </div>
     </div>
@@ -133,117 +152,93 @@
     <div class="container">
       <div class="section-header">
         <span class="section-badge">Modules</span>
-        <h2>Une architecture modulaire adapt&eacute;e &agrave; vos besoins</h2>
-        <p>Activez uniquement les modules dont vous avez besoin. Chaque module s'int&egrave;gre parfaitement avec le reste de la plateforme.</p>
+        <h2>Architecture modulaire, adapt&eacute;e &agrave; vos besoins</h2>
+        <p>Activez les modules n&eacute;cessaires. Chaque module s'int&egrave;gre parfaitement avec le reste de la plateforme.</p>
       </div>
       <div class="modules-grid">
         <div class="module-card">
           <div class="module-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
           </div>
-          <div>
-            <h4>PaxLog</h4>
-            <p>Profils passagers et employ&eacute;s, documents d'identit&eacute;, dossiers m&eacute;dicaux</p>
-          </div>
+          <h4>PaxLog</h4>
+          <p>Profils, documents, dossiers m&eacute;dicaux</p>
         </div>
         <div class="module-card">
           <div class="module-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
           </div>
-          <div>
-            <h4>Conformit&eacute;</h4>
-            <p>R&eacute;f&eacute;rentiel HSE, r&egrave;gles de conformit&eacute;, v&eacute;rification, exemptions</p>
-          </div>
+          <h4>Conformit&eacute;</h4>
+          <p>HSE, r&egrave;gles, v&eacute;rifications</p>
         </div>
         <div class="module-card">
           <div class="module-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h20"/><path d="M5 20V4h14v16"/><path d="M9 8h2"/><path d="M13 8h2"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h20"/><path d="M5 20V4h14v16"/><path d="M9 8h2"/><path d="M13 8h2"/></svg>
           </div>
-          <div>
-            <h4>Registre des Actifs</h4>
-            <p>Inventaire, maintenance pr&eacute;ventive, cycle de vie, co&ucirc;ts</p>
-          </div>
+          <h4>Actifs</h4>
+          <p>Registre, maintenance, cycle de vie</p>
         </div>
         <div class="module-card">
           <div class="module-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M9 22V12h6v10"/></svg>
           </div>
-          <div>
-            <h4>Tiers</h4>
-            <p>Fournisseurs, sous-traitants, clients, contacts et contrats</p>
-          </div>
+          <h4>Tiers</h4>
+          <p>Fournisseurs, sous-traitants, clients</p>
         </div>
         <div class="module-card">
           <div class="module-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
           </div>
-          <div>
-            <h4>Projets</h4>
-            <p>Gestion de projets, jalons, ressources, Gantt</p>
-          </div>
+          <h4>Projets</h4>
+          <p>Gantt, jalons, ressources</p>
         </div>
         <div class="module-card">
           <div class="module-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
           </div>
-          <div>
-            <h4>Planner</h4>
-            <p>Planification d'activit&eacute;s, calendrier, affectations</p>
-          </div>
+          <h4>Planner</h4>
+          <p>Calendrier, affectations</p>
         </div>
         <div class="module-card">
           <div class="module-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.8 19.2L16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.8 19.2L16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>
           </div>
-          <div>
-            <h4>TravelWiz</h4>
-            <p>Gestion des voyages, h&eacute;liport, manifestes, portail capitaine</p>
-          </div>
+          <h4>TravelWiz</h4>
+          <p>Voyages, h&eacute;liport, manifestes</p>
         </div>
         <div class="module-card">
           <div class="module-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
           </div>
-          <div>
-            <h4>Workflows</h4>
-            <p>&Eacute;diteur visuel, d&eacute;clencheurs, approbations, automatisation</p>
-          </div>
+          <h4>Workflows</h4>
+          <p>&Eacute;diteur visuel, automatisation</p>
         </div>
         <div class="module-card">
           <div class="module-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
           </div>
-          <div>
-            <h4>Dashboard</h4>
-            <p>Tableaux de bord personnalisables, widgets, KPIs, mode TV</p>
-          </div>
+          <h4>Dashboard</h4>
+          <p>Widgets, KPIs, mode TV</p>
         </div>
         <div class="module-card">
           <div class="module-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
           </div>
-          <div>
-            <h4>Report Editor</h4>
-            <p>G&eacute;n&eacute;ration de rapports, templates PDF, export</p>
-          </div>
+          <h4>Reports</h4>
+          <p>Templates PDF, export</p>
         </div>
         <div class="module-card">
           <div class="module-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
           </div>
-          <div>
-            <h4>Messaging</h4>
-            <p>Messagerie interne, canaux, partage de fichiers</p>
-          </div>
+          <h4>Messaging</h4>
+          <p>Chat interne, canaux, fichiers</p>
         </div>
         <div class="module-card">
           <div class="module-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m7.08 7.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m7.08-7.08l4.24-4.24"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m7.08 7.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m7.08-7.08l4.24-4.24"/></svg>
           </div>
-          <div>
-            <h4>P&ID / PFD</h4>
-            <p>Diagrammes de tuyauterie et instrumentation</p>
-          </div>
+          <h4>P&amp;ID / PFD</h4>
+          <p>Diagrammes, instrumentation</p>
         </div>
       </div>
     </div>
@@ -253,9 +248,9 @@
   <section class="section" id="security">
     <div class="container">
       <div class="section-header">
-        <span class="section-badge">S&eacute;curit&eacute; &amp; Conformit&eacute;</span>
-        <h2>La s&eacute;curit&eacute; au coeur de la plateforme</h2>
-        <p>OpsFlux est con&ccedil;u pour r&eacute;pondre aux exigences les plus strictes en mati&egrave;re de s&eacute;curit&eacute; et de conformit&eacute; r&eacute;glementaire.</p>
+        <span class="section-badge">S&eacute;curit&eacute;</span>
+        <h2>La s&eacute;curit&eacute; au c&oelig;ur de la plateforme</h2>
+        <p>Con&ccedil;u pour r&eacute;pondre aux exigences les plus strictes en mati&egrave;re de s&eacute;curit&eacute; et de conformit&eacute; r&eacute;glementaire.</p>
       </div>
       <div class="security-grid">
         <div class="security-card">
@@ -263,7 +258,7 @@
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
           </div>
           <h4>Authentification MFA</h4>
-          <p>Double authentification TOTP, OTP par email/SMS, SSO LDAP/OAuth2</p>
+          <p>TOTP, OTP email/SMS, SSO LDAP/OAuth2. S&eacute;curit&eacute; maximale pour chaque connexion.</p>
         </div>
         <div class="security-card">
           <div class="security-icon">
@@ -276,29 +271,29 @@
           <div class="security-icon">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M9 15l2 2 4-4"/></svg>
           </div>
-          <h4>Audit complet</h4>
-          <p>Tra&ccedil;abilit&eacute; de toutes les actions. Journal d'audit horodat&eacute; et immutable.</p>
+          <h4>Audit Complet</h4>
+          <p>Tra&ccedil;abilit&eacute; de toutes les actions. Journal horodat&eacute; et immutable.</p>
         </div>
         <div class="security-card">
           <div class="security-icon">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2"><path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.66 0 3-4.03 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4.03-3-9s1.34-9 3-9"/></svg>
           </div>
           <h4>Multi-tenant</h4>
-          <p>Isolation compl&egrave;te des donn&eacute;es par entit&eacute;. Chaque organisation dans son propre espace.</p>
+          <p>Isolation compl&egrave;te des donn&eacute;es. Chaque organisation dans son propre espace s&eacute;curis&eacute;.</p>
         </div>
         <div class="security-card">
           <div class="security-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><path d="M22 6l-10 7L2 6"/></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
           </div>
           <h4>Chiffrement</h4>
-          <p>HTTPS/TLS, chiffrement des mots de passe bcrypt, tokens JWT sign&eacute;s, donn&eacute;es sensibles prot&eacute;g&eacute;es.</p>
+          <p>HTTPS/TLS, bcrypt, JWT sign&eacute;s. Donn&eacute;es sensibles prot&eacute;g&eacute;es de bout en bout.</p>
         </div>
         <div class="security-card">
           <div class="security-icon">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M9 12l2 2 4-4"/></svg>
           </div>
           <h4>RGPD</h4>
-          <p>Conforme au R&egrave;glement G&eacute;n&eacute;ral sur la Protection des Donn&eacute;es. Droit &agrave; l'oubli, export des donn&eacute;es.</p>
+          <p>Conforme au R&egrave;glement G&eacute;n&eacute;ral sur la Protection des Donn&eacute;es. Droit &agrave; l'oubli, export.</p>
         </div>
       </div>
     </div>
@@ -309,9 +304,10 @@
     <div class="container">
       <div class="cta-box">
         <h2>Pr&ecirc;t &agrave; transformer vos op&eacute;rations ?</h2>
-        <p>Rejoignez les entreprises qui font confiance &agrave; OpsFlux pour g&eacute;rer leurs op&eacute;rations industrielles en toute s&eacute;curit&eacute;.</p>
+        <p>Rejoignez les entreprises industrielles qui font confiance &agrave; OpsFlux pour piloter leurs op&eacute;rations en toute s&eacute;curit&eacute;.</p>
         <div class="hero-actions">
           <a href="#contact" class="btn btn-white btn-lg">Demander une d&eacute;mo gratuite</a>
+          <a href="https://app.opsflux.io/login" class="btn btn-outline btn-lg">Se connecter</a>
         </div>
       </div>
     </div>
@@ -323,7 +319,7 @@
       <div class="section-header">
         <span class="section-badge">Contact</span>
         <h2>Demandez votre d&eacute;monstration</h2>
-        <p>Remplissez le formulaire ci-dessous et notre &eacute;quipe vous contactera dans les 24 heures.</p>
+        <p>Notre &eacute;quipe vous contactera dans les 24 heures pour organiser une d&eacute;mo personnalis&eacute;e.</p>
       </div>
       <div class="contact-form-wrapper">
         <form class="contact-form" id="contactForm">
@@ -357,13 +353,13 @@
             </select>
           </div>
           <div class="form-group">
-            <label for="message">Message (optionnel)</label>
+            <label for="message">Message <span style="font-weight:400;color:var(--gray-400)">(optionnel)</span></label>
             <textarea id="message" name="message" rows="3" placeholder="D&eacute;crivez bri&egrave;vement vos besoins..."></textarea>
           </div>
           <button type="submit" class="btn btn-primary btn-lg btn-full">Envoyer ma demande</button>
         </form>
         <div class="form-success" id="formSuccess" style="display:none;">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="1.5"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
           <h3>Demande envoy&eacute;e !</h3>
           <p>Merci pour votre int&eacute;r&ecirc;t. Notre &eacute;quipe vous contactera dans les 24 heures.</p>
         </div>
@@ -402,7 +398,7 @@
         <div class="footer-links">
           <h5>L&eacute;gal</h5>
           <a href="#">Mentions l&eacute;gales</a>
-          <a href="#">Politique de confidentialit&eacute;</a>
+          <a href="#">Confidentialit&eacute;</a>
           <a href="#">CGU</a>
           <a href="#">RGPD</a>
         </div>
@@ -414,19 +410,19 @@
   </footer>
 
   <script>
-    // Mobile menu toggle
-    const btn = document.getElementById('mobileMenuBtn')
-    const nav = document.getElementById('navLinks')
-    btn?.addEventListener('click', () => nav?.classList.toggle('open'))
+    // Mobile menu
+    document.getElementById('mobileMenuBtn')?.addEventListener('click', () =>
+      document.getElementById('navLinks')?.classList.toggle('open')
+    )
 
     // Smooth scroll
     document.querySelectorAll('a[href^="#"]').forEach(a => {
       a.addEventListener('click', e => {
         e.preventDefault()
-        const target = document.querySelector(a.getAttribute('href'))
-        if (target) {
-          target.scrollIntoView({ behavior: 'smooth', block: 'start' })
-          nav?.classList.remove('open')
+        const t = document.querySelector(a.getAttribute('href'))
+        if (t) {
+          t.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          document.getElementById('navLinks')?.classList.remove('open')
         }
       })
     })
@@ -438,9 +434,25 @@
       document.getElementById('formSuccess').style.display = 'flex'
     })
 
-    // Navbar scroll effect
-    window.addEventListener('scroll', () => {
-      document.querySelector('.navbar')?.classList.toggle('scrolled', window.scrollY > 20)
+    // Navbar scroll
+    const nb = document.getElementById('navbar')
+    window.addEventListener('scroll', () => nb?.classList.toggle('scrolled', window.scrollY > 20))
+
+    // Intersection Observer for fade-in on scroll
+    const observer = new IntersectionObserver(
+      entries => entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.style.opacity = '1'
+          e.target.style.transform = 'translateY(0)'
+        }
+      }),
+      { threshold: 0.1, rootMargin: '0px 0px -40px 0px' }
+    )
+    document.querySelectorAll('.feature-card, .module-card, .security-card').forEach(el => {
+      el.style.opacity = '0'
+      el.style.transform = 'translateY(20px)'
+      el.style.transition = 'opacity .5s ease, transform .5s ease'
+      observer.observe(el)
     })
   </script>
 </body>

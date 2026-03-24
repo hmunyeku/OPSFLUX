@@ -125,6 +125,17 @@ export function ProfileTab() {
   const uploadAvatar = useUploadAvatar()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Add trigger refs for sub-model managers
+  const addPhoneRef = useRef<(() => void) | null>(null)
+  const addEmergencyRef = useRef<(() => void) | null>(null)
+  const addPassportRef = useRef<(() => void) | null>(null)
+  const addVisaRef = useRef<(() => void) | null>(null)
+  const addSecuRef = useRef<(() => void) | null>(null)
+  const addMedicalRef = useRef<(() => void) | null>(null)
+  const addVaccineRef = useRef<(() => void) | null>(null)
+  const addLanguageRef = useRef<(() => void) | null>(null)
+  const addLicenseRef = useRef<(() => void) | null>(null)
+
   // Dictionary hooks
   const dictGender = useDictionaryOptions('gender')
   const dictNationality = useDictionaryColumnOptions('nationality', 'nationality')
@@ -505,13 +516,13 @@ export function ProfileTab() {
         storageKey="settings.phones.collapse"
         defaultExpanded={false}
         headerAction={
-          <button className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter">
+          <button onClick={() => addPhoneRef.current?.()} className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter">
             <Plus size={14} />
           </button>
         }
       >
         <div className="mt-2">
-          <PhoneManager ownerType="user" ownerId={user?.id} hideAddButton />
+          <PhoneManager ownerType="user" ownerId={user?.id} hideAddButton onAddRef={(fn) => { addPhoneRef.current = fn }} />
         </div>
       </CollapsibleSection>
 
@@ -524,13 +535,13 @@ export function ProfileTab() {
         storageKey="settings.emergency.collapse"
         defaultExpanded={false}
         headerAction={
-          <button className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter">
+          <button onClick={() => addEmergencyRef.current?.()} className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter">
             <Plus size={14} />
           </button>
         }
       >
         <div className="mt-2">
-          {user?.id && <EmergencyContactManager userId={user.id} hideAddButton />}
+          {user?.id && <EmergencyContactManager userId={user.id} hideAddButton onAddRef={(fn) => { addEmergencyRef.current = fn }} />}
         </div>
       </CollapsibleSection>
 
@@ -541,26 +552,36 @@ export function ProfileTab() {
         description="Passeports, visas, sécurité sociale — gérés via sous-modèles."
         storageKey="settings.profile.collapse"
         showSeparator={false}
-        headerAction={
-          <button className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter">
-            <Plus size={14} />
-          </button>
-        }
       >
         <div className="mt-2 space-y-4">
           {user?.id && (
             <>
               <div>
-                <h4 className="text-xs font-semibold text-muted-foreground mb-1.5">Passeports</h4>
-                <PassportManager userId={user.id} hideAddButton />
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <h4 className="text-xs font-semibold text-muted-foreground">Passeports</h4>
+                  <button onClick={() => addPassportRef.current?.()} className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter un passeport">
+                    <Plus size={12} />
+                  </button>
+                </div>
+                <PassportManager userId={user.id} hideAddButton onAddRef={(fn) => { addPassportRef.current = fn }} />
               </div>
               <div>
-                <h4 className="text-xs font-semibold text-muted-foreground mb-1.5">Visas</h4>
-                <VisaManager userId={user.id} hideAddButton />
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <h4 className="text-xs font-semibold text-muted-foreground">Visas</h4>
+                  <button onClick={() => addVisaRef.current?.()} className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter un visa">
+                    <Plus size={12} />
+                  </button>
+                </div>
+                <VisaManager userId={user.id} hideAddButton onAddRef={(fn) => { addVisaRef.current = fn }} />
               </div>
               <div>
-                <h4 className="text-xs font-semibold text-muted-foreground mb-1.5">Sécurité sociale</h4>
-                <SocialSecurityManager userId={user.id} hideAddButton />
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <h4 className="text-xs font-semibold text-muted-foreground">Sécurité sociale</h4>
+                  <button onClick={() => addSecuRef.current?.()} className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter">
+                    <Plus size={12} />
+                  </button>
+                </div>
+                <SocialSecurityManager userId={user.id} hideAddButton onAddRef={(fn) => { addSecuRef.current = fn }} />
               </div>
             </>
           )}
@@ -614,22 +635,27 @@ export function ProfileTab() {
         description="Visites médicales, vaccins et conditions de santé."
         storageKey="settings.profile.collapse"
         showSeparator={false}
-        headerAction={
-          <button className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter">
-            <Plus size={14} />
-          </button>
-        }
       >
         <div className="mt-2 space-y-4">
           {user?.id && (
             <>
               <div>
-                <h4 className="text-xs font-semibold text-muted-foreground mb-1.5">Visites médicales</h4>
-                <MedicalCheckManager ownerType="user" ownerId={user.id} hideAddButton />
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <h4 className="text-xs font-semibold text-muted-foreground">Visites médicales</h4>
+                  <button onClick={() => addMedicalRef.current?.()} className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter une visite">
+                    <Plus size={12} />
+                  </button>
+                </div>
+                <MedicalCheckManager ownerType="user" ownerId={user.id} hideAddButton onAddRef={(fn) => { addMedicalRef.current = fn }} />
               </div>
               <div>
-                <h4 className="text-xs font-semibold text-muted-foreground mb-1.5">Vaccins</h4>
-                <VaccineManager userId={user.id} hideAddButton />
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <h4 className="text-xs font-semibold text-muted-foreground">Vaccins</h4>
+                  <button onClick={() => addVaccineRef.current?.()} className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter un vaccin">
+                    <Plus size={12} />
+                  </button>
+                </div>
+                <VaccineManager userId={user.id} hideAddButton onAddRef={(fn) => { addVaccineRef.current = fn }} />
               </div>
               <div>
                 <h4 className="text-xs font-semibold text-muted-foreground mb-1.5">Conditions de santé</h4>
@@ -704,22 +730,27 @@ export function ProfileTab() {
         description="Langues parlées et permis de conduire."
         storageKey="settings.profile.collapse"
         showSeparator={false}
-        headerAction={
-          <button className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter">
-            <Plus size={14} />
-          </button>
-        }
       >
         <div className="mt-2 space-y-4">
           {user?.id && (
             <>
               <div>
-                <h4 className="text-xs font-semibold text-muted-foreground mb-1.5">Langues</h4>
-                <UserLanguageManager userId={user.id} hideAddButton />
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <h4 className="text-xs font-semibold text-muted-foreground">Langues</h4>
+                  <button onClick={() => addLanguageRef.current?.()} className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter une langue">
+                    <Plus size={12} />
+                  </button>
+                </div>
+                <UserLanguageManager userId={user.id} hideAddButton onAddRef={(fn) => { addLanguageRef.current = fn }} />
               </div>
               <div>
-                <h4 className="text-xs font-semibold text-muted-foreground mb-1.5">Permis de conduire</h4>
-                <DrivingLicenseManager userId={user.id} hideAddButton />
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <h4 className="text-xs font-semibold text-muted-foreground">Permis de conduire</h4>
+                  <button onClick={() => addLicenseRef.current?.()} className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter un permis">
+                    <Plus size={12} />
+                  </button>
+                </div>
+                <DrivingLicenseManager userId={user.id} hideAddButton onAddRef={(fn) => { addLicenseRef.current = fn }} />
               </div>
             </>
           )}
@@ -733,11 +764,6 @@ export function ProfileTab() {
         description="Formations, certifications, habilitations, audits — suivi de conformité."
         storageKey="settings.profile.collapse"
         showSeparator={false}
-        headerAction={
-          <button className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-primary transition-colors" title="Ajouter">
-            <Plus size={14} />
-          </button>
-        }
       >
         <div className="mt-2">
           {user?.id && <ReferentielManager ownerType="user" ownerId={user.id} />}

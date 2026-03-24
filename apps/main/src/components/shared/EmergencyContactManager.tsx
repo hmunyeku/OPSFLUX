@@ -13,7 +13,7 @@ const FALLBACK_RELATIONSHIP_OPTIONS = [
   { value: 'other', label: 'Autre' },
 ]
 
-export function EmergencyContactManager({ userId, compact, hideAddButton }: { userId: string; compact?: boolean; hideAddButton?: boolean }) {
+export function EmergencyContactManager({ userId, compact, hideAddButton, onAddRef }: { userId: string; compact?: boolean; hideAddButton?: boolean; onAddRef?: (fn: () => void) => void }) {
   const { data: items, isLoading } = useEmergencyContacts(userId)
   const create = useCreateEmergencyContact()
   const update = useUpdateEmergencyContact()
@@ -56,6 +56,7 @@ export function EmergencyContactManager({ userId, compact, hideAddButton }: { us
       createPending={create.isPending}
       compact={compact}
       hideAddButton={hideAddButton}
+      onAddRef={onAddRef}
     />
   )
 }

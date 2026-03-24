@@ -5,7 +5,7 @@ import { useDictionaryOptions, useDictionaryColumnOptions, useDictionary } from 
 import { CountryFlag } from '@/components/ui/CountryFlag'
 import type { UserVisaRead, UserVisaCreate } from '@/types/api'
 
-export function VisaManager({ userId, compact, hideAddButton }: { userId: string; compact?: boolean; hideAddButton?: boolean }) {
+export function VisaManager({ userId, compact, hideAddButton, onAddRef }: { userId: string; compact?: boolean; hideAddButton?: boolean; onAddRef?: (fn: () => void) => void }) {
   const { data: items, isLoading } = useVisas(userId)
   const create = useCreateVisa()
   const update = useUpdateVisa()
@@ -51,6 +51,7 @@ export function VisaManager({ userId, compact, hideAddButton }: { userId: string
       createPending={create.isPending}
       compact={compact}
       hideAddButton={hideAddButton}
+      onAddRef={onAddRef}
     />
   )
 }

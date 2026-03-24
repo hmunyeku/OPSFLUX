@@ -254,9 +254,10 @@ interface PhoneManagerProps {
   ownerId: string | undefined
   compact?: boolean
   hideAddButton?: boolean
+  onAddRef?: (fn: () => void) => void
 }
 
-export function PhoneManager({ ownerType, ownerId, compact, hideAddButton }: PhoneManagerProps) {
+export function PhoneManager({ ownerType, ownerId, compact, hideAddButton, onAddRef }: PhoneManagerProps) {
   const { toast } = useToast()
   const { data, isLoading } = usePhones(ownerType, ownerId)
   const createPhone = useCreatePhone()
@@ -272,6 +273,10 @@ export function PhoneManager({ ownerType, ownerId, compact, hideAddButton }: Pho
   const [label, setLabel] = useState('mobile')
   const [countryCode, setCountryCode] = useState('+33')
   const [editingId, setEditingId] = useState<string | null>(null)
+
+  // Expose add trigger via ref callback
+  const handleAdd = useCallback(() => setShowForm(true), [])
+  useEffect(() => { onAddRef?.(handleAdd) }, [onAddRef, handleAdd])
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [verifyingPhoneId, setVerifyingPhoneId] = useState<string | null>(null)
   const [otpCode, setOtpCode] = useState('')

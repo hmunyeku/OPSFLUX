@@ -9,9 +9,10 @@ interface MedicalCheckManagerProps {
   ownerId: string
   compact?: boolean
   hideAddButton?: boolean
+  onAddRef?: (fn: () => void) => void
 }
 
-export function MedicalCheckManager({ ownerType, ownerId, compact, hideAddButton }: MedicalCheckManagerProps) {
+export function MedicalCheckManager({ ownerType, ownerId, compact, hideAddButton, onAddRef }: MedicalCheckManagerProps) {
   const { data: items, isLoading } = useMedicalChecks(ownerType, ownerId)
   const create = useCreateMedicalCheck()
   const update = useUpdateMedicalCheck()
@@ -55,6 +56,7 @@ export function MedicalCheckManager({ ownerType, ownerId, compact, hideAddButton
       createPending={create.isPending}
       compact={compact}
       hideAddButton={hideAddButton}
+      onAddRef={onAddRef}
     />
   )
 }

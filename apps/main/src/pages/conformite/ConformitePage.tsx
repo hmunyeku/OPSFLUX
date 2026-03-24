@@ -2137,6 +2137,31 @@ const RECORD_TYPE_LABELS: Record<string, string> = {
 }
 
 function VerificationsTab() {
+  const [subTab, setSubTab] = useState<'pending' | 'history'>('pending')
+  const { data: pendingData } = usePendingVerifications()
+  const pendingCount = pendingData?.items?.length ?? 0
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="shrink-0 border-b border-border">
+        <SubTabBar
+          items={[
+            { id: 'pending' as const, label: 'En attente', icon: ClipboardCheck },
+            { id: 'history' as const, label: 'Historique', icon: ClipboardList },
+          ]}
+          activeId={subTab}
+          onTabChange={setSubTab}
+          counts={{ pending: pendingCount }}
+        />
+      </div>
+      <div className="flex-1 min-h-0">
+        {subTab === 'pending' ? <PendingVerificationsSubTab /> : <VerificationHistorySubTab />}
+      </div>
+    </div>
+  )
+}
+
+function PendingVerificationsSubTab() {
   const { data, isLoading } = usePendingVerifications()
   const verifyRecord = useVerifyRecord()
   const { toast } = useToast()
@@ -2297,6 +2322,124 @@ function VerificationsTab() {
       columnResizing
       columnVisibility
       storageKey="conformite-verifications"
+    />
+  )
+}
+
+function VerificationHistorySubTab() {
+  const [histPage, setHistPage] = useState(1)
+  const { pageSize } = usePageSize()
+  const { data, isLoading } = useVerificationHistory(histPage, pageSize)
+  const [histSearch, setHistSearch] = useState('')
+
+  const items = data?.items ?? []
+
+  const fmtDate = (d: string | null | undefined) => {
+    if (!d) return '—'
+    try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) }
+    catch { return '—' }
+  }
+
+  type HistItem = typeof items[number]
+
+  const histColumns: ColumnDef<HistItem>[] = useMemo(() => [
+    {
+      accessorKey: 'owner_name',
+      header: 'Personne',
+      size: 160,
+      cell: ({ row }) => {
+        const name = row.original.owner_name || 'Inconnu'
+        const initials = name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
+        return (
+          <div className="flex items-center gap-2">
+            <div className="h-6 w-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-bold shrink-0">{initials}</div>
+            <span className="truncate">{name}</span>
+          </div>
+        )
+      },
+    },
+    {
+      accessorKey: 'record_type',
+      header: 'Type',
+      size: 120,
+      cell: ({ row }) => (
+        <span className="gl-badge gl-badge-neutral text-[9px]">{RECORD_TYPE_LABELS[row.original.record_type] || row.original.record_type}</span>
+      ),
+    },
+    { accessorKey: 'description', header: 'Description', size: 220 },
+    {
+      accessorKey: 'verification_status',
+      header: 'Decision',
+      size: 100,
+      cell: ({ row }) => {
+        const s = row.original.verification_status
+        return s === 'verified'
+          ? <span className="gl-badge gl-badge-success text-[9px]">Verifie</span>
+          : <span className="gl-badge gl-badge-danger text-[9px]">Rejete</span>
+      },
+    },
+    {
+      accessorKey: 'verified_by_name',
+      header: 'Par',
+      size: 130,
+      cell: ({ row }) => <span className="text-muted-foreground">{row.original.verified_by_name || '—'}</span>,
+    },
+    {
+      accessorKey: 'verified_at',
+      header: 'Date decision',
+      size: 110,
+      cell: ({ row }) => <span className="tabular-nums">{fmtDate(row.original.verified_at)}</span>,
+    },
+    {
+      accessorKey: 'verification_notes',
+      header: 'Notes',
+      size: 180,
+      cell: ({ row }) => <span className="text-muted-foreground truncate max-w-[180px] block">{row.original.verification_notes || '—'}</span>,
+    },
+    {
+      accessorKey: 'issued_at',
+      header: 'Emission',
+      size: 100,
+      cell: ({ row }) => <span className="tabular-nums">{fmtDate(row.original.issued_at)}</span>,
+    },
+    {
+      accessorKey: 'expires_at',
+      header: 'Expiration',
+      size: 100,
+      cell: ({ row }) => {
+        const exp = row.original.expires_at
+        if (!exp) return <span className="text-muted-foreground">—</span>
+        const d = new Date(exp)
+        const now = new Date()
+        const days = Math.ceil((d.getTime() - now.getTime()) / 86400000)
+        const color = days < 0 ? 'text-red-500' : days < 30 ? 'text-orange-500' : 'text-foreground'
+        return <span className={cn('tabular-nums', color)}>{fmtDate(exp)}</span>
+      },
+    },
+  ], [])
+
+  const histPagination: DataTablePagination = {
+    page: histPage,
+    pageSize,
+    total: data?.total ?? 0,
+    pages: Math.ceil((data?.total ?? 0) / pageSize),
+  }
+
+  return (
+    <DataTable<HistItem>
+      columns={histColumns}
+      data={items}
+      isLoading={isLoading}
+      pagination={histPagination}
+      onPaginationChange={(p) => setHistPage(p)}
+      searchValue={histSearch}
+      onSearchChange={setHistSearch}
+      searchPlaceholder="Rechercher dans l'historique..."
+      emptyIcon={ClipboardList}
+      emptyTitle="Aucun historique de verification"
+      columnResizing
+      columnVisibility
+      storageKey="conformite-verif-history"
     />
   )
 }

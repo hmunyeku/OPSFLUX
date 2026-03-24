@@ -36,20 +36,53 @@ async def get_adminer_config(
 async def adminer_proxy(
     path: str,
     request: Request,
-    current_user: User = Depends(get_current_user),
-    _: None = require_permission("admin.system"),
+    db: AsyncSession = Depends(get_db),
 ):
     """Reverse proxy to Adminer container — admin.system only.
 
-    Proxies all requests to http://adminer:8080/ so Adminer doesn't need
-    its own Traefik route. Auth is handled by OpsFlux JWT.
+    Accepts JWT via Authorization header OR ?token= query param (for iframes).
+    Proxies all requests to http://adminer:8080/.
     """
     import httpx
     from starlette.responses import Response
+    from app.core.security import decode_token, JWTError
+
+    # Auth: check header first, then query param (for iframe)
+    token = None
+    auth_header = request.headers.get("authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+    else:
+        token = request.query_params.get("token")
+
+    if not token:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    try:
+        payload = decode_token(token)
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    # Verify user exists and has admin.system permission
+    user = await db.get(User, UUID(user_id))
+    if not user or not user.active:
+        raise HTTPException(status_code=401, detail="User not found or inactive")
+
+    from app.api.deps import has_user_permission
+    entity_id = user.default_entity_id
+    if not entity_id or not await has_user_permission(user, entity_id, "admin.system", db):
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    # Strip token from query params before proxying
+    query_parts = [f"{k}={v}" for k, v in request.query_params.items() if k != "token"]
+    query_string = "&".join(query_parts)
 
     target = f"http://adminer:8080/{path}"
-    if request.url.query:
-        target += f"?{request.url.query}"
+    if query_string:
+        target += f"?{query_string}"
 
     async with httpx.AsyncClient(timeout=30) as client:
         body = await request.body()

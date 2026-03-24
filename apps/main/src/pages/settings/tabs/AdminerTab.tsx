@@ -42,6 +42,8 @@ export function AdminerTab() {
   }
 
   const apiBase = import.meta.env.VITE_API_URL || window.location.origin.replace('app.', 'api.')
+  const token = localStorage.getItem('access_token') || ''
+  const proxyUrl = `${apiBase}${config?.adminer_url || '/api/v1/admin/adminer-proxy/'}?token=${token}`
 
   const dbInfo = [
     { label: 'Moteur', value: 'PostgreSQL 16 + pgvector + PostGIS' },
@@ -80,7 +82,7 @@ export function AdminerTab() {
         <div className="flex items-center justify-between mb-2">
           <h4 className="text-xs font-semibold text-foreground">Adminer (interface visuelle)</h4>
           <a
-            href={`${apiBase}${config?.adminer_url || '/api/v1/admin/adminer-proxy/'}`}
+            href={proxyUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-[10px] text-primary hover:text-primary/80"
@@ -90,7 +92,7 @@ export function AdminerTab() {
         </div>
         <div className="border border-border rounded-lg overflow-hidden" style={{ height: 'calc(100vh - 280px)' }}>
           <iframe
-            src={`${apiBase}${config?.adminer_url || '/api/v1/admin/adminer-proxy/'}`}
+            src={proxyUrl}
             className="w-full h-full border-0"
             title="Adminer"
           />

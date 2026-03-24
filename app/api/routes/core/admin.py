@@ -92,6 +92,57 @@ async def system_health(
 
     uptime_seconds = int(time.time() - _START_TIME)
 
+    # ── Database details ──────────────────────────────────────────
+    db_size: str | None = None
+    db_table_count: int | None = None
+    db_total_rows: int | None = None
+    db_top_tables: list[dict] = []
+    try:
+        size_r = await db.execute(text("SELECT pg_size_pretty(pg_database_size(current_database()))"))
+        db_size = size_r.scalar()
+        tc_r = await db.execute(text("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'"))
+        db_table_count = tc_r.scalar()
+        # Top 10 tables by size
+        tt_r = await db.execute(text("""
+            SELECT relname AS name,
+                   pg_size_pretty(pg_total_relation_size(relid)) AS size,
+                   n_live_tup AS rows
+            FROM pg_catalog.pg_stat_user_tables
+            ORDER BY pg_total_relation_size(relid) DESC
+            LIMIT 10
+        """))
+        db_top_tables = [{"name": r.name, "size": r.size, "rows": r.rows} for r in tt_r.all()]
+    except Exception:
+        pass
+
+    # ── App stats ─────────────────────────────────────────────────
+    user_count: int | None = None
+    active_user_count: int | None = None
+    try:
+        uc_r = await db.execute(select(func.count(User.id)))
+        user_count = uc_r.scalar()
+        auc_r = await db.execute(select(func.count(User.id)).where(User.active == True))  # noqa: E712
+        active_user_count = auc_r.scalar()
+    except Exception:
+        pass
+
+    # ── Python / runtime info ─────────────────────────────────────
+    import platform
+    import sys
+    python_version = sys.version.split()[0]
+    os_info = f"{platform.system()} {platform.release()}"
+
+    # ── Redis details ─────────────────────────────────────────────
+    redis_memory: str | None = None
+    redis_keys: int | None = None
+    try:
+        redis = get_redis()
+        info = await redis.info("memory")
+        redis_memory = info.get("used_memory_human", None)
+        redis_keys = await redis.dbsize()
+    except Exception:
+        pass
+
     overall = "healthy" if (db_ok and redis_ok) else "degraded"
 
     return {
@@ -100,10 +151,15 @@ async def system_health(
             "status": "ok" if db_ok else "error",
             "latency_ms": db_latency_ms,
             "active_connections": db_connections,
+            "size": db_size,
+            "table_count": db_table_count,
+            "top_tables": db_top_tables,
         },
         "redis": {
             "status": "ok" if redis_ok else "error",
             "latency_ms": redis_latency_ms,
+            "memory": redis_memory,
+            "keys": redis_keys,
         },
         "uptime_seconds": uptime_seconds,
         "memory_mb": memory_mb,
@@ -111,6 +167,12 @@ async def system_health(
         "disk_usage_percent": disk_usage_percent,
         "environment": settings.ENVIRONMENT,
         "version": "1.0.0",
+        "python_version": python_version,
+        "os": os_info,
+        "users": {
+            "total": user_count,
+            "active": active_user_count,
+        },
     }
 
 

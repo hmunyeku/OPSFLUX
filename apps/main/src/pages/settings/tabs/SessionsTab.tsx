@@ -1,142 +1,191 @@
 /**
- * Active sessions tab — GitLab Pajamas pattern.
- * Matches gitlab.com/-/user_settings/active_sessions
+ * Active sessions tab — DataTable view.
+ *
+ * Shows real authentication sessions (UserSession model) with device info,
+ * IP address, browser, last activity. User can revoke sessions they don't recognize.
  *
  * API-backed: GET /api/v1/sessions, DELETE /sessions/:id, POST /sessions/revoke-all
  */
-import { Monitor, Smartphone, Tablet, Loader2 } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Monitor, Smartphone, Tablet, Loader2, ShieldAlert } from 'lucide-react'
 import { useSessions, useRevokeSession, useRevokeAllSessions } from '@/hooks/useSettings'
 import { useToast } from '@/components/ui/Toast'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
+import { DataTable } from '@/components/ui/DataTable/DataTable'
+import type { ColumnDef } from '@tanstack/react-table'
+import type { DataTablePagination } from '@/components/ui/DataTable/types'
+import { cn } from '@/lib/utils'
 
-const deviceIcons = {
+interface SessionItem {
+  id: string
+  ip_address: string | null
+  browser: string | null
+  os: string | null
+  device_type: string
+  is_current: boolean
+  created_at: string
+  last_active_at: string | null
+}
+
+const deviceIcons: Record<string, React.ElementType> = {
   desktop: Monitor,
   mobile: Smartphone,
   tablet: Tablet,
-} as const
+}
 
 export function SessionsTab() {
   const { toast } = useToast()
   const { data: sessions, isLoading } = useSessions()
   const revokeSession = useRevokeSession()
   const revokeAll = useRevokeAllSessions()
+  const [search, setSearch] = useState('')
+
+  const items: SessionItem[] = sessions ?? []
+  const otherSessions = items.filter((s) => !s.is_current)
 
   const handleRevoke = async (id: string) => {
     try {
       await revokeSession.mutateAsync(id)
       toast({ title: 'Session révoquée', variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', description: 'Impossible de révoquer la session.', variant: 'error' })
+      toast({ title: 'Erreur', variant: 'error' })
     }
   }
 
   const handleRevokeAll = async () => {
     try {
       const result = await revokeAll.mutateAsync()
-      toast({ title: 'Sessions révoquées', description: `${result.revoked_count} session(s) déconnectée(s).`, variant: 'success' })
+      toast({ title: `${result.revoked_count} session(s) révoquée(s)`, variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', description: 'Impossible de révoquer les sessions.', variant: 'error' })
+      toast({ title: 'Erreur', variant: 'error' })
     }
   }
 
-  const otherSessions = sessions?.filter((s) => !s.is_current) || []
+  const fmtDate = (d: string | null) => {
+    if (!d) return '—'
+    try {
+      const date = new Date(d)
+      return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    } catch { return '—' }
+  }
+
+  const columns: ColumnDef<SessionItem>[] = useMemo(() => [
+    {
+      accessorKey: 'device_type',
+      header: 'Appareil',
+      size: 70,
+      cell: ({ row }) => {
+        const Icon = deviceIcons[row.original.device_type] || Monitor
+        return (
+          <div className="flex items-center gap-2">
+            <div className={cn(
+              'h-7 w-7 rounded-lg flex items-center justify-center shrink-0',
+              row.original.is_current ? 'bg-primary/10' : 'bg-muted/50',
+            )}>
+              <Icon size={14} className={row.original.is_current ? 'text-primary' : 'text-muted-foreground'} />
+            </div>
+          </div>
+        )
+      },
+    },
+    {
+      accessorKey: 'browser',
+      header: 'Navigateur / OS',
+      size: 200,
+      cell: ({ row }) => (
+        <div>
+          <span className="text-foreground font-medium">{row.original.browser || 'Inconnu'}</span>
+          <span className="text-muted-foreground"> sur </span>
+          <span className="text-foreground">{row.original.os || 'Inconnu'}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'ip_address',
+      header: 'Adresse IP',
+      size: 140,
+      cell: ({ row }) => <span className="font-mono text-muted-foreground">{row.original.ip_address || '—'}</span>,
+    },
+    {
+      id: 'status',
+      header: 'Statut',
+      size: 110,
+      cell: ({ row }) => row.original.is_current
+        ? <span className="gl-badge gl-badge-success text-[9px]">Session actuelle</span>
+        : <span className="gl-badge gl-badge-neutral text-[9px]">Active</span>,
+    },
+    {
+      accessorKey: 'created_at',
+      header: 'Connexion',
+      size: 150,
+      cell: ({ row }) => <span className="tabular-nums text-muted-foreground">{fmtDate(row.original.created_at)}</span>,
+    },
+    {
+      accessorKey: 'last_active_at',
+      header: 'Dernier accès',
+      size: 150,
+      cell: ({ row }) => <span className="tabular-nums text-muted-foreground">{fmtDate(row.original.last_active_at)}</span>,
+    },
+    {
+      id: 'actions',
+      header: '',
+      size: 80,
+      cell: ({ row }) => {
+        if (row.original.is_current) return null
+        return (
+          <button
+            onClick={(e) => { e.stopPropagation(); handleRevoke(row.original.id) }}
+            disabled={revokeSession.isPending}
+            className="gl-button-sm gl-button-danger"
+          >
+            Révoquer
+          </button>
+        )
+      },
+    },
+  ], [revokeSession.isPending])
+
+  const pagination: DataTablePagination = {
+    page: 1,
+    pageSize: items.length || 25,
+    total: items.length,
+    pages: 1,
+  }
 
   return (
     <CollapsibleSection
       id="active-sessions"
       title="Sessions actives"
-      description="Liste des appareils connectés à votre compte. Révoquez les sessions que vous ne reconnaissez pas."
+      description="Liste des sessions d'authentification ouvertes sur votre compte. Révoquez celles que vous ne reconnaissez pas."
       storageKey="settings.sessions.collapse"
       showSeparator={false}
     >
-      {isLoading ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 size={20} className="animate-spin text-muted-foreground" />
-        </div>
-      ) : (
-        <>
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            {sessions?.map((session) => {
-              const Icon = deviceIcons[session.device_type] || Monitor
-              return (
-                <div
-                  key={session.id}
-                  className={`border rounded-lg p-4 transition-colors ${
-                    session.is_current
-                      ? 'border-primary/40 bg-primary/5'
-                      : 'border-border/60 bg-card'
-                  }`}
-                >
-                  {/* Header: device icon + IP + current badge */}
-                  <div className="flex items-start gap-2.5 mb-3">
-                    <div className={`flex h-9 w-9 items-center justify-center rounded-lg shrink-0 ${
-                      session.is_current ? 'bg-primary/10' : 'bg-muted/50'
-                    }`}>
-                      <Icon size={18} className={session.is_current ? 'text-primary' : 'text-muted-foreground'} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-foreground truncate">{session.ip_address || 'IP inconnue'}</p>
-                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                        {session.is_current && (
-                          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                            Session actuelle
-                          </span>
-                        )}
-                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-muted text-muted-foreground">
-                          {session.device_type || 'desktop'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+      <div className="mt-4 space-y-4">
+        <DataTable<SessionItem>
+          columns={columns}
+          data={items}
+          isLoading={isLoading}
+          pagination={pagination}
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Rechercher par IP, navigateur, OS..."
+          emptyIcon={ShieldAlert}
+          emptyTitle="Aucune session active"
+          columnResizing
+          storageKey="settings-sessions"
+        />
 
-                  {/* Details */}
-                  <div className="space-y-1 mb-3">
-                    <p className="text-xs text-muted-foreground">
-                      <span className="font-medium text-foreground">{session.browser || 'Navigateur inconnu'}</span>
-                      {' sur '}
-                      <span className="font-medium text-foreground">{session.os || 'OS inconnu'}</span>
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Connecté le {new Date(session.created_at).toLocaleString('fr-FR')}
-                    </p>
-                    {!session.is_current && session.last_active_at && (
-                      <p className="text-xs text-muted-foreground">
-                        Dernier accès le {new Date(session.last_active_at).toLocaleString('fr-FR')}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Action */}
-                  {!session.is_current && (
-                    <div className="pt-2 border-t border-border/30">
-                      <button
-                        className="gl-button-sm gl-button-danger"
-                        onClick={() => handleRevoke(session.id)}
-                        disabled={revokeSession.isPending}
-                      >
-                        Révoquer
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-
-          {(!sessions || sessions.length === 0) && (
-            <p className="py-6 text-center text-sm text-muted-foreground">Aucune session active.</p>
-          )}
-
-          {otherSessions.length > 0 && (
-            <div className="mt-6">
-              <button className="gl-button gl-button-danger" onClick={handleRevokeAll} disabled={revokeAll.isPending}>
-                {revokeAll.isPending && <Loader2 size={14} className="animate-spin mr-1" />}
-                Révoquer toutes les autres sessions
-              </button>
-            </div>
-          )}
-        </>
-      )}
+        {otherSessions.length > 0 && (
+          <button
+            className="gl-button gl-button-danger"
+            onClick={handleRevokeAll}
+            disabled={revokeAll.isPending}
+          >
+            {revokeAll.isPending && <Loader2 size={14} className="animate-spin mr-1" />}
+            Révoquer toutes les autres sessions ({otherSessions.length})
+          </button>
+        )}
+      </div>
     </CollapsibleSection>
   )
 }

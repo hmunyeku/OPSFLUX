@@ -198,6 +198,7 @@ async def _issue_tokens(
         resource_type="user",
         resource_id=str(user.id),
         user_id=user.id,
+        entity_id=user.default_entity_id,
         ip_address=ip_address,
         user_agent=user_agent,
     )

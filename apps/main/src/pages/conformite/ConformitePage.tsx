@@ -2126,6 +2126,12 @@ function CreateRulePanel() {
 
 // ── Verifications Tab ────────────────────────────────────────────────────
 
+const VERIFICATION_STATUS_OPTIONS = [
+  { value: 'pending', label: 'En attente' },
+  { value: 'verified', label: 'Vérifié' },
+  { value: 'rejected', label: 'Rejeté' },
+]
+
 const RECORD_TYPE_LABELS: Record<string, string> = {
   compliance_record: 'Référentiel',
   passport: 'Passeport',
@@ -2198,12 +2204,6 @@ function VerificationsTab() {
     try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) }
     catch { return '—' }
   }
-
-  const VERIFICATION_STATUS_OPTIONS = [
-    { value: 'pending', label: 'En attente' },
-    { value: 'verified', label: 'Vérifié' },
-    { value: 'rejected', label: 'Rejeté' },
-  ]
 
   const verFilters: DataTableFilterDef[] = useMemo(() => [
     { id: 'verification_status', label: 'Statut', type: 'select', options: VERIFICATION_STATUS_OPTIONS },
@@ -2325,7 +2325,7 @@ function VerificationsTab() {
       onSearchChange={setVerSearch}
       searchPlaceholder="Rechercher par personne, type, description..."
       filters={verFilters}
-      activeFilters={{ verification_status: statusFilter || undefined }}
+      activeFilters={{ verification_status: statusFilter || undefined } as Record<string, unknown>}
       onFilterChange={(id, value) => { if (id === 'verification_status') setStatusFilter(value as string || '') }}
       onRowClick={(row) => {
         if (row.verification_status === 'pending') {

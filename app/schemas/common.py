@@ -295,11 +295,12 @@ class AssetRead(OpsFluxSchema):
     # Platform structure
     water_depth: float | None = None
     altitude: float | None = None
-    jacket_dimensions: str | None = None
+    jacket_length_m: float | None = None
+    jacket_width_m: float | None = None
     jacket_weight: float | None = None
     nb_piles: int | None = None
-    pile_diameter: str | None = None
-    deck_dimensions: str | None = None
+    pile_diameter_inch: float | None = None
+    pile_count_per_leg: int | None = None
     deck_level: int | None = None
     top_deck_load: float | None = None
     has_winj: bool | None = None
@@ -320,8 +321,8 @@ class AssetRead(OpsFluxSchema):
     # GIS / Geometry
     geometry: dict[str, Any] | None = None
     boundary: dict[str, Any] | None = None
-    # Equipment positioning (3D)
-    deck_name: str | None = None
+    # Equipment positioning
+    deck_id: UUID | None = None
     elevation_msl: float | None = None
     position_x: float | None = None
     position_y: float | None = None
@@ -352,11 +353,12 @@ class AssetCreate(BaseModel):
     orientation: str | None = None
     water_depth: float | None = None
     altitude: float | None = None
-    jacket_dimensions: str | None = None
+    jacket_length_m: float | None = None
+    jacket_width_m: float | None = None
     jacket_weight: float | None = None
     nb_piles: int | None = None
-    pile_diameter: str | None = None
-    deck_dimensions: str | None = None
+    pile_diameter_inch: float | None = None
+    pile_count_per_leg: int | None = None
     deck_level: int | None = None
     top_deck_load: float | None = None
     has_winj: bool | None = None
@@ -374,7 +376,7 @@ class AssetCreate(BaseModel):
     pipeline_length: float | None = None
     geometry: dict[str, Any] | None = None
     boundary: dict[str, Any] | None = None
-    deck_name: str | None = None
+    deck_id: UUID | None = None
     elevation_msl: float | None = None
     position_x: float | None = None
     position_y: float | None = None
@@ -400,11 +402,12 @@ class AssetUpdate(BaseModel):
     orientation: str | None = None
     water_depth: float | None = None
     altitude: float | None = None
-    jacket_dimensions: str | None = None
+    jacket_length_m: float | None = None
+    jacket_width_m: float | None = None
     jacket_weight: float | None = None
     nb_piles: int | None = None
-    pile_diameter: str | None = None
-    deck_dimensions: str | None = None
+    pile_diameter_inch: float | None = None
+    pile_count_per_leg: int | None = None
     deck_level: int | None = None
     top_deck_load: float | None = None
     has_winj: bool | None = None
@@ -422,7 +425,7 @@ class AssetUpdate(BaseModel):
     pipeline_length: float | None = None
     geometry: dict[str, Any] | None = None
     boundary: dict[str, Any] | None = None
-    deck_name: str | None = None
+    deck_id: UUID | None = None
     elevation_msl: float | None = None
     position_x: float | None = None
     position_y: float | None = None
@@ -476,6 +479,41 @@ class AssetTypeConfigUpdate(BaseModel):
     is_fixed_installation: bool | None = None
     show_on_map: bool | None = None
     sort_order: int | None = None
+    active: bool | None = None
+
+
+# ─── Platform Deck schemas ──────────────────────────────────────────────────
+
+class PlatformDeckRead(OpsFluxSchema):
+    id: UUID
+    asset_id: UUID
+    name: str
+    level_number: int
+    elevation_msl: float | None = None
+    length_m: float | None = None
+    width_m: float | None = None
+    max_load_t_m2: float | None = None
+    notes: str | None = None
+    active: bool
+    created_at: datetime | None = None
+
+class PlatformDeckCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=50)
+    level_number: int = 1
+    elevation_msl: float | None = None
+    length_m: float | None = None
+    width_m: float | None = None
+    max_load_t_m2: float | None = None
+    notes: str | None = None
+
+class PlatformDeckUpdate(BaseModel):
+    name: str | None = None
+    level_number: int | None = None
+    elevation_msl: float | None = None
+    length_m: float | None = None
+    width_m: float | None = None
+    max_load_t_m2: float | None = None
+    notes: str | None = None
     active: bool | None = None
 
 

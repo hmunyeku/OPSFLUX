@@ -522,13 +522,17 @@ class Asset(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     # ── Platform structure ──
     water_depth: Mapped[float | None] = mapped_column(Float)  # m — offshore (null = onshore)
     altitude: Mapped[float | None] = mapped_column(Float)  # m — onshore elevation
-    jacket_dimensions: Mapped[str | None] = mapped_column(String(100))  # e.g. "12 x 14"
+    jacket_dimensions: Mapped[str | None] = mapped_column(String(100))  # DEPRECATED — use jacket_length_m + jacket_width_m
+    jacket_length_m: Mapped[float | None] = mapped_column(Float)  # Jacket length (m)
+    jacket_width_m: Mapped[float | None] = mapped_column(Float)  # Jacket width (m)
     jacket_weight: Mapped[float | None] = mapped_column(Float)  # Tonnes
-    nb_piles: Mapped[int | None] = mapped_column(Integer)
-    pile_diameter: Mapped[str | None] = mapped_column(String(50))  # e.g. "30\" x 1"
-    deck_dimensions: Mapped[str | None] = mapped_column(String(100))  # e.g. "20 x 26"
+    nb_piles: Mapped[int | None] = mapped_column(Integer)  # Total piles
+    pile_diameter: Mapped[str | None] = mapped_column(String(50))  # DEPRECATED — use pile_diameter_inch + pile_count_per_leg
+    pile_diameter_inch: Mapped[float | None] = mapped_column(Float)  # Pile diameter (inches)
+    pile_count_per_leg: Mapped[int | None] = mapped_column(Integer)  # Piles per leg
+    deck_dimensions: Mapped[str | None] = mapped_column(String(100))  # DEPRECATED — use PlatformDeck
     deck_level: Mapped[int | None] = mapped_column(Integer)  # Number of deck levels
-    top_deck_load: Mapped[float | None] = mapped_column(Float)  # T/m²
+    top_deck_load: Mapped[float | None] = mapped_column(Float)  # T/m² — overall platform max
     has_winj: Mapped[bool | None] = mapped_column(Boolean)  # Water injection
     has_power: Mapped[bool | None] = mapped_column(Boolean)  # Power generation
     # ── Equipment fields (crane, separator, etc.) ──
@@ -550,7 +554,10 @@ class Asset(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     geometry: Mapped[dict | None] = mapped_column(JSONB)  # GeoJSON: point, linestring, polygon, multipoint
     boundary: Mapped[dict | None] = mapped_column(JSONB)  # GeoJSON polygon for geographic limits
     # ── Equipment positioning (3D on platform) ──
-    deck_name: Mapped[str | None] = mapped_column(String(50))  # Main deck, Cellar deck, Lower deck, Boat landing, etc.
+    deck_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("platform_decks.id"), nullable=True
+    )  # Which deck the equipment is on
+    deck_name: Mapped[str | None] = mapped_column(String(50))  # DEPRECATED — use deck_id
     elevation_msl: Mapped[float | None] = mapped_column(Float)  # Height above Mean Sea Level (m)
     position_x: Mapped[float | None] = mapped_column(Float)  # Local X on platform (m)
     position_y: Mapped[float | None] = mapped_column(Float)  # Local Y on platform (m)
@@ -565,6 +572,33 @@ class Asset(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     children: Mapped[list["Asset"]] = relationship(back_populates="parent", foreign_keys=[parent_id])
     connected_asset: Mapped["Asset | None"] = relationship(foreign_keys=[connected_asset_id])
     lifting_charts: Mapped[list["CraneLiftingChart"]] = relationship(back_populates="asset", cascade="all, delete-orphan")
+    decks: Mapped[list["PlatformDeck"]] = relationship(back_populates="asset", cascade="all, delete-orphan")
+    deck: Mapped["PlatformDeck | None"] = relationship(foreign_keys=[deck_id])
+
+
+class PlatformDeck(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Platform deck level — each platform has N decks with own dimensions and load capacity.
+
+    Equipments positioned on a platform reference a specific deck via deck_id on Asset.
+    """
+    __tablename__ = "platform_decks"
+    __table_args__ = (
+        Index("idx_platform_decks_asset", "asset_id"),
+    )
+
+    asset_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("assets.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(50), nullable=False)  # Main deck, Cellar deck, Boat landing...
+    level_number: Mapped[int] = mapped_column(Integer, default=1, nullable=False)  # 1, 2, 3...
+    elevation_msl: Mapped[float | None] = mapped_column(Float)  # Height above Mean Sea Level (m)
+    length_m: Mapped[float | None] = mapped_column(Float)
+    width_m: Mapped[float | None] = mapped_column(Float)
+    max_load_t_m2: Mapped[float | None] = mapped_column(Float)  # Max load (T/m²)
+    notes: Mapped[str | None] = mapped_column(Text)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    asset: Mapped["Asset"] = relationship(back_populates="decks", foreign_keys=[asset_id])
 
 
 class CraneLiftingChart(UUIDPrimaryKeyMixin, TimestampMixin, Base):

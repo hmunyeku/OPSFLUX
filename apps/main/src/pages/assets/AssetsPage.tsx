@@ -605,11 +605,11 @@ function AssetDetailPanel({ id }: { id: string }) {
               <>
                 <InlineEditableRow label="Prof. eau (m)" value={String(asset.water_depth ?? '')} onSave={(v) => handleInlineSave('water_depth', v ? Number(v) : null)} />
                 <InlineEditableRow label="Altitude (m)" value={String(asset.altitude ?? '')} onSave={(v) => handleInlineSave('altitude', v ? Number(v) : null)} />
-                <InlineEditableRow label="Dim. Jacket" value={asset.jacket_dimensions ?? ''} onSave={(v) => handleInlineSave('jacket_dimensions', v || null)} />
+                <InlineEditableRow label="Dim. Jacket" value={asset.jacket_length_m ? `${asset.jacket_length_m} x ${asset.jacket_width_m}` : ''} onSave={(v) => handleInlineSave('jacket_dimensions', v || null)} />
                 <InlineEditableRow label="Poids Jacket (T)" value={String(asset.jacket_weight ?? '')} onSave={(v) => handleInlineSave('jacket_weight', v ? Number(v) : null)} />
                 <InlineEditableRow label="Nb pieux" value={String(asset.nb_piles ?? '')} onSave={(v) => handleInlineSave('nb_piles', v ? Number(v) : null)} />
-                <InlineEditableRow label="Diam. pieux" value={asset.pile_diameter ?? ''} onSave={(v) => handleInlineSave('pile_diameter', v || null)} />
-                <InlineEditableRow label="Dim. Deck" value={asset.deck_dimensions ?? ''} onSave={(v) => handleInlineSave('deck_dimensions', v || null)} />
+                <InlineEditableRow label="Diam. pieux" value={asset.pile_diameter_inch ? `${asset.pile_diameter_inch}\" x ${asset.pile_count_per_leg}` : ''} onSave={(v) => handleInlineSave('pile_diameter', v || null)} />
+                <InlineEditableRow label="Dim. Deck" value={asset.deck_level ? `${asset.deck_level} niveaux` : ''} onSave={(v) => handleInlineSave('deck_dimensions', v || null)} />
                 <InlineEditableRow label="Niv. Deck" value={String(asset.deck_level ?? '')} onSave={(v) => handleInlineSave('deck_level', v ? Number(v) : null)} />
                 <InlineEditableRow label="Charge Top Deck (T/m²)" value={String(asset.top_deck_load ?? '')} onSave={(v) => handleInlineSave('top_deck_load', v ? Number(v) : null)} />
               </>
@@ -617,11 +617,11 @@ function AssetDetailPanel({ id }: { id: string }) {
               <>
                 <ReadOnlyRow label="Prof. eau (m)" value={asset.water_depth ?? '—'} />
                 <ReadOnlyRow label="Altitude (m)" value={asset.altitude ?? '—'} />
-                <ReadOnlyRow label="Dim. Jacket" value={asset.jacket_dimensions ?? '—'} />
+                <ReadOnlyRow label="Dim. Jacket" value={asset.jacket_length_m ? `${asset.jacket_length_m} x ${asset.jacket_width_m}` : '—'} />
                 <ReadOnlyRow label="Poids Jacket (T)" value={asset.jacket_weight ?? '—'} />
                 <ReadOnlyRow label="Nb pieux" value={asset.nb_piles ?? '—'} />
-                <ReadOnlyRow label="Diam. pieux" value={asset.pile_diameter ?? '—'} />
-                <ReadOnlyRow label="Dim. Deck" value={asset.deck_dimensions ?? '—'} />
+                <ReadOnlyRow label="Diam. pieux" value={asset.pile_diameter_inch ? `${asset.pile_diameter_inch}\" x ${asset.pile_count_per_leg}` : '—'} />
+                <ReadOnlyRow label="Dim. Deck" value={asset.deck_level ? `${asset.deck_level} niveaux` : '—'} />
                 <ReadOnlyRow label="Niv. Deck" value={asset.deck_level ?? '—'} />
                 <ReadOnlyRow label="Charge Top Deck (T/m²)" value={asset.top_deck_load ?? '—'} />
               </>
@@ -657,9 +657,9 @@ function AssetDetailPanel({ id }: { id: string }) {
         )}
 
         {/* Positioning (equipment on deck) */}
-        {asset.deck_name && (
+        {asset.deck_id && (
           <FormSection title={t('assets.positioning')} collapsible storageKey="panel.asset.sections" id="asset-position">
-            <ReadOnlyRow label="Deck" value={asset.deck_name} />
+            <ReadOnlyRow label="Deck" value={asset.deck_id} />
             <ReadOnlyRow label="Élévation MSL (m)" value={asset.elevation_msl ?? '—'} />
             {(asset.position_x || asset.position_y || asset.position_z) && (
               <ReadOnlyRow label="Position X/Y/Z" value={`${asset.position_x ?? '—'} / ${asset.position_y ?? '—'} / ${asset.position_z ?? '—'}`} />

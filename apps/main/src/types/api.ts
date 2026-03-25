@@ -39,11 +39,12 @@ export interface Asset {
   // Platform structure
   water_depth: number | null
   altitude: number | null
-  jacket_dimensions: string | null
+  jacket_length_m: number | null
+  jacket_width_m: number | null
   jacket_weight: number | null
   nb_piles: number | null
-  pile_diameter: string | null
-  deck_dimensions: string | null
+  pile_diameter_inch: number | null
+  pile_count_per_leg: number | null
   deck_level: number | null
   top_deck_load: number | null
   has_winj: boolean | null
@@ -64,8 +65,8 @@ export interface Asset {
   // GIS / Geometry
   geometry: { type: string; coordinates: number[][] } | null
   boundary: { type: string; coordinates: number[][][] } | null
-  // Equipment positioning (3D on platform)
-  deck_name: string | null
+  // Equipment positioning
+  deck_id: string | null
   elevation_msl: number | null
   position_x: number | null
   position_y: number | null
@@ -78,6 +79,20 @@ export interface Asset {
   // Metadata
   metadata: Record<string, unknown> | null
   created_at: string
+}
+
+export interface PlatformDeck {
+  id: string
+  asset_id: string
+  name: string
+  level_number: number
+  elevation_msl: number | null
+  length_m: number | null
+  width_m: number | null
+  max_load_t_m2: number | null
+  notes: string | null
+  active: boolean
+  created_at: string | null
 }
 
 export interface AssetCreate {

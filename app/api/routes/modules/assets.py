@@ -445,3 +445,86 @@ async def delete_lifting_chart(
         raise HTTPException(status_code=404, detail="Lifting chart not found")
     chart.active = False
     await db.commit()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PLATFORM DECKS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+from app.models.common import PlatformDeck
+from app.schemas.common import PlatformDeckCreate, PlatformDeckRead, PlatformDeckUpdate
+
+
+@router.get("/{asset_id}/decks", response_model=list[PlatformDeckRead], dependencies=[require_permission("asset.read")])
+async def list_platform_decks(
+    asset_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """List decks for a platform asset, ordered by level_number."""
+    await _verify_asset_entity(asset_id, entity_id, db)
+    result = await db.execute(
+        select(PlatformDeck).where(
+            PlatformDeck.asset_id == asset_id,
+            PlatformDeck.active == True,
+        ).order_by(PlatformDeck.level_number)
+    )
+    return result.scalars().all()
+
+
+@router.post("/{asset_id}/decks", response_model=PlatformDeckRead, status_code=201, dependencies=[require_permission("asset.update")])
+async def create_platform_deck(
+    asset_id: UUID,
+    body: PlatformDeckCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Add a deck level to a platform asset."""
+    await _verify_asset_entity(asset_id, entity_id, db)
+    deck = PlatformDeck(asset_id=asset_id, **body.model_dump())
+    db.add(deck)
+    await db.commit()
+    await db.refresh(deck)
+    return deck
+
+
+@router.patch("/{asset_id}/decks/{deck_id}", response_model=PlatformDeckRead, dependencies=[require_permission("asset.update")])
+async def update_platform_deck(
+    asset_id: UUID,
+    deck_id: UUID,
+    body: PlatformDeckUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update a platform deck."""
+    await _verify_asset_entity(asset_id, entity_id, db)
+    result = await db.execute(
+        select(PlatformDeck).where(PlatformDeck.id == deck_id, PlatformDeck.asset_id == asset_id)
+    )
+    deck = result.scalar_one_or_none()
+    if not deck:
+        raise HTTPException(status_code=404, detail="Deck not found")
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(deck, field, value)
+    await db.commit()
+    await db.refresh(deck)
+    return deck
+
+
+@router.delete("/{asset_id}/decks/{deck_id}", status_code=204, dependencies=[require_permission("asset.update")])
+async def delete_platform_deck(
+    asset_id: UUID,
+    deck_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Remove a platform deck."""
+    await _verify_asset_entity(asset_id, entity_id, db)
+    result = await db.execute(
+        select(PlatformDeck).where(PlatformDeck.id == deck_id, PlatformDeck.asset_id == asset_id)
+    )
+    deck = result.scalar_one_or_none()
+    if not deck:
+        raise HTTPException(status_code=404, detail="Deck not found")
+    deck.active = False
+    await db.commit()

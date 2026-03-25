@@ -546,6 +546,20 @@ class Asset(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     pipeline_type: Mapped[str | None] = mapped_column(String(30))  # gas, oil, water
     pipeline_diameter: Mapped[str | None] = mapped_column(String(50))  # e.g. "12\""
     pipeline_length: Mapped[float | None] = mapped_column(Float)  # km
+    # ── GIS / Geometry ──
+    geometry: Mapped[dict | None] = mapped_column(JSONB)  # GeoJSON: point, linestring, polygon, multipoint
+    boundary: Mapped[dict | None] = mapped_column(JSONB)  # GeoJSON polygon for geographic limits
+    # ── Equipment positioning (3D on platform) ──
+    deck_name: Mapped[str | None] = mapped_column(String(50))  # Main deck, Cellar deck, Lower deck, Boat landing, etc.
+    elevation_msl: Mapped[float | None] = mapped_column(Float)  # Height above Mean Sea Level (m)
+    position_x: Mapped[float | None] = mapped_column(Float)  # Local X on platform (m)
+    position_y: Mapped[float | None] = mapped_column(Float)  # Local Y on platform (m)
+    position_z: Mapped[float | None] = mapped_column(Float)  # Local Z / height from deck (m)
+    # ── Equipment dimensions ──
+    length_m: Mapped[float | None] = mapped_column(Float)  # Length (m)
+    width_m: Mapped[float | None] = mapped_column(Float)  # Width (m)
+    height_m: Mapped[float | None] = mapped_column(Float)  # Height (m)
+    weight_t: Mapped[float | None] = mapped_column(Float)  # Weight (tonnes)
 
     parent: Mapped["Asset | None"] = relationship(remote_side="Asset.id", foreign_keys=[parent_id])
     children: Mapped[list["Asset"]] = relationship(back_populates="parent", foreign_keys=[parent_id])

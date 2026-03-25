@@ -317,6 +317,20 @@ class AssetRead(OpsFluxSchema):
     pipeline_type: str | None = None
     pipeline_diameter: str | None = None
     pipeline_length: float | None = None
+    # GIS / Geometry
+    geometry: dict[str, Any] | None = None
+    boundary: dict[str, Any] | None = None
+    # Equipment positioning (3D)
+    deck_name: str | None = None
+    elevation_msl: float | None = None
+    position_x: float | None = None
+    position_y: float | None = None
+    position_z: float | None = None
+    # Equipment dimensions
+    length_m: float | None = None
+    width_m: float | None = None
+    height_m: float | None = None
+    weight_t: float | None = None
     # Metadata
     metadata: dict[str, Any] | None = None
     created_at: datetime
@@ -358,6 +372,17 @@ class AssetCreate(BaseModel):
     pipeline_type: str | None = None
     pipeline_diameter: str | None = None
     pipeline_length: float | None = None
+    geometry: dict[str, Any] | None = None
+    boundary: dict[str, Any] | None = None
+    deck_name: str | None = None
+    elevation_msl: float | None = None
+    position_x: float | None = None
+    position_y: float | None = None
+    position_z: float | None = None
+    length_m: float | None = None
+    width_m: float | None = None
+    height_m: float | None = None
+    weight_t: float | None = None
     metadata: dict[str, Any] | None = None
 
 
@@ -395,6 +420,17 @@ class AssetUpdate(BaseModel):
     pipeline_type: str | None = None
     pipeline_diameter: str | None = None
     pipeline_length: float | None = None
+    geometry: dict[str, Any] | None = None
+    boundary: dict[str, Any] | None = None
+    deck_name: str | None = None
+    elevation_msl: float | None = None
+    position_x: float | None = None
+    position_y: float | None = None
+    position_z: float | None = None
+    length_m: float | None = None
+    width_m: float | None = None
+    height_m: float | None = None
+    weight_t: float | None = None
     metadata: dict[str, Any] | None = None
 
 

@@ -8,7 +8,7 @@ Revision ID: 063
 """
 
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from alembic import op
 
 revision = "063"
@@ -47,10 +47,27 @@ def upgrade() -> None:
     op.add_column("assets", sa.Column("pipeline_type", sa.String(30), nullable=True))
     op.add_column("assets", sa.Column("pipeline_diameter", sa.String(50), nullable=True))
     op.add_column("assets", sa.Column("pipeline_length", sa.Float(), nullable=True))
+    # GIS / Geometry
+    op.add_column("assets", sa.Column("geometry", JSONB(), nullable=True))
+    op.add_column("assets", sa.Column("boundary", JSONB(), nullable=True))
+    # Equipment positioning (3D)
+    op.add_column("assets", sa.Column("deck_name", sa.String(50), nullable=True))
+    op.add_column("assets", sa.Column("elevation_msl", sa.Float(), nullable=True))
+    op.add_column("assets", sa.Column("position_x", sa.Float(), nullable=True))
+    op.add_column("assets", sa.Column("position_y", sa.Float(), nullable=True))
+    op.add_column("assets", sa.Column("position_z", sa.Float(), nullable=True))
+    # Equipment dimensions
+    op.add_column("assets", sa.Column("length_m", sa.Float(), nullable=True))
+    op.add_column("assets", sa.Column("width_m", sa.Float(), nullable=True))
+    op.add_column("assets", sa.Column("height_m", sa.Float(), nullable=True))
+    op.add_column("assets", sa.Column("weight_t", sa.Float(), nullable=True))
 
 
 def downgrade() -> None:
     for col in [
+        "weight_t", "height_m", "width_m", "length_m",
+        "position_z", "position_y", "position_x", "elevation_msl", "deck_name",
+        "boundary", "geometry",
         "pipeline_length", "pipeline_diameter", "pipeline_type", "connected_asset_id",
         "next_inspection", "last_inspection", "model_ref", "manufacturer",
         "equipment_subtype", "max_range", "capacity",

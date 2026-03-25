@@ -27,10 +27,6 @@ export interface Asset {
   path: string | null
   latitude: number | null
   longitude: number | null
-  geometry?: {
-    type: 'point' | 'linestring' | 'polygon' | 'multipoint'
-    coordinates: number[][]
-  } | null
   allow_overlap: boolean
   max_pax: number | null
   permanent_ops_quota: number
@@ -65,6 +61,20 @@ export interface Asset {
   pipeline_type: string | null
   pipeline_diameter: string | null
   pipeline_length: number | null
+  // GIS / Geometry
+  geometry: { type: string; coordinates: number[][] } | null
+  boundary: { type: string; coordinates: number[][][] } | null
+  // Equipment positioning (3D on platform)
+  deck_name: string | null
+  elevation_msl: number | null
+  position_x: number | null
+  position_y: number | null
+  position_z: number | null
+  // Equipment dimensions
+  length_m: number | null
+  width_m: number | null
+  height_m: number | null
+  weight_t: number | null
   // Metadata
   metadata: Record<string, unknown> | null
   created_at: string

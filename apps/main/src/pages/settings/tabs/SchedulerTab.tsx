@@ -126,43 +126,50 @@ function JobHistoryRows({ jobId }: { jobId: string }) {
   }
 
   return (
-    <>
-      {/* Sub-header */}
-      <tr className="bg-accent/20">
-        <td className="pl-10 pr-2 py-1 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Exécution</td>
-        <td className="px-2 py-1 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Statut</td>
-        <td className="px-2 py-1 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Début</td>
-        <td className="px-2 py-1 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Durée</td>
-        <td className="px-2 py-1 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Source</td>
-        <td colSpan={2} className="px-2 py-1 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Erreur</td>
-      </tr>
-      {items.map((exec) => {
-        const badge = STATUS_BADGE[exec.status]
-        return (
-          <tr key={exec.id} className="bg-accent/5 hover:bg-accent/15 transition-colors border-b border-border/10">
-            <td className="pl-10 pr-2 py-1.5 text-[10px] text-muted-foreground font-mono">
-              #{exec.id.slice(0, 8)}
-            </td>
-            <td className="px-2 py-1.5">
-              {badge
-                ? <span className={cn('gl-badge text-[8px]', badge.cls)}>{badge.label}</span>
-                : <span className="text-[10px]">{exec.status}</span>
-              }
-            </td>
-            <td className="px-2 py-1.5 text-[10px] tabular-nums text-muted-foreground">{fmtDate(exec.started_at)}</td>
-            <td className="px-2 py-1.5 text-[10px] tabular-nums font-mono text-muted-foreground">{formatDuration(exec.duration_ms)}</td>
-            <td className="px-2 py-1.5">
-              <span className={cn('gl-badge text-[8px]', exec.triggered_by === 'manual' ? 'gl-badge-info' : 'gl-badge-neutral')}>
-                {exec.triggered_by === 'manual' ? 'Manuel' : 'Auto'}
-              </span>
-            </td>
-            <td colSpan={2} className="px-2 py-1.5 text-[10px] text-red-500 truncate max-w-[250px]" title={exec.error_message || undefined}>
-              {exec.error_message || '—'}
-            </td>
-          </tr>
-        )
-      })}
-    </>
+    <tr>
+      <td colSpan={7} className="p-0">
+        <div className="ml-8 mr-3 mb-3 border border-border/50 rounded-md overflow-hidden">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-accent/40 border-b border-border/30">
+                <th className="text-left px-3 py-1.5 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider w-[100px]">Exécution</th>
+                <th className="text-left px-2 py-1.5 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider w-[70px]">Statut</th>
+                <th className="text-left px-2 py-1.5 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Début</th>
+                <th className="text-left px-2 py-1.5 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider w-[70px]">Durée</th>
+                <th className="text-left px-2 py-1.5 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider w-[70px]">Source</th>
+                <th className="text-left px-2 py-1.5 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Erreur</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((exec) => {
+                const badge = STATUS_BADGE[exec.status]
+                return (
+                  <tr key={exec.id} className="border-b border-border/10 hover:bg-accent/10 transition-colors">
+                    <td className="px-3 py-1.5 text-[10px] text-muted-foreground font-mono">#{exec.id.slice(0, 8)}</td>
+                    <td className="px-2 py-1.5">
+                      {badge
+                        ? <span className={cn('gl-badge text-[8px]', badge.cls)}>{badge.label}</span>
+                        : <span className="text-[10px]">{exec.status}</span>
+                      }
+                    </td>
+                    <td className="px-2 py-1.5 text-[10px] tabular-nums text-muted-foreground">{fmtDate(exec.started_at)}</td>
+                    <td className="px-2 py-1.5 text-[10px] tabular-nums font-mono text-muted-foreground">{formatDuration(exec.duration_ms)}</td>
+                    <td className="px-2 py-1.5">
+                      <span className={cn('gl-badge text-[8px]', exec.triggered_by === 'manual' ? 'gl-badge-info' : 'gl-badge-neutral')}>
+                        {exec.triggered_by === 'manual' ? 'Manuel' : 'Auto'}
+                      </span>
+                    </td>
+                    <td className="px-2 py-1.5 text-[10px] text-red-500 truncate max-w-[200px]" title={exec.error_message || undefined}>
+                      {exec.error_message || <span className="text-muted-foreground">—</span>}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </td>
+    </tr>
   )
 }
 

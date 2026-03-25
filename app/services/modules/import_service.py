@@ -51,6 +51,12 @@ def _normalize(s: str) -> str:
     return re.sub(r"[^a-z0-9]", "", s.lower())
 
 
+def _safe_str(val: Any) -> str | None:
+    if val is None or val == "":
+        return None
+    return str(val).strip()
+
+
 def _safe_float(val: Any) -> float | None:
     if val is None or val == "":
         return None
@@ -135,6 +141,30 @@ FIELD_SYNONYMS: dict[str, list[str]] = {
     "latitude": ["lat", "gps_lat"],
     "longitude": ["lng", "lon", "gps_lng", "gps_lon"],
     "max_pax": ["capacite_pax", "pax_capacity", "nb_pax_max"],
+    "year_installed": ["annee_installation", "annee_instal", "install_year", "year_built"],
+    "orientation": ["orient", "heading", "azimuth"],
+    "water_depth": ["prof_eau", "profondeur_eau", "depth", "profondeur"],
+    "altitude": ["elevation", "alt", "hauteur_sol"],
+    "jacket_dimensions": ["dim_jacket", "jacket_size", "jacket"],
+    "jacket_weight": ["poids_jacket", "jacket_mass"],
+    "nb_piles": ["nb_pieux", "piles", "pieux", "nombre_pieux"],
+    "pile_diameter": ["diam_pieux", "pile_diam", "diametre_pieux"],
+    "deck_dimensions": ["dim_deck", "deck_size"],
+    "deck_level": ["niv_deck", "nb_deck", "deck_levels"],
+    "top_deck_load": ["charge_top_deck", "deck_load", "charge_deck"],
+    "has_winj": ["winj", "water_injection", "injection_eau"],
+    "has_power": ["power", "production_elec", "electricity"],
+    "capacity": ["capacite", "cap", "charge_max", "lifting_capacity", "cap_grue"],
+    "max_range": ["portee_max", "portee", "range", "reach"],
+    "equipment_subtype": ["type_grue", "crane_type", "sous_type"],
+    "manufacturer": ["fabricant", "constructeur", "maker", "brand"],
+    "model_ref": ["modele", "model", "ref_modele"],
+    "pipeline_type": ["type_pipeline", "pipe_type", "fluid"],
+    "pipeline_diameter": ["diam_pipeline", "pipe_diam"],
+    "pipeline_length": ["longueur_pipeline", "pipe_length"],
+    "connected_asset_code": ["code_connecte", "connected_to", "endpoint"],
+    "deck_name": ["nom_deck", "deck"],
+    "weight_t": ["poids", "weight", "masse"],
     # PAX
     "nationality": ["nationalite", "pays", "country_origin"],
     "birth_date": ["date_naissance", "birthday", "dob", "date_de_naissance", "naissance"],
@@ -202,14 +232,56 @@ class AssetHandler(TargetObjectHandler):
 
     def get_fields(self) -> list[TargetFieldDef]:
         return [
+            # Core
             TargetFieldDef(key="type", label="Type", type="string", required=True, example="platform"),
             TargetFieldDef(key="name", label="Nom", type="string", required=True, example="PF-Alpha"),
-            TargetFieldDef(key="code", label="Code", type="string", example="AST-2026-0001"),
+            TargetFieldDef(key="code", label="Code", type="string", example="ACF1"),
             TargetFieldDef(key="parent_code", label="Code parent", type="lookup", lookup_target="asset.code"),
+            TargetFieldDef(key="description", label="Description", type="string"),
+            TargetFieldDef(key="status", label="Statut", type="string", example="operational"),
             TargetFieldDef(key="latitude", label="Latitude", type="float", example="4.0511"),
             TargetFieldDef(key="longitude", label="Longitude", type="float", example="9.7679"),
             TargetFieldDef(key="max_pax", label="Capacité PAX", type="integer", example="120"),
             TargetFieldDef(key="active", label="Actif", type="boolean", example="oui"),
+            # Common extended
+            TargetFieldDef(key="year_installed", label="Année installation", type="integer", example="1983"),
+            TargetFieldDef(key="orientation", label="Orientation", type="string", example="27°30"),
+            # Platform structure
+            TargetFieldDef(key="water_depth", label="Prof. eau (m)", type="float", example="15.4"),
+            TargetFieldDef(key="altitude", label="Altitude (m)", type="float"),
+            TargetFieldDef(key="jacket_dimensions", label="Dim. Jacket (m)", type="string", example="12 x 14"),
+            TargetFieldDef(key="jacket_weight", label="Poids Jacket (T)", type="float", example="254"),
+            TargetFieldDef(key="nb_piles", label="Nb pieux", type="integer", example="4"),
+            TargetFieldDef(key="pile_diameter", label="Diam. pieux", type="string", example="30\" x 1"),
+            TargetFieldDef(key="deck_dimensions", label="Dim. Deck (m)", type="string", example="20 x 26"),
+            TargetFieldDef(key="deck_level", label="Niv. Deck", type="integer", example="4"),
+            TargetFieldDef(key="top_deck_load", label="Charge Top Deck (T/m²)", type="float", example="1"),
+            TargetFieldDef(key="has_winj", label="Injection eau (WINJ)", type="boolean", example="Yes"),
+            TargetFieldDef(key="has_power", label="Production électrique", type="boolean", example="Yes"),
+            # Equipment
+            TargetFieldDef(key="capacity", label="Capacité (T ou m³)", type="float", example="10"),
+            TargetFieldDef(key="max_range", label="Portée max (m)", type="float", example="8"),
+            TargetFieldDef(key="equipment_subtype", label="Sous-type équipement", type="string", example="SUR RAILS"),
+            TargetFieldDef(key="manufacturer", label="Fabricant", type="string"),
+            TargetFieldDef(key="model_ref", label="Modèle / Référence", type="string"),
+            TargetFieldDef(key="last_inspection", label="Dernière inspection", type="date"),
+            TargetFieldDef(key="next_inspection", label="Prochaine inspection", type="date"),
+            # Pipeline
+            TargetFieldDef(key="connected_asset_code", label="Code asset connecté", type="lookup", lookup_target="asset.code"),
+            TargetFieldDef(key="pipeline_type", label="Type pipeline", type="string", example="gas"),
+            TargetFieldDef(key="pipeline_diameter", label="Diamètre pipeline", type="string"),
+            TargetFieldDef(key="pipeline_length", label="Longueur pipeline (km)", type="float"),
+            # Positioning
+            TargetFieldDef(key="deck_name", label="Nom du deck", type="string", example="Main deck"),
+            TargetFieldDef(key="elevation_msl", label="Élévation MSL (m)", type="float"),
+            TargetFieldDef(key="position_x", label="Position X (m)", type="float"),
+            TargetFieldDef(key="position_y", label="Position Y (m)", type="float"),
+            TargetFieldDef(key="position_z", label="Position Z (m)", type="float"),
+            # Dimensions
+            TargetFieldDef(key="length_m", label="Longueur (m)", type="float"),
+            TargetFieldDef(key="width_m", label="Largeur (m)", type="float"),
+            TargetFieldDef(key="height_m", label="Hauteur (m)", type="float"),
+            TargetFieldDef(key="weight_t", label="Poids (T)", type="float"),
         ]
 
     async def validate_row(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> list[RowValidationError]:
@@ -234,6 +306,11 @@ class AssetHandler(TargetObjectHandler):
         result = await db.execute(select(Asset.id).where(Asset.entity_id == entity_id, Asset.code == str(code).strip()))
         return result.scalar_one_or_none()
 
+    def _resolve_asset_lookup(self, row: dict[str, Any], key: str, entity_id: UUID, db) -> UUID | None:
+        """Helper to resolve a code lookup to an asset ID."""
+        # This is called from create_record which is async, so we use it inline
+        pass
+
     async def create_record(self, row: dict[str, Any], entity_id: UUID, user_id: UUID, db: AsyncSession) -> UUID:
         code = row.get("code")
         if not code:
@@ -242,6 +319,10 @@ class AssetHandler(TargetObjectHandler):
         if row.get("parent_code"):
             res = await db.execute(select(Asset.id).where(Asset.entity_id == entity_id, Asset.code == str(row["parent_code"]).strip()))
             parent_id = res.scalar_one_or_none()
+        connected_id = None
+        if row.get("connected_asset_code"):
+            res = await db.execute(select(Asset.id).where(Asset.entity_id == entity_id, Asset.code == str(row["connected_asset_code"]).strip()))
+            connected_id = res.scalar_one_or_none()
         obj = Asset(
             entity_id=entity_id,
             type=str(row.get("type", "")).strip(),
@@ -252,6 +333,41 @@ class AssetHandler(TargetObjectHandler):
             longitude=_safe_float(row.get("longitude")),
             max_pax=_safe_int(row.get("max_pax")),
             active=_safe_bool(row.get("active")) if row.get("active") is not None else True,
+            description=_safe_str(row.get("description")),
+            status=_safe_str(row.get("status")) or "operational",
+            year_installed=_safe_int(row.get("year_installed")),
+            orientation=_safe_str(row.get("orientation")),
+            water_depth=_safe_float(row.get("water_depth")),
+            altitude=_safe_float(row.get("altitude")),
+            jacket_dimensions=_safe_str(row.get("jacket_dimensions")),
+            jacket_weight=_safe_float(row.get("jacket_weight")),
+            nb_piles=_safe_int(row.get("nb_piles")),
+            pile_diameter=_safe_str(row.get("pile_diameter")),
+            deck_dimensions=_safe_str(row.get("deck_dimensions")),
+            deck_level=_safe_int(row.get("deck_level")),
+            top_deck_load=_safe_float(row.get("top_deck_load")),
+            has_winj=_safe_bool(row.get("has_winj")),
+            has_power=_safe_bool(row.get("has_power")),
+            capacity=_safe_float(row.get("capacity")),
+            max_range=_safe_float(row.get("max_range")),
+            equipment_subtype=_safe_str(row.get("equipment_subtype")),
+            manufacturer=_safe_str(row.get("manufacturer")),
+            model_ref=_safe_str(row.get("model_ref")),
+            last_inspection=_safe_date(row.get("last_inspection")),
+            next_inspection=_safe_date(row.get("next_inspection")),
+            connected_asset_id=connected_id,
+            pipeline_type=_safe_str(row.get("pipeline_type")),
+            pipeline_diameter=_safe_str(row.get("pipeline_diameter")),
+            pipeline_length=_safe_float(row.get("pipeline_length")),
+            deck_name=_safe_str(row.get("deck_name")),
+            elevation_msl=_safe_float(row.get("elevation_msl")),
+            position_x=_safe_float(row.get("position_x")),
+            position_y=_safe_float(row.get("position_y")),
+            position_z=_safe_float(row.get("position_z")),
+            length_m=_safe_float(row.get("length_m")),
+            width_m=_safe_float(row.get("width_m")),
+            height_m=_safe_float(row.get("height_m")),
+            weight_t=_safe_float(row.get("weight_t")),
         )
         db.add(obj)
         await db.flush()
@@ -260,20 +376,33 @@ class AssetHandler(TargetObjectHandler):
     async def update_record(self, record_id: UUID, row: dict[str, Any], user_id: UUID, db: AsyncSession) -> None:
         result = await db.execute(select(Asset).where(Asset.id == record_id))
         obj = result.scalar_one()
-        if row.get("name"):
-            obj.name = str(row["name"]).strip()
-        if row.get("type"):
-            obj.type = str(row["type"]).strip()
-        if row.get("latitude") is not None:
-            obj.latitude = _safe_float(row["latitude"])
-        if row.get("longitude") is not None:
-            obj.longitude = _safe_float(row["longitude"])
-        if row.get("max_pax") is not None:
-            obj.max_pax = _safe_int(row["max_pax"])
-        if row.get("active") is not None:
-            val = _safe_bool(row["active"])
-            if val is not None:
-                obj.active = val
+        # String fields
+        for key in ["name", "type", "description", "status", "orientation", "jacket_dimensions",
+                     "pile_diameter", "deck_dimensions", "equipment_subtype", "manufacturer",
+                     "model_ref", "pipeline_type", "pipeline_diameter", "deck_name"]:
+            if row.get(key) is not None:
+                setattr(obj, key, _safe_str(row[key]))
+        # Float fields
+        for key in ["latitude", "longitude", "water_depth", "altitude", "jacket_weight",
+                     "top_deck_load", "capacity", "max_range", "pipeline_length",
+                     "elevation_msl", "position_x", "position_y", "position_z",
+                     "length_m", "width_m", "height_m", "weight_t"]:
+            if row.get(key) is not None:
+                setattr(obj, key, _safe_float(row[key]))
+        # Integer fields
+        for key in ["max_pax", "year_installed", "nb_piles", "deck_level"]:
+            if row.get(key) is not None:
+                setattr(obj, key, _safe_int(row[key]))
+        # Boolean fields
+        for key in ["active", "has_winj", "has_power"]:
+            if row.get(key) is not None:
+                val = _safe_bool(row[key])
+                if val is not None:
+                    setattr(obj, key, val)
+        # Date fields
+        for key in ["last_inspection", "next_inspection"]:
+            if row.get(key) is not None:
+                setattr(obj, key, _safe_date(row[key]))
 
 
 class TierHandler(TargetObjectHandler):

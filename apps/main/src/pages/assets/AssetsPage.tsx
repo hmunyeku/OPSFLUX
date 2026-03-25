@@ -49,6 +49,7 @@ import { useUIStore } from '@/stores/uiStore'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
 import { useAssets, useAsset, useAssetTree, useCreateAsset, useUpdateAsset, useArchiveAsset } from '@/hooks/useAssets'
 import { useAddresses, useAttachments, useNotes } from '@/hooks/useSettings'
+import { useDictionaryOptions } from '@/hooks/useDictionary'
 import { useProjects } from '@/hooks/useProjets'
 import { useActivities } from '@/hooks/usePlanner'
 import type { Asset, AssetTreeNode, AssetCreate } from '@/types/api'
@@ -87,12 +88,10 @@ function TreeNode({ node, depth = 0 }: { node: AssetTreeNode; depth?: number }) 
   )
 }
 
-const ASSET_TYPE_OPTIONS = [
-  // Master hierarchy
+const FALLBACK_ASSET_TYPE_OPTIONS = [
   { value: 'field', label: 'Champ' },
   { value: 'site', label: 'Site' },
   { value: 'platform', label: 'Plateforme' },
-  // Equipment (children of platform)
   { value: 'crane', label: 'Grue' },
   { value: 'well', label: 'Puits' },
   { value: 'tank', label: 'Bac / Réservoir' },
@@ -101,8 +100,15 @@ const ASSET_TYPE_OPTIONS = [
   { value: 'compressor', label: 'Compresseur' },
   { value: 'generator', label: 'Groupe électrogène' },
   { value: 'equipment', label: 'Autre équipement' },
-  // Connections
   { value: 'pipeline', label: 'Pipeline' },
+]
+
+const FALLBACK_ASSET_STATUS_OPTIONS = [
+  { value: 'operational', label: 'Opérationnel' },
+  { value: 'maintenance', label: 'En maintenance' },
+  { value: 'decommissioned', label: 'Décommissionné' },
+  { value: 'construction', label: 'En construction' },
+  { value: 'standby', label: 'En attente' },
 ]
 
 // ── Geo-type mapping per asset type ─────────────────────────
@@ -125,6 +131,8 @@ function CreateAssetPanel() {
   const { t } = useTranslation()
   const createAsset = useCreateAsset()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const dictTypes = useDictionaryOptions('asset_type')
+  const ASSET_TYPE_OPTIONS = dictTypes.length > 0 ? dictTypes : FALLBACK_ASSET_TYPE_OPTIONS
   const [form, setForm] = useState<AssetCreate>({
     type: 'site', name: '',
     parent_id: undefined, allow_overlap: true, metadata: undefined,
@@ -234,6 +242,8 @@ function AssetDetailPanel({ id }: { id: string }) {
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const archiveAsset = useArchiveAsset()
   const { data: asset } = useAsset(id)
+  const dictTypes = useDictionaryOptions('asset_type')
+  const ASSET_TYPE_OPTIONS = dictTypes.length > 0 ? dictTypes : FALLBACK_ASSET_TYPE_OPTIONS
 
   const updateAsset = useUpdateAsset()
   const handleInlineSave = useCallback((field: string, value: string | number | boolean | null) => {
@@ -336,6 +346,114 @@ function AssetDetailPanel({ id }: { id: string }) {
           />
           <ReadOnlyRow label={t('common.created_at')} value={new Date(asset.created_at).toLocaleDateString()} />
         </FormSection>
+
+        {/* ── Extended fields by asset type ── */}
+        {/* Common extended */}
+        {(asset.year_installed || asset.description || asset.orientation) && (
+          <FormSection title={t('common.details')}>
+            {asset.year_installed && <ReadOnlyRow label="Année installation" value={asset.year_installed} />}
+            {asset.orientation && <ReadOnlyRow label="Orientation" value={asset.orientation} />}
+            {asset.description && <ReadOnlyRow label="Description" value={asset.description} />}
+          </FormSection>
+        )}
+
+        {/* Platform structure */}
+        {['platform', 'site'].includes(asset.type) && (
+          <FormSection title="Structure" collapsible storageKey="panel.asset.sections" id="asset-structure">
+            {canUpdate ? (
+              <>
+                <InlineEditableRow label="Prof. eau (m)" value={String(asset.water_depth ?? '')} onSave={(v) => handleInlineSave('water_depth', v ? Number(v) : null)} />
+                <InlineEditableRow label="Altitude (m)" value={String(asset.altitude ?? '')} onSave={(v) => handleInlineSave('altitude', v ? Number(v) : null)} />
+                <InlineEditableRow label="Dim. Jacket" value={asset.jacket_dimensions ?? ''} onSave={(v) => handleInlineSave('jacket_dimensions', v || null)} />
+                <InlineEditableRow label="Poids Jacket (T)" value={String(asset.jacket_weight ?? '')} onSave={(v) => handleInlineSave('jacket_weight', v ? Number(v) : null)} />
+                <InlineEditableRow label="Nb pieux" value={String(asset.nb_piles ?? '')} onSave={(v) => handleInlineSave('nb_piles', v ? Number(v) : null)} />
+                <InlineEditableRow label="Diam. pieux" value={asset.pile_diameter ?? ''} onSave={(v) => handleInlineSave('pile_diameter', v || null)} />
+                <InlineEditableRow label="Dim. Deck" value={asset.deck_dimensions ?? ''} onSave={(v) => handleInlineSave('deck_dimensions', v || null)} />
+                <InlineEditableRow label="Niv. Deck" value={String(asset.deck_level ?? '')} onSave={(v) => handleInlineSave('deck_level', v ? Number(v) : null)} />
+                <InlineEditableRow label="Charge Top Deck (T/m²)" value={String(asset.top_deck_load ?? '')} onSave={(v) => handleInlineSave('top_deck_load', v ? Number(v) : null)} />
+              </>
+            ) : (
+              <>
+                <ReadOnlyRow label="Prof. eau (m)" value={asset.water_depth ?? '—'} />
+                <ReadOnlyRow label="Altitude (m)" value={asset.altitude ?? '—'} />
+                <ReadOnlyRow label="Dim. Jacket" value={asset.jacket_dimensions ?? '—'} />
+                <ReadOnlyRow label="Poids Jacket (T)" value={asset.jacket_weight ?? '—'} />
+                <ReadOnlyRow label="Nb pieux" value={asset.nb_piles ?? '—'} />
+                <ReadOnlyRow label="Diam. pieux" value={asset.pile_diameter ?? '—'} />
+                <ReadOnlyRow label="Dim. Deck" value={asset.deck_dimensions ?? '—'} />
+                <ReadOnlyRow label="Niv. Deck" value={asset.deck_level ?? '—'} />
+                <ReadOnlyRow label="Charge Top Deck (T/m²)" value={asset.top_deck_load ?? '—'} />
+              </>
+            )}
+            <ReadOnlyRow label="WINJ" value={asset.has_winj ? 'Oui' : asset.has_winj === false ? 'Non' : '—'} />
+            <ReadOnlyRow label="Power" value={asset.has_power ? 'Oui' : asset.has_power === false ? 'Non' : '—'} />
+          </FormSection>
+        )}
+
+        {/* Equipment fields (crane, separator, etc.) */}
+        {['crane', 'well', 'tank', 'separator', 'compressor', 'generator', 'equipment', 'process_line'].includes(asset.type) && (
+          <FormSection title="Équipement" collapsible storageKey="panel.asset.sections" id="asset-equipment">
+            {canUpdate ? (
+              <>
+                <InlineEditableRow label="Sous-type" value={asset.equipment_subtype ?? ''} onSave={(v) => handleInlineSave('equipment_subtype', v || null)} />
+                <InlineEditableRow label="Capacité" value={String(asset.capacity ?? '')} onSave={(v) => handleInlineSave('capacity', v ? Number(v) : null)} />
+                <InlineEditableRow label="Portée max (m)" value={String(asset.max_range ?? '')} onSave={(v) => handleInlineSave('max_range', v ? Number(v) : null)} />
+                <InlineEditableRow label="Fabricant" value={asset.manufacturer ?? ''} onSave={(v) => handleInlineSave('manufacturer', v || null)} />
+                <InlineEditableRow label="Modèle" value={asset.model_ref ?? ''} onSave={(v) => handleInlineSave('model_ref', v || null)} />
+              </>
+            ) : (
+              <>
+                <ReadOnlyRow label="Sous-type" value={asset.equipment_subtype ?? '—'} />
+                <ReadOnlyRow label="Capacité" value={asset.capacity ?? '—'} />
+                <ReadOnlyRow label="Portée max (m)" value={asset.max_range ?? '—'} />
+                <ReadOnlyRow label="Fabricant" value={asset.manufacturer ?? '—'} />
+                <ReadOnlyRow label="Modèle" value={asset.model_ref ?? '—'} />
+              </>
+            )}
+            <ReadOnlyRow label="Dernière inspection" value={asset.last_inspection ? new Date(asset.last_inspection).toLocaleDateString('fr-FR') : '—'} />
+            <ReadOnlyRow label="Prochaine inspection" value={asset.next_inspection ? new Date(asset.next_inspection).toLocaleDateString('fr-FR') : '—'} />
+          </FormSection>
+        )}
+
+        {/* Positioning (equipment on deck) */}
+        {asset.deck_name && (
+          <FormSection title="Positionnement" collapsible storageKey="panel.asset.sections" id="asset-position">
+            <ReadOnlyRow label="Deck" value={asset.deck_name} />
+            <ReadOnlyRow label="Élévation MSL (m)" value={asset.elevation_msl ?? '—'} />
+            {(asset.position_x || asset.position_y || asset.position_z) && (
+              <ReadOnlyRow label="Position X/Y/Z" value={`${asset.position_x ?? '—'} / ${asset.position_y ?? '—'} / ${asset.position_z ?? '—'}`} />
+            )}
+          </FormSection>
+        )}
+
+        {/* Dimensions */}
+        {(asset.length_m || asset.width_m || asset.height_m || asset.weight_t) && (
+          <FormSection title="Dimensions" collapsible storageKey="panel.asset.sections" id="asset-dimensions">
+            {asset.length_m && <ReadOnlyRow label="Longueur (m)" value={asset.length_m} />}
+            {asset.width_m && <ReadOnlyRow label="Largeur (m)" value={asset.width_m} />}
+            {asset.height_m && <ReadOnlyRow label="Hauteur (m)" value={asset.height_m} />}
+            {asset.weight_t && <ReadOnlyRow label="Poids (T)" value={asset.weight_t} />}
+          </FormSection>
+        )}
+
+        {/* Pipeline */}
+        {asset.type === 'pipeline' && (
+          <FormSection title="Pipeline" collapsible storageKey="panel.asset.sections" id="asset-pipeline">
+            {canUpdate ? (
+              <>
+                <InlineEditableTags label="Type" value={asset.pipeline_type ?? ''} options={[{value:'gas',label:'Gaz'},{value:'oil',label:'Huile'},{value:'water',label:'Eau'}]} onSave={(v) => handleInlineSave('pipeline_type', v || null)} />
+                <InlineEditableRow label="Diamètre" value={asset.pipeline_diameter ?? ''} onSave={(v) => handleInlineSave('pipeline_diameter', v || null)} />
+                <InlineEditableRow label="Longueur (km)" value={String(asset.pipeline_length ?? '')} onSave={(v) => handleInlineSave('pipeline_length', v ? Number(v) : null)} />
+              </>
+            ) : (
+              <>
+                <ReadOnlyRow label="Type" value={asset.pipeline_type ?? '—'} />
+                <ReadOnlyRow label="Diamètre" value={asset.pipeline_diameter ?? '—'} />
+                <ReadOnlyRow label="Longueur (km)" value={asset.pipeline_length ?? '—'} />
+              </>
+            )}
+          </FormSection>
+        )}
 
         {/* ── Localisation (GeoEditor) ── */}
         <FormSection title="Localisation" collapsible defaultExpanded={!!asset.geometry} storageKey="panel.asset.sections" id="asset-detail-geo">
@@ -446,6 +564,12 @@ export function AssetsPage() {
   const canExport = hasPermission('asset.export')
   const canImport = hasPermission('asset.import')
 
+  // Dictionary-driven options (fall back to hardcoded if dictionary not configured)
+  const dictAssetTypes = useDictionaryOptions('asset_type')
+  const dictAssetStatuses = useDictionaryOptions('asset_status')
+  const ASSET_TYPE_OPTIONS = dictAssetTypes.length > 0 ? dictAssetTypes : FALLBACK_ASSET_TYPE_OPTIONS
+  const ASSET_STATUS_OPTIONS = dictAssetStatuses.length > 0 ? dictAssetStatuses : FALLBACK_ASSET_STATUS_OPTIONS
+
   const [view, setView] = useState<'list' | 'tree'>('list')
   const [page, setPage] = useState(1)
   const { pageSize, setPageSize } = usePageSize()
@@ -475,7 +599,13 @@ export function AssetsPage() {
       type: 'select',
       options: ASSET_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
     },
-  ], [t])
+    {
+      id: 'status',
+      label: t('common.status'),
+      type: 'select',
+      options: ASSET_STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+    },
+  ], [t, ASSET_TYPE_OPTIONS, ASSET_STATUS_OPTIONS])
 
   const handleFilterChange = useCallback((filterId: string, value: unknown) => {
     setActiveFilters((prev) => {

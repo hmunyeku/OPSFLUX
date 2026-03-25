@@ -549,157 +549,153 @@ function AssetDetailPanel({ id }: { id: string }) {
       }
     >
       <PanelContentLayout>
-        {/* ── Details section ── */}
+        {/* ── Identité ── */}
         <FormSection title={t('common.details')}>
           {canUpdate
             ? <InlineEditableRow label={t('common.name')} value={asset.name} onSave={(v) => handleInlineSave('name', v)} />
             : <ReadOnlyRow label={t('common.name')} value={asset.name} />
           }
-          <ReadOnlyRow label={t('common.code')} value={<span className="text-sm font-mono font-medium text-foreground">{asset.code || '—'}</span>} />
+          <ReadOnlyRow label={t('common.code')} value={<span className="text-sm font-mono font-medium">{asset.code || '—'}</span>} />
           {canUpdate
             ? <InlineEditableTags label={t('common.type')} value={asset.type} options={ASSET_TYPE_OPTIONS} onSave={(v) => handleInlineSave('type', v)} />
             : <ReadOnlyRow label={t('common.type')} value={<span className="gl-badge gl-badge-neutral">{asset.type}</span>} />
           }
           <ReadOnlyRow label={t('assets.parent')} value={
-            parentAsset ? (
-              <CrossModuleLink module="assets" id={parentAsset.id} label={`${parentAsset.code} — ${parentAsset.name}`} />
-            ) : `— ${t('assets.root')}`
+            parentAsset ? <CrossModuleLink module="assets" id={parentAsset.id} label={`${parentAsset.code} — ${parentAsset.name}`} /> : `— ${t('assets.root')}`
           } />
-          <ReadOnlyRow
-            label={t('common.status')}
-            value={
-              <span className={cn(
-                'gl-badge',
-                asset.active ? 'gl-badge-success' : 'gl-badge-neutral',
-              )}>
-                {asset.active ? t('common.active') : t('common.archived')}
-              </span>
-            }
-          />
+          {asset.year_installed && <ReadOnlyRow label={t('assets.year_installed')} value={asset.year_installed} />}
+          {asset.orientation && (canUpdate
+            ? <InlineEditableRow label={t('assets.orientation')} value={asset.orientation} onSave={(v) => handleInlineSave('orientation', v || null)} />
+            : <ReadOnlyRow label={t('assets.orientation')} value={asset.orientation} />
+          )}
+          {asset.description && <ReadOnlyRow label={t('common.description')} value={asset.description} />}
+          <ReadOnlyRow label={t('common.status')} value={
+            <span className={cn('gl-badge', asset.active ? 'gl-badge-success' : 'gl-badge-neutral')}>
+              {asset.active ? t('common.active') : t('common.archived')}
+            </span>
+          } />
         </FormSection>
 
-        {/* ── Options section ── */}
-        <FormSection title={t('assets.options')}>
-          <ReadOnlyRow
-            label={t('assets.overlap')}
-            value={
-              <span className={cn('gl-badge', asset.allow_overlap ? 'gl-badge-success' : 'gl-badge-neutral')}>
-                {asset.allow_overlap ? t('assets.overlap_allowed') : t('assets.overlap_denied')}
-              </span>
-            }
-          />
-          <ReadOnlyRow label={t('common.created_at')} value={new Date(asset.created_at).toLocaleDateString()} />
-        </FormSection>
-
-        {/* ── Extended fields by asset type ── */}
-        {/* Common extended */}
-        {(asset.year_installed || asset.description || asset.orientation) && (
-          <FormSection title={t('common.details')}>
-            {asset.year_installed && <ReadOnlyRow label="Année installation" value={asset.year_installed} />}
-            {asset.orientation && <ReadOnlyRow label="Orientation" value={asset.orientation} />}
-            {asset.description && <ReadOnlyRow label="Description" value={asset.description} />}
-          </FormSection>
-        )}
-
-        {/* Platform structure */}
+        {/* ── Plateforme / Site : Structure ── */}
         {['platform', 'site'].includes(asset.type) && (
           <FormSection title={t('assets.structure')} collapsible storageKey="panel.asset.sections" id="asset-structure">
             {canUpdate ? (
               <>
-                <InlineEditableRow label="Prof. eau (m)" value={String(asset.water_depth ?? '')} onSave={(v) => handleInlineSave('water_depth', v ? Number(v) : null)} />
-                <InlineEditableRow label="Altitude (m)" value={String(asset.altitude ?? '')} onSave={(v) => handleInlineSave('altitude', v ? Number(v) : null)} />
-                <InlineEditableRow label="Dim. Jacket" value={asset.jacket_length_m ? `${asset.jacket_length_m} x ${asset.jacket_width_m}` : ''} onSave={(v) => handleInlineSave('jacket_dimensions', v || null)} />
-                <InlineEditableRow label="Poids Jacket (T)" value={String(asset.jacket_weight ?? '')} onSave={(v) => handleInlineSave('jacket_weight', v ? Number(v) : null)} />
-                <InlineEditableRow label="Nb pieux" value={String(asset.nb_piles ?? '')} onSave={(v) => handleInlineSave('nb_piles', v ? Number(v) : null)} />
-                <InlineEditableRow label="Diam. pieux" value={asset.pile_diameter_inch ? `${asset.pile_diameter_inch}\" x ${asset.pile_count_per_leg}` : ''} onSave={(v) => handleInlineSave('pile_diameter', v || null)} />
-                <InlineEditableRow label="Dim. Deck" value={asset.deck_level ? `${asset.deck_level} niveaux` : ''} onSave={(v) => handleInlineSave('deck_dimensions', v || null)} />
-                <InlineEditableRow label="Niv. Deck" value={String(asset.deck_level ?? '')} onSave={(v) => handleInlineSave('deck_level', v ? Number(v) : null)} />
-                <InlineEditableRow label="Charge Top Deck (T/m²)" value={String(asset.top_deck_load ?? '')} onSave={(v) => handleInlineSave('top_deck_load', v ? Number(v) : null)} />
+                <InlineEditableRow label={t('assets.water_depth')} value={String(asset.water_depth ?? '')} onSave={(v) => handleInlineSave('water_depth', v ? Number(v) : null)} />
+                <InlineEditableRow label={t('assets.altitude')} value={String(asset.altitude ?? '')} onSave={(v) => handleInlineSave('altitude', v ? Number(v) : null)} />
+                <InlineEditableRow label="Jacket L (m)" value={String(asset.jacket_length_m ?? '')} onSave={(v) => handleInlineSave('jacket_length_m', v ? Number(v) : null)} />
+                <InlineEditableRow label="Jacket l (m)" value={String(asset.jacket_width_m ?? '')} onSave={(v) => handleInlineSave('jacket_width_m', v ? Number(v) : null)} />
+                <InlineEditableRow label={t('assets.jacket_weight')} value={String(asset.jacket_weight ?? '')} onSave={(v) => handleInlineSave('jacket_weight', v ? Number(v) : null)} />
+                <InlineEditableRow label={t('assets.nb_piles')} value={String(asset.nb_piles ?? '')} onSave={(v) => handleInlineSave('nb_piles', v ? Number(v) : null)} />
+                <InlineEditableRow label="Diam. pieux (pouces)" value={String(asset.pile_diameter_inch ?? '')} onSave={(v) => handleInlineSave('pile_diameter_inch', v ? Number(v) : null)} />
+                <InlineEditableRow label="Pieux par jambe" value={String(asset.pile_count_per_leg ?? '')} onSave={(v) => handleInlineSave('pile_count_per_leg', v ? Number(v) : null)} />
+                <InlineEditableRow label={t('assets.deck_level')} value={String(asset.deck_level ?? '')} onSave={(v) => handleInlineSave('deck_level', v ? Number(v) : null)} />
+                <InlineEditableRow label={t('assets.top_deck_load')} value={String(asset.top_deck_load ?? '')} onSave={(v) => handleInlineSave('top_deck_load', v ? Number(v) : null)} />
               </>
             ) : (
               <>
-                <ReadOnlyRow label="Prof. eau (m)" value={asset.water_depth ?? '—'} />
-                <ReadOnlyRow label="Altitude (m)" value={asset.altitude ?? '—'} />
-                <ReadOnlyRow label="Dim. Jacket" value={asset.jacket_length_m ? `${asset.jacket_length_m} x ${asset.jacket_width_m}` : '—'} />
-                <ReadOnlyRow label="Poids Jacket (T)" value={asset.jacket_weight ?? '—'} />
-                <ReadOnlyRow label="Nb pieux" value={asset.nb_piles ?? '—'} />
-                <ReadOnlyRow label="Diam. pieux" value={asset.pile_diameter_inch ? `${asset.pile_diameter_inch}\" x ${asset.pile_count_per_leg}` : '—'} />
-                <ReadOnlyRow label="Dim. Deck" value={asset.deck_level ? `${asset.deck_level} niveaux` : '—'} />
-                <ReadOnlyRow label="Niv. Deck" value={asset.deck_level ?? '—'} />
-                <ReadOnlyRow label="Charge Top Deck (T/m²)" value={asset.top_deck_load ?? '—'} />
+                <ReadOnlyRow label={t('assets.water_depth')} value={asset.water_depth ?? '—'} />
+                <ReadOnlyRow label={t('assets.altitude')} value={asset.altitude ?? '—'} />
+                <ReadOnlyRow label="Jacket L × l (m)" value={asset.jacket_length_m ? `${asset.jacket_length_m} × ${asset.jacket_width_m}` : '—'} />
+                <ReadOnlyRow label={t('assets.jacket_weight')} value={asset.jacket_weight ?? '—'} />
+                <ReadOnlyRow label={t('assets.nb_piles')} value={asset.nb_piles ?? '—'} />
+                <ReadOnlyRow label="Pieux" value={asset.pile_diameter_inch ? `${asset.pile_diameter_inch}" × ${asset.pile_count_per_leg}/jambe` : '—'} />
+                <ReadOnlyRow label={t('assets.deck_level')} value={asset.deck_level ?? '—'} />
+                <ReadOnlyRow label={t('assets.top_deck_load')} value={asset.top_deck_load ?? '—'} />
               </>
             )}
-            <ReadOnlyRow label="WINJ" value={asset.has_winj ? 'Oui' : asset.has_winj === false ? 'Non' : '—'} />
-            <ReadOnlyRow label="Power" value={asset.has_power ? 'Oui' : asset.has_power === false ? 'Non' : '—'} />
+            <ReadOnlyRow label={t('assets.winj')} value={asset.has_winj ? 'Oui' : asset.has_winj === false ? 'Non' : '—'} />
+            <ReadOnlyRow label={t('assets.power')} value={asset.has_power ? 'Oui' : asset.has_power === false ? 'Non' : '—'} />
           </FormSection>
         )}
 
-        {/* Equipment fields (crane, separator, etc.) */}
-        {['crane', 'well', 'tank', 'separator', 'compressor', 'generator', 'equipment', 'process_line'].includes(asset.type) && (
+        {/* ── Grue ── */}
+        {asset.type === 'crane' && (
+          <FormSection title="Grue" collapsible storageKey="panel.asset.sections" id="asset-crane">
+            {canUpdate ? (
+              <>
+                <InlineEditableRow label="Type de montage" value={asset.equipment_subtype ?? ''} onSave={(v) => handleInlineSave('equipment_subtype', v || null)} />
+                <InlineEditableRow label="Capacité (T)" value={String(asset.capacity ?? '')} onSave={(v) => handleInlineSave('capacity', v ? Number(v) : null)} />
+                <InlineEditableRow label="Portée max (m)" value={String(asset.max_range ?? '')} onSave={(v) => handleInlineSave('max_range', v ? Number(v) : null)} />
+                <InlineEditableRow label={t('assets.manufacturer')} value={asset.manufacturer ?? ''} onSave={(v) => handleInlineSave('manufacturer', v || null)} />
+                <InlineEditableRow label={t('assets.model_ref')} value={asset.model_ref ?? ''} onSave={(v) => handleInlineSave('model_ref', v || null)} />
+              </>
+            ) : (
+              <>
+                <ReadOnlyRow label="Type de montage" value={asset.equipment_subtype ?? '—'} />
+                <ReadOnlyRow label="Capacité (T)" value={asset.capacity ?? '—'} />
+                <ReadOnlyRow label="Portée max (m)" value={asset.max_range ?? '—'} />
+                <ReadOnlyRow label={t('assets.manufacturer')} value={asset.manufacturer ?? '—'} />
+                <ReadOnlyRow label={t('assets.model_ref')} value={asset.model_ref ?? '—'} />
+              </>
+            )}
+            <ReadOnlyRow label={t('assets.last_inspection')} value={asset.last_inspection ? new Date(asset.last_inspection).toLocaleDateString('fr-FR') : '—'} />
+            <ReadOnlyRow label={t('assets.next_inspection')} value={asset.next_inspection ? new Date(asset.next_inspection).toLocaleDateString('fr-FR') : '—'} />
+          </FormSection>
+        )}
+
+        {/* ── Puits / Bac / Séparateur / Compresseur / Générateur ── */}
+        {['well', 'tank', 'separator', 'compressor', 'generator', 'equipment', 'process_line'].includes(asset.type) && (
           <FormSection title={t('assets.equipment')} collapsible storageKey="panel.asset.sections" id="asset-equipment">
             {canUpdate ? (
               <>
-                <InlineEditableRow label="Sous-type" value={asset.equipment_subtype ?? ''} onSave={(v) => handleInlineSave('equipment_subtype', v || null)} />
-                <InlineEditableRow label="Capacité" value={String(asset.capacity ?? '')} onSave={(v) => handleInlineSave('capacity', v ? Number(v) : null)} />
-                <InlineEditableRow label="Portée max (m)" value={String(asset.max_range ?? '')} onSave={(v) => handleInlineSave('max_range', v ? Number(v) : null)} />
-                <InlineEditableRow label="Fabricant" value={asset.manufacturer ?? ''} onSave={(v) => handleInlineSave('manufacturer', v || null)} />
-                <InlineEditableRow label="Modèle" value={asset.model_ref ?? ''} onSave={(v) => handleInlineSave('model_ref', v || null)} />
+                <InlineEditableRow label={t('assets.equipment_subtype')} value={asset.equipment_subtype ?? ''} onSave={(v) => handleInlineSave('equipment_subtype', v || null)} />
+                <InlineEditableRow label={t('assets.capacity')} value={String(asset.capacity ?? '')} onSave={(v) => handleInlineSave('capacity', v ? Number(v) : null)} />
+                <InlineEditableRow label={t('assets.manufacturer')} value={asset.manufacturer ?? ''} onSave={(v) => handleInlineSave('manufacturer', v || null)} />
+                <InlineEditableRow label={t('assets.model_ref')} value={asset.model_ref ?? ''} onSave={(v) => handleInlineSave('model_ref', v || null)} />
               </>
             ) : (
               <>
-                <ReadOnlyRow label="Sous-type" value={asset.equipment_subtype ?? '—'} />
-                <ReadOnlyRow label="Capacité" value={asset.capacity ?? '—'} />
-                <ReadOnlyRow label="Portée max (m)" value={asset.max_range ?? '—'} />
-                <ReadOnlyRow label="Fabricant" value={asset.manufacturer ?? '—'} />
-                <ReadOnlyRow label="Modèle" value={asset.model_ref ?? '—'} />
+                <ReadOnlyRow label={t('assets.equipment_subtype')} value={asset.equipment_subtype ?? '—'} />
+                <ReadOnlyRow label={t('assets.capacity')} value={asset.capacity ?? '—'} />
+                <ReadOnlyRow label={t('assets.manufacturer')} value={asset.manufacturer ?? '—'} />
+                <ReadOnlyRow label={t('assets.model_ref')} value={asset.model_ref ?? '—'} />
               </>
             )}
-            <ReadOnlyRow label="Dernière inspection" value={asset.last_inspection ? new Date(asset.last_inspection).toLocaleDateString('fr-FR') : '—'} />
-            <ReadOnlyRow label="Prochaine inspection" value={asset.next_inspection ? new Date(asset.next_inspection).toLocaleDateString('fr-FR') : '—'} />
           </FormSection>
         )}
 
-        {/* Positioning (equipment on deck) */}
-        {asset.deck_id && (
-          <FormSection title={t('assets.positioning')} collapsible storageKey="panel.asset.sections" id="asset-position">
-            <ReadOnlyRow label="Deck" value={asset.deck_id} />
-            <ReadOnlyRow label="Élévation MSL (m)" value={asset.elevation_msl ?? '—'} />
-            {(asset.position_x || asset.position_y || asset.position_z) && (
-              <ReadOnlyRow label="Position X/Y/Z" value={`${asset.position_x ?? '—'} / ${asset.position_y ?? '—'} / ${asset.position_z ?? '—'}`} />
-            )}
-          </FormSection>
-        )}
-
-        {/* Dimensions */}
-        {(asset.length_m || asset.width_m || asset.height_m || asset.weight_t) && (
-          <FormSection title={t('assets.dimensions')} collapsible storageKey="panel.asset.sections" id="asset-dimensions">
-            {asset.length_m && <ReadOnlyRow label="Longueur (m)" value={asset.length_m} />}
-            {asset.width_m && <ReadOnlyRow label="Largeur (m)" value={asset.width_m} />}
-            {asset.height_m && <ReadOnlyRow label="Hauteur (m)" value={asset.height_m} />}
-            {asset.weight_t && <ReadOnlyRow label="Poids (T)" value={asset.weight_t} />}
-          </FormSection>
-        )}
-
-        {/* Pipeline */}
+        {/* ── Pipeline ── */}
         {asset.type === 'pipeline' && (
           <FormSection title={t('assets.pipeline')} collapsible storageKey="panel.asset.sections" id="asset-pipeline">
             {canUpdate ? (
               <>
-                <InlineEditableTags label="Type" value={asset.pipeline_type ?? ''} options={[{value:'gas',label:'Gaz'},{value:'oil',label:'Huile'},{value:'water',label:'Eau'}]} onSave={(v) => handleInlineSave('pipeline_type', v || null)} />
-                <InlineEditableRow label="Diamètre" value={asset.pipeline_diameter ?? ''} onSave={(v) => handleInlineSave('pipeline_diameter', v || null)} />
-                <InlineEditableRow label="Longueur (km)" value={String(asset.pipeline_length ?? '')} onSave={(v) => handleInlineSave('pipeline_length', v ? Number(v) : null)} />
+                <InlineEditableTags label={t('assets.pipeline_type')} value={asset.pipeline_type ?? ''} options={[{value:'gas',label:'Gaz'},{value:'oil',label:'Huile'},{value:'water',label:'Eau'}]} onSave={(v) => handleInlineSave('pipeline_type', v || null)} />
+                <InlineEditableRow label={t('assets.pipeline_diameter')} value={asset.pipeline_diameter ?? ''} onSave={(v) => handleInlineSave('pipeline_diameter', v || null)} />
+                <InlineEditableRow label={t('assets.pipeline_length')} value={String(asset.pipeline_length ?? '')} onSave={(v) => handleInlineSave('pipeline_length', v ? Number(v) : null)} />
               </>
             ) : (
               <>
-                <ReadOnlyRow label="Type" value={asset.pipeline_type ?? '—'} />
-                <ReadOnlyRow label="Diamètre" value={asset.pipeline_diameter ?? '—'} />
-                <ReadOnlyRow label="Longueur (km)" value={asset.pipeline_length ?? '—'} />
+                <ReadOnlyRow label={t('assets.pipeline_type')} value={asset.pipeline_type ?? '—'} />
+                <ReadOnlyRow label={t('assets.pipeline_diameter')} value={asset.pipeline_diameter ?? '—'} />
+                <ReadOnlyRow label={t('assets.pipeline_length')} value={asset.pipeline_length ?? '—'} />
               </>
             )}
           </FormSection>
         )}
 
-        {/* ── Localisation (GeoEditor) ── */}
+        {/* ── Dimensions (équipement) ── */}
+        {(asset.length_m || asset.width_m || asset.height_m || asset.weight_t) && (
+          <FormSection title={t('assets.dimensions')} collapsible storageKey="panel.asset.sections" id="asset-dimensions">
+            {asset.length_m != null && <ReadOnlyRow label={t('assets.length')} value={asset.length_m} />}
+            {asset.width_m != null && <ReadOnlyRow label={t('assets.width')} value={asset.width_m} />}
+            {asset.height_m != null && <ReadOnlyRow label={t('assets.height')} value={asset.height_m} />}
+            {asset.weight_t != null && <ReadOnlyRow label={t('assets.weight')} value={asset.weight_t} />}
+          </FormSection>
+        )}
+
+        {/* ── Positionnement deck ── */}
+        {(asset.deck_id || asset.elevation_msl) && (
+          <FormSection title={t('assets.positioning')} collapsible storageKey="panel.asset.sections" id="asset-position">
+            <ReadOnlyRow label={t('assets.elevation_msl')} value={asset.elevation_msl ?? '—'} />
+            {(asset.position_x != null || asset.position_y != null || asset.position_z != null) && (
+              <ReadOnlyRow label={t('assets.position_xyz')} value={`${asset.position_x ?? '—'} / ${asset.position_y ?? '—'} / ${asset.position_z ?? '—'}`} />
+            )}
+          </FormSection>
+        )}
+
+        {/* ── Localisation (GeoEditor) — infrastructure + pipeline only ── */}
+        {(['field', 'site', 'platform', 'pipeline'].includes(asset.type) || asset.geometry) && (
         <FormSection title={t('assets.localisation')} collapsible defaultExpanded={!!asset.geometry} storageKey="panel.asset.sections" id="asset-detail-geo">
           <GeoEditor
             value={(asset.geometry as GeoValue | null) || null}
@@ -709,6 +705,17 @@ function AssetDetailPanel({ id }: { id: string }) {
             showCoordinateTable
             showSearch
           />
+        </FormSection>
+        )}
+
+        {/* ── Options ── */}
+        <FormSection title={t('assets.options')} collapsible defaultExpanded={false} storageKey="panel.asset.sections" id="asset-options">
+          <ReadOnlyRow label={t('assets.overlap')} value={
+            <span className={cn('gl-badge', asset.allow_overlap ? 'gl-badge-success' : 'gl-badge-neutral')}>
+              {asset.allow_overlap ? t('assets.overlap_allowed') : t('assets.overlap_denied')}
+            </span>
+          } />
+          <ReadOnlyRow label={t('common.created_at')} value={new Date(asset.created_at).toLocaleDateString('fr-FR')} />
         </FormSection>
 
         {/* ── Tags (inline, always visible) ── */}

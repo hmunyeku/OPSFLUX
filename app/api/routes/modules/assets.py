@@ -43,7 +43,7 @@ async def _check_circular_parent(db: AsyncSession, asset_id: UUID | None, new_pa
         current_id = row[0] if row else None
 
 
-@router.get("", response_model=PaginatedResponse[AssetRead])
+@router.get("", response_model=PaginatedResponse[AssetRead], dependencies=[require_permission("asset.read")])
 async def list_assets(
     type: str | None = None,
     parent_id: UUID | None = None,
@@ -72,7 +72,7 @@ async def list_assets(
     return await paginate(db, query, pagination)
 
 
-@router.get("/tree")
+@router.get("/tree", dependencies=[require_permission("asset.read")])
 async def get_asset_tree(
     parent_id: UUID | None = None,
     max_depth: int = 10,
@@ -160,7 +160,7 @@ async def create_asset(
     return asset
 
 
-@router.get("/{asset_id}", response_model=AssetRead)
+@router.get("/{asset_id}", response_model=AssetRead, dependencies=[require_permission("asset.read")])
 async def get_asset(
     asset_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
@@ -229,7 +229,7 @@ async def delete_asset(
 # ─── Asset Type Configs ──────────────────────────────────────────────────────
 
 
-@router.get("/type-configs", response_model=list[AssetTypeConfigRead])
+@router.get("/type-configs", response_model=list[AssetTypeConfigRead], dependencies=[require_permission("asset.read")])
 async def list_type_configs(
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
@@ -332,7 +332,16 @@ from app.models.common import CraneLiftingChart
 from app.schemas.common import CraneLiftingChartCreate, CraneLiftingChartRead, CraneLiftingChartUpdate
 
 
-@router.get("/{asset_id}/lifting-charts", response_model=list[CraneLiftingChartRead])
+async def _verify_asset_entity(asset_id: UUID, entity_id: UUID, db: AsyncSession) -> None:
+    """Verify that an asset belongs to the current entity. Raises 404 if not found."""
+    result = await db.execute(
+        select(Asset.id).where(Asset.id == asset_id, Asset.entity_id == entity_id)
+    )
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+
+@router.get("/{asset_id}/lifting-charts", response_model=list[CraneLiftingChartRead], dependencies=[require_permission("asset.read")])
 async def list_lifting_charts(
     asset_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
@@ -340,6 +349,7 @@ async def list_lifting_charts(
     db: AsyncSession = Depends(get_db),
 ):
     """List lifting charts for a crane asset."""
+    await _verify_asset_entity(asset_id, entity_id, db)
     result = await db.execute(
         select(CraneLiftingChart).where(
             CraneLiftingChart.asset_id == asset_id,
@@ -349,22 +359,15 @@ async def list_lifting_charts(
     return result.scalars().all()
 
 
-@router.post("/{asset_id}/lifting-charts", response_model=CraneLiftingChartRead, status_code=201)
+@router.post("/{asset_id}/lifting-charts", response_model=CraneLiftingChartRead, status_code=201, dependencies=[require_permission("asset.update")])
 async def create_lifting_chart(
     asset_id: UUID,
     body: CraneLiftingChartCreate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("asset.update"),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a lifting chart for a crane asset."""
-    # Verify asset exists and belongs to entity
-    asset = await db.execute(
-        select(Asset).where(Asset.id == asset_id, Asset.entity_id == entity_id)
-    )
-    if not asset.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Asset not found")
-
+    await _verify_asset_entity(asset_id, entity_id, db)
     chart = CraneLiftingChart(asset_id=asset_id, **body.model_dump())
     db.add(chart)
     await db.commit()
@@ -372,15 +375,16 @@ async def create_lifting_chart(
     return chart
 
 
-@router.patch("/{asset_id}/lifting-charts/{chart_id}", response_model=CraneLiftingChartRead)
+@router.patch("/{asset_id}/lifting-charts/{chart_id}", response_model=CraneLiftingChartRead, dependencies=[require_permission("asset.update")])
 async def update_lifting_chart(
     asset_id: UUID,
     chart_id: UUID,
     body: CraneLiftingChartUpdate,
-    _: None = require_permission("asset.update"),
+    entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
     """Update a lifting chart."""
+    await _verify_asset_entity(asset_id, entity_id, db)
     result = await db.execute(
         select(CraneLiftingChart).where(
             CraneLiftingChart.id == chart_id,
@@ -397,14 +401,15 @@ async def update_lifting_chart(
     return chart
 
 
-@router.delete("/{asset_id}/lifting-charts/{chart_id}", status_code=204)
+@router.delete("/{asset_id}/lifting-charts/{chart_id}", status_code=204, dependencies=[require_permission("asset.update")])
 async def delete_lifting_chart(
     asset_id: UUID,
     chart_id: UUID,
-    _: None = require_permission("asset.update"),
+    entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a lifting chart."""
+    await _verify_asset_entity(asset_id, entity_id, db)
     result = await db.execute(
         select(CraneLiftingChart).where(
             CraneLiftingChart.id == chart_id,

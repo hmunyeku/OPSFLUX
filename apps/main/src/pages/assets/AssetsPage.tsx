@@ -25,6 +25,7 @@ import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/Pa
 import {
   DynamicPanelShell,
   DynamicPanelField,
+  FormGrid,
   FormSection,
   PanelContentLayout,
   SectionColumns,
@@ -139,7 +140,7 @@ const FALLBACK_CRANE_MOUNTS = [
   { value: 'ARTICULEE', label: 'Articulée' },
   { value: 'POTENCE', label: 'Potence' },
 ]
-const PLATFORM_TYPES = new Set(['platform', 'site'])
+// const PLATFORM_TYPES = new Set(['platform', 'site'])
 const EQUIPMENT_TYPES = new Set(['crane', 'well', 'tank', 'separator', 'process_line', 'compressor', 'generator', 'equipment'])
 const PIPELINE_TYPE = 'pipeline'
 
@@ -194,7 +195,8 @@ function CreateAssetPanel() {
   }
 
   const updateField = (key: string, value: any) => setForm({ ...form, [key]: value })
-  const isPlatform = PLATFORM_TYPES.has(form.type)
+  const isInfra = ['field', 'site', 'platform'].includes(form.type)
+  const isPlatformOrSite = ['platform', 'site'].includes(form.type)
   const isEquipment = EQUIPMENT_TYPES.has(form.type)
   const isPipeline = form.type === PIPELINE_TYPE
 
@@ -220,80 +222,82 @@ function CreateAssetPanel() {
     >
       <form id="create-asset-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
-          {/* ── Category: Infrastructure / Equipement ── */}
-          <FormSection title="Catégorie">
-            <TagSelector options={ASSET_CATEGORIES as any} value={category} onChange={handleCategoryChange} />
-          </FormSection>
-
-          {/* ── Sub-type ── */}
-          <FormSection title={t('common.type')}>
-            <TagSelector options={subtypes} value={form.type} onChange={(v) => setForm({ ...form, type: v })} />
-          </FormSection>
+          {/* ── Category + Type selectors ── */}
+          <div className="flex items-center gap-4 flex-wrap">
+            <div>
+              <label className="gl-label mb-1">Catégorie</label>
+              <TagSelector options={ASSET_CATEGORIES as any} value={category} onChange={handleCategoryChange} />
+            </div>
+            <div>
+              <label className="gl-label mb-1">{t('common.type')}</label>
+              <TagSelector options={subtypes} value={form.type} onChange={(v) => setForm({ ...form, type: v })} />
+            </div>
+          </div>
 
           <SectionColumns>
-            {/* Column 1: Identité + champs conditionnels */}
+            {/* ══ Column 1: Identité + Champs techniques ══ */}
             <div className="@container space-y-5">
+
+              {/* ── Identité (FormGrid 2-col) ── */}
               <FormSection title={t('common.details')}>
-                <DynamicPanelField label={t('common.code')}>
-                  <input type="text" value={form.code || ''} onChange={(e) => updateField('code', e.target.value || undefined)} className={panelInputClass} placeholder="Auto-généré si vide" />
-                </DynamicPanelField>
-
-                <DynamicPanelField label={t('common.name')} required>
-                  <input type="text" required value={form.name} onChange={(e) => updateField('name', e.target.value)} className={panelInputClass} placeholder="Nom de l'asset" />
-                </DynamicPanelField>
-
-                <DynamicPanelField label={t('assets.parent')}>
-                  <AssetPicker
-                    value={form.parent_id || null}
-                    onChange={(id) => updateField('parent_id', id || undefined)}
-                    label={t('assets.parent')}
-                    placeholder={t('assets.none_root')}
-                  />
-                </DynamicPanelField>
-
-                <DynamicPanelField label={t('assets.year_installed')}>
-                  <input type="number" value={form.year_installed || ''} onChange={(e) => updateField('year_installed', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} placeholder="1983" />
-                </DynamicPanelField>
-
+                <FormGrid>
+                  <DynamicPanelField label={t('common.code')}>
+                    <input type="text" value={form.code || ''} onChange={(e) => updateField('code', e.target.value || undefined)} className={panelInputClass} placeholder="Auto-généré si vide" />
+                  </DynamicPanelField>
+                  <DynamicPanelField label={t('common.name')} required>
+                    <input type="text" required value={form.name} onChange={(e) => updateField('name', e.target.value)} className={panelInputClass} />
+                  </DynamicPanelField>
+                  <DynamicPanelField label={t('assets.parent')}>
+                    <AssetPicker value={form.parent_id || null} onChange={(id) => updateField('parent_id', id || undefined)} label={t('assets.parent')} placeholder={t('assets.none_root')} />
+                  </DynamicPanelField>
+                  <DynamicPanelField label={t('assets.year_installed')}>
+                    <input type="number" value={form.year_installed || ''} onChange={(e) => updateField('year_installed', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} placeholder="1983" />
+                  </DynamicPanelField>
+                </FormGrid>
                 <DynamicPanelField label={t('common.description')}>
                   <textarea value={form.description || ''} onChange={(e) => updateField('description', e.target.value || undefined)} className={`${panelInputClass} min-h-[40px] resize-y`} placeholder="Description..." />
                 </DynamicPanelField>
               </FormSection>
 
-              {/* ── Platform structure fields ── */}
-              {isPlatform && (
-                <FormSection title={t('assets.structure')} collapsible defaultExpanded storageKey="panel.asset.create" id="create-structure">
-                  <DynamicPanelField label={t('assets.water_depth')}>
-                    <input type="number" step="any" value={form.water_depth ?? ''} onChange={(e) => updateField('water_depth', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} placeholder="15.4" />
-                  </DynamicPanelField>
-                  <DynamicPanelField label={t('assets.altitude')}>
-                    <input type="number" step="any" value={form.altitude ?? ''} onChange={(e) => updateField('altitude', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} />
-                  </DynamicPanelField>
-                  <DynamicPanelField label={t('assets.orientation')}>
-                    <input type="text" value={form.orientation ?? ''} onChange={(e) => updateField('orientation', e.target.value || undefined)} className={panelInputClass} placeholder="27°30" />
-                  </DynamicPanelField>
-                  <DynamicPanelField label={t('assets.jacket_dimensions')}>
-                    <input type="text" value={form.jacket_dimensions ?? ''} onChange={(e) => updateField('jacket_dimensions', e.target.value || undefined)} className={panelInputClass} placeholder="12 x 14" />
-                  </DynamicPanelField>
-                  <DynamicPanelField label={t('assets.jacket_weight')}>
-                    <input type="number" step="any" value={form.jacket_weight ?? ''} onChange={(e) => updateField('jacket_weight', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} placeholder="254" />
-                  </DynamicPanelField>
-                  <DynamicPanelField label={t('assets.nb_piles')}>
-                    <input type="number" value={form.nb_piles ?? ''} onChange={(e) => updateField('nb_piles', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} placeholder="4" />
-                  </DynamicPanelField>
-                  <DynamicPanelField label={t('assets.pile_diameter')}>
-                    <input type="text" value={form.pile_diameter ?? ''} onChange={(e) => updateField('pile_diameter', e.target.value || undefined)} className={panelInputClass} placeholder='30" x 1' />
-                  </DynamicPanelField>
-                  <DynamicPanelField label={t('assets.deck_dimensions')}>
-                    <input type="text" value={form.deck_dimensions ?? ''} onChange={(e) => updateField('deck_dimensions', e.target.value || undefined)} className={panelInputClass} placeholder="20 x 26" />
-                  </DynamicPanelField>
-                  <DynamicPanelField label={t('assets.deck_level')}>
-                    <input type="number" value={form.deck_level ?? ''} onChange={(e) => updateField('deck_level', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} placeholder="4" />
-                  </DynamicPanelField>
-                  <DynamicPanelField label={t('assets.top_deck_load')}>
-                    <input type="number" step="any" value={form.top_deck_load ?? ''} onChange={(e) => updateField('top_deck_load', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} placeholder="1" />
-                  </DynamicPanelField>
-                  <div className="flex items-center gap-6 mt-1">
+              {/* ── Plateforme / Site : Structure ── */}
+              {isPlatformOrSite && (
+                <FormSection title={t('assets.structure')}>
+                  <FormGrid>
+                    <DynamicPanelField label={t('assets.water_depth')}>
+                      <input type="number" step="any" value={form.water_depth ?? ''} onChange={(e) => updateField('water_depth', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} placeholder="15.4" />
+                    </DynamicPanelField>
+                    <DynamicPanelField label={t('assets.altitude')}>
+                      <input type="number" step="any" value={form.altitude ?? ''} onChange={(e) => updateField('altitude', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} />
+                    </DynamicPanelField>
+                    <DynamicPanelField label={t('assets.orientation')}>
+                      <input type="text" value={form.orientation ?? ''} onChange={(e) => updateField('orientation', e.target.value || undefined)} className={panelInputClass} placeholder="27°30" />
+                    </DynamicPanelField>
+                    <DynamicPanelField label={t('assets.deck_level')}>
+                      <input type="number" value={form.deck_level ?? ''} onChange={(e) => updateField('deck_level', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} placeholder="4" />
+                    </DynamicPanelField>
+                    <DynamicPanelField label="Jacket L (m)">
+                      <input type="number" step="any" value={form.jacket_length_m ?? ''} onChange={(e) => updateField('jacket_length_m', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} placeholder="12" />
+                    </DynamicPanelField>
+                    <DynamicPanelField label="Jacket l (m)">
+                      <input type="number" step="any" value={form.jacket_width_m ?? ''} onChange={(e) => updateField('jacket_width_m', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} placeholder="14" />
+                    </DynamicPanelField>
+                    <DynamicPanelField label={t('assets.jacket_weight')}>
+                      <input type="number" step="any" value={form.jacket_weight ?? ''} onChange={(e) => updateField('jacket_weight', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} placeholder="254" />
+                    </DynamicPanelField>
+                    <DynamicPanelField label={t('assets.nb_piles')}>
+                      <input type="number" value={form.nb_piles ?? ''} onChange={(e) => updateField('nb_piles', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} placeholder="4" />
+                    </DynamicPanelField>
+                    <DynamicPanelField label="Diam. pieux (pouces)">
+                      <input type="number" step="any" value={form.pile_diameter_inch ?? ''} onChange={(e) => updateField('pile_diameter_inch', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} placeholder="30" />
+                    </DynamicPanelField>
+                    <DynamicPanelField label="Pieux par jambe">
+                      <input type="number" value={form.pile_count_per_leg ?? ''} onChange={(e) => updateField('pile_count_per_leg', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} placeholder="1" />
+                    </DynamicPanelField>
+                    <DynamicPanelField label={t('assets.top_deck_load')}>
+                      <input type="number" step="any" value={form.top_deck_load ?? ''} onChange={(e) => updateField('top_deck_load', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} placeholder="1" />
+                    </DynamicPanelField>
+                  </FormGrid>
+                  <div className="flex items-center gap-6 mt-2">
                     <label className="flex items-center gap-2 cursor-pointer text-sm">
                       <input type="checkbox" checked={form.has_winj ?? false} onChange={(e) => updateField('has_winj', e.target.checked)} className="h-4 w-4 rounded border-border text-primary" />
                       {t('assets.winj')}
@@ -306,113 +310,115 @@ function CreateAssetPanel() {
                 </FormSection>
               )}
 
-              {/* ── Crane-specific ── */}
+              {/* ── Grue ── */}
               {form.type === 'crane' && (
-                <FormSection title="Grue" collapsible defaultExpanded storageKey="panel.asset.create" id="create-crane">
-                  <DynamicPanelField label="Type de montage">
-                    <select value={form.equipment_subtype ?? ''} onChange={(e) => updateField('equipment_subtype', e.target.value || undefined)} className="gl-form-select text-sm">
-                      <option value="">— Sélectionner —</option>
-                      {(dictCraneMounts.length > 0 ? dictCraneMounts : FALLBACK_CRANE_MOUNTS).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
-                  </DynamicPanelField>
-                  <DynamicPanelField label="Capacité (T)">
-                    <input type="number" step="any" value={form.capacity ?? ''} onChange={(e) => updateField('capacity', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} placeholder="10" />
-                  </DynamicPanelField>
-                  <DynamicPanelField label="Portée max (m)">
-                    <input type="number" step="any" value={form.max_range ?? ''} onChange={(e) => updateField('max_range', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} placeholder="8" />
-                  </DynamicPanelField>
-                  <DynamicPanelField label={t('assets.manufacturer')}>
-                    <input type="text" value={form.manufacturer ?? ''} onChange={(e) => updateField('manufacturer', e.target.value || undefined)} className={panelInputClass} />
-                  </DynamicPanelField>
-                  <DynamicPanelField label={t('assets.model_ref')}>
-                    <input type="text" value={form.model_ref ?? ''} onChange={(e) => updateField('model_ref', e.target.value || undefined)} className={panelInputClass} />
-                  </DynamicPanelField>
+                <FormSection title="Grue">
+                  <FormGrid>
+                    <DynamicPanelField label="Type de montage">
+                      <select value={form.equipment_subtype ?? ''} onChange={(e) => updateField('equipment_subtype', e.target.value || undefined)} className="gl-form-select text-sm">
+                        <option value="">— Sélectionner —</option>
+                        {(dictCraneMounts.length > 0 ? dictCraneMounts : FALLBACK_CRANE_MOUNTS).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    </DynamicPanelField>
+                    <DynamicPanelField label="Capacité (T)">
+                      <input type="number" step="any" value={form.capacity ?? ''} onChange={(e) => updateField('capacity', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} placeholder="10" />
+                    </DynamicPanelField>
+                    <DynamicPanelField label="Portée max (m)">
+                      <input type="number" step="any" value={form.max_range ?? ''} onChange={(e) => updateField('max_range', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} placeholder="8" />
+                    </DynamicPanelField>
+                    <DynamicPanelField label={t('assets.manufacturer')}>
+                      <input type="text" value={form.manufacturer ?? ''} onChange={(e) => updateField('manufacturer', e.target.value || undefined)} className={panelInputClass} />
+                    </DynamicPanelField>
+                    <DynamicPanelField label={t('assets.model_ref')}>
+                      <input type="text" value={form.model_ref ?? ''} onChange={(e) => updateField('model_ref', e.target.value || undefined)} className={panelInputClass} />
+                    </DynamicPanelField>
+                  </FormGrid>
                 </FormSection>
               )}
 
-              {/* ── Well-specific ── */}
+              {/* ── Puits ── */}
               {form.type === 'well' && (
-                <FormSection title="Puits" collapsible defaultExpanded storageKey="panel.asset.create" id="create-well">
-                  <DynamicPanelField label="Type de puits">
-                    <select value={form.equipment_subtype ?? ''} onChange={(e) => updateField('equipment_subtype', e.target.value || undefined)} className="gl-form-select text-sm">
-                      <option value="">— Sélectionner —</option>
-                      <option value="production">Production</option>
-                      <option value="injection">Injection</option>
-                      <option value="exploration">Exploration</option>
-                      <option value="observation">Observation</option>
-                    </select>
-                  </DynamicPanelField>
-                  <DynamicPanelField label="Profondeur (m)">
-                    <input type="number" step="any" value={form.capacity ?? ''} onChange={(e) => updateField('capacity', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} />
-                  </DynamicPanelField>
+                <FormSection title="Puits">
+                  <FormGrid>
+                    <DynamicPanelField label="Type de puits">
+                      <select value={form.equipment_subtype ?? ''} onChange={(e) => updateField('equipment_subtype', e.target.value || undefined)} className="gl-form-select text-sm">
+                        <option value="">— Sélectionner —</option>
+                        <option value="production">Production</option>
+                        <option value="injection">Injection</option>
+                        <option value="exploration">Exploration</option>
+                        <option value="observation">Observation</option>
+                      </select>
+                    </DynamicPanelField>
+                    <DynamicPanelField label="Profondeur (m)">
+                      <input type="number" step="any" value={form.capacity ?? ''} onChange={(e) => updateField('capacity', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} />
+                    </DynamicPanelField>
+                  </FormGrid>
                 </FormSection>
               )}
 
-              {/* ── Tank/Separator/Compressor ── */}
+              {/* ── Bac / Séparateur / Compresseur / Générateur ── */}
               {['tank', 'separator', 'compressor', 'generator'].includes(form.type) && (
-                <FormSection title={t('assets.equipment')} collapsible defaultExpanded storageKey="panel.asset.create" id="create-equip-generic">
-                  <DynamicPanelField label="Sous-type">
-                    <input type="text" value={form.equipment_subtype ?? ''} onChange={(e) => updateField('equipment_subtype', e.target.value || undefined)} className={panelInputClass} placeholder={form.type === 'separator' ? 'Biphasique, Triphasique' : form.type === 'compressor' ? 'Centrifuge, Alternatif' : ''} />
-                  </DynamicPanelField>
-                  <DynamicPanelField label={form.type === 'compressor' || form.type === 'generator' ? 'Puissance (kW)' : 'Capacité (m³)'}>
-                    <input type="number" step="any" value={form.capacity ?? ''} onChange={(e) => updateField('capacity', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} />
-                  </DynamicPanelField>
-                  <DynamicPanelField label={t('assets.manufacturer')}>
-                    <input type="text" value={form.manufacturer ?? ''} onChange={(e) => updateField('manufacturer', e.target.value || undefined)} className={panelInputClass} />
-                  </DynamicPanelField>
+                <FormSection title={t('assets.equipment')}>
+                  <FormGrid>
+                    <DynamicPanelField label="Sous-type">
+                      <input type="text" value={form.equipment_subtype ?? ''} onChange={(e) => updateField('equipment_subtype', e.target.value || undefined)} className={panelInputClass} placeholder={form.type === 'separator' ? 'Biphasique, Triphasique' : form.type === 'compressor' ? 'Centrifuge, Alternatif' : ''} />
+                    </DynamicPanelField>
+                    <DynamicPanelField label={form.type === 'compressor' || form.type === 'generator' ? 'Puissance (kW)' : 'Capacité (m³)'}>
+                      <input type="number" step="any" value={form.capacity ?? ''} onChange={(e) => updateField('capacity', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} />
+                    </DynamicPanelField>
+                    <DynamicPanelField label={t('assets.manufacturer')}>
+                      <input type="text" value={form.manufacturer ?? ''} onChange={(e) => updateField('manufacturer', e.target.value || undefined)} className={panelInputClass} />
+                    </DynamicPanelField>
+                    <DynamicPanelField label={t('assets.model_ref')}>
+                      <input type="text" value={form.model_ref ?? ''} onChange={(e) => updateField('model_ref', e.target.value || undefined)} className={panelInputClass} />
+                    </DynamicPanelField>
+                  </FormGrid>
                 </FormSection>
               )}
 
               {/* ── Pipeline ── */}
               {isPipeline && (
-                <FormSection title={t('assets.pipeline')} collapsible defaultExpanded storageKey="panel.asset.create" id="create-pipeline">
-                  <DynamicPanelField label="Type fluide">
-                    <TagSelector options={[{value:'gas',label:'Gaz'},{value:'oil',label:'Huile'},{value:'water',label:'Eau'}]} value={form.pipeline_type ?? ''} onChange={(v) => updateField('pipeline_type', v)} />
-                  </DynamicPanelField>
-                  <DynamicPanelField label={t('assets.pipeline_diameter')}>
-                    <input type="text" value={form.pipeline_diameter ?? ''} onChange={(e) => updateField('pipeline_diameter', e.target.value || undefined)} className={panelInputClass} placeholder='12"' />
-                  </DynamicPanelField>
-                  <DynamicPanelField label={t('assets.pipeline_length')}>
-                    <input type="number" step="any" value={form.pipeline_length ?? ''} onChange={(e) => updateField('pipeline_length', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} placeholder="2.5" />
-                  </DynamicPanelField>
+                <FormSection title={t('assets.pipeline')}>
+                  <FormGrid>
+                    <DynamicPanelField label="Type fluide">
+                      <TagSelector options={[{value:'gas',label:'Gaz'},{value:'oil',label:'Huile'},{value:'water',label:'Eau'}]} value={form.pipeline_type ?? ''} onChange={(v) => updateField('pipeline_type', v)} />
+                    </DynamicPanelField>
+                    <DynamicPanelField label={t('assets.pipeline_diameter')}>
+                      <input type="text" value={form.pipeline_diameter ?? ''} onChange={(e) => updateField('pipeline_diameter', e.target.value || undefined)} className={panelInputClass} placeholder='12"' />
+                    </DynamicPanelField>
+                    <DynamicPanelField label={t('assets.pipeline_length')}>
+                      <input type="number" step="any" value={form.pipeline_length ?? ''} onChange={(e) => updateField('pipeline_length', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} placeholder="2.5" />
+                    </DynamicPanelField>
+                  </FormGrid>
                 </FormSection>
               )}
 
-              {/* ── Equipment positioning (on parent platform deck) ── */}
-              {isEquipment && (
-                <FormSection title={t('assets.positioning')} collapsible defaultExpanded={false} storageKey="panel.asset.create" id="create-position">
-                  <DynamicPanelField label={t('assets.deck_name')}>
-                    <input type="text" value={form.deck_name ?? ''} onChange={(e) => updateField('deck_name', e.target.value || undefined)} className={panelInputClass} placeholder="Main deck, Cellar deck..." />
-                  </DynamicPanelField>
-                  <DynamicPanelField label={t('assets.elevation_msl')}>
-                    <input type="number" step="any" value={form.elevation_msl ?? ''} onChange={(e) => updateField('elevation_msl', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} />
-                  </DynamicPanelField>
-                </FormSection>
-              )}
-
-              {/* ── Dimensions (all equipment + pipeline) ── */}
+              {/* ── Dimensions (équipement + pipeline) ── */}
               {(isEquipment || isPipeline) && (
                 <FormSection title={t('assets.dimensions')} collapsible defaultExpanded={false} storageKey="panel.asset.create" id="create-dims">
-                  <DynamicPanelField label={t('assets.length')}>
-                    <input type="number" step="any" value={form.length_m ?? ''} onChange={(e) => updateField('length_m', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} />
-                  </DynamicPanelField>
-                  <DynamicPanelField label={t('assets.width')}>
-                    <input type="number" step="any" value={form.width_m ?? ''} onChange={(e) => updateField('width_m', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} />
-                  </DynamicPanelField>
-                  <DynamicPanelField label={t('assets.height')}>
-                    <input type="number" step="any" value={form.height_m ?? ''} onChange={(e) => updateField('height_m', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} />
-                  </DynamicPanelField>
-                  <DynamicPanelField label={t('assets.weight')}>
-                    <input type="number" step="any" value={form.weight_t ?? ''} onChange={(e) => updateField('weight_t', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} />
-                  </DynamicPanelField>
+                  <FormGrid>
+                    <DynamicPanelField label={t('assets.length')}>
+                      <input type="number" step="any" value={form.length_m ?? ''} onChange={(e) => updateField('length_m', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} />
+                    </DynamicPanelField>
+                    <DynamicPanelField label={t('assets.width')}>
+                      <input type="number" step="any" value={form.width_m ?? ''} onChange={(e) => updateField('width_m', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} />
+                    </DynamicPanelField>
+                    <DynamicPanelField label={t('assets.height')}>
+                      <input type="number" step="any" value={form.height_m ?? ''} onChange={(e) => updateField('height_m', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} />
+                    </DynamicPanelField>
+                    <DynamicPanelField label={t('assets.weight')}>
+                      <input type="number" step="any" value={form.weight_t ?? ''} onChange={(e) => updateField('weight_t', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} />
+                    </DynamicPanelField>
+                  </FormGrid>
                 </FormSection>
               )}
             </div>
 
-            {/* Column 2: Localisation (adapts by type) */}
+            {/* ══ Column 2: Localisation + Options ══ */}
             <div className="@container space-y-5">
-              {/* Infrastructure: GeoEditor (polygon for field/site, point for platform) */}
-              {isPlatform && (
+
+              {/* Infrastructure (field/site/platform) → GeoEditor */}
+              {isInfra && (
                 <FormSection title={t('assets.localisation')}>
                   <GeoEditor
                     value={form.geometry || null}
@@ -425,7 +431,7 @@ function CreateAssetPanel() {
                 </FormSection>
               )}
 
-              {/* Pipeline: linestring editor */}
+              {/* Pipeline → linestring GeoEditor */}
               {isPipeline && (
                 <FormSection title="Tracé du pipeline">
                   <GeoEditor
@@ -439,34 +445,31 @@ function CreateAssetPanel() {
                 </FormSection>
               )}
 
-              {/* Equipment: NO map, just deck position info */}
+              {/* Équipement → pas de carte, info deck */}
               {isEquipment && !isPipeline && (
-                <FormSection title={t('assets.localisation')}>
-                  <p className="text-xs text-muted-foreground">
-                    La position de cet équipement est définie par rapport à sa plateforme parent (deck, élévation MSL).
+                <FormSection title={t('assets.positioning')}>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    La position de cet équipement sera définie par rapport au deck de sa plateforme parent.
+                    Les decks sont configurables dans le détail de la plateforme.
                   </p>
+                  <DynamicPanelField label={t('assets.elevation_msl')}>
+                    <input type="number" step="any" value={form.elevation_msl ?? ''} onChange={(e) => updateField('elevation_msl', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} placeholder="12.5" />
+                  </DynamicPanelField>
                 </FormSection>
               )}
 
-              {/* ── Options ── */}
+              {/* Options */}
               <FormSection title={t('assets.options')} collapsible defaultExpanded={false} storageKey="panel.asset.create" id="create-options">
                 <label className="flex items-center gap-3 cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    checked={form.allow_overlap ?? true}
-                    onChange={(e) => updateField('allow_overlap', e.target.checked)}
-                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary/30"
-                  />
-                  <span className="text-sm text-foreground group-hover:text-foreground/80">
-                    {t('assets.overlap_allowed')}
-                  </span>
+                  <input type="checkbox" checked={form.allow_overlap ?? true} onChange={(e) => updateField('allow_overlap', e.target.checked)} className="h-4 w-4 rounded border-border text-primary focus:ring-primary/30" />
+                  <span className="text-sm text-foreground group-hover:text-foreground/80">{t('assets.overlap_allowed')}</span>
                 </label>
               </FormSection>
             </div>
           </SectionColumns>
 
-          <p className="text-xs text-muted-foreground italic">
-            Les adresses, fichiers et notes pourront être ajoutés après la création.
+          <p className="text-xs text-muted-foreground italic mt-2">
+            Les decks, adresses, fichiers et notes pourront être ajoutés après la création.
           </p>
         </PanelContentLayout>
       </form>

@@ -515,8 +515,41 @@ class Asset(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     status: Mapped[str] = mapped_column(String(30), default="operational", nullable=False)
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB)
 
-    parent: Mapped["Asset | None"] = relationship(remote_side="Asset.id")
-    children: Mapped[list["Asset"]] = relationship(back_populates="parent", remote_side="Asset.parent_id")
+    # ── Extended fields (common) ──
+    year_installed: Mapped[int | None] = mapped_column(Integer)
+    description: Mapped[str | None] = mapped_column(Text)
+    orientation: Mapped[str | None] = mapped_column(String(50))  # Platform orientation (degrees)
+    # ── Platform structure ──
+    water_depth: Mapped[float | None] = mapped_column(Float)  # m — offshore (null = onshore)
+    altitude: Mapped[float | None] = mapped_column(Float)  # m — onshore elevation
+    jacket_dimensions: Mapped[str | None] = mapped_column(String(100))  # e.g. "12 x 14"
+    jacket_weight: Mapped[float | None] = mapped_column(Float)  # Tonnes
+    nb_piles: Mapped[int | None] = mapped_column(Integer)
+    pile_diameter: Mapped[str | None] = mapped_column(String(50))  # e.g. "30\" x 1"
+    deck_dimensions: Mapped[str | None] = mapped_column(String(100))  # e.g. "20 x 26"
+    deck_level: Mapped[int | None] = mapped_column(Integer)  # Number of deck levels
+    top_deck_load: Mapped[float | None] = mapped_column(Float)  # T/m²
+    has_winj: Mapped[bool | None] = mapped_column(Boolean)  # Water injection
+    has_power: Mapped[bool | None] = mapped_column(Boolean)  # Power generation
+    # ── Equipment fields (crane, separator, etc.) ──
+    capacity: Mapped[float | None] = mapped_column(Float)  # T for crane, m³ for bac, etc.
+    max_range: Mapped[float | None] = mapped_column(Float)  # m — crane max reach
+    equipment_subtype: Mapped[str | None] = mapped_column(String(50))  # SUR RAILS, SUR FUT, PEDESTAL, etc.
+    manufacturer: Mapped[str | None] = mapped_column(String(200))
+    model_ref: Mapped[str | None] = mapped_column(String(200))
+    last_inspection: Mapped[date | None] = mapped_column(Date)
+    next_inspection: Mapped[date | None] = mapped_column(Date)
+    # ── Pipeline fields ──
+    connected_asset_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("assets.id"), nullable=True
+    )  # The other end of the pipe
+    pipeline_type: Mapped[str | None] = mapped_column(String(30))  # gas, oil, water
+    pipeline_diameter: Mapped[str | None] = mapped_column(String(50))  # e.g. "12\""
+    pipeline_length: Mapped[float | None] = mapped_column(Float)  # km
+
+    parent: Mapped["Asset | None"] = relationship(remote_side="Asset.id", foreign_keys=[parent_id])
+    children: Mapped[list["Asset"]] = relationship(back_populates="parent", foreign_keys=[parent_id])
+    connected_asset: Mapped["Asset | None"] = relationship(foreign_keys=[connected_asset_id])
 
 
 # ─── Tiers (companies) ──────────────────────────────────────────────────────

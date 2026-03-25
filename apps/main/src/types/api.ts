@@ -32,7 +32,41 @@ export interface Asset {
     coordinates: number[][]
   } | null
   allow_overlap: boolean
+  max_pax: number | null
+  permanent_ops_quota: number
   active: boolean
+  status: string
+  // Common extended
+  year_installed: number | null
+  description: string | null
+  orientation: string | null
+  // Platform structure
+  water_depth: number | null
+  altitude: number | null
+  jacket_dimensions: string | null
+  jacket_weight: number | null
+  nb_piles: number | null
+  pile_diameter: string | null
+  deck_dimensions: string | null
+  deck_level: number | null
+  top_deck_load: number | null
+  has_winj: boolean | null
+  has_power: boolean | null
+  // Equipment (crane, separator, etc.)
+  capacity: number | null
+  max_range: number | null
+  equipment_subtype: string | null
+  manufacturer: string | null
+  model_ref: string | null
+  last_inspection: string | null
+  next_inspection: string | null
+  // Pipeline
+  connected_asset_id: string | null
+  pipeline_type: string | null
+  pipeline_diameter: string | null
+  pipeline_length: number | null
+  // Metadata
+  metadata: Record<string, unknown> | null
   created_at: string
 }
 

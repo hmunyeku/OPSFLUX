@@ -88,12 +88,21 @@ function TreeNode({ node, depth = 0 }: { node: AssetTreeNode; depth?: number }) 
 }
 
 const ASSET_TYPE_OPTIONS = [
+  // Master hierarchy
+  { value: 'field', label: 'Champ' },
   { value: 'site', label: 'Site' },
   { value: 'platform', label: 'Plateforme' },
+  // Equipment (children of platform)
+  { value: 'crane', label: 'Grue' },
   { value: 'well', label: 'Puits' },
-  { value: 'equipment', label: 'Équipement' },
-  { value: 'pipeline', label: 'Pipeline' },
   { value: 'tank', label: 'Bac / Réservoir' },
+  { value: 'separator', label: 'Séparateur' },
+  { value: 'process_line', label: 'Ligne process' },
+  { value: 'compressor', label: 'Compresseur' },
+  { value: 'generator', label: 'Groupe électrogène' },
+  { value: 'equipment', label: 'Autre équipement' },
+  // Connections
+  { value: 'pipeline', label: 'Pipeline' },
 ]
 
 // ── Geo-type mapping per asset type ─────────────────────────

@@ -288,6 +288,37 @@ class AssetRead(OpsFluxSchema):
     permanent_ops_quota: int
     active: bool
     status: str
+    # Common
+    year_installed: int | None = None
+    description: str | None = None
+    orientation: str | None = None
+    # Platform structure
+    water_depth: float | None = None
+    altitude: float | None = None
+    jacket_dimensions: str | None = None
+    jacket_weight: float | None = None
+    nb_piles: int | None = None
+    pile_diameter: str | None = None
+    deck_dimensions: str | None = None
+    deck_level: int | None = None
+    top_deck_load: float | None = None
+    has_winj: bool | None = None
+    has_power: bool | None = None
+    # Equipment
+    capacity: float | None = None
+    max_range: float | None = None
+    equipment_subtype: str | None = None
+    manufacturer: str | None = None
+    model_ref: str | None = None
+    last_inspection: date | None = None
+    next_inspection: date | None = None
+    # Pipeline
+    connected_asset_id: UUID | None = None
+    pipeline_type: str | None = None
+    pipeline_diameter: str | None = None
+    pipeline_length: float | None = None
+    # Metadata
+    metadata: dict[str, Any] | None = None
     created_at: datetime
 
 
@@ -302,6 +333,31 @@ class AssetCreate(BaseModel):
     max_pax: int | None = None
     permanent_ops_quota: int = 0
     status: str = "operational"
+    year_installed: int | None = None
+    description: str | None = None
+    orientation: str | None = None
+    water_depth: float | None = None
+    altitude: float | None = None
+    jacket_dimensions: str | None = None
+    jacket_weight: float | None = None
+    nb_piles: int | None = None
+    pile_diameter: str | None = None
+    deck_dimensions: str | None = None
+    deck_level: int | None = None
+    top_deck_load: float | None = None
+    has_winj: bool | None = None
+    has_power: bool | None = None
+    capacity: float | None = None
+    max_range: float | None = None
+    equipment_subtype: str | None = None
+    manufacturer: str | None = None
+    model_ref: str | None = None
+    last_inspection: date | None = None
+    next_inspection: date | None = None
+    connected_asset_id: UUID | None = None
+    pipeline_type: str | None = None
+    pipeline_diameter: str | None = None
+    pipeline_length: float | None = None
     metadata: dict[str, Any] | None = None
 
 
@@ -314,6 +370,31 @@ class AssetUpdate(BaseModel):
     permanent_ops_quota: int | None = None
     active: bool | None = None
     status: str | None = None
+    year_installed: int | None = None
+    description: str | None = None
+    orientation: str | None = None
+    water_depth: float | None = None
+    altitude: float | None = None
+    jacket_dimensions: str | None = None
+    jacket_weight: float | None = None
+    nb_piles: int | None = None
+    pile_diameter: str | None = None
+    deck_dimensions: str | None = None
+    deck_level: int | None = None
+    top_deck_load: float | None = None
+    has_winj: bool | None = None
+    has_power: bool | None = None
+    capacity: float | None = None
+    max_range: float | None = None
+    equipment_subtype: str | None = None
+    manufacturer: str | None = None
+    model_ref: str | None = None
+    last_inspection: date | None = None
+    next_inspection: date | None = None
+    connected_asset_id: UUID | None = None
+    pipeline_type: str | None = None
+    pipeline_diameter: str | None = None
+    pipeline_length: float | None = None
     metadata: dict[str, Any] | None = None
 
 

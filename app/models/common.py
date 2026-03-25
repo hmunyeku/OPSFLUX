@@ -572,7 +572,7 @@ class Asset(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     children: Mapped[list["Asset"]] = relationship(back_populates="parent", foreign_keys=[parent_id])
     connected_asset: Mapped["Asset | None"] = relationship(foreign_keys=[connected_asset_id])
     lifting_charts: Mapped[list["CraneLiftingChart"]] = relationship(back_populates="asset", cascade="all, delete-orphan")
-    decks: Mapped[list["PlatformDeck"]] = relationship(back_populates="asset", cascade="all, delete-orphan")
+    decks: Mapped[list["PlatformDeck"]] = relationship(back_populates="asset", cascade="all, delete-orphan", foreign_keys="PlatformDeck.asset_id")
     deck: Mapped["PlatformDeck | None"] = relationship(foreign_keys=[deck_id])
 
 

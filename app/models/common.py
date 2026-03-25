@@ -80,7 +80,6 @@ class Entity(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         "Entity", back_populates="parent"
     )
     business_units: Mapped[list["BusinessUnit"]] = relationship(back_populates="entity")
-    departments = business_units  # alias for backward compatibility
     cost_centers: Mapped[list["CostCenter"]] = relationship(back_populates="entity")
 
 

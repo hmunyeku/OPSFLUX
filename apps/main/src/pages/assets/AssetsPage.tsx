@@ -211,7 +211,7 @@ function CreateAssetPanel() {
 
             {/* Column 2: Localisation */}
             <div className="@container space-y-5">
-              <FormSection title="Localisation">
+              <FormSection title={t('assets.localisation')}>
                 <GeoEditor
                   value={form.geometry || null}
                   onChange={(geo) => setForm({ ...form, geometry: geo })}
@@ -316,10 +316,10 @@ function AssetDetailPanel({ id }: { id: string }) {
             ? <InlineEditableTags label={t('common.type')} value={asset.type} options={ASSET_TYPE_OPTIONS} onSave={(v) => handleInlineSave('type', v)} />
             : <ReadOnlyRow label={t('common.type')} value={<span className="gl-badge gl-badge-neutral">{asset.type}</span>} />
           }
-          <ReadOnlyRow label="Parent" value={
+          <ReadOnlyRow label={t('assets.parent')} value={
             parentAsset ? (
               <CrossModuleLink module="assets" id={parentAsset.id} label={`${parentAsset.code} — ${parentAsset.name}`} />
-            ) : '— Racine'
+            ) : `— ${t('assets.root')}`
           } />
           <ReadOnlyRow
             label={t('common.status')}
@@ -335,12 +335,12 @@ function AssetDetailPanel({ id }: { id: string }) {
         </FormSection>
 
         {/* ── Options section ── */}
-        <FormSection title="Options">
+        <FormSection title={t('assets.options')}>
           <ReadOnlyRow
-            label="Chevauchement"
+            label={t('assets.overlap')}
             value={
               <span className={cn('gl-badge', asset.allow_overlap ? 'gl-badge-success' : 'gl-badge-neutral')}>
-                {asset.allow_overlap ? 'Autorisé' : 'Non autorisé'}
+                {asset.allow_overlap ? t('assets.overlap_allowed') : t('assets.overlap_denied')}
               </span>
             }
           />
@@ -359,7 +359,7 @@ function AssetDetailPanel({ id }: { id: string }) {
 
         {/* Platform structure */}
         {['platform', 'site'].includes(asset.type) && (
-          <FormSection title="Structure" collapsible storageKey="panel.asset.sections" id="asset-structure">
+          <FormSection title={t('assets.structure')} collapsible storageKey="panel.asset.sections" id="asset-structure">
             {canUpdate ? (
               <>
                 <InlineEditableRow label="Prof. eau (m)" value={String(asset.water_depth ?? '')} onSave={(v) => handleInlineSave('water_depth', v ? Number(v) : null)} />
@@ -392,7 +392,7 @@ function AssetDetailPanel({ id }: { id: string }) {
 
         {/* Equipment fields (crane, separator, etc.) */}
         {['crane', 'well', 'tank', 'separator', 'compressor', 'generator', 'equipment', 'process_line'].includes(asset.type) && (
-          <FormSection title="Équipement" collapsible storageKey="panel.asset.sections" id="asset-equipment">
+          <FormSection title={t('assets.equipment')} collapsible storageKey="panel.asset.sections" id="asset-equipment">
             {canUpdate ? (
               <>
                 <InlineEditableRow label="Sous-type" value={asset.equipment_subtype ?? ''} onSave={(v) => handleInlineSave('equipment_subtype', v || null)} />
@@ -417,7 +417,7 @@ function AssetDetailPanel({ id }: { id: string }) {
 
         {/* Positioning (equipment on deck) */}
         {asset.deck_name && (
-          <FormSection title="Positionnement" collapsible storageKey="panel.asset.sections" id="asset-position">
+          <FormSection title={t('assets.positioning')} collapsible storageKey="panel.asset.sections" id="asset-position">
             <ReadOnlyRow label="Deck" value={asset.deck_name} />
             <ReadOnlyRow label="Élévation MSL (m)" value={asset.elevation_msl ?? '—'} />
             {(asset.position_x || asset.position_y || asset.position_z) && (
@@ -428,7 +428,7 @@ function AssetDetailPanel({ id }: { id: string }) {
 
         {/* Dimensions */}
         {(asset.length_m || asset.width_m || asset.height_m || asset.weight_t) && (
-          <FormSection title="Dimensions" collapsible storageKey="panel.asset.sections" id="asset-dimensions">
+          <FormSection title={t('assets.dimensions')} collapsible storageKey="panel.asset.sections" id="asset-dimensions">
             {asset.length_m && <ReadOnlyRow label="Longueur (m)" value={asset.length_m} />}
             {asset.width_m && <ReadOnlyRow label="Largeur (m)" value={asset.width_m} />}
             {asset.height_m && <ReadOnlyRow label="Hauteur (m)" value={asset.height_m} />}
@@ -438,7 +438,7 @@ function AssetDetailPanel({ id }: { id: string }) {
 
         {/* Pipeline */}
         {asset.type === 'pipeline' && (
-          <FormSection title="Pipeline" collapsible storageKey="panel.asset.sections" id="asset-pipeline">
+          <FormSection title={t('assets.pipeline')} collapsible storageKey="panel.asset.sections" id="asset-pipeline">
             {canUpdate ? (
               <>
                 <InlineEditableTags label="Type" value={asset.pipeline_type ?? ''} options={[{value:'gas',label:'Gaz'},{value:'oil',label:'Huile'},{value:'water',label:'Eau'}]} onSave={(v) => handleInlineSave('pipeline_type', v || null)} />
@@ -456,7 +456,7 @@ function AssetDetailPanel({ id }: { id: string }) {
         )}
 
         {/* ── Localisation (GeoEditor) ── */}
-        <FormSection title="Localisation" collapsible defaultExpanded={!!asset.geometry} storageKey="panel.asset.sections" id="asset-detail-geo">
+        <FormSection title={t('assets.localisation')} collapsible defaultExpanded={!!asset.geometry} storageKey="panel.asset.sections" id="asset-detail-geo">
           <GeoEditor
             value={(asset.geometry as GeoValue | null) || null}
             onChange={canUpdate ? handleGeoChange : () => {}}

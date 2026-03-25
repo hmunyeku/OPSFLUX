@@ -339,7 +339,7 @@ class AssetRead(OpsFluxSchema):
 class AssetCreate(BaseModel):
     parent_id: UUID | None = None
     type: str = Field(..., min_length=1, max_length=50)
-    code: str = Field(..., min_length=1, max_length=50)
+    code: str | None = Field(None, max_length=50)  # Auto-generated if not provided
     name: str = Field(..., min_length=1, max_length=200)
     latitude: float | None = None
     longitude: float | None = None

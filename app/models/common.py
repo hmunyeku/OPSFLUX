@@ -494,6 +494,7 @@ class Asset(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
         Index("idx_assets_entity", "entity_id"),
         Index("idx_assets_parent", "parent_id"),
         Index("idx_assets_type", "entity_id", "type"),
+        UniqueConstraint("entity_id", "code", name="uq_asset_entity_code"),
     )
 
     entity_id: Mapped[PyUUID] = mapped_column(
@@ -503,7 +504,7 @@ class Asset(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
         UUID(as_uuid=True), ForeignKey("assets.id")
     )
     type: Mapped[str] = mapped_column(String(50), nullable=False)
-    code: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    code: Mapped[str] = mapped_column(String(50), nullable=False)  # unique per entity via uq_asset_entity_code
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     path: Mapped[str | None] = mapped_column(String(500))  # ltree stored as text
     latitude: Mapped[float | None] = mapped_column()

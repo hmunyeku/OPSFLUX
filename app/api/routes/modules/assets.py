@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.database import get_db
+from app.core.audit import record_audit
+from app.core.events import emit_event
 from app.services.core.delete_service import delete_entity
 from app.core.pagination import PaginationParams, paginate
 from app.models.common import Asset, AssetTypeConfig, User
@@ -130,8 +132,15 @@ async def create_asset(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new asset."""
+    from app.services.core.numbering_service import generate_reference
+
+    # Auto-generate code if not provided
+    code = body.code
+    if not code:
+        code = await generate_reference("AST", db, entity_id=entity_id)
+
     # Build ltree path
-    path = body.code.lower().replace("-", "_").replace(" ", "_")
+    path = code.lower().replace("-", "_").replace(" ", "_")
     if body.parent_id:
         parent_result = await db.execute(select(Asset).where(Asset.id == body.parent_id))
         parent = parent_result.scalar_one_or_none()
@@ -141,22 +150,27 @@ async def create_asset(
     # Prevent circular parent reference
     await _check_circular_parent(db, asset_id=None, new_parent_id=body.parent_id)
 
+    data = body.model_dump(exclude_unset=True)
+    data.pop("parent_id", None)
+    data["code"] = code  # ensure auto-generated code is used
+    # Rename 'metadata' key to 'metadata_' for SQLAlchemy column
+    if "metadata" in data:
+        data["metadata_"] = data.pop("metadata")
+
     asset = Asset(
         entity_id=entity_id,
         parent_id=body.parent_id,
-        type=body.type,
-        code=body.code,
-        name=body.name,
         path=path,
-        latitude=body.latitude,
-        longitude=body.longitude,
-        allow_overlap=body.allow_overlap,
-        status=body.status,
-        metadata_=body.metadata,
+        **data,
     )
     db.add(asset)
     await db.commit()
     await db.refresh(asset)
+
+    await record_audit(db, action="create", resource_type="asset", resource_id=str(asset.id),
+                       user_id=current_user.id, entity_id=entity_id, details={"code": asset.code, "type": asset.type})
+    await emit_event("asset.created", {"asset_id": str(asset.id), "code": asset.code, "type": asset.type, "entity_id": str(entity_id)})
+    await db.commit()
     return asset
 
 
@@ -182,6 +196,7 @@ async def update_asset(
     asset_id: UUID,
     body: AssetUpdate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("asset.update"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -203,6 +218,11 @@ async def update_asset(
 
     await db.commit()
     await db.refresh(asset)
+
+    await record_audit(db, action="update", resource_type="asset", resource_id=str(asset.id),
+                       user_id=current_user.id, entity_id=entity_id, details={"updated_fields": list(update_data.keys())})
+    await emit_event("asset.updated", {"asset_id": str(asset.id), "code": asset.code, "entity_id": str(entity_id)})
+    await db.commit()
     return asset
 
 
@@ -222,7 +242,11 @@ async def delete_asset(
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
 
+    code = asset.code
     await delete_entity(asset, db, "asset", entity_id=asset.id, user_id=current_user.id)
+    await record_audit(db, action="delete", resource_type="asset", resource_id=str(asset_id),
+                       user_id=current_user.id, entity_id=entity_id, details={"code": code})
+    await emit_event("asset.deleted", {"asset_id": str(asset_id), "code": code, "entity_id": str(entity_id)})
     await db.commit()
 
 

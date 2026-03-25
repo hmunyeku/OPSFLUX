@@ -93,18 +93,22 @@ const STATUS_BADGE: Record<string, { cls: string; label: string }> = {
 
 // ── Nested History Row ───────────────────────────────────────
 
+const PAGE_SIZE_HIST = 5
+
 function JobHistoryRows({ jobId }: { jobId: string }) {
+  const [page, setPage] = useState(1)
+
   const { data, isLoading } = useQuery({
-    queryKey: ['admin-scheduler-history', jobId],
+    queryKey: ['admin-scheduler-history', jobId, page],
     queryFn: async () => {
-      const { data } = await api.get<{ items: JobExecutionItem[]; total: number }>('/api/v1/admin/scheduler/history', {
-        params: { job_id: jobId, page_size: 10 },
+      const { data } = await api.get<{ items: JobExecutionItem[]; total: number; page: number; page_size: number }>('/api/v1/admin/scheduler/history', {
+        params: { job_id: jobId, page, page_size: PAGE_SIZE_HIST },
       })
       return data
     },
   })
 
-  if (isLoading) {
+  if (isLoading && page === 1) {
     return (
       <tr>
         <td colSpan={7} className="py-3 text-center">
@@ -115,7 +119,10 @@ function JobHistoryRows({ jobId }: { jobId: string }) {
   }
 
   const items = data?.items ?? []
-  if (items.length === 0) {
+  const total = data?.total ?? 0
+  const totalPages = Math.ceil(total / PAGE_SIZE_HIST)
+
+  if (items.length === 0 && page === 1) {
     return (
       <tr>
         <td colSpan={7} className="py-3 text-center text-xs text-muted-foreground">
@@ -167,6 +174,29 @@ function JobHistoryRows({ jobId }: { jobId: string }) {
               })}
             </tbody>
           </table>
+          {/* Pagination footer */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-3 py-1.5 bg-accent/20 border-t border-border/30 text-[10px] text-muted-foreground">
+              <span>{total} exécution(s)</span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1 || isLoading}
+                  className="px-1.5 py-0.5 rounded hover:bg-accent disabled:opacity-30"
+                >
+                  ‹
+                </button>
+                <span className="tabular-nums">{page}/{totalPages}</span>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages || isLoading}
+                  className="px-1.5 py-0.5 rounded hover:bg-accent disabled:opacity-30"
+                >
+                  ›
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </td>
     </tr>

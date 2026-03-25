@@ -322,3 +322,97 @@ async def delete_type_config(
 
     await delete_entity(config, db, "asset_type_config", entity_id=config_id, user_id=current_user.id)
     await db.commit()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CRANE LIFTING CHARTS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+from app.models.common import CraneLiftingChart
+from app.schemas.common import CraneLiftingChartCreate, CraneLiftingChartRead, CraneLiftingChartUpdate
+
+
+@router.get("/{asset_id}/lifting-charts", response_model=list[CraneLiftingChartRead])
+async def list_lifting_charts(
+    asset_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List lifting charts for a crane asset."""
+    result = await db.execute(
+        select(CraneLiftingChart).where(
+            CraneLiftingChart.asset_id == asset_id,
+            CraneLiftingChart.active == True,
+        ).order_by(CraneLiftingChart.name)
+    )
+    return result.scalars().all()
+
+
+@router.post("/{asset_id}/lifting-charts", response_model=CraneLiftingChartRead, status_code=201)
+async def create_lifting_chart(
+    asset_id: UUID,
+    body: CraneLiftingChartCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("asset.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a lifting chart for a crane asset."""
+    # Verify asset exists and belongs to entity
+    asset = await db.execute(
+        select(Asset).where(Asset.id == asset_id, Asset.entity_id == entity_id)
+    )
+    if not asset.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    chart = CraneLiftingChart(asset_id=asset_id, **body.model_dump())
+    db.add(chart)
+    await db.commit()
+    await db.refresh(chart)
+    return chart
+
+
+@router.patch("/{asset_id}/lifting-charts/{chart_id}", response_model=CraneLiftingChartRead)
+async def update_lifting_chart(
+    asset_id: UUID,
+    chart_id: UUID,
+    body: CraneLiftingChartUpdate,
+    _: None = require_permission("asset.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update a lifting chart."""
+    result = await db.execute(
+        select(CraneLiftingChart).where(
+            CraneLiftingChart.id == chart_id,
+            CraneLiftingChart.asset_id == asset_id,
+        )
+    )
+    chart = result.scalar_one_or_none()
+    if not chart:
+        raise HTTPException(status_code=404, detail="Lifting chart not found")
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(chart, field, value)
+    await db.commit()
+    await db.refresh(chart)
+    return chart
+
+
+@router.delete("/{asset_id}/lifting-charts/{chart_id}", status_code=204)
+async def delete_lifting_chart(
+    asset_id: UUID,
+    chart_id: UUID,
+    _: None = require_permission("asset.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a lifting chart."""
+    result = await db.execute(
+        select(CraneLiftingChart).where(
+            CraneLiftingChart.id == chart_id,
+            CraneLiftingChart.asset_id == asset_id,
+        )
+    )
+    chart = result.scalar_one_or_none()
+    if not chart:
+        raise HTTPException(status_code=404, detail="Lifting chart not found")
+    chart.active = False
+    await db.commit()

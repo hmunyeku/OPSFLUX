@@ -62,8 +62,29 @@ def upgrade() -> None:
     op.add_column("assets", sa.Column("height_m", sa.Float(), nullable=True))
     op.add_column("assets", sa.Column("weight_t", sa.Float(), nullable=True))
 
+    # Crane lifting charts
+    op.create_table(
+        "crane_lifting_charts",
+        sa.Column("id", UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column("asset_id", UUID(as_uuid=True), sa.ForeignKey("assets.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("name", sa.String(200), nullable=False),
+        sa.Column("boom_length", sa.Float(), nullable=True),
+        sa.Column("counterweight", sa.Float(), nullable=True),
+        sa.Column("wind_speed_max", sa.Float(), nullable=True),
+        sa.Column("operating_mode", sa.String(50), nullable=True),
+        sa.Column("radius_unit", sa.String(10), server_default="m", nullable=False),
+        sa.Column("capacity_unit", sa.String(10), server_default="T", nullable=False),
+        sa.Column("data_points", JSONB(), nullable=True),
+        sa.Column("notes", sa.Text(), nullable=True),
+        sa.Column("active", sa.Boolean(), server_default="true", nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=True),
+        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=True),
+    )
+    op.create_index("idx_crane_lifting_charts_asset", "crane_lifting_charts", ["asset_id"])
+
 
 def downgrade() -> None:
+    op.drop_table("crane_lifting_charts")
     for col in [
         "weight_t", "height_m", "width_m", "length_m",
         "position_z", "position_y", "position_x", "elevation_msl", "deck_name",

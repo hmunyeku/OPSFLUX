@@ -479,6 +479,45 @@ class AssetTypeConfigUpdate(BaseModel):
     active: bool | None = None
 
 
+# ─── Crane Lifting Chart schemas ────────────────────────────────────────────
+
+class CraneLiftingChartRead(OpsFluxSchema):
+    id: UUID
+    asset_id: UUID
+    name: str
+    boom_length: float | None = None
+    counterweight: float | None = None
+    wind_speed_max: float | None = None
+    operating_mode: str | None = None
+    radius_unit: str = "m"
+    capacity_unit: str = "T"
+    data_points: list[dict[str, float]] | None = None
+    notes: str | None = None
+    active: bool
+    created_at: datetime | None = None
+
+class CraneLiftingChartCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    boom_length: float | None = None
+    counterweight: float | None = None
+    wind_speed_max: float | None = None
+    operating_mode: str | None = None
+    radius_unit: str = "m"
+    capacity_unit: str = "T"
+    data_points: list[dict[str, float]] | None = None
+    notes: str | None = None
+
+class CraneLiftingChartUpdate(BaseModel):
+    name: str | None = None
+    boom_length: float | None = None
+    counterweight: float | None = None
+    wind_speed_max: float | None = None
+    operating_mode: str | None = None
+    data_points: list[dict[str, float]] | None = None
+    notes: str | None = None
+    active: bool | None = None
+
+
 # ─── Tier schemas ────────────────────────────────────────────────────────────
 
 class TierRead(OpsFluxSchema):

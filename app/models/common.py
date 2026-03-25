@@ -564,6 +564,38 @@ class Asset(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     parent: Mapped["Asset | None"] = relationship(remote_side="Asset.id", foreign_keys=[parent_id])
     children: Mapped[list["Asset"]] = relationship(back_populates="parent", foreign_keys=[parent_id])
     connected_asset: Mapped["Asset | None"] = relationship(foreign_keys=[connected_asset_id])
+    lifting_charts: Mapped[list["CraneLiftingChart"]] = relationship(back_populates="asset", cascade="all, delete-orphan")
+
+
+class CraneLiftingChart(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Crane lifting chart — load capacity curve for a specific configuration.
+
+    Each chart defines capacity vs radius for a given boom length, counterweight,
+    and wind condition. Used by the lifting assistance module to validate lifts.
+
+    data_points is a JSONB array of {radius: float, capacity: float} ordered by radius.
+    Example: [{"r": 4, "c": 10}, {"r": 6, "c": 8.5}, {"r": 8, "c": 6}, ...]
+    """
+    __tablename__ = "crane_lifting_charts"
+    __table_args__ = (
+        Index("idx_crane_lifting_charts_asset", "asset_id"),
+    )
+
+    asset_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("assets.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(200), nullable=False)  # "Config 10T - Boom 20m"
+    boom_length: Mapped[float | None] = mapped_column(Float)  # m
+    counterweight: Mapped[float | None] = mapped_column(Float)  # T
+    wind_speed_max: Mapped[float | None] = mapped_column(Float)  # m/s — max wind for this chart
+    operating_mode: Mapped[str | None] = mapped_column(String(50))  # main_boom, jib, luffing, etc.
+    radius_unit: Mapped[str] = mapped_column(String(10), default="m", server_default="m", nullable=False)
+    capacity_unit: Mapped[str] = mapped_column(String(10), default="T", server_default="T", nullable=False)
+    data_points: Mapped[list | None] = mapped_column(JSONB)  # [{r: float, c: float}, ...]
+    notes: Mapped[str | None] = mapped_column(Text)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    asset: Mapped["Asset"] = relationship(back_populates="lifting_charts")
 
 
 # ─── Tiers (companies) ──────────────────────────────────────────────────────

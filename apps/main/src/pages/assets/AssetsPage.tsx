@@ -129,6 +129,16 @@ const ASSET_SUBTYPES: Record<string, { value: string; label: string }[]> = {
 }
 
 // const INFRASTRUCTURE_TYPES = new Set(['field', 'site', 'platform'])
+
+const FALLBACK_CRANE_MOUNTS = [
+  { value: 'SUR RAILS', label: 'Sur rails' },
+  { value: 'SUR FUT', label: 'Sur fût' },
+  { value: 'PEDESTAL', label: 'Piédestal' },
+  { value: 'TREILLIS', label: 'Treillis' },
+  { value: 'MAS PLEIN', label: 'Mâs plein' },
+  { value: 'ARTICULEE', label: 'Articulée' },
+  { value: 'POTENCE', label: 'Potence' },
+]
 const PLATFORM_TYPES = new Set(['platform', 'site'])
 const EQUIPMENT_TYPES = new Set(['crane', 'well', 'tank', 'separator', 'process_line', 'compressor', 'generator', 'equipment'])
 const PIPELINE_TYPE = 'pipeline'
@@ -161,6 +171,7 @@ function CreateAssetPanel() {
   const { t } = useTranslation()
   const createAsset = useCreateAsset()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const dictCraneMounts = useDictionaryOptions('crane_mount_type')
   const [category, setCategory] = useState<string>('infrastructure')
   const [form, setForm] = useState<AssetCreate & Record<string, any>>({
     type: 'field', name: '',
@@ -295,16 +306,19 @@ function CreateAssetPanel() {
                 </FormSection>
               )}
 
-              {/* ── Equipment fields ── */}
-              {isEquipment && (
-                <FormSection title={t('assets.equipment')} collapsible defaultExpanded storageKey="panel.asset.create" id="create-equipment">
-                  <DynamicPanelField label={t('assets.equipment_subtype')}>
-                    <input type="text" value={form.equipment_subtype ?? ''} onChange={(e) => updateField('equipment_subtype', e.target.value || undefined)} className={panelInputClass} placeholder="SUR RAILS, SUR FUT, PEDESTAL..." />
+              {/* ── Crane-specific ── */}
+              {form.type === 'crane' && (
+                <FormSection title="Grue" collapsible defaultExpanded storageKey="panel.asset.create" id="create-crane">
+                  <DynamicPanelField label="Type de montage">
+                    <select value={form.equipment_subtype ?? ''} onChange={(e) => updateField('equipment_subtype', e.target.value || undefined)} className="gl-form-select text-sm">
+                      <option value="">— Sélectionner —</option>
+                      {(dictCraneMounts.length > 0 ? dictCraneMounts : FALLBACK_CRANE_MOUNTS).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
                   </DynamicPanelField>
-                  <DynamicPanelField label={t('assets.capacity')}>
+                  <DynamicPanelField label="Capacité (T)">
                     <input type="number" step="any" value={form.capacity ?? ''} onChange={(e) => updateField('capacity', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} placeholder="10" />
                   </DynamicPanelField>
-                  <DynamicPanelField label={t('assets.max_range')}>
+                  <DynamicPanelField label="Portée max (m)">
                     <input type="number" step="any" value={form.max_range ?? ''} onChange={(e) => updateField('max_range', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} placeholder="8" />
                   </DynamicPanelField>
                   <DynamicPanelField label={t('assets.manufacturer')}>
@@ -316,10 +330,43 @@ function CreateAssetPanel() {
                 </FormSection>
               )}
 
-              {/* ── Pipeline fields ── */}
+              {/* ── Well-specific ── */}
+              {form.type === 'well' && (
+                <FormSection title="Puits" collapsible defaultExpanded storageKey="panel.asset.create" id="create-well">
+                  <DynamicPanelField label="Type de puits">
+                    <select value={form.equipment_subtype ?? ''} onChange={(e) => updateField('equipment_subtype', e.target.value || undefined)} className="gl-form-select text-sm">
+                      <option value="">— Sélectionner —</option>
+                      <option value="production">Production</option>
+                      <option value="injection">Injection</option>
+                      <option value="exploration">Exploration</option>
+                      <option value="observation">Observation</option>
+                    </select>
+                  </DynamicPanelField>
+                  <DynamicPanelField label="Profondeur (m)">
+                    <input type="number" step="any" value={form.capacity ?? ''} onChange={(e) => updateField('capacity', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} />
+                  </DynamicPanelField>
+                </FormSection>
+              )}
+
+              {/* ── Tank/Separator/Compressor ── */}
+              {['tank', 'separator', 'compressor', 'generator'].includes(form.type) && (
+                <FormSection title={t('assets.equipment')} collapsible defaultExpanded storageKey="panel.asset.create" id="create-equip-generic">
+                  <DynamicPanelField label="Sous-type">
+                    <input type="text" value={form.equipment_subtype ?? ''} onChange={(e) => updateField('equipment_subtype', e.target.value || undefined)} className={panelInputClass} placeholder={form.type === 'separator' ? 'Biphasique, Triphasique' : form.type === 'compressor' ? 'Centrifuge, Alternatif' : ''} />
+                  </DynamicPanelField>
+                  <DynamicPanelField label={form.type === 'compressor' || form.type === 'generator' ? 'Puissance (kW)' : 'Capacité (m³)'}>
+                    <input type="number" step="any" value={form.capacity ?? ''} onChange={(e) => updateField('capacity', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} />
+                  </DynamicPanelField>
+                  <DynamicPanelField label={t('assets.manufacturer')}>
+                    <input type="text" value={form.manufacturer ?? ''} onChange={(e) => updateField('manufacturer', e.target.value || undefined)} className={panelInputClass} />
+                  </DynamicPanelField>
+                </FormSection>
+              )}
+
+              {/* ── Pipeline ── */}
               {isPipeline && (
                 <FormSection title={t('assets.pipeline')} collapsible defaultExpanded storageKey="panel.asset.create" id="create-pipeline">
-                  <DynamicPanelField label={t('assets.pipeline_type')}>
+                  <DynamicPanelField label="Type fluide">
                     <TagSelector options={[{value:'gas',label:'Gaz'},{value:'oil',label:'Huile'},{value:'water',label:'Eau'}]} value={form.pipeline_type ?? ''} onChange={(v) => updateField('pipeline_type', v)} />
                   </DynamicPanelField>
                   <DynamicPanelField label={t('assets.pipeline_diameter')}>
@@ -330,20 +377,76 @@ function CreateAssetPanel() {
                   </DynamicPanelField>
                 </FormSection>
               )}
+
+              {/* ── Equipment positioning (on parent platform deck) ── */}
+              {isEquipment && (
+                <FormSection title={t('assets.positioning')} collapsible defaultExpanded={false} storageKey="panel.asset.create" id="create-position">
+                  <DynamicPanelField label={t('assets.deck_name')}>
+                    <input type="text" value={form.deck_name ?? ''} onChange={(e) => updateField('deck_name', e.target.value || undefined)} className={panelInputClass} placeholder="Main deck, Cellar deck..." />
+                  </DynamicPanelField>
+                  <DynamicPanelField label={t('assets.elevation_msl')}>
+                    <input type="number" step="any" value={form.elevation_msl ?? ''} onChange={(e) => updateField('elevation_msl', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} />
+                  </DynamicPanelField>
+                </FormSection>
+              )}
+
+              {/* ── Dimensions (all equipment + pipeline) ── */}
+              {(isEquipment || isPipeline) && (
+                <FormSection title={t('assets.dimensions')} collapsible defaultExpanded={false} storageKey="panel.asset.create" id="create-dims">
+                  <DynamicPanelField label={t('assets.length')}>
+                    <input type="number" step="any" value={form.length_m ?? ''} onChange={(e) => updateField('length_m', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} />
+                  </DynamicPanelField>
+                  <DynamicPanelField label={t('assets.width')}>
+                    <input type="number" step="any" value={form.width_m ?? ''} onChange={(e) => updateField('width_m', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} />
+                  </DynamicPanelField>
+                  <DynamicPanelField label={t('assets.height')}>
+                    <input type="number" step="any" value={form.height_m ?? ''} onChange={(e) => updateField('height_m', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} />
+                  </DynamicPanelField>
+                  <DynamicPanelField label={t('assets.weight')}>
+                    <input type="number" step="any" value={form.weight_t ?? ''} onChange={(e) => updateField('weight_t', e.target.value ? Number(e.target.value) : undefined)} className={panelInputClass} />
+                  </DynamicPanelField>
+                </FormSection>
+              )}
             </div>
 
-            {/* Column 2: Localisation */}
+            {/* Column 2: Localisation (adapts by type) */}
             <div className="@container space-y-5">
-              <FormSection title={t('assets.localisation')}>
-                <GeoEditor
-                  value={form.geometry || null}
-                  onChange={(geo) => setForm({ ...form, geometry: geo })}
-                  geoType={getGeoTypeForAssetType(form.type)}
-                  height={300}
-                  showCoordinateTable
-                  showSearch
-                />
-              </FormSection>
+              {/* Infrastructure: GeoEditor (polygon for field/site, point for platform) */}
+              {isPlatform && (
+                <FormSection title={t('assets.localisation')}>
+                  <GeoEditor
+                    value={form.geometry || null}
+                    onChange={(geo) => setForm({ ...form, geometry: geo })}
+                    geoType={getGeoTypeForAssetType(form.type)}
+                    height={300}
+                    showCoordinateTable
+                    showSearch
+                  />
+                </FormSection>
+              )}
+
+              {/* Pipeline: linestring editor */}
+              {isPipeline && (
+                <FormSection title="Tracé du pipeline">
+                  <GeoEditor
+                    value={form.geometry || null}
+                    onChange={(geo) => setForm({ ...form, geometry: geo })}
+                    geoType="linestring"
+                    height={300}
+                    showCoordinateTable
+                    showSearch
+                  />
+                </FormSection>
+              )}
+
+              {/* Equipment: NO map, just deck position info */}
+              {isEquipment && !isPipeline && (
+                <FormSection title={t('assets.localisation')}>
+                  <p className="text-xs text-muted-foreground">
+                    La position de cet équipement est définie par rapport à sa plateforme parent (deck, élévation MSL).
+                  </p>
+                </FormSection>
+              )}
 
               {/* ── Options ── */}
               <FormSection title={t('assets.options')} collapsible defaultExpanded={false} storageKey="panel.asset.create" id="create-options">

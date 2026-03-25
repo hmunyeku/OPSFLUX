@@ -1,24 +1,18 @@
 /**
- * Scheduler Admin Tab — full job manager with execution history.
+ * Scheduler Admin Tab — job manager with inline execution history (nested rows).
  *
- * Features:
- * - DataTable of registered jobs with status, schedule, last run, duration
- * - Pause / Resume / Run Now actions per job
- * - Execution history panel with error details
- * - Status badges (success, error, missed, running, paused)
+ * Each job row expands to show its last N executions inline.
+ * Features: pause/resume/run now, status badges, auto-refresh 30s.
  */
-import { useState, useMemo } from 'react'
+import { useState, useMemo, Fragment } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Loader2, Play, Pause, RotateCcw, Clock, RefreshCw,
-  CheckCircle2, XCircle, AlertTriangle, History,
+  ChevronRight, ChevronDown,
 } from 'lucide-react'
 import api from '@/lib/api'
 import { useToast } from '@/components/ui/Toast'
-import { DataTable } from '@/components/ui/DataTable/DataTable'
 import { cn } from '@/lib/utils'
-import type { ColumnDef } from '@tanstack/react-table'
-import type { DataTablePagination } from '@/components/ui/DataTable/types'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 
 // ── Types ────────────────────────────────────────────────────
@@ -65,8 +59,7 @@ function formatTrigger(trigger: string): string {
 function formatNextRun(iso: string | null): string {
   if (!iso) return '—'
   const d = new Date(iso)
-  const now = Date.now()
-  const diff = d.getTime() - now
+  const diff = d.getTime() - Date.now()
   if (diff < 0) return 'En cours...'
   const minutes = Math.floor(diff / 60000)
   if (minutes < 1) return 'Imminent'
@@ -91,11 +84,86 @@ function fmtDate(d: string | null): string {
   } catch { return '—' }
 }
 
-const STATUS_BADGE: Record<string, { cls: string; label: string; icon: React.ElementType }> = {
-  success: { cls: 'gl-badge-success', label: 'OK', icon: CheckCircle2 },
-  error: { cls: 'gl-badge-danger', label: 'Erreur', icon: XCircle },
-  missed: { cls: 'gl-badge-warning', label: 'Manqué', icon: AlertTriangle },
-  running: { cls: 'gl-badge-info', label: 'En cours', icon: Loader2 },
+const STATUS_BADGE: Record<string, { cls: string; label: string }> = {
+  success: { cls: 'gl-badge-success', label: 'OK' },
+  error: { cls: 'gl-badge-danger', label: 'Erreur' },
+  missed: { cls: 'gl-badge-warning', label: 'Manqué' },
+  running: { cls: 'gl-badge-info', label: 'En cours' },
+}
+
+// ── Nested History Row ───────────────────────────────────────
+
+function JobHistoryRows({ jobId }: { jobId: string }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin-scheduler-history', jobId],
+    queryFn: async () => {
+      const { data } = await api.get<{ items: JobExecutionItem[]; total: number }>('/api/v1/admin/scheduler/history', {
+        params: { job_id: jobId, page_size: 10 },
+      })
+      return data
+    },
+  })
+
+  if (isLoading) {
+    return (
+      <tr>
+        <td colSpan={7} className="py-3 text-center">
+          <Loader2 size={14} className="animate-spin text-muted-foreground inline-block" />
+        </td>
+      </tr>
+    )
+  }
+
+  const items = data?.items ?? []
+  if (items.length === 0) {
+    return (
+      <tr>
+        <td colSpan={7} className="py-3 text-center text-xs text-muted-foreground">
+          Aucune exécution enregistrée
+        </td>
+      </tr>
+    )
+  }
+
+  return (
+    <>
+      {/* Sub-header */}
+      <tr className="bg-accent/20">
+        <td className="pl-10 pr-2 py-1 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Exécution</td>
+        <td className="px-2 py-1 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Statut</td>
+        <td className="px-2 py-1 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Début</td>
+        <td className="px-2 py-1 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Durée</td>
+        <td className="px-2 py-1 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Source</td>
+        <td colSpan={2} className="px-2 py-1 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Erreur</td>
+      </tr>
+      {items.map((exec) => {
+        const badge = STATUS_BADGE[exec.status]
+        return (
+          <tr key={exec.id} className="bg-accent/5 hover:bg-accent/15 transition-colors border-b border-border/10">
+            <td className="pl-10 pr-2 py-1.5 text-[10px] text-muted-foreground font-mono">
+              #{exec.id.slice(0, 8)}
+            </td>
+            <td className="px-2 py-1.5">
+              {badge
+                ? <span className={cn('gl-badge text-[8px]', badge.cls)}>{badge.label}</span>
+                : <span className="text-[10px]">{exec.status}</span>
+              }
+            </td>
+            <td className="px-2 py-1.5 text-[10px] tabular-nums text-muted-foreground">{fmtDate(exec.started_at)}</td>
+            <td className="px-2 py-1.5 text-[10px] tabular-nums font-mono text-muted-foreground">{formatDuration(exec.duration_ms)}</td>
+            <td className="px-2 py-1.5">
+              <span className={cn('gl-badge text-[8px]', exec.triggered_by === 'manual' ? 'gl-badge-info' : 'gl-badge-neutral')}>
+                {exec.triggered_by === 'manual' ? 'Manuel' : 'Auto'}
+              </span>
+            </td>
+            <td colSpan={2} className="px-2 py-1.5 text-[10px] text-red-500 truncate max-w-[250px]" title={exec.error_message || undefined}>
+              {exec.error_message || '—'}
+            </td>
+          </tr>
+        )
+      })}
+    </>
+  )
 }
 
 // ── Main Component ──────────────────────────────────────────
@@ -103,29 +171,17 @@ const STATUS_BADGE: Record<string, { cls: string; label: string; icon: React.Ele
 export function SchedulerTab() {
   const { toast } = useToast()
   const qc = useQueryClient()
-  const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
-  const [jobSearch, setJobSearch] = useState('')
-  const [histPage, setHistPage] = useState(1)
+  const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set())
+  const [search, setSearch] = useState('')
 
   // ── Fetch jobs ──
-  const { data: jobsData, isLoading: jobsLoading } = useQuery({
+  const { data: jobsData, isLoading } = useQuery({
     queryKey: ['admin-scheduler-jobs'],
     queryFn: async () => {
       const { data } = await api.get<{ jobs: ScheduledJob[]; total: number }>('/api/v1/admin/scheduler/jobs')
       return data
     },
-    refetchInterval: 30000, // auto-refresh every 30s
-  })
-
-  // ── Fetch execution history ──
-  const { data: historyData, isLoading: historyLoading } = useQuery({
-    queryKey: ['admin-scheduler-history', selectedJobId, histPage],
-    queryFn: async () => {
-      const params: Record<string, string | number> = { page: histPage, page_size: 20 }
-      if (selectedJobId) params.job_id = selectedJobId
-      const { data } = await api.get<{ items: JobExecutionItem[]; total: number; page: number; page_size: number }>('/api/v1/admin/scheduler/history', { params })
-      return data
-    },
+    refetchInterval: 30000,
   })
 
   // ── Mutations ──
@@ -155,179 +211,40 @@ export function SchedulerTab() {
     onSuccess: () => { toast({ title: 'Job repris', variant: 'success' }); qc.invalidateQueries({ queryKey: ['admin-scheduler-jobs'] }) },
   })
 
-  const jobs = jobsData?.jobs ?? []
-
-  // ── Job columns ──
-  const jobColumns: ColumnDef<ScheduledJob>[] = useMemo(() => [
-    {
-      accessorKey: 'name',
-      header: 'Job',
-      size: 250,
-      cell: ({ row }) => (
-        <div>
-          <span className="font-medium text-foreground">{row.original.name}</span>
-          <p className="text-[10px] text-muted-foreground font-mono">{row.original.id}</p>
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'trigger',
-      header: 'Fréquence',
-      size: 180,
-      cell: ({ row }) => <span className="text-muted-foreground">{formatTrigger(row.original.trigger)}</span>,
-    },
-    {
-      id: 'status',
-      header: 'Statut',
-      size: 100,
-      cell: ({ row }) => {
-        if (row.original.paused) return <span className="gl-badge gl-badge-neutral text-[9px]">En pause</span>
-        const ls = row.original.last_status
-        if (!ls) return <span className="text-muted-foreground text-[10px]">Jamais exécuté</span>
-        const badge = STATUS_BADGE[ls]
-        return badge ? <span className={cn('gl-badge text-[9px]', badge.cls)}>{badge.label}</span> : <span className="text-muted-foreground">{ls}</span>
-      },
-    },
-    {
-      accessorKey: 'last_run_at',
-      header: 'Dernière exécution',
-      size: 140,
-      cell: ({ row }) => <span className="tabular-nums text-muted-foreground">{fmtDate(row.original.last_run_at)}</span>,
-    },
-    {
-      accessorKey: 'last_duration_ms',
-      header: 'Durée',
-      size: 80,
-      cell: ({ row }) => <span className="tabular-nums font-mono text-muted-foreground">{formatDuration(row.original.last_duration_ms)}</span>,
-    },
-    {
-      accessorKey: 'next_run_at',
-      header: 'Prochaine',
-      size: 120,
-      cell: ({ row }) => row.original.paused
-        ? <span className="text-muted-foreground/50">—</span>
-        : <span className="tabular-nums">{formatNextRun(row.original.next_run_at)}</span>,
-    },
-    {
-      id: 'actions',
-      header: '',
-      size: 140,
-      cell: ({ row }) => {
-        const job = row.original
-        const isRunning = runJob.isPending && runJob.variables === job.id
-        return (
-          <div className="flex items-center gap-1">
-            <button
-              onClick={(e) => { e.stopPropagation(); runJob.mutate(job.id) }}
-              disabled={isRunning}
-              className="gl-button-sm gl-button-confirm"
-              title="Exécuter maintenant"
-            >
-              {isRunning ? <Loader2 size={11} className="animate-spin" /> : <Play size={11} />}
-            </button>
-            {job.paused ? (
-              <button
-                onClick={(e) => { e.stopPropagation(); resumeJob.mutate(job.id) }}
-                className="gl-button-sm gl-button-default"
-                title="Reprendre"
-              >
-                <RotateCcw size={11} />
-              </button>
-            ) : (
-              <button
-                onClick={(e) => { e.stopPropagation(); pauseJob.mutate(job.id) }}
-                className="gl-button-sm gl-button-default"
-                title="Mettre en pause"
-              >
-                <Pause size={11} />
-              </button>
-            )}
-            <button
-              onClick={(e) => { e.stopPropagation(); setSelectedJobId(selectedJobId === job.id ? null : job.id); setHistPage(1) }}
-              className={cn('gl-button-sm', selectedJobId === job.id ? 'gl-button-confirm' : 'gl-button-default')}
-              title="Voir l'historique"
-            >
-              <History size={11} />
-            </button>
-          </div>
-        )
-      },
-    },
-  ], [selectedJobId, runJob.isPending, runJob.variables])
-
-  const jobPagination: DataTablePagination = {
-    page: 1, pageSize: jobs.length || 25, total: jobs.length, pages: 1,
+  const toggleExpand = (jobId: string) => {
+    setExpandedJobs((prev) => {
+      const next = new Set(prev)
+      if (next.has(jobId)) next.delete(jobId)
+      else next.add(jobId)
+      return next
+    })
   }
 
-  // ── History columns ──
-  const histColumns: ColumnDef<JobExecutionItem>[] = useMemo(() => [
-    {
-      accessorKey: 'job_name',
-      header: 'Job',
-      size: 200,
-      cell: ({ row }) => <span className="font-medium">{row.original.job_name}</span>,
-    },
-    {
-      accessorKey: 'status',
-      header: 'Statut',
-      size: 90,
-      cell: ({ row }) => {
-        const badge = STATUS_BADGE[row.original.status]
-        return badge
-          ? <span className={cn('gl-badge text-[9px]', badge.cls)}>{badge.label}</span>
-          : <span>{row.original.status}</span>
-      },
-    },
-    {
-      accessorKey: 'started_at',
-      header: 'Début',
-      size: 140,
-      cell: ({ row }) => <span className="tabular-nums text-muted-foreground">{fmtDate(row.original.started_at)}</span>,
-    },
-    {
-      accessorKey: 'duration_ms',
-      header: 'Durée',
-      size: 80,
-      cell: ({ row }) => <span className="tabular-nums font-mono text-muted-foreground">{formatDuration(row.original.duration_ms)}</span>,
-    },
-    {
-      accessorKey: 'triggered_by',
-      header: 'Source',
-      size: 80,
-      cell: ({ row }) => (
-        <span className={cn('gl-badge text-[9px]', row.original.triggered_by === 'manual' ? 'gl-badge-info' : 'gl-badge-neutral')}>
-          {row.original.triggered_by === 'manual' ? 'Manuel' : 'Auto'}
-        </span>
-      ),
-    },
-    {
-      accessorKey: 'error_message',
-      header: 'Erreur',
-      size: 250,
-      cell: ({ row }) => row.original.error_message
-        ? <span className="text-red-500 truncate max-w-[250px] block" title={row.original.error_message}>{row.original.error_message}</span>
-        : <span className="text-muted-foreground">—</span>,
-    },
-  ], [])
-
-  const histPagination: DataTablePagination = {
-    page: histPage,
-    pageSize: 20,
-    total: historyData?.total ?? 0,
-    pages: Math.ceil((historyData?.total ?? 0) / 20),
-  }
+  const jobs = useMemo(() => {
+    const all = jobsData?.jobs ?? []
+    if (!search.trim()) return all
+    const q = search.toLowerCase()
+    return all.filter((j) => j.name.toLowerCase().includes(q) || j.id.toLowerCase().includes(q))
+  }, [jobsData, search])
 
   return (
     <CollapsibleSection
       id="scheduler-jobs"
       title="Tâches planifiées"
-      description="Jobs de fond exécutés automatiquement par le serveur. Vous pouvez les exécuter manuellement, les mettre en pause ou consulter l'historique."
+      description="Jobs de fond exécutés automatiquement par le serveur. Cliquez sur une ligne pour voir l'historique d'exécution."
       storageKey="settings.scheduler.collapse"
     >
-    <div className="mt-3 space-y-6">
-      {/* ── Jobs DataTable ── */}
-      <div>
-        <div className="flex items-center justify-end mb-3">
+      <div className="mt-3 space-y-3">
+        {/* Toolbar */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <input
+              className="gl-form-input text-xs pl-3 w-full h-8"
+              placeholder="Rechercher un job..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
           <button
             onClick={() => qc.invalidateQueries({ queryKey: ['admin-scheduler-jobs'] })}
             className="gl-button-sm gl-button-default"
@@ -335,46 +252,113 @@ export function SchedulerTab() {
             <RefreshCw size={12} /> Rafraîchir
           </button>
         </div>
-        <DataTable<ScheduledJob>
-          columns={jobColumns}
-          data={jobs}
-          isLoading={jobsLoading}
-          pagination={jobPagination}
-          searchValue={jobSearch}
-          onSearchChange={setJobSearch}
-          searchPlaceholder="Rechercher un job..."
-          emptyIcon={Clock}
-          emptyTitle="Aucun job planifié"
-          storageKey="admin-scheduler-jobs"
-        />
-      </div>
 
-      {/* ── Execution History ── */}
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <History size={14} className="text-muted-foreground" />
-          <h3 className="text-sm font-semibold text-foreground">
-            Historique d'exécution
-            {selectedJobId && <span className="text-primary ml-1">— {selectedJobId}</span>}
-          </h3>
-          {selectedJobId && (
-            <button onClick={() => setSelectedJobId(null)} className="text-[10px] text-muted-foreground hover:text-foreground ml-2">
-              Voir tout
-            </button>
-          )}
+        {/* Table */}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 size={18} className="animate-spin text-muted-foreground" />
+          </div>
+        ) : jobs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-sm text-muted-foreground">
+            <Clock size={24} className="mb-2 text-muted-foreground/40" />
+            <span>Aucun job planifié</span>
+          </div>
+        ) : (
+          <div className="border border-border rounded-lg overflow-hidden">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-accent/30 border-b border-border">
+                  <th className="w-8 px-2 py-2" />
+                  <th className="text-left px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Job</th>
+                  <th className="text-left px-2 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Fréquence</th>
+                  <th className="text-left px-2 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Statut</th>
+                  <th className="text-left px-2 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Dernière exéc.</th>
+                  <th className="text-left px-2 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Prochaine</th>
+                  <th className="text-right px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {jobs.map((job) => {
+                  const isExpanded = expandedJobs.has(job.id)
+                  const badge = job.paused ? null : (job.last_status ? STATUS_BADGE[job.last_status] : null)
+                  const isRunning = runJob.isPending && runJob.variables === job.id
+
+                  return (
+                    <Fragment key={job.id}>
+                      {/* Job row */}
+                      <tr
+                        className={cn(
+                          'border-b border-border/50 hover:bg-accent/10 transition-colors cursor-pointer',
+                          isExpanded && 'bg-accent/10',
+                        )}
+                        onClick={() => toggleExpand(job.id)}
+                      >
+                        <td className="px-2 py-2.5 text-center">
+                          {isExpanded
+                            ? <ChevronDown size={13} className="text-muted-foreground" />
+                            : <ChevronRight size={13} className="text-muted-foreground" />
+                          }
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <span className="font-medium text-foreground">{job.name}</span>
+                          <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{job.id}</p>
+                        </td>
+                        <td className="px-2 py-2.5 text-muted-foreground">{formatTrigger(job.trigger)}</td>
+                        <td className="px-2 py-2.5">
+                          {job.paused
+                            ? <span className="gl-badge gl-badge-neutral text-[9px]">En pause</span>
+                            : badge
+                              ? <span className={cn('gl-badge text-[9px]', badge.cls)}>{badge.label}</span>
+                              : <span className="text-muted-foreground text-[10px]">—</span>
+                          }
+                        </td>
+                        <td className="px-2 py-2.5">
+                          <span className="tabular-nums text-muted-foreground">{fmtDate(job.last_run_at)}</span>
+                          {job.last_duration_ms != null && (
+                            <span className="text-muted-foreground/60 ml-1 font-mono">({formatDuration(job.last_duration_ms)})</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-2.5 tabular-nums">
+                          {job.paused ? <span className="text-muted-foreground/50">—</span> : formatNextRun(job.next_run_at)}
+                        </td>
+                        <td className="px-3 py-2.5 text-right">
+                          <div className="flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={() => runJob.mutate(job.id)}
+                              disabled={isRunning}
+                              className="gl-button-sm gl-button-confirm"
+                              title="Exécuter maintenant"
+                            >
+                              {isRunning ? <Loader2 size={11} className="animate-spin" /> : <Play size={11} />}
+                            </button>
+                            {job.paused ? (
+                              <button onClick={() => resumeJob.mutate(job.id)} className="gl-button-sm gl-button-default" title="Reprendre">
+                                <RotateCcw size={11} />
+                              </button>
+                            ) : (
+                              <button onClick={() => pauseJob.mutate(job.id)} className="gl-button-sm gl-button-default" title="Mettre en pause">
+                                <Pause size={11} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* Nested execution history */}
+                      {isExpanded && <JobHistoryRows jobId={job.id} />}
+                    </Fragment>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Summary */}
+        <div className="text-[11px] text-muted-foreground">
+          {jobs.length} tâche(s) planifiée(s)
         </div>
-        <DataTable<JobExecutionItem>
-          columns={histColumns}
-          data={historyData?.items ?? []}
-          isLoading={historyLoading}
-          pagination={histPagination}
-          onPaginationChange={(p) => setHistPage(p)}
-          emptyIcon={History}
-          emptyTitle="Aucun historique"
-          storageKey="admin-scheduler-history"
-        />
       </div>
-    </div>
     </CollapsibleSection>
   )
 }

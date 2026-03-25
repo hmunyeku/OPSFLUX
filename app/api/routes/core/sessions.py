@@ -1,5 +1,6 @@
 """Session routes — list, revoke, revoke-all user sessions."""
 
+from datetime import datetime, timedelta, UTC
 from hashlib import sha256
 from uuid import UUID
 
@@ -12,6 +13,7 @@ from app.api.deps import get_current_entity, get_current_user
 from app.core.audit import record_audit
 from app.core.database import get_db
 from app.core.security import decode_token
+from app.core.config import settings
 from app.models.common import User, UserSession
 from app.schemas.common import SessionRead
 
@@ -40,12 +42,18 @@ async def list_sessions(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """List active sessions for the current user."""
+    """List active sessions for the current user.
+
+    Filters out sessions inactive for longer than the refresh token lifetime
+    (JWT_REFRESH_TOKEN_EXPIRE_DAYS) to avoid showing stale entries.
+    """
+    expiry_cutoff = datetime.now(UTC) - timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS)
     result = await db.execute(
         select(UserSession)
         .where(
             UserSession.user_id == current_user.id,
             UserSession.revoked == False,
+            UserSession.last_active_at >= expiry_cutoff,
         )
         .order_by(UserSession.last_active_at.desc())
     )

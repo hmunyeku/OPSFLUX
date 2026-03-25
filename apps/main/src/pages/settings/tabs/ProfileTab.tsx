@@ -208,7 +208,7 @@ export function ProfileTab() {
     }
   }, [user])
 
-  const initials = user ? `${user.first_name[0]}${user.last_name[0]}` : '?'
+  const initials = user ? (`${user.first_name?.charAt(0) ?? ''}${user.last_name?.charAt(0) ?? ''}`.toUpperCase() || '?') : '?'
 
   // Compare form vs user to detect dirty state
   const isDirty = user ? (
@@ -329,12 +329,15 @@ export function ProfileTab() {
 
   /** Auto-save a single field immediately (no save bar needed). */
   const autoSaveField = async (field: keyof ProfileUpdate, value: string | number | null) => {
+    const previousValue = form[field]
     setForm((prev) => ({ ...prev, [field]: value }))
     try {
       const optStr = (v: string | number | null) => (typeof v === 'string' && v === '') ? null : v
       await updateProfile.mutateAsync({ [field]: optStr(value) })
-    } catch {
-      toast({ title: 'Erreur', description: 'Impossible de sauvegarder.', variant: 'error' })
+    } catch (err: any) {
+      // Revert on failure
+      setForm((prev) => ({ ...prev, [field]: previousValue }))
+      toast({ title: 'Erreur', description: err?.response?.data?.detail || 'Impossible de sauvegarder.', variant: 'error' })
     }
   }
 

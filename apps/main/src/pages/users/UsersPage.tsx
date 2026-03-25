@@ -382,7 +382,7 @@ const defaultHiddenUserColumns = [
 
 // ── User Card (for grid view) ──────────────────────────────
 function UserCard({ row: user, selected, onSelect, onClick }: CardRendererProps<UserRead>) {
-  const initials = `${user.first_name[0] || ''}${user.last_name[0] || ''}`
+  const initials = `${user.first_name?.charAt(0) ?? ''}${user.last_name?.charAt(0) ?? ''}`
   const color = getAvatarColor(`${user.first_name}${user.last_name}`)
 
   return (
@@ -715,7 +715,7 @@ function UserEntitiesTab({ userId }: { userId: string }) {
       {showPicker ? (
         <div className="border border-border rounded-lg bg-muted/30 p-3 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-foreground">Ajouter a une entite</span>
+            <span className="text-xs font-medium text-foreground">Ajouter à une entité</span>
             <button
               className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
               onClick={() => { setShowPicker(false); setPickerSearch('') }}
@@ -728,13 +728,13 @@ function UserEntitiesTab({ userId }: { userId: string }) {
             value={pickerSearch}
             onChange={(e) => setPickerSearch(e.target.value)}
             className={panelInputClass}
-            placeholder="Rechercher une entite..."
+            placeholder="Rechercher une entité..."
             autoFocus
           />
           <div className="max-h-40 overflow-y-auto space-y-1">
             {filteredAvailable.length === 0 ? (
               <p className="text-xs text-muted-foreground py-2 text-center">
-                {availableEntities.length === 0 ? 'Aucune entite disponible' : 'Aucun resultat'}
+                {availableEntities.length === 0 ? 'Aucune entité disponible' : 'Aucun résultat'}
               </p>
             ) : (
               filteredAvailable.map((entity) => (
@@ -760,7 +760,7 @@ function UserEntitiesTab({ userId }: { userId: string }) {
           className="gl-button-sm gl-button-default flex items-center gap-1.5"
           onClick={() => setShowPicker(true)}
         >
-          <Plus size={12} /> Ajouter a une entite
+          <Plus size={12} /> Ajouter à une entité
         </button>
       )}
 
@@ -768,9 +768,9 @@ function UserEntitiesTab({ userId }: { userId: string }) {
       {!entities || entities.length === 0 ? (
         <div className="text-center py-6">
           <Building2 size={24} className="mx-auto text-muted-foreground/40 mb-2" />
-          <p className="text-sm text-muted-foreground">Aucune entite assignee</p>
+          <p className="text-sm text-muted-foreground">Aucune entité assignée</p>
           <p className="text-xs text-muted-foreground mt-1">
-            Ajoutez cet utilisateur a une entite pour lui donner acces.
+            Ajoutez cet utilisateur à une entité pour lui donner accès.
           </p>
         </div>
       ) : (
@@ -787,7 +787,7 @@ function UserEntitiesTab({ userId }: { userId: string }) {
               </div>
               <button
                 className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                title="Retirer de cette entite"
+                title="Retirer de cette entité"
                 onClick={() => handleRemove(entity.entity_id, entity.entity_name)}
               >
                 <Trash2 size={13} />
@@ -1133,7 +1133,7 @@ function UserDetailPanel({ id }: { id: string }) {
           <img src={user.avatar_url} alt="" className="h-7 w-7 rounded-full object-cover" />
         ) : (
           <div className={cn('h-7 w-7 flex items-center justify-center rounded-full font-semibold text-white text-[10px]', getAvatarColor(`${user.first_name}${user.last_name}`))}>
-            {`${user.first_name[0] || ''}${user.last_name[0] || ''}`}
+            {`${user.first_name?.charAt(0) ?? ''}${user.last_name?.charAt(0) ?? ''}`}
           </div>
         )
       }
@@ -1161,7 +1161,7 @@ function UserDetailPanel({ id }: { id: string }) {
               <img src={user.avatar_url} alt="" className="h-14 w-14 rounded-full object-cover" />
             ) : (
               <div className={cn('h-14 w-14 flex items-center justify-center rounded-full font-semibold text-white text-lg', getAvatarColor(`${user.first_name}${user.last_name}`))}>
-                {`${user.first_name[0] || ''}${user.last_name[0] || ''}`}
+                {`${user.first_name?.charAt(0) ?? ''}${user.last_name?.charAt(0) ?? ''}`}
               </div>
             )}
             <button

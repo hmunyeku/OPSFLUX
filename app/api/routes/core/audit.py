@@ -32,7 +32,11 @@ async def list_audit_log(
     query = select(AuditLog).where(AuditLog.entity_id == entity_id)
 
     if action:
-        query = query.where(AuditLog.action == action)
+        # Support prefix match: "login" matches "user.login", "sso.login", etc.
+        if '.' in action:
+            query = query.where(AuditLog.action == action)
+        else:
+            query = query.where(AuditLog.action.ilike(f"%{action}%"))
     if resource_type:
         query = query.where(AuditLog.resource_type == resource_type)
     if user_id:

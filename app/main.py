@@ -90,6 +90,7 @@ from app.api.routes.modules.planner import router as planner_router
 from app.api.routes.modules.travelwiz import router as travelwiz_router
 from app.api.routes.modules.report_editor import router as report_editor_router
 from app.api.routes.modules.pid_pfd import router as pid_pfd_router
+from app.api.routes.modules.asset_registry import router as asset_registry_router
 from app.api.routes.modules.messaging import router as messaging_router
 from app.api.routes.core.entities import router as entities_router
 from app.api.routes.core.admin import router as admin_router
@@ -204,6 +205,7 @@ app.include_router(assets_router)
 app.include_router(tiers_router)
 app.include_router(conformite_router)
 app.include_router(projets_router)
+app.include_router(asset_registry_router)
 app.include_router(profile_router)
 app.include_router(sessions_router)
 app.include_router(tokens_router)

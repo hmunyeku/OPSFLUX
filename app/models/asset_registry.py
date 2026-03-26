@@ -1448,3 +1448,494 @@ class LiftingAccessory(Base):
     cert_number: Mapped[str | None] = mapped_column(String(100))
     examination_interval_months: Mapped[int | None] = mapped_column(Integer, default=6)
     storage_location: Mapped[str | None] = mapped_column(String(100))
+
+
+# ════════════════════════════════════════════════════════════════
+# MIGRATION 067 — REMAINING EQUIPMENT SPECIALIZATIONS
+# ════════════════════════════════════════════════════════════════
+
+
+class ProcessColumn(Base):
+    __tablename__ = "ar_process_columns"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    column_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    service_description: Mapped[str | None] = mapped_column(String(200))
+    shell_id_bottom_mm: Mapped[Decimal] = mapped_column(Numeric(9, 2), nullable=False)
+    tan_to_tan_mm: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    design_temp_max_c: Mapped[Decimal] = mapped_column(Numeric(7, 2), nullable=False)
+    shell_material: Mapped[str | None] = mapped_column(String(100))
+    design_code: Mapped[str | None] = mapped_column(String(50))
+    notes: Mapped[str | None] = mapped_column(Text)
+
+
+class ColumnSection(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "ar_column_sections"
+    __table_args__ = (UniqueConstraint("column_id", "section_number", name="uq_ar_column_sections_num"),)
+    column_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_process_columns.id", ondelete="CASCADE"), nullable=False)
+    section_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    section_name: Mapped[str | None] = mapped_column(String(50))
+    internals_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    tray_count: Mapped[int | None] = mapped_column(Integer)
+    packing_type: Mapped[str | None] = mapped_column(String(50))
+    packing_height_m: Mapped[Decimal | None] = mapped_column(Numeric(6, 2))
+    notes: Mapped[str | None] = mapped_column(Text)
+
+
+class PressureSafetyValve(Base):
+    __tablename__ = "ar_pressure_safety_valves"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    psv_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    service_type: Mapped[str | None] = mapped_column(String(30))
+    protected_equipment_tag: Mapped[str | None] = mapped_column(String(50))
+    set_pressure_barg: Mapped[Decimal] = mapped_column(Numeric(9, 3), nullable=False)
+    body_material: Mapped[str | None] = mapped_column(String(50))
+    design_standard: Mapped[str | None] = mapped_column(String(20))
+    test_interval_months: Mapped[int | None] = mapped_column(Integer)
+
+
+class RuptureDisk(Base):
+    __tablename__ = "ar_rupture_disks"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    disk_type: Mapped[str | None] = mapped_column(String(30))
+    protected_equipment_tag: Mapped[str | None] = mapped_column(String(50))
+    burst_pressure_barg: Mapped[Decimal] = mapped_column(Numeric(9, 3), nullable=False)
+    disk_material: Mapped[str | None] = mapped_column(String(50))
+    replacement_interval_months: Mapped[int | None] = mapped_column(Integer, default=24)
+    design_standard: Mapped[str | None] = mapped_column(String(20))
+
+
+class FiredHeater(Base):
+    __tablename__ = "ar_fired_heaters"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    heater_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    service_description: Mapped[str | None] = mapped_column(String(200))
+    duty_kw: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    fuel_type: Mapped[str | None] = mapped_column(String(20))
+    design_code: Mapped[str | None] = mapped_column(String(20))
+
+
+class FanBlower(Base):
+    __tablename__ = "ar_fans_blowers"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    fan_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    flow_rate_m3h: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False)
+    motor_power_kw: Mapped[Decimal] = mapped_column(Numeric(7, 2), nullable=False)
+    design_code: Mapped[str | None] = mapped_column(String(20))
+
+
+class SteamTurbine(Base):
+    __tablename__ = "ar_steam_turbines"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    turbine_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    inlet_steam_pressure_barg: Mapped[Decimal] = mapped_column(Numeric(8, 3), nullable=False)
+    inlet_steam_temp_c: Mapped[Decimal] = mapped_column(Numeric(7, 2), nullable=False)
+    shaft_power_kw: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    design_code: Mapped[str | None] = mapped_column(String(20))
+
+
+class Turboexpander(Base):
+    __tablename__ = "ar_turboexpanders"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    service_description: Mapped[str | None] = mapped_column(String(200))
+    inlet_pressure_barg: Mapped[Decimal] = mapped_column(Numeric(9, 3), nullable=False)
+    inlet_temp_c: Mapped[Decimal] = mapped_column(Numeric(7, 2), nullable=False)
+    outlet_pressure_barg: Mapped[Decimal] = mapped_column(Numeric(9, 3), nullable=False)
+    shaft_power_kw: Mapped[Decimal | None] = mapped_column(Numeric(8, 2))
+    design_code: Mapped[str | None] = mapped_column(String(20))
+
+
+class AirCompressorPackage(Base):
+    __tablename__ = "ar_air_compressor_packages"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    compressor_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    service: Mapped[str | None] = mapped_column(String(20))
+    is_oil_free: Mapped[bool] = mapped_column(Boolean, default=True)
+    flow_nm3h: Mapped[Decimal] = mapped_column(Numeric(8, 3), nullable=False)
+    discharge_pressure_barg: Mapped[Decimal] = mapped_column(Numeric(7, 3), nullable=False)
+    design_code: Mapped[str | None] = mapped_column(String(20))
+
+
+class NitrogenUnit(Base):
+    __tablename__ = "ar_nitrogen_units"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    n2_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    n2_flow_nm3h: Mapped[Decimal] = mapped_column(Numeric(8, 3), nullable=False)
+    n2_purity_pct: Mapped[Decimal] = mapped_column(Numeric(7, 5), nullable=False)
+    outlet_pressure_barg: Mapped[Decimal] = mapped_column(Numeric(7, 3), nullable=False)
+
+
+class FiscalMeteringSkid(Base):
+    __tablename__ = "ar_fiscal_metering_skids"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    metering_type: Mapped[str] = mapped_column(String(25), nullable=False)
+    service: Mapped[str] = mapped_column(String(30), nullable=False)
+    custody_transfer: Mapped[bool] = mapped_column(Boolean, default=True)
+    design_flow_m3h: Mapped[Decimal | None] = mapped_column(Numeric(10, 3))
+    uncertainty_pct: Mapped[Decimal | None] = mapped_column(Numeric(5, 4))
+
+
+class ChemicalInjectionSkid(Base):
+    __tablename__ = "ar_chemical_injection_skids"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    chemical_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    chemical_name: Mapped[str | None] = mapped_column(String(100))
+    storage_tank_volume_l: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
+    pump_type: Mapped[str | None] = mapped_column(String(20))
+    flow_rate_design_lph: Mapped[Decimal | None] = mapped_column(Numeric(8, 4))
+    discharge_pressure_barg: Mapped[Decimal | None] = mapped_column(Numeric(7, 3))
+
+
+class GasDehydrationUnit(Base):
+    __tablename__ = "ar_gas_dehydration_units"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    dehydration_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    service: Mapped[str | None] = mapped_column(String(100))
+    inlet_flow_mmscfd: Mapped[Decimal | None] = mapped_column(Numeric(10, 4))
+    inlet_pressure_barg: Mapped[Decimal | None] = mapped_column(Numeric(8, 3))
+    outlet_dewpoint_c: Mapped[Decimal | None] = mapped_column(Numeric(7, 2))
+    design_code: Mapped[str | None] = mapped_column(String(30))
+
+
+class ProducedWaterTreatmentUnit(Base):
+    __tablename__ = "ar_produced_water_treatment_units"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    treatment_type: Mapped[str] = mapped_column(String(25), nullable=False)
+    service: Mapped[str | None] = mapped_column(String(30))
+    inlet_flow_m3h: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False)
+    outlet_oiw_spec_ppm: Mapped[Decimal | None] = mapped_column(Numeric(8, 3))
+    design_code: Mapped[str | None] = mapped_column(String(30))
+
+
+class FireGasSystem(Base):
+    __tablename__ = "ar_fire_gas_systems"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    system_name: Mapped[str | None] = mapped_column(String(100))
+    system_standard: Mapped[str | None] = mapped_column(String(30))
+    is_sil_rated: Mapped[bool] = mapped_column(Boolean, default=False)
+    sil_level: Mapped[str | None] = mapped_column(String(5))
+    total_fire_detectors: Mapped[int | None] = mapped_column(Integer)
+    total_gas_detectors: Mapped[int | None] = mapped_column(Integer)
+    design_code: Mapped[str | None] = mapped_column(String(30))
+
+
+class HPUUnit(Base):
+    __tablename__ = "ar_hpu_units"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    service: Mapped[str | None] = mapped_column(String(100))
+    is_subsea_control: Mapped[bool] = mapped_column(Boolean, default=False)
+    system_pressure_barg: Mapped[Decimal] = mapped_column(Numeric(8, 3), nullable=False)
+    pump_count: Mapped[int] = mapped_column(Integer, default=2)
+    reservoir_volume_l: Mapped[Decimal] = mapped_column(Numeric(8, 2), nullable=False)
+    design_code: Mapped[str | None] = mapped_column(String(20))
+
+
+class HVACUnit(Base):
+    __tablename__ = "ar_hvac_units"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    hvac_type: Mapped[str] = mapped_column(String(25), nullable=False)
+    served_area: Mapped[str | None] = mapped_column(String(200))
+    cooling_capacity_kw: Mapped[Decimal | None] = mapped_column(Numeric(8, 2))
+    heating_capacity_kw: Mapped[Decimal | None] = mapped_column(Numeric(8, 2))
+    total_power_kw: Mapped[Decimal | None] = mapped_column(Numeric(7, 2))
+    design_code: Mapped[str | None] = mapped_column(String(20))
+
+
+class UPSSystem(Base):
+    __tablename__ = "ar_ups_systems"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    ups_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    critical_load_served: Mapped[str | None] = mapped_column(String(200))
+    rated_power_kva: Mapped[Decimal] = mapped_column(Numeric(8, 2), nullable=False)
+    battery_type: Mapped[str | None] = mapped_column(String(20))
+    backup_time_min_at_full_load: Mapped[int | None] = mapped_column(Integer)
+    design_code: Mapped[str | None] = mapped_column(String(30))
+
+
+class TelecomSystem(Base):
+    __tablename__ = "ar_telecom_systems"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    telecom_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    is_safety_critical: Mapped[bool] = mapped_column(Boolean, default=False)
+    system_description: Mapped[str | None] = mapped_column(String(200))
+    coverage_area: Mapped[str | None] = mapped_column(String(200))
+
+
+class Switchgear(Base):
+    __tablename__ = "ar_switchgear"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    switchgear_type: Mapped[str | None] = mapped_column(String(15))
+    voltage_class: Mapped[str | None] = mapped_column(String(10))
+    rated_voltage_v: Mapped[Decimal] = mapped_column(Numeric(9, 2), nullable=False)
+    rated_current_a: Mapped[Decimal | None] = mapped_column(Numeric(9, 2))
+    design_code: Mapped[str | None] = mapped_column(String(20))
+
+
+class MotorControlCenter(Base):
+    __tablename__ = "ar_motor_control_centers"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    voltage_v: Mapped[Decimal] = mapped_column(Numeric(8, 2), nullable=False)
+    frequency_hz: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=50)
+    number_of_modules: Mapped[int | None] = mapped_column(Integer)
+    design_code: Mapped[str | None] = mapped_column(String(20))
+
+
+class Manifold(Base):
+    __tablename__ = "ar_manifolds"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    manifold_type: Mapped[str | None] = mapped_column(String(20))
+    number_of_inlets: Mapped[int | None] = mapped_column(Integer)
+    number_of_outlets: Mapped[int | None] = mapped_column(Integer)
+    header_size_in: Mapped[Decimal] = mapped_column(Numeric(6, 2), nullable=False)
+    design_pressure_barg: Mapped[Decimal] = mapped_column(Numeric(9, 3), nullable=False)
+    is_subsea: Mapped[bool] = mapped_column(Boolean, default=False)
+    design_code: Mapped[str | None] = mapped_column(String(20))
+
+
+class PigStation(Base):
+    __tablename__ = "ar_pig_stations"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    station_type: Mapped[str] = mapped_column(String(15), nullable=False)
+    pipeline_tag: Mapped[str | None] = mapped_column(String(50))
+    barrel_id_in: Mapped[Decimal] = mapped_column(Numeric(7, 2), nullable=False)
+    design_pressure_barg: Mapped[Decimal] = mapped_column(Numeric(9, 3), nullable=False)
+    design_code: Mapped[str | None] = mapped_column(String(20))
+
+
+class DownholeCompletion(Base):
+    __tablename__ = "ar_downhole_completions"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    well_tag: Mapped[str] = mapped_column(String(50), nullable=False)
+    well_name: Mapped[str | None] = mapped_column(String(100))
+    completion_type: Mapped[str | None] = mapped_column(String(20))
+    completion_date: Mapped[date | None] = mapped_column(Date)
+    tubing_od_in: Mapped[Decimal | None] = mapped_column(Numeric(5, 3))
+    tubing_string_depth_m: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
+    notes: Mapped[str | None] = mapped_column(Text)
+    gas_lift_mandrels: Mapped[list["GasLiftMandrel"]] = relationship(back_populates="completion", cascade="all, delete-orphan")
+    esp_assemblies: Mapped[list["ESPAssembly"]] = relationship(back_populates="completion", cascade="all, delete-orphan")
+
+
+class GasLiftMandrel(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "ar_gas_lift_mandrels"
+    __table_args__ = (UniqueConstraint("completion_id", "mandrel_number", name="uq_ar_gas_lift_mandrels_num"),)
+    completion_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_downhole_completions.id", ondelete="CASCADE"), nullable=False)
+    mandrel_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    mandrel_depth_md_m: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    valve_type: Mapped[str | None] = mapped_column(String(10))
+    dome_pressure_psig: Mapped[Decimal | None] = mapped_column(Numeric(8, 2))
+    completion: Mapped["DownholeCompletion"] = relationship(back_populates="gas_lift_mandrels")
+
+
+class ESPAssembly(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "ar_esp_assemblies"
+    completion_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_downhole_completions.id", ondelete="CASCADE"), nullable=False)
+    pump_manufacturer: Mapped[str | None] = mapped_column(String(50))
+    pump_model: Mapped[str | None] = mapped_column(String(50))
+    pump_stages: Mapped[int | None] = mapped_column(Integer)
+    pump_setting_depth_md_m: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
+    motor_rated_power_kw: Mapped[Decimal | None] = mapped_column(Numeric(7, 2))
+    installation_date: Mapped[date | None] = mapped_column(Date)
+    completion: Mapped["DownholeCompletion"] = relationship(back_populates="esp_assemblies")
+
+
+class SubseaChristmasTree(Base):
+    __tablename__ = "ar_subsea_christmas_trees"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    well_tag: Mapped[str | None] = mapped_column(String(50))
+    xt_type: Mapped[str | None] = mapped_column(String(20))
+    xt_pressure_rating_psi: Mapped[Decimal | None] = mapped_column(Numeric(9, 2))
+    water_depth_m: Mapped[Decimal | None] = mapped_column(Numeric(8, 2))
+    design_life_years: Mapped[int | None] = mapped_column(Integer)
+
+
+class SubseaUmbilical(Base):
+    __tablename__ = "ar_subsea_umbilicals"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    umbilical_type: Mapped[str | None] = mapped_column(String(20))
+    function: Mapped[str | None] = mapped_column(String(20))
+    installed_length_m: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
+    water_depth_max_m: Mapped[Decimal | None] = mapped_column(Numeric(8, 2))
+    design_life_years: Mapped[int | None] = mapped_column(Integer)
+
+
+class SubseaPlemPlet(Base):
+    __tablename__ = "ar_subsea_plem_plet"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    structure_type: Mapped[str | None] = mapped_column(String(5))
+    water_depth_m: Mapped[Decimal | None] = mapped_column(Numeric(8, 2))
+    design_pressure_barg: Mapped[Decimal | None] = mapped_column(Numeric(9, 3))
+    pipeline_size_in: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+
+
+class Riser(Base):
+    __tablename__ = "ar_risers"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    riser_type: Mapped[str | None] = mapped_column(String(20))
+    service: Mapped[str | None] = mapped_column(String(30))
+    installed_length_m: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
+    nominal_od_in: Mapped[Decimal | None] = mapped_column(Numeric(6, 2))
+    design_pressure_barg: Mapped[Decimal | None] = mapped_column(Numeric(9, 3))
+    design_life_years: Mapped[int | None] = mapped_column(Integer)
+
+
+class SubseaControlSystem(Base):
+    __tablename__ = "ar_subsea_control_systems"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    system_type: Mapped[str | None] = mapped_column(String(15))
+    manufacturer: Mapped[str | None] = mapped_column(String(50))
+    number_of_wells_controlled: Mapped[int | None] = mapped_column(Integer)
+
+
+class MarineLoadingArm(Base):
+    __tablename__ = "ar_marine_loading_arms"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    mla_type: Mapped[str | None] = mapped_column(String(25))
+    service: Mapped[str | None] = mapped_column(String(30))
+    rated_flow_m3h: Mapped[Decimal | None] = mapped_column(Numeric(10, 3))
+    arm_size_in: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+    design_pressure_barg: Mapped[Decimal | None] = mapped_column(Numeric(8, 3))
+    design_code: Mapped[str | None] = mapped_column(String(20))
+
+
+class MooringSystem(Base):
+    __tablename__ = "ar_mooring_systems"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    system_type: Mapped[str | None] = mapped_column(String(20))
+    water_depth_m: Mapped[Decimal | None] = mapped_column(Numeric(8, 2))
+    number_of_lines: Mapped[int | None] = mapped_column(Integer)
+    design_standard: Mapped[str | None] = mapped_column(String(30))
+
+
+class SurvivalCraft(Base):
+    __tablename__ = "ar_survival_craft"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    craft_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    purpose: Mapped[str | None] = mapped_column(String(15))
+    person_capacity: Mapped[int | None] = mapped_column(Integer)
+    solas_compliant: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class CathodicProtectionSystem(Base):
+    __tablename__ = "ar_cathodic_protection_systems"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    cp_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    protected_structure_tag: Mapped[str | None] = mapped_column(String(50))
+    design_life_years: Mapped[int] = mapped_column(Integer, nullable=False)
+    anode_material: Mapped[str | None] = mapped_column(String(25))
+    design_standard: Mapped[str | None] = mapped_column(String(30))
+
+
+class Building(Base):
+    __tablename__ = "ar_buildings"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    building_type: Mapped[str] = mapped_column(String(25), nullable=False)
+    floor_area_m2: Mapped[Decimal | None] = mapped_column(Numeric(9, 2))
+    floor_count: Mapped[int] = mapped_column(Integer, default=1)
+    is_blast_resistant: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_fire_rated: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class StructuralElement(Base):
+    __tablename__ = "ar_structural_elements"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    structural_type: Mapped[str] = mapped_column(String(25), nullable=False)
+    parent_structure_tag: Mapped[str | None] = mapped_column(String(50))
+    material: Mapped[str | None] = mapped_column(String(30))
+    design_standard: Mapped[str | None] = mapped_column(String(30))
+    weight_tonnes: Mapped[Decimal | None] = mapped_column(Numeric(9, 2))
+
+
+class PotableWaterSystem(Base):
+    __tablename__ = "ar_potable_water_systems"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    production_type: Mapped[str | None] = mapped_column(String(20))
+    capacity_m3d: Mapped[Decimal | None] = mapped_column(Numeric(8, 3))
+    storage_capacity_m3: Mapped[Decimal | None] = mapped_column(Numeric(8, 3))
+
+
+class SewageTreatmentSystem(Base):
+    __tablename__ = "ar_sewage_treatment_systems"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    system_type: Mapped[str | None] = mapped_column(String(25))
+    capacity_m3d: Mapped[Decimal | None] = mapped_column(Numeric(7, 3))
+    marpol_compliant: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class CoolingWaterSystem(Base):
+    __tablename__ = "ar_cooling_water_systems"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    system_type: Mapped[str | None] = mapped_column(String(20))
+    cooling_medium: Mapped[str | None] = mapped_column(String(20))
+    total_flow_m3h: Mapped[Decimal | None] = mapped_column(Numeric(10, 3))
+
+
+class DrainageSystem(Base):
+    __tablename__ = "ar_drainage_systems"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    system_type: Mapped[str | None] = mapped_column(String(20))
+    service_area: Mapped[str | None] = mapped_column(String(200))
+    design_capacity_m3h: Mapped[Decimal | None] = mapped_column(Numeric(8, 3))
+    design_code: Mapped[str | None] = mapped_column(String(20))
+
+
+class ProcessFilter(Base):
+    __tablename__ = "ar_process_filters"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    filter_type: Mapped[str] = mapped_column(String(25), nullable=False)
+    service_description: Mapped[str | None] = mapped_column(String(200))
+    design_pressure_barg: Mapped[Decimal] = mapped_column(Numeric(9, 3), nullable=False)
+    design_flow_m3h: Mapped[Decimal | None] = mapped_column(Numeric(9, 3))
+    filtration_rating_micron: Mapped[Decimal | None] = mapped_column(Numeric(8, 3))
+    design_code: Mapped[str | None] = mapped_column(String(20))
+
+
+class SeparatorDesalterDetails(Base):
+    __tablename__ = "ar_separator_desalter_details"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_separators.id", ondelete="CASCADE"), primary_key=True)
+    electric_field_type: Mapped[str | None] = mapped_column(String(10))
+    electrode_voltage_kv: Mapped[Decimal | None] = mapped_column(Numeric(8, 3))
+    number_of_stages: Mapped[int] = mapped_column(Integer, default=1)
+    desalting_efficiency_pct: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+
+
+# ── Installation subtypes ────────────────────────────────────
+
+class InstallationWellPad(Base):
+    __tablename__ = "ar_installation_well_pad"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id", ondelete="CASCADE"), primary_key=True)
+    total_well_slots: Mapped[int | None] = mapped_column(Integer)
+    active_well_slots: Mapped[int | None] = mapped_column(Integer)
+    well_spacing_m: Mapped[Decimal | None] = mapped_column(Numeric(8, 2))
+
+
+class InstallationTerminal(Base):
+    __tablename__ = "ar_installation_terminal"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id", ondelete="CASCADE"), primary_key=True)
+    throughput_capacity_bopd: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
+    number_of_trains: Mapped[int | None] = mapped_column(Integer)
+    export_method: Mapped[str | None] = mapped_column(String(30))
+
+
+class InstallationTankFarm(Base):
+    __tablename__ = "ar_installation_tank_farm"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id", ondelete="CASCADE"), primary_key=True)
+    total_number_of_tanks: Mapped[int | None] = mapped_column(Integer)
+    total_storage_capacity_m3: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    api_standard: Mapped[str | None] = mapped_column(String(10))
+
+
+class InstallationJacketPlatform(Base):
+    __tablename__ = "ar_installation_jacket_platform"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id", ondelete="CASCADE"), primary_key=True)
+    platform_function: Mapped[str | None] = mapped_column(String(30))
+    has_wellbay: Mapped[bool] = mapped_column(Boolean, default=False)
+    wellbay_slot_count: Mapped[int | None] = mapped_column(Integer)
+    bridge_connected_to: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id"))
+
+
+class InstallationBuoy(Base):
+    __tablename__ = "ar_installation_buoy"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id", ondelete="CASCADE"), primary_key=True)
+    buoy_type: Mapped[str | None] = mapped_column(String(20))
+    design_tonnage_dwt: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
+    max_flow_rate_bph: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))

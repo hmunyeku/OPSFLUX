@@ -16,6 +16,7 @@ from app.core.database import get_db
 from app.core.pagination import PaginationParams, paginate
 from app.models.asset_registry import (
     OilField,
+    FieldLicense,
     OilSite,
     Installation,
     InstallationDeck,
@@ -26,6 +27,7 @@ from app.models.asset_registry import (
 from app.models.common import User
 from app.schemas.asset_registry import (
     OilFieldCreate, OilFieldUpdate, OilFieldRead,
+    FieldLicenseCreate, FieldLicenseUpdate, FieldLicenseRead,
     OilSiteCreate, OilSiteUpdate, OilSiteRead,
     InstallationCreate, InstallationUpdate, InstallationRead,
     InstallationDeckCreate, InstallationDeckUpdate, InstallationDeckRead,
@@ -136,6 +138,84 @@ async def delete_field(
     obj.deleted_at = datetime.now(timezone.utc)
     await db.commit()
     return {"detail": "Field archived"}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# FIELD LICENSES
+# ════════════════════════════════════════════════════════════════════════════
+
+
+@router.get("/fields/{field_id}/licenses", response_model=list[FieldLicenseRead])
+async def list_field_licenses(
+    field_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_or_404(db, OilField, field_id, entity_id, "Field")
+    result = await db.execute(
+        select(FieldLicense).where(FieldLicense.field_id == field_id).order_by(FieldLicense.created_at.desc())
+    )
+    return result.scalars().all()
+
+
+@router.post("/fields/{field_id}/licenses", response_model=FieldLicenseRead, status_code=201)
+async def create_field_license(
+    field_id: UUID,
+    body: FieldLicenseCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_or_404(db, OilField, field_id, entity_id, "Field")
+    obj = FieldLicense(field_id=field_id, **body.model_dump())
+    db.add(obj)
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+
+@router.patch("/fields/{field_id}/licenses/{license_id}", response_model=FieldLicenseRead)
+async def update_field_license(
+    field_id: UUID,
+    license_id: UUID,
+    body: FieldLicenseUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_or_404(db, OilField, field_id, entity_id, "Field")
+    result = await db.execute(
+        select(FieldLicense).where(FieldLicense.id == license_id, FieldLicense.field_id == field_id)
+    )
+    obj = result.scalars().first()
+    if not obj:
+        raise HTTPException(404, "License not found")
+    for key, value in body.model_dump(exclude_unset=True).items():
+        setattr(obj, key, value)
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+
+@router.delete("/fields/{field_id}/licenses/{license_id}")
+async def delete_field_license(
+    field_id: UUID,
+    license_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_or_404(db, OilField, field_id, entity_id, "Field")
+    result = await db.execute(
+        select(FieldLicense).where(FieldLicense.id == license_id, FieldLicense.field_id == field_id)
+    )
+    obj = result.scalars().first()
+    if not obj:
+        raise HTTPException(404, "License not found")
+    await db.delete(obj)
+    await db.commit()
+    return {"detail": "License deleted"}
 
 
 # ════════════════════════════════════════════════════════════════════════════

@@ -36,6 +36,7 @@ import { NoteManager } from '@/components/shared/NoteManager'
 import { ExternalRefManager } from '@/components/shared/ExternalRefManager'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { TagManager } from '@/components/shared/TagManager'
+import { FieldLicenseManager } from '@/components/shared/FieldLicenseManager'
 import { usePermission } from '@/hooks/usePermission'
 import { useUIStore } from '@/stores/uiStore'
 import {
@@ -165,7 +166,7 @@ export function FieldDetailPanel({ id }: { id: string }) {
           </FormSection>
 
           <FormSection title={t('assets.license')} collapsible storageKey="panel.ar-field.sections" id="ar-field-license">
-            <ReadOnlyRow label={t('assets.license_number')} value={field.license_number || '—'} />
+            <FieldLicenseManager fieldId={id} compact />
           </FormSection>
 
           <FormSection title="Tags">
@@ -207,6 +208,7 @@ export function SiteDetailPanel({ id }: { id: string }) {
   const canDelete = hasPermission('asset.delete')
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { data: site } = useSite(id)
+  const { data: parentField } = useField(site?.field_id)
   const updateSite = useUpdateSite()
   const deleteSite = useDeleteSite()
   const [tab, setTab] = useState<PanelTab>('details')
@@ -256,7 +258,7 @@ export function SiteDetailPanel({ id }: { id: string }) {
               : <ReadOnlyRow label={t('common.status')} value={<StatusBadge status={site.status} />} />
             }
             <ReadOnlyRow label={t('assets.field_parent')} value={
-              <CrossModuleLink module="ar-field" id={site.field_id} label={`Field: ${site.field_id.slice(0, 8)}...`} />
+              <CrossModuleLink module="ar-field" id={site.field_id} label={parentField ? `${parentField.code} — ${parentField.name}` : '...'} />
             } />
             <ReadOnlyRow label={t('assets.environment')} value={site.environment} />
             <ReadOnlyRow label={t('assets.country')} value={site.country} />
@@ -299,6 +301,7 @@ export function InstallationDetailPanel({ id }: { id: string }) {
   const canDelete = hasPermission('asset.delete')
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { data: inst } = useInstallation(id)
+  const { data: parentSite } = useSite(inst?.site_id)
   const updateInst = useUpdateInstallation()
   const deleteInst = useDeleteInstallation()
   const [tab, setTab] = useState<PanelTab>('details')
@@ -348,7 +351,7 @@ export function InstallationDetailPanel({ id }: { id: string }) {
               : <ReadOnlyRow label={t('common.status')} value={<StatusBadge status={inst.status} />} />
             }
             <ReadOnlyRow label={t('assets.site_parent')} value={
-              <CrossModuleLink module="ar-site" id={inst.site_id} label={`Site: ${inst.site_id.slice(0, 8)}...`} />
+              <CrossModuleLink module="ar-site" id={inst.site_id} label={parentSite ? `${parentSite.code} — ${parentSite.name}` : '...'} />
             } />
             <ReadOnlyRow label={t('assets.environment')} value={inst.environment} />
             <ReadOnlyRow label={t('assets.manned')} value={inst.is_manned ? t('common.yes') : t('common.no')} />
@@ -454,6 +457,7 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
   const canDelete = hasPermission('asset.delete')
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { data: equip } = useEquipmentItem(id)
+  const { data: parentInstallation } = useInstallation(equip?.installation_id ?? undefined)
   const updateEquip = useUpdateEquipment()
   const deleteEquip = useDeleteEquipment()
   const [tab, setTab] = useState<PanelTab>('details')
@@ -504,7 +508,7 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
             }
             {equip.installation_id && (
               <ReadOnlyRow label={t('assets.installation_parent')} value={
-                <CrossModuleLink module="ar-installation" id={equip.installation_id} label={`Installation: ${equip.installation_id.slice(0, 8)}...`} />
+                <CrossModuleLink module="ar-installation" id={equip.installation_id} label={parentInstallation ? `${parentInstallation.code} — ${parentInstallation.name}` : '...'} />
               } />
             )}
             {equip.criticality && (
@@ -563,6 +567,8 @@ export function PipelineDetailPanel({ id }: { id: string }) {
   const canDelete = hasPermission('asset.delete')
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { data: pipe } = usePipeline(id)
+  const { data: fromInst } = useInstallation(pipe?.from_installation_id)
+  const { data: toInst } = useInstallation(pipe?.to_installation_id)
   const updatePipe = useUpdatePipeline()
   const deletePipe = useDeletePipeline()
   const [tab, setTab] = useState<PanelTab>('details')
@@ -618,14 +624,14 @@ export function PipelineDetailPanel({ id }: { id: string }) {
               <CrossModuleLink
                 module="ar-installation"
                 id={pipe.from_installation_id}
-                label={pipe.from_node_description || `Installation: ${pipe.from_installation_id.slice(0, 8)}...`}
+                label={fromInst ? `${fromInst.code} — ${fromInst.name}` : '...'}
               />
             } />
             <ReadOnlyRow label={t('assets.to_installation')} value={
               <CrossModuleLink
                 module="ar-installation"
                 id={pipe.to_installation_id}
-                label={pipe.to_node_description || `Installation: ${pipe.to_installation_id.slice(0, 8)}...`}
+                label={toInst ? `${toInst.code} — ${toInst.name}` : '...'}
               />
             } />
           </FormSection>

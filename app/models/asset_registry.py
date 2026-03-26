@@ -258,6 +258,29 @@ class OilField(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
 
     # Relationships
     sites: Mapped[list["OilSite"]] = relationship(back_populates="field", cascade="all, delete-orphan")
+    licenses: Mapped[list["FieldLicense"]] = relationship(back_populates="field", cascade="all, delete-orphan")
+
+
+class FieldLicense(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Licence / permit associated with an oil field."""
+    __tablename__ = "ar_field_licenses"
+    __table_args__ = (
+        Index("idx_ar_field_licenses_field", "field_id"),
+    )
+
+    field_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_fields.id", ondelete="CASCADE"), nullable=False)
+    license_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    license_number: Mapped[str] = mapped_column(String(100), nullable=False)
+    authority: Mapped[str | None] = mapped_column(String(200))
+    issue_date: Mapped[date | None] = mapped_column(Date)
+    expiry_date: Mapped[date | None] = mapped_column(Date)
+    working_interest_pct: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+    status: Mapped[str] = mapped_column(String(30), default="ACTIVE", nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)
+    document_url: Mapped[str | None] = mapped_column(String(500))
+
+    # Relationships
+    field: Mapped["OilField"] = relationship(back_populates="licenses")
 
 
 class OilSite(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):

@@ -44,6 +44,25 @@ export interface OilField {
 export type OilFieldCreate = Omit<OilField, 'id' | 'entity_id' | 'created_at' | 'updated_at'>
 export type OilFieldUpdate = Partial<OilFieldCreate>
 
+// ── Field License ────────────────────────────────────────────
+export interface FieldLicense {
+  id: string
+  field_id: string
+  license_type: string
+  license_number: string
+  authority?: string | null
+  issue_date?: string | null
+  expiry_date?: string | null
+  working_interest_pct?: number | null
+  status: string
+  notes?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type FieldLicenseCreate = Omit<FieldLicense, 'id' | 'field_id' | 'created_at' | 'updated_at'>
+export type FieldLicenseUpdate = Partial<FieldLicenseCreate>
+
 // ── Site ──────────────────────────────────────────────────────
 export interface OilSite {
   id: string

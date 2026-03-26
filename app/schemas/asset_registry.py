@@ -75,6 +75,37 @@ class OilFieldRead(OilFieldCreate, TimestampMixin, SoftDeleteMixin):
 
 
 # ════════════════════════════════════════════════════════════════
+# FIELD LICENSE
+# ════════════════════════════════════════════════════════════════
+
+class FieldLicenseCreate(BaseModel):
+    license_type: str = Field(min_length=1, max_length=50)
+    license_number: str = Field(min_length=1, max_length=100)
+    authority: str | None = None
+    issue_date: date | None = None
+    expiry_date: date | None = None
+    working_interest_pct: Decimal | None = None
+    status: str = "ACTIVE"
+    notes: str | None = None
+
+class FieldLicenseUpdate(BaseModel):
+    license_type: str | None = None
+    license_number: str | None = None
+    authority: str | None = None
+    issue_date: date | None = None
+    expiry_date: date | None = None
+    working_interest_pct: Decimal | None = None
+    status: str | None = None
+    notes: str | None = None
+
+class FieldLicenseRead(FieldLicenseCreate, TimestampMixin):
+    id: UUID
+    field_id: UUID
+    class Config:
+        from_attributes = True
+
+
+# ════════════════════════════════════════════════════════════════
 # SITE
 # ════════════════════════════════════════════════════════════════
 

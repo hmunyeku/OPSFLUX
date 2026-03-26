@@ -6,7 +6,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { assetRegistryService } from '@/services/assetRegistryService'
-import type { InstallationDeckCreate, InstallationDeckUpdate } from '@/types/assetRegistry'
+import type { InstallationDeckCreate, InstallationDeckUpdate, FieldLicenseCreate, FieldLicenseUpdate } from '@/types/assetRegistry'
 
 // ── Fields ──
 
@@ -50,6 +50,49 @@ export function useDeleteField() {
   return useMutation({
     mutationFn: assetRegistryService.deleteField,
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['ar-fields'] }) },
+  })
+}
+
+// ── Field Licenses ──
+
+export function useFieldLicenses(fieldId: string | undefined) {
+  return useQuery({
+    queryKey: ['ar-field-licenses', fieldId],
+    queryFn: () => assetRegistryService.listFieldLicenses(fieldId!),
+    enabled: !!fieldId,
+  })
+}
+
+export function useCreateFieldLicense() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ fieldId, payload }: { fieldId: string; payload: FieldLicenseCreate }) =>
+      assetRegistryService.createFieldLicense(fieldId, payload),
+    onSuccess: (_, { fieldId }) => {
+      qc.invalidateQueries({ queryKey: ['ar-field-licenses', fieldId] })
+    },
+  })
+}
+
+export function useUpdateFieldLicense() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ fieldId, licenseId, payload }: { fieldId: string; licenseId: string; payload: FieldLicenseUpdate }) =>
+      assetRegistryService.updateFieldLicense(fieldId, licenseId, payload),
+    onSuccess: (_, { fieldId }) => {
+      qc.invalidateQueries({ queryKey: ['ar-field-licenses', fieldId] })
+    },
+  })
+}
+
+export function useDeleteFieldLicense() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ fieldId, licenseId }: { fieldId: string; licenseId: string }) =>
+      assetRegistryService.deleteFieldLicense(fieldId, licenseId),
+    onSuccess: (_, { fieldId }) => {
+      qc.invalidateQueries({ queryKey: ['ar-field-licenses', fieldId] })
+    },
   })
 }
 

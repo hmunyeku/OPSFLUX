@@ -5,6 +5,7 @@ import api from '@/lib/api'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
 import type {
   OilField, OilFieldCreate, OilFieldUpdate,
+  FieldLicense, FieldLicenseCreate, FieldLicenseUpdate,
   OilSite, OilSiteCreate, OilSiteUpdate,
   Installation, InstallationCreate, InstallationUpdate,
   InstallationDeck, InstallationDeckCreate, InstallationDeckUpdate,
@@ -67,6 +68,26 @@ export const assetRegistryService = {
 
   deleteField: async (id: string): Promise<void> => {
     await api.delete(`${BASE}/fields/${id}`)
+  },
+
+  // ── Field Licenses (nested under field) ─────────────────
+  listFieldLicenses: async (fieldId: string): Promise<FieldLicense[]> => {
+    const { data } = await api.get(`${BASE}/fields/${fieldId}/licenses`)
+    return data
+  },
+
+  createFieldLicense: async (fieldId: string, payload: FieldLicenseCreate): Promise<FieldLicense> => {
+    const { data } = await api.post(`${BASE}/fields/${fieldId}/licenses`, payload)
+    return data
+  },
+
+  updateFieldLicense: async (fieldId: string, licenseId: string, payload: FieldLicenseUpdate): Promise<FieldLicense> => {
+    const { data } = await api.patch(`${BASE}/fields/${fieldId}/licenses/${licenseId}`, payload)
+    return data
+  },
+
+  deleteFieldLicense: async (fieldId: string, licenseId: string): Promise<void> => {
+    await api.delete(`${BASE}/fields/${fieldId}/licenses/${licenseId}`)
   },
 
   // ── Sites ────────────────────────────────────────────────

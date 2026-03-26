@@ -17,8 +17,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.database import get_db
+from app.models.asset_registry import Installation
 from app.models.common import (
-    Asset,
     AuditLog,
     Tier,
     User,
@@ -928,11 +928,11 @@ async def get_widget_stats(
     db: AsyncSession = Depends(get_db),
 ):
     """Global stats: total assets, tiers, users, active workflows, recent activity."""
-    # Total assets (non-archived, in entity)
+    # Total installations (non-deleted, in entity)
     assets_count = await db.execute(
-        select(func.count(Asset.id)).where(
-            Asset.entity_id == entity_id,
-            Asset.active == True,
+        select(func.count(Installation.id)).where(
+            Installation.entity_id == entity_id,
+            Installation.deleted_at.is_(None),
         )
     )
     total_assets = assets_count.scalar() or 0

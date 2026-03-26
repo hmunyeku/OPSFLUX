@@ -32,6 +32,9 @@ import type {
   OilField, OilSite, Installation, RegistryEquipment, RegistryPipeline,
 } from '@/types/assetRegistry'
 
+// Register detail panel renderers (side-effect import)
+import './DetailPanels'
+
 
 // ── Status badge helper ──────────────────────────────────────
 

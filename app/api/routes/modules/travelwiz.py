@@ -2675,7 +2675,7 @@ async def get_all_sites_weather(
                 "  wd.sea_state, wd.temperature_c, wd.weather_code, "
                 "  wd.flight_conditions "
                 "FROM weather_data wd "
-                "JOIN assets a ON a.id = wd.asset_id "
+                "JOIN ar_installations a ON a.id = wd.asset_id "
                 "WHERE wd.entity_id = :eid AND wd.active = true "
                 "ORDER BY wd.asset_id, wd.recorded_at DESC"
             ),

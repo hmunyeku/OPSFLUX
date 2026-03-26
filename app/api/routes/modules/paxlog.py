@@ -1545,7 +1545,7 @@ async def download_ads_pdf(
 
     # Load site name
     site_row = await db.execute(
-        sql_text("SELECT name FROM assets WHERE id = :aid"),
+        sql_text("SELECT name FROM ar_installations WHERE id = :aid"),
         {"aid": ads.site_entry_asset_id},
     )
     site = site_row.first()
@@ -2767,7 +2767,7 @@ async def get_compliance_stats(
                    COUNT(DISTINCT CASE WHEN ap.status = 'blocked' THEN ap.id END) AS blocked_count
             FROM ads a
             JOIN ads_pax ap ON ap.ads_id = a.id
-            LEFT JOIN assets ast ON ast.id = a.site_entry_asset_id
+            LEFT JOIN ar_installations ast ON ast.id = a.site_entry_asset_id
             WHERE a.entity_id = :eid
               AND a.status IN ('submitted', 'pending_validation', 'approved', 'in_progress')
               AND a.archived = false
@@ -3364,7 +3364,7 @@ async def _build_avm_read(db: AsyncSession, avm: MissionNotice) -> MissionNotice
         if prog.site_asset_id:
             from sqlalchemy import text as sql_text
             name_result = await db.execute(
-                sql_text("SELECT name FROM assets WHERE id = :aid"),
+                sql_text("SELECT name FROM ar_installations WHERE id = :aid"),
                 {"aid": str(prog.site_asset_id)},
             )
             name_row = name_result.first()

@@ -792,7 +792,7 @@ async def authenticate_captain_code(db: AsyncSession, access_code: str) -> dict:
                 "FROM captain_portal_codes cpc "
                 "JOIN voyages v ON v.id = cpc.voyage_id "
                 "LEFT JOIN transport_vectors tv ON tv.id = v.vector_id "
-                "LEFT JOIN assets a ON a.id = v.departure_base_id "
+                "LEFT JOIN ar_installations a ON a.id = v.departure_base_id "
                 "WHERE cpc.access_code = :code "
                 "  AND cpc.active = true "
                 "  AND cpc.expires_at > NOW() "

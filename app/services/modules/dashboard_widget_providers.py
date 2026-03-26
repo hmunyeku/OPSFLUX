@@ -39,7 +39,7 @@ async def provider_pax_on_site(
         JOIN ads a ON a.id = ap.ads_id
         WHERE a.entity_id = :entity_id
           AND ap.current_onboard = TRUE
-          AND a.archived = FALSE
+          AND a.deleted_at IS NULL
     """), {"entity_id": str(entity_id)})
     row = result.mappings().first()
     count = row["cnt"] if row else 0
@@ -182,7 +182,7 @@ async def provider_weather_sites(
     """
     result = await db.execute(text("""
         SELECT id, code, name, latitude, longitude
-        FROM assets
+        FROM ar_installations
         WHERE entity_id = :entity_id
           AND type IN ('site', 'platform', 'base')
           AND archived = FALSE
@@ -232,7 +232,7 @@ async def provider_trips_today(
             v.actual_arrival
         FROM voyages v
         JOIN transport_vectors tv ON tv.id = v.vector_id
-        JOIN assets dep ON dep.id = v.departure_base_id
+        JOIN ar_installations dep ON dep.id = v.departure_base_id
         WHERE v.entity_id = :entity_id
           AND v.archived = FALSE
           AND (
@@ -288,7 +288,7 @@ async def provider_cargo_pending(
             dest.name AS destination,
             c.created_at
         FROM cargo_items c
-        LEFT JOIN assets dest ON dest.id = c.destination_asset_id
+        LEFT JOIN ar_installations dest ON dest.id = c.destination_asset_id
         WHERE c.entity_id = :entity_id
           AND c.status IN ('registered', 'ready')
           AND c.archived = FALSE
@@ -392,7 +392,7 @@ async def provider_signalements_actifs(
             pi.created_at
         FROM pax_incidents pi
         LEFT JOIN pax_profiles pp ON pp.id = pi.pax_id
-        LEFT JOIN assets a ON a.id = pi.asset_id
+        LEFT JOIN ar_installations a ON a.id = pi.asset_id
         WHERE pi.entity_id = :entity_id
           AND pi.resolved_at IS NULL
         ORDER BY
@@ -508,10 +508,10 @@ async def provider_my_ads(
             asset.name AS site_name,
             (SELECT COUNT(*) FROM ads_pax ap WHERE ap.ads_id = a.id) AS pax_count
         FROM ads a
-        JOIN assets asset ON asset.id = a.site_entry_asset_id
+        JOIN ar_installations asset ON asset.id = a.site_entry_asset_id
         WHERE a.entity_id = :entity_id
           AND a.requester_id = :user_id
-          AND a.archived = FALSE
+          AND a.deleted_at IS NULL
           AND a.status NOT IN ('cancelled', 'completed')
         ORDER BY a.start_date DESC
         LIMIT 50
@@ -570,7 +570,7 @@ async def provider_capacity_heatmap(
                      ELSE 0
                 END AS percentage
             FROM daily_pax_load dpl
-            JOIN assets a ON a.id = dpl.asset_id
+            JOIN ar_installations a ON a.id = dpl.asset_id
             WHERE a.entity_id = :entity_id
               AND dpl.date BETWEEN CURRENT_DATE AND CURRENT_DATE + 30
             ORDER BY a.name, dpl.date
@@ -592,7 +592,7 @@ async def provider_capacity_heatmap(
                 END AS percentage
             FROM ads a
             JOIN ads_pax ap ON ap.ads_id = a.id
-            JOIN assets asset ON asset.id = a.site_entry_asset_id
+            JOIN ar_installations asset ON asset.id = a.site_entry_asset_id
             CROSS JOIN generate_series(
                 GREATEST(a.start_date, CURRENT_DATE),
                 LEAST(a.end_date, CURRENT_DATE + 30),
@@ -600,7 +600,7 @@ async def provider_capacity_heatmap(
             ) AS d
             WHERE a.entity_id = :entity_id
               AND a.status IN ('approved', 'in_progress')
-              AND a.archived = FALSE
+              AND a.deleted_at IS NULL
               AND a.end_date >= CURRENT_DATE
               AND a.start_date <= CURRENT_DATE + 30
             GROUP BY asset.id, asset.name, asset.pax_capacity, d::date
@@ -642,7 +642,7 @@ async def provider_planner_gantt_mini(
             a.name AS asset_name,
             p.name AS project_name
         FROM planner_activities pa
-        JOIN assets a ON a.id = pa.asset_id
+        JOIN ar_installations a ON a.id = pa.asset_id
         LEFT JOIN projects p ON p.id = pa.project_id
         WHERE pa.entity_id = :entity_id
           AND pa.active = TRUE

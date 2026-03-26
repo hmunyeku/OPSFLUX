@@ -36,7 +36,7 @@ async def list_assets(
     """List installations (backwards-compatible /assets endpoint)."""
     query = select(Installation).where(
         Installation.entity_id == entity_id,
-        Installation.deleted_at.is_(None),
+        Installation.archived == False,
     )
     if search:
         like = f"%{search}%"
@@ -61,7 +61,7 @@ async def get_asset_tree(
     result = await db.execute(
         select(Installation).where(
             Installation.entity_id == entity_id,
-            Installation.deleted_at.is_(None),
+            Installation.archived == False,
         ).order_by(Installation.code)
     )
     installations = result.scalars().all()
@@ -90,7 +90,7 @@ async def get_asset(
         select(Installation).where(
             Installation.id == asset_id,
             Installation.entity_id == entity_id,
-            Installation.deleted_at.is_(None),
+            Installation.archived == False,
         )
     )
     obj = result.scalars().first()

@@ -932,7 +932,7 @@ async def get_widget_stats(
     assets_count = await db.execute(
         select(func.count(Installation.id)).where(
             Installation.entity_id == entity_id,
-            Installation.deleted_at.is_(None),
+            Installation.archived == False,
         )
     )
     total_assets = assets_count.scalar() or 0

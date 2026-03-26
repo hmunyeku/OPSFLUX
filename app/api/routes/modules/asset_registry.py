@@ -47,7 +47,7 @@ async def _get_or_404(db: AsyncSession, model, obj_id: UUID, entity_id: UUID, la
         select(model).where(
             model.id == obj_id,
             model.entity_id == entity_id,
-            model.deleted_at.is_(None),
+            model.archived == False,
         )
     )
     obj = result.scalars().first()
@@ -73,7 +73,7 @@ async def list_fields(
 ):
     query = select(OilField).where(
         OilField.entity_id == entity_id,
-        OilField.deleted_at.is_(None),
+        OilField.archived == False,
     )
     if search:
         query = query.where(
@@ -135,7 +135,7 @@ async def delete_field(
     db: AsyncSession = Depends(get_db),
 ):
     obj = await _get_or_404(db, OilField, field_id, entity_id, "Field")
-    obj.deleted_at = datetime.now(timezone.utc)
+    obj.archived = True
     await db.commit()
     return {"detail": "Field archived"}
 
@@ -236,7 +236,7 @@ async def list_sites(
 ):
     query = select(OilSite).where(
         OilSite.entity_id == entity_id,
-        OilSite.deleted_at.is_(None),
+        OilSite.archived == False,
     )
     if field_id:
         query = query.where(OilSite.field_id == field_id)
@@ -302,7 +302,7 @@ async def delete_site(
     db: AsyncSession = Depends(get_db),
 ):
     obj = await _get_or_404(db, OilSite, site_id, entity_id, "Site")
-    obj.deleted_at = datetime.now(timezone.utc)
+    obj.archived = True
     await db.commit()
     return {"detail": "Site archived"}
 
@@ -325,7 +325,7 @@ async def list_installations(
 ):
     query = select(Installation).where(
         Installation.entity_id == entity_id,
-        Installation.deleted_at.is_(None),
+        Installation.archived == False,
     )
     if site_id:
         query = query.where(Installation.site_id == site_id)
@@ -391,7 +391,7 @@ async def delete_installation(
     db: AsyncSession = Depends(get_db),
 ):
     obj = await _get_or_404(db, Installation, installation_id, entity_id, "Installation")
-    obj.deleted_at = datetime.now(timezone.utc)
+    obj.archived = True
     await db.commit()
     return {"detail": "Installation archived"}
 
@@ -500,7 +500,7 @@ async def list_equipment(
 ):
     query = select(RegistryEquipment).where(
         RegistryEquipment.entity_id == entity_id,
-        RegistryEquipment.deleted_at.is_(None),
+        RegistryEquipment.archived == False,
     )
     if installation_id:
         query = query.where(RegistryEquipment.installation_id == installation_id)
@@ -576,7 +576,7 @@ async def delete_equipment(
     db: AsyncSession = Depends(get_db),
 ):
     obj = await _get_or_404(db, RegistryEquipment, equipment_id, entity_id, "Equipment")
-    obj.deleted_at = datetime.now(timezone.utc)
+    obj.archived = True
     await db.commit()
     return {"detail": "Equipment archived"}
 
@@ -598,7 +598,7 @@ async def list_pipelines(
 ):
     query = select(RegistryPipeline).where(
         RegistryPipeline.entity_id == entity_id,
-        RegistryPipeline.deleted_at.is_(None),
+        RegistryPipeline.archived == False,
     )
     if search:
         query = query.where(
@@ -628,7 +628,7 @@ async def get_pipeline(
         .where(
             RegistryPipeline.id == pipeline_id,
             RegistryPipeline.entity_id == entity_id,
-            RegistryPipeline.deleted_at.is_(None),
+            RegistryPipeline.archived == False,
         )
     )
     pipe = result.scalars().first()
@@ -696,7 +696,7 @@ async def delete_pipeline(
     db: AsyncSession = Depends(get_db),
 ):
     obj = await _get_or_404(db, RegistryPipeline, pipeline_id, entity_id, "Pipeline")
-    obj.deleted_at = datetime.now(timezone.utc)
+    obj.archived = True
     await db.commit()
     return {"detail": "Pipeline archived"}
 
@@ -716,7 +716,7 @@ async def get_hierarchy(
     # Fetch all active fields
     fields_result = await db.execute(
         select(OilField)
-        .where(OilField.entity_id == entity_id, OilField.deleted_at.is_(None))
+        .where(OilField.entity_id == entity_id, OilField.archived == False)
         .order_by(OilField.code)
     )
     fields = fields_result.scalars().all()
@@ -724,7 +724,7 @@ async def get_hierarchy(
     # Fetch all active sites
     sites_result = await db.execute(
         select(OilSite)
-        .where(OilSite.entity_id == entity_id, OilSite.deleted_at.is_(None))
+        .where(OilSite.entity_id == entity_id, OilSite.archived == False)
         .order_by(OilSite.code)
     )
     sites = sites_result.scalars().all()
@@ -732,7 +732,7 @@ async def get_hierarchy(
     # Fetch all active installations
     installations_result = await db.execute(
         select(Installation)
-        .where(Installation.entity_id == entity_id, Installation.deleted_at.is_(None))
+        .where(Installation.entity_id == entity_id, Installation.archived == False)
         .order_by(Installation.code)
     )
     installations = installations_result.scalars().all()
@@ -745,7 +745,7 @@ async def get_hierarchy(
         )
         .where(
             RegistryEquipment.entity_id == entity_id,
-            RegistryEquipment.deleted_at.is_(None),
+            RegistryEquipment.archived == False,
         )
         .group_by(RegistryEquipment.installation_id)
     )
@@ -799,23 +799,23 @@ async def get_stats(
     """Aggregated statistics for the asset registry."""
     # Counts per top-level entity
     field_count = (await db.execute(
-        select(sqla_func.count()).where(OilField.entity_id == entity_id, OilField.deleted_at.is_(None))
+        select(sqla_func.count()).where(OilField.entity_id == entity_id, OilField.archived == False)
     )).scalar() or 0
 
     site_count = (await db.execute(
-        select(sqla_func.count()).where(OilSite.entity_id == entity_id, OilSite.deleted_at.is_(None))
+        select(sqla_func.count()).where(OilSite.entity_id == entity_id, OilSite.archived == False)
     )).scalar() or 0
 
     installation_count = (await db.execute(
-        select(sqla_func.count()).where(Installation.entity_id == entity_id, Installation.deleted_at.is_(None))
+        select(sqla_func.count()).where(Installation.entity_id == entity_id, Installation.archived == False)
     )).scalar() or 0
 
     equipment_count = (await db.execute(
-        select(sqla_func.count()).where(RegistryEquipment.entity_id == entity_id, RegistryEquipment.deleted_at.is_(None))
+        select(sqla_func.count()).where(RegistryEquipment.entity_id == entity_id, RegistryEquipment.archived == False)
     )).scalar() or 0
 
     pipeline_count = (await db.execute(
-        select(sqla_func.count()).where(RegistryPipeline.entity_id == entity_id, RegistryPipeline.deleted_at.is_(None))
+        select(sqla_func.count()).where(RegistryPipeline.entity_id == entity_id, RegistryPipeline.archived == False)
     )).scalar() or 0
 
     # Equipment by class
@@ -826,7 +826,7 @@ async def get_stats(
         )
         .where(
             RegistryEquipment.entity_id == entity_id,
-            RegistryEquipment.deleted_at.is_(None),
+            RegistryEquipment.archived == False,
         )
         .group_by(RegistryEquipment.equipment_class)
         .order_by(sqla_func.count(RegistryEquipment.id).desc())
@@ -844,7 +844,7 @@ async def get_stats(
         )
         .where(
             RegistryEquipment.entity_id == entity_id,
-            RegistryEquipment.deleted_at.is_(None),
+            RegistryEquipment.archived == False,
         )
         .group_by(RegistryEquipment.status)
     )
@@ -861,7 +861,7 @@ async def get_stats(
         )
         .where(
             OilSite.entity_id == entity_id,
-            OilSite.deleted_at.is_(None),
+            OilSite.archived == False,
         )
         .group_by(OilSite.site_type)
     )

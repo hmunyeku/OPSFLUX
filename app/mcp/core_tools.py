@@ -42,7 +42,7 @@ async def _search_assets(
     query = select(Installation).where(
         Installation.entity_id == entity_id,
         
-        Installation.deleted_at.is_(None),
+        Installation.archived == False,
     )
 
     search = params.get("search")

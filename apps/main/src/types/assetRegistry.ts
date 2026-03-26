@@ -77,8 +77,23 @@ export interface OilSite {
   country: string
   region?: string | null
   water_depth_m?: number | null
+  access_road: boolean
+  access_helicopter: boolean
+  access_vessel: boolean
+  helideck_available: boolean
+  nearest_airport?: string | null
+  nearest_port?: string | null
   manned: boolean
   pob_capacity?: number | null
+  power_source?: string | null
+  comms_system?: string | null
+  max_wind_speed_ms?: number | null
+  design_wave_height_m?: number | null
+  design_temp_max_c?: number | null
+  design_temp_min_c?: number | null
+  seismic_zone?: string | null
+  commissioning_date?: string | null
+  first_oil_date?: string | null
   status: OperationalStatus
   notes?: string | null
   created_at: string
@@ -99,11 +114,26 @@ export interface Installation {
   environment: string
   latitude?: number | null
   longitude?: number | null
+  elevation_masl?: number | null
   water_depth_m?: number | null
+  air_gap_m?: number | null
+  orientation_deg?: number | null
   status: OperationalStatus
-  is_manned: boolean
-  pob_max?: number | null
+  installation_date?: string | null
+  commissioning_date?: string | null
+  first_oil_date?: string | null
   design_life_years?: number | null
+  is_manned: boolean
+  is_normally_unmanned: boolean
+  pob_max?: number | null
+  helideck_available: boolean
+  lifeboat_capacity?: number | null
+  total_area_m2?: number | null
+  footprint_length_m?: number | null
+  footprint_width_m?: number | null
+  design_code?: string | null
+  classification_society?: string | null
+  class_notation?: string | null
   notes?: string | null
   created_at: string
   updated_at: string
@@ -141,6 +171,16 @@ export interface RegistryEquipment {
   installation_id?: string | null
   deck_id?: string | null
   area?: string | null
+  sub_area?: string | null
+  grid_reference?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  elevation_m?: number | null
+  local_x_m?: number | null
+  local_y_m?: number | null
+  local_z_m?: number | null
+  orientation_deg?: number | null
+  is_mobile: boolean
   manufacturer?: string | null
   model?: string | null
   serial_number?: string | null
@@ -149,6 +189,18 @@ export interface RegistryEquipment {
   status: OperationalStatus
   criticality?: 'A' | 'B' | 'C' | null
   safety_function: boolean
+  cert_number?: string | null
+  cert_authority?: string | null
+  drawing_number?: string | null
+  p_and_id_ref?: string | null
+  owner_company?: string | null
+  asset_number?: string | null
+  purchase_date?: string | null
+  purchase_cost_usd?: number | null
+  replacement_cost_usd?: number | null
+  datasheet_url?: string | null
+  manual_url?: string | null
+  cert_document_url?: string | null
   notes?: string | null
   created_at: string
   updated_at: string
@@ -187,6 +239,14 @@ export interface RegistryPipeline {
   h2s_ppm?: number | null
   co2_mol_pct?: number | null
   piggable?: boolean
+  pig_launcher_tag?: string | null
+  pig_receiver_tag?: string | null
+  cp_required?: boolean
+  cp_type?: string | null
+  test_pressure_barg?: number | null
+  max_water_depth_m?: number | null
+  permit_number?: string | null
+  regulator?: string | null
   design_code?: string | null
   design_life_years?: number | null
   installation_year?: number | null

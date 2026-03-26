@@ -56,7 +56,7 @@ import {
 } from './CreatePanels'
 
 
-// ── Status helpers ──────────────────────────────────────────
+// ── Helpers ─────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<string, string> = {
   OPERATIONAL: 'gl-badge-success',
@@ -85,6 +85,30 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 type PanelTab = 'details' | 'files' | 'notes' | 'refs'
+
+function fmtBool(val: boolean | undefined | null, t: (k: string) => string) {
+  return val ? t('common.yes') : t('common.no')
+}
+
+function fmtDate(val: string | null | undefined) {
+  if (!val) return '—'
+  try { return new Date(val).toLocaleDateString('fr-FR') } catch { return val }
+}
+
+function fmtNum(val: number | null | undefined, unit?: string) {
+  if (val == null) return '—'
+  return unit ? `${val} ${unit}` : String(val)
+}
+
+function fmtCurrency(val: number | null | undefined) {
+  if (val == null) return '—'
+  return `${Number(val).toLocaleString()} USD`
+}
+
+function UrlLink({ url, label }: { url?: string | null; label: string }) {
+  if (!url) return <span className="text-muted-foreground">—</span>
+  return <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate text-xs">{label}</a>
+}
 
 
 // ════════════════════════════════════════════════════════════════
@@ -120,12 +144,7 @@ export function FieldDetailPanel({ id }: { id: string }) {
       icon={<MapPin size={16} />}
       headerRight={
         canDelete ? (
-          <DangerConfirmButton
-            confirmLabel={t('common.confirm_delete')}
-            onConfirm={handleDelete}
-          >
-            {t('common.delete')}
-          </DangerConfirmButton>
+          <DangerConfirmButton confirmLabel={t('common.confirm_delete')} onConfirm={handleDelete}>{t('common.delete')}</DangerConfirmButton>
         ) : undefined
       }
     >
@@ -156,6 +175,11 @@ export function FieldDetailPanel({ id }: { id: string }) {
               : <ReadOnlyRow label={t('assets.operator')} value={field.operator || '—'} />
             }
             <ReadOnlyRow label={t('assets.environment')} value={field.environment || '—'} />
+            {canUpdate
+              ? <InlineEditableRow label={t('assets.regulator')} value={field.regulator || ''} onSave={(v) => handleSave('regulator', v || null)} />
+              : <ReadOnlyRow label={t('assets.regulator')} value={field.regulator || '—'} />
+            }
+            <ReadOnlyRow label={t('assets.working_interest')} value={field.working_interest_pct ? `${field.working_interest_pct}%` : '—'} />
           </FormSection>
 
           <FormSection title={t('assets.geology')} collapsible storageKey="panel.ar-field.sections" id="ar-field-geology">
@@ -163,6 +187,21 @@ export function FieldDetailPanel({ id }: { id: string }) {
             <ReadOnlyRow label={t('assets.block_name')} value={field.block_name || '—'} />
             <ReadOnlyRow label={t('assets.discovery_year')} value={field.discovery_year || '—'} />
             <ReadOnlyRow label={t('assets.first_production_year')} value={field.first_production_year || '—'} />
+            {canUpdate
+              ? <InlineEditableRow label={t('assets.reservoir_formation')} value={field.reservoir_formation || ''} onSave={(v) => handleSave('reservoir_formation', v || null)} />
+              : <ReadOnlyRow label={t('assets.reservoir_formation')} value={field.reservoir_formation || '—'} />
+            }
+          </FormSection>
+
+          <FormSection title={t('assets.location')} collapsible storageKey="panel.ar-field.sections" id="ar-field-location">
+            <ReadOnlyRow label={t('assets.centroid_latitude')} value={field.centroid_latitude ?? '—'} />
+            <ReadOnlyRow label={t('assets.centroid_longitude')} value={field.centroid_longitude ?? '—'} />
+            <ReadOnlyRow label={t('assets.area_km2')} value={fmtNum(field.area_km2, 'km²')} />
+          </FormSection>
+
+          <FormSection title={t('assets.reserves')} collapsible storageKey="panel.ar-field.sections" id="ar-field-reserves">
+            <ReadOnlyRow label={t('assets.original_oip')} value={fmtNum(field.original_oil_in_place_mmbo, 'MMbo')} />
+            <ReadOnlyRow label={t('assets.recoverable_reserves')} value={fmtNum(field.recoverable_reserves_mmbo, 'MMbo')} />
           </FormSection>
 
           <FormSection title={t('assets.license')} collapsible storageKey="panel.ar-field.sections" id="ar-field-license">
@@ -175,23 +214,9 @@ export function FieldDetailPanel({ id }: { id: string }) {
         </PanelContentLayout>
       )}
 
-      {tab === 'files' && (
-        <div className="p-4">
-          <AttachmentManager ownerType="ar_field" ownerId={id} />
-        </div>
-      )}
-
-      {tab === 'notes' && (
-        <div className="p-4">
-          <NoteManager ownerType="ar_field" ownerId={id} />
-        </div>
-      )}
-
-      {tab === 'refs' && (
-        <div className="p-4">
-          <ExternalRefManager ownerType="ar_field" ownerId={id} />
-        </div>
-      )}
+      {tab === 'files' && <div className="p-4"><AttachmentManager ownerType="ar_field" ownerId={id} /></div>}
+      {tab === 'notes' && <div className="p-4"><NoteManager ownerType="ar_field" ownerId={id} /></div>}
+      {tab === 'refs' && <div className="p-4"><ExternalRefManager ownerType="ar_field" ownerId={id} /></div>}
     </DynamicPanelShell>
   )
 }
@@ -265,15 +290,51 @@ export function SiteDetailPanel({ id }: { id: string }) {
           </FormSection>
 
           <FormSection title={t('assets.access')} collapsible storageKey="panel.ar-site.sections" id="ar-site-access">
-            <ReadOnlyRow label={t('assets.manned')} value={site.manned ? t('common.yes') : t('common.no')} />
+            <ReadOnlyRow label={t('assets.manned')} value={fmtBool(site.manned, t)} />
             <ReadOnlyRow label={t('assets.pob_capacity')} value={site.pob_capacity ?? '—'} />
-            <ReadOnlyRow label={t('assets.water_depth')} value={site.water_depth_m ? `${site.water_depth_m} m` : '—'} />
+            <ReadOnlyRow label={t('assets.water_depth')} value={fmtNum(site.water_depth_m, 'm')} />
+            <ReadOnlyRow label={t('assets.access_road')} value={fmtBool(site.access_road, t)} />
+            <ReadOnlyRow label={t('assets.access_helicopter')} value={fmtBool(site.access_helicopter, t)} />
+            <ReadOnlyRow label={t('assets.access_vessel')} value={fmtBool(site.access_vessel, t)} />
+            <ReadOnlyRow label={t('assets.helideck_available')} value={fmtBool(site.helideck_available, t)} />
+            {canUpdate
+              ? <InlineEditableRow label={t('assets.nearest_airport')} value={site.nearest_airport || ''} onSave={(v) => handleSave('nearest_airport', v || null)} />
+              : <ReadOnlyRow label={t('assets.nearest_airport')} value={site.nearest_airport || '—'} />
+            }
+            {canUpdate
+              ? <InlineEditableRow label={t('assets.nearest_port')} value={site.nearest_port || ''} onSave={(v) => handleSave('nearest_port', v || null)} />
+              : <ReadOnlyRow label={t('assets.nearest_port')} value={site.nearest_port || '—'} />
+            }
+          </FormSection>
+
+          <FormSection title={t('assets.operations')} collapsible storageKey="panel.ar-site.sections" id="ar-site-operations">
+            {canUpdate
+              ? <InlineEditableRow label={t('assets.power_source')} value={site.power_source || ''} onSave={(v) => handleSave('power_source', v || null)} />
+              : <ReadOnlyRow label={t('assets.power_source')} value={site.power_source || '—'} />
+            }
+            {canUpdate
+              ? <InlineEditableRow label={t('assets.comms_system')} value={site.comms_system || ''} onSave={(v) => handleSave('comms_system', v || null)} />
+              : <ReadOnlyRow label={t('assets.comms_system')} value={site.comms_system || '—'} />
+            }
+          </FormSection>
+
+          <FormSection title={t('assets.design_conditions')} collapsible storageKey="panel.ar-site.sections" id="ar-site-design">
+            <ReadOnlyRow label={t('assets.max_wind_speed')} value={fmtNum(site.max_wind_speed_ms, 'm/s')} />
+            <ReadOnlyRow label={t('assets.design_wave')} value={fmtNum(site.design_wave_height_m, 'm')} />
+            <ReadOnlyRow label={t('assets.design_temp_max')} value={fmtNum(site.design_temp_max_c, '°C')} />
+            <ReadOnlyRow label={t('assets.design_temp_min')} value={fmtNum(site.design_temp_min_c, '°C')} />
+            <ReadOnlyRow label={t('assets.seismic_zone')} value={site.seismic_zone || '—'} />
           </FormSection>
 
           <FormSection title={t('assets.location')} collapsible storageKey="panel.ar-site.sections" id="ar-site-location">
             <ReadOnlyRow label="Latitude" value={site.latitude ?? '—'} />
             <ReadOnlyRow label="Longitude" value={site.longitude ?? '—'} />
             <ReadOnlyRow label={t('assets.region')} value={site.region || '—'} />
+          </FormSection>
+
+          <FormSection title={t('assets.key_dates')} collapsible storageKey="panel.ar-site.sections" id="ar-site-dates">
+            <ReadOnlyRow label={t('assets.commissioning_date')} value={fmtDate(site.commissioning_date)} />
+            <ReadOnlyRow label={t('assets.first_oil_date')} value={fmtDate(site.first_oil_date)} />
           </FormSection>
 
           <FormSection title="Tags">
@@ -354,18 +415,39 @@ export function InstallationDetailPanel({ id }: { id: string }) {
               <CrossModuleLink module="ar-site" id={inst.site_id} label={parentSite ? `${parentSite.code} — ${parentSite.name}` : '...'} />
             } />
             <ReadOnlyRow label={t('assets.environment')} value={inst.environment} />
-            <ReadOnlyRow label={t('assets.manned')} value={inst.is_manned ? t('common.yes') : t('common.no')} />
+            <ReadOnlyRow label={t('assets.manned')} value={fmtBool(inst.is_manned, t)} />
+            <ReadOnlyRow label={t('assets.is_normally_unmanned')} value={fmtBool(inst.is_normally_unmanned, t)} />
             <ReadOnlyRow label={t('assets.pob_capacity')} value={inst.pob_max ?? '—'} />
+            <ReadOnlyRow label={t('assets.helideck_available')} value={fmtBool(inst.helideck_available, t)} />
+            <ReadOnlyRow label={t('assets.lifeboat_capacity')} value={inst.lifeboat_capacity ?? '—'} />
           </FormSection>
 
           <FormSection title={t('assets.location')} collapsible storageKey="panel.ar-inst.sections" id="ar-inst-location">
             <ReadOnlyRow label="Latitude" value={inst.latitude ?? '—'} />
             <ReadOnlyRow label="Longitude" value={inst.longitude ?? '—'} />
-            <ReadOnlyRow label={t('assets.water_depth')} value={inst.water_depth_m ? `${inst.water_depth_m} m` : '—'} />
+            <ReadOnlyRow label={t('assets.elevation_masl')} value={fmtNum(inst.elevation_masl, 'm AMSL')} />
+            <ReadOnlyRow label={t('assets.water_depth')} value={fmtNum(inst.water_depth_m, 'm')} />
+            <ReadOnlyRow label={t('assets.air_gap')} value={fmtNum(inst.air_gap_m, 'm')} />
+            <ReadOnlyRow label={t('assets.orientation')} value={fmtNum(inst.orientation_deg, '°')} />
           </FormSection>
 
           <FormSection title={t('assets.design')} collapsible storageKey="panel.ar-inst.sections" id="ar-inst-design">
             <ReadOnlyRow label={t('assets.design_life')} value={inst.design_life_years ? `${inst.design_life_years} ans` : '—'} />
+            <ReadOnlyRow label={t('assets.total_area_m2')} value={fmtNum(inst.total_area_m2, 'm²')} />
+            <ReadOnlyRow label={t('assets.footprint_length')} value={fmtNum(inst.footprint_length_m, 'm')} />
+            <ReadOnlyRow label={t('assets.footprint_width')} value={fmtNum(inst.footprint_width_m, 'm')} />
+            <ReadOnlyRow label={t('assets.design_code')} value={inst.design_code || '—'} />
+          </FormSection>
+
+          <FormSection title={t('assets.certification')} collapsible storageKey="panel.ar-inst.sections" id="ar-inst-cert">
+            <ReadOnlyRow label={t('assets.classification_society')} value={inst.classification_society || '—'} />
+            <ReadOnlyRow label={t('assets.class_notation')} value={inst.class_notation || '—'} />
+          </FormSection>
+
+          <FormSection title={t('assets.key_dates')} collapsible storageKey="panel.ar-inst.sections" id="ar-inst-dates">
+            <ReadOnlyRow label={t('assets.installation_date')} value={fmtDate(inst.installation_date)} />
+            <ReadOnlyRow label={t('assets.commissioning_date')} value={fmtDate(inst.commissioning_date)} />
+            <ReadOnlyRow label={t('assets.first_oil_date')} value={fmtDate(inst.first_oil_date)} />
           </FormSection>
 
           <FormSection title="Tags">
@@ -385,70 +467,6 @@ export function InstallationDetailPanel({ id }: { id: string }) {
 // ════════════════════════════════════════════════════════════════
 // EQUIPMENT DETAIL
 // ════════════════════════════════════════════════════════════════
-
-/** Render extra fields contextual to the equipment class */
-function EquipmentContextualFields({ equip }: { equip: Record<string, unknown> }) {
-  const { t } = useTranslation()
-  const eqClass = (equip.equipment_class as string) || ''
-
-  // Common certification / drawing fields — shown for all classes
-  const commonRows = (
-    <>
-      {equip.cert_number && <ReadOnlyRow label={t('assets.cert_number')} value={equip.cert_number as string} />}
-      {equip.cert_authority && <ReadOnlyRow label={t('assets.cert_authority')} value={equip.cert_authority as string} />}
-      {equip.drawing_number && <ReadOnlyRow label={t('assets.drawing_number')} value={equip.drawing_number as string} />}
-      {equip.p_and_id_ref && <ReadOnlyRow label={t('assets.p_and_id_ref')} value={equip.p_and_id_ref as string} />}
-      {equip.asset_number && <ReadOnlyRow label={t('assets.asset_number')} value={equip.asset_number as string} />}
-    </>
-  )
-
-  // Class-specific contextual info
-  const classUpper = eqClass.toUpperCase()
-
-  if (classUpper === 'CRANE' || classUpper === 'LIFTING') {
-    return (
-      <FormSection title={t('assets.crane_details')} collapsible storageKey="panel.ar-equip.sections" id="ar-equip-crane">
-        <ReadOnlyRow label={t('assets.area')} value={(equip.area as string) || '—'} />
-        {equip.is_mobile !== undefined && (
-          <ReadOnlyRow label={t('assets.is_mobile')} value={equip.is_mobile ? t('common.yes') : t('common.no')} />
-        )}
-        {commonRows}
-      </FormSection>
-    )
-  }
-
-  if (classUpper === 'SEPARATOR' || classUpper === 'VESSEL') {
-    return (
-      <FormSection title={t('assets.vessel_details')} collapsible storageKey="panel.ar-equip.sections" id="ar-equip-vessel">
-        <ReadOnlyRow label={t('assets.area')} value={(equip.area as string) || '—'} />
-        {equip.sub_area ? <ReadOnlyRow label={t('assets.sub_area')} value={equip.sub_area as string} /> : null}
-        {commonRows}
-      </FormSection>
-    )
-  }
-
-  if (classUpper === 'PUMP' || classUpper === 'COMPRESSOR') {
-    return (
-      <FormSection title={t('assets.rotating_details')} collapsible storageKey="panel.ar-equip.sections" id="ar-equip-rotating">
-        <ReadOnlyRow label={t('assets.area')} value={(equip.area as string) || '—'} />
-        {equip.sub_area ? <ReadOnlyRow label={t('assets.sub_area')} value={equip.sub_area as string} /> : null}
-        {commonRows}
-      </FormSection>
-    )
-  }
-
-  // Generic fallback for other classes
-  return (
-    <FormSection title={t('assets.technical_details')} collapsible storageKey="panel.ar-equip.sections" id="ar-equip-tech">
-      <ReadOnlyRow label={t('assets.area')} value={(equip.area as string) || '—'} />
-      {equip.sub_area ? <ReadOnlyRow label={t('assets.sub_area')} value={equip.sub_area as string} /> : null}
-      {equip.is_mobile !== undefined && equip.is_mobile && (
-        <ReadOnlyRow label={t('assets.is_mobile')} value={t('common.yes')} />
-      )}
-      {commonRows}
-    </FormSection>
-  )
-}
 
 export function EquipmentDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
@@ -518,7 +536,10 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
                 </span>
               } />
             )}
-            <ReadOnlyRow label={t('assets.safety_function')} value={equip.safety_function ? t('common.yes') : t('common.no')} />
+            <ReadOnlyRow label={t('assets.safety_function')} value={fmtBool(equip.safety_function, t)} />
+            <ReadOnlyRow label={t('assets.is_mobile')} value={fmtBool(equip.is_mobile, t)} />
+            <ReadOnlyRow label={t('assets.area')} value={equip.area || '—'} />
+            {equip.sub_area && <ReadOnlyRow label={t('assets.sub_area')} value={equip.sub_area} />}
           </FormSection>
 
           <FormSection title={t('assets.manufacturer_info')} collapsible storageKey="panel.ar-equip.sections" id="ar-equip-mfg">
@@ -539,8 +560,42 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
             <ReadOnlyRow label={t('assets.year_installed')} value={equip.year_installed ?? '—'} />
           </FormSection>
 
-          {/* Contextual fields based on equipment_class */}
-          <EquipmentContextualFields equip={equip as unknown as Record<string, unknown>} />
+          <FormSection title={t('assets.technical_details')} collapsible storageKey="panel.ar-equip.sections" id="ar-equip-tech">
+            {equip.cert_number && <ReadOnlyRow label={t('assets.cert_number')} value={equip.cert_number} />}
+            {equip.cert_authority && <ReadOnlyRow label={t('assets.cert_authority')} value={equip.cert_authority} />}
+            {equip.drawing_number && <ReadOnlyRow label={t('assets.drawing_number')} value={equip.drawing_number} />}
+            {equip.p_and_id_ref && <ReadOnlyRow label={t('assets.p_and_id_ref')} value={equip.p_and_id_ref} />}
+            {equip.asset_number && <ReadOnlyRow label={t('assets.asset_number')} value={equip.asset_number} />}
+          </FormSection>
+
+          <FormSection title={t('assets.location')} collapsible storageKey="panel.ar-equip.sections" id="ar-equip-location">
+            <ReadOnlyRow label={t('assets.grid_reference')} value={equip.grid_reference || '—'} />
+            <ReadOnlyRow label="Latitude" value={equip.latitude ?? '—'} />
+            <ReadOnlyRow label="Longitude" value={equip.longitude ?? '—'} />
+            <ReadOnlyRow label={t('assets.elevation')} value={fmtNum(equip.elevation_m, 'm')} />
+            <ReadOnlyRow label={t('assets.local_xyz')} value={
+              equip.local_x_m != null || equip.local_y_m != null || equip.local_z_m != null
+                ? `${equip.local_x_m ?? '—'} / ${equip.local_y_m ?? '—'} / ${equip.local_z_m ?? '—'}`
+                : '—'
+            } />
+            <ReadOnlyRow label={t('assets.orientation')} value={fmtNum(equip.orientation_deg, '°')} />
+          </FormSection>
+
+          <FormSection title={t('assets.finance')} collapsible storageKey="panel.ar-equip.sections" id="ar-equip-finance">
+            {canUpdate
+              ? <InlineEditableRow label={t('assets.owner_company')} value={equip.owner_company || ''} onSave={(v) => handleSave('owner_company', v || null)} />
+              : <ReadOnlyRow label={t('assets.owner_company')} value={equip.owner_company || '—'} />
+            }
+            <ReadOnlyRow label={t('assets.purchase_date')} value={fmtDate(equip.purchase_date)} />
+            <ReadOnlyRow label={t('assets.purchase_cost')} value={fmtCurrency(equip.purchase_cost_usd)} />
+            <ReadOnlyRow label={t('assets.replacement_cost')} value={fmtCurrency(equip.replacement_cost_usd)} />
+          </FormSection>
+
+          <FormSection title={t('assets.documents_urls')} collapsible storageKey="panel.ar-equip.sections" id="ar-equip-docs">
+            <ReadOnlyRow label={t('assets.datasheet_url')} value={<UrlLink url={equip.datasheet_url} label={t('assets.datasheet_url')} />} />
+            <ReadOnlyRow label={t('assets.manual_url')} value={<UrlLink url={equip.manual_url} label={t('assets.manual_url')} />} />
+            <ReadOnlyRow label={t('assets.cert_document_url')} value={<UrlLink url={equip.cert_document_url} label={t('assets.cert_document_url')} />} />
+          </FormSection>
 
           <FormSection title="Tags">
             <TagManager ownerType="ar_equipment" ownerId={id} compact />
@@ -621,34 +676,69 @@ export function PipelineDetailPanel({ id }: { id: string }) {
 
           <FormSection title={t('assets.routing')} collapsible storageKey="panel.ar-pipe.sections" id="ar-pipe-routing">
             <ReadOnlyRow label={t('assets.from_installation')} value={
-              <CrossModuleLink
-                module="ar-installation"
-                id={pipe.from_installation_id}
-                label={fromInst ? `${fromInst.code} — ${fromInst.name}` : '...'}
-              />
+              <CrossModuleLink module="ar-installation" id={pipe.from_installation_id} label={fromInst ? `${fromInst.code} — ${fromInst.name}` : '...'} />
             } />
             <ReadOnlyRow label={t('assets.to_installation')} value={
-              <CrossModuleLink
-                module="ar-installation"
-                id={pipe.to_installation_id}
-                label={toInst ? `${toInst.code} — ${toInst.name}` : '...'}
-              />
+              <CrossModuleLink module="ar-installation" id={pipe.to_installation_id} label={toInst ? `${toInst.code} — ${toInst.name}` : '...'} />
             } />
+            <ReadOnlyRow label={t('assets.from_node')} value={pipe.from_node_description || '—'} />
+            <ReadOnlyRow label={t('assets.to_node')} value={pipe.to_node_description || '—'} />
           </FormSection>
 
-          <FormSection title={t('assets.dimensions')} collapsible storageKey="panel.ar-pipe.sections" id="ar-pipe-dims">
+          <FormSection title={t('assets.dimensions_materials')} collapsible storageKey="panel.ar-pipe.sections" id="ar-pipe-dims">
             <ReadOnlyRow label="DN (pouces)" value={`${pipe.nominal_diameter_in}"`} />
-            <ReadOnlyRow label={t('assets.pipeline_length')} value={pipe.total_length_km ? `${pipe.total_length_km} km` : '—'} />
-            <ReadOnlyRow label={t('assets.design_pressure')} value={`${pipe.design_pressure_barg} barg`} />
-            <ReadOnlyRow label={t('assets.design_temp')} value={`${pipe.design_temp_max_c} °C`} />
+            <ReadOnlyRow label={t('assets.od_mm')} value={fmtNum(pipe.od_mm, 'mm')} />
+            <ReadOnlyRow label={t('assets.wall_thickness')} value={fmtNum(pipe.wall_thickness_mm, 'mm')} />
+            <ReadOnlyRow label={t('assets.pipeline_length')} value={fmtNum(pipe.total_length_km, 'km')} />
+            <ReadOnlyRow label={t('assets.onshore_length')} value={fmtNum(pipe.onshore_length_km, 'km')} />
+            <ReadOnlyRow label={t('assets.offshore_length')} value={fmtNum(pipe.offshore_length_km, 'km')} />
             <ReadOnlyRow label={t('assets.pipe_material')} value={pipe.pipe_material || '—'} />
+            <ReadOnlyRow label={t('assets.pipe_grade')} value={pipe.pipe_grade || '—'} />
+            <ReadOnlyRow label={t('assets.coating_external')} value={pipe.coating_external || '—'} />
+            <ReadOnlyRow label={t('assets.coating_internal')} value={pipe.coating_internal || '—'} />
+          </FormSection>
+
+          <FormSection title={t('assets.pressure_temp')} collapsible storageKey="panel.ar-pipe.sections" id="ar-pipe-pt">
+            <ReadOnlyRow label={t('assets.design_pressure')} value={`${pipe.design_pressure_barg} barg`} />
+            <ReadOnlyRow label={t('assets.design_temp_max')} value={`${pipe.design_temp_max_c} °C`} />
+            <ReadOnlyRow label={t('assets.design_temp_min')} value={fmtNum(pipe.design_temp_min_c, '°C')} />
+            <ReadOnlyRow label={t('assets.maop')} value={fmtNum(pipe.maop_barg, 'barg')} />
+            <ReadOnlyRow label={t('assets.test_pressure')} value={fmtNum(pipe.test_pressure_barg, 'barg')} />
+            <ReadOnlyRow label={t('assets.max_water_depth')} value={fmtNum(pipe.max_water_depth_m, 'm')} />
+          </FormSection>
+
+          <FormSection title={t('assets.fluid')} collapsible storageKey="panel.ar-pipe.sections" id="ar-pipe-fluid">
+            <ReadOnlyRow label={t('assets.fluid_description')} value={pipe.fluid_description || '—'} />
+            <ReadOnlyRow label={t('assets.h2s_ppm')} value={fmtNum(pipe.h2s_ppm, 'ppm')} />
+            <ReadOnlyRow label={t('assets.co2_mol_pct')} value={fmtNum(pipe.co2_mol_pct, 'mol%')} />
+          </FormSection>
+
+          <FormSection title={t('assets.pigging')} collapsible storageKey="panel.ar-pipe.sections" id="ar-pipe-pigging">
+            <ReadOnlyRow label={t('assets.piggable')} value={fmtBool(pipe.piggable, t)} />
+            <ReadOnlyRow label={t('assets.pig_launcher')} value={pipe.pig_launcher_tag || '—'} />
+            <ReadOnlyRow label={t('assets.pig_receiver')} value={pipe.pig_receiver_tag || '—'} />
+          </FormSection>
+
+          <FormSection title={t('assets.cathodic_protection')} collapsible storageKey="panel.ar-pipe.sections" id="ar-pipe-cp">
+            <ReadOnlyRow label={t('assets.cp_required')} value={fmtBool(pipe.cp_required, t)} />
+            <ReadOnlyRow label={t('assets.cp_type')} value={pipe.cp_type || '—'} />
+          </FormSection>
+
+          <FormSection title={t('assets.integrity')} collapsible storageKey="panel.ar-pipe.sections" id="ar-pipe-integrity">
+            <ReadOnlyRow label={t('assets.design_code')} value={pipe.design_code || '—'} />
+            <ReadOnlyRow label={t('assets.design_life')} value={pipe.design_life_years ? `${pipe.design_life_years} ans` : '—'} />
+            <ReadOnlyRow label={t('assets.installation_year')} value={pipe.installation_year ?? '—'} />
+            <ReadOnlyRow label={t('assets.corrosion_allowance')} value={fmtNum(pipe.corrosion_allowance_mm, 'mm')} />
+          </FormSection>
+
+          <FormSection title={t('assets.regulatory')} collapsible storageKey="panel.ar-pipe.sections" id="ar-pipe-regulatory">
+            <ReadOnlyRow label={t('assets.permit_number')} value={pipe.permit_number || '—'} />
+            <ReadOnlyRow label={t('assets.regulator')} value={pipe.regulator || '—'} />
           </FormSection>
 
           {pipe.waypoints && pipe.waypoints.length > 0 && (
             <FormSection title={t('assets.waypoints')} collapsible storageKey="panel.ar-pipe.sections" id="ar-pipe-wpts">
-              <div className="text-xs text-muted-foreground">
-                {pipe.waypoints.length} point(s)
-              </div>
+              <div className="text-xs text-muted-foreground">{pipe.waypoints.length} point(s)</div>
               <div className="mt-2 max-h-40 overflow-y-auto">
                 <table className="w-full text-xs">
                   <thead>

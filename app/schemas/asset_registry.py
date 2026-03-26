@@ -288,6 +288,10 @@ class EquipmentCreate(BaseModel):
     purchase_date: date | None = None
     purchase_cost_usd: Decimal | None = None
     replacement_cost_usd: Decimal | None = None
+    grid_reference: str | None = None
+    datasheet_url: str | None = None
+    manual_url: str | None = None
+    cert_document_url: str | None = None
     notes: str | None = None
 
 class EquipmentUpdate(BaseModel):
@@ -335,10 +339,27 @@ class PipelineCreate(BaseModel):
     wall_thickness_mm: Decimal | None = None
     fluid_description: str | None = None
     h2s_ppm: Decimal | None = None
+    co2_mol_pct: Decimal | None = None
     piggable: bool = False
+    pig_launcher_tag: str | None = None
+    pig_receiver_tag: str | None = None
+    cp_required: bool = False
+    cp_type: str | None = None
+    od_mm: Decimal | None = None
+    onshore_length_km: Decimal | None = None
+    offshore_length_km: Decimal | None = None
+    coating_external: str | None = None
+    coating_internal: str | None = None
+    design_temp_min_c: Decimal | None = None
+    maop_barg: Decimal | None = None
+    test_pressure_barg: Decimal | None = None
+    max_water_depth_m: Decimal | None = None
+    corrosion_allowance_mm: Decimal | None = None
     design_code: str | None = None
     design_life_years: int | None = None
     installation_year: int | None = None
+    permit_number: str | None = None
+    regulator: str | None = None
     notes: str | None = None
 
 class PipelineUpdate(BaseModel):

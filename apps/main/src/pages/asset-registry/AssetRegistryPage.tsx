@@ -541,8 +541,8 @@ export function AssetRegistryPage() {
               <ToolbarButton icon={Plus} label={t('common.create')} variant="primary" onClick={handleCreate} />
             )}
           </PanelHeader>
-          <PanelContent>
-            <div className="border-b border-border px-4">
+          <PanelContent className="flex flex-col">
+            <div className="border-b border-border px-4 shrink-0">
               <TabBar>
                 {TABS.map(({ key, icon, labelKey }) => (
                   <TabButton
@@ -555,7 +555,7 @@ export function AssetRegistryPage() {
                 ))}
               </TabBar>
             </div>
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 min-h-0">
               {tabContent[activeTab]}
             </div>
           </PanelContent>

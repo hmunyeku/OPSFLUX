@@ -11,6 +11,7 @@ const VerifyEmailPage = lazy(() => import('@/pages/auth/VerifyEmailPage'))
 
 const DashboardPage = lazy(() => import('@/pages/dashboard/DashboardPage').then(m => ({ default: m.DashboardPage })))
 const AssetsPage = lazy(() => import('@/pages/assets/AssetsPage').then(m => ({ default: m.AssetsPage })))
+const AssetRegistryPage = lazy(() => import('@/pages/asset-registry/AssetRegistryPage').then(m => ({ default: m.AssetRegistryPage })))
 const TiersPage = lazy(() => import('@/pages/tiers/TiersPage').then(m => ({ default: m.TiersPage })))
 const ConformitePage = lazy(() => import('@/pages/conformite/ConformitePage').then(m => ({ default: m.ConformitePage })))
 const ProjetsPage = lazy(() => import('@/pages/projets/ProjetsPage').then(m => ({ default: m.ProjetsPage })))
@@ -59,7 +60,8 @@ export default function App() {
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/search" element={<SearchPage />} />
-                  <Route path="/assets/*" element={<RequirePermission permission="asset.read"><AssetsPage /></RequirePermission>} />
+                  <Route path="/assets/*" element={<RequirePermission permission="asset.read"><AssetRegistryPage /></RequirePermission>} />
+                  <Route path="/assets-legacy/*" element={<RequirePermission permission="asset.read"><AssetsPage /></RequirePermission>} />
                   <Route path="/entities/*" element={<RequirePermission permission="core.entity.read"><EntitiesPage /></RequirePermission>} />
                   <Route path="/users/*" element={<RequirePermission permission="core.users.read"><UsersPage /></RequirePermission>} />
                   <Route path="/tiers/*" element={<RequirePermission permission="tier.read"><TiersPage /></RequirePermission>} />

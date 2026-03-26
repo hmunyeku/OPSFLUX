@@ -166,7 +166,7 @@ class Equipment(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
         UUID(as_uuid=True), ForeignKey("pid_documents.id"), nullable=True
     )
     asset_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("assets.id"), nullable=True
+        UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=True
     )  # link to Asset Registry
     tag: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)

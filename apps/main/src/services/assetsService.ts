@@ -1,14 +1,15 @@
 /**
- * Assets API service.
+ * Assets API service — compatibility layer over ar_installations.
+ *
+ * The legacy /api/v1/assets endpoints now query ar_installations.
+ * Full CRUD is via the Asset Registry service (/api/v1/asset-registry).
  */
 import api from '@/lib/api'
-import type { Asset, AssetCreate, AssetTreeNode, PaginatedResponse, PaginationParams } from '@/types/api'
+import type { Asset, AssetTreeNode, PaginatedResponse, PaginationParams } from '@/types/api'
 
 interface AssetListParams extends PaginationParams {
-  type?: string
-  parent_id?: string
   search?: string
-  active_only?: boolean
+  status?: string
 }
 
 export const assetsService = {
@@ -25,19 +26,5 @@ export const assetsService = {
   get: async (id: string): Promise<Asset> => {
     const { data } = await api.get(`/api/v1/assets/${id}`)
     return data
-  },
-
-  create: async (payload: AssetCreate): Promise<Asset> => {
-    const { data } = await api.post('/api/v1/assets', payload)
-    return data
-  },
-
-  update: async (id: string, payload: Partial<AssetCreate>): Promise<Asset> => {
-    const { data } = await api.patch(`/api/v1/assets/${id}`, payload)
-    return data
-  },
-
-  archive: async (id: string): Promise<void> => {
-    await api.delete(`/api/v1/assets/${id}`)
   },
 }

@@ -8,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user
 from app.core.database import get_db
-from app.models.common import Asset, Tier, User
+from app.models.asset_registry import Installation
+from app.models.common import Tier, User
 from app.schemas.common import SearchResult, SearchResponse
 
 router = APIRouter(prefix="/api/v1", tags=["search"])
@@ -35,16 +36,16 @@ async def global_search(
 
     # ── Assets ───────────────────────────────────────────────────────────
     asset_stmt = (
-        select(Asset)
+        select(Installation)
         .where(
-            Asset.entity_id == entity_id,
-            Asset.archived == False,
+            Installation.entity_id == entity_id,
+            Installation.archived == False,
             or_(
-                Asset.name.ilike(pattern),
-                Asset.code.ilike(pattern),
+                Installation.name.ilike(pattern),
+                Installation.code.ilike(pattern),
             ),
         )
-        .order_by(Asset.name)
+        .order_by(Installation.name)
         .limit(PER_TYPE_LIMIT)
     )
     asset_rows = await db.execute(asset_stmt)

@@ -198,7 +198,7 @@ class ComplianceMatrixEntry(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
     )
     asset_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("assets.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False
     )
     credential_type_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("credential_types.id"), nullable=False
@@ -261,7 +261,7 @@ class Ads(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
     )
     site_entry_asset_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("assets.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False
     )
     visit_purpose: Mapped[str] = mapped_column(Text, nullable=False)
     visit_category: Mapped[str] = mapped_column(String(50), nullable=False)
@@ -272,12 +272,12 @@ class Ads(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     end_date: Mapped[date] = mapped_column(Date, nullable=False)
     outbound_transport_mode: Mapped[str | None] = mapped_column(String(50))
     outbound_departure_base_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("assets.id")
+        UUID(as_uuid=True), ForeignKey("ar_installations.id")
     )
     outbound_notes: Mapped[str | None] = mapped_column(Text)
     return_transport_mode: Mapped[str | None] = mapped_column(String(50))
     return_departure_base_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("assets.id")
+        UUID(as_uuid=True), ForeignKey("ar_installations.id")
     )
     return_notes: Mapped[str | None] = mapped_column(Text)
     cross_company_flag: Mapped[bool] = mapped_column(
@@ -354,7 +354,7 @@ class PaxIncident(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("tiers.id")
     )
     asset_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("assets.id")
+        UUID(as_uuid=True), ForeignKey("ar_installations.id")
     )
     severity: Mapped[str] = mapped_column(String(20), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
@@ -450,7 +450,7 @@ class MissionProgram(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     activity_description: Mapped[str] = mapped_column(Text, nullable=False)
     activity_type: Mapped[str] = mapped_column(String(50), nullable=False, default="visit")
     site_asset_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("assets.id")
+        UUID(as_uuid=True), ForeignKey("ar_installations.id")
     )
     planned_start_date: Mapped[date | None] = mapped_column(Date)
     planned_end_date: Mapped[date | None] = mapped_column(Date)
@@ -647,7 +647,7 @@ class PaxRotationCycle(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("pax_profiles.id"), nullable=False
     )
     site_asset_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("assets.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False
     )
     rotation_days_on: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     rotation_days_off: Mapped[int] = mapped_column(SmallInteger, nullable=False)

@@ -1,11 +1,10 @@
 /**
- * React Query hooks for assets.
+ * React Query hooks for assets (compatibility layer over ar_installations).
  */
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { assetsService } from '@/services/assetsService'
-import type { AssetCreate } from '@/types/api'
 
-export function useAssets(params: { page?: number; page_size?: number; type?: string; parent_id?: string; search?: string } = {}) {
+export function useAssets(params: { page?: number; page_size?: number; search?: string; status?: string } = {}) {
   return useQuery({
     queryKey: ['assets', params],
     queryFn: () => assetsService.list(params),
@@ -24,36 +23,5 @@ export function useAsset(id: string) {
     queryKey: ['assets', id],
     queryFn: () => assetsService.get(id),
     enabled: !!id,
-  })
-}
-
-export function useCreateAsset() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (payload: AssetCreate) => assetsService.create(payload),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['assets'] })
-    },
-  })
-}
-
-export function useUpdateAsset() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: Partial<AssetCreate> }) =>
-      assetsService.update(id, payload),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['assets'] })
-    },
-  })
-}
-
-export function useArchiveAsset() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) => assetsService.archive(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['assets'] })
-    },
   })
 }

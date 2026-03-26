@@ -20,7 +20,8 @@ from app.api.deps import get_current_entity, get_current_user, has_user_permissi
 from app.core.database import get_db
 from app.services.core.delete_service import delete_entity
 from app.core.pagination import PaginationParams, paginate
-from app.models.common import Asset, Tier, User
+from app.models.asset_registry import Installation
+from app.models.common import Tier, User
 from app.services.core.fsm_service import fsm_service, FSMError
 from app.models.travelwiz import (
     CaptainLog,
@@ -183,11 +184,11 @@ async def list_vectors(
             TransportVector,
             sqla_func.coalesce(zone_count_sq.c.zone_count, 0).label("zone_count"),
             sqla_func.coalesce(voyage_count_sq.c.voyage_count, 0).label("voyage_count"),
-            Asset.name.label("home_base_name"),
+            Installation.name.label("home_base_name"),
         )
         .outerjoin(zone_count_sq, TransportVector.id == zone_count_sq.c.vector_id)
         .outerjoin(voyage_count_sq, TransportVector.id == voyage_count_sq.c.vector_id)
-        .outerjoin(Asset, TransportVector.home_base_id == Asset.id)
+        .outerjoin(Installation, TransportVector.home_base_id == Installation.id)
         .where(TransportVector.entity_id == entity_id, TransportVector.archived == False)
     )
 
@@ -255,7 +256,7 @@ async def get_vector(
     d["voyage_count"] = vc.scalar() or 0
     # Home base name
     if vector.home_base_id:
-        asset = await db.get(Asset, vector.home_base_id)
+        asset = await db.get(Installation, vector.home_base_id)
         d["home_base_name"] = asset.name if asset else None
     else:
         d["home_base_name"] = None
@@ -397,10 +398,10 @@ async def list_rotations(
         select(
             TransportRotation,
             TransportVector.name.label("vector_name"),
-            Asset.name.label("departure_base_name"),
+            Installation.name.label("departure_base_name"),
         )
         .outerjoin(TransportVector, TransportRotation.vector_id == TransportVector.id)
-        .outerjoin(Asset, TransportRotation.departure_base_id == Asset.id)
+        .outerjoin(Installation, TransportRotation.departure_base_id == Installation.id)
         .where(TransportRotation.entity_id == entity_id, TransportRotation.active == True)
     )
     if vector_id:
@@ -518,13 +519,13 @@ async def list_voyages(
             Voyage,
             TransportVector.name.label("vector_name"),
             TransportVector.type.label("vector_type"),
-            Asset.name.label("departure_base_name"),
+            Installation.name.label("departure_base_name"),
             sqla_func.coalesce(stop_count_sq.c.stop_count, 0).label("stop_count"),
             sqla_func.coalesce(pax_count_sq.c.pax_count, 0).label("pax_count"),
             sqla_func.coalesce(cargo_count_sq.c.cargo_count, 0).label("cargo_count"),
         )
         .outerjoin(TransportVector, Voyage.vector_id == TransportVector.id)
-        .outerjoin(Asset, Voyage.departure_base_id == Asset.id)
+        .outerjoin(Installation, Voyage.departure_base_id == Installation.id)
         .outerjoin(stop_count_sq, Voyage.id == stop_count_sq.c.voyage_id)
         .outerjoin(pax_count_sq, Voyage.id == pax_count_sq.c.voyage_id)
         .outerjoin(cargo_count_sq, Voyage.id == cargo_count_sq.c.voyage_id)
@@ -614,7 +615,7 @@ async def get_voyage(
         d["vector_type"] = None
     # Departure base
     if voyage.departure_base_id:
-        asset = await db.get(Asset, voyage.departure_base_id)
+        asset = await db.get(Installation, voyage.departure_base_id)
         d["departure_base_name"] = asset.name if asset else None
     else:
         d["departure_base_name"] = None
@@ -824,7 +825,7 @@ async def list_voyage_stops(
     enriched = []
     for s in stops:
         d = {c.key: getattr(s, c.key) for c in s.__table__.columns}
-        asset = await db.get(Asset, s.asset_id)
+        asset = await db.get(Installation, s.asset_id)
         d["asset_name"] = asset.name if asset else None
         enriched.append(d)
     return enriched
@@ -1216,10 +1217,10 @@ async def list_cargo(
         select(
             CargoItem,
             Tier.name.label("sender_name"),
-            Asset.name.label("destination_name"),
+            Installation.name.label("destination_name"),
         )
         .outerjoin(Tier, CargoItem.sender_tier_id == Tier.id)
-        .outerjoin(Asset, CargoItem.destination_asset_id == Asset.id)
+        .outerjoin(Installation, CargoItem.destination_asset_id == Installation.id)
         .where(CargoItem.entity_id == entity_id, CargoItem.archived == False)
     )
 
@@ -1333,7 +1334,7 @@ async def get_cargo(
         d["sender_name"] = None
     # Destination name
     if cargo.destination_asset_id:
-        asset = await db.get(Asset, cargo.destination_asset_id)
+        asset = await db.get(Installation, cargo.destination_asset_id)
         d["destination_name"] = asset.name if asset else None
     else:
         d["destination_name"] = None
@@ -2189,10 +2190,10 @@ async def trips_today(
             Voyage,
             TransportVector.name.label("vector_name"),
             TransportVector.type.label("vector_type"),
-            Asset.name.label("departure_base_name"),
+            Installation.name.label("departure_base_name"),
         )
         .outerjoin(TransportVector, Voyage.vector_id == TransportVector.id)
-        .outerjoin(Asset, Voyage.departure_base_id == Asset.id)
+        .outerjoin(Installation, Voyage.departure_base_id == Installation.id)
         .where(
             Voyage.entity_id == entity_id,
             Voyage.archived == False,  # noqa: E712
@@ -2234,9 +2235,9 @@ async def cargo_pending(
     result = await db.execute(
         select(
             CargoItem,
-            Asset.name.label("destination_name"),
+            Installation.name.label("destination_name"),
         )
-        .outerjoin(Asset, CargoItem.destination_asset_id == Asset.id)
+        .outerjoin(Installation, CargoItem.destination_asset_id == Installation.id)
         .where(
             CargoItem.entity_id == entity_id,
             CargoItem.archived == False,  # noqa: E712
@@ -2423,7 +2424,7 @@ async def get_pickup_round_details(
 
     enriched_stops = []
     for s in stops:
-        asset = await db.get(Asset, s.asset_id)
+        asset = await db.get(Installation, s.asset_id)
         enriched_stops.append({
             "id": s.id,
             "asset_id": s.asset_id,

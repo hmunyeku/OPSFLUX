@@ -47,7 +47,7 @@ class TransportVector(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base
     weight_capacity_kg: Mapped[float | None] = mapped_column(Float)
     volume_capacity_m3: Mapped[float | None] = mapped_column(Float)
     home_base_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("assets.id")
+        UUID(as_uuid=True), ForeignKey("ar_installations.id")
     )
     requires_weighing: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     mmsi_number: Mapped[str | None] = mapped_column(String(20))  # AIS tracking (ships)
@@ -99,7 +99,7 @@ class TransportRotation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     departure_base_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("assets.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False
     )
     schedule_cron: Mapped[str | None] = mapped_column(String(100))  # e.g. "0 7 * * 1"
     schedule_description: Mapped[str | None] = mapped_column(String(300))
@@ -130,7 +130,7 @@ class Voyage(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
         String(20), nullable=False, default="planned"
     )  # planned, confirmed, boarding, departed, arrived, closed, delayed, cancelled
     departure_base_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("assets.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False
     )
     scheduled_departure: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
@@ -172,7 +172,7 @@ class VoyageStop(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("voyages.id"), nullable=False
     )
     asset_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("assets.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False
     )
     stop_order: Mapped[int] = mapped_column(Integer, nullable=False)
     scheduled_arrival: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -277,7 +277,7 @@ class CargoItem(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     )
     receiver_name: Mapped[str | None] = mapped_column(String(200))
     destination_asset_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("assets.id")
+        UUID(as_uuid=True), ForeignKey("ar_installations.id")
     )
     project_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("projects.id")
@@ -398,7 +398,7 @@ class PickupStop(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("pickup_rounds.id"), nullable=False
     )
     asset_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("assets.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False
     )
     pickup_order: Mapped[int] = mapped_column(Integer, nullable=False)
     scheduled_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -428,7 +428,7 @@ class WeatherData(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
     )
     asset_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("assets.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False
     )
     recorded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
@@ -527,7 +527,7 @@ class VoyageEvent(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     latitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6))
     longitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6))
     asset_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("assets.id")
+        UUID(as_uuid=True), ForeignKey("ar_installations.id")
     )
     location_label: Mapped[str | None] = mapped_column(String(200))
     performed_by: Mapped[PyUUID | None] = mapped_column(

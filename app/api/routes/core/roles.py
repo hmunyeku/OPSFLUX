@@ -17,7 +17,8 @@ from app.core.rbac import (
     invalidate_permission_mode_cache,
     invalidate_rbac_cache,
 )
-from app.models.common import Asset, Permission, Role, RolePermission, Setting, UserGroup, UserGroupMember, UserGroupRole
+from app.models.asset_registry import Installation
+from app.models.common import Permission, Role, RolePermission, Setting, UserGroup, UserGroupMember, UserGroupRole
 from app.schemas.common import OpsFluxSchema
 
 router = APIRouter(prefix="/api/v1/rbac", tags=["rbac"])
@@ -220,12 +221,12 @@ async def get_role(
             UserGroup.id,
             UserGroup.name,
             UserGroup.entity_id,
-            Asset.name.label("asset_scope_name"),
+            Installation.name.label("asset_scope_name"),
             member_count_subq.label("member_count"),
             UserGroup.active,
         )
         .join(UserGroupRole, UserGroupRole.group_id == UserGroup.id)
-        .outerjoin(Asset, Asset.id == UserGroup.asset_scope)
+        .outerjoin(Installation, Installation.id == UserGroup.asset_scope)
         .where(UserGroupRole.role_code == role_code)
         .order_by(UserGroup.name)
     )

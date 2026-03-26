@@ -78,4 +78,4 @@ from app.models.paxlog import (  # noqa: F401
     ProfileType,
     StayProgram,
 )
-from app.models.common import AssetTypeConfig, ImportMapping  # noqa: F401
+from app.models.common import ImportMapping  # noqa: F401

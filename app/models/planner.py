@@ -57,7 +57,7 @@ class PlannerActivity(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base
         UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
     )
     asset_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("assets.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False
     )
     project_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("projects.id")
@@ -143,7 +143,7 @@ class PlannerConflict(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base
         UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
     )
     asset_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("assets.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False
     )
     conflict_date: Mapped[date] = mapped_column(Date, nullable=False)
     conflict_type: Mapped[str] = mapped_column(

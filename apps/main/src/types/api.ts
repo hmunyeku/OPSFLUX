@@ -20,94 +20,21 @@ export interface PaginationParams {
 export interface Asset {
   id: string
   entity_id: string
-  parent_id: string | null
-  type: string
+  site_id: string
   code: string
   name: string
-  path: string | null
-  latitude: number | null
-  longitude: number | null
-  allow_overlap: boolean
-  max_pax: number | null
-  permanent_ops_quota: number
-  active: boolean
+  installation_type: string
+  environment: string
   status: string
-  // Common extended
-  year_installed: number | null
-  description: string | null
-  orientation: string | null
-  // Platform structure
-  water_depth: number | null
-  altitude: number | null
-  jacket_length_m: number | null
-  jacket_width_m: number | null
-  jacket_weight: number | null
-  nb_piles: number | null
-  pile_diameter_inch: number | null
-  pile_count_per_leg: number | null
-  deck_level: number | null
-  top_deck_load: number | null
-  has_winj: boolean | null
-  has_power: boolean | null
-  // Equipment (crane, separator, etc.)
-  capacity: number | null
-  max_range: number | null
-  equipment_subtype: string | null
-  manufacturer: string | null
-  model_ref: string | null
-  last_inspection: string | null
-  next_inspection: string | null
-  // Pipeline
-  connected_asset_id: string | null
-  pipeline_type: string | null
-  pipeline_diameter: string | null
-  pipeline_length: number | null
-  // GIS / Geometry
-  geometry: { type: string; coordinates: number[][] } | null
-  boundary: { type: string; coordinates: number[][][] } | null
-  // Equipment positioning
-  deck_id: string | null
-  elevation_msl: number | null
-  position_x: number | null
-  position_y: number | null
-  position_z: number | null
-  // Equipment dimensions
-  length_m: number | null
-  width_m: number | null
-  height_m: number | null
-  weight_t: number | null
-  // Metadata
-  metadata: Record<string, unknown> | null
-  created_at: string
-}
-
-export interface PlatformDeck {
-  id: string
-  asset_id: string
-  name: string
-  level_number: number
-  elevation_msl: number | null
-  length_m: number | null
-  width_m: number | null
-  max_load_t_m2: number | null
-  notes: string | null
-  active: boolean
-  created_at: string | null
-}
-
-export interface AssetCreate {
-  parent_id?: string | null
-  type: string
-  code?: string
-  name: string
   latitude?: number | null
   longitude?: number | null
-  geometry?: {
-    type: 'point' | 'linestring' | 'polygon' | 'multipoint'
-    coordinates: number[][]
-  } | null
-  allow_overlap?: boolean
-  metadata?: Record<string, unknown> | null
+  water_depth_m?: number | null
+  is_manned: boolean
+  pob_max?: number | null
+  design_life_years?: number | null
+  notes?: string | null
+  created_at: string
+  updated_at: string
 }
 
 export interface AssetTreeNode {
@@ -115,6 +42,7 @@ export interface AssetTreeNode {
   code: string
   name: string
   type: string
+  status: string
   children: AssetTreeNode[]
 }
 

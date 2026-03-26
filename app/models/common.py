@@ -309,7 +309,7 @@ class UserGroup(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     asset_scope: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("assets.id")
+        UUID(as_uuid=True), ForeignKey("ar_installations.id")
     )
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
@@ -483,153 +483,6 @@ class Setting(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
-
-
-# ─── Assets (forward declaration for FK) ─────────────────────────────────────
-
-class Asset(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
-    __tablename__ = "assets"
-    __table_args__ = (
-        Index("idx_assets_entity", "entity_id"),
-        Index("idx_assets_parent", "parent_id"),
-        Index("idx_assets_type", "entity_id", "type"),
-        UniqueConstraint("entity_id", "code", name="uq_asset_entity_code"),
-    )
-
-    entity_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
-    )
-    parent_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("assets.id")
-    )
-    type: Mapped[str] = mapped_column(String(50), nullable=False)
-    code: Mapped[str] = mapped_column(String(50), nullable=False)  # unique per entity via uq_asset_entity_code
-    name: Mapped[str] = mapped_column(String(200), nullable=False)
-    path: Mapped[str | None] = mapped_column(String(500))  # ltree stored as text
-    latitude: Mapped[float | None] = mapped_column()
-    longitude: Mapped[float | None] = mapped_column()
-    allow_overlap: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    max_pax: Mapped[int | None] = mapped_column(Integer)
-    permanent_ops_quota: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    status: Mapped[str] = mapped_column(String(30), default="operational", nullable=False)
-    metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB)
-
-    # ── Extended fields (common) ──
-    year_installed: Mapped[int | None] = mapped_column(Integer)
-    description: Mapped[str | None] = mapped_column(Text)
-    orientation: Mapped[str | None] = mapped_column(String(50))  # Platform orientation (degrees)
-    # ── Platform structure ──
-    water_depth: Mapped[float | None] = mapped_column(Float)  # m — offshore (null = onshore)
-    altitude: Mapped[float | None] = mapped_column(Float)  # m — onshore elevation
-    jacket_dimensions: Mapped[str | None] = mapped_column(String(100))  # DEPRECATED — use jacket_length_m + jacket_width_m
-    jacket_length_m: Mapped[float | None] = mapped_column(Float)  # Jacket length (m)
-    jacket_width_m: Mapped[float | None] = mapped_column(Float)  # Jacket width (m)
-    jacket_weight: Mapped[float | None] = mapped_column(Float)  # Tonnes
-    nb_piles: Mapped[int | None] = mapped_column(Integer)  # Total piles
-    pile_diameter: Mapped[str | None] = mapped_column(String(50))  # DEPRECATED — use pile_diameter_inch + pile_count_per_leg
-    pile_diameter_inch: Mapped[float | None] = mapped_column(Float)  # Pile diameter (inches)
-    pile_count_per_leg: Mapped[int | None] = mapped_column(Integer)  # Piles per leg
-    deck_dimensions: Mapped[str | None] = mapped_column(String(100))  # DEPRECATED — use PlatformDeck
-    deck_level: Mapped[int | None] = mapped_column(Integer)  # Number of deck levels
-    top_deck_load: Mapped[float | None] = mapped_column(Float)  # T/m² — overall platform max
-    has_winj: Mapped[bool | None] = mapped_column(Boolean)  # Water injection
-    has_power: Mapped[bool | None] = mapped_column(Boolean)  # Power generation
-    # ── Equipment fields (crane, separator, etc.) ──
-    capacity: Mapped[float | None] = mapped_column(Float)  # T for crane, m³ for bac, etc.
-    max_range: Mapped[float | None] = mapped_column(Float)  # m — crane max reach
-    equipment_subtype: Mapped[str | None] = mapped_column(String(50))  # SUR RAILS, SUR FUT, PEDESTAL, etc.
-    manufacturer: Mapped[str | None] = mapped_column(String(200))
-    model_ref: Mapped[str | None] = mapped_column(String(200))
-    last_inspection: Mapped[date | None] = mapped_column(Date)
-    next_inspection: Mapped[date | None] = mapped_column(Date)
-    # ── Pipeline fields ──
-    connected_asset_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("assets.id"), nullable=True
-    )  # The other end of the pipe
-    pipeline_type: Mapped[str | None] = mapped_column(String(30))  # gas, oil, water
-    pipeline_diameter: Mapped[str | None] = mapped_column(String(50))  # e.g. "12\""
-    pipeline_length: Mapped[float | None] = mapped_column(Float)  # km
-    # ── GIS / Geometry ──
-    geometry: Mapped[dict | None] = mapped_column(JSONB)  # GeoJSON: point, linestring, polygon, multipoint
-    boundary: Mapped[dict | None] = mapped_column(JSONB)  # GeoJSON polygon for geographic limits
-    # ── Equipment positioning (3D on platform) ──
-    deck_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("platform_decks.id"), nullable=True
-    )  # Which deck the equipment is on
-    deck_name: Mapped[str | None] = mapped_column(String(50))  # DEPRECATED — use deck_id
-    elevation_msl: Mapped[float | None] = mapped_column(Float)  # Height above Mean Sea Level (m)
-    position_x: Mapped[float | None] = mapped_column(Float)  # Local X on platform (m)
-    position_y: Mapped[float | None] = mapped_column(Float)  # Local Y on platform (m)
-    position_z: Mapped[float | None] = mapped_column(Float)  # Local Z / height from deck (m)
-    # ── Equipment dimensions ──
-    length_m: Mapped[float | None] = mapped_column(Float)  # Length (m)
-    width_m: Mapped[float | None] = mapped_column(Float)  # Width (m)
-    height_m: Mapped[float | None] = mapped_column(Float)  # Height (m)
-    weight_t: Mapped[float | None] = mapped_column(Float)  # Weight (tonnes)
-
-    parent: Mapped["Asset | None"] = relationship(remote_side="Asset.id", foreign_keys=[parent_id])
-    children: Mapped[list["Asset"]] = relationship(back_populates="parent", foreign_keys=[parent_id])
-    connected_asset: Mapped["Asset | None"] = relationship(foreign_keys=[connected_asset_id])
-    lifting_charts: Mapped[list["CraneLiftingChart"]] = relationship(back_populates="asset", cascade="all, delete-orphan")
-    decks: Mapped[list["PlatformDeck"]] = relationship(back_populates="asset", cascade="all, delete-orphan", foreign_keys="PlatformDeck.asset_id")
-    deck: Mapped["PlatformDeck | None"] = relationship(foreign_keys=[deck_id])
-
-
-class PlatformDeck(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """Platform deck level — each platform has N decks with own dimensions and load capacity.
-
-    Equipments positioned on a platform reference a specific deck via deck_id on Asset.
-    """
-    __tablename__ = "platform_decks"
-    __table_args__ = (
-        Index("idx_platform_decks_asset", "asset_id"),
-    )
-
-    asset_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("assets.id", ondelete="CASCADE"), nullable=False
-    )
-    name: Mapped[str] = mapped_column(String(50), nullable=False)  # Main deck, Cellar deck, Boat landing...
-    level_number: Mapped[int] = mapped_column(Integer, default=1, nullable=False)  # 1, 2, 3...
-    elevation_msl: Mapped[float | None] = mapped_column(Float)  # Height above Mean Sea Level (m)
-    length_m: Mapped[float | None] = mapped_column(Float)
-    width_m: Mapped[float | None] = mapped_column(Float)
-    max_load_t_m2: Mapped[float | None] = mapped_column(Float)  # Max load (T/m²)
-    notes: Mapped[str | None] = mapped_column(Text)
-    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-
-    asset: Mapped["Asset"] = relationship(back_populates="decks", foreign_keys=[asset_id])
-
-
-class CraneLiftingChart(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """Crane lifting chart — load capacity curve for a specific configuration.
-
-    Each chart defines capacity vs radius for a given boom length, counterweight,
-    and wind condition. Used by the lifting assistance module to validate lifts.
-
-    data_points is a JSONB array of {radius: float, capacity: float} ordered by radius.
-    Example: [{"r": 4, "c": 10}, {"r": 6, "c": 8.5}, {"r": 8, "c": 6}, ...]
-    """
-    __tablename__ = "crane_lifting_charts"
-    __table_args__ = (
-        Index("idx_crane_lifting_charts_asset", "asset_id"),
-    )
-
-    asset_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("assets.id", ondelete="CASCADE"), nullable=False
-    )
-    name: Mapped[str] = mapped_column(String(200), nullable=False)  # "Config 10T - Boom 20m"
-    boom_length: Mapped[float | None] = mapped_column(Float)  # m
-    counterweight: Mapped[float | None] = mapped_column(Float)  # T
-    wind_speed_max: Mapped[float | None] = mapped_column(Float)  # m/s — max wind for this chart
-    operating_mode: Mapped[str | None] = mapped_column(String(50))  # main_boom, jib, luffing, etc.
-    radius_unit: Mapped[str] = mapped_column(String(10), default="m", server_default="m", nullable=False)
-    capacity_unit: Mapped[str] = mapped_column(String(10), default="T", server_default="T", nullable=False)
-    data_points: Mapped[list | None] = mapped_column(JSONB)  # [{r: float, c: float}, ...]
-    notes: Mapped[str | None] = mapped_column(Text)
-    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-
-    asset: Mapped["Asset"] = relationship(back_populates="lifting_charts")
 
 
 # ─── Tiers (companies) ──────────────────────────────────────────────────────
@@ -1503,7 +1356,7 @@ class Project(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     manager_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     parent_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="SET NULL"))
     tier_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("tiers.id"))
-    asset_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("assets.id"))
+    asset_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id"))
     external_ref: Mapped[str | None] = mapped_column(String(200), index=True)  # e.g. "gouti:<id>" for synced projects
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -1787,41 +1640,6 @@ class ExternalReference(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-
-
-# ─── Asset Type Configs ──────────────────────────────────────────────────────
-
-
-class AssetTypeConfig(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """Configurable asset type definitions — icon, colour, map marker shape, etc.
-
-    Each entity can define its own asset types (platform, wellhead, helipad,
-    pipeline, etc.) with visual customisation for map display.
-    """
-    __tablename__ = "asset_type_configs"
-    __table_args__ = (
-        Index("uq_asset_type_entity", "entity_id", "asset_type", unique=True),
-    )
-
-    entity_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
-    )
-    asset_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    label: Mapped[str] = mapped_column(String(200), nullable=False)
-    icon_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    icon_url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    color: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    map_marker_shape: Mapped[str] = mapped_column(
-        String(20), nullable=False, server_default="circle"
-    )
-    is_fixed_installation: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, server_default="true"
-    )
-    show_on_map: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, server_default="true"
-    )
-    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
-    active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
 
 
 # ─── Import Mappings ─────────────────────────────────────────────────────────

@@ -19,7 +19,8 @@ from uuid import UUID
 from sqlalchemy import and_, func as sqla_func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.common import Asset, Project, User
+from app.models.asset_registry import Installation
+from app.models.common import Project, User
 from app.models.planner import (
     PlannerActivity,
     PlannerConflict,
@@ -114,7 +115,7 @@ async def get_current_capacity(
         }
 
     # Fallback: read from asset itself
-    asset = await db.get(Asset, asset_id)
+    asset = await db.get(Installation, asset_id)
     if not asset:
         return None
     return {
@@ -123,7 +124,7 @@ async def get_current_capacity(
         "permanent_ops_quota": asset.permanent_ops_quota or 0,
         "max_pax_per_company": {},
         "effective_date": None,
-        "reason": "Asset default",
+        "reason": "Installation default",
         "changed_by": None,
     }
 
@@ -140,14 +141,14 @@ async def get_effective_capacity(
     own_max = cap["max_pax_total"] if cap else 0
 
     # Walk parent hierarchy
-    asset = await db.get(Asset, asset_id)
+    asset = await db.get(Installation, asset_id)
     if not asset:
         return own_max
 
     current = asset
     effective = own_max
     while current and current.parent_id:
-        parent = await db.get(Asset, current.parent_id)
+        parent = await db.get(Installation, current.parent_id)
         if parent:
             parent_cap = await get_current_capacity(db, parent.id, target)
             parent_max = parent_cap["max_pax_total"] if parent_cap else (parent.max_pax or 0)
@@ -392,7 +393,7 @@ async def get_gantt_data(
     asset_map: dict[UUID, dict] = {}
     for act in activities:
         if act.asset_id not in asset_map:
-            asset = await db.get(Asset, act.asset_id)
+            asset = await db.get(Installation, act.asset_id)
             cap = await get_current_capacity(db, act.asset_id)
             asset_map[act.asset_id] = {
                 "id": str(act.asset_id),
@@ -441,15 +442,15 @@ async def get_capacity_heatmap(
     Returns a flat list of {asset_id, asset_name, date, saturation_pct, residual}.
     """
     # Get relevant assets
-    asset_query = select(Asset).where(
-        Asset.entity_id == entity_id,
-        Asset.active == True,  # noqa: E712
+    asset_query = select(Installation).where(
+        Installation.entity_id == entity_id,
+        Installation.active == True,  # noqa: E712
     )
     if asset_ids:
-        asset_query = asset_query.where(Asset.id.in_(asset_ids))
+        asset_query = asset_query.where(Installation.id.in_(asset_ids))
     else:
         # Only assets with max_pax > 0 (sites)
-        asset_query = asset_query.where(Asset.max_pax > 0)
+        asset_query = asset_query.where(Installation.max_pax > 0)
 
     assets_result = await db.execute(asset_query)
     assets = assets_result.scalars().all()

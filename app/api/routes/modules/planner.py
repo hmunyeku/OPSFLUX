@@ -21,7 +21,8 @@ from app.core.database import get_db
 from app.services.core.delete_service import delete_entity
 from app.core.events import OpsFluxEvent, event_bus
 from app.core.pagination import PaginationParams, paginate
-from app.models.common import Asset, Project, User
+from app.models.asset_registry import Installation
+from app.models.common import Project, User
 from app.models.planner import (
     PlannerActivity,
     PlannerConflict,
@@ -109,8 +110,8 @@ async def _get_activity_or_404(
 async def _enrich_activity(db: AsyncSession, activity: PlannerActivity) -> dict:
     """Build a dict from an activity with enriched names."""
     d = {c.key: getattr(activity, c.key) for c in activity.__table__.columns}
-    # Asset name
-    asset = await db.get(Asset, activity.asset_id)
+    # Installation name
+    asset = await db.get(Installation, activity.asset_id)
     d["asset_name"] = asset.name if asset else None
     # Project name
     if activity.project_id:
@@ -137,7 +138,7 @@ async def _enrich_activity(db: AsyncSession, activity: PlannerActivity) -> dict:
 
 
 async def _compute_daily_capacity(
-    db: AsyncSession, asset: Asset, entity_id: UUID, target_date: date
+    db: AsyncSession, asset: Installation, entity_id: UUID, target_date: date
 ) -> dict:
     """Compute capacity for a specific asset on a specific date."""
     total = asset.max_pax or 0
@@ -181,7 +182,7 @@ async def _detect_and_create_conflicts(
     Called after submit or validate. Creates PlannerConflict records for
     each day where capacity is exceeded.
     """
-    asset = await db.get(Asset, activity.asset_id)
+    asset = await db.get(Installation, activity.asset_id)
     if not asset or not asset.max_pax:
         return []
 
@@ -330,10 +331,10 @@ async def list_activities(
     query = (
         select(
             PlannerActivity,
-            Asset.name.label("asset_name"),
+            Installation.name.label("asset_name"),
             Project.name.label("project_name"),
         )
-        .outerjoin(Asset, PlannerActivity.asset_id == Asset.id)
+        .outerjoin(Installation, PlannerActivity.asset_id == Installation.id)
         .outerjoin(Project, PlannerActivity.project_id == Project.id)
         .where(PlannerActivity.entity_id == entity_id, PlannerActivity.active == True)
     )
@@ -561,7 +562,7 @@ async def submit_activity(
 
     # Emit conflict events (conflict.created for each new conflict)
     for conflict in conflicts:
-        asset = await db.get(Asset, activity.asset_id)
+        asset = await db.get(Installation, activity.asset_id)
         await event_bus.publish(OpsFluxEvent(
             event_type="planner.conflict.created",
             payload={
@@ -837,8 +838,8 @@ async def list_conflicts(
     db: AsyncSession = Depends(get_db),
 ):
     query = (
-        select(PlannerConflict, Asset.name.label("asset_name"))
-        .outerjoin(Asset, PlannerConflict.asset_id == Asset.id)
+        select(PlannerConflict, Installation.name.label("asset_name"))
+        .outerjoin(Installation, PlannerConflict.asset_id == Installation.id)
         .where(PlannerConflict.entity_id == entity_id, PlannerConflict.active == True)
     )
 
@@ -932,7 +933,7 @@ async def resolve_conflict(
     await db.refresh(conflict)
 
     d = {c.key: getattr(conflict, c.key) for c in conflict.__table__.columns}
-    asset = await db.get(Asset, conflict.asset_id)
+    asset = await db.get(Installation, conflict.asset_id)
     d["asset_name"] = asset.name if asset else None
     d["resolved_by_name"] = f"{current_user.first_name} {current_user.last_name}"
     junction_result = await db.execute(
@@ -984,9 +985,9 @@ async def get_capacity(
 
     Formula: residual = max_pax - permanent_ops_quota - sum(validated activities pax_quota)
     """
-    asset = await db.get(Asset, asset_id)
+    asset = await db.get(Installation, asset_id)
     if not asset:
-        raise HTTPException(404, "Asset not found")
+        raise HTTPException(404, "Installation not found")
 
     total = asset.max_pax or 0
     perm_ops = asset.permanent_ops_quota or 0
@@ -1120,9 +1121,9 @@ async def get_availability(
     """
     from app.services.modules.planner_service import check_availability
 
-    asset = await db.get(Asset, asset_id)
+    asset = await db.get(Installation, asset_id)
     if not asset:
-        raise HTTPException(404, "Asset not found")
+        raise HTTPException(404, "Installation not found")
 
     result = await check_availability(
         db, entity_id, asset_id, start, end, exclude_activity_id
@@ -1162,7 +1163,7 @@ async def impact_preview(
     )
 
 
-# ── Asset Capacities (historized — never UPDATE, always INSERT) ───────────
+# ── Installation Capacities (historized — never UPDATE, always INSERT) ───────────
 
 
 @router.get("/asset-capacities/{asset_id}")
@@ -1221,9 +1222,9 @@ async def create_asset_capacity(
     from sqlalchemy import text as sa_text
     import json
 
-    asset = await db.get(Asset, asset_id)
+    asset = await db.get(Installation, asset_id)
     if not asset:
-        raise HTTPException(404, "Asset not found")
+        raise HTTPException(404, "Installation not found")
 
     eff_date = effective_date or date.today()
     pax_company = json.dumps(max_pax_per_company or {})
@@ -1410,7 +1411,7 @@ async def get_calendar(
     # Fetch asset info for capacity (if asset_id specified)
     asset = None
     if asset_id:
-        asset = await db.get(Asset, asset_id)
+        asset = await db.get(Installation, asset_id)
 
     # Group activities by day
     days_map: dict[date, dict] = {}

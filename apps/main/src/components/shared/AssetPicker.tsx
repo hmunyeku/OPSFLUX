@@ -24,6 +24,7 @@ interface RecentAsset {
   code: string
   name: string
   type: string
+  status?: string
   count: number
   lastUsed: number
 }
@@ -318,7 +319,7 @@ export function AssetPicker({
                     {recentAssets.map(r => (
                       <button
                         key={r.id}
-                        onClick={() => handleSelect({ id: r.id, code: r.code, name: r.name, type: r.type, children: [] })}
+                        onClick={() => handleSelect({ id: r.id, code: r.code, name: r.name, type: r.type, status: r.status || '', children: [] })}
                         className={cn(
                           'flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-sm transition-colors',
                           r.id === value

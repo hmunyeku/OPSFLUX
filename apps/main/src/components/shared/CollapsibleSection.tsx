@@ -207,8 +207,14 @@ export function CollapsibleSection({
           />
           <h2 className="gl-heading-2 text-left">{title}</h2>
         </button>
-        {headerAction && expanded && (
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0" onClick={(e) => e.stopPropagation()}>
+        {headerAction && (
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0" onClick={(e) => {
+            e.stopPropagation()
+            if (!expanded) {
+              setExpanded(true)
+              if (storageKey) setStoredState(storageKey, id, true)
+            }
+          }}>
             {headerAction}
           </div>
         )}

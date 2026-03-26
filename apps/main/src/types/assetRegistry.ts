@@ -21,13 +21,20 @@ export interface OilField {
   basin?: string | null
   block_name?: string | null
   license_number?: string | null
+  license_type?: string | null
+  license_expiry_date?: string | null
   operator?: string | null
+  working_interest_pct?: number | null
+  regulator?: string | null
   environment?: string | null
   centroid_latitude?: number | null
   centroid_longitude?: number | null
   area_km2?: number | null
   discovery_year?: number | null
   first_production_year?: number | null
+  reservoir_formation?: string | null
+  original_oil_in_place_mmbo?: number | null
+  recoverable_reserves_mmbo?: number | null
   status: OperationalStatus
   notes?: string | null
   created_at: string
@@ -140,12 +147,31 @@ export interface RegistryPipeline {
   service: string
   from_installation_id: string
   to_installation_id: string
+  from_node_description?: string | null
+  to_node_description?: string | null
   nominal_diameter_in: number
+  od_mm?: number | null
+  wall_thickness_mm?: number | null
   total_length_km?: number | null
+  onshore_length_km?: number | null
+  offshore_length_km?: number | null
   status: OperationalStatus
   pipe_material?: string | null
+  pipe_grade?: string | null
+  coating_external?: string | null
+  coating_internal?: string | null
   design_pressure_barg: number
   design_temp_max_c: number
+  design_temp_min_c?: number | null
+  maop_barg?: number | null
+  fluid_description?: string | null
+  h2s_ppm?: number | null
+  co2_mol_pct?: number | null
+  piggable?: boolean
+  design_code?: string | null
+  design_life_years?: number | null
+  installation_year?: number | null
+  corrosion_allowance_mm?: number | null
   notes?: string | null
   created_at: string
   updated_at: string

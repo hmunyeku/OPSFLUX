@@ -32,6 +32,13 @@ import {
   usePipeline, useUpdatePipeline, useDeletePipeline,
 } from '@/hooks/useAssetRegistry'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
+import {
+  CreateFieldPanel,
+  CreateSitePanel,
+  CreateInstallationPanel,
+  CreateEquipmentPanel,
+  CreatePipelinePanel,
+} from './CreatePanels'
 
 
 // ── Status helpers ──────────────────────────────────────────
@@ -550,26 +557,31 @@ export function PipelineDetailPanel({ id }: { id: string }) {
 // ════════════════════════════════════════════════════════════════
 
 registerPanelRenderer('ar-field', (view) => {
+  if (view.type === 'create') return <CreateFieldPanel />
   if ((view.type === 'detail' || view.type === 'edit') && 'id' in view) return <FieldDetailPanel id={view.id} />
   return null
 })
 
 registerPanelRenderer('ar-site', (view) => {
+  if (view.type === 'create') return <CreateSitePanel />
   if ((view.type === 'detail' || view.type === 'edit') && 'id' in view) return <SiteDetailPanel id={view.id} />
   return null
 })
 
 registerPanelRenderer('ar-installation', (view) => {
+  if (view.type === 'create') return <CreateInstallationPanel />
   if ((view.type === 'detail' || view.type === 'edit') && 'id' in view) return <InstallationDetailPanel id={view.id} />
   return null
 })
 
 registerPanelRenderer('ar-equipment', (view) => {
+  if (view.type === 'create') return <CreateEquipmentPanel />
   if ((view.type === 'detail' || view.type === 'edit') && 'id' in view) return <EquipmentDetailPanel id={view.id} />
   return null
 })
 
 registerPanelRenderer('ar-pipeline', (view) => {
+  if (view.type === 'create') return <CreatePipelinePanel />
   if ((view.type === 'detail' || view.type === 'edit') && 'id' in view) return <PipelineDetailPanel id={view.id} />
   return null
 })

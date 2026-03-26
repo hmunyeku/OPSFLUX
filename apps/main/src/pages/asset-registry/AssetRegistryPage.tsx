@@ -493,11 +493,24 @@ function PipelinesTab() {
 // MAIN PAGE
 // ════════════════════════════════════════════════════════════════
 
+const TAB_MODULE: Record<TabKey, string> = {
+  fields: 'ar-field',
+  sites: 'ar-site',
+  installations: 'ar-installation',
+  equipment: 'ar-equipment',
+  pipelines: 'ar-pipeline',
+}
+
 export function AssetRegistryPage() {
   const { t } = useTranslation()
   const { hasPermission } = usePermission()
   const canCreate = hasPermission('asset.create')
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const [activeTab, setActiveTab] = useState<TabKey>('fields')
+
+  const handleCreate = useCallback(() => {
+    openDynamicPanel({ type: 'create', module: TAB_MODULE[activeTab] })
+  }, [activeTab, openDynamicPanel])
 
   const tabContent: Record<TabKey, JSX.Element> = {
     fields: <FieldsTab />,
@@ -514,7 +527,7 @@ export function AssetRegistryPage() {
         icon={Layers}
       >
         {canCreate && (
-          <ToolbarButton icon={Plus} label={t('common.create')} onClick={() => {/* TODO: open create panel based on activeTab */}} />
+          <ToolbarButton icon={Plus} label={t('common.create')} onClick={handleCreate} />
         )}
       </PanelHeader>
       <PanelContent>

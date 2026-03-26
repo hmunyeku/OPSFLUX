@@ -1,13 +1,25 @@
 /**
  * Detail panels for Asset Registry entities.
  * Each panel follows the DynamicPanelShell pattern with:
- * - Header with title + status badge
- * - Inline editable fields (if permission)
- * - Tabs: Fichiers | Notes
+ * - Header with entity-type icon + title + status badge
+ * - Semantic tab icons: Info, Paperclip, MessageSquare, ExternalLink
+ * - 4 tabs: Détails | Fichiers | Notes | Références
+ * - FK fields rendered as CrossModuleLink
+ * - ExternalRefManager in the Références tab
  */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { MapPin, Factory, Landmark, Wrench, Ship } from 'lucide-react'
+import {
+  MapPin,
+  Factory,
+  Landmark,
+  Wrench,
+  Ship,
+  Info,
+  Paperclip,
+  MessageSquare,
+  ExternalLink,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TabBar, TabButton } from '@/components/ui/Tabs'
 import {
@@ -21,6 +33,8 @@ import {
 } from '@/components/layout/DynamicPanel'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { NoteManager } from '@/components/shared/NoteManager'
+import { ExternalRefManager } from '@/components/shared/ExternalRefManager'
+import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { TagManager } from '@/components/shared/TagManager'
 import { usePermission } from '@/hooks/usePermission'
 import { useUIStore } from '@/stores/uiStore'
@@ -69,7 +83,7 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
-type PanelTab = 'details' | 'files' | 'notes'
+type PanelTab = 'details' | 'files' | 'notes' | 'refs'
 
 
 // ════════════════════════════════════════════════════════════════
@@ -116,9 +130,10 @@ export function FieldDetailPanel({ id }: { id: string }) {
     >
       <div className="border-b border-border px-3">
         <TabBar>
-          <TabButton icon={MapPin} label={t('common.details')} active={tab === 'details'} onClick={() => setTab('details')} />
-          <TabButton icon={Landmark} label={t('common.files')} active={tab === 'files'} onClick={() => setTab('files')} />
-          <TabButton icon={Factory} label={t('common.notes')} active={tab === 'notes'} onClick={() => setTab('notes')} />
+          <TabButton icon={Info} label={t('common.details')} active={tab === 'details'} onClick={() => setTab('details')} />
+          <TabButton icon={Paperclip} label={t('common.files')} active={tab === 'files'} onClick={() => setTab('files')} />
+          <TabButton icon={MessageSquare} label={t('common.notes')} active={tab === 'notes'} onClick={() => setTab('notes')} />
+          <TabButton icon={ExternalLink} label={t('assets.references')} active={tab === 'refs'} onClick={() => setTab('refs')} />
         </TabBar>
       </div>
 
@@ -170,6 +185,12 @@ export function FieldDetailPanel({ id }: { id: string }) {
           <NoteManager ownerType="ar_field" ownerId={id} />
         </div>
       )}
+
+      {tab === 'refs' && (
+        <div className="p-4">
+          <ExternalRefManager ownerType="ar_field" ownerId={id} />
+        </div>
+      )}
     </DynamicPanelShell>
   )
 }
@@ -214,9 +235,10 @@ export function SiteDetailPanel({ id }: { id: string }) {
     >
       <div className="border-b border-border px-3">
         <TabBar>
-          <TabButton icon={Landmark} label={t('common.details')} active={tab === 'details'} onClick={() => setTab('details')} />
-          <TabButton icon={Landmark} label={t('common.files')} active={tab === 'files'} onClick={() => setTab('files')} />
-          <TabButton icon={Landmark} label={t('common.notes')} active={tab === 'notes'} onClick={() => setTab('notes')} />
+          <TabButton icon={Info} label={t('common.details')} active={tab === 'details'} onClick={() => setTab('details')} />
+          <TabButton icon={Paperclip} label={t('common.files')} active={tab === 'files'} onClick={() => setTab('files')} />
+          <TabButton icon={MessageSquare} label={t('common.notes')} active={tab === 'notes'} onClick={() => setTab('notes')} />
+          <TabButton icon={ExternalLink} label={t('assets.references')} active={tab === 'refs'} onClick={() => setTab('refs')} />
         </TabBar>
       </div>
 
@@ -233,6 +255,9 @@ export function SiteDetailPanel({ id }: { id: string }) {
               ? <InlineEditableTags label={t('common.status')} value={site.status} options={STATUS_OPTIONS} onSave={(v) => handleSave('status', v)} />
               : <ReadOnlyRow label={t('common.status')} value={<StatusBadge status={site.status} />} />
             }
+            <ReadOnlyRow label={t('assets.field_parent')} value={
+              <CrossModuleLink module="ar-field" id={site.field_id} label={`Field: ${site.field_id.slice(0, 8)}...`} />
+            } />
             <ReadOnlyRow label={t('assets.environment')} value={site.environment} />
             <ReadOnlyRow label={t('assets.country')} value={site.country} />
           </FormSection>
@@ -243,6 +268,12 @@ export function SiteDetailPanel({ id }: { id: string }) {
             <ReadOnlyRow label={t('assets.water_depth')} value={site.water_depth_m ? `${site.water_depth_m} m` : '—'} />
           </FormSection>
 
+          <FormSection title={t('assets.location')} collapsible storageKey="panel.ar-site.sections" id="ar-site-location">
+            <ReadOnlyRow label="Latitude" value={site.latitude ?? '—'} />
+            <ReadOnlyRow label="Longitude" value={site.longitude ?? '—'} />
+            <ReadOnlyRow label={t('assets.region')} value={site.region || '—'} />
+          </FormSection>
+
           <FormSection title="Tags">
             <TagManager ownerType="ar_site" ownerId={id} compact />
           </FormSection>
@@ -251,6 +282,7 @@ export function SiteDetailPanel({ id }: { id: string }) {
 
       {tab === 'files' && <div className="p-4"><AttachmentManager ownerType="ar_site" ownerId={id} /></div>}
       {tab === 'notes' && <div className="p-4"><NoteManager ownerType="ar_site" ownerId={id} /></div>}
+      {tab === 'refs' && <div className="p-4"><ExternalRefManager ownerType="ar_site" ownerId={id} /></div>}
     </DynamicPanelShell>
   )
 }
@@ -295,9 +327,10 @@ export function InstallationDetailPanel({ id }: { id: string }) {
     >
       <div className="border-b border-border px-3">
         <TabBar>
-          <TabButton icon={Factory} label={t('common.details')} active={tab === 'details'} onClick={() => setTab('details')} />
-          <TabButton icon={Factory} label={t('common.files')} active={tab === 'files'} onClick={() => setTab('files')} />
-          <TabButton icon={Factory} label={t('common.notes')} active={tab === 'notes'} onClick={() => setTab('notes')} />
+          <TabButton icon={Info} label={t('common.details')} active={tab === 'details'} onClick={() => setTab('details')} />
+          <TabButton icon={Paperclip} label={t('common.files')} active={tab === 'files'} onClick={() => setTab('files')} />
+          <TabButton icon={MessageSquare} label={t('common.notes')} active={tab === 'notes'} onClick={() => setTab('notes')} />
+          <TabButton icon={ExternalLink} label={t('assets.references')} active={tab === 'refs'} onClick={() => setTab('refs')} />
         </TabBar>
       </div>
 
@@ -314,6 +347,9 @@ export function InstallationDetailPanel({ id }: { id: string }) {
               ? <InlineEditableTags label={t('common.status')} value={inst.status} options={STATUS_OPTIONS} onSave={(v) => handleSave('status', v)} />
               : <ReadOnlyRow label={t('common.status')} value={<StatusBadge status={inst.status} />} />
             }
+            <ReadOnlyRow label={t('assets.site_parent')} value={
+              <CrossModuleLink module="ar-site" id={inst.site_id} label={`Site: ${inst.site_id.slice(0, 8)}...`} />
+            } />
             <ReadOnlyRow label={t('assets.environment')} value={inst.environment} />
             <ReadOnlyRow label={t('assets.manned')} value={inst.is_manned ? t('common.yes') : t('common.no')} />
             <ReadOnlyRow label={t('assets.pob_capacity')} value={inst.pob_max ?? '—'} />
@@ -337,6 +373,7 @@ export function InstallationDetailPanel({ id }: { id: string }) {
 
       {tab === 'files' && <div className="p-4"><AttachmentManager ownerType="ar_installation" ownerId={id} /></div>}
       {tab === 'notes' && <div className="p-4"><NoteManager ownerType="ar_installation" ownerId={id} /></div>}
+      {tab === 'refs' && <div className="p-4"><ExternalRefManager ownerType="ar_installation" ownerId={id} /></div>}
     </DynamicPanelShell>
   )
 }
@@ -345,6 +382,70 @@ export function InstallationDetailPanel({ id }: { id: string }) {
 // ════════════════════════════════════════════════════════════════
 // EQUIPMENT DETAIL
 // ════════════════════════════════════════════════════════════════
+
+/** Render extra fields contextual to the equipment class */
+function EquipmentContextualFields({ equip }: { equip: Record<string, unknown> }) {
+  const { t } = useTranslation()
+  const eqClass = (equip.equipment_class as string) || ''
+
+  // Common certification / drawing fields — shown for all classes
+  const commonRows = (
+    <>
+      {equip.cert_number && <ReadOnlyRow label={t('assets.cert_number')} value={equip.cert_number as string} />}
+      {equip.cert_authority && <ReadOnlyRow label={t('assets.cert_authority')} value={equip.cert_authority as string} />}
+      {equip.drawing_number && <ReadOnlyRow label={t('assets.drawing_number')} value={equip.drawing_number as string} />}
+      {equip.p_and_id_ref && <ReadOnlyRow label={t('assets.p_and_id_ref')} value={equip.p_and_id_ref as string} />}
+      {equip.asset_number && <ReadOnlyRow label={t('assets.asset_number')} value={equip.asset_number as string} />}
+    </>
+  )
+
+  // Class-specific contextual info
+  const classUpper = eqClass.toUpperCase()
+
+  if (classUpper === 'CRANE' || classUpper === 'LIFTING') {
+    return (
+      <FormSection title={t('assets.crane_details')} collapsible storageKey="panel.ar-equip.sections" id="ar-equip-crane">
+        <ReadOnlyRow label={t('assets.area')} value={(equip.area as string) || '—'} />
+        {equip.is_mobile !== undefined && (
+          <ReadOnlyRow label={t('assets.is_mobile')} value={equip.is_mobile ? t('common.yes') : t('common.no')} />
+        )}
+        {commonRows}
+      </FormSection>
+    )
+  }
+
+  if (classUpper === 'SEPARATOR' || classUpper === 'VESSEL') {
+    return (
+      <FormSection title={t('assets.vessel_details')} collapsible storageKey="panel.ar-equip.sections" id="ar-equip-vessel">
+        <ReadOnlyRow label={t('assets.area')} value={(equip.area as string) || '—'} />
+        {equip.sub_area ? <ReadOnlyRow label={t('assets.sub_area')} value={equip.sub_area as string} /> : null}
+        {commonRows}
+      </FormSection>
+    )
+  }
+
+  if (classUpper === 'PUMP' || classUpper === 'COMPRESSOR') {
+    return (
+      <FormSection title={t('assets.rotating_details')} collapsible storageKey="panel.ar-equip.sections" id="ar-equip-rotating">
+        <ReadOnlyRow label={t('assets.area')} value={(equip.area as string) || '—'} />
+        {equip.sub_area ? <ReadOnlyRow label={t('assets.sub_area')} value={equip.sub_area as string} /> : null}
+        {commonRows}
+      </FormSection>
+    )
+  }
+
+  // Generic fallback for other classes
+  return (
+    <FormSection title={t('assets.technical_details')} collapsible storageKey="panel.ar-equip.sections" id="ar-equip-tech">
+      <ReadOnlyRow label={t('assets.area')} value={(equip.area as string) || '—'} />
+      {equip.sub_area ? <ReadOnlyRow label={t('assets.sub_area')} value={equip.sub_area as string} /> : null}
+      {equip.is_mobile !== undefined && equip.is_mobile && (
+        <ReadOnlyRow label={t('assets.is_mobile')} value={t('common.yes')} />
+      )}
+      {commonRows}
+    </FormSection>
+  )
+}
 
 export function EquipmentDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
@@ -381,9 +482,10 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
     >
       <div className="border-b border-border px-3">
         <TabBar>
-          <TabButton icon={Wrench} label={t('common.details')} active={tab === 'details'} onClick={() => setTab('details')} />
-          <TabButton icon={Wrench} label={t('common.files')} active={tab === 'files'} onClick={() => setTab('files')} />
-          <TabButton icon={Wrench} label={t('common.notes')} active={tab === 'notes'} onClick={() => setTab('notes')} />
+          <TabButton icon={Info} label={t('common.details')} active={tab === 'details'} onClick={() => setTab('details')} />
+          <TabButton icon={Paperclip} label={t('common.files')} active={tab === 'files'} onClick={() => setTab('files')} />
+          <TabButton icon={MessageSquare} label={t('common.notes')} active={tab === 'notes'} onClick={() => setTab('notes')} />
+          <TabButton icon={ExternalLink} label={t('assets.references')} active={tab === 'refs'} onClick={() => setTab('refs')} />
         </TabBar>
       </div>
 
@@ -400,6 +502,11 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
               ? <InlineEditableTags label={t('common.status')} value={equip.status} options={STATUS_OPTIONS} onSave={(v) => handleSave('status', v)} />
               : <ReadOnlyRow label={t('common.status')} value={<StatusBadge status={equip.status} />} />
             }
+            {equip.installation_id && (
+              <ReadOnlyRow label={t('assets.installation_parent')} value={
+                <CrossModuleLink module="ar-installation" id={equip.installation_id} label={`Installation: ${equip.installation_id.slice(0, 8)}...`} />
+              } />
+            )}
             {equip.criticality && (
               <ReadOnlyRow label={t('assets.criticality')} value={
                 <span className={cn('gl-badge', equip.criticality === 'A' ? 'gl-badge-danger' : equip.criticality === 'B' ? 'gl-badge-warning' : 'gl-badge-neutral')}>
@@ -428,6 +535,9 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
             <ReadOnlyRow label={t('assets.year_installed')} value={equip.year_installed ?? '—'} />
           </FormSection>
 
+          {/* Contextual fields based on equipment_class */}
+          <EquipmentContextualFields equip={equip as unknown as Record<string, unknown>} />
+
           <FormSection title="Tags">
             <TagManager ownerType="ar_equipment" ownerId={id} compact />
           </FormSection>
@@ -436,6 +546,7 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
 
       {tab === 'files' && <div className="p-4"><AttachmentManager ownerType="ar_equipment" ownerId={id} /></div>}
       {tab === 'notes' && <div className="p-4"><NoteManager ownerType="ar_equipment" ownerId={id} /></div>}
+      {tab === 'refs' && <div className="p-4"><ExternalRefManager ownerType="ar_equipment" ownerId={id} /></div>}
     </DynamicPanelShell>
   )
 }
@@ -480,9 +591,10 @@ export function PipelineDetailPanel({ id }: { id: string }) {
     >
       <div className="border-b border-border px-3">
         <TabBar>
-          <TabButton icon={Ship} label={t('common.details')} active={tab === 'details'} onClick={() => setTab('details')} />
-          <TabButton icon={Ship} label={t('common.files')} active={tab === 'files'} onClick={() => setTab('files')} />
-          <TabButton icon={Ship} label={t('common.notes')} active={tab === 'notes'} onClick={() => setTab('notes')} />
+          <TabButton icon={Info} label={t('common.details')} active={tab === 'details'} onClick={() => setTab('details')} />
+          <TabButton icon={Paperclip} label={t('common.files')} active={tab === 'files'} onClick={() => setTab('files')} />
+          <TabButton icon={MessageSquare} label={t('common.notes')} active={tab === 'notes'} onClick={() => setTab('notes')} />
+          <TabButton icon={ExternalLink} label={t('assets.references')} active={tab === 'refs'} onClick={() => setTab('refs')} />
         </TabBar>
       </div>
 
@@ -499,6 +611,23 @@ export function PipelineDetailPanel({ id }: { id: string }) {
               ? <InlineEditableTags label={t('common.status')} value={pipe.status} options={STATUS_OPTIONS} onSave={(v) => handleSave('status', v)} />
               : <ReadOnlyRow label={t('common.status')} value={<StatusBadge status={pipe.status} />} />
             }
+          </FormSection>
+
+          <FormSection title={t('assets.routing')} collapsible storageKey="panel.ar-pipe.sections" id="ar-pipe-routing">
+            <ReadOnlyRow label={t('assets.from_installation')} value={
+              <CrossModuleLink
+                module="ar-installation"
+                id={pipe.from_installation_id}
+                label={pipe.from_node_description || `Installation: ${pipe.from_installation_id.slice(0, 8)}...`}
+              />
+            } />
+            <ReadOnlyRow label={t('assets.to_installation')} value={
+              <CrossModuleLink
+                module="ar-installation"
+                id={pipe.to_installation_id}
+                label={pipe.to_node_description || `Installation: ${pipe.to_installation_id.slice(0, 8)}...`}
+              />
+            } />
           </FormSection>
 
           <FormSection title={t('assets.dimensions')} collapsible storageKey="panel.ar-pipe.sections" id="ar-pipe-dims">
@@ -547,6 +676,7 @@ export function PipelineDetailPanel({ id }: { id: string }) {
 
       {tab === 'files' && <div className="p-4"><AttachmentManager ownerType="ar_pipeline" ownerId={id} /></div>}
       {tab === 'notes' && <div className="p-4"><NoteManager ownerType="ar_pipeline" ownerId={id} /></div>}
+      {tab === 'refs' && <div className="p-4"><ExternalRefManager ownerType="ar_pipeline" ownerId={id} /></div>}
     </DynamicPanelShell>
   )
 }

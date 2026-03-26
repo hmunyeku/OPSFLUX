@@ -6,8 +6,12 @@
  * - FormGrid / DynamicPanelField for 2-column layout
  * - panelInputClass for input styling
  * - PanelActionButton for submit
+ * - TagSelector for status / enum selectors
+ * - CountrySelect for country fields
  * - useToast on success
  * - closeDynamicPanel after create
+ * - Dictionary-driven dropdowns with autocomplete fallback
+ * - All labels translated with t()
  *
  * Exported as named components — DetailPanels.tsx imports them
  * and dispatches based on `view.type === 'create'`.
@@ -24,6 +28,7 @@ import {
   TagSelector,
   panelInputClass,
 } from '@/components/layout/DynamicPanel'
+import { CountrySelect } from '@/components/shared/CountrySelect'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
 import { useDictionaryOptions } from '@/hooks/useDictionary'
@@ -46,9 +51,9 @@ import type {
 } from '@/types/assetRegistry'
 
 
-// ── Shared option arrays ───────────────────────────────────────
+// ── Shared fallback option arrays ────────────────────────────────
 
-const ENVIRONMENT_OPTIONS = [
+const ENVIRONMENT_FALLBACK = [
   { value: 'ONSHORE', label: 'Onshore' },
   { value: 'OFFSHORE', label: 'Offshore' },
   { value: 'SWAMP', label: 'Swamp' },
@@ -66,13 +71,13 @@ const STATUS_OPTIONS = [
   { value: 'ABANDONED', label: 'Abandonné' },
 ]
 
-const CRITICALITY_OPTIONS = [
+const CRITICALITY_FALLBACK = [
   { value: 'A', label: 'A — Critique' },
   { value: 'B', label: 'B — Majeur' },
   { value: 'C', label: 'C — Mineur' },
 ]
 
-const SITE_TYPE_OPTIONS = [
+const SITE_TYPE_FALLBACK = [
   { value: 'PRODUCTION', label: 'Production' },
   { value: 'DRILLING', label: 'Forage' },
   { value: 'PROCESSING', label: 'Traitement' },
@@ -83,7 +88,7 @@ const SITE_TYPE_OPTIONS = [
   { value: 'LOGISTICS', label: 'Logistique' },
 ]
 
-const INSTALLATION_TYPE_OPTIONS = [
+const INSTALLATION_TYPE_FALLBACK = [
   { value: 'FIXED_PLATFORM', label: 'Plateforme fixe' },
   { value: 'FPSO', label: 'FPSO' },
   { value: 'FSO', label: 'FSO' },
@@ -98,7 +103,7 @@ const INSTALLATION_TYPE_OPTIONS = [
   { value: 'MANIFOLD', label: 'Manifold' },
 ]
 
-const EQUIPMENT_CLASS_OPTIONS = [
+const EQUIPMENT_CLASS_FALLBACK = [
   { value: 'CRANE', label: 'Grue' },
   { value: 'SEPARATOR', label: 'Séparateur' },
   { value: 'PUMP', label: 'Pompe' },
@@ -116,7 +121,7 @@ const EQUIPMENT_CLASS_OPTIONS = [
   { value: 'PIPING', label: 'Tuyauterie' },
 ]
 
-const SERVICE_OPTIONS = [
+const SERVICE_FALLBACK = [
   { value: 'OIL', label: 'Huile' },
   { value: 'GAS', label: 'Gaz' },
   { value: 'WATER', label: 'Eau' },
@@ -127,6 +132,41 @@ const SERVICE_OPTIONS = [
   { value: 'HYDRAULIC', label: 'Hydraulique' },
   { value: 'POWER_CABLE', label: 'Câble énergie' },
   { value: 'UMBILICAL', label: 'Ombilical' },
+]
+
+const CRANE_TYPE_FALLBACK = [
+  { value: 'PEDESTAL', label: 'Pedestal' },
+  { value: 'LATTICE_BOOM', label: 'Lattice Boom' },
+  { value: 'TELESCOPIC', label: 'Telescopic' },
+  { value: 'KNUCKLE_BOOM', label: 'Knuckle Boom' },
+  { value: 'OVERHEAD', label: 'Overhead' },
+]
+
+const SEPARATOR_TYPE_FALLBACK = [
+  { value: 'TWO_PHASE', label: '2-Phase' },
+  { value: 'THREE_PHASE', label: '3-Phase' },
+  { value: 'TEST', label: 'Test' },
+  { value: 'SLUG_CATCHER', label: 'Slug Catcher' },
+]
+
+const ORIENTATION_FALLBACK = [
+  { value: 'HORIZONTAL', label: 'Horizontal' },
+  { value: 'VERTICAL', label: 'Vertical' },
+]
+
+const PUMP_TYPE_FALLBACK = [
+  { value: 'CENTRIFUGAL', label: 'Centrifugal' },
+  { value: 'RECIPROCATING', label: 'Reciprocating' },
+  { value: 'SCREW', label: 'Screw' },
+  { value: 'DIAPHRAGM', label: 'Diaphragm' },
+  { value: 'SUBMERSIBLE', label: 'Submersible' },
+]
+
+const TANK_TYPE_FALLBACK = [
+  { value: 'FIXED_ROOF', label: 'Fixed Roof' },
+  { value: 'FLOATING_ROOF', label: 'Floating Roof' },
+  { value: 'PRESSURISED', label: 'Pressurised' },
+  { value: 'UNDERGROUND', label: 'Underground' },
 ]
 
 
@@ -140,13 +180,14 @@ export function CreateFieldPanel() {
   const createField = useCreateField()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
 
-  const dictEnv = useDictionaryOptions('environment')
-  const envOpts = dictEnv.length > 0 ? dictEnv : ENVIRONMENT_OPTIONS
+  // Dictionary-driven options with fallback
+  const dictEnv = useDictionaryOptions('environment_type')
+  const envOptions = dictEnv.length > 0 ? dictEnv : ENVIRONMENT_FALLBACK
 
   const [form, setForm] = useState<Partial<OilFieldCreate>>({
     code: '',
     name: '',
-    country: 'CMR',
+    country: 'CM',
     operator: 'Perenco',
     environment: undefined,
     basin: '',
@@ -184,7 +225,6 @@ export function CreateFieldPanel() {
       status: form.status || 'OPERATIONAL',
       notes: form.notes || null,
     } as OilFieldCreate
-    // Include optional numeric/date fields if set
     if (form.license_type) (payload as any).license_type = form.license_type
     if (form.license_expiry_date) (payload as any).license_expiry_date = form.license_expiry_date
     if (form.working_interest_pct != null) (payload as any).working_interest_pct = form.working_interest_pct
@@ -225,7 +265,7 @@ export function CreateFieldPanel() {
     >
       <form id="create-field-form" onSubmit={handleSubmit} className="p-4 space-y-5">
         {/* ── Identity ── */}
-        <FormSection title={t('common.identity')}>
+        <FormSection title={t('assets.identity')}>
           <FormGrid>
             <DynamicPanelField label={t('common.code')} required>
               <input type="text" required maxLength={30} value={form.code} onChange={(e) => set({ code: e.target.value.toUpperCase() })} className={panelInputClass} placeholder="RIO-DEL-REY" />
@@ -236,7 +276,7 @@ export function CreateFieldPanel() {
           </FormGrid>
           <FormGrid>
             <DynamicPanelField label={t('assets.country')} required>
-              <input type="text" required minLength={2} maxLength={3} value={form.country} onChange={(e) => set({ country: e.target.value.toUpperCase() })} className={panelInputClass} placeholder="CMR" />
+              <CountrySelect value={form.country || null} onChange={(v) => set({ country: v })} />
             </DynamicPanelField>
             <DynamicPanelField label={t('assets.operator')}>
               <input type="text" value={form.operator || ''} onChange={(e) => set({ operator: e.target.value })} className={panelInputClass} placeholder="Perenco" />
@@ -246,7 +286,7 @@ export function CreateFieldPanel() {
             <DynamicPanelField label={t('assets.environment')}>
               <select value={form.environment || ''} onChange={(e) => set({ environment: e.target.value || undefined })} className={panelInputClass}>
                 <option value="">—</option>
-                {envOpts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {envOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </DynamicPanelField>
             <DynamicPanelField label={t('common.status')}>
@@ -356,11 +396,14 @@ export function CreateSitePanel() {
   const createSite = useCreateSite()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
 
+  // Parent data
   const { data: fieldsData } = useFields({ page: 1, page_size: 500 })
-  const dictEnv = useDictionaryOptions('environment')
+
+  // Dictionary-driven options with fallback
+  const dictEnv = useDictionaryOptions('environment_type')
   const dictSiteType = useDictionaryOptions('site_type')
-  const envOpts = dictEnv.length > 0 ? dictEnv : ENVIRONMENT_OPTIONS
-  const siteTypeOpts = dictSiteType.length > 0 ? dictSiteType : SITE_TYPE_OPTIONS
+  const envOptions = dictEnv.length > 0 ? dictEnv : ENVIRONMENT_FALLBACK
+  const siteTypeOptions = dictSiteType.length > 0 ? dictSiteType : SITE_TYPE_FALLBACK
 
   const [form, setForm] = useState<Partial<OilSiteCreate>>({
     field_id: '',
@@ -368,7 +411,7 @@ export function CreateSitePanel() {
     name: '',
     site_type: '',
     environment: '',
-    country: 'CMR',
+    country: 'CM',
     latitude: undefined,
     longitude: undefined,
     region: '',
@@ -426,7 +469,7 @@ export function CreateSitePanel() {
     >
       <form id="create-site-form" onSubmit={handleSubmit} className="p-4 space-y-5">
         {/* ── Parent & Identity ── */}
-        <FormSection title={t('common.identity')}>
+        <FormSection title={t('assets.identity')}>
           <FormGrid>
             <DynamicPanelField label={t('assets.field')} required>
               <select required value={form.field_id || ''} onChange={(e) => set({ field_id: e.target.value })} className={panelInputClass}>
@@ -447,7 +490,7 @@ export function CreateSitePanel() {
             <DynamicPanelField label={t('common.type')} required>
               <select required value={form.site_type || ''} onChange={(e) => set({ site_type: e.target.value })} className={panelInputClass}>
                 <option value="">{t('common.select')}...</option>
-                {siteTypeOpts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {siteTypeOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </DynamicPanelField>
           </FormGrid>
@@ -455,11 +498,11 @@ export function CreateSitePanel() {
             <DynamicPanelField label={t('assets.environment')} required>
               <select required value={form.environment || ''} onChange={(e) => set({ environment: e.target.value })} className={panelInputClass}>
                 <option value="">{t('common.select')}...</option>
-                {envOpts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {envOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </DynamicPanelField>
             <DynamicPanelField label={t('assets.country')} required>
-              <input type="text" required minLength={2} maxLength={3} value={form.country} onChange={(e) => set({ country: e.target.value.toUpperCase() })} className={panelInputClass} placeholder="CMR" />
+              <CountrySelect value={form.country || null} onChange={(v) => set({ country: v })} />
             </DynamicPanelField>
           </FormGrid>
           <FormGrid>
@@ -475,10 +518,10 @@ export function CreateSitePanel() {
         {/* ── Location ── */}
         <FormSection title={t('assets.location')}>
           <FormGrid>
-            <DynamicPanelField label="Latitude">
+            <DynamicPanelField label={t('assets.centroid_latitude')}>
               <input type="number" step="0.000001" value={form.latitude ?? ''} onChange={(e) => set({ latitude: e.target.value ? Number(e.target.value) : undefined })} className={panelInputClass} />
             </DynamicPanelField>
-            <DynamicPanelField label="Longitude">
+            <DynamicPanelField label={t('assets.centroid_longitude')}>
               <input type="number" step="0.000001" value={form.longitude ?? ''} onChange={(e) => set({ longitude: e.target.value ? Number(e.target.value) : undefined })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
@@ -526,11 +569,14 @@ export function CreateInstallationPanel() {
   const createInstallation = useCreateInstallation()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
 
+  // Parent data
   const { data: sitesData } = useSites({ page: 1, page_size: 500 })
-  const dictEnv = useDictionaryOptions('environment')
+
+  // Dictionary-driven options with fallback
+  const dictEnv = useDictionaryOptions('environment_type')
   const dictInstType = useDictionaryOptions('installation_type')
-  const envOpts = dictEnv.length > 0 ? dictEnv : ENVIRONMENT_OPTIONS
-  const instTypeOpts = dictInstType.length > 0 ? dictInstType : INSTALLATION_TYPE_OPTIONS
+  const envOptions = dictEnv.length > 0 ? dictEnv : ENVIRONMENT_FALLBACK
+  const instTypeOptions = dictInstType.length > 0 ? dictInstType : INSTALLATION_TYPE_FALLBACK
 
   const [form, setForm] = useState<Partial<InstallationCreate>>({
     site_id: '',
@@ -594,7 +640,7 @@ export function CreateInstallationPanel() {
     >
       <form id="create-installation-form" onSubmit={handleSubmit} className="p-4 space-y-5">
         {/* ── Parent & Identity ── */}
-        <FormSection title={t('common.identity')}>
+        <FormSection title={t('assets.identity')}>
           <FormGrid>
             <DynamicPanelField label={t('assets.site')} required>
               <select required value={form.site_id || ''} onChange={(e) => set({ site_id: e.target.value })} className={panelInputClass}>
@@ -615,7 +661,7 @@ export function CreateInstallationPanel() {
             <DynamicPanelField label={t('common.type')} required>
               <select required value={form.installation_type || ''} onChange={(e) => set({ installation_type: e.target.value })} className={panelInputClass}>
                 <option value="">{t('common.select')}...</option>
-                {instTypeOpts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {instTypeOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </DynamicPanelField>
           </FormGrid>
@@ -623,7 +669,7 @@ export function CreateInstallationPanel() {
             <DynamicPanelField label={t('assets.environment')} required>
               <select required value={form.environment || ''} onChange={(e) => set({ environment: e.target.value })} className={panelInputClass}>
                 <option value="">{t('common.select')}...</option>
-                {envOpts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {envOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </DynamicPanelField>
             <DynamicPanelField label={t('common.status')}>
@@ -650,10 +696,10 @@ export function CreateInstallationPanel() {
         {/* ── Location ── */}
         <FormSection title={t('assets.location')}>
           <FormGrid>
-            <DynamicPanelField label="Latitude">
+            <DynamicPanelField label={t('assets.centroid_latitude')}>
               <input type="number" step="0.000001" value={form.latitude ?? ''} onChange={(e) => set({ latitude: e.target.value ? Number(e.target.value) : undefined })} className={panelInputClass} />
             </DynamicPanelField>
-            <DynamicPanelField label="Longitude">
+            <DynamicPanelField label={t('assets.centroid_longitude')}>
               <input type="number" step="0.000001" value={form.longitude ?? ''} onChange={(e) => set({ longitude: e.target.value ? Number(e.target.value) : undefined })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
@@ -686,7 +732,7 @@ export function CreateInstallationPanel() {
 
 
 // ════════════════════════════════════════════════════════════════
-// CREATE EQUIPMENT
+// CREATE EQUIPMENT (contextual by equipment_class)
 // ════════════════════════════════════════════════════════════════
 
 export function CreateEquipmentPanel() {
@@ -695,15 +741,31 @@ export function CreateEquipmentPanel() {
   const createEquipment = useCreateEquipment()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
 
+  // Parent data
   const { data: installationsData } = useInstallations({ page: 1, page_size: 500 })
-  const dictClass = useDictionaryOptions('equipment_class')
-  const classOpts = dictClass.length > 0 ? dictClass : EQUIPMENT_CLASS_OPTIONS
 
-  const [form, setForm] = useState<Partial<EquipmentCreate>>({
+  // Dictionary-driven options with fallback
+  const dictClass = useDictionaryOptions('equipment_class')
+  const dictCriticality = useDictionaryOptions('criticality')
+  const dictCraneType = useDictionaryOptions('crane_type')
+  const dictSeparatorType = useDictionaryOptions('separator_type')
+  const dictOrientation = useDictionaryOptions('orientation')
+  const dictPumpType = useDictionaryOptions('pump_type')
+  const dictTankType = useDictionaryOptions('tank_type')
+
+  const classOptions = dictClass.length > 0 ? dictClass : EQUIPMENT_CLASS_FALLBACK
+  const criticalityOptions = dictCriticality.length > 0 ? dictCriticality : CRITICALITY_FALLBACK
+  const craneTypeOptions = dictCraneType.length > 0 ? dictCraneType : CRANE_TYPE_FALLBACK
+  const separatorTypeOptions = dictSeparatorType.length > 0 ? dictSeparatorType : SEPARATOR_TYPE_FALLBACK
+  const orientationOptions = dictOrientation.length > 0 ? dictOrientation : ORIENTATION_FALLBACK
+  const pumpTypeOptions = dictPumpType.length > 0 ? dictPumpType : PUMP_TYPE_FALLBACK
+  const tankTypeOptions = dictTankType.length > 0 ? dictTankType : TANK_TYPE_FALLBACK
+
+  const [form, setForm] = useState<Record<string, any>>({
     tag_number: '',
     name: '',
     equipment_class: '',
-    installation_id: undefined,
+    installation_id: '',
     manufacturer: '',
     model: '',
     serial_number: '',
@@ -713,16 +775,38 @@ export function CreateEquipmentPanel() {
     criticality: undefined,
     safety_function: false,
     notes: '',
+    // Crane-specific
+    crane_mount_type: '',
+    crane_swl_tonnes: undefined,
+    crane_boom_max_length_m: undefined,
+    crane_max_range_m: undefined,
+    // Separator-specific
+    separator_type: '',
+    separator_orientation: '',
+    separator_shell_id_mm: undefined,
+    separator_design_pressure_barg: undefined,
+    separator_design_temp_max_c: undefined,
+    // Pump-specific
+    pump_type: '',
+    pump_flow_rated_m3h: undefined,
+    pump_head_rated_m: undefined,
+    pump_motor_power_kw: undefined,
+    // Storage tank-specific
+    tank_type: '',
+    tank_nominal_capacity_m3: undefined,
+    tank_shell_diameter_m: undefined,
   })
 
-  const set = useCallback((patch: Partial<EquipmentCreate>) => setForm((f) => ({ ...f, ...patch })), [])
+  const set = useCallback((patch: Record<string, any>) => setForm((f) => ({ ...f, ...patch })), [])
+
+  const eqClass = form.equipment_class as string
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const payload: EquipmentCreate = {
-      tag_number: form.tag_number!,
-      name: form.name!,
-      equipment_class: form.equipment_class!,
+      tag_number: form.tag_number,
+      name: form.name,
+      equipment_class: form.equipment_class,
       installation_id: form.installation_id || null,
       manufacturer: form.manufacturer || null,
       model: form.model || null,
@@ -734,7 +818,36 @@ export function CreateEquipmentPanel() {
       safety_function: form.safety_function ?? false,
       notes: form.notes || null,
     }
-    await createEquipment.mutateAsync(payload as any)
+
+    // Add contextual fields as extra_data depending on class
+    const extra: Record<string, any> = {}
+    if (eqClass === 'CRANE') {
+      if (form.crane_mount_type) extra.mount_type = form.crane_mount_type
+      if (form.crane_swl_tonnes != null) extra.swl_tonnes = form.crane_swl_tonnes
+      if (form.crane_boom_max_length_m != null) extra.boom_max_length_m = form.crane_boom_max_length_m
+      if (form.crane_max_range_m != null) extra.max_range_m = form.crane_max_range_m
+    } else if (eqClass === 'SEPARATOR') {
+      if (form.separator_type) extra.separator_type = form.separator_type
+      if (form.separator_orientation) extra.orientation = form.separator_orientation
+      if (form.separator_shell_id_mm != null) extra.shell_id_mm = form.separator_shell_id_mm
+      if (form.separator_design_pressure_barg != null) extra.design_pressure_barg = form.separator_design_pressure_barg
+      if (form.separator_design_temp_max_c != null) extra.design_temp_max_c = form.separator_design_temp_max_c
+    } else if (eqClass === 'PUMP') {
+      if (form.pump_type) extra.pump_type = form.pump_type
+      if (form.pump_flow_rated_m3h != null) extra.flow_rated_m3h = form.pump_flow_rated_m3h
+      if (form.pump_head_rated_m != null) extra.head_rated_m = form.pump_head_rated_m
+      if (form.pump_motor_power_kw != null) extra.motor_power_kw = form.pump_motor_power_kw
+    } else if (eqClass === 'STORAGE_TANK') {
+      if (form.tank_type) extra.tank_type = form.tank_type
+      if (form.tank_nominal_capacity_m3 != null) extra.nominal_capacity_m3 = form.tank_nominal_capacity_m3
+      if (form.tank_shell_diameter_m != null) extra.shell_diameter_m = form.tank_shell_diameter_m
+    }
+
+    const fullPayload = Object.keys(extra).length > 0
+      ? { ...payload, ...extra }
+      : payload
+
+    await createEquipment.mutateAsync(fullPayload as any)
     toast({ title: t('assets.equipment_created'), variant: 'success' })
     closeDynamicPanel()
   }
@@ -761,9 +874,9 @@ export function CreateEquipmentPanel() {
     >
       <form id="create-equipment-form" onSubmit={handleSubmit} className="p-4 space-y-5">
         {/* ── Identity ── */}
-        <FormSection title={t('common.identity')}>
+        <FormSection title={t('assets.identity')}>
           <FormGrid>
-            <DynamicPanelField label="Tag *" required>
+            <DynamicPanelField label={t('assets.tag_number')} required>
               <input type="text" required maxLength={50} value={form.tag_number} onChange={(e) => set({ tag_number: e.target.value.toUpperCase() })} className={panelInputClass} placeholder="21-PA-001" />
             </DynamicPanelField>
             <DynamicPanelField label={t('common.name')} required>
@@ -774,7 +887,7 @@ export function CreateEquipmentPanel() {
             <DynamicPanelField label={t('assets.equipment_class')} required>
               <select required value={form.equipment_class || ''} onChange={(e) => set({ equipment_class: e.target.value })} className={panelInputClass}>
                 <option value="">{t('common.select')}...</option>
-                {classOpts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {classOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </DynamicPanelField>
             <DynamicPanelField label={t('assets.installation')}>
@@ -788,12 +901,12 @@ export function CreateEquipmentPanel() {
           </FormGrid>
           <FormGrid>
             <DynamicPanelField label={t('common.status')}>
-              <TagSelector options={STATUS_OPTIONS} value={form.status || 'OPERATIONAL'} onChange={(v) => set({ status: v as any })} />
+              <TagSelector options={STATUS_OPTIONS} value={form.status || 'OPERATIONAL'} onChange={(v) => set({ status: v })} />
             </DynamicPanelField>
             <DynamicPanelField label={t('assets.criticality')}>
-              <select value={form.criticality || ''} onChange={(e) => set({ criticality: (e.target.value || undefined) as any })} className={panelInputClass}>
+              <select value={form.criticality || ''} onChange={(e) => set({ criticality: e.target.value || undefined })} className={panelInputClass}>
                 <option value="">—</option>
-                {CRITICALITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {criticalityOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </DynamicPanelField>
           </FormGrid>
@@ -807,30 +920,145 @@ export function CreateEquipmentPanel() {
           </FormGrid>
         </FormSection>
 
-        {/* ── Manufacturer ── */}
-        <FormSection title={t('assets.manufacturer_info')}>
-          <FormGrid>
-            <DynamicPanelField label={t('assets.manufacturer')}>
-              <input type="text" value={form.manufacturer || ''} onChange={(e) => set({ manufacturer: e.target.value })} className={panelInputClass} placeholder="Flowserve" />
-            </DynamicPanelField>
-            <DynamicPanelField label={t('assets.model_ref')}>
-              <input type="text" value={form.model || ''} onChange={(e) => set({ model: e.target.value })} className={panelInputClass} placeholder="HPX-200" />
-            </DynamicPanelField>
-          </FormGrid>
-          <FormGrid>
-            <DynamicPanelField label={t('assets.serial_number')}>
-              <input type="text" value={form.serial_number || ''} onChange={(e) => set({ serial_number: e.target.value })} className={panelInputClass} />
-            </DynamicPanelField>
-          </FormGrid>
-          <FormGrid>
-            <DynamicPanelField label={t('assets.year_manufactured')}>
-              <input type="number" min={1900} max={2100} value={form.year_manufactured ?? ''} onChange={(e) => set({ year_manufactured: e.target.value ? Number(e.target.value) : undefined })} className={panelInputClass} />
-            </DynamicPanelField>
-            <DynamicPanelField label={t('assets.year_installed')}>
-              <input type="number" min={1900} max={2100} value={form.year_installed ?? ''} onChange={(e) => set({ year_installed: e.target.value ? Number(e.target.value) : undefined })} className={panelInputClass} />
-            </DynamicPanelField>
-          </FormGrid>
-        </FormSection>
+        {/* ── Contextual: CRANE ── */}
+        {eqClass === 'CRANE' && (
+          <FormSection title={t('assets.crane_details')}>
+            <FormGrid>
+              <DynamicPanelField label={t('assets.crane_mount_type')}>
+                <select value={form.crane_mount_type || ''} onChange={(e) => set({ crane_mount_type: e.target.value || undefined })} className={panelInputClass}>
+                  <option value="">—</option>
+                  {craneTypeOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </DynamicPanelField>
+              <DynamicPanelField label={t('assets.swl_tonnes')}>
+                <input type="number" step="0.1" min={0} value={form.crane_swl_tonnes ?? ''} onChange={(e) => set({ crane_swl_tonnes: e.target.value ? Number(e.target.value) : undefined })} className={panelInputClass} placeholder="t" />
+              </DynamicPanelField>
+            </FormGrid>
+            <FormGrid>
+              <DynamicPanelField label={t('assets.boom_max_length')}>
+                <input type="number" step="0.1" min={0} value={form.crane_boom_max_length_m ?? ''} onChange={(e) => set({ crane_boom_max_length_m: e.target.value ? Number(e.target.value) : undefined })} className={panelInputClass} placeholder="m" />
+              </DynamicPanelField>
+              <DynamicPanelField label={t('assets.max_range')}>
+                <input type="number" step="0.1" min={0} value={form.crane_max_range_m ?? ''} onChange={(e) => set({ crane_max_range_m: e.target.value ? Number(e.target.value) : undefined })} className={panelInputClass} placeholder="m" />
+              </DynamicPanelField>
+            </FormGrid>
+            <FormGrid>
+              <DynamicPanelField label={t('assets.manufacturer')}>
+                <input type="text" value={form.manufacturer || ''} onChange={(e) => set({ manufacturer: e.target.value })} className={panelInputClass} placeholder="Liebherr" />
+              </DynamicPanelField>
+              <DynamicPanelField label={t('assets.model_ref')}>
+                <input type="text" value={form.model || ''} onChange={(e) => set({ model: e.target.value })} className={panelInputClass} placeholder="HMC 205" />
+              </DynamicPanelField>
+            </FormGrid>
+          </FormSection>
+        )}
+
+        {/* ── Contextual: SEPARATOR ── */}
+        {eqClass === 'SEPARATOR' && (
+          <FormSection title={t('assets.separator_details')}>
+            <FormGrid>
+              <DynamicPanelField label={t('assets.separator_type')}>
+                <select value={form.separator_type || ''} onChange={(e) => set({ separator_type: e.target.value || undefined })} className={panelInputClass}>
+                  <option value="">—</option>
+                  {separatorTypeOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </DynamicPanelField>
+              <DynamicPanelField label={t('assets.orientation')}>
+                <select value={form.separator_orientation || ''} onChange={(e) => set({ separator_orientation: e.target.value || undefined })} className={panelInputClass}>
+                  <option value="">—</option>
+                  {orientationOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </DynamicPanelField>
+            </FormGrid>
+            <FormGrid>
+              <DynamicPanelField label={t('assets.shell_id_mm')}>
+                <input type="number" step="0.1" min={0} value={form.separator_shell_id_mm ?? ''} onChange={(e) => set({ separator_shell_id_mm: e.target.value ? Number(e.target.value) : undefined })} className={panelInputClass} placeholder="mm" />
+              </DynamicPanelField>
+              <DynamicPanelField label={t('assets.design_pressure')}>
+                <input type="number" step="0.1" min={0} value={form.separator_design_pressure_barg ?? ''} onChange={(e) => set({ separator_design_pressure_barg: e.target.value ? Number(e.target.value) : undefined })} className={panelInputClass} placeholder="barg" />
+              </DynamicPanelField>
+            </FormGrid>
+            <FormGrid>
+              <DynamicPanelField label={t('assets.design_temp')}>
+                <input type="number" step="0.1" value={form.separator_design_temp_max_c ?? ''} onChange={(e) => set({ separator_design_temp_max_c: e.target.value ? Number(e.target.value) : undefined })} className={panelInputClass} placeholder="°C" />
+              </DynamicPanelField>
+            </FormGrid>
+          </FormSection>
+        )}
+
+        {/* ── Contextual: PUMP ── */}
+        {eqClass === 'PUMP' && (
+          <FormSection title={t('assets.pump_details')}>
+            <FormGrid>
+              <DynamicPanelField label={t('assets.pump_type')}>
+                <select value={form.pump_type || ''} onChange={(e) => set({ pump_type: e.target.value || undefined })} className={panelInputClass}>
+                  <option value="">—</option>
+                  {pumpTypeOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </DynamicPanelField>
+              <DynamicPanelField label={t('assets.flow_rated_m3h')}>
+                <input type="number" step="0.1" min={0} value={form.pump_flow_rated_m3h ?? ''} onChange={(e) => set({ pump_flow_rated_m3h: e.target.value ? Number(e.target.value) : undefined })} className={panelInputClass} placeholder="m³/h" />
+              </DynamicPanelField>
+            </FormGrid>
+            <FormGrid>
+              <DynamicPanelField label={t('assets.head_rated_m')}>
+                <input type="number" step="0.1" min={0} value={form.pump_head_rated_m ?? ''} onChange={(e) => set({ pump_head_rated_m: e.target.value ? Number(e.target.value) : undefined })} className={panelInputClass} placeholder="m" />
+              </DynamicPanelField>
+              <DynamicPanelField label={t('assets.motor_power_kw')}>
+                <input type="number" step="0.1" min={0} value={form.pump_motor_power_kw ?? ''} onChange={(e) => set({ pump_motor_power_kw: e.target.value ? Number(e.target.value) : undefined })} className={panelInputClass} placeholder="kW" />
+              </DynamicPanelField>
+            </FormGrid>
+          </FormSection>
+        )}
+
+        {/* ── Contextual: STORAGE_TANK ── */}
+        {eqClass === 'STORAGE_TANK' && (
+          <FormSection title={t('assets.tank_details')}>
+            <FormGrid>
+              <DynamicPanelField label={t('assets.tank_type')}>
+                <select value={form.tank_type || ''} onChange={(e) => set({ tank_type: e.target.value || undefined })} className={panelInputClass}>
+                  <option value="">—</option>
+                  {tankTypeOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </DynamicPanelField>
+              <DynamicPanelField label={t('assets.nominal_capacity_m3')}>
+                <input type="number" step="0.1" min={0} value={form.tank_nominal_capacity_m3 ?? ''} onChange={(e) => set({ tank_nominal_capacity_m3: e.target.value ? Number(e.target.value) : undefined })} className={panelInputClass} placeholder="m³" />
+              </DynamicPanelField>
+            </FormGrid>
+            <FormGrid>
+              <DynamicPanelField label={t('assets.shell_diameter_m')}>
+                <input type="number" step="0.01" min={0} value={form.tank_shell_diameter_m ?? ''} onChange={(e) => set({ tank_shell_diameter_m: e.target.value ? Number(e.target.value) : undefined })} className={panelInputClass} placeholder="m" />
+              </DynamicPanelField>
+            </FormGrid>
+          </FormSection>
+        )}
+
+        {/* ── Manufacturer (generic, shown for all OTHER classes without contextual section) ── */}
+        {eqClass !== 'CRANE' && (
+          <FormSection title={t('assets.manufacturer_info')}>
+            <FormGrid>
+              <DynamicPanelField label={t('assets.manufacturer')}>
+                <input type="text" value={form.manufacturer || ''} onChange={(e) => set({ manufacturer: e.target.value })} className={panelInputClass} placeholder="Flowserve" />
+              </DynamicPanelField>
+              <DynamicPanelField label={t('assets.model_ref')}>
+                <input type="text" value={form.model || ''} onChange={(e) => set({ model: e.target.value })} className={panelInputClass} placeholder="HPX-200" />
+              </DynamicPanelField>
+            </FormGrid>
+            <FormGrid>
+              <DynamicPanelField label={t('assets.serial_number')}>
+                <input type="text" value={form.serial_number || ''} onChange={(e) => set({ serial_number: e.target.value })} className={panelInputClass} />
+              </DynamicPanelField>
+            </FormGrid>
+            <FormGrid>
+              <DynamicPanelField label={t('assets.year_manufactured')}>
+                <input type="number" min={1900} max={2100} value={form.year_manufactured ?? ''} onChange={(e) => set({ year_manufactured: e.target.value ? Number(e.target.value) : undefined })} className={panelInputClass} />
+              </DynamicPanelField>
+              <DynamicPanelField label={t('assets.year_installed')}>
+                <input type="number" min={1900} max={2100} value={form.year_installed ?? ''} onChange={(e) => set({ year_installed: e.target.value ? Number(e.target.value) : undefined })} className={panelInputClass} />
+              </DynamicPanelField>
+            </FormGrid>
+          </FormSection>
+        )}
 
         {/* ── Notes ── */}
         <FormSection title={t('common.notes')}>
@@ -854,9 +1082,12 @@ export function CreatePipelinePanel() {
   const createPipeline = useCreatePipeline()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
 
+  // Parent data
   const { data: installationsData } = useInstallations({ page: 1, page_size: 500 })
+
+  // Dictionary-driven options with fallback
   const dictService = useDictionaryOptions('pipeline_service')
-  const serviceOpts = dictService.length > 0 ? dictService : SERVICE_OPTIONS
+  const serviceOptions = dictService.length > 0 ? dictService : SERVICE_FALLBACK
 
   const [form, setForm] = useState<Partial<PipelineCreate>>({
     pipeline_id: '',
@@ -901,7 +1132,6 @@ export function CreatePipelinePanel() {
       total_length_km: form.total_length_km ?? null,
       notes: form.notes || null,
     }
-    // Optional fields from the Pydantic schema
     if (form.from_node_description) (payload as any).from_node_description = form.from_node_description
     if (form.to_node_description) (payload as any).to_node_description = form.to_node_description
     if (form.pipe_grade) (payload as any).pipe_grade = form.pipe_grade
@@ -940,9 +1170,9 @@ export function CreatePipelinePanel() {
     >
       <form id="create-pipeline-form" onSubmit={handleSubmit} className="p-4 space-y-5">
         {/* ── Identity ── */}
-        <FormSection title={t('common.identity')}>
+        <FormSection title={t('assets.identity')}>
           <FormGrid>
-            <DynamicPanelField label="Pipeline ID *" required>
+            <DynamicPanelField label={t('assets.pipeline_id')} required>
               <input type="text" required maxLength={50} value={form.pipeline_id} onChange={(e) => set({ pipeline_id: e.target.value.toUpperCase() })} className={panelInputClass} placeholder="PL-EBOME-MLF-01" />
             </DynamicPanelField>
             <DynamicPanelField label={t('common.name')} required>
@@ -953,7 +1183,7 @@ export function CreatePipelinePanel() {
             <DynamicPanelField label={t('assets.service')} required>
               <select required value={form.service || ''} onChange={(e) => set({ service: e.target.value })} className={panelInputClass}>
                 <option value="">{t('common.select')}...</option>
-                {serviceOpts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {serviceOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </DynamicPanelField>
             <DynamicPanelField label={t('common.status')}>
@@ -1043,7 +1273,7 @@ export function CreatePipelinePanel() {
             <DynamicPanelField label={t('assets.fluid_description')}>
               <input type="text" value={form.fluid_description || ''} onChange={(e) => set({ fluid_description: e.target.value })} className={panelInputClass} placeholder="Crude oil + produced water" />
             </DynamicPanelField>
-            <DynamicPanelField label="H2S (ppm)">
+            <DynamicPanelField label={t('assets.h2s_ppm')}>
               <input type="number" step="0.1" min={0} value={form.h2s_ppm ?? ''} onChange={(e) => set({ h2s_ppm: e.target.value ? Number(e.target.value) : undefined })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>

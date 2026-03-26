@@ -10,8 +10,9 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import hash_password
+from app.models.asset_registry import Installation
 from app.models.common import (
-    Asset,
+
     Entity,
     User,
     UserGroup,
@@ -120,10 +121,10 @@ async def seed_dev_data(db: AsyncSession) -> None:
         logger.info("Seed: assigned SUPER_ADMIN to admin")
 
     # ── Sample assets ────────────────────────────────────────────
-    result = await db.execute(select(Asset).where(Asset.code == "EBOME"))
+    result = await db.execute(select(Installation).where(Installation.code == "EBOME"))
     if not result.scalar_one_or_none():
         # Field
-        ebome = Asset(
+        ebome = Installation(
             entity_id=entity.id,
             type="field",
             code="EBOME",
@@ -136,7 +137,7 @@ async def seed_dev_data(db: AsyncSession) -> None:
         await db.flush()
 
         # Sites under field
-        munja = Asset(
+        munja = Installation(
             entity_id=entity.id,
             parent_id=ebome.id,
             type="site",
@@ -154,7 +155,7 @@ async def seed_dev_data(db: AsyncSession) -> None:
             ("ESF1", "Plateforme ESF1", 2.83, 9.77),
             ("KLF3", "Plateforme KLF3", 2.81, 9.76),
         ]:
-            db.add(Asset(
+            db.add(Installation(
                 entity_id=entity.id,
                 parent_id=munja.id,
                 type="platform",
@@ -166,7 +167,7 @@ async def seed_dev_data(db: AsyncSession) -> None:
             ))
 
         # Base logistique
-        db.add(Asset(
+        db.add(Installation(
             entity_id=entity.id,
             type="base",
             code="WOURI",

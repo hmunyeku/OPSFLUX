@@ -444,13 +444,13 @@ async def get_capacity_heatmap(
     # Get relevant assets
     asset_query = select(Installation).where(
         Installation.entity_id == entity_id,
-        Installation.active == True,  # noqa: E712
+          # noqa: E712
     )
     if asset_ids:
         asset_query = asset_query.where(Installation.id.in_(asset_ids))
     else:
         # Only assets with max_pax > 0 (sites)
-        asset_query = asset_query.where(Installation.max_pax > 0)
+        asset_query = asset_query.where(Installation.pob_max > 0)
 
     assets_result = await db.execute(asset_query)
     assets = assets_result.scalars().all()

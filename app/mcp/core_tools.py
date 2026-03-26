@@ -15,8 +15,9 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.asset_registry import Installation
 from app.models.common import (
-    Asset,
+    # Installation removed — use Installation
     Notification,
     Tier,
     User,
@@ -38,10 +39,10 @@ async def _search_assets(
     db: AsyncSession,
 ) -> dict:
     """Search assets by name, code, or type within the current entity."""
-    query = select(Asset).where(
-        Asset.entity_id == entity_id,
-        Asset.active == True,
-        Asset.archived == False,
+    query = select(Installation).where(
+        Installation.entity_id == entity_id,
+        
+        Installation.deleted_at.is_(None),
     )
 
     search = params.get("search")
@@ -50,11 +51,11 @@ async def _search_assets(
 
     if search:
         like = f"%{search}%"
-        query = query.where(Asset.name.ilike(like) | Asset.code.ilike(like))
+        query = query.where(Installation.name.ilike(like) | Installation.code.ilike(like))
     if asset_type:
-        query = query.where(Asset.type == asset_type)
+        query = query.where(Installation.installation_type == asset_type)
 
-    query = query.order_by(Asset.name).limit(limit)
+    query = query.order_by(Installation.name).limit(limit)
     result = await db.execute(query)
     assets = result.scalars().all()
 
@@ -88,14 +89,14 @@ async def _get_asset(
     if not asset_id and not asset_code:
         return {"error": "Provide either 'id' or 'code' parameter."}
 
-    query = select(Asset).where(Asset.entity_id == entity_id)
+    query = select(Installation).where(Installation.entity_id == entity_id)
     if asset_id:
         try:
-            query = query.where(Asset.id == UUID(asset_id))
+            query = query.where(Installation.id == UUID(asset_id))
         except ValueError:
             return {"error": f"Invalid UUID: {asset_id}"}
     elif asset_code:
-        query = query.where(Asset.code == asset_code)
+        query = query.where(Installation.code == asset_code)
 
     result = await db.execute(query)
     asset = result.scalar_one_or_none()

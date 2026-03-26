@@ -28,8 +28,8 @@ async def check_asset_inspections() -> None:
                     Installation.next_inspection.isnot(None),
                     Installation.next_inspection <= threshold.date(),
                     Installation.next_inspection >= now.date(),
-                    Installation.active == True,
-                    Installation.archived == False,
+                    
+                    Installation.deleted_at.is_(None),
                 ).order_by(Installation.next_inspection)
             )
             assets = result.scalars().all()

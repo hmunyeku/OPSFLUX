@@ -11,8 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user
 from app.core.database import get_db
+from app.models.asset_registry import Installation
 from app.models.common import (
-    Asset,
+
     ComplianceRecord,
     ComplianceType,
     Project,
@@ -92,7 +93,7 @@ async def _preview_tiers(db: AsyncSession, entity_id: UUID, record_id: UUID) -> 
 
 
 async def _preview_assets(db: AsyncSession, entity_id: UUID, record_id: UUID) -> PreviewResponse | None:
-    stmt = select(Asset).where(Asset.id == record_id, Asset.entity_id == entity_id)
+    stmt = select(Installation).where(Installation.id == record_id, Installation.entity_id == entity_id)
     row = (await db.execute(stmt)).scalar_one_or_none()
     if not row:
         return None

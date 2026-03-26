@@ -23,8 +23,9 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.references import generate_reference
+from app.models.asset_registry import Installation
 from app.models.common import (
-    Asset,
+
     ComplianceRecord,
     ComplianceType,
     Project,
@@ -136,7 +137,7 @@ FIELD_SYNONYMS: dict[str, list[str]] = {
     "currency": ["devise", "monnaie"],
     "industry": ["secteur", "activite", "sector", "business"],
     "payment_terms": ["conditions_paiement", "payment", "delai_paiement"],
-    # Asset
+    # Installation
     "parent_code": ["code_parent", "parent", "parent_ref", "asset_parent"],
     "latitude": ["lat", "gps_lat"],
     "longitude": ["lng", "lon", "gps_lng", "gps_lon"],
@@ -293,7 +294,7 @@ class AssetHandler(TargetObjectHandler):
             errors.append(RowValidationError(row_index=idx, field="name", message="Nom requis"))
         if row.get("parent_code"):
             parent = await db.execute(
-                select(Asset.id).where(Asset.entity_id == entity_id, Asset.code == str(row["parent_code"]).strip())
+                select(Installation.id).where(Installation.entity_id == entity_id, Installation.code == str(row["parent_code"]).strip())
             )
             if not parent.scalar_one_or_none():
                 errors.append(RowValidationError(row_index=idx, field="parent_code", message=f"Parent inconnu: {row['parent_code']}", severity="warning"))
@@ -303,7 +304,7 @@ class AssetHandler(TargetObjectHandler):
         code = row.get("code")
         if not code:
             return None
-        result = await db.execute(select(Asset.id).where(Asset.entity_id == entity_id, Asset.code == str(code).strip()))
+        result = await db.execute(select(Installation.id).where(Installation.entity_id == entity_id, Installation.code == str(code).strip()))
         return result.scalar_one_or_none()
 
     def _resolve_asset_lookup(self, row: dict[str, Any], key: str, entity_id: UUID, db) -> UUID | None:
@@ -317,13 +318,13 @@ class AssetHandler(TargetObjectHandler):
             code = await generate_reference("AST", db, entity_id=entity_id)
         parent_id = None
         if row.get("parent_code"):
-            res = await db.execute(select(Asset.id).where(Asset.entity_id == entity_id, Asset.code == str(row["parent_code"]).strip()))
+            res = await db.execute(select(Installation.id).where(Installation.entity_id == entity_id, Installation.code == str(row["parent_code"]).strip()))
             parent_id = res.scalar_one_or_none()
         connected_id = None
         if row.get("connected_asset_code"):
-            res = await db.execute(select(Asset.id).where(Asset.entity_id == entity_id, Asset.code == str(row["connected_asset_code"]).strip()))
+            res = await db.execute(select(Installation.id).where(Installation.entity_id == entity_id, Installation.code == str(row["connected_asset_code"]).strip()))
             connected_id = res.scalar_one_or_none()
-        obj = Asset(
+        obj = Installation(
             entity_id=entity_id,
             type=str(row.get("type", "")).strip(),
             code=str(code).strip(),
@@ -374,7 +375,7 @@ class AssetHandler(TargetObjectHandler):
         return obj.id
 
     async def update_record(self, record_id: UUID, row: dict[str, Any], user_id: UUID, db: AsyncSession) -> None:
-        result = await db.execute(select(Asset).where(Asset.id == record_id))
+        result = await db.execute(select(Installation).where(Installation.id == record_id))
         obj = result.scalar_one()
         # String fields
         for key in ["name", "type", "description", "status", "orientation", "jacket_dimensions",
@@ -831,7 +832,7 @@ class ComplianceRecordHandler(TargetObjectHandler):
             r = await db.execute(select(Tier.id).where(Tier.entity_id == entity_id, Tier.code == owner_code))
             owner_id = r.scalar_one()
         elif owner_type == "asset":
-            r = await db.execute(select(Asset.id).where(Asset.entity_id == entity_id, Asset.code == owner_code))
+            r = await db.execute(select(Installation.id).where(Installation.entity_id == entity_id, Installation.code == owner_code))
             owner_id = r.scalar_one()
 
         if not owner_id:

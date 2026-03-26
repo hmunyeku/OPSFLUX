@@ -39,7 +39,7 @@ async def global_search(
         select(Installation)
         .where(
             Installation.entity_id == entity_id,
-            Installation.archived == False,
+            Installation.deleted_at.is_(None),
             or_(
                 Installation.name.ilike(pattern),
                 Installation.code.ilike(pattern),

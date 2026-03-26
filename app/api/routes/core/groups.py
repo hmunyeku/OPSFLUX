@@ -17,8 +17,9 @@ from app.api.deps import get_current_entity, get_current_user, require_permissio
 from app.core.database import get_db
 from app.core.pagination import PaginationParams
 from app.core.rbac import invalidate_rbac_cache
+from app.models.asset_registry import Installation
 from app.models.common import (
-    Asset,
+
     Entity,
     GroupPermissionOverride,
     Permission,
@@ -175,11 +176,11 @@ async def list_groups(
     stmt = (
         select(
             UserGroup,
-            Asset.name.label("asset_scope_name"),
+            Installation.name.label("asset_scope_name"),
             Entity.name.label("entity_name"),
             member_count_sq.label("member_count"),
         )
-        .outerjoin(Asset, Asset.id == UserGroup.asset_scope)
+        .outerjoin(Installation, Installation.id == UserGroup.asset_scope)
         .outerjoin(Entity, Entity.id == UserGroup.entity_id)
         .where(UserGroup.entity_id == entity_id)
     )
@@ -254,7 +255,7 @@ async def create_group(
     asset_name = None
     if body.asset_scope:
         asset_result = await db.execute(
-            select(Asset).where(Asset.id == body.asset_scope, Asset.entity_id == entity_id)
+            select(Installation).where(Installation.id == body.asset_scope, Installation.entity_id == entity_id)
         )
         asset = asset_result.scalar_one_or_none()
         if not asset:
@@ -303,10 +304,10 @@ async def get_group(
     stmt = (
         select(
             UserGroup,
-            Asset.name.label("asset_scope_name"),
+            Installation.name.label("asset_scope_name"),
             Entity.name.label("entity_name"),
         )
-        .outerjoin(Asset, Asset.id == UserGroup.asset_scope)
+        .outerjoin(Installation, Installation.id == UserGroup.asset_scope)
         .outerjoin(Entity, Entity.id == UserGroup.entity_id)
         .where(UserGroup.id == group_id, UserGroup.entity_id == entity_id)
     )
@@ -413,7 +414,7 @@ async def update_group(
 
     asset_name = None
     if group.asset_scope:
-        asset_result = await db.execute(select(Asset.name).where(Asset.id == group.asset_scope))
+        asset_result = await db.execute(select(Installation.name).where(Installation.id == group.asset_scope))
         asset_name = asset_result.scalar_one_or_none()
 
     member_count_result = await db.execute(

@@ -87,11 +87,19 @@ export function LoginPage() {
   const [ssoProviders, setSsoProviders] = useState<SSOProvider[]>([])
   const [ssoLoading, setSsoLoading] = useState<string | null>(null)
 
-  // ── Load SSO providers on mount ──────────────────────────
+  // Server status
+  const [serverStatus, setServerStatus] = useState<'checking' | 'online' | 'offline'>('checking')
+
+  // ── Load SSO providers + check server status on mount ─────
   useEffect(() => {
     api.get('/api/v1/auth/sso/providers')
-      .then(res => setSsoProviders(res.data))
-      .catch(() => {}) // Silently ignore if no providers
+      .then(res => {
+        setSsoProviders(res.data)
+        setServerStatus('online')
+      })
+      .catch(() => {
+        setServerStatus('offline')
+      })
   }, [])
 
   // ── Handle SSO callback tokens from URL ──────────────────
@@ -241,6 +249,25 @@ export function LoginPage() {
         <div className="mb-6 text-center">
           <h1 className="text-xl font-semibold text-primary">OpsFlux</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">{t('app.tagline')}</p>
+          {/* Server status LED */}
+          <div className="mt-2 flex items-center justify-center gap-1.5">
+            <span className={cn(
+              'inline-block h-2 w-2 rounded-full',
+              serverStatus === 'checking' && 'bg-amber-400 animate-pulse',
+              serverStatus === 'online' && 'bg-emerald-500',
+              serverStatus === 'offline' && 'bg-red-500 animate-pulse',
+            )} />
+            <span className={cn(
+              'text-[11px]',
+              serverStatus === 'checking' && 'text-muted-foreground',
+              serverStatus === 'online' && 'text-emerald-600 dark:text-emerald-400',
+              serverStatus === 'offline' && 'text-red-500',
+            )}>
+              {serverStatus === 'checking' && t('auth.server_checking', 'Connexion...')}
+              {serverStatus === 'online' && t('auth.server_online', 'Serveur connecte')}
+              {serverStatus === 'offline' && t('auth.server_offline', 'Serveur injoignable')}
+            </span>
+          </div>
         </div>
 
         {/* ── Step 1: Email + Password ── */}
@@ -307,11 +334,17 @@ export function LoginPage() {
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || serverStatus === 'offline'}
                 className="gl-button gl-button-confirm w-full h-9"
               >
                 {loading ? <Loader2 size={14} className="mx-auto animate-spin" /> : t('auth.login_button')}
               </button>
+
+              {serverStatus === 'offline' && (
+                <p className="text-[11px] text-red-500 text-center">
+                  {t('auth.server_offline_hint', 'Le serveur est injoignable. Verifiez votre connexion ou contactez l\'administrateur.')}
+                </p>
+              )}
             </form>
 
             {/* SSO section — only show if providers are configured */}

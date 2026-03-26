@@ -2,9 +2,26 @@
 
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+# ── GeoJSON helper ───────────────────────────────────────────
+
+def _wkb_to_geojson(v: Any) -> dict | None:
+    """Convert a geoalchemy2 WKBElement to a GeoJSON dict, or pass through if already a dict/None."""
+    if v is None:
+        return None
+    if isinstance(v, dict):
+        return v
+    try:
+        from geoalchemy2.shape import to_shape
+        from shapely.geometry import mapping
+        return mapping(to_shape(v))
+    except Exception:
+        return None
 
 
 # ── Base mixins ───────────────────────────────────────────────
@@ -70,6 +87,12 @@ class OilFieldUpdate(BaseModel):
 class OilFieldRead(OilFieldCreate, TimestampMixin, SoftDeleteMixin):
     id: UUID
     entity_id: UUID
+    geom_centroid: dict | None = None
+    geom_boundary: dict | None = None
+
+    _convert_geom_centroid = field_validator("geom_centroid", mode="before")(_wkb_to_geojson)
+    _convert_geom_boundary = field_validator("geom_boundary", mode="before")(_wkb_to_geojson)
+
     class Config:
         from_attributes = True
 
@@ -158,6 +181,12 @@ class OilSiteUpdate(BaseModel):
 class OilSiteRead(OilSiteCreate, TimestampMixin, SoftDeleteMixin):
     id: UUID
     entity_id: UUID
+    geom_point: dict | None = None
+    geom_boundary: dict | None = None
+
+    _convert_geom_point = field_validator("geom_point", mode="before")(_wkb_to_geojson)
+    _convert_geom_boundary = field_validator("geom_boundary", mode="before")(_wkb_to_geojson)
+
     class Config:
         from_attributes = True
 
@@ -212,6 +241,12 @@ class InstallationUpdate(BaseModel):
 class InstallationRead(InstallationCreate, TimestampMixin, SoftDeleteMixin):
     id: UUID
     entity_id: UUID
+    geom_point: dict | None = None
+    geom_footprint: dict | None = None
+
+    _convert_geom_point = field_validator("geom_point", mode="before")(_wkb_to_geojson)
+    _convert_geom_footprint = field_validator("geom_footprint", mode="before")(_wkb_to_geojson)
+
     class Config:
         from_attributes = True
 
@@ -313,6 +348,10 @@ class EquipmentRead(EquipmentCreate, TimestampMixin, SoftDeleteMixin):
     id: UUID
     entity_id: UUID
     created_by: UUID | None = None
+    geom_point: dict | None = None
+
+    _convert_geom_point = field_validator("geom_point", mode="before")(_wkb_to_geojson)
+
     class Config:
         from_attributes = True
 
@@ -372,6 +411,10 @@ class PipelineUpdate(BaseModel):
 class PipelineRead(PipelineCreate, TimestampMixin, SoftDeleteMixin):
     id: UUID
     entity_id: UUID
+    geom_route: dict | None = None
+
+    _convert_geom_route = field_validator("geom_route", mode="before")(_wkb_to_geojson)
+
     class Config:
         from_attributes = True
 

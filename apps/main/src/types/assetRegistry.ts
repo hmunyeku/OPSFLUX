@@ -2,6 +2,12 @@
  * Asset Registry types — O&G hierarchy: Field > Site > Installation > Deck > Equipment / Pipeline.
  */
 
+// ── GeoJSON geometry (simplified) ────────────────────────────
+export interface GeoJSONGeometry {
+  type: string
+  coordinates: number[] | number[][] | number[][][]
+}
+
 // ── Operational status (shared across hierarchy) ──────────────
 export type OperationalStatus =
   | 'OPERATIONAL'
@@ -37,6 +43,8 @@ export interface OilField {
   recoverable_reserves_mmbo?: number | null
   status: OperationalStatus
   notes?: string | null
+  geom_centroid?: GeoJSONGeometry | null
+  geom_boundary?: GeoJSONGeometry | null
   created_at: string
   updated_at: string
 }
@@ -96,6 +104,8 @@ export interface OilSite {
   first_oil_date?: string | null
   status: OperationalStatus
   notes?: string | null
+  geom_point?: GeoJSONGeometry | null
+  geom_boundary?: GeoJSONGeometry | null
   created_at: string
   updated_at: string
 }
@@ -135,6 +145,8 @@ export interface Installation {
   classification_society?: string | null
   class_notation?: string | null
   notes?: string | null
+  geom_point?: GeoJSONGeometry | null
+  geom_footprint?: GeoJSONGeometry | null
   created_at: string
   updated_at: string
 }
@@ -202,6 +214,7 @@ export interface RegistryEquipment {
   manual_url?: string | null
   cert_document_url?: string | null
   notes?: string | null
+  geom_point?: GeoJSONGeometry | null
   created_at: string
   updated_at: string
 }
@@ -252,6 +265,7 @@ export interface RegistryPipeline {
   installation_year?: number | null
   corrosion_allowance_mm?: number | null
   notes?: string | null
+  geom_route?: GeoJSONGeometry | null
   created_at: string
   updated_at: string
   waypoints?: PipelineWaypoint[]

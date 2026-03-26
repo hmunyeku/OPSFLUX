@@ -36,8 +36,10 @@ import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { NoteManager } from '@/components/shared/NoteManager'
 import { ExternalRefManager } from '@/components/shared/ExternalRefManager'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
+import { GeoEditor } from '@/components/shared/GeoEditor'
 import { TagManager } from '@/components/shared/TagManager'
 import { FieldLicenseManager } from '@/components/shared/FieldLicenseManager'
+import { apiGeoToEditorValue, editorValueToApiGeo, latLonToPointValue } from '@/utils/geoHelpers'
 import { usePermission } from '@/hooks/usePermission'
 import { useUIStore } from '@/stores/uiStore'
 import {
@@ -199,6 +201,18 @@ export function FieldDetailPanel({ id }: { id: string }) {
           </FormSection>
 
           <FormSection title={t('assets.location')} collapsible storageKey="panel.ar-field.sections" id="ar-field-location">
+            <GeoEditor
+              geoType="point"
+              value={apiGeoToEditorValue(field.geom_centroid) ?? latLonToPointValue(field.centroid_latitude, field.centroid_longitude)}
+              onChange={(val) => {
+                const geo = editorValueToApiGeo(val)
+                handleSave('geom_centroid', geo)
+              }}
+              readOnly={!canUpdate}
+              height={200}
+              showSearch={canUpdate}
+              showToolbar={canUpdate}
+            />
             <DetailFieldGrid>
               <ReadOnlyRow label={t('assets.centroid_latitude')} value={field.centroid_latitude ?? '—'} />
               <ReadOnlyRow label={t('assets.centroid_longitude')} value={field.centroid_longitude ?? '—'} />
@@ -344,6 +358,15 @@ export function SiteDetailPanel({ id }: { id: string }) {
           </FormSection>
 
           <FormSection title={t('assets.location')} collapsible storageKey="panel.ar-site.sections" id="ar-site-location">
+            <GeoEditor
+              geoType="point"
+              value={apiGeoToEditorValue(site.geom_point) ?? latLonToPointValue(site.latitude, site.longitude)}
+              onChange={(val) => handleSave('geom_point', editorValueToApiGeo(val))}
+              readOnly={!canUpdate}
+              height={200}
+              showSearch={canUpdate}
+              showToolbar={canUpdate}
+            />
             <DetailFieldGrid>
               <ReadOnlyRow label="Latitude" value={site.latitude ?? '—'} />
               <ReadOnlyRow label="Longitude" value={site.longitude ?? '—'} />
@@ -446,6 +469,15 @@ export function InstallationDetailPanel({ id }: { id: string }) {
           </FormSection>
 
           <FormSection title={t('assets.location')} collapsible storageKey="panel.ar-inst.sections" id="ar-inst-location">
+            <GeoEditor
+              geoType="point"
+              value={apiGeoToEditorValue(inst.geom_point) ?? latLonToPointValue(inst.latitude, inst.longitude)}
+              onChange={(val) => handleSave('geom_point', editorValueToApiGeo(val))}
+              readOnly={!canUpdate}
+              height={200}
+              showSearch={canUpdate}
+              showToolbar={canUpdate}
+            />
             <DetailFieldGrid>
               <ReadOnlyRow label="Latitude" value={inst.latitude ?? '—'} />
               <ReadOnlyRow label="Longitude" value={inst.longitude ?? '—'} />
@@ -606,6 +638,15 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
           </FormSection>
 
           <FormSection title={t('assets.location')} collapsible storageKey="panel.ar-equip.sections" id="ar-equip-location">
+            <GeoEditor
+              geoType="point"
+              value={apiGeoToEditorValue(equip.geom_point) ?? latLonToPointValue(equip.latitude, equip.longitude)}
+              onChange={(val) => handleSave('geom_point', editorValueToApiGeo(val))}
+              readOnly={!canUpdate}
+              height={180}
+              showSearch={canUpdate}
+              showToolbar={canUpdate}
+            />
             <DetailFieldGrid>
               <ReadOnlyRow label={t('assets.grid_reference')} value={equip.grid_reference || '—'} />
               <ReadOnlyRow label="Latitude" value={equip.latitude ?? '—'} />
@@ -720,6 +761,16 @@ export function PipelineDetailPanel({ id }: { id: string }) {
           </FormSection>
 
           <FormSection title={t('assets.routing')} collapsible storageKey="panel.ar-pipe.sections" id="ar-pipe-routing">
+            <GeoEditor
+              geoType="linestring"
+              value={apiGeoToEditorValue(pipe.geom_route)}
+              onChange={(val) => handleSave('geom_route', editorValueToApiGeo(val))}
+              readOnly={!canUpdate}
+              height={200}
+              showSearch={canUpdate}
+              showToolbar={canUpdate}
+              showCoordinateTable={false}
+            />
             <DetailFieldGrid>
               <ReadOnlyRow label={t('assets.from_installation')} value={
                 <CrossModuleLink module="ar-installation" id={pipe.from_installation_id} label={fromInst ? `${fromInst.code} — ${fromInst.name}` : '...'} />

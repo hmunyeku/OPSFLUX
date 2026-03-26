@@ -32,8 +32,9 @@ import type {
   OilField, OilSite, Installation, RegistryEquipment, RegistryPipeline,
 } from '@/types/assetRegistry'
 
-// Register detail panel renderers (side-effect import)
-import './DetailPanels'
+// Detail + Create panels
+import { FieldDetailPanel, SiteDetailPanel, InstallationDetailPanel, EquipmentDetailPanel, PipelineDetailPanel } from './DetailPanels'
+import { CreateFieldPanel, CreateSitePanel, CreateInstallationPanel, CreateEquipmentPanel, CreatePipelinePanel } from './CreatePanels'
 
 
 // ── Status badge helper ──────────────────────────────────────
@@ -506,6 +507,8 @@ export function AssetRegistryPage() {
   const { hasPermission } = usePermission()
   const canCreate = hasPermission('asset.create')
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const dynamicPanel = useUIStore((s) => s.dynamicPanel)
+  const panelMode = useUIStore((s) => s.dynamicPanelMode)
   const [activeTab, setActiveTab] = useState<TabKey>('fields')
 
   const handleCreate = useCallback(() => {
@@ -520,34 +523,56 @@ export function AssetRegistryPage() {
     pipelines: <PipelinesTab />,
   }
 
+  // Check if a dynamic panel is open for one of our modules
+  const AR_MODULES = ['ar-field', 'ar-site', 'ar-installation', 'ar-equipment', 'ar-pipeline']
+  const isOurPanel = dynamicPanel && AR_MODULES.includes(dynamicPanel.module)
+  const isFullPanel = panelMode === 'full' && isOurPanel
+
   return (
-    <>
-      <PanelHeader
-        title={t('assets.registry_title')}
-        icon={Layers}
-      >
-        {canCreate && (
-          <ToolbarButton icon={Plus} label={t('common.create')} onClick={handleCreate} />
-        )}
-      </PanelHeader>
-      <PanelContent>
-        <div className="border-b border-border px-4">
-          <TabBar>
-            {TABS.map(({ key, icon, labelKey }) => (
-              <TabButton
-                key={key}
-                active={activeTab === key}
-                onClick={() => setActiveTab(key)}
-                icon={icon}
-                label={t(labelKey)}
-              />
-            ))}
-          </TabBar>
+    <div className="flex h-full">
+      {/* ── Static Panel (list) — hidden when full mode ── */}
+      {!isFullPanel && (
+        <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
+          <PanelHeader
+            title={t('assets.registry_title')}
+            icon={Layers}
+          >
+            {canCreate && (
+              <ToolbarButton icon={Plus} label={t('common.create')} variant="primary" onClick={handleCreate} />
+            )}
+          </PanelHeader>
+          <PanelContent>
+            <div className="border-b border-border px-4">
+              <TabBar>
+                {TABS.map(({ key, icon, labelKey }) => (
+                  <TabButton
+                    key={key}
+                    active={activeTab === key}
+                    onClick={() => setActiveTab(key)}
+                    icon={icon}
+                    label={t(labelKey)}
+                  />
+                ))}
+              </TabBar>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              {tabContent[activeTab]}
+            </div>
+          </PanelContent>
         </div>
-        <div className="flex-1 overflow-hidden">
-          {tabContent[activeTab]}
-        </div>
-      </PanelContent>
-    </>
+      )}
+
+      {/* ── Dynamic Panels ── */}
+      {dynamicPanel?.module === 'ar-field' && dynamicPanel.type === 'create' && <CreateFieldPanel />}
+      {dynamicPanel?.module === 'ar-field' && dynamicPanel.type === 'detail' && <FieldDetailPanel id={dynamicPanel.id} />}
+      {dynamicPanel?.module === 'ar-site' && dynamicPanel.type === 'create' && <CreateSitePanel />}
+      {dynamicPanel?.module === 'ar-site' && dynamicPanel.type === 'detail' && <SiteDetailPanel id={dynamicPanel.id} />}
+      {dynamicPanel?.module === 'ar-installation' && dynamicPanel.type === 'create' && <CreateInstallationPanel />}
+      {dynamicPanel?.module === 'ar-installation' && dynamicPanel.type === 'detail' && <InstallationDetailPanel id={dynamicPanel.id} />}
+      {dynamicPanel?.module === 'ar-equipment' && dynamicPanel.type === 'create' && <CreateEquipmentPanel />}
+      {dynamicPanel?.module === 'ar-equipment' && dynamicPanel.type === 'detail' && <EquipmentDetailPanel id={dynamicPanel.id} />}
+      {dynamicPanel?.module === 'ar-pipeline' && dynamicPanel.type === 'create' && <CreatePipelinePanel />}
+      {dynamicPanel?.module === 'ar-pipeline' && dynamicPanel.type === 'detail' && <PipelineDetailPanel id={dynamicPanel.id} />}
+    </div>
   )
 }

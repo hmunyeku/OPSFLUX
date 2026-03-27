@@ -8,7 +8,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  MapPin, Plus, Factory, Landmark, Layers, Ship, Wrench, Archive,
+  MapPin, Plus, Factory, Landmark, Layers, Ship, Wrench, Archive, LayoutDashboard,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -41,6 +41,7 @@ import type {
 // Detail + Create panels
 import { FieldDetailPanel, SiteDetailPanel, InstallationDetailPanel, EquipmentDetailPanel, PipelineDetailPanel } from './DetailPanels'
 import { CreateFieldPanel, CreateSitePanel, CreateInstallationPanel, CreateEquipmentPanel, CreatePipelinePanel } from './CreatePanels'
+import { AssetRegistryDashboard } from './AssetRegistryDashboard'
 
 
 // ── Status badge helper ──────────────────────────────────────
@@ -137,9 +138,10 @@ function filterStr(filters: Record<string, unknown>, key: string): string | unde
 
 // ── Tab definitions ──────────────────────────────────────────
 
-type TabKey = 'fields' | 'sites' | 'installations' | 'equipment' | 'pipelines'
+type TabKey = 'dashboard' | 'fields' | 'sites' | 'installations' | 'equipment' | 'pipelines'
 
 const TABS: { key: TabKey; icon: typeof MapPin; labelKey: string }[] = [
+  { key: 'dashboard', icon: LayoutDashboard, labelKey: 'assets.dashboard_tab' },
   { key: 'fields', icon: MapPin, labelKey: 'assets.fields' },
   { key: 'sites', icon: Landmark, labelKey: 'assets.sites' },
   { key: 'installations', icon: Factory, labelKey: 'assets.installations' },
@@ -812,6 +814,7 @@ function PipelinesTab() {
 // ════════════════════════════════════════════════════════════════
 
 const TAB_MODULE: Record<TabKey, string> = {
+  dashboard: '',
   fields: 'ar-field',
   sites: 'ar-site',
   installations: 'ar-installation',
@@ -826,13 +829,17 @@ export function AssetRegistryPage() {
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const panelMode = useUIStore((s) => s.dynamicPanelMode)
-  const [activeTab, setActiveTab] = useState<TabKey>('fields')
+  const [activeTab, setActiveTab] = useState<TabKey>('dashboard')
 
   const handleCreate = useCallback(() => {
-    openDynamicPanel({ type: 'create', module: TAB_MODULE[activeTab] })
+    const module = TAB_MODULE[activeTab]
+    if (module) openDynamicPanel({ type: 'create', module })
   }, [activeTab, openDynamicPanel])
 
+  const showCreateButton = canCreate && activeTab !== 'dashboard'
+
   const tabContent: Record<TabKey, JSX.Element> = {
+    dashboard: <AssetRegistryDashboard />,
     fields: <FieldsTab />,
     sites: <SitesTab />,
     installations: <InstallationsTab />,
@@ -854,7 +861,7 @@ export function AssetRegistryPage() {
             title={t('assets.registry_title')}
             icon={Layers}
           >
-            {canCreate && (
+            {showCreateButton && (
               <ToolbarButton icon={Plus} label={t('common.create')} variant="primary" onClick={handleCreate} />
             )}
           </PanelHeader>

@@ -449,11 +449,12 @@ export interface HierarchyNode {
 
 // ── Stats ────────────────────────────────────────────────────
 export interface AssetRegistryStats {
-  total_fields: number
-  total_sites: number
-  total_installations: number
-  total_equipment: number
-  total_pipelines: number
-  by_status: { status: OperationalStatus; count: number }[]
-  by_equipment_class: { equipment_class: string; count: number }[]
+  field_count: number
+  site_count: number
+  installation_count: number
+  equipment_count: number
+  pipeline_count: number
+  equipment_by_class: { equipment_class: string; count: number }[]
+  equipment_by_status: { status: string; count: number }[]
+  sites_by_type: { site_type: string; count: number }[]
 }

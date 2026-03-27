@@ -794,7 +794,23 @@
       "environmental_permit": "Permis environnemental",
       "operating_permit": "Permis d'exploitation",
       "land_title": "Réf. titre foncier"
-    }
+    },
+
+    "dashboard_tab": "Tableau de bord",
+    "total_fields": "Champs",
+    "total_sites": "Sites",
+    "total_installations": "Installations",
+    "total_equipment": "Équipements",
+    "total_pipelines": "Pipelines",
+    "total_km": "{{value}} km au total",
+    "equipment_by_class": "Équipements par classe",
+    "equipment_by_status": "Équipements par statut",
+    "equipment_by_criticality": "Équipements par criticité",
+    "status_distribution": "Distribution par statut",
+    "sites_by_type": "Sites par type",
+    "map_overview": "Carte des assets",
+    "no_coordinates": "Aucun asset avec coordonnées GPS",
+    "no_stats": "Aucune statistique disponible"
   },
   "tiers": {
     "title": "Entreprises",

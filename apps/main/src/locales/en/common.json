@@ -786,7 +786,23 @@
       "environmental_permit": "Environmental permit",
       "operating_permit": "Operating permit",
       "land_title": "Land title ref."
-    }
+    },
+
+    "dashboard_tab": "Dashboard",
+    "total_fields": "Fields",
+    "total_sites": "Sites",
+    "total_installations": "Installations",
+    "total_equipment": "Equipment",
+    "total_pipelines": "Pipelines",
+    "total_km": "{{value}} km total",
+    "equipment_by_class": "Equipment by Class",
+    "equipment_by_status": "Equipment by Status",
+    "equipment_by_criticality": "Equipment by Criticality",
+    "status_distribution": "Status Distribution",
+    "sites_by_type": "Sites by Type",
+    "map_overview": "Asset Map",
+    "no_coordinates": "No assets with GPS coordinates",
+    "no_stats": "No statistics available"
   },
   "tiers": {
     "title": "Companies",

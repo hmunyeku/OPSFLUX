@@ -43,6 +43,15 @@ import { FieldLicenseManager } from '@/components/shared/FieldLicenseManager'
 import { InstallationDeckManager } from '@/components/shared/InstallationDeckManager'
 import { InstallationSubDetails } from './InstallationSubDetails'
 import { EquipmentContextualFields } from './EquipmentContextualFields'
+import {
+  CraneConfigurationManager,
+  CraneHookBlockManager,
+  CraneReevingGuideManager,
+  SeparatorNozzleManager,
+  SeparatorProcessCaseManager,
+  PumpCurvePointManager,
+  ColumnSectionManager,
+} from './EquipmentSubModels'
 import { apiGeoToEditorValue, editorValueToApiGeo, latLonToPointValue } from '@/utils/geoHelpers'
 import { usePermission } from '@/hooks/usePermission'
 import { useUIStore } from '@/stores/uiStore'
@@ -1019,6 +1028,41 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
             specializedData={equip.specialized_data}
             equipmentId={id}
           />
+
+          {/* Equipment class-specific sub-model managers */}
+          {equip.equipment_class === 'CRANE' && (
+            <>
+              <FormSection title="Configurations grue" collapsible storageKey="panel.ar-equip.sections" id="ar-equip-crane-configs">
+                <CraneConfigurationManager equipmentId={id} canEdit={canUpdate} />
+              </FormSection>
+              <FormSection title="Moufles / Hook Blocks" collapsible storageKey="panel.ar-equip.sections" id="ar-equip-crane-hooks">
+                <CraneHookBlockManager equipmentId={id} canEdit={canUpdate} />
+              </FormSection>
+              <FormSection title="Guide de mouflage" collapsible storageKey="panel.ar-equip.sections" id="ar-equip-crane-reeving">
+                <CraneReevingGuideManager equipmentId={id} canEdit={canUpdate} />
+              </FormSection>
+            </>
+          )}
+          {equip.equipment_class === 'SEPARATOR' && (
+            <>
+              <FormSection title="Piquages (Nozzles)" collapsible storageKey="panel.ar-equip.sections" id="ar-equip-sep-nozzles">
+                <SeparatorNozzleManager equipmentId={id} canEdit={canUpdate} />
+              </FormSection>
+              <FormSection title="Cas process" collapsible storageKey="panel.ar-equip.sections" id="ar-equip-sep-cases">
+                <SeparatorProcessCaseManager equipmentId={id} canEdit={canUpdate} />
+              </FormSection>
+            </>
+          )}
+          {equip.equipment_class === 'PUMP' && (
+            <FormSection title="Courbe de pompe" collapsible storageKey="panel.ar-equip.sections" id="ar-equip-pump-curve">
+              <PumpCurvePointManager equipmentId={id} canEdit={canUpdate} />
+            </FormSection>
+          )}
+          {equip.equipment_class === 'PROCESS_COLUMN' && (
+            <FormSection title="Sections colonne" collapsible storageKey="panel.ar-equip.sections" id="ar-equip-col-sections">
+              <ColumnSectionManager equipmentId={id} canEdit={canUpdate} />
+            </FormSection>
+          )}
 
           <FormSection title="Tags">
             <TagManager ownerType="ar_equipment" ownerId={id} compact />

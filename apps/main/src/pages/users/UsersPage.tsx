@@ -1454,12 +1454,6 @@ function UserDetailPanel({ id }: { id: string }) {
                 <ReferentielManager ownerType="user" ownerId={id} compact />
               </FormSection>
 
-              {/* Divers */}
-              <FormSection title="Divers" collapsible storageKey="panel.user.sections" id="user-misc">
-                <InlineEditableRow label="Date de retraite" value={user.retirement_date || ''} onSave={(v) => updateUser.mutate({ id, payload: { retirement_date: v || null } })} type="date" />
-                <InlineEditableRow label="N° Vantage" value={user.vantage_number || ''} onSave={(v) => updateUser.mutate({ id, payload: { vantage_number: v || null } })} />
-                <InlineEditableRow label="N° poste" value={user.extension_number || ''} onSave={(v) => updateUser.mutate({ id, payload: { extension_number: v || null } })} />
-              </FormSection>
 
               {/* Identifiants externes */}
               <FormSection title="Identifiants externes" collapsible storageKey="panel.user.sections" id="user-ext-refs" defaultExpanded={false}>

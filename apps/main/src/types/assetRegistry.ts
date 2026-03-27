@@ -147,14 +147,14 @@ export interface Installation {
   notes?: string | null
   geom_point?: GeoJSONGeometry | null
   geom_footprint?: GeoJSONGeometry | null
-  offshore_details?: Record<string, unknown> | null
-  onshore_details?: Record<string, unknown> | null
-  type_details?: Record<string, unknown> | null
+  inst_offshore_details?: Record<string, unknown> | null
+  inst_onshore_details?: Record<string, unknown> | null
+  inst_type_details?: Record<string, unknown> | null
   created_at: string
   updated_at: string
 }
 
-export type InstallationCreate = Omit<Installation, 'id' | 'entity_id' | 'created_at' | 'updated_at' | 'offshore_details' | 'onshore_details' | 'type_details'>
+export type InstallationCreate = Omit<Installation, 'id' | 'entity_id' | 'created_at' | 'updated_at' | 'inst_offshore_details' | 'inst_onshore_details' | 'inst_type_details'>
 export type InstallationUpdate = Partial<Omit<InstallationCreate, 'site_id'>>
 
 // ── Installation Deck ────────────────────────────────────────

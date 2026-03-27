@@ -243,9 +243,9 @@ class InstallationRead(InstallationCreate, TimestampMixin, SoftDeleteMixin):
     entity_id: UUID
     geom_point: dict | None = None
     geom_footprint: dict | None = None
-    offshore_details: dict | None = None
-    onshore_details: dict | None = None
-    type_details: dict | None = None
+    inst_offshore_details: dict | None = None
+    inst_onshore_details: dict | None = None
+    inst_type_details: dict | None = None
 
     _convert_geom_point = field_validator("geom_point", mode="before")(_wkb_to_geojson)
     _convert_geom_footprint = field_validator("geom_footprint", mode="before")(_wkb_to_geojson)

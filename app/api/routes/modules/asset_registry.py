@@ -488,9 +488,9 @@ async def get_installation(
             type_details = {col.key: (float(v) if isinstance(v := getattr(type_obj, col.key), Decimal) else v) for col in mapper.columns if col.key != "id"}
 
     resp = InstallationRead.model_validate(obj)
-    resp.offshore_details = offshore_details
-    resp.onshore_details = onshore_details
-    resp.type_details = type_details
+    resp.inst_offshore_details = offshore_details
+    resp.inst_onshore_details = onshore_details
+    resp.inst_type_details = type_details
     return resp
 
 

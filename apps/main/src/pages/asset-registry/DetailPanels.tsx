@@ -524,9 +524,9 @@ export function InstallationDetailPanel({ id }: { id: string }) {
           <InstallationSubDetails
             installationType={inst.installation_type}
             environment={inst.environment}
-            offshoreDetails={inst.offshore_details}
-            onshoreDetails={inst.onshore_details}
-            typeDetails={inst.type_details}
+            offshoreDetails={inst.inst_offshore_details}
+            onshoreDetails={inst.inst_onshore_details}
+            typeDetails={inst.inst_type_details}
           />
 
           <FormSection title="Tags">

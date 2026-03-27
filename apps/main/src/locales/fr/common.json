@@ -369,6 +369,8 @@
     "rotating_details": "Détails machine tournante",
     "technical_details": "Détails techniques",
     "is_mobile": "Mobile",
+    "area": "Zone",
+    "sub_area": "Sous-zone",
 
     "env_onshore": "Onshore",
     "env_offshore": "Offshore",

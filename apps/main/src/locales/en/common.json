@@ -362,6 +362,8 @@
     "rotating_details": "Rotating equipment details",
     "technical_details": "Technical details",
     "is_mobile": "Mobile",
+    "area": "Area",
+    "sub_area": "Sub-area",
     "env_onshore": "Onshore",
     "env_offshore": "Offshore",
     "env_swamp": "Swamp",

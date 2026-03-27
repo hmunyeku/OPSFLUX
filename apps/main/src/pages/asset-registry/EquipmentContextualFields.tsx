@@ -400,49 +400,41 @@ interface EquipmentContextualFieldsProps {
 export function EquipmentContextualFields({ equipmentClass, specializedData }: EquipmentContextualFieldsProps) {
   const { t } = useTranslation()
 
-  if (!specializedData || Object.keys(specializedData).length === 0) return null
-
   const layout = SPEC_LAYOUTS[equipmentClass]
+  const data = specializedData ?? {}
 
-  // If we have a layout definition, render structured sections
+  // If we have a layout definition, always render the sections (show "—" for missing values)
   if (layout) {
     return (
       <>
-        {layout.map((section) => {
-          // Only render section if at least one field has data
-          const hasData = section.fields.some((f) => specializedData[f.key] != null && specializedData[f.key] !== '')
-          if (!hasData) return null
-          return (
-            <FormSection
-              key={section.titleKey}
-              title={t(`assets.spec_section.${section.titleKey}`)}
-              collapsible
-              storageKey="panel.ar-equip.sections"
-              id={`ar-equip-spec-${section.titleKey}`}
-            >
-              <DetailFieldGrid>
-                {section.fields.map((f) => {
-                  const val = specializedData[f.key]
-                  if (val === null || val === undefined) return null
-                  return (
-                    <ReadOnlyRow
-                      key={f.key}
-                      label={t(`assets.spec.${f.i18n}`)}
-                      value={fmtVal(val, f.unit, f.bool, t)}
-                    />
-                  )
-                })}
-              </DetailFieldGrid>
-            </FormSection>
-          )
-        })}
+        {layout.map((section) => (
+          <FormSection
+            key={section.titleKey}
+            title={t(`assets.spec_section.${section.titleKey}`)}
+            collapsible
+            storageKey="panel.ar-equip.sections"
+            id={`ar-equip-spec-${section.titleKey}`}
+          >
+            <DetailFieldGrid>
+              {section.fields.map((f) => (
+                <ReadOnlyRow
+                  key={f.key}
+                  label={t(`assets.spec.${f.i18n}`)}
+                  value={fmtVal(data[f.key], f.unit, f.bool, t)}
+                />
+              ))}
+            </DetailFieldGrid>
+          </FormSection>
+        ))}
       </>
     )
   }
 
+  // No layout defined for this class — only show if specialized_data has content
+  if (Object.keys(data).length === 0) return null
+
   // Generic fallback: render all fields from specialized_data
-  const entries = Object.entries(specializedData).filter(([, v]) => v != null && v !== '')
-  if (entries.length === 0) return null
+  const entries = Object.entries(data).filter(([, v]) => v != null && v !== '')
 
   return (
     <FormSection

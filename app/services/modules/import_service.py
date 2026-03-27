@@ -23,7 +23,13 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.references import generate_reference
-from app.models.asset_registry import Installation
+from app.models.asset_registry import (
+    Installation,
+    OilField,
+    OilSite,
+    RegistryEquipment,
+    RegistryPipeline,
+)
 from app.models.common import (
 
     ComplianceRecord,
@@ -868,6 +874,541 @@ class ComplianceRecordHandler(TargetObjectHandler):
             obj.expires_at = _safe_datetime(row["expires_at"])
 
 
+# ── Asset Registry handlers ───────────────────────────────────────────────
+
+
+class ARFieldHandler(TargetObjectHandler):
+    """Import handler for OilField (ar_fields)."""
+    key = "ar_field"
+    label = "Champs pétroliers"
+
+    def get_fields(self) -> list[TargetFieldDef]:
+        return [
+            TargetFieldDef(key="code", label="Code", type="string", required=True, example="FLD-001"),
+            TargetFieldDef(key="name", label="Nom", type="string", required=True, example="Campo Koulé"),
+            TargetFieldDef(key="operator", label="Opérateur", type="string", example="Perenco"),
+            TargetFieldDef(key="country", label="Pays (ISO)", type="string", required=True, example="CM"),
+            TargetFieldDef(key="basin", label="Bassin", type="string", example="Rio del Rey"),
+            TargetFieldDef(key="block_name", label="Bloc", type="string", example="Bloc B"),
+            TargetFieldDef(key="environment", label="Environnement", type="string", example="OFFSHORE"),
+            TargetFieldDef(key="status", label="Statut", type="string", example="OPERATIONAL"),
+            TargetFieldDef(key="area_km2", label="Superficie (km²)", type="float", example="120.5"),
+            TargetFieldDef(key="discovery_year", label="Année découverte", type="integer", example="1972"),
+            TargetFieldDef(key="first_production_year", label="Année 1re production", type="integer", example="1978"),
+            TargetFieldDef(key="latitude", label="Latitude", type="float", example="4.051"),
+            TargetFieldDef(key="longitude", label="Longitude", type="float", example="9.768"),
+            TargetFieldDef(key="notes", label="Notes", type="string"),
+        ]
+
+    async def validate_row(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> list[RowValidationError]:
+        errors: list[RowValidationError] = []
+        idx = row.get("__row_index", 0)
+        if not row.get("code"):
+            errors.append(RowValidationError(row_index=idx, field="code", message="Code requis"))
+        if not row.get("name"):
+            errors.append(RowValidationError(row_index=idx, field="name", message="Nom requis"))
+        if not row.get("country"):
+            errors.append(RowValidationError(row_index=idx, field="country", message="Pays requis"))
+        return errors
+
+    async def find_duplicate(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> UUID | None:
+        code = row.get("code")
+        if not code:
+            return None
+        result = await db.execute(
+            select(OilField.id).where(OilField.entity_id == entity_id, OilField.code == str(code).strip())
+        )
+        return result.scalar_one_or_none()
+
+    async def create_record(self, row: dict[str, Any], entity_id: UUID, user_id: UUID, db: AsyncSession) -> UUID:
+        code = row.get("code")
+        if not code:
+            code = await generate_reference("FLD", db, entity_id=entity_id)
+        obj = OilField(
+            entity_id=entity_id,
+            code=str(code).strip(),
+            name=str(row.get("name", "")).strip(),
+            operator=_safe_str(row.get("operator")) or "Perenco",
+            country=str(row.get("country", "")).strip(),
+            basin=_safe_str(row.get("basin")),
+            block_name=_safe_str(row.get("block_name")),
+            environment=_safe_str(row.get("environment")),
+            status=_safe_str(row.get("status")) or "OPERATIONAL",
+            area_km2=_safe_float(row.get("area_km2")),
+            discovery_year=_safe_int(row.get("discovery_year")),
+            first_production_year=_safe_int(row.get("first_production_year")),
+            centroid_latitude=_safe_float(row.get("latitude")),
+            centroid_longitude=_safe_float(row.get("longitude")),
+            notes=_safe_str(row.get("notes")),
+        )
+        db.add(obj)
+        await db.flush()
+        return obj.id
+
+    async def update_record(self, record_id: UUID, row: dict[str, Any], user_id: UUID, db: AsyncSession) -> None:
+        result = await db.execute(select(OilField).where(OilField.id == record_id))
+        obj = result.scalar_one()
+        for key in ("name", "operator", "country", "basin", "block_name", "environment", "status", "notes"):
+            if row.get(key) is not None:
+                setattr(obj, key, _safe_str(row[key]))
+        for key in ("area_km2",):
+            if row.get(key) is not None:
+                setattr(obj, key, _safe_float(row[key]))
+        if row.get("latitude") is not None:
+            obj.centroid_latitude = _safe_float(row["latitude"])
+        if row.get("longitude") is not None:
+            obj.centroid_longitude = _safe_float(row["longitude"])
+        for key in ("discovery_year", "first_production_year"):
+            if row.get(key) is not None:
+                setattr(obj, key, _safe_int(row[key]))
+
+
+class ARSiteHandler(TargetObjectHandler):
+    """Import handler for OilSite (ar_sites)."""
+    key = "ar_site"
+    label = "Sites"
+
+    def get_fields(self) -> list[TargetFieldDef]:
+        return [
+            TargetFieldDef(key="code", label="Code", type="string", required=True, example="SIT-001"),
+            TargetFieldDef(key="name", label="Nom", type="string", required=True, example="EBOME Complex"),
+            TargetFieldDef(key="site_type", label="Type de site", type="string", required=True, example="OFFSHORE_PLATFORM_COMPLEX"),
+            TargetFieldDef(key="environment", label="Environnement", type="string", required=True, example="OFFSHORE"),
+            TargetFieldDef(key="country", label="Pays (ISO)", type="string", required=True, example="CM"),
+            TargetFieldDef(key="field_code", label="Code champ", type="lookup", required=True, lookup_target="ar_field.code"),
+            TargetFieldDef(key="latitude", label="Latitude", type="float", example="4.051"),
+            TargetFieldDef(key="longitude", label="Longitude", type="float", example="9.768"),
+            TargetFieldDef(key="manned", label="Habité", type="boolean", example="oui"),
+            TargetFieldDef(key="status", label="Statut", type="string", example="OPERATIONAL"),
+            TargetFieldDef(key="elevation_m", label="Profondeur eau (m)", type="float"),
+            TargetFieldDef(key="max_pob", label="Capacité POB", type="integer", example="80"),
+            TargetFieldDef(key="notes", label="Notes", type="string"),
+        ]
+
+    async def validate_row(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> list[RowValidationError]:
+        errors: list[RowValidationError] = []
+        idx = row.get("__row_index", 0)
+        if not row.get("code"):
+            errors.append(RowValidationError(row_index=idx, field="code", message="Code requis"))
+        if not row.get("name"):
+            errors.append(RowValidationError(row_index=idx, field="name", message="Nom requis"))
+        if not row.get("site_type"):
+            errors.append(RowValidationError(row_index=idx, field="site_type", message="Type de site requis"))
+        if not row.get("environment"):
+            errors.append(RowValidationError(row_index=idx, field="environment", message="Environnement requis"))
+        if not row.get("country"):
+            errors.append(RowValidationError(row_index=idx, field="country", message="Pays requis"))
+        field_code = row.get("field_code")
+        if not field_code:
+            errors.append(RowValidationError(row_index=idx, field="field_code", message="Code champ requis"))
+        else:
+            res = await db.execute(
+                select(OilField.id).where(OilField.entity_id == entity_id, OilField.code == str(field_code).strip())
+            )
+            if not res.scalar_one_or_none():
+                errors.append(RowValidationError(row_index=idx, field="field_code", message=f"Champ inconnu: {field_code}"))
+        return errors
+
+    async def find_duplicate(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> UUID | None:
+        code = row.get("code")
+        if not code:
+            return None
+        result = await db.execute(
+            select(OilSite.id).where(OilSite.entity_id == entity_id, OilSite.code == str(code).strip())
+        )
+        return result.scalar_one_or_none()
+
+    async def create_record(self, row: dict[str, Any], entity_id: UUID, user_id: UUID, db: AsyncSession) -> UUID:
+        code = row.get("code")
+        if not code:
+            code = await generate_reference("SIT", db, entity_id=entity_id)
+        # Resolve field_id from field_code
+        field_code = str(row.get("field_code", "")).strip()
+        res = await db.execute(
+            select(OilField.id).where(OilField.entity_id == entity_id, OilField.code == field_code)
+        )
+        field_id = res.scalar_one()
+        obj = OilSite(
+            entity_id=entity_id,
+            field_id=field_id,
+            code=str(code).strip(),
+            name=str(row.get("name", "")).strip(),
+            site_type=str(row.get("site_type", "")).strip(),
+            environment=str(row.get("environment", "")).strip(),
+            country=str(row.get("country", "")).strip(),
+            latitude=_safe_float(row.get("latitude")),
+            longitude=_safe_float(row.get("longitude")),
+            manned=_safe_bool(row.get("manned")) if row.get("manned") is not None else True,
+            status=_safe_str(row.get("status")) or "OPERATIONAL",
+            water_depth_m=_safe_float(row.get("elevation_m")),
+            pob_capacity=_safe_int(row.get("max_pob")),
+            notes=_safe_str(row.get("notes")),
+        )
+        db.add(obj)
+        await db.flush()
+        return obj.id
+
+    async def update_record(self, record_id: UUID, row: dict[str, Any], user_id: UUID, db: AsyncSession) -> None:
+        result = await db.execute(select(OilSite).where(OilSite.id == record_id))
+        obj = result.scalar_one()
+        for key in ("name", "site_type", "environment", "country", "status", "notes"):
+            if row.get(key) is not None:
+                setattr(obj, key, _safe_str(row[key]))
+        for key in ("latitude", "longitude"):
+            if row.get(key) is not None:
+                setattr(obj, key, _safe_float(row[key]))
+        if row.get("elevation_m") is not None:
+            obj.water_depth_m = _safe_float(row["elevation_m"])
+        if row.get("max_pob") is not None:
+            obj.pob_capacity = _safe_int(row["max_pob"])
+        if row.get("manned") is not None:
+            val = _safe_bool(row["manned"])
+            if val is not None:
+                obj.manned = val
+
+
+class ARInstallationHandler(TargetObjectHandler):
+    """Import handler for Installation (ar_installations)."""
+    key = "ar_installation"
+    label = "Installations"
+
+    def get_fields(self) -> list[TargetFieldDef]:
+        return [
+            TargetFieldDef(key="code", label="Code", type="string", required=True, example="INS-001"),
+            TargetFieldDef(key="name", label="Nom", type="string", required=True, example="EBOME Marine"),
+            TargetFieldDef(key="installation_type", label="Type", type="string", required=True, example="FIXED_JACKET_PLATFORM"),
+            TargetFieldDef(key="environment", label="Environnement", type="string", required=True, example="OFFSHORE"),
+            TargetFieldDef(key="status", label="Statut", type="string", example="OPERATIONAL"),
+            TargetFieldDef(key="site_code", label="Code site", type="lookup", required=True, lookup_target="ar_site.code"),
+            TargetFieldDef(key="is_manned", label="Habité", type="boolean", example="oui"),
+            TargetFieldDef(key="water_depth_m", label="Profondeur eau (m)", type="float", example="15.4"),
+            TargetFieldDef(key="max_pob", label="Capacité POB", type="integer", example="120"),
+            TargetFieldDef(key="latitude", label="Latitude", type="float", example="4.051"),
+            TargetFieldDef(key="longitude", label="Longitude", type="float", example="9.768"),
+            TargetFieldDef(key="commissioning_date", label="Date mise en service", type="date", example="1983-06-15"),
+            TargetFieldDef(key="notes", label="Notes", type="string"),
+        ]
+
+    async def validate_row(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> list[RowValidationError]:
+        errors: list[RowValidationError] = []
+        idx = row.get("__row_index", 0)
+        if not row.get("code"):
+            errors.append(RowValidationError(row_index=idx, field="code", message="Code requis"))
+        if not row.get("name"):
+            errors.append(RowValidationError(row_index=idx, field="name", message="Nom requis"))
+        if not row.get("installation_type"):
+            errors.append(RowValidationError(row_index=idx, field="installation_type", message="Type requis"))
+        if not row.get("environment"):
+            errors.append(RowValidationError(row_index=idx, field="environment", message="Environnement requis"))
+        site_code = row.get("site_code")
+        if not site_code:
+            errors.append(RowValidationError(row_index=idx, field="site_code", message="Code site requis"))
+        else:
+            res = await db.execute(
+                select(OilSite.id).where(OilSite.entity_id == entity_id, OilSite.code == str(site_code).strip())
+            )
+            if not res.scalar_one_or_none():
+                errors.append(RowValidationError(row_index=idx, field="site_code", message=f"Site inconnu: {site_code}"))
+        return errors
+
+    async def find_duplicate(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> UUID | None:
+        code = row.get("code")
+        if not code:
+            return None
+        result = await db.execute(
+            select(Installation.id).where(Installation.entity_id == entity_id, Installation.code == str(code).strip())
+        )
+        return result.scalar_one_or_none()
+
+    async def create_record(self, row: dict[str, Any], entity_id: UUID, user_id: UUID, db: AsyncSession) -> UUID:
+        code = row.get("code")
+        if not code:
+            code = await generate_reference("INS", db, entity_id=entity_id)
+        # Resolve site_id from site_code
+        site_code = str(row.get("site_code", "")).strip()
+        res = await db.execute(
+            select(OilSite.id).where(OilSite.entity_id == entity_id, OilSite.code == site_code)
+        )
+        site_id = res.scalar_one()
+        obj = Installation(
+            entity_id=entity_id,
+            site_id=site_id,
+            code=str(code).strip(),
+            name=str(row.get("name", "")).strip(),
+            installation_type=str(row.get("installation_type", "")).strip(),
+            environment=str(row.get("environment", "")).strip(),
+            status=_safe_str(row.get("status")) or "OPERATIONAL",
+            is_manned=_safe_bool(row.get("is_manned")) if row.get("is_manned") is not None else True,
+            water_depth_m=_safe_float(row.get("water_depth_m")),
+            pob_max=_safe_int(row.get("max_pob")),
+            latitude=_safe_float(row.get("latitude")),
+            longitude=_safe_float(row.get("longitude")),
+            commissioning_date=_safe_date(row.get("commissioning_date")),
+            notes=_safe_str(row.get("notes")),
+        )
+        db.add(obj)
+        await db.flush()
+        return obj.id
+
+    async def update_record(self, record_id: UUID, row: dict[str, Any], user_id: UUID, db: AsyncSession) -> None:
+        result = await db.execute(select(Installation).where(Installation.id == record_id))
+        obj = result.scalar_one()
+        for key in ("name", "installation_type", "environment", "status", "notes"):
+            if row.get(key) is not None:
+                setattr(obj, key, _safe_str(row[key]))
+        for key in ("latitude", "longitude", "water_depth_m"):
+            if row.get(key) is not None:
+                setattr(obj, key, _safe_float(row[key]))
+        if row.get("max_pob") is not None:
+            obj.pob_max = _safe_int(row["max_pob"])
+        if row.get("commissioning_date") is not None:
+            obj.commissioning_date = _safe_date(row["commissioning_date"])
+        if row.get("is_manned") is not None:
+            val = _safe_bool(row["is_manned"])
+            if val is not None:
+                obj.is_manned = val
+
+
+class AREquipmentHandler(TargetObjectHandler):
+    """Import handler for RegistryEquipment (ar_equipment)."""
+    key = "ar_equipment"
+    label = "Équipements"
+
+    def get_fields(self) -> list[TargetFieldDef]:
+        return [
+            TargetFieldDef(key="tag_number", label="Tag number", type="string", required=True, example="P-101A"),
+            TargetFieldDef(key="name", label="Nom", type="string", required=True, example="Pompe export pétrole"),
+            TargetFieldDef(key="equipment_class", label="Classe équipement", type="string", required=True, example="PUMP"),
+            TargetFieldDef(key="status", label="Statut", type="string", example="OPERATIONAL"),
+            TargetFieldDef(key="criticality", label="Criticité (A/B/C)", type="string", example="A"),
+            TargetFieldDef(key="manufacturer", label="Fabricant", type="string", example="Sulzer"),
+            TargetFieldDef(key="model", label="Modèle", type="string", example="MSD 40/8"),
+            TargetFieldDef(key="serial_number", label="N° série", type="string", example="SN-2024-001"),
+            TargetFieldDef(key="installation_code", label="Code installation", type="lookup", lookup_target="ar_installation.code"),
+            TargetFieldDef(key="year_manufactured", label="Année fabrication", type="integer", example="2020"),
+            TargetFieldDef(key="year_installed", label="Année installation", type="integer", example="2021"),
+            TargetFieldDef(key="notes", label="Notes", type="string"),
+        ]
+
+    async def validate_row(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> list[RowValidationError]:
+        errors: list[RowValidationError] = []
+        idx = row.get("__row_index", 0)
+        if not row.get("tag_number"):
+            errors.append(RowValidationError(row_index=idx, field="tag_number", message="Tag number requis"))
+        if not row.get("name"):
+            errors.append(RowValidationError(row_index=idx, field="name", message="Nom requis"))
+        if not row.get("equipment_class"):
+            errors.append(RowValidationError(row_index=idx, field="equipment_class", message="Classe équipement requise"))
+        inst_code = row.get("installation_code")
+        if inst_code:
+            res = await db.execute(
+                select(Installation.id).where(Installation.entity_id == entity_id, Installation.code == str(inst_code).strip())
+            )
+            if not res.scalar_one_or_none():
+                errors.append(RowValidationError(row_index=idx, field="installation_code", message=f"Installation inconnue: {inst_code}", severity="warning"))
+        return errors
+
+    async def find_duplicate(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> UUID | None:
+        tag = row.get("tag_number")
+        if not tag:
+            return None
+        result = await db.execute(
+            select(RegistryEquipment.id).where(
+                RegistryEquipment.entity_id == entity_id,
+                RegistryEquipment.tag_number == str(tag).strip(),
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def create_record(self, row: dict[str, Any], entity_id: UUID, user_id: UUID, db: AsyncSession) -> UUID:
+        # Resolve installation_id from installation_code
+        installation_id = None
+        inst_code = row.get("installation_code")
+        if inst_code:
+            res = await db.execute(
+                select(Installation.id).where(Installation.entity_id == entity_id, Installation.code == str(inst_code).strip())
+            )
+            installation_id = res.scalar_one_or_none()
+        obj = RegistryEquipment(
+            entity_id=entity_id,
+            tag_number=str(row.get("tag_number", "")).strip(),
+            name=str(row.get("name", "")).strip(),
+            equipment_class=str(row.get("equipment_class", "")).strip(),
+            status=_safe_str(row.get("status")) or "OPERATIONAL",
+            criticality=_safe_str(row.get("criticality")),
+            manufacturer=_safe_str(row.get("manufacturer")),
+            model=_safe_str(row.get("model")),
+            serial_number=_safe_str(row.get("serial_number")),
+            installation_id=installation_id,
+            year_manufactured=_safe_int(row.get("year_manufactured")),
+            year_installed=_safe_int(row.get("year_installed")),
+            notes=_safe_str(row.get("notes")),
+            created_by=user_id,
+        )
+        db.add(obj)
+        await db.flush()
+        return obj.id
+
+    async def update_record(self, record_id: UUID, row: dict[str, Any], user_id: UUID, db: AsyncSession) -> None:
+        result = await db.execute(select(RegistryEquipment).where(RegistryEquipment.id == record_id))
+        obj = result.scalar_one()
+        for key in ("name", "equipment_class", "status", "criticality", "manufacturer", "model", "serial_number", "notes"):
+            if row.get(key) is not None:
+                setattr(obj, key, _safe_str(row[key]))
+        for key in ("year_manufactured", "year_installed"):
+            if row.get(key) is not None:
+                setattr(obj, key, _safe_int(row[key]))
+        # Re-resolve installation if code changed
+        inst_code = row.get("installation_code")
+        if inst_code is not None:
+            res = await db.execute(
+                select(Installation.id).where(Installation.entity_id == obj.entity_id, Installation.code == str(inst_code).strip())
+            )
+            obj.installation_id = res.scalar_one_or_none()
+
+
+class ARPipelineHandler(TargetObjectHandler):
+    """Import handler for RegistryPipeline (ar_pipelines)."""
+    key = "ar_pipeline"
+    label = "Pipelines"
+
+    def get_fields(self) -> list[TargetFieldDef]:
+        return [
+            TargetFieldDef(key="pipeline_id", label="ID pipeline", type="string", required=True, example="PL-001"),
+            TargetFieldDef(key="name", label="Nom", type="string", required=True, example="Export Oil 12\""),
+            TargetFieldDef(key="service", label="Service", type="string", required=True, example="EXPORT_OIL"),
+            TargetFieldDef(key="status", label="Statut", type="string", example="OPERATIONAL"),
+            TargetFieldDef(key="from_installation_code", label="Code installation départ", type="lookup", required=True, lookup_target="ar_installation.code"),
+            TargetFieldDef(key="to_installation_code", label="Code installation arrivée", type="lookup", required=True, lookup_target="ar_installation.code"),
+            TargetFieldDef(key="nominal_diameter_in", label="Diamètre nominal (in)", type="float", required=True, example="12"),
+            TargetFieldDef(key="wall_thickness_mm", label="Épaisseur paroi (mm)", type="float", example="12.7"),
+            TargetFieldDef(key="material_grade", label="Grade matériau", type="string", example="API 5L X65"),
+            TargetFieldDef(key="total_length_km", label="Longueur totale (km)", type="float", example="24.5"),
+            TargetFieldDef(key="design_pressure_barg", label="Pression design (barg)", type="float", required=True, example="100"),
+            TargetFieldDef(key="design_temperature_c", label="Température design (°C)", type="float", required=True, example="80"),
+            TargetFieldDef(key="installation_year", label="Année installation", type="integer", example="1995"),
+            TargetFieldDef(key="notes", label="Notes", type="string"),
+        ]
+
+    async def validate_row(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> list[RowValidationError]:
+        errors: list[RowValidationError] = []
+        idx = row.get("__row_index", 0)
+        if not row.get("pipeline_id"):
+            errors.append(RowValidationError(row_index=idx, field="pipeline_id", message="ID pipeline requis"))
+        if not row.get("name"):
+            errors.append(RowValidationError(row_index=idx, field="name", message="Nom requis"))
+        if not row.get("service"):
+            errors.append(RowValidationError(row_index=idx, field="service", message="Service requis"))
+        if row.get("nominal_diameter_in") is None:
+            errors.append(RowValidationError(row_index=idx, field="nominal_diameter_in", message="Diamètre nominal requis"))
+        if row.get("design_pressure_barg") is None:
+            errors.append(RowValidationError(row_index=idx, field="design_pressure_barg", message="Pression design requise"))
+        if row.get("design_temperature_c") is None:
+            errors.append(RowValidationError(row_index=idx, field="design_temperature_c", message="Température design requise"))
+        # Validate from_installation
+        from_code = row.get("from_installation_code")
+        if not from_code:
+            errors.append(RowValidationError(row_index=idx, field="from_installation_code", message="Code installation départ requis"))
+        else:
+            res = await db.execute(
+                select(Installation.id).where(Installation.entity_id == entity_id, Installation.code == str(from_code).strip())
+            )
+            if not res.scalar_one_or_none():
+                errors.append(RowValidationError(row_index=idx, field="from_installation_code", message=f"Installation inconnue: {from_code}"))
+        # Validate to_installation
+        to_code = row.get("to_installation_code")
+        if not to_code:
+            errors.append(RowValidationError(row_index=idx, field="to_installation_code", message="Code installation arrivée requis"))
+        else:
+            res = await db.execute(
+                select(Installation.id).where(Installation.entity_id == entity_id, Installation.code == str(to_code).strip())
+            )
+            if not res.scalar_one_or_none():
+                errors.append(RowValidationError(row_index=idx, field="to_installation_code", message=f"Installation inconnue: {to_code}"))
+        return errors
+
+    async def find_duplicate(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> UUID | None:
+        pid = row.get("pipeline_id")
+        if not pid:
+            return None
+        result = await db.execute(
+            select(RegistryPipeline.id).where(
+                RegistryPipeline.entity_id == entity_id,
+                RegistryPipeline.pipeline_id == str(pid).strip(),
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def create_record(self, row: dict[str, Any], entity_id: UUID, user_id: UUID, db: AsyncSession) -> UUID:
+        pid = row.get("pipeline_id")
+        if not pid:
+            pid = await generate_reference("PL", db, entity_id=entity_id)
+        # Resolve from/to installation IDs
+        from_code = str(row.get("from_installation_code", "")).strip()
+        res = await db.execute(
+            select(Installation.id).where(Installation.entity_id == entity_id, Installation.code == from_code)
+        )
+        from_id = res.scalar_one()
+        to_code = str(row.get("to_installation_code", "")).strip()
+        res = await db.execute(
+            select(Installation.id).where(Installation.entity_id == entity_id, Installation.code == to_code)
+        )
+        to_id = res.scalar_one()
+        obj = RegistryPipeline(
+            entity_id=entity_id,
+            pipeline_id=str(pid).strip(),
+            name=str(row.get("name", "")).strip(),
+            service=str(row.get("service", "")).strip(),
+            status=_safe_str(row.get("status")) or "OPERATIONAL",
+            from_installation_id=from_id,
+            to_installation_id=to_id,
+            nominal_diameter_in=_safe_float(row.get("nominal_diameter_in")) or 0,
+            wall_thickness_mm=_safe_float(row.get("wall_thickness_mm")),
+            pipe_grade=_safe_str(row.get("material_grade")),
+            total_length_km=_safe_float(row.get("total_length_km")),
+            design_pressure_barg=_safe_float(row.get("design_pressure_barg")) or 0,
+            design_temp_max_c=_safe_float(row.get("design_temperature_c")) or 0,
+            installation_year=_safe_int(row.get("installation_year")),
+            notes=_safe_str(row.get("notes")),
+        )
+        db.add(obj)
+        await db.flush()
+        return obj.id
+
+    async def update_record(self, record_id: UUID, row: dict[str, Any], user_id: UUID, db: AsyncSession) -> None:
+        result = await db.execute(select(RegistryPipeline).where(RegistryPipeline.id == record_id))
+        obj = result.scalar_one()
+        for key in ("name", "service", "status", "notes"):
+            if row.get(key) is not None:
+                setattr(obj, key, _safe_str(row[key]))
+        for key in ("nominal_diameter_in", "wall_thickness_mm", "total_length_km", "design_pressure_barg"):
+            if row.get(key) is not None:
+                setattr(obj, key, _safe_float(row[key]))
+        if row.get("design_temperature_c") is not None:
+            obj.design_temp_max_c = _safe_float(row["design_temperature_c"])
+        if row.get("material_grade") is not None:
+            obj.pipe_grade = _safe_str(row["material_grade"])
+        if row.get("installation_year") is not None:
+            obj.installation_year = _safe_int(row["installation_year"])
+        # Re-resolve from/to installations if codes changed
+        from_code = row.get("from_installation_code")
+        if from_code is not None:
+            res = await db.execute(
+                select(Installation.id).where(Installation.entity_id == obj.entity_id, Installation.code == str(from_code).strip())
+            )
+            found = res.scalar_one_or_none()
+            if found:
+                obj.from_installation_id = found
+        to_code = row.get("to_installation_code")
+        if to_code is not None:
+            res = await db.execute(
+                select(Installation.id).where(Installation.entity_id == obj.entity_id, Installation.code == str(to_code).strip())
+            )
+            found = res.scalar_one_or_none()
+            if found:
+                obj.to_installation_id = found
+
+
 # ── Handler registry ──────────────────────────────────────────────────────
 
 HANDLERS: dict[str, TargetObjectHandler] = {}
@@ -881,6 +1422,11 @@ _register_handler(ContactHandler())
 _register_handler(PaxProfileHandler())
 _register_handler(ProjectHandler())
 _register_handler(ComplianceRecordHandler())
+_register_handler(ARFieldHandler())
+_register_handler(ARSiteHandler())
+_register_handler(ARInstallationHandler())
+_register_handler(AREquipmentHandler())
+_register_handler(ARPipelineHandler())
 
 
 # ── Transform engine ──────────────────────────────────────────────────────

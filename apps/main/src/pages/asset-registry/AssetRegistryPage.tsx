@@ -236,7 +236,7 @@ function FieldsTab() {
   const importExport = useMemo<ImportExportConfig>(() => ({
     exportFormats: ['csv', 'xlsx'],
     advancedExport: true,
-    importCsv: true,
+    importWizardTarget: 'ar_field',
     filenamePrefix: 'champs',
   }), [])
 
@@ -366,7 +366,7 @@ function SitesTab() {
   const importExport = useMemo<ImportExportConfig>(() => ({
     exportFormats: ['csv', 'xlsx'],
     advancedExport: true,
-    importCsv: true,
+    importWizardTarget: 'ar_site',
     filenamePrefix: 'sites',
   }), [])
 
@@ -492,7 +492,7 @@ function InstallationsTab() {
   const importExport = useMemo<ImportExportConfig>(() => ({
     exportFormats: ['csv', 'xlsx'],
     advancedExport: true,
-    importCsv: true,
+    importWizardTarget: 'ar_installation',
     filenamePrefix: 'installations',
   }), [])
 
@@ -647,7 +647,7 @@ function EquipmentTab() {
   const importExport = useMemo<ImportExportConfig>(() => ({
     exportFormats: ['csv', 'xlsx'],
     advancedExport: true,
-    importCsv: true,
+    importWizardTarget: 'ar_equipment',
     filenamePrefix: 'equipements',
   }), [])
 
@@ -771,7 +771,7 @@ function PipelinesTab() {
   const importExport = useMemo<ImportExportConfig>(() => ({
     exportFormats: ['csv', 'xlsx'],
     advancedExport: true,
-    importCsv: true,
+    importWizardTarget: 'ar_pipeline',
     filenamePrefix: 'pipelines',
   }), [])
 

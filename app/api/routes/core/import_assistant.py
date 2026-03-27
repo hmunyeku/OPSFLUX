@@ -44,6 +44,11 @@ _PERMISSION_MAP: dict[str, str] = {
     "pax_profile": "paxlog.ads.create",
     "project": "project.create",
     "compliance_record": "conformite.create",
+    "ar_field": "asset.create",
+    "ar_site": "asset.create",
+    "ar_installation": "asset.create",
+    "ar_equipment": "asset.create",
+    "ar_pipeline": "asset.create",
 }
 
 

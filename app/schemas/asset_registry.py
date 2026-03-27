@@ -849,6 +849,29 @@ class ColumnSectionRead(ColumnSectionCreate, TimestampMixin):
 
 
 # ════════════════════════════════════════════════════════════════
+# ASSET CHANGE LOG (audit trail)
+# ════════════════════════════════════════════════════════════════
+
+class AssetChangeLogRead(BaseModel):
+    id: UUID
+    tenant_id: UUID
+    entity_type: str
+    entity_id: UUID
+    entity_code: str
+    field_name: str
+    old_value: str | None = None
+    new_value: str | None = None
+    change_type: str
+    changed_by: UUID
+    changed_at: datetime
+    # populated by join
+    changed_by_name: str | None = None
+
+    class Config:
+        from_attributes = True
+
+
+# ════════════════════════════════════════════════════════════════
 # PAGINATED RESPONSE (reuse pattern)
 # ════════════════════════════════════════════════════════════════
 

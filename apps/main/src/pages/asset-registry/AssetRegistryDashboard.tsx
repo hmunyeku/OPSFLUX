@@ -15,6 +15,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { cn } from '@/lib/utils'
 import { useAssetRegistryStats, useFields, useSites, useInstallations } from '@/hooks/useAssetRegistry'
+import { RecentAssetChanges } from './AssetChangeHistory'
 import { useMapSettings, getTileUrl, getTileAttribution } from '@/hooks/useMapSettings'
 import { useUIStore } from '@/stores/uiStore'
 
@@ -563,13 +564,18 @@ export function AssetRegistryDashboard() {
         />
       </div>
 
-      {/* ── Map Overview ────────────────────────────────────── */}
-      <MapOverview
-        fields={mapFields}
-        sites={mapSites}
-        installations={mapInstallations}
-        loading={mapLoading}
-      />
+      {/* ── Map + Recent Changes row ─────────────────────────── */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <MapOverview
+            fields={mapFields}
+            sites={mapSites}
+            installations={mapInstallations}
+            loading={mapLoading}
+          />
+        </div>
+        <RecentAssetChanges />
+      </div>
     </div>
   )
 }

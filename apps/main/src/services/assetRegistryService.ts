@@ -21,6 +21,7 @@ import type {
   SeparatorProcessCase, SeparatorProcessCaseCreate, SeparatorProcessCaseUpdate,
   PumpCurvePoint, PumpCurvePointCreate, PumpCurvePointUpdate,
   ColumnSection, ColumnSectionCreate, ColumnSectionUpdate,
+  AssetChangeLogEntry,
 } from '@/types/assetRegistry'
 
 const BASE = '/api/v1/asset-registry'
@@ -395,5 +396,20 @@ export const assetRegistryService = {
   },
   deleteColumnSection: async (eqId: string, id: string): Promise<void> => {
     await api.delete(`${BASE}/equipment/${eqId}/column-sections/${id}`)
+  },
+
+  // ── Change Log (audit trail) ──────────────────────────────
+  getEntityChangeLog: async (
+    entityType: string,
+    entityId: string,
+    params: { page?: number; page_size?: number } = {},
+  ): Promise<PaginatedResponse<AssetChangeLogEntry>> => {
+    const { data } = await api.get(`${BASE}/history/${entityType}/${entityId}`, { params })
+    return data
+  },
+
+  getRecentChanges: async (limit = 10): Promise<AssetChangeLogEntry[]> => {
+    const { data } = await api.get(`${BASE}/history/recent`, { params: { limit } })
+    return data
   },
 }

@@ -581,3 +581,20 @@ export function useDeleteColumnSection() {
     onSuccess: (_, { eqId }) => { qc.invalidateQueries({ queryKey: ['ar-col-sections', eqId] }) },
   })
 }
+
+// ── Change Log (audit trail) ────────────────────────────────
+
+export function useAssetChangeLog(entityType: string | undefined, entityId: string | undefined, page = 1, pageSize = 25) {
+  return useQuery({
+    queryKey: ['ar-change-log', entityType, entityId, page, pageSize],
+    queryFn: () => assetRegistryService.getEntityChangeLog(entityType!, entityId!, { page, page_size: pageSize }),
+    enabled: !!entityType && !!entityId,
+  })
+}
+
+export function useRecentAssetChanges(limit = 10) {
+  return useQuery({
+    queryKey: ['ar-recent-changes', limit],
+    queryFn: () => assetRegistryService.getRecentChanges(limit),
+  })
+}

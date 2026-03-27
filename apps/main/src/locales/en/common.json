@@ -802,7 +802,10 @@
     "sites_by_type": "Sites by Type",
     "map_overview": "Asset Map",
     "no_coordinates": "No assets with GPS coordinates",
-    "no_stats": "No statistics available"
+    "no_stats": "No statistics available",
+    "history": "History",
+    "no_changes": "No changes recorded",
+    "recent_changes": "Recent Changes"
   },
   "tiers": {
     "title": "Companies",

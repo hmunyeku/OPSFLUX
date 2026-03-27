@@ -1964,3 +1964,35 @@ class InstallationBuoy(Base):
     buoy_type: Mapped[str | None] = mapped_column(String(20))
     design_tonnage_dwt: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
     max_flow_rate_bph: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
+
+
+# ================================================================
+# SECTION 6 — ASSET CHANGE LOG (audit trail)
+# ================================================================
+
+
+class AssetChangeLog(UUIDPrimaryKeyMixin, Base):
+    """Audit trail for Asset Registry modifications.
+
+    Captures field-level changes on any AR entity (field, site, installation,
+    equipment, pipeline) along with who made the change, when, and what the
+    old / new values were.
+    """
+    __tablename__ = "ar_change_log"
+    __table_args__ = (
+        Index("idx_ar_change_log_entity", "entity_type", "entity_id"),
+        Index("idx_ar_change_log_changed_at", "changed_at"),
+        Index("idx_ar_change_log_changed_by", "changed_by"),
+        Index("idx_ar_change_log_tenant", "tenant_id"),
+    )
+
+    tenant_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
+    entity_type: Mapped[str] = mapped_column(String(50), nullable=False)       # ar_field, ar_site, ar_installation, ar_equipment, ar_pipeline
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    entity_code: Mapped[str] = mapped_column(String(100), nullable=False)       # human-readable code e.g. 'RDC-01'
+    field_name: Mapped[str] = mapped_column(String(100), nullable=False)        # column that changed
+    old_value: Mapped[str | None] = mapped_column(Text)                         # stringified previous value
+    new_value: Mapped[str | None] = mapped_column(Text)                         # stringified new value
+    change_type: Mapped[str] = mapped_column(String(20), nullable=False)        # create, update, archive
+    changed_by: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

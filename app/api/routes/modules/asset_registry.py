@@ -48,6 +48,8 @@ from app.models.asset_registry import (
     InstallationOffshoreDetails, InstallationOnshoreDetails,
     InstallationWellPad, InstallationTerminal, InstallationTankFarm,
     InstallationJacketPlatform, InstallationBuoy,
+    # Audit trail
+    AssetChangeLog,
 )
 from app.models.common import User
 from app.schemas.asset_registry import (
@@ -68,6 +70,7 @@ from app.schemas.asset_registry import (
     SeparatorProcessCaseCreate, SeparatorProcessCaseUpdate, SeparatorProcessCaseRead,
     PumpCurvePointCreate, PumpCurvePointUpdate, PumpCurvePointRead,
     ColumnSectionCreate, ColumnSectionUpdate, ColumnSectionRead,
+    AssetChangeLogRead,
 )
 
 router = APIRouter(prefix="/api/v1/asset-registry", tags=["asset-registry"])
@@ -151,6 +154,148 @@ async def _get_or_404(db: AsyncSession, model, obj_id: UUID, entity_id: UUID, la
     return obj
 
 
+# ── Audit trail helper ────────────────────────────────────────────────────
+
+def _stringify(val) -> str | None:
+    """Convert any value to a string suitable for the change log, or None."""
+    if val is None:
+        return None
+    if isinstance(val, datetime):
+        return val.isoformat()
+    if isinstance(val, Decimal):
+        return str(val)
+    return str(val)
+
+
+async def _log_ar_changes(
+    db: AsyncSession,
+    entity_type: str,
+    entity_id: UUID,
+    entity_code: str,
+    old_data: dict,
+    new_data: dict,
+    user_id: UUID,
+    tenant_id: UUID,
+    change_type: str = "update",
+):
+    """Compare old_data vs new_data dicts and insert AssetChangeLog rows for each diff."""
+    for field_name, new_val in new_data.items():
+        old_val = old_data.get(field_name)
+        if _stringify(old_val) != _stringify(new_val):
+            db.add(AssetChangeLog(
+                tenant_id=tenant_id,
+                entity_type=entity_type,
+                entity_id=entity_id,
+                entity_code=entity_code,
+                field_name=field_name,
+                old_value=_stringify(old_val),
+                new_value=_stringify(new_val),
+                change_type=change_type,
+                changed_by=user_id,
+            ))
+
+
+def _snapshot_fields(obj, field_names: list[str]) -> dict:
+    """Take a snapshot of the given fields from a model instance."""
+    return {f: getattr(obj, f, None) for f in field_names}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# CHANGE LOG ENDPOINTS
+# ════════════════════════════════════════════════════════════════════════════
+
+
+@router.get("/history/{entity_type}/{entity_id}", dependencies=[require_permission("asset.read")])
+async def get_entity_change_log(
+    entity_type: str,
+    entity_id: UUID,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=200),
+    entity_id_tenant: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return paginated change history for a specific AR entity."""
+    _user_name = sqla_func.concat(User.first_name, ' ', User.last_name).label("changed_by_name")
+    query = (
+        select(
+            AssetChangeLog,
+            _user_name,
+        )
+        .outerjoin(User, User.id == AssetChangeLog.changed_by)
+        .where(
+            AssetChangeLog.tenant_id == entity_id_tenant,
+            AssetChangeLog.entity_type == entity_type,
+            AssetChangeLog.entity_id == entity_id,
+        )
+        .order_by(AssetChangeLog.changed_at.desc())
+    )
+    # count
+    count_q = select(sqla_func.count()).select_from(query.subquery())
+    total = (await db.execute(count_q)).scalar() or 0
+    pages = (total + page_size - 1) // page_size if total > 0 else 0
+    # fetch page
+    rows = (await db.execute(query.offset((page - 1) * page_size).limit(page_size))).all()
+    items = []
+    for log_obj, name in rows:
+        d = {
+            "id": log_obj.id,
+            "tenant_id": log_obj.tenant_id,
+            "entity_type": log_obj.entity_type,
+            "entity_id": log_obj.entity_id,
+            "entity_code": log_obj.entity_code,
+            "field_name": log_obj.field_name,
+            "old_value": log_obj.old_value,
+            "new_value": log_obj.new_value,
+            "change_type": log_obj.change_type,
+            "changed_by": log_obj.changed_by,
+            "changed_at": log_obj.changed_at.isoformat() if log_obj.changed_at else None,
+            "changed_by_name": name,
+        }
+        items.append(d)
+    return {"items": items, "total": total, "page": page, "page_size": page_size, "pages": pages}
+
+
+@router.get("/history/recent", dependencies=[require_permission("asset.read")])
+async def get_recent_changes(
+    limit: int = Query(10, ge=1, le=100),
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the N most recent changes across all AR entities for this tenant."""
+    _user_name = sqla_func.concat(User.first_name, ' ', User.last_name).label("changed_by_name")
+    query = (
+        select(
+            AssetChangeLog,
+            _user_name,
+        )
+        .outerjoin(User, User.id == AssetChangeLog.changed_by)
+        .where(AssetChangeLog.tenant_id == entity_id)
+        .order_by(AssetChangeLog.changed_at.desc())
+        .limit(limit)
+    )
+    rows = (await db.execute(query)).all()
+    items = []
+    for log_obj, name in rows:
+        d = {
+            "id": log_obj.id,
+            "tenant_id": log_obj.tenant_id,
+            "entity_type": log_obj.entity_type,
+            "entity_id": log_obj.entity_id,
+            "entity_code": log_obj.entity_code,
+            "field_name": log_obj.field_name,
+            "old_value": log_obj.old_value,
+            "new_value": log_obj.new_value,
+            "change_type": log_obj.change_type,
+            "changed_by": log_obj.changed_by,
+            "changed_at": log_obj.changed_at.isoformat() if log_obj.changed_at else None,
+            "changed_by_name": name,
+        }
+        items.append(d)
+    return items
+
+
 # ════════════════════════════════════════════════════════════════════════════
 # FIELDS
 # ════════════════════════════════════════════════════════════════════════════
@@ -215,8 +360,11 @@ async def update_field(
     db: AsyncSession = Depends(get_db),
 ):
     obj = await _get_or_404(db, OilField, field_id, entity_id, "Field")
-    for key, value in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    old_data = _snapshot_fields(obj, list(updates.keys()))
+    for key, value in updates.items():
         setattr(obj, key, value)
+    await _log_ar_changes(db, "ar_field", field_id, obj.code, old_data, updates, current_user.id, entity_id)
     await db.commit()
     await db.refresh(obj)
     return obj
@@ -237,6 +385,7 @@ async def delete_field(
     if child_count > 0:
         raise HTTPException(409, f"Cannot archive field: {child_count} active site(s) reference it. Remove or reassign them first.")
     obj.archived = True
+    await _log_ar_changes(db, "ar_field", field_id, obj.code, {"archived": False}, {"archived": True}, current_user.id, entity_id, "archive")
     await db.commit()
     return {"detail": "Field archived"}
 
@@ -285,15 +434,18 @@ async def update_field_license(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_or_404(db, OilField, field_id, entity_id, "Field")
+    field_obj = await _get_or_404(db, OilField, field_id, entity_id, "Field")
     result = await db.execute(
         select(FieldLicense).where(FieldLicense.id == license_id, FieldLicense.field_id == field_id)
     )
     obj = result.scalars().first()
     if not obj:
         raise HTTPException(404, "License not found")
-    for key, value in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    old_data = _snapshot_fields(obj, list(updates.keys()))
+    for key, value in updates.items():
         setattr(obj, key, value)
+    await _log_ar_changes(db, "ar_field", field_id, field_obj.code, old_data, updates, current_user.id, entity_id)
     await db.commit()
     await db.refresh(obj)
     return obj
@@ -388,8 +540,11 @@ async def update_site(
     db: AsyncSession = Depends(get_db),
 ):
     obj = await _get_or_404(db, OilSite, site_id, entity_id, "Site")
-    for key, value in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    old_data = _snapshot_fields(obj, list(updates.keys()))
+    for key, value in updates.items():
         setattr(obj, key, value)
+    await _log_ar_changes(db, "ar_site", site_id, obj.code, old_data, updates, current_user.id, entity_id)
     await db.commit()
     await db.refresh(obj)
     return obj
@@ -410,6 +565,7 @@ async def delete_site(
     if child_count > 0:
         raise HTTPException(409, f"Cannot archive site: {child_count} active installation(s) reference it. Remove or reassign them first.")
     obj.archived = True
+    await _log_ar_changes(db, "ar_site", site_id, obj.code, {"archived": False}, {"archived": True}, current_user.id, entity_id, "archive")
     await db.commit()
     return {"detail": "Site archived"}
 
@@ -534,8 +690,11 @@ async def update_installation(
     db: AsyncSession = Depends(get_db),
 ):
     obj = await _get_or_404(db, Installation, installation_id, entity_id, "Installation")
-    for key, value in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    old_data = _snapshot_fields(obj, list(updates.keys()))
+    for key, value in updates.items():
         setattr(obj, key, value)
+    await _log_ar_changes(db, "ar_installation", installation_id, obj.code, old_data, updates, current_user.id, entity_id)
     await db.commit()
     await db.refresh(obj)
     return obj
@@ -558,6 +717,7 @@ async def delete_installation(
     if child_count > 0:
         raise HTTPException(409, f"Cannot archive installation: {child_count} active equipment(s) reference it. Remove or reassign them first.")
     obj.archived = True
+    await _log_ar_changes(db, "ar_installation", installation_id, obj.code, {"archived": False}, {"archived": True}, current_user.id, entity_id, "archive")
     await db.commit()
     return {"detail": "Installation archived"}
 
@@ -665,7 +825,7 @@ async def update_installation_deck(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_or_404(db, Installation, installation_id, entity_id, "Installation")
+    inst = await _get_or_404(db, Installation, installation_id, entity_id, "Installation")
     result = await db.execute(
         select(InstallationDeck).where(
             InstallationDeck.id == deck_id,
@@ -675,8 +835,11 @@ async def update_installation_deck(
     deck = result.scalars().first()
     if not deck:
         raise HTTPException(404, "Deck not found")
-    for key, value in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    old_data = _snapshot_fields(deck, list(updates.keys()))
+    for key, value in updates.items():
         setattr(deck, key, value)
+    await _log_ar_changes(db, "ar_installation", installation_id, inst.code, old_data, updates, current_user.id, entity_id)
     await db.commit()
     await db.refresh(deck)
     return deck
@@ -810,8 +973,11 @@ async def update_equipment(
     db: AsyncSession = Depends(get_db),
 ):
     obj = await _get_or_404(db, RegistryEquipment, equipment_id, entity_id, "Equipment")
-    for key, value in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    old_data = _snapshot_fields(obj, list(updates.keys()))
+    for key, value in updates.items():
         setattr(obj, key, value)
+    await _log_ar_changes(db, "ar_equipment", equipment_id, obj.tag_number, old_data, updates, current_user.id, entity_id)
     await db.commit()
     await db.refresh(obj)
     return obj
@@ -826,6 +992,7 @@ async def delete_equipment(
 ):
     obj = await _get_or_404(db, RegistryEquipment, equipment_id, entity_id, "Equipment")
     obj.archived = True
+    await _log_ar_changes(db, "ar_equipment", equipment_id, obj.tag_number, {"archived": False}, {"archived": True}, current_user.id, entity_id, "archive")
     await db.commit()
     return {"detail": "Equipment archived"}
 
@@ -930,8 +1097,11 @@ async def update_pipeline(
     db: AsyncSession = Depends(get_db),
 ):
     obj = await _get_or_404(db, RegistryPipeline, pipeline_id, entity_id, "Pipeline")
-    for key, value in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    old_data = _snapshot_fields(obj, list(updates.keys()))
+    for key, value in updates.items():
         setattr(obj, key, value)
+    await _log_ar_changes(db, "ar_pipeline", pipeline_id, obj.pipeline_id, old_data, updates, current_user.id, entity_id)
     await db.commit()
     await db.refresh(obj)
     return obj
@@ -946,6 +1116,7 @@ async def delete_pipeline(
 ):
     obj = await _get_or_404(db, RegistryPipeline, pipeline_id, entity_id, "Pipeline")
     obj.archived = True
+    await _log_ar_changes(db, "ar_pipeline", pipeline_id, obj.pipeline_id, {"archived": False}, {"archived": True}, current_user.id, entity_id, "archive")
     await db.commit()
     return {"detail": "Pipeline archived"}
 
@@ -1201,10 +1372,13 @@ async def update_crane_configuration(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _verify_equipment_entity(db, equipment_id, entity_id)
+    equip = await _verify_equipment_entity(db, equipment_id, entity_id)
     obj = await _submodel_crud_get(db, CraneConfiguration, CraneConfiguration.crane_id, equipment_id, config_id, "Configuration")
-    for key, value in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    old_data = _snapshot_fields(obj, list(updates.keys()))
+    for key, value in updates.items():
         setattr(obj, key, value)
+    await _log_ar_changes(db, "ar_equipment", equipment_id, equip.tag_number, old_data, updates, current_user.id, entity_id)
     await db.commit()
     await db.refresh(obj)
     return obj
@@ -1261,10 +1435,13 @@ async def update_crane_hook_block(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _verify_equipment_entity(db, equipment_id, entity_id)
+    equip = await _verify_equipment_entity(db, equipment_id, entity_id)
     obj = await _submodel_crud_get(db, CraneHookBlock, CraneHookBlock.crane_id, equipment_id, block_id, "Hook block")
-    for key, value in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    old_data = _snapshot_fields(obj, list(updates.keys()))
+    for key, value in updates.items():
         setattr(obj, key, value)
+    await _log_ar_changes(db, "ar_equipment", equipment_id, equip.tag_number, old_data, updates, current_user.id, entity_id)
     await db.commit()
     await db.refresh(obj)
     return obj
@@ -1321,10 +1498,13 @@ async def update_crane_reeving_guide(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _verify_equipment_entity(db, equipment_id, entity_id)
+    equip = await _verify_equipment_entity(db, equipment_id, entity_id)
     obj = await _submodel_crud_get(db, CraneReevingGuide, CraneReevingGuide.crane_id, equipment_id, guide_id, "Reeving guide")
-    for key, value in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    old_data = _snapshot_fields(obj, list(updates.keys()))
+    for key, value in updates.items():
         setattr(obj, key, value)
+    await _log_ar_changes(db, "ar_equipment", equipment_id, equip.tag_number, old_data, updates, current_user.id, entity_id)
     await db.commit()
     await db.refresh(obj)
     return obj
@@ -1381,10 +1561,13 @@ async def update_separator_nozzle(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _verify_equipment_entity(db, equipment_id, entity_id)
+    equip = await _verify_equipment_entity(db, equipment_id, entity_id)
     obj = await _submodel_crud_get(db, SeparatorNozzle, SeparatorNozzle.separator_id, equipment_id, nozzle_id, "Nozzle")
-    for key, value in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    old_data = _snapshot_fields(obj, list(updates.keys()))
+    for key, value in updates.items():
         setattr(obj, key, value)
+    await _log_ar_changes(db, "ar_equipment", equipment_id, equip.tag_number, old_data, updates, current_user.id, entity_id)
     await db.commit()
     await db.refresh(obj)
     return obj
@@ -1441,10 +1624,13 @@ async def update_separator_process_case(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _verify_equipment_entity(db, equipment_id, entity_id)
+    equip = await _verify_equipment_entity(db, equipment_id, entity_id)
     obj = await _submodel_crud_get(db, SeparatorProcessCase, SeparatorProcessCase.separator_id, equipment_id, case_id, "Process case")
-    for key, value in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    old_data = _snapshot_fields(obj, list(updates.keys()))
+    for key, value in updates.items():
         setattr(obj, key, value)
+    await _log_ar_changes(db, "ar_equipment", equipment_id, equip.tag_number, old_data, updates, current_user.id, entity_id)
     await db.commit()
     await db.refresh(obj)
     return obj
@@ -1501,10 +1687,13 @@ async def update_pump_curve_point(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _verify_equipment_entity(db, equipment_id, entity_id)
+    equip = await _verify_equipment_entity(db, equipment_id, entity_id)
     obj = await _submodel_crud_get(db, PumpCurvePoint, PumpCurvePoint.pump_id, equipment_id, point_id, "Curve point")
-    for key, value in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    old_data = _snapshot_fields(obj, list(updates.keys()))
+    for key, value in updates.items():
         setattr(obj, key, value)
+    await _log_ar_changes(db, "ar_equipment", equipment_id, equip.tag_number, old_data, updates, current_user.id, entity_id)
     await db.commit()
     await db.refresh(obj)
     return obj
@@ -1561,10 +1750,13 @@ async def update_column_section(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _verify_equipment_entity(db, equipment_id, entity_id)
+    equip = await _verify_equipment_entity(db, equipment_id, entity_id)
     obj = await _submodel_crud_get(db, ColumnSection, ColumnSection.column_id, equipment_id, section_id, "Column section")
-    for key, value in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    old_data = _snapshot_fields(obj, list(updates.keys()))
+    for key, value in updates.items():
         setattr(obj, key, value)
+    await _log_ar_changes(db, "ar_equipment", equipment_id, equip.tag_number, old_data, updates, current_user.id, entity_id)
     await db.commit()
     await db.refresh(obj)
     return obj
@@ -1636,9 +1828,13 @@ async def update_crane_load_chart_point(
     db: AsyncSession = Depends(get_db),
 ):
     await _verify_config_entity(db, equipment_id, config_id, entity_id)
+    equip = await _verify_equipment_entity(db, equipment_id, entity_id)
     obj = await _submodel_crud_get(db, CraneLoadChartPoint, CraneLoadChartPoint.config_id, config_id, point_id, "Load chart point")
-    for key, value in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    old_data = _snapshot_fields(obj, list(updates.keys()))
+    for key, value in updates.items():
         setattr(obj, key, value)
+    await _log_ar_changes(db, "ar_equipment", equipment_id, equip.tag_number, old_data, updates, current_user.id, entity_id)
     await db.commit()
     await db.refresh(obj)
     return obj
@@ -1698,9 +1894,13 @@ async def update_crane_lift_zone(
     db: AsyncSession = Depends(get_db),
 ):
     await _verify_config_entity(db, equipment_id, config_id, entity_id)
+    equip = await _verify_equipment_entity(db, equipment_id, entity_id)
     obj = await _submodel_crud_get(db, CraneLiftZone, CraneLiftZone.config_id, config_id, zone_id, "Lift zone")
-    for key, value in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    old_data = _snapshot_fields(obj, list(updates.keys()))
+    for key, value in updates.items():
         setattr(obj, key, value)
+    await _log_ar_changes(db, "ar_equipment", equipment_id, equip.tag_number, old_data, updates, current_user.id, entity_id)
     await db.commit()
     await db.refresh(obj)
     return obj

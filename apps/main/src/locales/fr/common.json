@@ -810,7 +810,10 @@
     "sites_by_type": "Sites par type",
     "map_overview": "Carte des assets",
     "no_coordinates": "Aucun asset avec coordonnées GPS",
-    "no_stats": "Aucune statistique disponible"
+    "no_stats": "Aucune statistique disponible",
+    "history": "Historique",
+    "no_changes": "Aucune modification enregistrée",
+    "recent_changes": "Modifications récentes"
   },
   "tiers": {
     "title": "Entreprises",

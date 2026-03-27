@@ -509,3 +509,19 @@ export interface AssetRegistryStats {
   equipment_by_status: { status: string; count: number }[]
   sites_by_type: { site_type: string; count: number }[]
 }
+
+// ── Asset Change Log (audit trail) ──────────────────────────
+export interface AssetChangeLogEntry {
+  id: string
+  tenant_id: string
+  entity_type: string
+  entity_id: string
+  entity_code: string
+  field_name: string
+  old_value: string | null
+  new_value: string | null
+  change_type: string
+  changed_by: string
+  changed_at: string
+  changed_by_name: string | null
+}

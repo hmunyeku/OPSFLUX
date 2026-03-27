@@ -20,6 +20,7 @@ import {
   MessageSquare,
   ExternalLink,
   ArrowRight,
+  History,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TabBar, TabButton } from '@/components/ui/Tabs'
@@ -55,6 +56,7 @@ import {
   PumpCurvePointManager,
   ColumnSectionManager,
 } from './EquipmentSubModels'
+import { AssetEntityChangeLog } from './AssetChangeHistory'
 import { apiGeoToEditorValue, editorValueToApiGeo, latLonToPointValue } from '@/utils/geoHelpers'
 import { usePermission } from '@/hooks/usePermission'
 import { useUIStore } from '@/stores/uiStore'
@@ -160,7 +162,7 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
-type PanelTab = 'details' | 'files' | 'notes' | 'refs'
+type PanelTab = 'details' | 'files' | 'notes' | 'refs' | 'history'
 
 function fmtBool(val: boolean | undefined | null, t: (k: string) => string) {
   return val ? t('common.yes') : t('common.no')
@@ -266,6 +268,7 @@ export function FieldDetailPanel({ id }: { id: string }) {
           <TabButton icon={Paperclip} label={t('common.files')} active={tab === 'files'} onClick={() => setTab('files')} />
           <TabButton icon={MessageSquare} label={t('common.notes')} active={tab === 'notes'} onClick={() => setTab('notes')} />
           <TabButton icon={ExternalLink} label={t('assets.references')} active={tab === 'refs'} onClick={() => setTab('refs')} />
+          <TabButton icon={History} label={t('assets.history')} active={tab === 'history'} onClick={() => setTab('history')} />
         </TabBar>
       </div>
 
@@ -409,6 +412,7 @@ export function FieldDetailPanel({ id }: { id: string }) {
       {tab === 'files' && <div className="p-4"><AttachmentManager ownerType="ar_field" ownerId={id} /></div>}
       {tab === 'notes' && <div className="p-4"><NoteManager ownerType="ar_field" ownerId={id} /></div>}
       {tab === 'refs' && <div className="p-4"><ExternalRefManager ownerType="ar_field" ownerId={id} /></div>}
+      {tab === 'history' && <AssetEntityChangeLog entityType="ar_field" entityId={id} />}
     </DynamicPanelShell>
   )
 }
@@ -461,6 +465,7 @@ export function SiteDetailPanel({ id }: { id: string }) {
           <TabButton icon={Paperclip} label={t('common.files')} active={tab === 'files'} onClick={() => setTab('files')} />
           <TabButton icon={MessageSquare} label={t('common.notes')} active={tab === 'notes'} onClick={() => setTab('notes')} />
           <TabButton icon={ExternalLink} label={t('assets.references')} active={tab === 'refs'} onClick={() => setTab('refs')} />
+          <TabButton icon={History} label={t('assets.history')} active={tab === 'history'} onClick={() => setTab('history')} />
         </TabBar>
       </div>
 
@@ -639,6 +644,7 @@ export function SiteDetailPanel({ id }: { id: string }) {
       {tab === 'files' && <div className="p-4"><AttachmentManager ownerType="ar_site" ownerId={id} /></div>}
       {tab === 'notes' && <div className="p-4"><NoteManager ownerType="ar_site" ownerId={id} /></div>}
       {tab === 'refs' && <div className="p-4"><ExternalRefManager ownerType="ar_site" ownerId={id} /></div>}
+      {tab === 'history' && <AssetEntityChangeLog entityType="ar_site" entityId={id} />}
     </DynamicPanelShell>
   )
 }
@@ -691,6 +697,7 @@ export function InstallationDetailPanel({ id }: { id: string }) {
           <TabButton icon={Paperclip} label={t('common.files')} active={tab === 'files'} onClick={() => setTab('files')} />
           <TabButton icon={MessageSquare} label={t('common.notes')} active={tab === 'notes'} onClick={() => setTab('notes')} />
           <TabButton icon={ExternalLink} label={t('assets.references')} active={tab === 'refs'} onClick={() => setTab('refs')} />
+          <TabButton icon={History} label={t('assets.history')} active={tab === 'history'} onClick={() => setTab('history')} />
         </TabBar>
       </div>
 
@@ -873,6 +880,7 @@ export function InstallationDetailPanel({ id }: { id: string }) {
       {tab === 'files' && <div className="p-4"><AttachmentManager ownerType="ar_installation" ownerId={id} /></div>}
       {tab === 'notes' && <div className="p-4"><NoteManager ownerType="ar_installation" ownerId={id} /></div>}
       {tab === 'refs' && <div className="p-4"><ExternalRefManager ownerType="ar_installation" ownerId={id} /></div>}
+      {tab === 'history' && <AssetEntityChangeLog entityType="ar_installation" entityId={id} />}
     </DynamicPanelShell>
   )
 }
@@ -989,6 +997,7 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
           <TabButton icon={Paperclip} label={t('common.files')} active={tab === 'files'} onClick={() => setTab('files')} />
           <TabButton icon={MessageSquare} label={t('common.notes')} active={tab === 'notes'} onClick={() => setTab('notes')} />
           <TabButton icon={ExternalLink} label={t('assets.references')} active={tab === 'refs'} onClick={() => setTab('refs')} />
+          <TabButton icon={History} label={t('assets.history')} active={tab === 'history'} onClick={() => setTab('history')} />
         </TabBar>
       </div>
 
@@ -1219,6 +1228,7 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
       {tab === 'files' && <div className="p-4"><AttachmentManager ownerType="ar_equipment" ownerId={id} /></div>}
       {tab === 'notes' && <div className="p-4"><NoteManager ownerType="ar_equipment" ownerId={id} /></div>}
       {tab === 'refs' && <div className="p-4"><ExternalRefManager ownerType="ar_equipment" ownerId={id} /></div>}
+      {tab === 'history' && <AssetEntityChangeLog entityType="ar_equipment" entityId={id} />}
     </DynamicPanelShell>
   )
 }
@@ -1269,6 +1279,7 @@ export function PipelineDetailPanel({ id }: { id: string }) {
           <TabButton icon={Paperclip} label={t('common.files')} active={tab === 'files'} onClick={() => setTab('files')} />
           <TabButton icon={MessageSquare} label={t('common.notes')} active={tab === 'notes'} onClick={() => setTab('notes')} />
           <TabButton icon={ExternalLink} label={t('assets.references')} active={tab === 'refs'} onClick={() => setTab('refs')} />
+          <TabButton icon={History} label={t('assets.history')} active={tab === 'history'} onClick={() => setTab('history')} />
         </TabBar>
       </div>
 
@@ -1522,6 +1533,7 @@ export function PipelineDetailPanel({ id }: { id: string }) {
       {tab === 'files' && <div className="p-4"><AttachmentManager ownerType="ar_pipeline" ownerId={id} /></div>}
       {tab === 'notes' && <div className="p-4"><NoteManager ownerType="ar_pipeline" ownerId={id} /></div>}
       {tab === 'refs' && <div className="p-4"><ExternalRefManager ownerType="ar_pipeline" ownerId={id} /></div>}
+      {tab === 'history' && <AssetEntityChangeLog entityType="ar_pipeline" entityId={id} />}
     </DynamicPanelShell>
   )
 }

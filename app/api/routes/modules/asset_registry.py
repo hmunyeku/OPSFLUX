@@ -153,7 +153,7 @@ async def _get_or_404(db: AsyncSession, model, obj_id: UUID, entity_id: UUID, la
 # ════════════════════════════════════════════════════════════════════════════
 
 
-@router.get("/fields")
+@router.get("/fields", dependencies=[require_permission("asset.read")])
 async def list_fields(
     search: str | None = None,
     status: str | None = None,
@@ -179,7 +179,7 @@ async def list_fields(
     return await paginate(db, query, pagination)
 
 
-@router.get("/fields/{field_id}", response_model=OilFieldRead)
+@router.get("/fields/{field_id}", response_model=OilFieldRead, dependencies=[require_permission("asset.read")])
 async def get_field(
     field_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
@@ -189,7 +189,7 @@ async def get_field(
     return await _get_or_404(db, OilField, field_id, entity_id, "Field")
 
 
-@router.post("/fields", response_model=OilFieldRead, status_code=201)
+@router.post("/fields", response_model=OilFieldRead, status_code=201, dependencies=[require_permission("asset.create")])
 async def create_field(
     body: OilFieldCreate,
     entity_id: UUID = Depends(get_current_entity),
@@ -203,7 +203,7 @@ async def create_field(
     return obj
 
 
-@router.patch("/fields/{field_id}", response_model=OilFieldRead)
+@router.patch("/fields/{field_id}", response_model=OilFieldRead, dependencies=[require_permission("asset.update")])
 async def update_field(
     field_id: UUID,
     body: OilFieldUpdate,
@@ -219,7 +219,7 @@ async def update_field(
     return obj
 
 
-@router.delete("/fields/{field_id}")
+@router.delete("/fields/{field_id}", dependencies=[require_permission("asset.delete")])
 async def delete_field(
     field_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
@@ -243,7 +243,7 @@ async def delete_field(
 # ════════════════════════════════════════════════════════════════════════════
 
 
-@router.get("/fields/{field_id}/licenses", response_model=list[FieldLicenseRead])
+@router.get("/fields/{field_id}/licenses", response_model=list[FieldLicenseRead], dependencies=[require_permission("asset.read")])
 async def list_field_licenses(
     field_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
@@ -257,7 +257,7 @@ async def list_field_licenses(
     return result.scalars().all()
 
 
-@router.post("/fields/{field_id}/licenses", response_model=FieldLicenseRead, status_code=201)
+@router.post("/fields/{field_id}/licenses", response_model=FieldLicenseRead, status_code=201, dependencies=[require_permission("asset.create")])
 async def create_field_license(
     field_id: UUID,
     body: FieldLicenseCreate,
@@ -273,7 +273,7 @@ async def create_field_license(
     return obj
 
 
-@router.patch("/fields/{field_id}/licenses/{license_id}", response_model=FieldLicenseRead)
+@router.patch("/fields/{field_id}/licenses/{license_id}", response_model=FieldLicenseRead, dependencies=[require_permission("asset.update")])
 async def update_field_license(
     field_id: UUID,
     license_id: UUID,
@@ -296,7 +296,7 @@ async def update_field_license(
     return obj
 
 
-@router.delete("/fields/{field_id}/licenses/{license_id}")
+@router.delete("/fields/{field_id}/licenses/{license_id}", dependencies=[require_permission("asset.delete")])
 async def delete_field_license(
     field_id: UUID,
     license_id: UUID,
@@ -321,7 +321,7 @@ async def delete_field_license(
 # ════════════════════════════════════════════════════════════════════════════
 
 
-@router.get("/sites")
+@router.get("/sites", dependencies=[require_permission("asset.read")])
 async def list_sites(
     field_id: UUID | None = None,
     search: str | None = None,
@@ -350,7 +350,7 @@ async def list_sites(
     return await paginate(db, query, pagination)
 
 
-@router.get("/sites/{site_id}", response_model=OilSiteRead)
+@router.get("/sites/{site_id}", response_model=OilSiteRead, dependencies=[require_permission("asset.read")])
 async def get_site(
     site_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
@@ -360,7 +360,7 @@ async def get_site(
     return await _get_or_404(db, OilSite, site_id, entity_id, "Site")
 
 
-@router.post("/sites", response_model=OilSiteRead, status_code=201)
+@router.post("/sites", response_model=OilSiteRead, status_code=201, dependencies=[require_permission("asset.create")])
 async def create_site(
     body: OilSiteCreate,
     entity_id: UUID = Depends(get_current_entity),
@@ -376,7 +376,7 @@ async def create_site(
     return obj
 
 
-@router.patch("/sites/{site_id}", response_model=OilSiteRead)
+@router.patch("/sites/{site_id}", response_model=OilSiteRead, dependencies=[require_permission("asset.update")])
 async def update_site(
     site_id: UUID,
     body: OilSiteUpdate,
@@ -392,7 +392,7 @@ async def update_site(
     return obj
 
 
-@router.delete("/sites/{site_id}")
+@router.delete("/sites/{site_id}", dependencies=[require_permission("asset.delete")])
 async def delete_site(
     site_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
@@ -416,7 +416,7 @@ async def delete_site(
 # ════════════════════════════════════════════════════════════════════════════
 
 
-@router.get("/installations")
+@router.get("/installations", dependencies=[require_permission("asset.read")])
 async def list_installations(
     site_id: UUID | None = None,
     search: str | None = None,
@@ -461,7 +461,7 @@ INSTALLATION_TYPE_MODEL_MAP: dict[str, type] = {
 }
 
 
-@router.get("/installations/{installation_id}", response_model=InstallationRead)
+@router.get("/installations/{installation_id}", response_model=InstallationRead, dependencies=[require_permission("asset.read")])
 async def get_installation(
     installation_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
@@ -506,7 +506,7 @@ async def get_installation(
     return resp
 
 
-@router.post("/installations", response_model=InstallationRead, status_code=201)
+@router.post("/installations", response_model=InstallationRead, status_code=201, dependencies=[require_permission("asset.create")])
 async def create_installation(
     body: InstallationCreate,
     entity_id: UUID = Depends(get_current_entity),
@@ -522,7 +522,7 @@ async def create_installation(
     return obj
 
 
-@router.patch("/installations/{installation_id}", response_model=InstallationRead)
+@router.patch("/installations/{installation_id}", response_model=InstallationRead, dependencies=[require_permission("asset.update")])
 async def update_installation(
     installation_id: UUID,
     body: InstallationUpdate,
@@ -538,7 +538,7 @@ async def update_installation(
     return obj
 
 
-@router.delete("/installations/{installation_id}")
+@router.delete("/installations/{installation_id}", dependencies=[require_permission("asset.delete")])
 async def delete_installation(
     installation_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
@@ -578,7 +578,7 @@ async def _upsert_1to1_detail(db: AsyncSession, model, installation_id: UUID, da
     return {col.key: (float(v) if isinstance(v := getattr(obj, col.key), Decimal) else v) for col in mapper.columns if col.key != "id"}
 
 
-@router.put("/installations/{installation_id}/offshore-details")
+@router.put("/installations/{installation_id}/offshore-details", dependencies=[require_permission("asset.update")])
 async def upsert_offshore_details(
     installation_id: UUID,
     body: dict,
@@ -590,7 +590,7 @@ async def upsert_offshore_details(
     return await _upsert_1to1_detail(db, InstallationOffshoreDetails, installation_id, body)
 
 
-@router.put("/installations/{installation_id}/onshore-details")
+@router.put("/installations/{installation_id}/onshore-details", dependencies=[require_permission("asset.update")])
 async def upsert_onshore_details(
     installation_id: UUID,
     body: dict,
@@ -602,7 +602,7 @@ async def upsert_onshore_details(
     return await _upsert_1to1_detail(db, InstallationOnshoreDetails, installation_id, body)
 
 
-@router.put("/installations/{installation_id}/type-details")
+@router.put("/installations/{installation_id}/type-details", dependencies=[require_permission("asset.update")])
 async def upsert_type_details(
     installation_id: UUID,
     body: dict,
@@ -620,7 +620,7 @@ async def upsert_type_details(
 # ── Installation Decks ────────────────────────────────────────────────────
 
 
-@router.get("/installations/{installation_id}/decks", response_model=list[InstallationDeckRead])
+@router.get("/installations/{installation_id}/decks", response_model=list[InstallationDeckRead], dependencies=[require_permission("asset.read")])
 async def list_installation_decks(
     installation_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
@@ -637,7 +637,7 @@ async def list_installation_decks(
     return result.scalars().all()
 
 
-@router.post("/installations/{installation_id}/decks", response_model=InstallationDeckRead, status_code=201)
+@router.post("/installations/{installation_id}/decks", response_model=InstallationDeckRead, status_code=201, dependencies=[require_permission("asset.create")])
 async def create_installation_deck(
     installation_id: UUID,
     body: InstallationDeckCreate,
@@ -653,7 +653,7 @@ async def create_installation_deck(
     return obj
 
 
-@router.patch("/installations/{installation_id}/decks/{deck_id}", response_model=InstallationDeckRead)
+@router.patch("/installations/{installation_id}/decks/{deck_id}", response_model=InstallationDeckRead, dependencies=[require_permission("asset.update")])
 async def update_installation_deck(
     installation_id: UUID,
     deck_id: UUID,
@@ -679,7 +679,7 @@ async def update_installation_deck(
     return deck
 
 
-@router.delete("/installations/{installation_id}/decks/{deck_id}")
+@router.delete("/installations/{installation_id}/decks/{deck_id}", dependencies=[require_permission("asset.delete")])
 async def delete_installation_deck(
     installation_id: UUID,
     deck_id: UUID,
@@ -707,7 +707,7 @@ async def delete_installation_deck(
 # ════════════════════════════════════════════════════════════════════════════
 
 
-@router.get("/equipment")
+@router.get("/equipment", dependencies=[require_permission("asset.read")])
 async def list_equipment(
     installation_id: UUID | None = None,
     equipment_class: str | None = None,
@@ -742,7 +742,7 @@ async def list_equipment(
     return await paginate(db, query, pagination)
 
 
-@router.get("/equipment/{equipment_id}", response_model=EquipmentRead)
+@router.get("/equipment/{equipment_id}", response_model=EquipmentRead, dependencies=[require_permission("asset.read")])
 async def get_equipment(
     equipment_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
@@ -777,7 +777,7 @@ async def get_equipment(
     return resp
 
 
-@router.post("/equipment", response_model=EquipmentRead, status_code=201)
+@router.post("/equipment", response_model=EquipmentRead, status_code=201, dependencies=[require_permission("asset.create")])
 async def create_equipment(
     body: EquipmentCreate,
     entity_id: UUID = Depends(get_current_entity),
@@ -798,7 +798,7 @@ async def create_equipment(
     return obj
 
 
-@router.patch("/equipment/{equipment_id}", response_model=EquipmentRead)
+@router.patch("/equipment/{equipment_id}", response_model=EquipmentRead, dependencies=[require_permission("asset.update")])
 async def update_equipment(
     equipment_id: UUID,
     body: EquipmentUpdate,
@@ -814,7 +814,7 @@ async def update_equipment(
     return obj
 
 
-@router.delete("/equipment/{equipment_id}")
+@router.delete("/equipment/{equipment_id}", dependencies=[require_permission("asset.delete")])
 async def delete_equipment(
     equipment_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
@@ -832,7 +832,7 @@ async def delete_equipment(
 # ════════════════════════════════════════════════════════════════════════════
 
 
-@router.get("/pipelines")
+@router.get("/pipelines", dependencies=[require_permission("asset.read")])
 async def list_pipelines(
     search: str | None = None,
     status: str | None = None,
@@ -861,7 +861,7 @@ async def list_pipelines(
     return await paginate(db, query, pagination)
 
 
-@router.get("/pipelines/{pipeline_id}")
+@router.get("/pipelines/{pipeline_id}", dependencies=[require_permission("asset.read")])
 async def get_pipeline(
     pipeline_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
@@ -901,7 +901,7 @@ async def get_pipeline(
     }
 
 
-@router.post("/pipelines", response_model=PipelineRead, status_code=201)
+@router.post("/pipelines", response_model=PipelineRead, status_code=201, dependencies=[require_permission("asset.create")])
 async def create_pipeline(
     body: PipelineCreate,
     entity_id: UUID = Depends(get_current_entity),
@@ -918,7 +918,7 @@ async def create_pipeline(
     return obj
 
 
-@router.patch("/pipelines/{pipeline_id}", response_model=PipelineRead)
+@router.patch("/pipelines/{pipeline_id}", response_model=PipelineRead, dependencies=[require_permission("asset.update")])
 async def update_pipeline(
     pipeline_id: UUID,
     body: PipelineUpdate,
@@ -934,7 +934,7 @@ async def update_pipeline(
     return obj
 
 
-@router.delete("/pipelines/{pipeline_id}")
+@router.delete("/pipelines/{pipeline_id}", dependencies=[require_permission("asset.delete")])
 async def delete_pipeline(
     pipeline_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
@@ -952,7 +952,7 @@ async def delete_pipeline(
 # ════════════════════════════════════════════════════════════════════════════
 
 
-@router.get("/hierarchy")
+@router.get("/hierarchy", dependencies=[require_permission("asset.read")])
 async def get_hierarchy(
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
@@ -1036,7 +1036,7 @@ async def get_hierarchy(
     return tree
 
 
-@router.get("/stats")
+@router.get("/stats", dependencies=[require_permission("asset.read")])
 async def get_stats(
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
@@ -1164,7 +1164,7 @@ async def _submodel_crud_get(db, model, fk_col, parent_id, item_id, label="Item"
 # CRANE — CONFIGURATIONS
 # ════════════════════════════════════════════════════════════════════════════
 
-@router.get("/equipment/{equipment_id}/crane-configurations", response_model=list[CraneConfigurationRead])
+@router.get("/equipment/{equipment_id}/crane-configurations", response_model=list[CraneConfigurationRead], dependencies=[require_permission("asset.read")])
 async def list_crane_configurations(
     equipment_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
@@ -1175,7 +1175,7 @@ async def list_crane_configurations(
     return await _submodel_crud_list(db, CraneConfiguration, CraneConfiguration.crane_id, equipment_id, CraneConfiguration.config_code)
 
 
-@router.post("/equipment/{equipment_id}/crane-configurations", response_model=CraneConfigurationRead, status_code=201)
+@router.post("/equipment/{equipment_id}/crane-configurations", response_model=CraneConfigurationRead, status_code=201, dependencies=[require_permission("asset.create")])
 async def create_crane_configuration(
     equipment_id: UUID,
     body: CraneConfigurationCreate,
@@ -1191,7 +1191,7 @@ async def create_crane_configuration(
     return obj
 
 
-@router.patch("/equipment/{equipment_id}/crane-configurations/{config_id}", response_model=CraneConfigurationRead)
+@router.patch("/equipment/{equipment_id}/crane-configurations/{config_id}", response_model=CraneConfigurationRead, dependencies=[require_permission("asset.update")])
 async def update_crane_configuration(
     equipment_id: UUID, config_id: UUID, body: CraneConfigurationUpdate,
     entity_id: UUID = Depends(get_current_entity),
@@ -1207,7 +1207,7 @@ async def update_crane_configuration(
     return obj
 
 
-@router.delete("/equipment/{equipment_id}/crane-configurations/{config_id}")
+@router.delete("/equipment/{equipment_id}/crane-configurations/{config_id}", dependencies=[require_permission("asset.delete")])
 async def delete_crane_configuration(
     equipment_id: UUID, config_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
@@ -1225,7 +1225,7 @@ async def delete_crane_configuration(
 # CRANE — HOOK BLOCKS
 # ════════════════════════════════════════════════════════════════════════════
 
-@router.get("/equipment/{equipment_id}/crane-hook-blocks", response_model=list[CraneHookBlockRead])
+@router.get("/equipment/{equipment_id}/crane-hook-blocks", response_model=list[CraneHookBlockRead], dependencies=[require_permission("asset.read")])
 async def list_crane_hook_blocks(
     equipment_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
@@ -1236,7 +1236,7 @@ async def list_crane_hook_blocks(
     return await _submodel_crud_list(db, CraneHookBlock, CraneHookBlock.crane_id, equipment_id, CraneHookBlock.block_reference)
 
 
-@router.post("/equipment/{equipment_id}/crane-hook-blocks", response_model=CraneHookBlockRead, status_code=201)
+@router.post("/equipment/{equipment_id}/crane-hook-blocks", response_model=CraneHookBlockRead, status_code=201, dependencies=[require_permission("asset.create")])
 async def create_crane_hook_block(
     equipment_id: UUID, body: CraneHookBlockCreate,
     entity_id: UUID = Depends(get_current_entity),
@@ -1251,7 +1251,7 @@ async def create_crane_hook_block(
     return obj
 
 
-@router.patch("/equipment/{equipment_id}/crane-hook-blocks/{block_id}", response_model=CraneHookBlockRead)
+@router.patch("/equipment/{equipment_id}/crane-hook-blocks/{block_id}", response_model=CraneHookBlockRead, dependencies=[require_permission("asset.update")])
 async def update_crane_hook_block(
     equipment_id: UUID, block_id: UUID, body: CraneHookBlockUpdate,
     entity_id: UUID = Depends(get_current_entity),
@@ -1267,7 +1267,7 @@ async def update_crane_hook_block(
     return obj
 
 
-@router.delete("/equipment/{equipment_id}/crane-hook-blocks/{block_id}")
+@router.delete("/equipment/{equipment_id}/crane-hook-blocks/{block_id}", dependencies=[require_permission("asset.delete")])
 async def delete_crane_hook_block(
     equipment_id: UUID, block_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
@@ -1285,7 +1285,7 @@ async def delete_crane_hook_block(
 # CRANE — REEVING GUIDE
 # ════════════════════════════════════════════════════════════════════════════
 
-@router.get("/equipment/{equipment_id}/crane-reeving-guide", response_model=list[CraneReevingGuideRead])
+@router.get("/equipment/{equipment_id}/crane-reeving-guide", response_model=list[CraneReevingGuideRead], dependencies=[require_permission("asset.read")])
 async def list_crane_reeving_guide(
     equipment_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
@@ -1296,7 +1296,7 @@ async def list_crane_reeving_guide(
     return await _submodel_crud_list(db, CraneReevingGuide, CraneReevingGuide.crane_id, equipment_id, CraneReevingGuide.reeving_parts)
 
 
-@router.post("/equipment/{equipment_id}/crane-reeving-guide", response_model=CraneReevingGuideRead, status_code=201)
+@router.post("/equipment/{equipment_id}/crane-reeving-guide", response_model=CraneReevingGuideRead, status_code=201, dependencies=[require_permission("asset.create")])
 async def create_crane_reeving_guide(
     equipment_id: UUID, body: CraneReevingGuideCreate,
     entity_id: UUID = Depends(get_current_entity),
@@ -1311,7 +1311,7 @@ async def create_crane_reeving_guide(
     return obj
 
 
-@router.patch("/equipment/{equipment_id}/crane-reeving-guide/{guide_id}", response_model=CraneReevingGuideRead)
+@router.patch("/equipment/{equipment_id}/crane-reeving-guide/{guide_id}", response_model=CraneReevingGuideRead, dependencies=[require_permission("asset.update")])
 async def update_crane_reeving_guide(
     equipment_id: UUID, guide_id: UUID, body: CraneReevingGuideUpdate,
     entity_id: UUID = Depends(get_current_entity),
@@ -1327,7 +1327,7 @@ async def update_crane_reeving_guide(
     return obj
 
 
-@router.delete("/equipment/{equipment_id}/crane-reeving-guide/{guide_id}")
+@router.delete("/equipment/{equipment_id}/crane-reeving-guide/{guide_id}", dependencies=[require_permission("asset.delete")])
 async def delete_crane_reeving_guide(
     equipment_id: UUID, guide_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
@@ -1345,7 +1345,7 @@ async def delete_crane_reeving_guide(
 # SEPARATOR — NOZZLES
 # ════════════════════════════════════════════════════════════════════════════
 
-@router.get("/equipment/{equipment_id}/separator-nozzles", response_model=list[SeparatorNozzleRead])
+@router.get("/equipment/{equipment_id}/separator-nozzles", response_model=list[SeparatorNozzleRead], dependencies=[require_permission("asset.read")])
 async def list_separator_nozzles(
     equipment_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
@@ -1356,7 +1356,7 @@ async def list_separator_nozzles(
     return await _submodel_crud_list(db, SeparatorNozzle, SeparatorNozzle.separator_id, equipment_id, SeparatorNozzle.nozzle_mark)
 
 
-@router.post("/equipment/{equipment_id}/separator-nozzles", response_model=SeparatorNozzleRead, status_code=201)
+@router.post("/equipment/{equipment_id}/separator-nozzles", response_model=SeparatorNozzleRead, status_code=201, dependencies=[require_permission("asset.create")])
 async def create_separator_nozzle(
     equipment_id: UUID, body: SeparatorNozzleCreate,
     entity_id: UUID = Depends(get_current_entity),
@@ -1371,7 +1371,7 @@ async def create_separator_nozzle(
     return obj
 
 
-@router.patch("/equipment/{equipment_id}/separator-nozzles/{nozzle_id}", response_model=SeparatorNozzleRead)
+@router.patch("/equipment/{equipment_id}/separator-nozzles/{nozzle_id}", response_model=SeparatorNozzleRead, dependencies=[require_permission("asset.update")])
 async def update_separator_nozzle(
     equipment_id: UUID, nozzle_id: UUID, body: SeparatorNozzleUpdate,
     entity_id: UUID = Depends(get_current_entity),
@@ -1387,7 +1387,7 @@ async def update_separator_nozzle(
     return obj
 
 
-@router.delete("/equipment/{equipment_id}/separator-nozzles/{nozzle_id}")
+@router.delete("/equipment/{equipment_id}/separator-nozzles/{nozzle_id}", dependencies=[require_permission("asset.delete")])
 async def delete_separator_nozzle(
     equipment_id: UUID, nozzle_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
@@ -1405,7 +1405,7 @@ async def delete_separator_nozzle(
 # SEPARATOR — PROCESS CASES
 # ════════════════════════════════════════════════════════════════════════════
 
-@router.get("/equipment/{equipment_id}/separator-process-cases", response_model=list[SeparatorProcessCaseRead])
+@router.get("/equipment/{equipment_id}/separator-process-cases", response_model=list[SeparatorProcessCaseRead], dependencies=[require_permission("asset.read")])
 async def list_separator_process_cases(
     equipment_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
@@ -1416,7 +1416,7 @@ async def list_separator_process_cases(
     return await _submodel_crud_list(db, SeparatorProcessCase, SeparatorProcessCase.separator_id, equipment_id, SeparatorProcessCase.case_name)
 
 
-@router.post("/equipment/{equipment_id}/separator-process-cases", response_model=SeparatorProcessCaseRead, status_code=201)
+@router.post("/equipment/{equipment_id}/separator-process-cases", response_model=SeparatorProcessCaseRead, status_code=201, dependencies=[require_permission("asset.create")])
 async def create_separator_process_case(
     equipment_id: UUID, body: SeparatorProcessCaseCreate,
     entity_id: UUID = Depends(get_current_entity),
@@ -1431,7 +1431,7 @@ async def create_separator_process_case(
     return obj
 
 
-@router.patch("/equipment/{equipment_id}/separator-process-cases/{case_id}", response_model=SeparatorProcessCaseRead)
+@router.patch("/equipment/{equipment_id}/separator-process-cases/{case_id}", response_model=SeparatorProcessCaseRead, dependencies=[require_permission("asset.update")])
 async def update_separator_process_case(
     equipment_id: UUID, case_id: UUID, body: SeparatorProcessCaseUpdate,
     entity_id: UUID = Depends(get_current_entity),
@@ -1447,7 +1447,7 @@ async def update_separator_process_case(
     return obj
 
 
-@router.delete("/equipment/{equipment_id}/separator-process-cases/{case_id}")
+@router.delete("/equipment/{equipment_id}/separator-process-cases/{case_id}", dependencies=[require_permission("asset.delete")])
 async def delete_separator_process_case(
     equipment_id: UUID, case_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
@@ -1465,7 +1465,7 @@ async def delete_separator_process_case(
 # PUMP — CURVE POINTS
 # ════════════════════════════════════════════════════════════════════════════
 
-@router.get("/equipment/{equipment_id}/pump-curve-points", response_model=list[PumpCurvePointRead])
+@router.get("/equipment/{equipment_id}/pump-curve-points", response_model=list[PumpCurvePointRead], dependencies=[require_permission("asset.read")])
 async def list_pump_curve_points(
     equipment_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
@@ -1476,7 +1476,7 @@ async def list_pump_curve_points(
     return await _submodel_crud_list(db, PumpCurvePoint, PumpCurvePoint.pump_id, equipment_id, PumpCurvePoint.flow_m3h)
 
 
-@router.post("/equipment/{equipment_id}/pump-curve-points", response_model=PumpCurvePointRead, status_code=201)
+@router.post("/equipment/{equipment_id}/pump-curve-points", response_model=PumpCurvePointRead, status_code=201, dependencies=[require_permission("asset.create")])
 async def create_pump_curve_point(
     equipment_id: UUID, body: PumpCurvePointCreate,
     entity_id: UUID = Depends(get_current_entity),
@@ -1491,7 +1491,7 @@ async def create_pump_curve_point(
     return obj
 
 
-@router.patch("/equipment/{equipment_id}/pump-curve-points/{point_id}", response_model=PumpCurvePointRead)
+@router.patch("/equipment/{equipment_id}/pump-curve-points/{point_id}", response_model=PumpCurvePointRead, dependencies=[require_permission("asset.update")])
 async def update_pump_curve_point(
     equipment_id: UUID, point_id: UUID, body: PumpCurvePointUpdate,
     entity_id: UUID = Depends(get_current_entity),
@@ -1507,7 +1507,7 @@ async def update_pump_curve_point(
     return obj
 
 
-@router.delete("/equipment/{equipment_id}/pump-curve-points/{point_id}")
+@router.delete("/equipment/{equipment_id}/pump-curve-points/{point_id}", dependencies=[require_permission("asset.delete")])
 async def delete_pump_curve_point(
     equipment_id: UUID, point_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
@@ -1525,7 +1525,7 @@ async def delete_pump_curve_point(
 # PROCESS COLUMN — SECTIONS
 # ════════════════════════════════════════════════════════════════════════════
 
-@router.get("/equipment/{equipment_id}/column-sections", response_model=list[ColumnSectionRead])
+@router.get("/equipment/{equipment_id}/column-sections", response_model=list[ColumnSectionRead], dependencies=[require_permission("asset.read")])
 async def list_column_sections(
     equipment_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
@@ -1536,7 +1536,7 @@ async def list_column_sections(
     return await _submodel_crud_list(db, ColumnSection, ColumnSection.column_id, equipment_id, ColumnSection.section_number)
 
 
-@router.post("/equipment/{equipment_id}/column-sections", response_model=ColumnSectionRead, status_code=201)
+@router.post("/equipment/{equipment_id}/column-sections", response_model=ColumnSectionRead, status_code=201, dependencies=[require_permission("asset.create")])
 async def create_column_section(
     equipment_id: UUID, body: ColumnSectionCreate,
     entity_id: UUID = Depends(get_current_entity),
@@ -1551,7 +1551,7 @@ async def create_column_section(
     return obj
 
 
-@router.patch("/equipment/{equipment_id}/column-sections/{section_id}", response_model=ColumnSectionRead)
+@router.patch("/equipment/{equipment_id}/column-sections/{section_id}", response_model=ColumnSectionRead, dependencies=[require_permission("asset.update")])
 async def update_column_section(
     equipment_id: UUID, section_id: UUID, body: ColumnSectionUpdate,
     entity_id: UUID = Depends(get_current_entity),
@@ -1567,7 +1567,7 @@ async def update_column_section(
     return obj
 
 
-@router.delete("/equipment/{equipment_id}/column-sections/{section_id}")
+@router.delete("/equipment/{equipment_id}/column-sections/{section_id}", dependencies=[require_permission("asset.delete")])
 async def delete_column_section(
     equipment_id: UUID, section_id: UUID,
     entity_id: UUID = Depends(get_current_entity),

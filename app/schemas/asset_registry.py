@@ -81,6 +81,8 @@ class OilFieldUpdate(BaseModel):
     discovery_year: int | None = None
     first_production_year: int | None = None
     reservoir_formation: str | None = None
+    original_oil_in_place_mmbo: Decimal | None = None
+    recoverable_reserves_mmbo: Decimal | None = None
     status: str | None = None
     notes: str | None = None
 
@@ -164,6 +166,7 @@ class OilSiteCreate(BaseModel):
     notes: str | None = None
 
 class OilSiteUpdate(BaseModel):
+    field_id: UUID | None = None
     code: str | None = None
     name: str | None = None
     site_type: str | None = None
@@ -171,12 +174,31 @@ class OilSiteUpdate(BaseModel):
     country: str | None = None
     latitude: Decimal | None = None
     longitude: Decimal | None = None
-    status: str | None = None
-    notes: str | None = None
-    # Allow partial updates for all other fields
+    region: str | None = None
+    water_depth_m: Decimal | None = None
+    # Access
+    access_road: bool | None = None
+    access_helicopter: bool | None = None
+    access_vessel: bool | None = None
+    helideck_available: bool | None = None
+    nearest_airport: str | None = None
+    nearest_port: str | None = None
+    # Operations
     manned: bool | None = None
     pob_capacity: int | None = None
-    water_depth_m: Decimal | None = None
+    power_source: str | None = None
+    comms_system: str | None = None
+    # Design conditions
+    max_wind_speed_ms: Decimal | None = None
+    design_wave_height_m: Decimal | None = None
+    design_temp_max_c: Decimal | None = None
+    design_temp_min_c: Decimal | None = None
+    seismic_zone: str | None = None
+    # Status
+    status: str | None = None
+    commissioning_date: date | None = None
+    first_oil_date: date | None = None
+    notes: str | None = None
 
 class OilSiteRead(OilSiteCreate, TimestampMixin, SoftDeleteMixin):
     id: UUID
@@ -226,17 +248,40 @@ class InstallationCreate(BaseModel):
     notes: str | None = None
 
 class InstallationUpdate(BaseModel):
+    site_id: UUID | None = None
     code: str | None = None
     name: str | None = None
     installation_type: str | None = None
     environment: str | None = None
+    # Geography
     latitude: Decimal | None = None
     longitude: Decimal | None = None
-    status: str | None = None
-    notes: str | None = None
-    is_manned: bool | None = None
-    pob_max: int | None = None
+    elevation_masl: Decimal | None = None
     water_depth_m: Decimal | None = None
+    air_gap_m: Decimal | None = None
+    orientation_deg: Decimal | None = None
+    # Status
+    status: str | None = None
+    installation_date: date | None = None
+    commissioning_date: date | None = None
+    first_oil_date: date | None = None
+    design_life_years: int | None = None
+    # Characteristics
+    is_manned: bool | None = None
+    is_normally_unmanned: bool | None = None
+    pob_max: int | None = None
+    helideck_available: bool | None = None
+    lifeboat_capacity: int | None = None
+    total_area_m2: Decimal | None = None
+    footprint_length_m: Decimal | None = None
+    footprint_width_m: Decimal | None = None
+    # Certification
+    design_code: str | None = None
+    classification_society: str | None = None
+    class_notation: str | None = None
+    # Contact
+    installation_manager: UUID | None = None
+    notes: str | None = None
 
 class InstallationRead(InstallationCreate, TimestampMixin, SoftDeleteMixin):
     id: UUID
@@ -333,18 +378,51 @@ class EquipmentCreate(BaseModel):
     notes: str | None = None
 
 class EquipmentUpdate(BaseModel):
+    # Identification
     tag_number: str | None = None
     name: str | None = None
     equipment_class: str | None = None
+    # Location
     installation_id: UUID | None = None
     deck_id: UUID | None = None
     area: str | None = None
     sub_area: str | None = None
-    status: str | None = None
-    criticality: str | None = None
+    # GPS / position
+    latitude: Decimal | None = None
+    longitude: Decimal | None = None
+    elevation_m: Decimal | None = None
+    local_x_m: Decimal | None = None
+    local_y_m: Decimal | None = None
+    local_z_m: Decimal | None = None
+    orientation_deg: Decimal | None = None
+    # Mobility
+    is_mobile: bool | None = None
+    # Manufacturer
     manufacturer: str | None = None
     model: str | None = None
     serial_number: str | None = None
+    year_manufactured: int | None = None
+    year_installed: int | None = None
+    # Status
+    status: str | None = None
+    criticality: str | None = None
+    safety_function: bool | None = None
+    # Certification
+    cert_number: str | None = None
+    cert_authority: str | None = None
+    # Documents
+    drawing_number: str | None = None
+    p_and_id_ref: str | None = None
+    datasheet_url: str | None = None
+    manual_url: str | None = None
+    cert_document_url: str | None = None
+    # Finance
+    owner_company: str | None = None
+    asset_number: str | None = None
+    purchase_date: date | None = None
+    purchase_cost_usd: Decimal | None = None
+    replacement_cost_usd: Decimal | None = None
+    grid_reference: str | None = None
     notes: str | None = None
 
 class EquipmentRead(EquipmentCreate, TimestampMixin, SoftDeleteMixin):
@@ -406,10 +484,55 @@ class PipelineCreate(BaseModel):
     notes: str | None = None
 
 class PipelineUpdate(BaseModel):
+    pipeline_id: str | None = None
     name: str | None = None
     service: str | None = None
+    # Connection A->B
+    from_installation_id: UUID | None = None
+    to_installation_id: UUID | None = None
+    from_node_description: str | None = None
+    to_node_description: str | None = None
+    # Dimensional
+    nominal_diameter_in: Decimal | None = None
+    od_mm: Decimal | None = None
+    wall_thickness_mm: Decimal | None = None
+    # Design conditions
+    design_pressure_barg: Decimal | None = None
+    design_temp_max_c: Decimal | None = None
+    design_temp_min_c: Decimal | None = None
+    maop_barg: Decimal | None = None
+    test_pressure_barg: Decimal | None = None
+    # Status
     status: str | None = None
+    # Materials
+    pipe_material: str | None = None
+    pipe_grade: str | None = None
+    coating_external: str | None = None
+    coating_internal: str | None = None
+    # Routing
     total_length_km: Decimal | None = None
+    onshore_length_km: Decimal | None = None
+    offshore_length_km: Decimal | None = None
+    max_water_depth_m: Decimal | None = None
+    # Fluid
+    fluid_description: str | None = None
+    h2s_ppm: Decimal | None = None
+    co2_mol_pct: Decimal | None = None
+    # Pigging
+    piggable: bool | None = None
+    pig_launcher_tag: str | None = None
+    pig_receiver_tag: str | None = None
+    # CP
+    cp_required: bool | None = None
+    cp_type: str | None = None
+    # Integrity
+    corrosion_allowance_mm: Decimal | None = None
+    design_code: str | None = None
+    design_life_years: int | None = None
+    installation_year: int | None = None
+    # Regulatory
+    permit_number: str | None = None
+    regulator: str | None = None
     notes: str | None = None
 
 class PipelineRead(PipelineCreate, TimestampMixin, SoftDeleteMixin):

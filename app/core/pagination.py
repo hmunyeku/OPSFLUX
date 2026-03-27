@@ -22,7 +22,7 @@ class PaginationParams:
     def __init__(
         self,
         page: int = Query(1, ge=1, description="Page number"),
-        page_size: int = Query(25, ge=1, le=200, description="Items per page"),
+        page_size: int = Query(25, ge=1, le=1000, description="Items per page (max controlled by admin setting datatable.max_page_size)"),
     ):
         self.page = page
         self.page_size = page_size

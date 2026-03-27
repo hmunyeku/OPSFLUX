@@ -1043,6 +1043,7 @@ function UserDetailPanel({ id }: { id: string }) {
   const updateUser = useUpdateUser()
   const revokeAllSessions = useRevokeAllSessions()
   const sendPasswordReset = useSendPasswordReset()
+  const { toast } = useToast()
   const uploadAvatar = useUploadAvatar()
   const { data: userEntities } = useUserEntities(id)
 
@@ -1101,8 +1102,11 @@ function UserDetailPanel({ id }: { id: string }) {
   }, [uploadAvatar])
 
   const handlePasswordReset = useCallback(() => {
-    if (user?.email) sendPasswordReset.mutate(user.email)
-  }, [user?.email, sendPasswordReset])
+    if (user?.email) sendPasswordReset.mutate(user.email, {
+      onSuccess: () => toast({ title: `Email de réinitialisation envoyé à ${user.email}`, variant: 'success' }),
+      onError: () => toast({ title: 'Erreur lors de l\'envoi de l\'email', variant: 'error' }),
+    })
+  }, [user?.email, sendPasswordReset, toast])
 
   const handleUnlockAccount = useCallback(() => {
     updateUser.mutate({ id, payload: { failed_login_count: 0, locked_until: null } })

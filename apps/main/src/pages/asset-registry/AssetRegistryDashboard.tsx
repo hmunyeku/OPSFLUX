@@ -484,7 +484,7 @@ export function AssetRegistryDashboard() {
   )
 
   return (
-    <div className="p-4 space-y-4 overflow-y-auto">
+    <div className="@container p-4 space-y-4 overflow-y-auto">
       {/* Refresh button */}
       <div className="flex items-center justify-end">
         <button
@@ -497,7 +497,7 @@ export function AssetRegistryDashboard() {
       </div>
 
       {/* ── KPI Row ─────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 @sm:grid-cols-3 @lg:grid-cols-5">
         <StatCard
           icon={MapPin}
           label={t('assets.total_fields')}
@@ -536,7 +536,7 @@ export function AssetRegistryDashboard() {
       </div>
 
       {/* ── Charts Row ──────────────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 @lg:grid-cols-2">
         <DonutChart
           title={t('assets.equipment_by_class')}
           items={equipByClass}
@@ -550,7 +550,7 @@ export function AssetRegistryDashboard() {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 @lg:grid-cols-2">
         <DonutChart
           title={t('assets.sites_by_type')}
           items={sitesByType}
@@ -565,7 +565,7 @@ export function AssetRegistryDashboard() {
       </div>
 
       {/* ── Map + Recent Changes row ─────────────────────────── */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 @md:grid-cols-3">
         <div className="lg:col-span-2">
           <MapOverview
             fields={mapFields}

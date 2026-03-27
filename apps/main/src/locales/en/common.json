@@ -264,6 +264,7 @@
     "no_installations": "No installations registered",
     "no_equipment": "No equipment registered",
     "no_pipelines": "No pipelines registered",
+    "confirm_archive_selected": "Archive selected items? This action cannot be undone.",
     "country": "Country",
     "operator": "Operator",
     "environment": "Environment",

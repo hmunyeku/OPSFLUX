@@ -8,11 +8,11 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  MapPin, Plus, Factory, Landmark, Layers, Ship, Wrench,
+  MapPin, Plus, Factory, Landmark, Layers, Ship, Wrench, Archive,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
-import type { DataTablePagination, DataTableFilterDef } from '@/components/ui/DataTable/types'
+import type { DataTablePagination, DataTableFilterDef, DataTableBatchAction, ImportExportConfig } from '@/components/ui/DataTable/types'
 import { cn } from '@/lib/utils'
 import { TabBar, TabButton } from '@/components/ui/Tabs'
 import { useDebounce } from '@/hooks/useDebounce'
@@ -21,12 +21,18 @@ import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/Pa
 import { usePermission } from '@/hooks/usePermission'
 import { useUIStore } from '@/stores/uiStore'
 import { useDictionaryOptions } from '@/hooks/useDictionary'
+import { useToast } from '@/components/ui/Toast'
 import {
   useFields,
   useSites,
   useInstallations,
   useEquipmentList,
   usePipelines,
+  useDeleteField,
+  useDeleteSite,
+  useDeleteInstallation,
+  useDeleteEquipment,
+  useDeletePipeline,
 } from '@/hooks/useAssetRegistry'
 import type {
   OilField, OilSite, Installation, RegistryEquipment, RegistryPipeline,
@@ -149,11 +155,15 @@ const TABS: { key: TabKey; icon: typeof MapPin; labelKey: string }[] = [
 function FieldsTab() {
   const { t } = useTranslation()
   const [page, setPage] = useState(1)
-  const { pageSize, setPageSize } = usePageSize()
+  const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const { activeFilters, handleFilterChange } = useFilterState()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const { hasPermission } = usePermission()
+  const canDelete = hasPermission('asset.delete')
+  const { toast } = useToast()
+  const deleteField = useDeleteField()
 
   const { data, isLoading } = useFields({
     page, page_size: pageSize,
@@ -201,12 +211,40 @@ function FieldsTab() {
     },
   ], [t])
 
+  const batchActions = useMemo<DataTableBatchAction<OilField>[]>(() => {
+    const actions: DataTableBatchAction<OilField>[] = []
+    if (canDelete) {
+      actions.push({
+        id: 'archive',
+        label: t('common.archive'),
+        icon: <Archive className="h-3.5 w-3.5" />,
+        variant: 'danger',
+        confirm: t('assets.confirm_archive_selected'),
+        onAction: async (rows) => {
+          for (const row of rows) {
+            try { await deleteField.mutateAsync(row.id) } catch (e: any) {
+              toast({ title: `${row.code}: ${e?.response?.data?.detail || t('common.error')}`, variant: 'error' })
+            }
+          }
+          toast({ title: t('common.archived_count', { count: rows.length }), variant: 'success' })
+        },
+      })
+    }
+    return actions
+  }, [canDelete, t, deleteField])
+
+  const importExport = useMemo<ImportExportConfig>(() => ({
+    exportFormats: ['csv', 'xlsx'],
+    advancedExport: true,
+    filenamePrefix: 'champs',
+  }), [])
+
   const pagination = useMemo<DataTablePagination>(() => ({
     page,
     pageSize,
     total: data?.total ?? 0,
     pages: data?.pages ?? 0,
-  }), [page, pageSize, data, setPageSize])
+  }), [page, pageSize, data])
 
   return (
     <DataTable
@@ -222,6 +260,9 @@ function FieldsTab() {
       onFilterChange={handleFilterChange}
       columnVisibility
       columnResizing
+      selectable
+      batchActions={batchActions}
+      importExport={importExport}
       storageKey="ar-fields"
       onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'ar-field', id: row.id })}
       onPaginationChange={(p) => setPage(p)}
@@ -237,11 +278,15 @@ function FieldsTab() {
 function SitesTab() {
   const { t } = useTranslation()
   const [page, setPage] = useState(1)
-  const { pageSize, setPageSize } = usePageSize()
+  const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const { activeFilters, handleFilterChange } = useFilterState()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const { hasPermission } = usePermission()
+  const canDelete = hasPermission('asset.delete')
+  const { toast } = useToast()
+  const deleteSite = useDeleteSite()
 
   const { data, isLoading } = useSites({
     page, page_size: pageSize,
@@ -295,12 +340,40 @@ function SitesTab() {
     },
   ], [t])
 
+  const batchActions = useMemo<DataTableBatchAction<OilSite>[]>(() => {
+    const actions: DataTableBatchAction<OilSite>[] = []
+    if (canDelete) {
+      actions.push({
+        id: 'archive',
+        label: t('common.archive'),
+        icon: <Archive className="h-3.5 w-3.5" />,
+        variant: 'danger',
+        confirm: t('assets.confirm_archive_selected'),
+        onAction: async (rows) => {
+          for (const row of rows) {
+            try { await deleteSite.mutateAsync(row.id) } catch (e: any) {
+              toast({ title: `${row.code}: ${e?.response?.data?.detail || t('common.error')}`, variant: 'error' })
+            }
+          }
+          toast({ title: t('common.archived_count', { count: rows.length }), variant: 'success' })
+        },
+      })
+    }
+    return actions
+  }, [canDelete, t, deleteSite])
+
+  const importExport = useMemo<ImportExportConfig>(() => ({
+    exportFormats: ['csv', 'xlsx'],
+    advancedExport: true,
+    filenamePrefix: 'sites',
+  }), [])
+
   const pagination = useMemo<DataTablePagination>(() => ({
     page,
     pageSize,
     total: data?.total ?? 0,
     pages: data?.pages ?? 0,
-  }), [page, pageSize, data, setPageSize])
+  }), [page, pageSize, data])
 
   return (
     <DataTable
@@ -316,6 +389,9 @@ function SitesTab() {
       onFilterChange={handleFilterChange}
       columnVisibility
       columnResizing
+      selectable
+      batchActions={batchActions}
+      importExport={importExport}
       storageKey="ar-sites"
       onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'ar-site', id: row.id })}
       onPaginationChange={(p) => setPage(p)}
@@ -331,11 +407,15 @@ function SitesTab() {
 function InstallationsTab() {
   const { t } = useTranslation()
   const [page, setPage] = useState(1)
-  const { pageSize, setPageSize } = usePageSize()
+  const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const { activeFilters, handleFilterChange } = useFilterState()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const { hasPermission } = usePermission()
+  const canDelete = hasPermission('asset.delete')
+  const { toast } = useToast()
+  const deleteInstallation = useDeleteInstallation()
 
   const { data, isLoading } = useInstallations({
     page, page_size: pageSize,
@@ -385,12 +465,40 @@ function InstallationsTab() {
     },
   ], [t])
 
+  const batchActions = useMemo<DataTableBatchAction<Installation>[]>(() => {
+    const actions: DataTableBatchAction<Installation>[] = []
+    if (canDelete) {
+      actions.push({
+        id: 'archive',
+        label: t('common.archive'),
+        icon: <Archive className="h-3.5 w-3.5" />,
+        variant: 'danger',
+        confirm: t('assets.confirm_archive_selected'),
+        onAction: async (rows) => {
+          for (const row of rows) {
+            try { await deleteInstallation.mutateAsync(row.id) } catch (e: any) {
+              toast({ title: `${row.code}: ${e?.response?.data?.detail || t('common.error')}`, variant: 'error' })
+            }
+          }
+          toast({ title: t('common.archived_count', { count: rows.length }), variant: 'success' })
+        },
+      })
+    }
+    return actions
+  }, [canDelete, t, deleteInstallation])
+
+  const importExport = useMemo<ImportExportConfig>(() => ({
+    exportFormats: ['csv', 'xlsx'],
+    advancedExport: true,
+    filenamePrefix: 'installations',
+  }), [])
+
   const pagination = useMemo<DataTablePagination>(() => ({
     page,
     pageSize,
     total: data?.total ?? 0,
     pages: data?.pages ?? 0,
-  }), [page, pageSize, data, setPageSize])
+  }), [page, pageSize, data])
 
   return (
     <DataTable
@@ -406,6 +514,9 @@ function InstallationsTab() {
       onFilterChange={handleFilterChange}
       columnVisibility
       columnResizing
+      selectable
+      batchActions={batchActions}
+      importExport={importExport}
       storageKey="ar-installations"
       onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'ar-installation', id: row.id })}
       onPaginationChange={(p) => setPage(p)}
@@ -421,11 +532,15 @@ function InstallationsTab() {
 function EquipmentTab() {
   const { t } = useTranslation()
   const [page, setPage] = useState(1)
-  const { pageSize, setPageSize } = usePageSize()
+  const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const { activeFilters, handleFilterChange } = useFilterState()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const { hasPermission } = usePermission()
+  const canDelete = hasPermission('asset.delete')
+  const { toast } = useToast()
+  const deleteEquipment = useDeleteEquipment()
 
   const { data, isLoading } = useEquipmentList({
     page, page_size: pageSize,
@@ -504,12 +619,40 @@ function EquipmentTab() {
     },
   ], [t])
 
+  const batchActions = useMemo<DataTableBatchAction<RegistryEquipment>[]>(() => {
+    const actions: DataTableBatchAction<RegistryEquipment>[] = []
+    if (canDelete) {
+      actions.push({
+        id: 'archive',
+        label: t('common.archive'),
+        icon: <Archive className="h-3.5 w-3.5" />,
+        variant: 'danger',
+        confirm: t('assets.confirm_archive_selected'),
+        onAction: async (rows) => {
+          for (const row of rows) {
+            try { await deleteEquipment.mutateAsync(row.id) } catch (e: any) {
+              toast({ title: `${row.tag_number}: ${e?.response?.data?.detail || t('common.error')}`, variant: 'error' })
+            }
+          }
+          toast({ title: t('common.archived_count', { count: rows.length }), variant: 'success' })
+        },
+      })
+    }
+    return actions
+  }, [canDelete, t, deleteEquipment])
+
+  const importExport = useMemo<ImportExportConfig>(() => ({
+    exportFormats: ['csv', 'xlsx'],
+    advancedExport: true,
+    filenamePrefix: 'equipements',
+  }), [])
+
   const pagination = useMemo<DataTablePagination>(() => ({
     page,
     pageSize,
     total: data?.total ?? 0,
     pages: data?.pages ?? 0,
-  }), [page, pageSize, data, setPageSize])
+  }), [page, pageSize, data])
 
   return (
     <DataTable
@@ -525,6 +668,9 @@ function EquipmentTab() {
       onFilterChange={handleFilterChange}
       columnVisibility
       columnResizing
+      selectable
+      batchActions={batchActions}
+      importExport={importExport}
       storageKey="ar-equipment"
       onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'ar-equipment', id: row.id })}
       onPaginationChange={(p) => setPage(p)}
@@ -540,11 +686,15 @@ function EquipmentTab() {
 function PipelinesTab() {
   const { t } = useTranslation()
   const [page, setPage] = useState(1)
-  const { pageSize, setPageSize } = usePageSize()
+  const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const { activeFilters, handleFilterChange } = useFilterState()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const { hasPermission } = usePermission()
+  const canDelete = hasPermission('asset.delete')
+  const { toast } = useToast()
+  const deletePipeline = useDeletePipeline()
 
   const { data, isLoading } = usePipelines({
     page, page_size: pageSize,
@@ -592,12 +742,40 @@ function PipelinesTab() {
     },
   ], [t])
 
+  const batchActions = useMemo<DataTableBatchAction<RegistryPipeline>[]>(() => {
+    const actions: DataTableBatchAction<RegistryPipeline>[] = []
+    if (canDelete) {
+      actions.push({
+        id: 'archive',
+        label: t('common.archive'),
+        icon: <Archive className="h-3.5 w-3.5" />,
+        variant: 'danger',
+        confirm: t('assets.confirm_archive_selected'),
+        onAction: async (rows) => {
+          for (const row of rows) {
+            try { await deletePipeline.mutateAsync(row.id) } catch (e: any) {
+              toast({ title: `${row.pipeline_id}: ${e?.response?.data?.detail || t('common.error')}`, variant: 'error' })
+            }
+          }
+          toast({ title: t('common.archived_count', { count: rows.length }), variant: 'success' })
+        },
+      })
+    }
+    return actions
+  }, [canDelete, t, deletePipeline])
+
+  const importExport = useMemo<ImportExportConfig>(() => ({
+    exportFormats: ['csv', 'xlsx'],
+    advancedExport: true,
+    filenamePrefix: 'pipelines',
+  }), [])
+
   const pagination = useMemo<DataTablePagination>(() => ({
     page,
     pageSize,
     total: data?.total ?? 0,
     pages: data?.pages ?? 0,
-  }), [page, pageSize, data, setPageSize])
+  }), [page, pageSize, data])
 
   return (
     <DataTable
@@ -613,6 +791,9 @@ function PipelinesTab() {
       onFilterChange={handleFilterChange}
       columnVisibility
       columnResizing
+      selectable
+      batchActions={batchActions}
+      importExport={importExport}
       storageKey="ar-pipelines"
       onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'ar-pipeline', id: row.id })}
       onPaginationChange={(p) => setPage(p)}

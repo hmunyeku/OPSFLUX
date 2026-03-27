@@ -266,6 +266,7 @@
     "no_installations": "Aucune installation enregistrée",
     "no_equipment": "Aucun équipement enregistré",
     "no_pipelines": "Aucun pipeline enregistré",
+    "confirm_archive_selected": "Archiver les éléments sélectionnés ? Cette action est irréversible.",
 
     "country": "Pays",
     "operator": "Opérateur",

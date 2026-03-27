@@ -227,6 +227,12 @@ async def delete_field(
     db: AsyncSession = Depends(get_db),
 ):
     obj = await _get_or_404(db, OilField, field_id, entity_id, "Field")
+    # Block if field has active child sites
+    child_count = (await db.execute(
+        select(sqla_func.count()).select_from(OilSite).where(OilSite.field_id == field_id, OilSite.archived == False)
+    )).scalar() or 0
+    if child_count > 0:
+        raise HTTPException(409, f"Cannot archive field: {child_count} active site(s) reference it. Remove or reassign them first.")
     obj.archived = True
     await db.commit()
     return {"detail": "Field archived"}
@@ -394,6 +400,12 @@ async def delete_site(
     db: AsyncSession = Depends(get_db),
 ):
     obj = await _get_or_404(db, OilSite, site_id, entity_id, "Site")
+    # Block if site has active child installations
+    child_count = (await db.execute(
+        select(sqla_func.count()).select_from(Installation).where(Installation.site_id == site_id, Installation.archived == False)
+    )).scalar() or 0
+    if child_count > 0:
+        raise HTTPException(409, f"Cannot archive site: {child_count} active installation(s) reference it. Remove or reassign them first.")
     obj.archived = True
     await db.commit()
     return {"detail": "Site archived"}
@@ -534,6 +546,14 @@ async def delete_installation(
     db: AsyncSession = Depends(get_db),
 ):
     obj = await _get_or_404(db, Installation, installation_id, entity_id, "Installation")
+    # Block if installation has active child equipment
+    child_count = (await db.execute(
+        select(sqla_func.count()).select_from(RegistryEquipment).where(
+            RegistryEquipment.installation_id == installation_id, RegistryEquipment.archived == False
+        )
+    )).scalar() or 0
+    if child_count > 0:
+        raise HTTPException(409, f"Cannot archive installation: {child_count} active equipment(s) reference it. Remove or reassign them first.")
     obj.archived = True
     await db.commit()
     return {"detail": "Installation archived"}

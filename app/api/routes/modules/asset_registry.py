@@ -410,6 +410,7 @@ async def list_installations(
     search: str | None = None,
     status: str | None = None,
     installation_type: str | None = None,
+    environment: str | None = None,
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
@@ -429,6 +430,8 @@ async def list_installations(
         query = query.where(Installation.status == status)
     if installation_type:
         query = query.where(Installation.installation_type == installation_type)
+    if environment:
+        query = query.where(Installation.environment == environment)
     query = query.order_by(Installation.code)
     return await paginate(db, query, pagination)
 

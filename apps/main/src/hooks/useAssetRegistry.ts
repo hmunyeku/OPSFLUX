@@ -10,7 +10,7 @@ import type { InstallationDeckCreate, InstallationDeckUpdate, FieldLicenseCreate
 
 // ── Fields ──
 
-export function useFields(params?: { page?: number; page_size?: number; search?: string; status?: string }) {
+export function useFields(params?: { page?: number; page_size?: number; search?: string; status?: string; environment?: string }) {
   return useQuery({
     queryKey: ['ar-fields', params],
     queryFn: () => assetRegistryService.listFields(params),
@@ -98,7 +98,7 @@ export function useDeleteFieldLicense() {
 
 // ── Sites ──
 
-export function useSites(params?: { page?: number; page_size?: number; field_id?: string; search?: string; status?: string }) {
+export function useSites(params?: { page?: number; page_size?: number; field_id?: string; search?: string; status?: string; site_type?: string; environment?: string }) {
   return useQuery({
     queryKey: ['ar-sites', params],
     queryFn: () => assetRegistryService.listSites(params),
@@ -143,7 +143,7 @@ export function useDeleteSite() {
 
 // ── Installations ──
 
-export function useInstallations(params?: { page?: number; page_size?: number; site_id?: string; search?: string; status?: string }) {
+export function useInstallations(params?: { page?: number; page_size?: number; site_id?: string; search?: string; status?: string; installation_type?: string; environment?: string }) {
   return useQuery({
     queryKey: ['ar-installations', params],
     queryFn: () => assetRegistryService.listInstallations(params),
@@ -230,7 +230,7 @@ export function useDeleteDeck() {
 export function useEquipmentList(params?: {
   page?: number; page_size?: number;
   installation_id?: string; equipment_class?: string;
-  search?: string; status?: string;
+  search?: string; status?: string; criticality?: string;
 }) {
   return useQuery({
     queryKey: ['ar-equipment', params],
@@ -276,7 +276,7 @@ export function useDeleteEquipment() {
 
 // ── Pipelines ──
 
-export function usePipelines(params?: { page?: number; page_size?: number; search?: string; status?: string }) {
+export function usePipelines(params?: { page?: number; page_size?: number; search?: string; status?: string; service?: string }) {
   return useQuery({
     queryKey: ['ar-pipelines', params],
     queryFn: () => assetRegistryService.listPipelines(params),

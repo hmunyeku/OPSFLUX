@@ -56,6 +56,79 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
+// ── Shared filter options ─────────────────────────────────────
+
+const STATUS_FILTER_OPTIONS = [
+  { value: 'OPERATIONAL', label: 'Opérationnel' },
+  { value: 'STANDBY', label: 'En attente' },
+  { value: 'UNDER_CONSTRUCTION', label: 'En construction' },
+  { value: 'SUSPENDED', label: 'Suspendu' },
+  { value: 'DECOMMISSIONED', label: 'Décommissionné' },
+  { value: 'ABANDONED', label: 'Abandonné' },
+]
+
+const ENVIRONMENT_FILTER_OPTIONS = [
+  { value: 'ONSHORE', label: 'Onshore' },
+  { value: 'OFFSHORE', label: 'Offshore' },
+  { value: 'SWAMP', label: 'Swamp' },
+  { value: 'SHALLOW_WATER', label: 'Shallow Water' },
+  { value: 'DEEPWATER', label: 'Deepwater' },
+  { value: 'SUBSEA', label: 'Subsea' },
+]
+
+const SITE_TYPE_OPTIONS = [
+  { value: 'CPF', label: 'CPF' },
+  { value: 'FPSO', label: 'FPSO' },
+  { value: 'WELL_PAD', label: 'Well Pad' },
+  { value: 'TERMINAL', label: 'Terminal' },
+  { value: 'TANK_FARM', label: 'Tank Farm' },
+  { value: 'CAMP', label: 'Camp' },
+  { value: 'AIRSTRIP', label: 'Airstrip' },
+  { value: 'JETTY', label: 'Jetty' },
+  { value: 'OTHER', label: 'Autre' },
+]
+
+const INSTALLATION_TYPE_OPTIONS = [
+  { value: 'JACKET_PLATFORM', label: 'Plateforme jacket' },
+  { value: 'FIXED_PLATFORM', label: 'Plateforme fixe' },
+  { value: 'FPSO', label: 'FPSO' },
+  { value: 'CPF', label: 'CPF' },
+  { value: 'WELL_PAD', label: 'Well Pad' },
+  { value: 'TERMINAL', label: 'Terminal' },
+  { value: 'TANK_FARM', label: 'Tank Farm' },
+  { value: 'SUBSEA_TEMPLATE', label: 'Template subsea' },
+  { value: 'BUOY', label: 'Bouée' },
+  { value: 'OTHER', label: 'Autre' },
+]
+
+const PIPELINE_SERVICE_OPTIONS = [
+  { value: 'GAS', label: 'Gaz' },
+  { value: 'OIL', label: 'Huile' },
+  { value: 'WATER', label: 'Eau' },
+  { value: 'CONDENSATE', label: 'Condensat' },
+  { value: 'MULTIPHASE', label: 'Multiphasique' },
+  { value: 'CHEMICALS', label: 'Chimiques' },
+  { value: 'OTHER', label: 'Autre' },
+]
+
+function useFilterState() {
+  const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>({})
+  const handleFilterChange = useCallback((filterId: string, value: unknown) => {
+    setActiveFilters((prev) => {
+      const next = { ...prev }
+      if (value === undefined || value === null) delete next[filterId]
+      else next[filterId] = value
+      return next
+    })
+  }, [])
+  return { activeFilters, handleFilterChange }
+}
+
+function filterStr(filters: Record<string, unknown>, key: string): string | undefined {
+  const v = filters[key]
+  return typeof v === 'string' ? v : undefined
+}
+
 // ── Tab definitions ──────────────────────────────────────────
 
 type TabKey = 'fields' | 'sites' | 'installations' | 'equipment' | 'pipelines'
@@ -79,14 +152,22 @@ function FieldsTab() {
   const { pageSize, setPageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
+  const { activeFilters, handleFilterChange } = useFilterState()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
 
   const { data, isLoading } = useFields({
     page, page_size: pageSize,
     search: debouncedSearch || undefined,
+    status: filterStr(activeFilters, 'status'),
+    environment: filterStr(activeFilters, 'environment'),
   })
 
-  useEffect(() => { setPage(1) }, [debouncedSearch])
+  useEffect(() => { setPage(1) }, [debouncedSearch, activeFilters])
+
+  const filters = useMemo<DataTableFilterDef[]>(() => [
+    { id: 'status', label: t('common.status'), type: 'multi-select' as const, options: STATUS_FILTER_OPTIONS },
+    { id: 'environment', label: t('assets.environment'), type: 'multi-select' as const, options: ENVIRONMENT_FILTER_OPTIONS },
+  ], [t])
 
   const columns = useMemo<ColumnDef<OilField, unknown>[]>(() => [
     {
@@ -136,6 +217,12 @@ function FieldsTab() {
       searchValue={search}
       onSearchChange={setSearch}
       searchPlaceholder={t('assets.search_fields')}
+      filters={filters}
+      activeFilters={activeFilters}
+      onFilterChange={handleFilterChange}
+      columnVisibility
+      columnResizing
+      storageKey="ar-fields"
       onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'ar-field', id: row.id })}
       onPaginationChange={(p) => setPage(p)}
     />
@@ -153,17 +240,24 @@ function SitesTab() {
   const { pageSize, setPageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
-  const [activeFilters] = useState<Record<string, unknown>>({})
+  const { activeFilters, handleFilterChange } = useFilterState()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
 
-  const fieldId = typeof activeFilters.field_id === 'string' ? activeFilters.field_id : undefined
   const { data, isLoading } = useSites({
     page, page_size: pageSize,
     search: debouncedSearch || undefined,
-    field_id: fieldId,
+    status: filterStr(activeFilters, 'status'),
+    site_type: filterStr(activeFilters, 'site_type'),
+    environment: filterStr(activeFilters, 'environment'),
   })
 
   useEffect(() => { setPage(1) }, [debouncedSearch, activeFilters])
+
+  const filters = useMemo<DataTableFilterDef[]>(() => [
+    { id: 'status', label: t('common.status'), type: 'multi-select' as const, options: STATUS_FILTER_OPTIONS },
+    { id: 'site_type', label: t('common.type'), type: 'multi-select' as const, options: SITE_TYPE_OPTIONS },
+    { id: 'environment', label: t('assets.environment'), type: 'multi-select' as const, options: ENVIRONMENT_FILTER_OPTIONS },
+  ], [t])
 
   const columns = useMemo<ColumnDef<OilSite, unknown>[]>(() => [
     {
@@ -217,6 +311,12 @@ function SitesTab() {
       searchValue={search}
       onSearchChange={setSearch}
       searchPlaceholder={t('assets.search_sites')}
+      filters={filters}
+      activeFilters={activeFilters}
+      onFilterChange={handleFilterChange}
+      columnVisibility
+      columnResizing
+      storageKey="ar-sites"
       onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'ar-site', id: row.id })}
       onPaginationChange={(p) => setPage(p)}
     />
@@ -234,14 +334,24 @@ function InstallationsTab() {
   const { pageSize, setPageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
+  const { activeFilters, handleFilterChange } = useFilterState()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
 
   const { data, isLoading } = useInstallations({
     page, page_size: pageSize,
     search: debouncedSearch || undefined,
+    status: filterStr(activeFilters, 'status'),
+    installation_type: filterStr(activeFilters, 'installation_type'),
+    environment: filterStr(activeFilters, 'environment'),
   })
 
-  useEffect(() => { setPage(1) }, [debouncedSearch])
+  useEffect(() => { setPage(1) }, [debouncedSearch, activeFilters])
+
+  const filters = useMemo<DataTableFilterDef[]>(() => [
+    { id: 'status', label: t('common.status'), type: 'multi-select' as const, options: STATUS_FILTER_OPTIONS },
+    { id: 'installation_type', label: t('common.type'), type: 'multi-select' as const, options: INSTALLATION_TYPE_OPTIONS },
+    { id: 'environment', label: t('assets.environment'), type: 'multi-select' as const, options: ENVIRONMENT_FILTER_OPTIONS },
+  ], [t])
 
   const columns = useMemo<ColumnDef<Installation, unknown>[]>(() => [
     {
@@ -291,6 +401,12 @@ function InstallationsTab() {
       searchValue={search}
       onSearchChange={setSearch}
       searchPlaceholder={t('assets.search_installations')}
+      filters={filters}
+      activeFilters={activeFilters}
+      onFilterChange={handleFilterChange}
+      columnVisibility
+      columnResizing
+      storageKey="ar-installations"
       onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'ar-installation', id: row.id })}
       onPaginationChange={(p) => setPage(p)}
     />
@@ -308,14 +424,15 @@ function EquipmentTab() {
   const { pageSize, setPageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
-  const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>({})
+  const { activeFilters, handleFilterChange } = useFilterState()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
 
-  const equipClass = typeof activeFilters.equipment_class === 'string' ? activeFilters.equipment_class : undefined
   const { data, isLoading } = useEquipmentList({
     page, page_size: pageSize,
     search: debouncedSearch || undefined,
-    equipment_class: equipClass,
+    equipment_class: filterStr(activeFilters, 'equipment_class'),
+    status: filterStr(activeFilters, 'status'),
+    criticality: filterStr(activeFilters, 'criticality'),
   })
 
   useEffect(() => { setPage(1) }, [debouncedSearch, activeFilters])
@@ -326,7 +443,7 @@ function EquipmentTab() {
     {
       id: 'equipment_class',
       label: t('assets.equipment_class'),
-      type: 'select' as const,
+      type: 'multi-select' as const,
       options: dictClasses.length > 0
         ? dictClasses.map((d) => ({ value: d.value, label: d.label }))
         : [
@@ -342,16 +459,13 @@ function EquipmentTab() {
           { value: 'WELLHEAD', label: 'Tête de puits' },
         ],
     },
+    { id: 'status', label: t('common.status'), type: 'multi-select' as const, options: STATUS_FILTER_OPTIONS },
+    { id: 'criticality', label: t('assets.criticality'), type: 'multi-select' as const, options: [
+      { value: 'A', label: 'A — Critique' },
+      { value: 'B', label: 'B — Important' },
+      { value: 'C', label: 'C — Standard' },
+    ]},
   ], [t, dictClasses])
-
-  const handleFilterChange = useCallback((filterId: string, value: unknown) => {
-    setActiveFilters((prev) => {
-      const next = { ...prev }
-      if (value === undefined || value === null) delete next[filterId]
-      else next[filterId] = value
-      return next
-    })
-  }, [])
 
   const columns = useMemo<ColumnDef<RegistryEquipment, unknown>[]>(() => [
     {
@@ -409,6 +523,9 @@ function EquipmentTab() {
       filters={filters}
       activeFilters={activeFilters}
       onFilterChange={handleFilterChange}
+      columnVisibility
+      columnResizing
+      storageKey="ar-equipment"
       onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'ar-equipment', id: row.id })}
       onPaginationChange={(p) => setPage(p)}
     />
@@ -426,14 +543,22 @@ function PipelinesTab() {
   const { pageSize, setPageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
+  const { activeFilters, handleFilterChange } = useFilterState()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
 
   const { data, isLoading } = usePipelines({
     page, page_size: pageSize,
     search: debouncedSearch || undefined,
+    status: filterStr(activeFilters, 'status'),
+    service: filterStr(activeFilters, 'service'),
   })
 
-  useEffect(() => { setPage(1) }, [debouncedSearch])
+  useEffect(() => { setPage(1) }, [debouncedSearch, activeFilters])
+
+  const filters = useMemo<DataTableFilterDef[]>(() => [
+    { id: 'status', label: t('common.status'), type: 'multi-select' as const, options: STATUS_FILTER_OPTIONS },
+    { id: 'service', label: t('assets.service'), type: 'multi-select' as const, options: PIPELINE_SERVICE_OPTIONS },
+  ], [t])
 
   const columns = useMemo<ColumnDef<RegistryPipeline, unknown>[]>(() => [
     {
@@ -483,6 +608,12 @@ function PipelinesTab() {
       searchValue={search}
       onSearchChange={setSearch}
       searchPlaceholder={t('assets.search_pipelines')}
+      filters={filters}
+      activeFilters={activeFilters}
+      onFilterChange={handleFilterChange}
+      columnVisibility
+      columnResizing
+      storageKey="ar-pipelines"
       onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'ar-pipeline', id: row.id })}
       onPaginationChange={(p) => setPage(p)}
     />

@@ -4,6 +4,7 @@ Hierarchy: Field -> Site -> Installation -> Equipment, plus Pipelines.
 """
 
 from datetime import datetime, timezone
+from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -23,6 +24,21 @@ from app.models.asset_registry import (
     RegistryEquipment,
     RegistryPipeline,
     PipelineWaypoint,
+    # Specialized equipment sub-tables
+    Crane, Separator, Pump, GasCompressor, DieselGenerator, StorageTank,
+    HeatExchanger, PressureVessel, Instrument, GasTurbine, LiftingAccessory,
+    ProcessColumn, PressureSafetyValve, RuptureDisk, FiredHeater, FanBlower,
+    SteamTurbine, Turboexpander, AirCompressorPackage, NitrogenUnit,
+    FiscalMeteringSkid, ChemicalInjectionSkid, GasDehydrationUnit,
+    ProducedWaterTreatmentUnit, FireGasSystem, HPUUnit, HVACUnit, UPSSystem,
+    TelecomSystem, Switchgear, MotorControlCenter, PipingLine, Manifold,
+    PigStation, Wellhead, DownholeCompletion, FlareSystem, ESDSystem,
+    FireWaterSystem, TransformerEquipment, SubseaChristmasTree,
+    SubseaUmbilical, SubseaPlemPlet, Riser, SubseaControlSystem,
+    MarineLoadingArm, MooringSystem, SurvivalCraft,
+    CathodicProtectionSystem, Building, StructuralElement,
+    PotableWaterSystem, SewageTreatmentSystem, CoolingWaterSystem,
+    DrainageSystem, ProcessFilter,
 )
 from app.models.common import User
 from app.schemas.asset_registry import (
@@ -36,6 +52,66 @@ from app.schemas.asset_registry import (
 )
 
 router = APIRouter(prefix="/api/v1/asset-registry", tags=["asset-registry"])
+
+# ── Equipment class → specialized model mapping ──────────────
+EQUIPMENT_CLASS_MODEL_MAP: dict[str, type] = {
+    "CRANE": Crane,
+    "SEPARATOR": Separator,
+    "PUMP": Pump,
+    "GAS_COMPRESSOR": GasCompressor,
+    "DIESEL_GENERATOR": DieselGenerator,
+    "STORAGE_TANK": StorageTank,
+    "HEAT_EXCHANGER": HeatExchanger,
+    "PRESSURE_VESSEL": PressureVessel,
+    "INSTRUMENT": Instrument,
+    "GAS_TURBINE": GasTurbine,
+    "LIFTING_ACCESSORY": LiftingAccessory,
+    "PROCESS_COLUMN": ProcessColumn,
+    "PSV": PressureSafetyValve,
+    "RUPTURE_DISK": RuptureDisk,
+    "FIRED_HEATER": FiredHeater,
+    "FAN_BLOWER": FanBlower,
+    "STEAM_TURBINE": SteamTurbine,
+    "TURBOEXPANDER": Turboexpander,
+    "AIR_COMPRESSOR": AirCompressorPackage,
+    "NITROGEN_UNIT": NitrogenUnit,
+    "METERING_SKID": FiscalMeteringSkid,
+    "CHEMICAL_INJECTION": ChemicalInjectionSkid,
+    "GAS_DEHYDRATION": GasDehydrationUnit,
+    "WATER_TREATMENT": ProducedWaterTreatmentUnit,
+    "FIRE_GAS_SYSTEM": FireGasSystem,
+    "HPU": HPUUnit,
+    "HVAC": HVACUnit,
+    "UPS": UPSSystem,
+    "TELECOM": TelecomSystem,
+    "SWITCHGEAR": Switchgear,
+    "MCC": MotorControlCenter,
+    "PIPING_LINE": PipingLine,
+    "MANIFOLD": Manifold,
+    "PIG_STATION": PigStation,
+    "WELLHEAD": Wellhead,
+    "DOWNHOLE_COMPLETION": DownholeCompletion,
+    "FLARE_SYSTEM": FlareSystem,
+    "ESD_SYSTEM": ESDSystem,
+    "FIRE_WATER_SYSTEM": FireWaterSystem,
+    "TRANSFORMER": TransformerEquipment,
+    "SUBSEA_XT": SubseaChristmasTree,
+    "SUBSEA_UMBILICAL": SubseaUmbilical,
+    "SUBSEA_PLEM_PLET": SubseaPlemPlet,
+    "RISER": Riser,
+    "SUBSEA_CONTROL_SYSTEM": SubseaControlSystem,
+    "MARINE_LOADING_ARM": MarineLoadingArm,
+    "MOORING_SYSTEM": MooringSystem,
+    "SURVIVAL_CRAFT": SurvivalCraft,
+    "CATHODIC_PROTECTION": CathodicProtectionSystem,
+    "BUILDING": Building,
+    "STRUCTURAL_ELEMENT": StructuralElement,
+    "POTABLE_WATER_SYSTEM": PotableWaterSystem,
+    "SEWAGE_SYSTEM": SewageTreatmentSystem,
+    "COOLING_WATER_SYSTEM": CoolingWaterSystem,
+    "DRAINAGE_SYSTEM": DrainageSystem,
+    "FILTER": ProcessFilter,
+}
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────
@@ -528,7 +604,32 @@ async def get_equipment(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await _get_or_404(db, RegistryEquipment, equipment_id, entity_id, "Equipment")
+    obj = await _get_or_404(db, RegistryEquipment, equipment_id, entity_id, "Equipment")
+
+    # Load specialized sub-table data if available
+    spec_model = EQUIPMENT_CLASS_MODEL_MAP.get(obj.equipment_class)
+    specialized_data = None
+    if spec_model is not None:
+        result = await db.execute(select(spec_model).where(spec_model.id == equipment_id))
+        spec_obj = result.scalars().first()
+        if spec_obj:
+            # Convert to dict, exclude the 'id' (same as equipment id)
+            from sqlalchemy import inspect as sa_inspect
+            mapper = sa_inspect(spec_model)
+            specialized_data = {}
+            for col in mapper.columns:
+                if col.key == "id":
+                    continue
+                val = getattr(spec_obj, col.key)
+                # Convert Decimal to float for JSON serialization
+                if isinstance(val, Decimal):
+                    val = float(val)
+                specialized_data[col.key] = val
+
+    # Attach specialized_data to the response
+    resp = EquipmentRead.model_validate(obj)
+    resp.specialized_data = specialized_data
+    return resp
 
 
 @router.post("/equipment", response_model=EquipmentRead, status_code=201)

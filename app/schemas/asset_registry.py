@@ -349,6 +349,7 @@ class EquipmentRead(EquipmentCreate, TimestampMixin, SoftDeleteMixin):
     entity_id: UUID
     created_by: UUID | None = None
     geom_point: dict | None = None
+    specialized_data: dict | None = None
 
     _convert_geom_point = field_validator("geom_point", mode="before")(_wkb_to_geojson)
 

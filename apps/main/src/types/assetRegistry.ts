@@ -215,11 +215,12 @@ export interface RegistryEquipment {
   cert_document_url?: string | null
   notes?: string | null
   geom_point?: GeoJSONGeometry | null
+  specialized_data?: Record<string, unknown> | null
   created_at: string
   updated_at: string
 }
 
-export type EquipmentCreate = Omit<RegistryEquipment, 'id' | 'entity_id' | 'created_at' | 'updated_at'>
+export type EquipmentCreate = Omit<RegistryEquipment, 'id' | 'entity_id' | 'created_at' | 'updated_at' | 'specialized_data'>
 export type EquipmentUpdate = Partial<EquipmentCreate>
 
 // ── Pipeline ─────────────────────────────────────────────────

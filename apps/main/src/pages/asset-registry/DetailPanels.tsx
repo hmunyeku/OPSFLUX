@@ -39,6 +39,7 @@ import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { GeoEditor } from '@/components/shared/GeoEditor'
 import { TagManager } from '@/components/shared/TagManager'
 import { FieldLicenseManager } from '@/components/shared/FieldLicenseManager'
+import { EquipmentContextualFields } from './EquipmentContextualFields'
 import { apiGeoToEditorValue, editorValueToApiGeo, latLonToPointValue } from '@/utils/geoHelpers'
 import { usePermission } from '@/hooks/usePermission'
 import { useUIStore } from '@/stores/uiStore'
@@ -680,6 +681,12 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
               <ReadOnlyRow label={t('assets.cert_document_url')} value={<UrlLink url={equip.cert_document_url} label={t('assets.cert_document_url')} />} />
             </DetailFieldGrid>
           </FormSection>
+
+          {/* Specialized equipment sub-type fields */}
+          <EquipmentContextualFields
+            equipmentClass={equip.equipment_class}
+            specializedData={equip.specialized_data}
+          />
 
           <FormSection title="Tags">
             <TagManager ownerType="ar_equipment" ownerId={id} compact />

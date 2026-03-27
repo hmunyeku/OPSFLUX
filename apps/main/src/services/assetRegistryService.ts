@@ -12,6 +12,13 @@ import type {
   RegistryEquipment, EquipmentCreate, EquipmentUpdate,
   RegistryPipeline, PipelineCreate, PipelineUpdate,
   HierarchyNode, AssetRegistryStats,
+  CraneConfiguration, CraneConfigurationCreate, CraneConfigurationUpdate,
+  CraneHookBlock, CraneHookBlockCreate, CraneHookBlockUpdate,
+  CraneReevingGuideEntry, CraneReevingGuideCreate, CraneReevingGuideUpdate,
+  SeparatorNozzle, SeparatorNozzleCreate, SeparatorNozzleUpdate,
+  SeparatorProcessCase, SeparatorProcessCaseCreate, SeparatorProcessCaseUpdate,
+  PumpCurvePoint, PumpCurvePointCreate, PumpCurvePointUpdate,
+  ColumnSection, ColumnSectionCreate, ColumnSectionUpdate,
 } from '@/types/assetRegistry'
 
 const BASE = '/api/v1/asset-registry'
@@ -219,5 +226,124 @@ export const assetRegistryService = {
   getStats: async (): Promise<AssetRegistryStats> => {
     const { data } = await api.get(`${BASE}/stats`)
     return data
+  },
+
+  // ── Crane Configurations ───────────────────────────────────
+  listCraneConfigurations: async (eqId: string): Promise<CraneConfiguration[]> => {
+    const { data } = await api.get(`${BASE}/equipment/${eqId}/crane-configurations`)
+    return data
+  },
+  createCraneConfiguration: async (eqId: string, payload: CraneConfigurationCreate): Promise<CraneConfiguration> => {
+    const { data } = await api.post(`${BASE}/equipment/${eqId}/crane-configurations`, payload)
+    return data
+  },
+  updateCraneConfiguration: async (eqId: string, id: string, payload: CraneConfigurationUpdate): Promise<CraneConfiguration> => {
+    const { data } = await api.patch(`${BASE}/equipment/${eqId}/crane-configurations/${id}`, payload)
+    return data
+  },
+  deleteCraneConfiguration: async (eqId: string, id: string): Promise<void> => {
+    await api.delete(`${BASE}/equipment/${eqId}/crane-configurations/${id}`)
+  },
+
+  // ── Crane Hook Blocks ──────────────────────────────────────
+  listCraneHookBlocks: async (eqId: string): Promise<CraneHookBlock[]> => {
+    const { data } = await api.get(`${BASE}/equipment/${eqId}/crane-hook-blocks`)
+    return data
+  },
+  createCraneHookBlock: async (eqId: string, payload: CraneHookBlockCreate): Promise<CraneHookBlock> => {
+    const { data } = await api.post(`${BASE}/equipment/${eqId}/crane-hook-blocks`, payload)
+    return data
+  },
+  updateCraneHookBlock: async (eqId: string, id: string, payload: CraneHookBlockUpdate): Promise<CraneHookBlock> => {
+    const { data } = await api.patch(`${BASE}/equipment/${eqId}/crane-hook-blocks/${id}`, payload)
+    return data
+  },
+  deleteCraneHookBlock: async (eqId: string, id: string): Promise<void> => {
+    await api.delete(`${BASE}/equipment/${eqId}/crane-hook-blocks/${id}`)
+  },
+
+  // ── Crane Reeving Guide ────────────────────────────────────
+  listCraneReevingGuide: async (eqId: string): Promise<CraneReevingGuideEntry[]> => {
+    const { data } = await api.get(`${BASE}/equipment/${eqId}/crane-reeving-guide`)
+    return data
+  },
+  createCraneReevingGuide: async (eqId: string, payload: CraneReevingGuideCreate): Promise<CraneReevingGuideEntry> => {
+    const { data } = await api.post(`${BASE}/equipment/${eqId}/crane-reeving-guide`, payload)
+    return data
+  },
+  updateCraneReevingGuide: async (eqId: string, id: string, payload: CraneReevingGuideUpdate): Promise<CraneReevingGuideEntry> => {
+    const { data } = await api.patch(`${BASE}/equipment/${eqId}/crane-reeving-guide/${id}`, payload)
+    return data
+  },
+  deleteCraneReevingGuide: async (eqId: string, id: string): Promise<void> => {
+    await api.delete(`${BASE}/equipment/${eqId}/crane-reeving-guide/${id}`)
+  },
+
+  // ── Separator Nozzles ──────────────────────────────────────
+  listSeparatorNozzles: async (eqId: string): Promise<SeparatorNozzle[]> => {
+    const { data } = await api.get(`${BASE}/equipment/${eqId}/separator-nozzles`)
+    return data
+  },
+  createSeparatorNozzle: async (eqId: string, payload: SeparatorNozzleCreate): Promise<SeparatorNozzle> => {
+    const { data } = await api.post(`${BASE}/equipment/${eqId}/separator-nozzles`, payload)
+    return data
+  },
+  updateSeparatorNozzle: async (eqId: string, id: string, payload: SeparatorNozzleUpdate): Promise<SeparatorNozzle> => {
+    const { data } = await api.patch(`${BASE}/equipment/${eqId}/separator-nozzles/${id}`, payload)
+    return data
+  },
+  deleteSeparatorNozzle: async (eqId: string, id: string): Promise<void> => {
+    await api.delete(`${BASE}/equipment/${eqId}/separator-nozzles/${id}`)
+  },
+
+  // ── Separator Process Cases ────────────────────────────────
+  listSeparatorProcessCases: async (eqId: string): Promise<SeparatorProcessCase[]> => {
+    const { data } = await api.get(`${BASE}/equipment/${eqId}/separator-process-cases`)
+    return data
+  },
+  createSeparatorProcessCase: async (eqId: string, payload: SeparatorProcessCaseCreate): Promise<SeparatorProcessCase> => {
+    const { data } = await api.post(`${BASE}/equipment/${eqId}/separator-process-cases`, payload)
+    return data
+  },
+  updateSeparatorProcessCase: async (eqId: string, id: string, payload: SeparatorProcessCaseUpdate): Promise<SeparatorProcessCase> => {
+    const { data } = await api.patch(`${BASE}/equipment/${eqId}/separator-process-cases/${id}`, payload)
+    return data
+  },
+  deleteSeparatorProcessCase: async (eqId: string, id: string): Promise<void> => {
+    await api.delete(`${BASE}/equipment/${eqId}/separator-process-cases/${id}`)
+  },
+
+  // ── Pump Curve Points ──────────────────────────────────────
+  listPumpCurvePoints: async (eqId: string): Promise<PumpCurvePoint[]> => {
+    const { data } = await api.get(`${BASE}/equipment/${eqId}/pump-curve-points`)
+    return data
+  },
+  createPumpCurvePoint: async (eqId: string, payload: PumpCurvePointCreate): Promise<PumpCurvePoint> => {
+    const { data } = await api.post(`${BASE}/equipment/${eqId}/pump-curve-points`, payload)
+    return data
+  },
+  updatePumpCurvePoint: async (eqId: string, id: string, payload: PumpCurvePointUpdate): Promise<PumpCurvePoint> => {
+    const { data } = await api.patch(`${BASE}/equipment/${eqId}/pump-curve-points/${id}`, payload)
+    return data
+  },
+  deletePumpCurvePoint: async (eqId: string, id: string): Promise<void> => {
+    await api.delete(`${BASE}/equipment/${eqId}/pump-curve-points/${id}`)
+  },
+
+  // ── Column Sections ────────────────────────────────────────
+  listColumnSections: async (eqId: string): Promise<ColumnSection[]> => {
+    const { data } = await api.get(`${BASE}/equipment/${eqId}/column-sections`)
+    return data
+  },
+  createColumnSection: async (eqId: string, payload: ColumnSectionCreate): Promise<ColumnSection> => {
+    const { data } = await api.post(`${BASE}/equipment/${eqId}/column-sections`, payload)
+    return data
+  },
+  updateColumnSection: async (eqId: string, id: string, payload: ColumnSectionUpdate): Promise<ColumnSection> => {
+    const { data } = await api.patch(`${BASE}/equipment/${eqId}/column-sections/${id}`, payload)
+    return data
+  },
+  deleteColumnSection: async (eqId: string, id: string): Promise<void> => {
+    await api.delete(`${BASE}/equipment/${eqId}/column-sections/${id}`)
   },
 }

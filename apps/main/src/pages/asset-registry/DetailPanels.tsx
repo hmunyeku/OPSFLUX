@@ -686,6 +686,7 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
           <EquipmentContextualFields
             equipmentClass={equip.equipment_class}
             specializedData={equip.specialized_data}
+            equipmentId={id}
           />
 
           <FormSection title="Tags">

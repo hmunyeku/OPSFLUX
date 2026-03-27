@@ -12,6 +12,13 @@ import {
   ReadOnlyRow,
   DetailFieldGrid,
 } from '@/components/layout/DynamicPanel'
+import { CraneConfigurationManager } from '@/components/shared/CraneConfigurationManager'
+import { CraneHookBlockManager } from '@/components/shared/CraneHookBlockManager'
+import { CraneReevingGuideManager } from '@/components/shared/CraneReevingGuideManager'
+import { SeparatorNozzleManager } from '@/components/shared/SeparatorNozzleManager'
+import { SeparatorProcessCaseManager } from '@/components/shared/SeparatorProcessCaseManager'
+import { PumpCurvePointManager } from '@/components/shared/PumpCurvePointManager'
+import { ColumnSectionManager } from '@/components/shared/ColumnSectionManager'
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -395,9 +402,10 @@ const SPEC_LAYOUTS: SpecLayoutMap = {
 interface EquipmentContextualFieldsProps {
   equipmentClass: string
   specializedData: Record<string, unknown> | null | undefined
+  equipmentId: string
 }
 
-export function EquipmentContextualFields({ equipmentClass, specializedData }: EquipmentContextualFieldsProps) {
+export function EquipmentContextualFields({ equipmentClass, specializedData, equipmentId }: EquipmentContextualFieldsProps) {
   const { t } = useTranslation()
 
   const layout = SPEC_LAYOUTS[equipmentClass]
@@ -426,6 +434,41 @@ export function EquipmentContextualFields({ equipmentClass, specializedData }: E
             </DetailFieldGrid>
           </FormSection>
         ))}
+
+        {/* Sub-model managers per equipment class */}
+        {equipmentClass === 'CRANE' && (
+          <>
+            <FormSection title={t('assets.sub_section.crane_configurations')} collapsible storageKey="panel.ar-equip.sections" id="ar-equip-crane-configs">
+              <CraneConfigurationManager equipmentId={equipmentId} compact />
+            </FormSection>
+            <FormSection title={t('assets.sub_section.crane_hook_blocks')} collapsible storageKey="panel.ar-equip.sections" id="ar-equip-crane-hooks">
+              <CraneHookBlockManager equipmentId={equipmentId} compact />
+            </FormSection>
+            <FormSection title={t('assets.sub_section.crane_reeving_guide')} collapsible storageKey="panel.ar-equip.sections" id="ar-equip-crane-reeving">
+              <CraneReevingGuideManager equipmentId={equipmentId} compact />
+            </FormSection>
+          </>
+        )}
+        {equipmentClass === 'SEPARATOR' && (
+          <>
+            <FormSection title={t('assets.sub_section.separator_nozzles')} collapsible storageKey="panel.ar-equip.sections" id="ar-equip-sep-nozzles">
+              <SeparatorNozzleManager equipmentId={equipmentId} compact />
+            </FormSection>
+            <FormSection title={t('assets.sub_section.separator_process_cases')} collapsible storageKey="panel.ar-equip.sections" id="ar-equip-sep-cases">
+              <SeparatorProcessCaseManager equipmentId={equipmentId} compact />
+            </FormSection>
+          </>
+        )}
+        {equipmentClass === 'PUMP' && (
+          <FormSection title={t('assets.sub_section.pump_curve_points')} collapsible storageKey="panel.ar-equip.sections" id="ar-equip-pump-curve">
+            <PumpCurvePointManager equipmentId={equipmentId} compact />
+          </FormSection>
+        )}
+        {equipmentClass === 'PROCESS_COLUMN' && (
+          <FormSection title={t('assets.sub_section.column_sections')} collapsible storageKey="panel.ar-equip.sections" id="ar-equip-col-sections">
+            <ColumnSectionManager equipmentId={equipmentId} compact />
+          </FormSection>
+        )}
       </>
     )
   }

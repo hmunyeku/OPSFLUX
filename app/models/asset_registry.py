@@ -1489,6 +1489,7 @@ class ProcessColumn(Base):
     shell_material: Mapped[str | None] = mapped_column(String(100))
     design_code: Mapped[str | None] = mapped_column(String(50))
     notes: Mapped[str | None] = mapped_column(Text)
+    sections: Mapped[list["ColumnSection"]] = relationship(back_populates="column", cascade="all, delete-orphan")
 
 
 class ColumnSection(UUIDPrimaryKeyMixin, Base):
@@ -1502,6 +1503,7 @@ class ColumnSection(UUIDPrimaryKeyMixin, Base):
     packing_type: Mapped[str | None] = mapped_column(String(50))
     packing_height_m: Mapped[Decimal | None] = mapped_column(Numeric(6, 2))
     notes: Mapped[str | None] = mapped_column(Text)
+    column: Mapped["ProcessColumn"] = relationship(back_populates="sections")
 
 
 class PressureSafetyValve(Base):

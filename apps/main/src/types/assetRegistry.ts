@@ -223,6 +223,144 @@ export interface RegistryEquipment {
 export type EquipmentCreate = Omit<RegistryEquipment, 'id' | 'entity_id' | 'created_at' | 'updated_at' | 'specialized_data'>
 export type EquipmentUpdate = Partial<EquipmentCreate>
 
+// ── Equipment Sub-Models ─────────────────────────────────────
+
+export interface CraneConfiguration {
+  id: string
+  crane_id: string
+  config_code: string
+  config_name?: string | null
+  is_default_config: boolean
+  config_order?: number | null
+  boom_length_m?: number | null
+  boom_length_ft?: number | null
+  jib_installed: boolean
+  jib_length_m?: number | null
+  jib_offset_deg?: number | null
+  jib_type?: string | null
+  counterweight_tonnes?: number | null
+  outrigger_state?: string | null
+  outrigger_length_m?: number | null
+  reeving_parts?: number | null
+  reeving_line_pull_kn?: number | null
+  hook_block_weight_kg?: number | null
+  slewing_zone_description?: string | null
+  blind_zone_start_deg?: number | null
+  blind_zone_end_deg?: number | null
+  config_max_capacity_tonnes?: number | null
+  config_max_radius_m?: number | null
+  notes?: string | null
+  created_at: string
+  updated_at: string
+}
+export type CraneConfigurationCreate = Omit<CraneConfiguration, 'id' | 'crane_id' | 'created_at' | 'updated_at'>
+export type CraneConfigurationUpdate = Partial<CraneConfigurationCreate>
+
+export interface CraneHookBlock {
+  id: string
+  crane_id: string
+  block_reference?: string | null
+  block_tag?: string | null
+  sheave_count?: number | null
+  swivel_type?: string | null
+  rated_capacity_tonnes: number
+  compatible_reeving_max?: number | null
+  block_weight_kg?: number | null
+  hook_weight_kg?: number | null
+  rope_diameter_mm?: number | null
+  certificate_number?: string | null
+  is_main_hook: boolean
+  is_current_fit: boolean
+  created_at: string
+  updated_at: string
+}
+export type CraneHookBlockCreate = Omit<CraneHookBlock, 'id' | 'crane_id' | 'created_at' | 'updated_at'>
+export type CraneHookBlockUpdate = Partial<CraneHookBlockCreate>
+
+export interface CraneReevingGuideEntry {
+  id: string
+  crane_id: string
+  boom_config_ref?: string | null
+  load_min_tonnes: number
+  load_max_tonnes: number
+  reeving_parts: number
+  config_id?: string | null
+  created_at: string
+  updated_at: string
+}
+export type CraneReevingGuideCreate = Omit<CraneReevingGuideEntry, 'id' | 'crane_id' | 'created_at' | 'updated_at'>
+export type CraneReevingGuideUpdate = Partial<CraneReevingGuideCreate>
+
+export interface SeparatorNozzle {
+  id: string
+  separator_id: string
+  nozzle_mark: string
+  nozzle_service: string
+  description?: string | null
+  nominal_size_in: number
+  schedule?: string | null
+  connection_type?: string | null
+  flange_rating?: string | null
+  nozzle_material?: string | null
+  connected_to_tag?: string | null
+  created_at: string
+  updated_at: string
+}
+export type SeparatorNozzleCreate = Omit<SeparatorNozzle, 'id' | 'separator_id' | 'created_at' | 'updated_at'>
+export type SeparatorNozzleUpdate = Partial<SeparatorNozzleCreate>
+
+export interface SeparatorProcessCase {
+  id: string
+  separator_id: string
+  case_name: string
+  case_description?: string | null
+  inlet_pressure_barg?: number | null
+  inlet_temp_c?: number | null
+  inlet_gas_flow_mmscfd?: number | null
+  inlet_oil_flow_sm3d?: number | null
+  inlet_water_flow_sm3d?: number | null
+  op_pressure_barg?: number | null
+  op_temp_c?: number | null
+  simulation_tool?: string | null
+  simulation_case_ref?: string | null
+  created_at: string
+  updated_at: string
+}
+export type SeparatorProcessCaseCreate = Omit<SeparatorProcessCase, 'id' | 'separator_id' | 'created_at' | 'updated_at'>
+export type SeparatorProcessCaseUpdate = Partial<SeparatorProcessCaseCreate>
+
+export interface PumpCurvePoint {
+  id: string
+  pump_id: string
+  flow_m3h: number
+  head_m?: number | null
+  efficiency_pct?: number | null
+  power_kw?: number | null
+  npshr_m?: number | null
+  speed_rpm?: number | null
+  source: string
+  created_at: string
+  updated_at: string
+}
+export type PumpCurvePointCreate = Omit<PumpCurvePoint, 'id' | 'pump_id' | 'created_at' | 'updated_at'>
+export type PumpCurvePointUpdate = Partial<PumpCurvePointCreate>
+
+export interface ColumnSection {
+  id: string
+  column_id: string
+  section_number: number
+  section_name?: string | null
+  internals_type: string
+  tray_count?: number | null
+  packing_type?: string | null
+  packing_height_m?: number | null
+  notes?: string | null
+  created_at: string
+  updated_at: string
+}
+export type ColumnSectionCreate = Omit<ColumnSection, 'id' | 'column_id' | 'created_at' | 'updated_at'>
+export type ColumnSectionUpdate = Partial<ColumnSectionCreate>
+
 // ── Pipeline ─────────────────────────────────────────────────
 export interface RegistryPipeline {
   id: string

@@ -334,3 +334,196 @@ export function useAssetRegistryStats() {
     queryFn: () => assetRegistryService.getStats(),
   })
 }
+
+// ══════════════════════════════════════════════════════════════
+// EQUIPMENT SUB-MODELS
+// ══════════════════════════════════════════════════════════════
+
+// ── Crane Configurations ─────────────────────────────────────
+
+export function useCraneConfigurations(eqId: string | undefined) {
+  return useQuery({ queryKey: ['ar-crane-configs', eqId], queryFn: () => assetRegistryService.listCraneConfigurations(eqId!), enabled: !!eqId })
+}
+export function useCreateCraneConfiguration() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ eqId, payload }: { eqId: string; payload: any }) => assetRegistryService.createCraneConfiguration(eqId, payload),
+    onSuccess: (_, { eqId }) => { qc.invalidateQueries({ queryKey: ['ar-crane-configs', eqId] }) },
+  })
+}
+export function useUpdateCraneConfiguration() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ eqId, id, payload }: { eqId: string; id: string; payload: any }) => assetRegistryService.updateCraneConfiguration(eqId, id, payload),
+    onSuccess: (_, { eqId }) => { qc.invalidateQueries({ queryKey: ['ar-crane-configs', eqId] }) },
+  })
+}
+export function useDeleteCraneConfiguration() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ eqId, id }: { eqId: string; id: string }) => assetRegistryService.deleteCraneConfiguration(eqId, id),
+    onSuccess: (_, { eqId }) => { qc.invalidateQueries({ queryKey: ['ar-crane-configs', eqId] }) },
+  })
+}
+
+// ── Crane Hook Blocks ────────────────────────────────────────
+
+export function useCraneHookBlocks(eqId: string | undefined) {
+  return useQuery({ queryKey: ['ar-crane-hooks', eqId], queryFn: () => assetRegistryService.listCraneHookBlocks(eqId!), enabled: !!eqId })
+}
+export function useCreateCraneHookBlock() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ eqId, payload }: { eqId: string; payload: any }) => assetRegistryService.createCraneHookBlock(eqId, payload),
+    onSuccess: (_, { eqId }) => { qc.invalidateQueries({ queryKey: ['ar-crane-hooks', eqId] }) },
+  })
+}
+export function useUpdateCraneHookBlock() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ eqId, id, payload }: { eqId: string; id: string; payload: any }) => assetRegistryService.updateCraneHookBlock(eqId, id, payload),
+    onSuccess: (_, { eqId }) => { qc.invalidateQueries({ queryKey: ['ar-crane-hooks', eqId] }) },
+  })
+}
+export function useDeleteCraneHookBlock() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ eqId, id }: { eqId: string; id: string }) => assetRegistryService.deleteCraneHookBlock(eqId, id),
+    onSuccess: (_, { eqId }) => { qc.invalidateQueries({ queryKey: ['ar-crane-hooks', eqId] }) },
+  })
+}
+
+// ── Crane Reeving Guide ──────────────────────────────────────
+
+export function useCraneReevingGuide(eqId: string | undefined) {
+  return useQuery({ queryKey: ['ar-crane-reeving', eqId], queryFn: () => assetRegistryService.listCraneReevingGuide(eqId!), enabled: !!eqId })
+}
+export function useCreateCraneReevingGuide() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ eqId, payload }: { eqId: string; payload: any }) => assetRegistryService.createCraneReevingGuide(eqId, payload),
+    onSuccess: (_, { eqId }) => { qc.invalidateQueries({ queryKey: ['ar-crane-reeving', eqId] }) },
+  })
+}
+export function useUpdateCraneReevingGuide() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ eqId, id, payload }: { eqId: string; id: string; payload: any }) => assetRegistryService.updateCraneReevingGuide(eqId, id, payload),
+    onSuccess: (_, { eqId }) => { qc.invalidateQueries({ queryKey: ['ar-crane-reeving', eqId] }) },
+  })
+}
+export function useDeleteCraneReevingGuide() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ eqId, id }: { eqId: string; id: string }) => assetRegistryService.deleteCraneReevingGuide(eqId, id),
+    onSuccess: (_, { eqId }) => { qc.invalidateQueries({ queryKey: ['ar-crane-reeving', eqId] }) },
+  })
+}
+
+// ── Separator Nozzles ────────────────────────────────────────
+
+export function useSeparatorNozzles(eqId: string | undefined) {
+  return useQuery({ queryKey: ['ar-sep-nozzles', eqId], queryFn: () => assetRegistryService.listSeparatorNozzles(eqId!), enabled: !!eqId })
+}
+export function useCreateSeparatorNozzle() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ eqId, payload }: { eqId: string; payload: any }) => assetRegistryService.createSeparatorNozzle(eqId, payload),
+    onSuccess: (_, { eqId }) => { qc.invalidateQueries({ queryKey: ['ar-sep-nozzles', eqId] }) },
+  })
+}
+export function useUpdateSeparatorNozzle() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ eqId, id, payload }: { eqId: string; id: string; payload: any }) => assetRegistryService.updateSeparatorNozzle(eqId, id, payload),
+    onSuccess: (_, { eqId }) => { qc.invalidateQueries({ queryKey: ['ar-sep-nozzles', eqId] }) },
+  })
+}
+export function useDeleteSeparatorNozzle() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ eqId, id }: { eqId: string; id: string }) => assetRegistryService.deleteSeparatorNozzle(eqId, id),
+    onSuccess: (_, { eqId }) => { qc.invalidateQueries({ queryKey: ['ar-sep-nozzles', eqId] }) },
+  })
+}
+
+// ── Separator Process Cases ──────────────────────────────────
+
+export function useSeparatorProcessCases(eqId: string | undefined) {
+  return useQuery({ queryKey: ['ar-sep-cases', eqId], queryFn: () => assetRegistryService.listSeparatorProcessCases(eqId!), enabled: !!eqId })
+}
+export function useCreateSeparatorProcessCase() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ eqId, payload }: { eqId: string; payload: any }) => assetRegistryService.createSeparatorProcessCase(eqId, payload),
+    onSuccess: (_, { eqId }) => { qc.invalidateQueries({ queryKey: ['ar-sep-cases', eqId] }) },
+  })
+}
+export function useUpdateSeparatorProcessCase() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ eqId, id, payload }: { eqId: string; id: string; payload: any }) => assetRegistryService.updateSeparatorProcessCase(eqId, id, payload),
+    onSuccess: (_, { eqId }) => { qc.invalidateQueries({ queryKey: ['ar-sep-cases', eqId] }) },
+  })
+}
+export function useDeleteSeparatorProcessCase() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ eqId, id }: { eqId: string; id: string }) => assetRegistryService.deleteSeparatorProcessCase(eqId, id),
+    onSuccess: (_, { eqId }) => { qc.invalidateQueries({ queryKey: ['ar-sep-cases', eqId] }) },
+  })
+}
+
+// ── Pump Curve Points ────────────────────────────────────────
+
+export function usePumpCurvePoints(eqId: string | undefined) {
+  return useQuery({ queryKey: ['ar-pump-curve', eqId], queryFn: () => assetRegistryService.listPumpCurvePoints(eqId!), enabled: !!eqId })
+}
+export function useCreatePumpCurvePoint() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ eqId, payload }: { eqId: string; payload: any }) => assetRegistryService.createPumpCurvePoint(eqId, payload),
+    onSuccess: (_, { eqId }) => { qc.invalidateQueries({ queryKey: ['ar-pump-curve', eqId] }) },
+  })
+}
+export function useUpdatePumpCurvePoint() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ eqId, id, payload }: { eqId: string; id: string; payload: any }) => assetRegistryService.updatePumpCurvePoint(eqId, id, payload),
+    onSuccess: (_, { eqId }) => { qc.invalidateQueries({ queryKey: ['ar-pump-curve', eqId] }) },
+  })
+}
+export function useDeletePumpCurvePoint() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ eqId, id }: { eqId: string; id: string }) => assetRegistryService.deletePumpCurvePoint(eqId, id),
+    onSuccess: (_, { eqId }) => { qc.invalidateQueries({ queryKey: ['ar-pump-curve', eqId] }) },
+  })
+}
+
+// ── Column Sections ──────────────────────────────────────────
+
+export function useColumnSections(eqId: string | undefined) {
+  return useQuery({ queryKey: ['ar-col-sections', eqId], queryFn: () => assetRegistryService.listColumnSections(eqId!), enabled: !!eqId })
+}
+export function useCreateColumnSection() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ eqId, payload }: { eqId: string; payload: any }) => assetRegistryService.createColumnSection(eqId, payload),
+    onSuccess: (_, { eqId }) => { qc.invalidateQueries({ queryKey: ['ar-col-sections', eqId] }) },
+  })
+}
+export function useUpdateColumnSection() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ eqId, id, payload }: { eqId: string; id: string; payload: any }) => assetRegistryService.updateColumnSection(eqId, id, payload),
+    onSuccess: (_, { eqId }) => { qc.invalidateQueries({ queryKey: ['ar-col-sections', eqId] }) },
+  })
+}
+export function useDeleteColumnSection() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ eqId, id }: { eqId: string; id: string }) => assetRegistryService.deleteColumnSection(eqId, id),
+    onSuccess: (_, { eqId }) => { qc.invalidateQueries({ queryKey: ['ar-col-sections', eqId] }) },
+  })
+}

@@ -39,6 +39,10 @@ from app.models.asset_registry import (
     CathodicProtectionSystem, Building, StructuralElement,
     PotableWaterSystem, SewageTreatmentSystem, CoolingWaterSystem,
     DrainageSystem, ProcessFilter,
+    # Sub-model children
+    CraneConfiguration, CraneHookBlock, CraneReevingGuide,
+    SeparatorNozzle, SeparatorProcessCase,
+    PumpCurvePoint, ColumnSection,
 )
 from app.models.common import User
 from app.schemas.asset_registry import (
@@ -49,6 +53,14 @@ from app.schemas.asset_registry import (
     InstallationDeckCreate, InstallationDeckUpdate, InstallationDeckRead,
     EquipmentCreate, EquipmentUpdate, EquipmentRead,
     PipelineCreate, PipelineUpdate, PipelineRead,
+    # Sub-model schemas
+    CraneConfigurationCreate, CraneConfigurationUpdate, CraneConfigurationRead,
+    CraneHookBlockCreate, CraneHookBlockUpdate, CraneHookBlockRead,
+    CraneReevingGuideCreate, CraneReevingGuideUpdate, CraneReevingGuideRead,
+    SeparatorNozzleCreate, SeparatorNozzleUpdate, SeparatorNozzleRead,
+    SeparatorProcessCaseCreate, SeparatorProcessCaseUpdate, SeparatorProcessCaseRead,
+    PumpCurvePointCreate, PumpCurvePointUpdate, PumpCurvePointRead,
+    ColumnSectionCreate, ColumnSectionUpdate, ColumnSectionRead,
 )
 
 router = APIRouter(prefix="/api/v1/asset-registry", tags=["asset-registry"])
@@ -981,3 +993,456 @@ async def get_stats(
         "equipment_by_status": equipment_by_status,
         "sites_by_type": sites_by_type,
     }
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# EQUIPMENT SUB-MODEL HELPERS
+# ════════════════════════════════════════════════════════════════════════════
+
+async def _verify_equipment_entity(db: AsyncSession, equipment_id: UUID, entity_id: UUID):
+    """Verify equipment belongs to current entity (used for sub-model routes)."""
+    result = await db.execute(
+        select(RegistryEquipment).where(
+            RegistryEquipment.id == equipment_id,
+            RegistryEquipment.entity_id == entity_id,
+            RegistryEquipment.archived == False,
+        )
+    )
+    obj = result.scalars().first()
+    if not obj:
+        raise HTTPException(404, "Equipment not found")
+    return obj
+
+
+async def _submodel_crud_list(db, model, fk_col, parent_id, order_col):
+    result = await db.execute(select(model).where(fk_col == parent_id).order_by(order_col))
+    return result.scalars().all()
+
+
+async def _submodel_crud_get(db, model, fk_col, parent_id, item_id, label="Item"):
+    result = await db.execute(select(model).where(model.id == item_id, fk_col == parent_id))
+    obj = result.scalars().first()
+    if not obj:
+        raise HTTPException(404, f"{label} not found")
+    return obj
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# CRANE — CONFIGURATIONS
+# ════════════════════════════════════════════════════════════════════════════
+
+@router.get("/equipment/{equipment_id}/crane-configurations", response_model=list[CraneConfigurationRead])
+async def list_crane_configurations(
+    equipment_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_equipment_entity(db, equipment_id, entity_id)
+    return await _submodel_crud_list(db, CraneConfiguration, CraneConfiguration.crane_id, equipment_id, CraneConfiguration.config_code)
+
+
+@router.post("/equipment/{equipment_id}/crane-configurations", response_model=CraneConfigurationRead, status_code=201)
+async def create_crane_configuration(
+    equipment_id: UUID,
+    body: CraneConfigurationCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_equipment_entity(db, equipment_id, entity_id)
+    obj = CraneConfiguration(crane_id=equipment_id, **body.model_dump())
+    db.add(obj)
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+
+@router.patch("/equipment/{equipment_id}/crane-configurations/{config_id}", response_model=CraneConfigurationRead)
+async def update_crane_configuration(
+    equipment_id: UUID, config_id: UUID, body: CraneConfigurationUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_equipment_entity(db, equipment_id, entity_id)
+    obj = await _submodel_crud_get(db, CraneConfiguration, CraneConfiguration.crane_id, equipment_id, config_id, "Configuration")
+    for key, value in body.model_dump(exclude_unset=True).items():
+        setattr(obj, key, value)
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+
+@router.delete("/equipment/{equipment_id}/crane-configurations/{config_id}")
+async def delete_crane_configuration(
+    equipment_id: UUID, config_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_equipment_entity(db, equipment_id, entity_id)
+    obj = await _submodel_crud_get(db, CraneConfiguration, CraneConfiguration.crane_id, equipment_id, config_id, "Configuration")
+    await db.delete(obj)
+    await db.commit()
+    return {"detail": "Configuration deleted"}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# CRANE — HOOK BLOCKS
+# ════════════════════════════════════════════════════════════════════════════
+
+@router.get("/equipment/{equipment_id}/crane-hook-blocks", response_model=list[CraneHookBlockRead])
+async def list_crane_hook_blocks(
+    equipment_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_equipment_entity(db, equipment_id, entity_id)
+    return await _submodel_crud_list(db, CraneHookBlock, CraneHookBlock.crane_id, equipment_id, CraneHookBlock.block_reference)
+
+
+@router.post("/equipment/{equipment_id}/crane-hook-blocks", response_model=CraneHookBlockRead, status_code=201)
+async def create_crane_hook_block(
+    equipment_id: UUID, body: CraneHookBlockCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_equipment_entity(db, equipment_id, entity_id)
+    obj = CraneHookBlock(crane_id=equipment_id, **body.model_dump())
+    db.add(obj)
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+
+@router.patch("/equipment/{equipment_id}/crane-hook-blocks/{block_id}", response_model=CraneHookBlockRead)
+async def update_crane_hook_block(
+    equipment_id: UUID, block_id: UUID, body: CraneHookBlockUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_equipment_entity(db, equipment_id, entity_id)
+    obj = await _submodel_crud_get(db, CraneHookBlock, CraneHookBlock.crane_id, equipment_id, block_id, "Hook block")
+    for key, value in body.model_dump(exclude_unset=True).items():
+        setattr(obj, key, value)
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+
+@router.delete("/equipment/{equipment_id}/crane-hook-blocks/{block_id}")
+async def delete_crane_hook_block(
+    equipment_id: UUID, block_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_equipment_entity(db, equipment_id, entity_id)
+    obj = await _submodel_crud_get(db, CraneHookBlock, CraneHookBlock.crane_id, equipment_id, block_id, "Hook block")
+    await db.delete(obj)
+    await db.commit()
+    return {"detail": "Hook block deleted"}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# CRANE — REEVING GUIDE
+# ════════════════════════════════════════════════════════════════════════════
+
+@router.get("/equipment/{equipment_id}/crane-reeving-guide", response_model=list[CraneReevingGuideRead])
+async def list_crane_reeving_guide(
+    equipment_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_equipment_entity(db, equipment_id, entity_id)
+    return await _submodel_crud_list(db, CraneReevingGuide, CraneReevingGuide.crane_id, equipment_id, CraneReevingGuide.reeving_parts)
+
+
+@router.post("/equipment/{equipment_id}/crane-reeving-guide", response_model=CraneReevingGuideRead, status_code=201)
+async def create_crane_reeving_guide(
+    equipment_id: UUID, body: CraneReevingGuideCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_equipment_entity(db, equipment_id, entity_id)
+    obj = CraneReevingGuide(crane_id=equipment_id, **body.model_dump())
+    db.add(obj)
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+
+@router.patch("/equipment/{equipment_id}/crane-reeving-guide/{guide_id}", response_model=CraneReevingGuideRead)
+async def update_crane_reeving_guide(
+    equipment_id: UUID, guide_id: UUID, body: CraneReevingGuideUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_equipment_entity(db, equipment_id, entity_id)
+    obj = await _submodel_crud_get(db, CraneReevingGuide, CraneReevingGuide.crane_id, equipment_id, guide_id, "Reeving guide")
+    for key, value in body.model_dump(exclude_unset=True).items():
+        setattr(obj, key, value)
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+
+@router.delete("/equipment/{equipment_id}/crane-reeving-guide/{guide_id}")
+async def delete_crane_reeving_guide(
+    equipment_id: UUID, guide_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_equipment_entity(db, equipment_id, entity_id)
+    obj = await _submodel_crud_get(db, CraneReevingGuide, CraneReevingGuide.crane_id, equipment_id, guide_id, "Reeving guide")
+    await db.delete(obj)
+    await db.commit()
+    return {"detail": "Reeving guide entry deleted"}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# SEPARATOR — NOZZLES
+# ════════════════════════════════════════════════════════════════════════════
+
+@router.get("/equipment/{equipment_id}/separator-nozzles", response_model=list[SeparatorNozzleRead])
+async def list_separator_nozzles(
+    equipment_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_equipment_entity(db, equipment_id, entity_id)
+    return await _submodel_crud_list(db, SeparatorNozzle, SeparatorNozzle.separator_id, equipment_id, SeparatorNozzle.nozzle_mark)
+
+
+@router.post("/equipment/{equipment_id}/separator-nozzles", response_model=SeparatorNozzleRead, status_code=201)
+async def create_separator_nozzle(
+    equipment_id: UUID, body: SeparatorNozzleCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_equipment_entity(db, equipment_id, entity_id)
+    obj = SeparatorNozzle(separator_id=equipment_id, **body.model_dump())
+    db.add(obj)
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+
+@router.patch("/equipment/{equipment_id}/separator-nozzles/{nozzle_id}", response_model=SeparatorNozzleRead)
+async def update_separator_nozzle(
+    equipment_id: UUID, nozzle_id: UUID, body: SeparatorNozzleUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_equipment_entity(db, equipment_id, entity_id)
+    obj = await _submodel_crud_get(db, SeparatorNozzle, SeparatorNozzle.separator_id, equipment_id, nozzle_id, "Nozzle")
+    for key, value in body.model_dump(exclude_unset=True).items():
+        setattr(obj, key, value)
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+
+@router.delete("/equipment/{equipment_id}/separator-nozzles/{nozzle_id}")
+async def delete_separator_nozzle(
+    equipment_id: UUID, nozzle_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_equipment_entity(db, equipment_id, entity_id)
+    obj = await _submodel_crud_get(db, SeparatorNozzle, SeparatorNozzle.separator_id, equipment_id, nozzle_id, "Nozzle")
+    await db.delete(obj)
+    await db.commit()
+    return {"detail": "Nozzle deleted"}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# SEPARATOR — PROCESS CASES
+# ════════════════════════════════════════════════════════════════════════════
+
+@router.get("/equipment/{equipment_id}/separator-process-cases", response_model=list[SeparatorProcessCaseRead])
+async def list_separator_process_cases(
+    equipment_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_equipment_entity(db, equipment_id, entity_id)
+    return await _submodel_crud_list(db, SeparatorProcessCase, SeparatorProcessCase.separator_id, equipment_id, SeparatorProcessCase.case_name)
+
+
+@router.post("/equipment/{equipment_id}/separator-process-cases", response_model=SeparatorProcessCaseRead, status_code=201)
+async def create_separator_process_case(
+    equipment_id: UUID, body: SeparatorProcessCaseCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_equipment_entity(db, equipment_id, entity_id)
+    obj = SeparatorProcessCase(separator_id=equipment_id, **body.model_dump())
+    db.add(obj)
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+
+@router.patch("/equipment/{equipment_id}/separator-process-cases/{case_id}", response_model=SeparatorProcessCaseRead)
+async def update_separator_process_case(
+    equipment_id: UUID, case_id: UUID, body: SeparatorProcessCaseUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_equipment_entity(db, equipment_id, entity_id)
+    obj = await _submodel_crud_get(db, SeparatorProcessCase, SeparatorProcessCase.separator_id, equipment_id, case_id, "Process case")
+    for key, value in body.model_dump(exclude_unset=True).items():
+        setattr(obj, key, value)
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+
+@router.delete("/equipment/{equipment_id}/separator-process-cases/{case_id}")
+async def delete_separator_process_case(
+    equipment_id: UUID, case_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_equipment_entity(db, equipment_id, entity_id)
+    obj = await _submodel_crud_get(db, SeparatorProcessCase, SeparatorProcessCase.separator_id, equipment_id, case_id, "Process case")
+    await db.delete(obj)
+    await db.commit()
+    return {"detail": "Process case deleted"}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# PUMP — CURVE POINTS
+# ════════════════════════════════════════════════════════════════════════════
+
+@router.get("/equipment/{equipment_id}/pump-curve-points", response_model=list[PumpCurvePointRead])
+async def list_pump_curve_points(
+    equipment_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_equipment_entity(db, equipment_id, entity_id)
+    return await _submodel_crud_list(db, PumpCurvePoint, PumpCurvePoint.pump_id, equipment_id, PumpCurvePoint.flow_m3h)
+
+
+@router.post("/equipment/{equipment_id}/pump-curve-points", response_model=PumpCurvePointRead, status_code=201)
+async def create_pump_curve_point(
+    equipment_id: UUID, body: PumpCurvePointCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_equipment_entity(db, equipment_id, entity_id)
+    obj = PumpCurvePoint(pump_id=equipment_id, **body.model_dump())
+    db.add(obj)
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+
+@router.patch("/equipment/{equipment_id}/pump-curve-points/{point_id}", response_model=PumpCurvePointRead)
+async def update_pump_curve_point(
+    equipment_id: UUID, point_id: UUID, body: PumpCurvePointUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_equipment_entity(db, equipment_id, entity_id)
+    obj = await _submodel_crud_get(db, PumpCurvePoint, PumpCurvePoint.pump_id, equipment_id, point_id, "Curve point")
+    for key, value in body.model_dump(exclude_unset=True).items():
+        setattr(obj, key, value)
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+
+@router.delete("/equipment/{equipment_id}/pump-curve-points/{point_id}")
+async def delete_pump_curve_point(
+    equipment_id: UUID, point_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_equipment_entity(db, equipment_id, entity_id)
+    obj = await _submodel_crud_get(db, PumpCurvePoint, PumpCurvePoint.pump_id, equipment_id, point_id, "Curve point")
+    await db.delete(obj)
+    await db.commit()
+    return {"detail": "Curve point deleted"}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# PROCESS COLUMN — SECTIONS
+# ════════════════════════════════════════════════════════════════════════════
+
+@router.get("/equipment/{equipment_id}/column-sections", response_model=list[ColumnSectionRead])
+async def list_column_sections(
+    equipment_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_equipment_entity(db, equipment_id, entity_id)
+    return await _submodel_crud_list(db, ColumnSection, ColumnSection.column_id, equipment_id, ColumnSection.section_number)
+
+
+@router.post("/equipment/{equipment_id}/column-sections", response_model=ColumnSectionRead, status_code=201)
+async def create_column_section(
+    equipment_id: UUID, body: ColumnSectionCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_equipment_entity(db, equipment_id, entity_id)
+    obj = ColumnSection(column_id=equipment_id, **body.model_dump())
+    db.add(obj)
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+
+@router.patch("/equipment/{equipment_id}/column-sections/{section_id}", response_model=ColumnSectionRead)
+async def update_column_section(
+    equipment_id: UUID, section_id: UUID, body: ColumnSectionUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_equipment_entity(db, equipment_id, entity_id)
+    obj = await _submodel_crud_get(db, ColumnSection, ColumnSection.column_id, equipment_id, section_id, "Column section")
+    for key, value in body.model_dump(exclude_unset=True).items():
+        setattr(obj, key, value)
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+
+@router.delete("/equipment/{equipment_id}/column-sections/{section_id}")
+async def delete_column_section(
+    equipment_id: UUID, section_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_equipment_entity(db, equipment_id, entity_id)
+    obj = await _submodel_crud_get(db, ColumnSection, ColumnSection.column_id, equipment_id, section_id, "Column section")
+    await db.delete(obj)
+    await db.commit()
+    return {"detail": "Column section deleted"}

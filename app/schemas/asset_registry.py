@@ -421,6 +421,242 @@ class PipelineRead(PipelineCreate, TimestampMixin, SoftDeleteMixin):
 
 
 # ════════════════════════════════════════════════════════════════
+# CRANE — CONFIGURATIONS
+# ════════════════════════════════════════════════════════════════
+
+class CraneConfigurationCreate(BaseModel):
+    config_code: str = Field(min_length=1, max_length=20)
+    config_name: str | None = None
+    is_default_config: bool = False
+    config_order: int | None = None
+    boom_length_m: Decimal | None = None
+    boom_length_ft: Decimal | None = None
+    jib_installed: bool = False
+    jib_length_m: Decimal | None = None
+    jib_offset_deg: Decimal | None = None
+    jib_type: str | None = None
+    counterweight_tonnes: Decimal | None = None
+    outrigger_state: str | None = None
+    outrigger_length_m: Decimal | None = None
+    reeving_parts: int | None = None
+    reeving_line_pull_kn: Decimal | None = None
+    hook_block_weight_kg: Decimal | None = None
+    slewing_zone_description: str | None = None
+    blind_zone_start_deg: Decimal | None = None
+    blind_zone_end_deg: Decimal | None = None
+    config_max_capacity_tonnes: Decimal | None = None
+    config_max_radius_m: Decimal | None = None
+    notes: str | None = None
+
+class CraneConfigurationUpdate(BaseModel):
+    config_code: str | None = None
+    config_name: str | None = None
+    is_default_config: bool | None = None
+    config_order: int | None = None
+    boom_length_m: Decimal | None = None
+    jib_installed: bool | None = None
+    jib_length_m: Decimal | None = None
+    counterweight_tonnes: Decimal | None = None
+    reeving_parts: int | None = None
+    config_max_capacity_tonnes: Decimal | None = None
+    config_max_radius_m: Decimal | None = None
+    notes: str | None = None
+
+class CraneConfigurationRead(CraneConfigurationCreate, TimestampMixin):
+    id: UUID
+    crane_id: UUID
+    class Config:
+        from_attributes = True
+
+
+# ════════════════════════════════════════════════════════════════
+# CRANE — HOOK BLOCKS
+# ════════════════════════════════════════════════════════════════
+
+class CraneHookBlockCreate(BaseModel):
+    block_reference: str | None = None
+    block_tag: str | None = None
+    sheave_count: int | None = None
+    swivel_type: str | None = None
+    rated_capacity_tonnes: Decimal
+    compatible_reeving_max: int | None = None
+    block_weight_kg: Decimal | None = None
+    hook_weight_kg: Decimal | None = None
+    rope_diameter_mm: Decimal | None = None
+    certificate_number: str | None = None
+    is_main_hook: bool = True
+    is_current_fit: bool = True
+
+class CraneHookBlockUpdate(BaseModel):
+    block_reference: str | None = None
+    block_tag: str | None = None
+    sheave_count: int | None = None
+    rated_capacity_tonnes: Decimal | None = None
+    block_weight_kg: Decimal | None = None
+    hook_weight_kg: Decimal | None = None
+    is_main_hook: bool | None = None
+    is_current_fit: bool | None = None
+
+class CraneHookBlockRead(CraneHookBlockCreate, TimestampMixin):
+    id: UUID
+    crane_id: UUID
+    class Config:
+        from_attributes = True
+
+
+# ════════════════════════════════════════════════════════════════
+# CRANE — REEVING GUIDE
+# ════════════════════════════════════════════════════════════════
+
+class CraneReevingGuideCreate(BaseModel):
+    boom_config_ref: str | None = None
+    load_min_tonnes: Decimal
+    load_max_tonnes: Decimal
+    reeving_parts: int
+    config_id: UUID | None = None
+
+class CraneReevingGuideUpdate(BaseModel):
+    boom_config_ref: str | None = None
+    load_min_tonnes: Decimal | None = None
+    load_max_tonnes: Decimal | None = None
+    reeving_parts: int | None = None
+
+class CraneReevingGuideRead(CraneReevingGuideCreate, TimestampMixin):
+    id: UUID
+    crane_id: UUID
+    class Config:
+        from_attributes = True
+
+
+# ════════════════════════════════════════════════════════════════
+# SEPARATOR — NOZZLES
+# ════════════════════════════════════════════════════════════════
+
+class SeparatorNozzleCreate(BaseModel):
+    nozzle_mark: str = Field(min_length=1, max_length=10)
+    nozzle_service: str = Field(min_length=1, max_length=30)
+    description: str | None = None
+    nominal_size_in: Decimal
+    schedule: str | None = None
+    connection_type: str | None = None
+    flange_rating: str | None = None
+    nozzle_material: str | None = None
+    connected_to_tag: str | None = None
+
+class SeparatorNozzleUpdate(BaseModel):
+    nozzle_mark: str | None = None
+    nozzle_service: str | None = None
+    description: str | None = None
+    nominal_size_in: Decimal | None = None
+    schedule: str | None = None
+    connection_type: str | None = None
+    flange_rating: str | None = None
+    nozzle_material: str | None = None
+    connected_to_tag: str | None = None
+
+class SeparatorNozzleRead(SeparatorNozzleCreate, TimestampMixin):
+    id: UUID
+    separator_id: UUID
+    class Config:
+        from_attributes = True
+
+
+# ════════════════════════════════════════════════════════════════
+# SEPARATOR — PROCESS CASES
+# ════════════════════════════════════════════════════════════════
+
+class SeparatorProcessCaseCreate(BaseModel):
+    case_name: str = Field(min_length=1, max_length=50)
+    case_description: str | None = None
+    inlet_pressure_barg: Decimal | None = None
+    inlet_temp_c: Decimal | None = None
+    inlet_gas_flow_mmscfd: Decimal | None = None
+    inlet_oil_flow_sm3d: Decimal | None = None
+    inlet_water_flow_sm3d: Decimal | None = None
+    op_pressure_barg: Decimal | None = None
+    op_temp_c: Decimal | None = None
+    simulation_tool: str | None = None
+    simulation_case_ref: str | None = None
+
+class SeparatorProcessCaseUpdate(BaseModel):
+    case_name: str | None = None
+    case_description: str | None = None
+    inlet_pressure_barg: Decimal | None = None
+    inlet_temp_c: Decimal | None = None
+    inlet_gas_flow_mmscfd: Decimal | None = None
+    inlet_oil_flow_sm3d: Decimal | None = None
+    inlet_water_flow_sm3d: Decimal | None = None
+    op_pressure_barg: Decimal | None = None
+    op_temp_c: Decimal | None = None
+    simulation_tool: str | None = None
+    simulation_case_ref: str | None = None
+
+class SeparatorProcessCaseRead(SeparatorProcessCaseCreate, TimestampMixin):
+    id: UUID
+    separator_id: UUID
+    class Config:
+        from_attributes = True
+
+
+# ════════════════════════════════════════════════════════════════
+# PUMP — CURVE POINTS
+# ════════════════════════════════════════════════════════════════
+
+class PumpCurvePointCreate(BaseModel):
+    flow_m3h: Decimal
+    head_m: Decimal | None = None
+    efficiency_pct: Decimal | None = None
+    power_kw: Decimal | None = None
+    npshr_m: Decimal | None = None
+    speed_rpm: Decimal | None = None
+    source: str = "MANUFACTURER"
+
+class PumpCurvePointUpdate(BaseModel):
+    flow_m3h: Decimal | None = None
+    head_m: Decimal | None = None
+    efficiency_pct: Decimal | None = None
+    power_kw: Decimal | None = None
+    npshr_m: Decimal | None = None
+    speed_rpm: Decimal | None = None
+    source: str | None = None
+
+class PumpCurvePointRead(PumpCurvePointCreate, TimestampMixin):
+    id: UUID
+    pump_id: UUID
+    class Config:
+        from_attributes = True
+
+
+# ════════════════════════════════════════════════════════════════
+# PROCESS COLUMN — SECTIONS
+# ════════════════════════════════════════════════════════════════
+
+class ColumnSectionCreate(BaseModel):
+    section_number: int
+    section_name: str | None = None
+    internals_type: str = Field(min_length=1, max_length=30)
+    tray_count: int | None = None
+    packing_type: str | None = None
+    packing_height_m: Decimal | None = None
+    notes: str | None = None
+
+class ColumnSectionUpdate(BaseModel):
+    section_number: int | None = None
+    section_name: str | None = None
+    internals_type: str | None = None
+    tray_count: int | None = None
+    packing_type: str | None = None
+    packing_height_m: Decimal | None = None
+    notes: str | None = None
+
+class ColumnSectionRead(ColumnSectionCreate, TimestampMixin):
+    id: UUID
+    column_id: UUID
+    class Config:
+        from_attributes = True
+
+
+# ════════════════════════════════════════════════════════════════
 # PAGINATED RESPONSE (reuse pattern)
 # ════════════════════════════════════════════════════════════════
 

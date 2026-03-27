@@ -259,6 +259,7 @@
     "search_installations": "Search by code, installation name…",
     "search_equipment": "Search by tag, name, class…",
     "search_pipelines": "Search by ID, pipeline name…",
+    "search_hierarchy": "Search hierarchy…",
     "no_fields": "No fields registered",
     "no_sites": "No sites registered",
     "no_installations": "No installations registered",

@@ -284,16 +284,16 @@ export function AssetHierarchyTree() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Search bar */}
-      <div className="px-4 py-3 border-b border-border shrink-0">
-        <div className="relative">
-          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+      {/* Search bar — matches DataTable toolbar style */}
+      <div className="px-3 py-2 border-b border-border shrink-0">
+        <div className="gl-toolbar-search relative flex items-center">
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t('assets.search_hierarchy')}
-            className="w-full pl-8 pr-3 py-1.5 text-sm rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            className="gl-form-input w-full pl-8 text-sm"
           />
         </div>
       </div>

@@ -43,6 +43,10 @@ from app.models.asset_registry import (
     CraneConfiguration, CraneHookBlock, CraneReevingGuide,
     SeparatorNozzle, SeparatorProcessCase,
     PumpCurvePoint, ColumnSection,
+    # Installation 1:1 sub-details
+    InstallationOffshoreDetails, InstallationOnshoreDetails,
+    InstallationWellPad, InstallationTerminal, InstallationTankFarm,
+    InstallationJacketPlatform, InstallationBuoy,
 )
 from app.models.common import User
 from app.schemas.asset_registry import (
@@ -429,6 +433,19 @@ async def list_installations(
     return await paginate(db, query, pagination)
 
 
+# ── Installation type → specialized model mapping ────────────
+INSTALLATION_TYPE_MODEL_MAP: dict[str, type] = {
+    "WELL_PAD": InstallationWellPad,
+    "TERMINAL": InstallationTerminal,
+    "TANK_FARM": InstallationTankFarm,
+    "JACKET_PLATFORM": InstallationJacketPlatform,
+    "FIXED_PLATFORM": InstallationJacketPlatform,
+    "BUOY": InstallationBuoy,
+    "SPM": InstallationBuoy,
+    "CALM": InstallationBuoy,
+}
+
+
 @router.get("/installations/{installation_id}", response_model=InstallationRead)
 async def get_installation(
     installation_id: UUID,
@@ -436,7 +453,42 @@ async def get_installation(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await _get_or_404(db, Installation, installation_id, entity_id, "Installation")
+    obj = await _get_or_404(db, Installation, installation_id, entity_id, "Installation")
+
+    # Load 1:1 offshore details
+    offshore_details = None
+    result = await db.execute(select(InstallationOffshoreDetails).where(InstallationOffshoreDetails.id == installation_id))
+    off_obj = result.scalars().first()
+    if off_obj:
+        from sqlalchemy import inspect as sa_inspect
+        mapper = sa_inspect(InstallationOffshoreDetails)
+        offshore_details = {col.key: (float(v) if isinstance(v := getattr(off_obj, col.key), Decimal) else v) for col in mapper.columns if col.key != "id"}
+
+    # Load 1:1 onshore details
+    onshore_details = None
+    result = await db.execute(select(InstallationOnshoreDetails).where(InstallationOnshoreDetails.id == installation_id))
+    on_obj = result.scalars().first()
+    if on_obj:
+        from sqlalchemy import inspect as sa_inspect
+        mapper = sa_inspect(InstallationOnshoreDetails)
+        onshore_details = {col.key: (float(v) if isinstance(v := getattr(on_obj, col.key), Decimal) else v) for col in mapper.columns if col.key != "id"}
+
+    # Load 1:1 type-specific details
+    type_details = None
+    type_model = INSTALLATION_TYPE_MODEL_MAP.get(obj.installation_type)
+    if type_model:
+        result = await db.execute(select(type_model).where(type_model.id == installation_id))
+        type_obj = result.scalars().first()
+        if type_obj:
+            from sqlalchemy import inspect as sa_inspect
+            mapper = sa_inspect(type_model)
+            type_details = {col.key: (float(v) if isinstance(v := getattr(type_obj, col.key), Decimal) else v) for col in mapper.columns if col.key != "id"}
+
+    resp = InstallationRead.model_validate(obj)
+    resp.offshore_details = offshore_details
+    resp.onshore_details = onshore_details
+    resp.type_details = type_details
+    return resp
 
 
 @router.post("/installations", response_model=InstallationRead, status_code=201)
@@ -482,6 +534,64 @@ async def delete_installation(
     obj.archived = True
     await db.commit()
     return {"detail": "Installation archived"}
+
+
+# ── Installation 1:1 sub-details (upsert) ─────────────────────────────────
+
+async def _upsert_1to1_detail(db: AsyncSession, model, installation_id: UUID, data: dict):
+    """Create or update a 1:1 sub-detail record for an installation."""
+    result = await db.execute(select(model).where(model.id == installation_id))
+    obj = result.scalars().first()
+    if obj:
+        for key, value in data.items():
+            setattr(obj, key, value)
+    else:
+        obj = model(id=installation_id, **data)
+        db.add(obj)
+    await db.commit()
+    await db.refresh(obj)
+    from sqlalchemy import inspect as sa_inspect
+    mapper = sa_inspect(model)
+    return {col.key: (float(v) if isinstance(v := getattr(obj, col.key), Decimal) else v) for col in mapper.columns if col.key != "id"}
+
+
+@router.put("/installations/{installation_id}/offshore-details")
+async def upsert_offshore_details(
+    installation_id: UUID,
+    body: dict,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_or_404(db, Installation, installation_id, entity_id, "Installation")
+    return await _upsert_1to1_detail(db, InstallationOffshoreDetails, installation_id, body)
+
+
+@router.put("/installations/{installation_id}/onshore-details")
+async def upsert_onshore_details(
+    installation_id: UUID,
+    body: dict,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_or_404(db, Installation, installation_id, entity_id, "Installation")
+    return await _upsert_1to1_detail(db, InstallationOnshoreDetails, installation_id, body)
+
+
+@router.put("/installations/{installation_id}/type-details")
+async def upsert_type_details(
+    installation_id: UUID,
+    body: dict,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    inst = await _get_or_404(db, Installation, installation_id, entity_id, "Installation")
+    type_model = INSTALLATION_TYPE_MODEL_MAP.get(inst.installation_type)
+    if not type_model:
+        raise HTTPException(400, f"No type details for installation_type '{inst.installation_type}'")
+    return await _upsert_1to1_detail(db, type_model, installation_id, body)
 
 
 # ── Installation Decks ────────────────────────────────────────────────────

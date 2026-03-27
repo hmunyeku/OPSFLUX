@@ -167,6 +167,20 @@ export const assetRegistryService = {
     await api.delete(`${BASE}/installations/${installationId}/decks/${deckId}`)
   },
 
+  // ── Installation 1:1 sub-details ───────────────────────
+  upsertOffshoreDetails: async (installationId: string, payload: Record<string, unknown>): Promise<Record<string, unknown>> => {
+    const { data } = await api.put(`${BASE}/installations/${installationId}/offshore-details`, payload)
+    return data
+  },
+  upsertOnshoreDetails: async (installationId: string, payload: Record<string, unknown>): Promise<Record<string, unknown>> => {
+    const { data } = await api.put(`${BASE}/installations/${installationId}/onshore-details`, payload)
+    return data
+  },
+  upsertTypeDetails: async (installationId: string, payload: Record<string, unknown>): Promise<Record<string, unknown>> => {
+    const { data } = await api.put(`${BASE}/installations/${installationId}/type-details`, payload)
+    return data
+  },
+
   // ── Equipment ────────────────────────────────────────────
   listEquipment: async (params: EquipmentListParams = {}): Promise<PaginatedResponse<RegistryEquipment>> => {
     const { data } = await api.get(`${BASE}/equipment`, { params })

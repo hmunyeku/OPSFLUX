@@ -39,6 +39,8 @@ import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { GeoEditor } from '@/components/shared/GeoEditor'
 import { TagManager } from '@/components/shared/TagManager'
 import { FieldLicenseManager } from '@/components/shared/FieldLicenseManager'
+import { InstallationDeckManager } from '@/components/shared/InstallationDeckManager'
+import { InstallationSubDetails } from './InstallationSubDetails'
 import { EquipmentContextualFields } from './EquipmentContextualFields'
 import { apiGeoToEditorValue, editorValueToApiGeo, latLonToPointValue } from '@/utils/geoHelpers'
 import { usePermission } from '@/hooks/usePermission'
@@ -513,6 +515,19 @@ export function InstallationDetailPanel({ id }: { id: string }) {
               <ReadOnlyRow label={t('assets.first_oil_date')} value={fmtDate(inst.first_oil_date)} />
             </DetailFieldGrid>
           </FormSection>
+
+          <FormSection title={t('assets.inst_sub.decks')} collapsible storageKey="panel.ar-inst.sections" id="ar-inst-decks">
+            <InstallationDeckManager installationId={id} compact />
+          </FormSection>
+
+          {/* Offshore / Onshore / Type-specific sub-details */}
+          <InstallationSubDetails
+            installationType={inst.installation_type}
+            environment={inst.environment}
+            offshoreDetails={inst.offshore_details}
+            onshoreDetails={inst.onshore_details}
+            typeDetails={inst.type_details}
+          />
 
           <FormSection title="Tags">
             <TagManager ownerType="ar_installation" ownerId={id} compact />

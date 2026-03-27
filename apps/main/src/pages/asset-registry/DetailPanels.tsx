@@ -28,6 +28,7 @@ import {
   PanelContentLayout,
   ReadOnlyRow,
   InlineEditableRow,
+  InlineEditableSelect,
   InlineEditableTags,
   DangerConfirmButton,
   DetailFieldGrid,
@@ -80,6 +81,62 @@ const STATUS_OPTIONS = [
   { value: 'SUSPENDED', label: 'Suspendu' },
   { value: 'DECOMMISSIONED', label: 'Décommissionné' },
   { value: 'ABANDONED', label: 'Abandonné' },
+]
+
+const BOOL_OPTIONS = [
+  { value: 'true', label: 'Oui' },
+  { value: 'false', label: 'Non' },
+]
+
+const ENVIRONMENT_OPTIONS = [
+  { value: 'ONSHORE', label: 'Onshore' },
+  { value: 'OFFSHORE', label: 'Offshore' },
+  { value: 'SWAMP', label: 'Marécage' },
+  { value: 'SHALLOW_WATER', label: 'Eaux peu profondes' },
+  { value: 'DEEP_WATER', label: 'Eaux profondes' },
+  { value: 'ULTRA_DEEP_WATER', label: 'Eaux ultra-profondes' },
+]
+
+const SITE_TYPE_OPTIONS = [
+  { value: 'PLATFORM', label: 'Plateforme' },
+  { value: 'FPSO', label: 'FPSO' },
+  { value: 'WELLHEAD', label: 'Wellhead' },
+  { value: 'ONSHORE_TERMINAL', label: 'Terminal terrestre' },
+  { value: 'ONSHORE_PLANT', label: 'Usine terrestre' },
+  { value: 'STORAGE', label: 'Stockage' },
+  { value: 'CAMP', label: 'Camp' },
+  { value: 'OTHER', label: 'Autre' },
+]
+
+const INSTALLATION_TYPE_OPTIONS = [
+  { value: 'FIXED_PLATFORM', label: 'Plateforme fixe' },
+  { value: 'FLOATING_UNIT', label: 'Unité flottante' },
+  { value: 'SUBSEA', label: 'Sous-marin' },
+  { value: 'WELLHEAD_PLATFORM', label: 'Plateforme wellhead' },
+  { value: 'PROCESSING_PLATFORM', label: 'Plateforme de traitement' },
+  { value: 'LIVING_QUARTERS', label: 'Quartiers de vie' },
+  { value: 'COMPRESSION_MODULE', label: 'Module compression' },
+  { value: 'ONSHORE_PLANT', label: 'Usine terrestre' },
+  { value: 'TERMINAL', label: 'Terminal' },
+  { value: 'PIPELINE_RISER', label: 'Pipeline Riser' },
+  { value: 'OTHER', label: 'Autre' },
+]
+
+const CRITICALITY_OPTIONS = [
+  { value: 'A', label: 'A — Critique' },
+  { value: 'B', label: 'B — Majeur' },
+  { value: 'C', label: 'C — Mineur' },
+]
+
+const PIPELINE_SERVICE_OPTIONS = [
+  { value: 'OIL', label: 'Pétrole' },
+  { value: 'GAS', label: 'Gaz' },
+  { value: 'WATER', label: 'Eau' },
+  { value: 'MULTIPHASE', label: 'Multiphasique' },
+  { value: 'CONDENSATE', label: 'Condensat' },
+  { value: 'INJECTION', label: 'Injection' },
+  { value: 'CHEMICAL', label: 'Chimique' },
+  { value: 'OTHER', label: 'Autre' },
 ]
 
 function StatusBadge({ status }: { status: string }) {
@@ -176,26 +233,47 @@ export function FieldDetailPanel({ id }: { id: string }) {
                 ? <InlineEditableTags label={t('common.status')} value={field.status} options={STATUS_OPTIONS} onSave={(v) => handleSave('status', v)} />
                 : <ReadOnlyRow label={t('common.status')} value={<StatusBadge status={field.status} />} />
               }
-              <ReadOnlyRow label={t('assets.country')} value={field.country} />
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.country')} value={field.country || ''} onSave={(v) => handleSave('country', v || null)} />
+                : <ReadOnlyRow label={t('assets.country')} value={field.country} />
+              }
               {canUpdate
                 ? <InlineEditableRow label={t('assets.operator')} value={field.operator || ''} onSave={(v) => handleSave('operator', v || null)} />
                 : <ReadOnlyRow label={t('assets.operator')} value={field.operator || '—'} />
               }
-              <ReadOnlyRow label={t('assets.environment')} value={field.environment || '—'} />
+              {canUpdate
+                ? <InlineEditableSelect label={t('assets.environment')} value={field.environment || ''} options={ENVIRONMENT_OPTIONS} onSave={(v) => handleSave('environment', v || null)} />
+                : <ReadOnlyRow label={t('assets.environment')} value={field.environment || '—'} />
+              }
               {canUpdate
                 ? <InlineEditableRow label={t('assets.regulator')} value={field.regulator || ''} onSave={(v) => handleSave('regulator', v || null)} />
                 : <ReadOnlyRow label={t('assets.regulator')} value={field.regulator || '—'} />
               }
-              <ReadOnlyRow label={t('assets.working_interest')} value={field.working_interest_pct ? `${field.working_interest_pct}%` : '—'} />
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.working_interest')} value={String(field.working_interest_pct ?? '')} onSave={(v) => handleSave('working_interest_pct', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.working_interest')} value={field.working_interest_pct ? `${field.working_interest_pct}%` : '—'} />
+              }
             </DetailFieldGrid>
           </FormSection>
 
           <FormSection title={t('assets.geology')} collapsible storageKey="panel.ar-field.sections" id="ar-field-geology">
             <DetailFieldGrid>
-              <ReadOnlyRow label={t('assets.basin')} value={field.basin || '—'} />
-              <ReadOnlyRow label={t('assets.block_name')} value={field.block_name || '—'} />
-              <ReadOnlyRow label={t('assets.discovery_year')} value={field.discovery_year || '—'} />
-              <ReadOnlyRow label={t('assets.first_production_year')} value={field.first_production_year || '—'} />
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.basin')} value={field.basin || ''} onSave={(v) => handleSave('basin', v || null)} />
+                : <ReadOnlyRow label={t('assets.basin')} value={field.basin || '—'} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.block_name')} value={field.block_name || ''} onSave={(v) => handleSave('block_name', v || null)} />
+                : <ReadOnlyRow label={t('assets.block_name')} value={field.block_name || '—'} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.discovery_year')} value={String(field.discovery_year ?? '')} onSave={(v) => handleSave('discovery_year', v ? parseInt(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.discovery_year')} value={field.discovery_year ?? '—'} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.first_production_year')} value={String(field.first_production_year ?? '')} onSave={(v) => handleSave('first_production_year', v ? parseInt(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.first_production_year')} value={field.first_production_year ?? '—'} />
+              }
               {canUpdate
                 ? <InlineEditableRow label={t('assets.reservoir_formation')} value={field.reservoir_formation || ''} onSave={(v) => handleSave('reservoir_formation', v || null)} />
                 : <ReadOnlyRow label={t('assets.reservoir_formation')} value={field.reservoir_formation || '—'} />
@@ -217,16 +295,40 @@ export function FieldDetailPanel({ id }: { id: string }) {
               showToolbar={canUpdate}
             />
             <DetailFieldGrid>
-              <ReadOnlyRow label={t('assets.centroid_latitude')} value={field.centroid_latitude ?? '—'} />
-              <ReadOnlyRow label={t('assets.centroid_longitude')} value={field.centroid_longitude ?? '—'} />
-              <ReadOnlyRow label={t('assets.area_km2')} value={fmtNum(field.area_km2, 'km²')} />
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.centroid_latitude')} value={String(field.centroid_latitude ?? '')} onSave={(v) => handleSave('centroid_latitude', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.centroid_latitude')} value={field.centroid_latitude ?? '—'} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.centroid_longitude')} value={String(field.centroid_longitude ?? '')} onSave={(v) => handleSave('centroid_longitude', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.centroid_longitude')} value={field.centroid_longitude ?? '—'} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.area_km2')} value={String(field.area_km2 ?? '')} onSave={(v) => handleSave('area_km2', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.area_km2')} value={fmtNum(field.area_km2, 'km²')} />
+              }
             </DetailFieldGrid>
           </FormSection>
 
           <FormSection title={t('assets.reserves')} collapsible storageKey="panel.ar-field.sections" id="ar-field-reserves">
             <DetailFieldGrid>
-              <ReadOnlyRow label={t('assets.original_oip')} value={fmtNum(field.original_oil_in_place_mmbo, 'MMbo')} />
-              <ReadOnlyRow label={t('assets.recoverable_reserves')} value={fmtNum(field.recoverable_reserves_mmbo, 'MMbo')} />
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.original_oip')} value={String(field.original_oil_in_place_mmbo ?? '')} onSave={(v) => handleSave('original_oil_in_place_mmbo', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.original_oip')} value={fmtNum(field.original_oil_in_place_mmbo, 'MMbo')} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.recoverable_reserves')} value={String(field.recoverable_reserves_mmbo ?? '')} onSave={(v) => handleSave('recoverable_reserves_mmbo', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.recoverable_reserves')} value={fmtNum(field.recoverable_reserves_mmbo, 'MMbo')} />
+              }
+            </DetailFieldGrid>
+          </FormSection>
+
+          <FormSection title={t('common.notes')} collapsible storageKey="panel.ar-field.sections" id="ar-field-notes-field">
+            <DetailFieldGrid>
+              {canUpdate
+                ? <InlineEditableRow label={t('common.notes')} value={field.notes || ''} onSave={(v) => handleSave('notes', v || null)} />
+                : <ReadOnlyRow label={t('common.notes')} value={field.notes || '—'} />
+              }
             </DetailFieldGrid>
           </FormSection>
 
@@ -304,7 +406,10 @@ export function SiteDetailPanel({ id }: { id: string }) {
                 : <ReadOnlyRow label={t('common.name')} value={site.name} />
               }
               <ReadOnlyRow label={t('common.code')} value={<span className="font-mono font-semibold">{site.code}</span>} />
-              <ReadOnlyRow label={t('common.type')} value={<span className="gl-badge gl-badge-neutral">{site.site_type.replace(/_/g, ' ')}</span>} />
+              {canUpdate
+                ? <InlineEditableSelect label={t('common.type')} value={site.site_type} options={SITE_TYPE_OPTIONS} onSave={(v) => handleSave('site_type', v)} />
+                : <ReadOnlyRow label={t('common.type')} value={<span className="gl-badge gl-badge-neutral">{site.site_type.replace(/_/g, ' ')}</span>} />
+              }
               {canUpdate
                 ? <InlineEditableTags label={t('common.status')} value={site.status} options={STATUS_OPTIONS} onSave={(v) => handleSave('status', v)} />
                 : <ReadOnlyRow label={t('common.status')} value={<StatusBadge status={site.status} />} />
@@ -312,20 +417,47 @@ export function SiteDetailPanel({ id }: { id: string }) {
               <ReadOnlyRow label={t('assets.field_parent')} value={
                 <CrossModuleLink module="ar-field" id={site.field_id} label={parentField ? `${parentField.code} — ${parentField.name}` : '...'} />
               } />
-              <ReadOnlyRow label={t('assets.environment')} value={site.environment} />
-              <ReadOnlyRow label={t('assets.country')} value={site.country} />
+              {canUpdate
+                ? <InlineEditableSelect label={t('assets.environment')} value={site.environment || ''} options={ENVIRONMENT_OPTIONS} onSave={(v) => handleSave('environment', v || null)} />
+                : <ReadOnlyRow label={t('assets.environment')} value={site.environment} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.country')} value={site.country || ''} onSave={(v) => handleSave('country', v || null)} />
+                : <ReadOnlyRow label={t('assets.country')} value={site.country} />
+              }
             </DetailFieldGrid>
           </FormSection>
 
           <FormSection title={t('assets.access')} collapsible storageKey="panel.ar-site.sections" id="ar-site-access">
             <DetailFieldGrid>
-              <ReadOnlyRow label={t('assets.manned')} value={fmtBool(site.manned, t)} />
-              <ReadOnlyRow label={t('assets.pob_capacity')} value={site.pob_capacity ?? '—'} />
-              <ReadOnlyRow label={t('assets.water_depth')} value={fmtNum(site.water_depth_m, 'm')} />
-              <ReadOnlyRow label={t('assets.access_road')} value={fmtBool(site.access_road, t)} />
-              <ReadOnlyRow label={t('assets.access_helicopter')} value={fmtBool(site.access_helicopter, t)} />
-              <ReadOnlyRow label={t('assets.access_vessel')} value={fmtBool(site.access_vessel, t)} />
-              <ReadOnlyRow label={t('assets.helideck_available')} value={fmtBool(site.helideck_available, t)} />
+              {canUpdate
+                ? <InlineEditableSelect label={t('assets.manned')} value={site.manned ? 'true' : 'false'} options={BOOL_OPTIONS} onSave={(v) => handleSave('manned', v === 'true')} />
+                : <ReadOnlyRow label={t('assets.manned')} value={fmtBool(site.manned, t)} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.pob_capacity')} value={String(site.pob_capacity ?? '')} onSave={(v) => handleSave('pob_capacity', v ? parseInt(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.pob_capacity')} value={site.pob_capacity ?? '—'} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.water_depth')} value={String(site.water_depth_m ?? '')} onSave={(v) => handleSave('water_depth_m', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.water_depth')} value={fmtNum(site.water_depth_m, 'm')} />
+              }
+              {canUpdate
+                ? <InlineEditableSelect label={t('assets.access_road')} value={site.access_road ? 'true' : 'false'} options={BOOL_OPTIONS} onSave={(v) => handleSave('access_road', v === 'true')} />
+                : <ReadOnlyRow label={t('assets.access_road')} value={fmtBool(site.access_road, t)} />
+              }
+              {canUpdate
+                ? <InlineEditableSelect label={t('assets.access_helicopter')} value={site.access_helicopter ? 'true' : 'false'} options={BOOL_OPTIONS} onSave={(v) => handleSave('access_helicopter', v === 'true')} />
+                : <ReadOnlyRow label={t('assets.access_helicopter')} value={fmtBool(site.access_helicopter, t)} />
+              }
+              {canUpdate
+                ? <InlineEditableSelect label={t('assets.access_vessel')} value={site.access_vessel ? 'true' : 'false'} options={BOOL_OPTIONS} onSave={(v) => handleSave('access_vessel', v === 'true')} />
+                : <ReadOnlyRow label={t('assets.access_vessel')} value={fmtBool(site.access_vessel, t)} />
+              }
+              {canUpdate
+                ? <InlineEditableSelect label={t('assets.helideck_available')} value={site.helideck_available ? 'true' : 'false'} options={BOOL_OPTIONS} onSave={(v) => handleSave('helideck_available', v === 'true')} />
+                : <ReadOnlyRow label={t('assets.helideck_available')} value={fmtBool(site.helideck_available, t)} />
+              }
               {canUpdate
                 ? <InlineEditableRow label={t('assets.nearest_airport')} value={site.nearest_airport || ''} onSave={(v) => handleSave('nearest_airport', v || null)} />
                 : <ReadOnlyRow label={t('assets.nearest_airport')} value={site.nearest_airport || '—'} />
@@ -352,11 +484,26 @@ export function SiteDetailPanel({ id }: { id: string }) {
 
           <FormSection title={t('assets.design_conditions')} collapsible storageKey="panel.ar-site.sections" id="ar-site-design">
             <DetailFieldGrid>
-              <ReadOnlyRow label={t('assets.max_wind_speed')} value={fmtNum(site.max_wind_speed_ms, 'm/s')} />
-              <ReadOnlyRow label={t('assets.design_wave')} value={fmtNum(site.design_wave_height_m, 'm')} />
-              <ReadOnlyRow label={t('assets.design_temp_max')} value={fmtNum(site.design_temp_max_c, '°C')} />
-              <ReadOnlyRow label={t('assets.design_temp_min')} value={fmtNum(site.design_temp_min_c, '°C')} />
-              <ReadOnlyRow label={t('assets.seismic_zone')} value={site.seismic_zone || '—'} />
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.max_wind_speed')} value={String(site.max_wind_speed_ms ?? '')} onSave={(v) => handleSave('max_wind_speed_ms', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.max_wind_speed')} value={fmtNum(site.max_wind_speed_ms, 'm/s')} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.design_wave')} value={String(site.design_wave_height_m ?? '')} onSave={(v) => handleSave('design_wave_height_m', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.design_wave')} value={fmtNum(site.design_wave_height_m, 'm')} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.design_temp_max')} value={String(site.design_temp_max_c ?? '')} onSave={(v) => handleSave('design_temp_max_c', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.design_temp_max')} value={fmtNum(site.design_temp_max_c, '°C')} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.design_temp_min')} value={String(site.design_temp_min_c ?? '')} onSave={(v) => handleSave('design_temp_min_c', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.design_temp_min')} value={fmtNum(site.design_temp_min_c, '°C')} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.seismic_zone')} value={site.seismic_zone || ''} onSave={(v) => handleSave('seismic_zone', v || null)} />
+                : <ReadOnlyRow label={t('assets.seismic_zone')} value={site.seismic_zone || '—'} />
+              }
             </DetailFieldGrid>
           </FormSection>
 
@@ -373,14 +520,32 @@ export function SiteDetailPanel({ id }: { id: string }) {
             <DetailFieldGrid>
               <ReadOnlyRow label="Latitude" value={site.latitude ?? '—'} />
               <ReadOnlyRow label="Longitude" value={site.longitude ?? '—'} />
-              <ReadOnlyRow label={t('assets.region')} value={site.region || '—'} />
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.region')} value={site.region || ''} onSave={(v) => handleSave('region', v || null)} />
+                : <ReadOnlyRow label={t('assets.region')} value={site.region || '—'} />
+              }
             </DetailFieldGrid>
           </FormSection>
 
           <FormSection title={t('assets.key_dates')} collapsible storageKey="panel.ar-site.sections" id="ar-site-dates">
             <DetailFieldGrid>
-              <ReadOnlyRow label={t('assets.commissioning_date')} value={fmtDate(site.commissioning_date)} />
-              <ReadOnlyRow label={t('assets.first_oil_date')} value={fmtDate(site.first_oil_date)} />
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.commissioning_date')} value={site.commissioning_date || ''} onSave={(v) => handleSave('commissioning_date', v || null)} type="date" />
+                : <ReadOnlyRow label={t('assets.commissioning_date')} value={fmtDate(site.commissioning_date)} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.first_oil_date')} value={site.first_oil_date || ''} onSave={(v) => handleSave('first_oil_date', v || null)} type="date" />
+                : <ReadOnlyRow label={t('assets.first_oil_date')} value={fmtDate(site.first_oil_date)} />
+              }
+            </DetailFieldGrid>
+          </FormSection>
+
+          <FormSection title={t('common.notes')} collapsible storageKey="panel.ar-site.sections" id="ar-site-notes-field">
+            <DetailFieldGrid>
+              {canUpdate
+                ? <InlineEditableRow label={t('common.notes')} value={site.notes || ''} onSave={(v) => handleSave('notes', v || null)} />
+                : <ReadOnlyRow label={t('common.notes')} value={site.notes || '—'} />
+              }
             </DetailFieldGrid>
           </FormSection>
 
@@ -454,7 +619,10 @@ export function InstallationDetailPanel({ id }: { id: string }) {
                 : <ReadOnlyRow label={t('common.name')} value={inst.name} />
               }
               <ReadOnlyRow label={t('common.code')} value={<span className="font-mono font-semibold">{inst.code}</span>} />
-              <ReadOnlyRow label={t('common.type')} value={<span className="gl-badge gl-badge-neutral">{inst.installation_type.replace(/_/g, ' ')}</span>} />
+              {canUpdate
+                ? <InlineEditableSelect label={t('common.type')} value={inst.installation_type} options={INSTALLATION_TYPE_OPTIONS} onSave={(v) => handleSave('installation_type', v)} />
+                : <ReadOnlyRow label={t('common.type')} value={<span className="gl-badge gl-badge-neutral">{inst.installation_type.replace(/_/g, ' ')}</span>} />
+              }
               {canUpdate
                 ? <InlineEditableTags label={t('common.status')} value={inst.status} options={STATUS_OPTIONS} onSave={(v) => handleSave('status', v)} />
                 : <ReadOnlyRow label={t('common.status')} value={<StatusBadge status={inst.status} />} />
@@ -462,12 +630,30 @@ export function InstallationDetailPanel({ id }: { id: string }) {
               <ReadOnlyRow label={t('assets.site_parent')} value={
                 <CrossModuleLink module="ar-site" id={inst.site_id} label={parentSite ? `${parentSite.code} — ${parentSite.name}` : '...'} />
               } />
-              <ReadOnlyRow label={t('assets.environment')} value={inst.environment} />
-              <ReadOnlyRow label={t('assets.manned')} value={fmtBool(inst.is_manned, t)} />
-              <ReadOnlyRow label={t('assets.is_normally_unmanned')} value={fmtBool(inst.is_normally_unmanned, t)} />
-              <ReadOnlyRow label={t('assets.pob_capacity')} value={inst.pob_max ?? '—'} />
-              <ReadOnlyRow label={t('assets.helideck_available')} value={fmtBool(inst.helideck_available, t)} />
-              <ReadOnlyRow label={t('assets.lifeboat_capacity')} value={inst.lifeboat_capacity ?? '—'} />
+              {canUpdate
+                ? <InlineEditableSelect label={t('assets.environment')} value={inst.environment || ''} options={ENVIRONMENT_OPTIONS} onSave={(v) => handleSave('environment', v || null)} />
+                : <ReadOnlyRow label={t('assets.environment')} value={inst.environment} />
+              }
+              {canUpdate
+                ? <InlineEditableSelect label={t('assets.manned')} value={inst.is_manned ? 'true' : 'false'} options={BOOL_OPTIONS} onSave={(v) => handleSave('is_manned', v === 'true')} />
+                : <ReadOnlyRow label={t('assets.manned')} value={fmtBool(inst.is_manned, t)} />
+              }
+              {canUpdate
+                ? <InlineEditableSelect label={t('assets.is_normally_unmanned')} value={inst.is_normally_unmanned ? 'true' : 'false'} options={BOOL_OPTIONS} onSave={(v) => handleSave('is_normally_unmanned', v === 'true')} />
+                : <ReadOnlyRow label={t('assets.is_normally_unmanned')} value={fmtBool(inst.is_normally_unmanned, t)} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.pob_capacity')} value={String(inst.pob_max ?? '')} onSave={(v) => handleSave('pob_max', v ? parseInt(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.pob_capacity')} value={inst.pob_max ?? '—'} />
+              }
+              {canUpdate
+                ? <InlineEditableSelect label={t('assets.helideck_available')} value={inst.helideck_available ? 'true' : 'false'} options={BOOL_OPTIONS} onSave={(v) => handleSave('helideck_available', v === 'true')} />
+                : <ReadOnlyRow label={t('assets.helideck_available')} value={fmtBool(inst.helideck_available, t)} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.lifeboat_capacity')} value={String(inst.lifeboat_capacity ?? '')} onSave={(v) => handleSave('lifeboat_capacity', v ? parseInt(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.lifeboat_capacity')} value={inst.lifeboat_capacity ?? '—'} />
+              }
             </DetailFieldGrid>
           </FormSection>
 
@@ -484,35 +670,86 @@ export function InstallationDetailPanel({ id }: { id: string }) {
             <DetailFieldGrid>
               <ReadOnlyRow label="Latitude" value={inst.latitude ?? '—'} />
               <ReadOnlyRow label="Longitude" value={inst.longitude ?? '—'} />
-              <ReadOnlyRow label={t('assets.elevation_masl')} value={fmtNum(inst.elevation_masl, 'm AMSL')} />
-              <ReadOnlyRow label={t('assets.water_depth')} value={fmtNum(inst.water_depth_m, 'm')} />
-              <ReadOnlyRow label={t('assets.air_gap')} value={fmtNum(inst.air_gap_m, 'm')} />
-              <ReadOnlyRow label={t('assets.orientation')} value={fmtNum(inst.orientation_deg, '°')} />
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.elevation_masl')} value={String(inst.elevation_masl ?? '')} onSave={(v) => handleSave('elevation_masl', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.elevation_masl')} value={fmtNum(inst.elevation_masl, 'm AMSL')} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.water_depth')} value={String(inst.water_depth_m ?? '')} onSave={(v) => handleSave('water_depth_m', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.water_depth')} value={fmtNum(inst.water_depth_m, 'm')} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.air_gap')} value={String(inst.air_gap_m ?? '')} onSave={(v) => handleSave('air_gap_m', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.air_gap')} value={fmtNum(inst.air_gap_m, 'm')} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.orientation')} value={String(inst.orientation_deg ?? '')} onSave={(v) => handleSave('orientation_deg', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.orientation')} value={fmtNum(inst.orientation_deg, '°')} />
+              }
             </DetailFieldGrid>
           </FormSection>
 
           <FormSection title={t('assets.design')} collapsible storageKey="panel.ar-inst.sections" id="ar-inst-design">
             <DetailFieldGrid>
-              <ReadOnlyRow label={t('assets.design_life')} value={inst.design_life_years ? `${inst.design_life_years} ans` : '—'} />
-              <ReadOnlyRow label={t('assets.total_area_m2')} value={fmtNum(inst.total_area_m2, 'm²')} />
-              <ReadOnlyRow label={t('assets.footprint_length')} value={fmtNum(inst.footprint_length_m, 'm')} />
-              <ReadOnlyRow label={t('assets.footprint_width')} value={fmtNum(inst.footprint_width_m, 'm')} />
-              <ReadOnlyRow label={t('assets.design_code')} value={inst.design_code || '—'} />
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.design_life')} value={String(inst.design_life_years ?? '')} onSave={(v) => handleSave('design_life_years', v ? parseInt(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.design_life')} value={inst.design_life_years ? `${inst.design_life_years} ans` : '—'} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.total_area_m2')} value={String(inst.total_area_m2 ?? '')} onSave={(v) => handleSave('total_area_m2', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.total_area_m2')} value={fmtNum(inst.total_area_m2, 'm²')} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.footprint_length')} value={String(inst.footprint_length_m ?? '')} onSave={(v) => handleSave('footprint_length_m', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.footprint_length')} value={fmtNum(inst.footprint_length_m, 'm')} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.footprint_width')} value={String(inst.footprint_width_m ?? '')} onSave={(v) => handleSave('footprint_width_m', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.footprint_width')} value={fmtNum(inst.footprint_width_m, 'm')} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.design_code')} value={inst.design_code || ''} onSave={(v) => handleSave('design_code', v || null)} />
+                : <ReadOnlyRow label={t('assets.design_code')} value={inst.design_code || '—'} />
+              }
             </DetailFieldGrid>
           </FormSection>
 
           <FormSection title={t('assets.certification')} collapsible storageKey="panel.ar-inst.sections" id="ar-inst-cert">
             <DetailFieldGrid>
-              <ReadOnlyRow label={t('assets.classification_society')} value={inst.classification_society || '—'} />
-              <ReadOnlyRow label={t('assets.class_notation')} value={inst.class_notation || '—'} />
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.classification_society')} value={inst.classification_society || ''} onSave={(v) => handleSave('classification_society', v || null)} />
+                : <ReadOnlyRow label={t('assets.classification_society')} value={inst.classification_society || '—'} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.class_notation')} value={inst.class_notation || ''} onSave={(v) => handleSave('class_notation', v || null)} />
+                : <ReadOnlyRow label={t('assets.class_notation')} value={inst.class_notation || '—'} />
+              }
             </DetailFieldGrid>
           </FormSection>
 
           <FormSection title={t('assets.key_dates')} collapsible storageKey="panel.ar-inst.sections" id="ar-inst-dates">
             <DetailFieldGrid>
-              <ReadOnlyRow label={t('assets.installation_date')} value={fmtDate(inst.installation_date)} />
-              <ReadOnlyRow label={t('assets.commissioning_date')} value={fmtDate(inst.commissioning_date)} />
-              <ReadOnlyRow label={t('assets.first_oil_date')} value={fmtDate(inst.first_oil_date)} />
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.installation_date')} value={inst.installation_date || ''} onSave={(v) => handleSave('installation_date', v || null)} type="date" />
+                : <ReadOnlyRow label={t('assets.installation_date')} value={fmtDate(inst.installation_date)} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.commissioning_date')} value={inst.commissioning_date || ''} onSave={(v) => handleSave('commissioning_date', v || null)} type="date" />
+                : <ReadOnlyRow label={t('assets.commissioning_date')} value={fmtDate(inst.commissioning_date)} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.first_oil_date')} value={inst.first_oil_date || ''} onSave={(v) => handleSave('first_oil_date', v || null)} type="date" />
+                : <ReadOnlyRow label={t('assets.first_oil_date')} value={fmtDate(inst.first_oil_date)} />
+              }
+            </DetailFieldGrid>
+          </FormSection>
+
+          <FormSection title={t('common.notes')} collapsible storageKey="panel.ar-inst.sections" id="ar-inst-notes-field">
+            <DetailFieldGrid>
+              {canUpdate
+                ? <InlineEditableRow label={t('common.notes')} value={inst.notes || ''} onSave={(v) => handleSave('notes', v || null)} />
+                : <ReadOnlyRow label={t('common.notes')} value={inst.notes || '—'} />
+              }
             </DetailFieldGrid>
           </FormSection>
 
@@ -599,7 +836,10 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
                 : <ReadOnlyRow label={t('common.name')} value={equip.name} />
               }
               <ReadOnlyRow label="Tag" value={<span className="font-mono font-semibold">{equip.tag_number}</span>} />
-              <ReadOnlyRow label={t('assets.equipment_class')} value={<span className="gl-badge gl-badge-neutral">{equip.equipment_class.replace(/_/g, ' ')}</span>} />
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.equipment_class')} value={equip.equipment_class || ''} onSave={(v) => handleSave('equipment_class', v || null)} />
+                : <ReadOnlyRow label={t('assets.equipment_class')} value={<span className="gl-badge gl-badge-neutral">{equip.equipment_class.replace(/_/g, ' ')}</span>} />
+              }
               {canUpdate
                 ? <InlineEditableTags label={t('common.status')} value={equip.status} options={STATUS_OPTIONS} onSave={(v) => handleSave('status', v)} />
                 : <ReadOnlyRow label={t('common.status')} value={<StatusBadge status={equip.status} />} />
@@ -609,17 +849,30 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
                   <CrossModuleLink module="ar-installation" id={equip.installation_id} label={parentInstallation ? `${parentInstallation.code} — ${parentInstallation.name}` : '...'} />
                 } />
               )}
-              {equip.criticality && (
-                <ReadOnlyRow label={t('assets.criticality')} value={
-                  <span className={cn('gl-badge', equip.criticality === 'A' ? 'gl-badge-danger' : equip.criticality === 'B' ? 'gl-badge-warning' : 'gl-badge-neutral')}>
-                    {equip.criticality}
-                  </span>
-                } />
-              )}
-              <ReadOnlyRow label={t('assets.safety_function')} value={fmtBool(equip.safety_function, t)} />
-              <ReadOnlyRow label={t('assets.is_mobile')} value={fmtBool(equip.is_mobile, t)} />
-              <ReadOnlyRow label={t('assets.area')} value={equip.area || '—'} />
-              {equip.sub_area && <ReadOnlyRow label={t('assets.sub_area')} value={equip.sub_area} />}
+              {canUpdate
+                ? <InlineEditableSelect label={t('assets.criticality')} value={equip.criticality || ''} options={CRITICALITY_OPTIONS} onSave={(v) => handleSave('criticality', v || null)} />
+                : <ReadOnlyRow label={t('assets.criticality')} value={
+                    equip.criticality
+                      ? <span className={cn('gl-badge', equip.criticality === 'A' ? 'gl-badge-danger' : equip.criticality === 'B' ? 'gl-badge-warning' : 'gl-badge-neutral')}>{equip.criticality}</span>
+                      : '—'
+                  } />
+              }
+              {canUpdate
+                ? <InlineEditableSelect label={t('assets.safety_function')} value={equip.safety_function ? 'true' : 'false'} options={BOOL_OPTIONS} onSave={(v) => handleSave('safety_function', v === 'true')} />
+                : <ReadOnlyRow label={t('assets.safety_function')} value={fmtBool(equip.safety_function, t)} />
+              }
+              {canUpdate
+                ? <InlineEditableSelect label={t('assets.is_mobile')} value={equip.is_mobile ? 'true' : 'false'} options={BOOL_OPTIONS} onSave={(v) => handleSave('is_mobile', v === 'true')} />
+                : <ReadOnlyRow label={t('assets.is_mobile')} value={fmtBool(equip.is_mobile, t)} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.area')} value={equip.area || ''} onSave={(v) => handleSave('area', v || null)} />
+                : <ReadOnlyRow label={t('assets.area')} value={equip.area || '—'} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.sub_area')} value={equip.sub_area || ''} onSave={(v) => handleSave('sub_area', v || null)} />
+                : <ReadOnlyRow label={t('assets.sub_area')} value={equip.sub_area || '—'} />
+              }
             </DetailFieldGrid>
           </FormSection>
 
@@ -638,18 +891,39 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
                   <ReadOnlyRow label={t('assets.serial_number')} value={equip.serial_number || '—'} />
                 </>
               )}
-              <ReadOnlyRow label={t('assets.year_manufactured')} value={equip.year_manufactured ?? '—'} />
-              <ReadOnlyRow label={t('assets.year_installed')} value={equip.year_installed ?? '—'} />
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.year_manufactured')} value={String(equip.year_manufactured ?? '')} onSave={(v) => handleSave('year_manufactured', v ? parseInt(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.year_manufactured')} value={equip.year_manufactured ?? '—'} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.year_installed')} value={String(equip.year_installed ?? '')} onSave={(v) => handleSave('year_installed', v ? parseInt(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.year_installed')} value={equip.year_installed ?? '—'} />
+              }
             </DetailFieldGrid>
           </FormSection>
 
           <FormSection title={t('assets.technical_details')} collapsible storageKey="panel.ar-equip.sections" id="ar-equip-tech">
             <DetailFieldGrid>
-              {equip.cert_number && <ReadOnlyRow label={t('assets.cert_number')} value={equip.cert_number} />}
-              {equip.cert_authority && <ReadOnlyRow label={t('assets.cert_authority')} value={equip.cert_authority} />}
-              {equip.drawing_number && <ReadOnlyRow label={t('assets.drawing_number')} value={equip.drawing_number} />}
-              {equip.p_and_id_ref && <ReadOnlyRow label={t('assets.p_and_id_ref')} value={equip.p_and_id_ref} />}
-              {equip.asset_number && <ReadOnlyRow label={t('assets.asset_number')} value={equip.asset_number} />}
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.cert_number')} value={equip.cert_number || ''} onSave={(v) => handleSave('cert_number', v || null)} />
+                : <ReadOnlyRow label={t('assets.cert_number')} value={equip.cert_number || '—'} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.cert_authority')} value={equip.cert_authority || ''} onSave={(v) => handleSave('cert_authority', v || null)} />
+                : <ReadOnlyRow label={t('assets.cert_authority')} value={equip.cert_authority || '—'} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.drawing_number')} value={equip.drawing_number || ''} onSave={(v) => handleSave('drawing_number', v || null)} />
+                : <ReadOnlyRow label={t('assets.drawing_number')} value={equip.drawing_number || '—'} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.p_and_id_ref')} value={equip.p_and_id_ref || ''} onSave={(v) => handleSave('p_and_id_ref', v || null)} />
+                : <ReadOnlyRow label={t('assets.p_and_id_ref')} value={equip.p_and_id_ref || '—'} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.asset_number')} value={equip.asset_number || ''} onSave={(v) => handleSave('asset_number', v || null)} />
+                : <ReadOnlyRow label={t('assets.asset_number')} value={equip.asset_number || '—'} />
+              }
             </DetailFieldGrid>
           </FormSection>
 
@@ -664,16 +938,31 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
               showToolbar={canUpdate}
             />
             <DetailFieldGrid>
-              <ReadOnlyRow label={t('assets.grid_reference')} value={equip.grid_reference || '—'} />
-              <ReadOnlyRow label="Latitude" value={equip.latitude ?? '—'} />
-              <ReadOnlyRow label="Longitude" value={equip.longitude ?? '—'} />
-              <ReadOnlyRow label={t('assets.elevation')} value={fmtNum(equip.elevation_m, 'm')} />
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.grid_reference')} value={equip.grid_reference || ''} onSave={(v) => handleSave('grid_reference', v || null)} />
+                : <ReadOnlyRow label={t('assets.grid_reference')} value={equip.grid_reference || '—'} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label="Latitude" value={String(equip.latitude ?? '')} onSave={(v) => handleSave('latitude', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label="Latitude" value={equip.latitude ?? '—'} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label="Longitude" value={String(equip.longitude ?? '')} onSave={(v) => handleSave('longitude', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label="Longitude" value={equip.longitude ?? '—'} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.elevation')} value={String(equip.elevation_m ?? '')} onSave={(v) => handleSave('elevation_m', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.elevation')} value={fmtNum(equip.elevation_m, 'm')} />
+              }
               <ReadOnlyRow label={t('assets.local_xyz')} value={
                 equip.local_x_m != null || equip.local_y_m != null || equip.local_z_m != null
                   ? `${equip.local_x_m ?? '—'} / ${equip.local_y_m ?? '—'} / ${equip.local_z_m ?? '—'}`
                   : '—'
               } />
-              <ReadOnlyRow label={t('assets.orientation')} value={fmtNum(equip.orientation_deg, '°')} />
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.orientation')} value={String(equip.orientation_deg ?? '')} onSave={(v) => handleSave('orientation_deg', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.orientation')} value={fmtNum(equip.orientation_deg, '°')} />
+              }
             </DetailFieldGrid>
           </FormSection>
 
@@ -683,17 +972,44 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
                 ? <InlineEditableRow label={t('assets.owner_company')} value={equip.owner_company || ''} onSave={(v) => handleSave('owner_company', v || null)} />
                 : <ReadOnlyRow label={t('assets.owner_company')} value={equip.owner_company || '—'} />
               }
-              <ReadOnlyRow label={t('assets.purchase_date')} value={fmtDate(equip.purchase_date)} />
-              <ReadOnlyRow label={t('assets.purchase_cost')} value={fmtCurrency(equip.purchase_cost_usd)} />
-              <ReadOnlyRow label={t('assets.replacement_cost')} value={fmtCurrency(equip.replacement_cost_usd)} />
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.purchase_date')} value={equip.purchase_date || ''} onSave={(v) => handleSave('purchase_date', v || null)} type="date" />
+                : <ReadOnlyRow label={t('assets.purchase_date')} value={fmtDate(equip.purchase_date)} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.purchase_cost')} value={String(equip.purchase_cost_usd ?? '')} onSave={(v) => handleSave('purchase_cost_usd', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.purchase_cost')} value={fmtCurrency(equip.purchase_cost_usd)} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.replacement_cost')} value={String(equip.replacement_cost_usd ?? '')} onSave={(v) => handleSave('replacement_cost_usd', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.replacement_cost')} value={fmtCurrency(equip.replacement_cost_usd)} />
+              }
             </DetailFieldGrid>
           </FormSection>
 
           <FormSection title={t('assets.documents_urls')} collapsible storageKey="panel.ar-equip.sections" id="ar-equip-docs">
             <DetailFieldGrid>
-              <ReadOnlyRow label={t('assets.datasheet_url')} value={<UrlLink url={equip.datasheet_url} label={t('assets.datasheet_url')} />} />
-              <ReadOnlyRow label={t('assets.manual_url')} value={<UrlLink url={equip.manual_url} label={t('assets.manual_url')} />} />
-              <ReadOnlyRow label={t('assets.cert_document_url')} value={<UrlLink url={equip.cert_document_url} label={t('assets.cert_document_url')} />} />
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.datasheet_url')} value={equip.datasheet_url || ''} onSave={(v) => handleSave('datasheet_url', v || null)} />
+                : <ReadOnlyRow label={t('assets.datasheet_url')} value={<UrlLink url={equip.datasheet_url} label={t('assets.datasheet_url')} />} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.manual_url')} value={equip.manual_url || ''} onSave={(v) => handleSave('manual_url', v || null)} />
+                : <ReadOnlyRow label={t('assets.manual_url')} value={<UrlLink url={equip.manual_url} label={t('assets.manual_url')} />} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.cert_document_url')} value={equip.cert_document_url || ''} onSave={(v) => handleSave('cert_document_url', v || null)} />
+                : <ReadOnlyRow label={t('assets.cert_document_url')} value={<UrlLink url={equip.cert_document_url} label={t('assets.cert_document_url')} />} />
+              }
+            </DetailFieldGrid>
+          </FormSection>
+
+          <FormSection title={t('common.notes')} collapsible storageKey="panel.ar-equip.sections" id="ar-equip-notes-field">
+            <DetailFieldGrid>
+              {canUpdate
+                ? <InlineEditableRow label={t('common.notes')} value={equip.notes || ''} onSave={(v) => handleSave('notes', v || null)} />
+                : <ReadOnlyRow label={t('common.notes')} value={equip.notes || '—'} />
+              }
             </DetailFieldGrid>
           </FormSection>
 
@@ -775,7 +1091,10 @@ export function PipelineDetailPanel({ id }: { id: string }) {
                 : <ReadOnlyRow label={t('common.name')} value={pipe.name} />
               }
               <ReadOnlyRow label="ID Pipeline" value={<span className="font-mono font-semibold">{pipe.pipeline_id}</span>} />
-              <ReadOnlyRow label={t('assets.service')} value={<span className="gl-badge gl-badge-info">{pipe.service.replace(/_/g, ' ')}</span>} />
+              {canUpdate
+                ? <InlineEditableSelect label={t('assets.service')} value={pipe.service} options={PIPELINE_SERVICE_OPTIONS} onSave={(v) => handleSave('service', v)} />
+                : <ReadOnlyRow label={t('assets.service')} value={<span className="gl-badge gl-badge-info">{pipe.service.replace(/_/g, ' ')}</span>} />
+              }
               {canUpdate
                 ? <InlineEditableTags label={t('common.status')} value={pipe.status} options={STATUS_OPTIONS} onSave={(v) => handleSave('status', v)} />
                 : <ReadOnlyRow label={t('common.status')} value={<StatusBadge status={pipe.status} />} />
@@ -801,73 +1120,178 @@ export function PipelineDetailPanel({ id }: { id: string }) {
               <ReadOnlyRow label={t('assets.to_installation')} value={
                 <CrossModuleLink module="ar-installation" id={pipe.to_installation_id} label={toInst ? `${toInst.code} — ${toInst.name}` : '...'} />
               } />
-              <ReadOnlyRow label={t('assets.from_node')} value={pipe.from_node_description || '—'} />
-              <ReadOnlyRow label={t('assets.to_node')} value={pipe.to_node_description || '—'} />
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.from_node')} value={pipe.from_node_description || ''} onSave={(v) => handleSave('from_node_description', v || null)} />
+                : <ReadOnlyRow label={t('assets.from_node')} value={pipe.from_node_description || '—'} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.to_node')} value={pipe.to_node_description || ''} onSave={(v) => handleSave('to_node_description', v || null)} />
+                : <ReadOnlyRow label={t('assets.to_node')} value={pipe.to_node_description || '—'} />
+              }
             </DetailFieldGrid>
           </FormSection>
 
           <FormSection title={t('assets.dimensions_materials')} collapsible storageKey="panel.ar-pipe.sections" id="ar-pipe-dims">
             <DetailFieldGrid>
-              <ReadOnlyRow label="DN (pouces)" value={`${pipe.nominal_diameter_in}"`} />
-              <ReadOnlyRow label={t('assets.od_mm')} value={fmtNum(pipe.od_mm, 'mm')} />
-              <ReadOnlyRow label={t('assets.wall_thickness')} value={fmtNum(pipe.wall_thickness_mm, 'mm')} />
-              <ReadOnlyRow label={t('assets.pipeline_length')} value={fmtNum(pipe.total_length_km, 'km')} />
-              <ReadOnlyRow label={t('assets.onshore_length')} value={fmtNum(pipe.onshore_length_km, 'km')} />
-              <ReadOnlyRow label={t('assets.offshore_length')} value={fmtNum(pipe.offshore_length_km, 'km')} />
-              <ReadOnlyRow label={t('assets.pipe_material')} value={pipe.pipe_material || '—'} />
-              <ReadOnlyRow label={t('assets.pipe_grade')} value={pipe.pipe_grade || '—'} />
-              <ReadOnlyRow label={t('assets.coating_external')} value={pipe.coating_external || '—'} />
-              <ReadOnlyRow label={t('assets.coating_internal')} value={pipe.coating_internal || '—'} />
+              {canUpdate
+                ? <InlineEditableRow label="DN (pouces)" value={String(pipe.nominal_diameter_in ?? '')} onSave={(v) => handleSave('nominal_diameter_in', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label="DN (pouces)" value={`${pipe.nominal_diameter_in}"`} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.od_mm')} value={String(pipe.od_mm ?? '')} onSave={(v) => handleSave('od_mm', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.od_mm')} value={fmtNum(pipe.od_mm, 'mm')} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.wall_thickness')} value={String(pipe.wall_thickness_mm ?? '')} onSave={(v) => handleSave('wall_thickness_mm', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.wall_thickness')} value={fmtNum(pipe.wall_thickness_mm, 'mm')} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.pipeline_length')} value={String(pipe.total_length_km ?? '')} onSave={(v) => handleSave('total_length_km', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.pipeline_length')} value={fmtNum(pipe.total_length_km, 'km')} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.onshore_length')} value={String(pipe.onshore_length_km ?? '')} onSave={(v) => handleSave('onshore_length_km', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.onshore_length')} value={fmtNum(pipe.onshore_length_km, 'km')} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.offshore_length')} value={String(pipe.offshore_length_km ?? '')} onSave={(v) => handleSave('offshore_length_km', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.offshore_length')} value={fmtNum(pipe.offshore_length_km, 'km')} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.pipe_material')} value={pipe.pipe_material || ''} onSave={(v) => handleSave('pipe_material', v || null)} />
+                : <ReadOnlyRow label={t('assets.pipe_material')} value={pipe.pipe_material || '—'} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.pipe_grade')} value={pipe.pipe_grade || ''} onSave={(v) => handleSave('pipe_grade', v || null)} />
+                : <ReadOnlyRow label={t('assets.pipe_grade')} value={pipe.pipe_grade || '—'} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.coating_external')} value={pipe.coating_external || ''} onSave={(v) => handleSave('coating_external', v || null)} />
+                : <ReadOnlyRow label={t('assets.coating_external')} value={pipe.coating_external || '—'} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.coating_internal')} value={pipe.coating_internal || ''} onSave={(v) => handleSave('coating_internal', v || null)} />
+                : <ReadOnlyRow label={t('assets.coating_internal')} value={pipe.coating_internal || '—'} />
+              }
             </DetailFieldGrid>
           </FormSection>
 
           <FormSection title={t('assets.pressure_temp')} collapsible storageKey="panel.ar-pipe.sections" id="ar-pipe-pt">
             <DetailFieldGrid>
-              <ReadOnlyRow label={t('assets.design_pressure')} value={`${pipe.design_pressure_barg} barg`} />
-              <ReadOnlyRow label={t('assets.design_temp_max')} value={`${pipe.design_temp_max_c} °C`} />
-              <ReadOnlyRow label={t('assets.design_temp_min')} value={fmtNum(pipe.design_temp_min_c, '°C')} />
-              <ReadOnlyRow label={t('assets.maop')} value={fmtNum(pipe.maop_barg, 'barg')} />
-              <ReadOnlyRow label={t('assets.test_pressure')} value={fmtNum(pipe.test_pressure_barg, 'barg')} />
-              <ReadOnlyRow label={t('assets.max_water_depth')} value={fmtNum(pipe.max_water_depth_m, 'm')} />
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.design_pressure')} value={String(pipe.design_pressure_barg ?? '')} onSave={(v) => handleSave('design_pressure_barg', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.design_pressure')} value={`${pipe.design_pressure_barg} barg`} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.design_temp_max')} value={String(pipe.design_temp_max_c ?? '')} onSave={(v) => handleSave('design_temp_max_c', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.design_temp_max')} value={`${pipe.design_temp_max_c} °C`} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.design_temp_min')} value={String(pipe.design_temp_min_c ?? '')} onSave={(v) => handleSave('design_temp_min_c', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.design_temp_min')} value={fmtNum(pipe.design_temp_min_c, '°C')} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.maop')} value={String(pipe.maop_barg ?? '')} onSave={(v) => handleSave('maop_barg', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.maop')} value={fmtNum(pipe.maop_barg, 'barg')} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.test_pressure')} value={String(pipe.test_pressure_barg ?? '')} onSave={(v) => handleSave('test_pressure_barg', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.test_pressure')} value={fmtNum(pipe.test_pressure_barg, 'barg')} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.max_water_depth')} value={String(pipe.max_water_depth_m ?? '')} onSave={(v) => handleSave('max_water_depth_m', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.max_water_depth')} value={fmtNum(pipe.max_water_depth_m, 'm')} />
+              }
             </DetailFieldGrid>
           </FormSection>
 
           <FormSection title={t('assets.fluid')} collapsible storageKey="panel.ar-pipe.sections" id="ar-pipe-fluid">
             <DetailFieldGrid>
-              <ReadOnlyRow label={t('assets.fluid_description')} value={pipe.fluid_description || '—'} />
-              <ReadOnlyRow label={t('assets.h2s_ppm')} value={fmtNum(pipe.h2s_ppm, 'ppm')} />
-              <ReadOnlyRow label={t('assets.co2_mol_pct')} value={fmtNum(pipe.co2_mol_pct, 'mol%')} />
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.fluid_description')} value={pipe.fluid_description || ''} onSave={(v) => handleSave('fluid_description', v || null)} />
+                : <ReadOnlyRow label={t('assets.fluid_description')} value={pipe.fluid_description || '—'} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.h2s_ppm')} value={String(pipe.h2s_ppm ?? '')} onSave={(v) => handleSave('h2s_ppm', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.h2s_ppm')} value={fmtNum(pipe.h2s_ppm, 'ppm')} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.co2_mol_pct')} value={String(pipe.co2_mol_pct ?? '')} onSave={(v) => handleSave('co2_mol_pct', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.co2_mol_pct')} value={fmtNum(pipe.co2_mol_pct, 'mol%')} />
+              }
             </DetailFieldGrid>
           </FormSection>
 
           <FormSection title={t('assets.pigging')} collapsible storageKey="panel.ar-pipe.sections" id="ar-pipe-pigging">
             <DetailFieldGrid>
-              <ReadOnlyRow label={t('assets.piggable')} value={fmtBool(pipe.piggable, t)} />
-              <ReadOnlyRow label={t('assets.pig_launcher')} value={pipe.pig_launcher_tag || '—'} />
-              <ReadOnlyRow label={t('assets.pig_receiver')} value={pipe.pig_receiver_tag || '—'} />
+              {canUpdate
+                ? <InlineEditableSelect label={t('assets.piggable')} value={pipe.piggable ? 'true' : 'false'} options={BOOL_OPTIONS} onSave={(v) => handleSave('piggable', v === 'true')} />
+                : <ReadOnlyRow label={t('assets.piggable')} value={fmtBool(pipe.piggable, t)} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.pig_launcher')} value={pipe.pig_launcher_tag || ''} onSave={(v) => handleSave('pig_launcher_tag', v || null)} />
+                : <ReadOnlyRow label={t('assets.pig_launcher')} value={pipe.pig_launcher_tag || '—'} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.pig_receiver')} value={pipe.pig_receiver_tag || ''} onSave={(v) => handleSave('pig_receiver_tag', v || null)} />
+                : <ReadOnlyRow label={t('assets.pig_receiver')} value={pipe.pig_receiver_tag || '—'} />
+              }
             </DetailFieldGrid>
           </FormSection>
 
           <FormSection title={t('assets.cathodic_protection')} collapsible storageKey="panel.ar-pipe.sections" id="ar-pipe-cp">
             <DetailFieldGrid>
-              <ReadOnlyRow label={t('assets.cp_required')} value={fmtBool(pipe.cp_required, t)} />
-              <ReadOnlyRow label={t('assets.cp_type')} value={pipe.cp_type || '—'} />
+              {canUpdate
+                ? <InlineEditableSelect label={t('assets.cp_required')} value={pipe.cp_required ? 'true' : 'false'} options={BOOL_OPTIONS} onSave={(v) => handleSave('cp_required', v === 'true')} />
+                : <ReadOnlyRow label={t('assets.cp_required')} value={fmtBool(pipe.cp_required, t)} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.cp_type')} value={pipe.cp_type || ''} onSave={(v) => handleSave('cp_type', v || null)} />
+                : <ReadOnlyRow label={t('assets.cp_type')} value={pipe.cp_type || '—'} />
+              }
             </DetailFieldGrid>
           </FormSection>
 
           <FormSection title={t('assets.integrity')} collapsible storageKey="panel.ar-pipe.sections" id="ar-pipe-integrity">
             <DetailFieldGrid>
-              <ReadOnlyRow label={t('assets.design_code')} value={pipe.design_code || '—'} />
-              <ReadOnlyRow label={t('assets.design_life')} value={pipe.design_life_years ? `${pipe.design_life_years} ans` : '—'} />
-              <ReadOnlyRow label={t('assets.installation_year')} value={pipe.installation_year ?? '—'} />
-              <ReadOnlyRow label={t('assets.corrosion_allowance')} value={fmtNum(pipe.corrosion_allowance_mm, 'mm')} />
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.design_code')} value={pipe.design_code || ''} onSave={(v) => handleSave('design_code', v || null)} />
+                : <ReadOnlyRow label={t('assets.design_code')} value={pipe.design_code || '—'} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.design_life')} value={String(pipe.design_life_years ?? '')} onSave={(v) => handleSave('design_life_years', v ? parseInt(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.design_life')} value={pipe.design_life_years ? `${pipe.design_life_years} ans` : '—'} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.installation_year')} value={String(pipe.installation_year ?? '')} onSave={(v) => handleSave('installation_year', v ? parseInt(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.installation_year')} value={pipe.installation_year ?? '—'} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.corrosion_allowance')} value={String(pipe.corrosion_allowance_mm ?? '')} onSave={(v) => handleSave('corrosion_allowance_mm', v ? parseFloat(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.corrosion_allowance')} value={fmtNum(pipe.corrosion_allowance_mm, 'mm')} />
+              }
             </DetailFieldGrid>
           </FormSection>
 
           <FormSection title={t('assets.regulatory')} collapsible storageKey="panel.ar-pipe.sections" id="ar-pipe-regulatory">
             <DetailFieldGrid>
-              <ReadOnlyRow label={t('assets.permit_number')} value={pipe.permit_number || '—'} />
-              <ReadOnlyRow label={t('assets.regulator')} value={pipe.regulator || '—'} />
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.permit_number')} value={pipe.permit_number || ''} onSave={(v) => handleSave('permit_number', v || null)} />
+                : <ReadOnlyRow label={t('assets.permit_number')} value={pipe.permit_number || '—'} />
+              }
+              {canUpdate
+                ? <InlineEditableRow label={t('assets.regulator')} value={pipe.regulator || ''} onSave={(v) => handleSave('regulator', v || null)} />
+                : <ReadOnlyRow label={t('assets.regulator')} value={pipe.regulator || '—'} />
+              }
+            </DetailFieldGrid>
+          </FormSection>
+
+          <FormSection title={t('common.notes')} collapsible storageKey="panel.ar-pipe.sections" id="ar-pipe-notes-field">
+            <DetailFieldGrid>
+              {canUpdate
+                ? <InlineEditableRow label={t('common.notes')} value={pipe.notes || ''} onSave={(v) => handleSave('notes', v || null)} />
+                : <ReadOnlyRow label={t('common.notes')} value={pipe.notes || '—'} />
+              }
             </DetailFieldGrid>
           </FormSection>
 

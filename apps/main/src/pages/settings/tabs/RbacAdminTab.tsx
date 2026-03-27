@@ -665,16 +665,13 @@ export function RoleDetailPanel({ code, onClose, inline = true }: { code: string
               <div key={mod}>
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">{mod}</p>
                 <div className="flex flex-wrap gap-1">
-                  {perms.filter((p) => activePerms.has(p.code)).map((p) => {
-                    const actionLabel = p.code.split('.').pop() || p.code
-                    return (
+                  {perms.filter((p) => activePerms.has(p.code)).map((p) => (
                       <Tooltip key={p.code} content={`${p.name || p.code}\n${p.description || ''}`}>
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-accent text-[10px] text-foreground">
-                          {actionLabel}
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-accent text-[10px] text-foreground font-mono">
+                          {p.code}
                         </span>
                       </Tooltip>
-                    )
-                  })}
+                  ))}
                 </div>
               </div>
             ))}
@@ -1410,7 +1407,6 @@ function PermissionMatrix({
                                   <div className="flex flex-wrap gap-1">
                                     {row.extras.map((extra) => {
                                       const checked = activePerms.has(extra.code)
-                                      const actionLabel = extra.code.split('.').pop() || extra.code
                                       return (
                                         <Tooltip key={extra.code} content={extra.name || extra.code}>
                                           <button
@@ -1418,14 +1414,14 @@ function PermissionMatrix({
                                             disabled={isProtected}
                                             onClick={() => onToggle(extra.code)}
                                             className={cn(
-                                              'px-1.5 py-0.5 rounded text-[9px] font-medium transition-colors',
+                                              'px-1.5 py-0.5 rounded text-[9px] font-mono font-medium transition-colors',
                                               checked
                                                 ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
                                                 : 'bg-muted text-muted-foreground hover:bg-muted/80',
                                               isProtected && 'cursor-not-allowed opacity-60',
                                             )}
                                           >
-                                            {actionLabel}
+                                            {extra.code}
                                           </button>
                                         </Tooltip>
                                       )
@@ -1746,8 +1742,7 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
       const perm = allPermissions.find((p) => p.code === code)
       const mod = perm?.module || 'core'
       if (!grouped[mod]) grouped[mod] = []
-      const actionLabel = code.split('.').pop() || code
-      grouped[mod].push({ code, label: actionLabel, source: permSources.get(code) })
+      grouped[mod].push({ code, label: code, source: permSources.get(code) })
     }
     return Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b))
   }, [allPermissions, activePerms, permSources])

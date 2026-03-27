@@ -8,7 +8,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  MapPin, Plus, Factory, Landmark, Layers, Ship, Wrench, Archive, LayoutDashboard,
+  MapPin, Plus, Factory, Landmark, Layers, Ship, Wrench, Archive, LayoutDashboard, GitBranch,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -42,6 +42,7 @@ import type {
 import { FieldDetailPanel, SiteDetailPanel, InstallationDetailPanel, EquipmentDetailPanel, PipelineDetailPanel } from './DetailPanels'
 import { CreateFieldPanel, CreateSitePanel, CreateInstallationPanel, CreateEquipmentPanel, CreatePipelinePanel } from './CreatePanels'
 import { AssetRegistryDashboard } from './AssetRegistryDashboard'
+import { AssetHierarchyTree } from './AssetHierarchyTree'
 
 
 // ── Status badge helper ──────────────────────────────────────
@@ -138,10 +139,11 @@ function filterStr(filters: Record<string, unknown>, key: string): string | unde
 
 // ── Tab definitions ──────────────────────────────────────────
 
-type TabKey = 'dashboard' | 'fields' | 'sites' | 'installations' | 'equipment' | 'pipelines'
+type TabKey = 'dashboard' | 'hierarchy' | 'fields' | 'sites' | 'installations' | 'equipment' | 'pipelines'
 
 const TABS: { key: TabKey; icon: typeof MapPin; labelKey: string }[] = [
   { key: 'dashboard', icon: LayoutDashboard, labelKey: 'assets.dashboard_tab' },
+  { key: 'hierarchy', icon: GitBranch, labelKey: 'assets.hierarchy' },
   { key: 'fields', icon: MapPin, labelKey: 'assets.fields' },
   { key: 'sites', icon: Landmark, labelKey: 'assets.sites' },
   { key: 'installations', icon: Factory, labelKey: 'assets.installations' },
@@ -815,6 +817,7 @@ function PipelinesTab() {
 
 const TAB_MODULE: Record<TabKey, string> = {
   dashboard: '',
+  hierarchy: '',
   fields: 'ar-field',
   sites: 'ar-site',
   installations: 'ar-installation',
@@ -836,10 +839,23 @@ export function AssetRegistryPage() {
     if (module) openDynamicPanel({ type: 'create', module })
   }, [activeTab, openDynamicPanel])
 
-  const showCreateButton = canCreate && activeTab !== 'dashboard'
+  // Listen for cross-module child navigation events from detail panels
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { tab: TabKey; filterKey: string; filterValue: string } | undefined
+      if (detail?.tab) {
+        setActiveTab(detail.tab)
+      }
+    }
+    window.addEventListener('ar:navigate-children', handler)
+    return () => window.removeEventListener('ar:navigate-children', handler)
+  }, [])
+
+  const showCreateButton = canCreate && activeTab !== 'dashboard' && activeTab !== 'hierarchy'
 
   const tabContent: Record<TabKey, JSX.Element> = {
     dashboard: <AssetRegistryDashboard />,
+    hierarchy: <AssetHierarchyTree />,
     fields: <FieldsTab />,
     sites: <SitesTab />,
     installations: <InstallationsTab />,

@@ -13,6 +13,8 @@ import {
   FlaskConical,
   TrendingUp,
   Layers,
+  BarChart3,
+  Radar,
 } from 'lucide-react'
 import { SubModelManager, type FieldDef } from '@/components/shared/SubModelManager'
 import {
@@ -20,6 +22,14 @@ import {
   useCreateCraneConfiguration,
   useUpdateCraneConfiguration,
   useDeleteCraneConfiguration,
+  useCraneLoadChartPoints,
+  useCreateCraneLoadChartPoint,
+  useUpdateCraneLoadChartPoint,
+  useDeleteCraneLoadChartPoint,
+  useCraneLiftZones,
+  useCreateCraneLiftZone,
+  useUpdateCraneLiftZone,
+  useDeleteCraneLiftZone,
   useCraneHookBlocks,
   useCreateCraneHookBlock,
   useUpdateCraneHookBlock,
@@ -49,6 +59,12 @@ import type {
   CraneConfiguration,
   CraneConfigurationCreate,
   CraneConfigurationUpdate,
+  CraneLoadChartPoint,
+  CraneLoadChartPointCreate,
+  CraneLoadChartPointUpdate,
+  CraneLiftZone,
+  CraneLiftZoneCreate,
+  CraneLiftZoneUpdate,
   CraneHookBlock,
   CraneHookBlockCreate,
   CraneHookBlockUpdate,
@@ -204,6 +220,110 @@ export function CraneReevingGuideManager({ equipmentId, canEdit }: { equipmentId
       onCreate={(p) => create.mutate({ eqId: equipmentId, payload: p })}
       onUpdate={(id, p) => update.mutate({ eqId: equipmentId, id, payload: p as CraneReevingGuideUpdate })}
       onDelete={(id) => del.mutate({ eqId: equipmentId, id })}
+      createPending={create.isPending}
+      hideAddButton={!canEdit}
+    />
+  )
+}
+
+// ════════════════════════════════════════════════════════════════
+// CRANE — Load Chart Points (nested under a specific config)
+// ════════════════════════════════════════════════════════════════
+
+const HOOK_TYPE_OPTIONS = [
+  { value: 'MAIN_HOOK', label: 'Crochet principal' },
+  { value: 'AUX_HOOK', label: 'Crochet auxiliaire' },
+  { value: 'WHIP_LINE', label: 'Ligne de fouet' },
+]
+
+export function CraneLoadChartPointManager({ equipmentId, configId, canEdit }: { equipmentId: string; configId: string; canEdit: boolean }) {
+  const { data: items, isLoading } = useCraneLoadChartPoints(equipmentId, configId)
+  const create = useCreateCraneLoadChartPoint()
+  const update = useUpdateCraneLoadChartPoint()
+  const del = useDeleteCraneLoadChartPoint()
+
+  const FIELDS: FieldDef<CraneLoadChartPointCreate>[] = [
+    { key: 'radius_m', label: 'Rayon (m)', required: true, placeholder: '12.0' },
+    { key: 'max_load_tonnes', label: 'Charge max (t)', required: true, placeholder: '25.0' },
+    { key: 'hook_height_m', label: 'Hauteur crochet (m)', placeholder: '30.0' },
+    { key: 'boom_angle_deg', label: 'Angle flèche (°)', placeholder: '75' },
+    { key: 'hook_type', label: 'Type crochet', type: 'combobox' as const, options: HOOK_TYPE_OPTIONS },
+    { key: 'row_order', label: 'Ordre', placeholder: '1' },
+    { key: 'is_derated', label: 'Dératé', placeholder: 'false' },
+  ]
+
+  const DISPLAY_COLUMNS = [
+    { key: 'radius_m' as const, label: 'Rayon', format: (v: unknown) => fmtNum(v, 'm') },
+    { key: 'max_load_tonnes' as const, label: 'Charge max', format: (v: unknown) => fmtNum(v, 't') },
+    { key: 'hook_height_m' as const, label: 'Hauteur', format: (v: unknown) => fmtNum(v, 'm') },
+    { key: 'hook_type' as const, label: 'Type', format: (v: unknown) => HOOK_TYPE_OPTIONS.find(o => o.value === v)?.label ?? String(v ?? '—') },
+  ]
+
+  return (
+    <SubModelManager<CraneLoadChartPoint, CraneLoadChartPointCreate>
+      items={items as CraneLoadChartPoint[] | undefined}
+      isLoading={isLoading}
+      fields={FIELDS}
+      displayColumns={DISPLAY_COLUMNS}
+      emptyLabel="Aucun point de courbe"
+      emptyIcon={BarChart3}
+      onCreate={(p) => create.mutate({ eqId: equipmentId, configId, payload: p })}
+      onUpdate={(id, p) => update.mutate({ eqId: equipmentId, configId, id, payload: p as CraneLoadChartPointUpdate })}
+      onDelete={(id) => del.mutate({ eqId: equipmentId, configId, id })}
+      createPending={create.isPending}
+      hideAddButton={!canEdit}
+    />
+  )
+}
+
+// ════════════════════════════════════════════════════════════════
+// CRANE — Lift Zones (nested under a specific config)
+// ════════════════════════════════════════════════════════════════
+
+const ANGLE_REFERENCE_OPTIONS = [
+  { value: 'BOW', label: 'Proue (Bow)' },
+  { value: 'STERN', label: 'Poupe (Stern)' },
+  { value: 'PORT', label: 'Bâbord (Port)' },
+  { value: 'STARBOARD', label: 'Tribord (Starboard)' },
+  { value: 'NORTH', label: 'Nord' },
+]
+
+export function CraneLiftZoneManager({ equipmentId, configId, canEdit }: { equipmentId: string; configId: string; canEdit: boolean }) {
+  const { data: items, isLoading } = useCraneLiftZones(equipmentId, configId)
+  const create = useCreateCraneLiftZone()
+  const update = useUpdateCraneLiftZone()
+  const del = useDeleteCraneLiftZone()
+
+  const FIELDS: FieldDef<CraneLiftZoneCreate>[] = [
+    { key: 'zone_name', label: 'Nom zone', required: true, placeholder: 'Zone port side' },
+    { key: 'angle_start_deg', label: 'Angle début (°)', required: true, placeholder: '0' },
+    { key: 'angle_end_deg', label: 'Angle fin (°)', required: true, placeholder: '90' },
+    { key: 'angle_reference', label: 'Référence angle', type: 'combobox' as const, options: ANGLE_REFERENCE_OPTIONS },
+    { key: 'derating_factor', label: 'Facteur réduction', required: true, placeholder: '1.0' },
+    { key: 'derating_reason', label: 'Raison réduction', placeholder: 'Obstruction structurelle' },
+    { key: 'max_load_override_tonnes', label: 'Charge max override (t)', placeholder: '20' },
+    { key: 'max_radius_override_m', label: 'Rayon max override (m)', placeholder: '25' },
+    { key: 'notes', label: 'Notes' },
+  ]
+
+  const DISPLAY_COLUMNS = [
+    { key: 'zone_name' as const, label: 'Zone' },
+    { key: 'angle_start_deg' as const, label: 'Début', format: (v: unknown) => fmtNum(v, '°') },
+    { key: 'angle_end_deg' as const, label: 'Fin', format: (v: unknown) => fmtNum(v, '°') },
+    { key: 'derating_factor' as const, label: 'Facteur', format: (v: unknown) => v != null ? `x${v}` : '—' },
+  ]
+
+  return (
+    <SubModelManager<CraneLiftZone, CraneLiftZoneCreate>
+      items={items as CraneLiftZone[] | undefined}
+      isLoading={isLoading}
+      fields={FIELDS}
+      displayColumns={DISPLAY_COLUMNS}
+      emptyLabel="Aucune zone de levage"
+      emptyIcon={Radar}
+      onCreate={(p) => create.mutate({ eqId: equipmentId, configId, payload: p })}
+      onUpdate={(id, p) => update.mutate({ eqId: equipmentId, configId, id, payload: p as CraneLiftZoneUpdate })}
+      onDelete={(id) => del.mutate({ eqId: equipmentId, configId, id })}
       createPending={create.isPending}
       hideAddButton={!canEdit}
     />

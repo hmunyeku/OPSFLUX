@@ -259,6 +259,42 @@ export interface CraneConfiguration {
 export type CraneConfigurationCreate = Omit<CraneConfiguration, 'id' | 'crane_id' | 'created_at' | 'updated_at'>
 export type CraneConfigurationUpdate = Partial<CraneConfigurationCreate>
 
+export interface CraneLoadChartPoint {
+  id: string
+  config_id: string
+  radius_m: number
+  max_load_tonnes: number
+  hook_height_m?: number | null
+  boom_angle_deg?: number | null
+  load_raw?: number | null
+  load_unit_source?: string | null
+  hook_type: string
+  row_order?: number | null
+  is_derated: boolean
+  created_at: string
+  updated_at: string
+}
+export type CraneLoadChartPointCreate = Omit<CraneLoadChartPoint, 'id' | 'config_id' | 'created_at' | 'updated_at'>
+export type CraneLoadChartPointUpdate = Partial<CraneLoadChartPointCreate>
+
+export interface CraneLiftZone {
+  id: string
+  config_id: string
+  zone_name: string
+  angle_start_deg: number
+  angle_end_deg: number
+  angle_reference: string
+  derating_factor: number
+  derating_reason?: string | null
+  max_load_override_tonnes?: number | null
+  max_radius_override_m?: number | null
+  notes?: string | null
+  created_at: string
+  updated_at: string
+}
+export type CraneLiftZoneCreate = Omit<CraneLiftZone, 'id' | 'config_id' | 'created_at' | 'updated_at'>
+export type CraneLiftZoneUpdate = Partial<CraneLiftZoneCreate>
+
 export interface CraneHookBlock {
   id: string
   crane_id: string
@@ -430,22 +466,37 @@ export interface PipelineWaypoint {
 }
 
 // ── Hierarchy tree ───────────────────────────────────────────
-export interface HierarchyNode {
-  field_id: string
-  field_code: string
-  field_name: string
-  sites: {
-    site_id: string
-    site_code: string
-    site_name: string
-    installations: {
-      installation_id: string
-      installation_code: string
-      installation_name: string
-      equipment_count: number
-    }[]
-  }[]
+export interface HierarchyInstallationNode {
+  id: string
+  code: string
+  name: string
+  installation_type: string
+  status: string
+  equipment_count: number
 }
+
+export interface HierarchySiteNode {
+  id: string
+  code: string
+  name: string
+  site_type: string
+  status: string
+  installation_count: number
+  installations: HierarchyInstallationNode[]
+}
+
+export interface HierarchyFieldNode {
+  id: string
+  code: string
+  name: string
+  country: string
+  status: string
+  site_count: number
+  sites: HierarchySiteNode[]
+}
+
+/** @deprecated Use HierarchyFieldNode instead */
+export type HierarchyNode = HierarchyFieldNode
 
 // ── Stats ────────────────────────────────────────────────────
 export interface AssetRegistryStats {

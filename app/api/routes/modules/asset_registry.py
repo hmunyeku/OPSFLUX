@@ -41,6 +41,7 @@ from app.models.asset_registry import (
     DrainageSystem, ProcessFilter,
     # Sub-model children
     CraneConfiguration, CraneHookBlock, CraneReevingGuide,
+    CraneLoadChartPoint, CraneLiftZone,
     SeparatorNozzle, SeparatorProcessCase,
     PumpCurvePoint, ColumnSection,
     # Installation 1:1 sub-details
@@ -59,6 +60,8 @@ from app.schemas.asset_registry import (
     PipelineCreate, PipelineUpdate, PipelineRead,
     # Sub-model schemas
     CraneConfigurationCreate, CraneConfigurationUpdate, CraneConfigurationRead,
+    CraneLoadChartPointCreate, CraneLoadChartPointUpdate, CraneLoadChartPointRead,
+    CraneLiftZoneCreate, CraneLiftZoneUpdate, CraneLiftZoneRead,
     CraneHookBlockCreate, CraneHookBlockUpdate, CraneHookBlockRead,
     CraneReevingGuideCreate, CraneReevingGuideUpdate, CraneReevingGuideRead,
     SeparatorNozzleCreate, SeparatorNozzleUpdate, SeparatorNozzleRead,
@@ -1579,3 +1582,139 @@ async def delete_column_section(
     await db.delete(obj)
     await db.commit()
     return {"detail": "Column section deleted"}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# CRANE CONFIG — LOAD CHART POINTS
+# ════════════════════════════════════════════════════════════════════════════
+
+async def _verify_config_entity(db: AsyncSession, equipment_id: UUID, config_id: UUID, entity_id: UUID):
+    """Verify equipment ownership + config belongs to equipment."""
+    await _verify_equipment_entity(db, equipment_id, entity_id)
+    result = await db.execute(
+        select(CraneConfiguration).where(CraneConfiguration.id == config_id, CraneConfiguration.crane_id == equipment_id)
+    )
+    cfg = result.scalars().first()
+    if not cfg:
+        raise HTTPException(404, "Configuration not found")
+    return cfg
+
+
+@router.get("/equipment/{equipment_id}/crane-configurations/{config_id}/load-chart-points", response_model=list[CraneLoadChartPointRead], dependencies=[require_permission("asset.read")])
+async def list_crane_load_chart_points(
+    equipment_id: UUID, config_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_config_entity(db, equipment_id, config_id, entity_id)
+    return await _submodel_crud_list(db, CraneLoadChartPoint, CraneLoadChartPoint.config_id, config_id, CraneLoadChartPoint.radius_m)
+
+
+@router.post("/equipment/{equipment_id}/crane-configurations/{config_id}/load-chart-points", response_model=CraneLoadChartPointRead, status_code=201, dependencies=[require_permission("asset.create")])
+async def create_crane_load_chart_point(
+    equipment_id: UUID, config_id: UUID,
+    body: CraneLoadChartPointCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_config_entity(db, equipment_id, config_id, entity_id)
+    obj = CraneLoadChartPoint(config_id=config_id, **body.model_dump())
+    db.add(obj)
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+
+@router.patch("/equipment/{equipment_id}/crane-configurations/{config_id}/load-chart-points/{point_id}", response_model=CraneLoadChartPointRead, dependencies=[require_permission("asset.update")])
+async def update_crane_load_chart_point(
+    equipment_id: UUID, config_id: UUID, point_id: UUID,
+    body: CraneLoadChartPointUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_config_entity(db, equipment_id, config_id, entity_id)
+    obj = await _submodel_crud_get(db, CraneLoadChartPoint, CraneLoadChartPoint.config_id, config_id, point_id, "Load chart point")
+    for key, value in body.model_dump(exclude_unset=True).items():
+        setattr(obj, key, value)
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+
+@router.delete("/equipment/{equipment_id}/crane-configurations/{config_id}/load-chart-points/{point_id}", dependencies=[require_permission("asset.delete")])
+async def delete_crane_load_chart_point(
+    equipment_id: UUID, config_id: UUID, point_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_config_entity(db, equipment_id, config_id, entity_id)
+    obj = await _submodel_crud_get(db, CraneLoadChartPoint, CraneLoadChartPoint.config_id, config_id, point_id, "Load chart point")
+    await db.delete(obj)
+    await db.commit()
+    return {"detail": "Load chart point deleted"}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# CRANE CONFIG — LIFT ZONES
+# ════════════════════════════════════════════════════════════════════════════
+
+@router.get("/equipment/{equipment_id}/crane-configurations/{config_id}/lift-zones", response_model=list[CraneLiftZoneRead], dependencies=[require_permission("asset.read")])
+async def list_crane_lift_zones(
+    equipment_id: UUID, config_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_config_entity(db, equipment_id, config_id, entity_id)
+    return await _submodel_crud_list(db, CraneLiftZone, CraneLiftZone.config_id, config_id, CraneLiftZone.zone_name)
+
+
+@router.post("/equipment/{equipment_id}/crane-configurations/{config_id}/lift-zones", response_model=CraneLiftZoneRead, status_code=201, dependencies=[require_permission("asset.create")])
+async def create_crane_lift_zone(
+    equipment_id: UUID, config_id: UUID,
+    body: CraneLiftZoneCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_config_entity(db, equipment_id, config_id, entity_id)
+    obj = CraneLiftZone(config_id=config_id, **body.model_dump())
+    db.add(obj)
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+
+@router.patch("/equipment/{equipment_id}/crane-configurations/{config_id}/lift-zones/{zone_id}", response_model=CraneLiftZoneRead, dependencies=[require_permission("asset.update")])
+async def update_crane_lift_zone(
+    equipment_id: UUID, config_id: UUID, zone_id: UUID,
+    body: CraneLiftZoneUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_config_entity(db, equipment_id, config_id, entity_id)
+    obj = await _submodel_crud_get(db, CraneLiftZone, CraneLiftZone.config_id, config_id, zone_id, "Lift zone")
+    for key, value in body.model_dump(exclude_unset=True).items():
+        setattr(obj, key, value)
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+
+@router.delete("/equipment/{equipment_id}/crane-configurations/{config_id}/lift-zones/{zone_id}", dependencies=[require_permission("asset.delete")])
+async def delete_crane_lift_zone(
+    equipment_id: UUID, config_id: UUID, zone_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_config_entity(db, equipment_id, config_id, entity_id)
+    obj = await _submodel_crud_get(db, CraneLiftZone, CraneLiftZone.config_id, config_id, zone_id, "Lift zone")
+    await db.delete(obj)
+    await db.commit()
+    return {"detail": "Lift zone deleted"}

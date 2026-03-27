@@ -596,6 +596,72 @@ class CraneConfigurationRead(CraneConfigurationCreate, TimestampMixin):
 
 
 # ════════════════════════════════════════════════════════════════
+# CRANE — LOAD CHART POINTS
+# ════════════════════════════════════════════════════════════════
+
+class CraneLoadChartPointCreate(BaseModel):
+    radius_m: Decimal
+    max_load_tonnes: Decimal
+    hook_height_m: Decimal | None = None
+    boom_angle_deg: Decimal | None = None
+    load_raw: Decimal | None = None
+    load_unit_source: str | None = None
+    hook_type: str = "MAIN_HOOK"
+    row_order: int | None = None
+    is_derated: bool = False
+
+class CraneLoadChartPointUpdate(BaseModel):
+    radius_m: Decimal | None = None
+    max_load_tonnes: Decimal | None = None
+    hook_height_m: Decimal | None = None
+    boom_angle_deg: Decimal | None = None
+    load_raw: Decimal | None = None
+    load_unit_source: str | None = None
+    hook_type: str | None = None
+    row_order: int | None = None
+    is_derated: bool | None = None
+
+class CraneLoadChartPointRead(CraneLoadChartPointCreate, TimestampMixin):
+    id: UUID
+    config_id: UUID
+    class Config:
+        from_attributes = True
+
+
+# ════════════════════════════════════════════════════════════════
+# CRANE — LIFT ZONES
+# ════════════════════════════════════════════════════════════════
+
+class CraneLiftZoneCreate(BaseModel):
+    zone_name: str = Field(min_length=1, max_length=100)
+    angle_start_deg: Decimal
+    angle_end_deg: Decimal
+    angle_reference: str = "BOW"
+    derating_factor: Decimal = Decimal("1.0")
+    derating_reason: str | None = None
+    max_load_override_tonnes: Decimal | None = None
+    max_radius_override_m: Decimal | None = None
+    notes: str | None = None
+
+class CraneLiftZoneUpdate(BaseModel):
+    zone_name: str | None = None
+    angle_start_deg: Decimal | None = None
+    angle_end_deg: Decimal | None = None
+    angle_reference: str | None = None
+    derating_factor: Decimal | None = None
+    derating_reason: str | None = None
+    max_load_override_tonnes: Decimal | None = None
+    max_radius_override_m: Decimal | None = None
+    notes: str | None = None
+
+class CraneLiftZoneRead(CraneLiftZoneCreate, TimestampMixin):
+    id: UUID
+    config_id: UUID
+    class Config:
+        from_attributes = True
+
+
+# ════════════════════════════════════════════════════════════════
 # CRANE — HOOK BLOCKS
 # ════════════════════════════════════════════════════════════════
 

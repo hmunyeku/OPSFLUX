@@ -19,6 +19,7 @@ import {
   Paperclip,
   MessageSquare,
   ExternalLink,
+  ArrowRight,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TabBar, TabButton } from '@/components/ui/Tabs'
@@ -45,6 +46,8 @@ import { InstallationSubDetails } from './InstallationSubDetails'
 import { EquipmentContextualFields } from './EquipmentContextualFields'
 import {
   CraneConfigurationManager,
+  CraneLoadChartPointManager,
+  CraneLiftZoneManager,
   CraneHookBlockManager,
   CraneReevingGuideManager,
   SeparatorNozzleManager,
@@ -57,10 +60,11 @@ import { usePermission } from '@/hooks/usePermission'
 import { useUIStore } from '@/stores/uiStore'
 import {
   useField, useUpdateField, useDeleteField,
-  useSite, useUpdateSite, useDeleteSite,
-  useInstallation, useUpdateInstallation, useDeleteInstallation,
-  useEquipmentItem, useUpdateEquipment, useDeleteEquipment,
+  useSite, useSites, useUpdateSite, useDeleteSite,
+  useInstallation, useInstallations, useUpdateInstallation, useDeleteInstallation,
+  useEquipmentItem, useEquipmentList, useUpdateEquipment, useDeleteEquipment,
   usePipeline, useUpdatePipeline, useDeletePipeline,
+  useCraneConfigurations,
 } from '@/hooks/useAssetRegistry'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
 import {
@@ -183,6 +187,39 @@ function UrlLink({ url, label }: { url?: string | null; label: string }) {
 }
 
 
+// ── Children / Cross-module links ────────────────────────────
+
+interface ChildLinkProps {
+  icon: typeof Landmark
+  label: string
+  count: number | undefined
+  isLoading: boolean
+  onClick: () => void
+  iconColor: string
+}
+
+function ChildLink({ icon: Icon, label, count, isLoading, onClick, iconColor }: ChildLinkProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center gap-2 w-full rounded-md px-3 py-2 text-xs hover:bg-accent/60 transition-colors group border border-border/50"
+    >
+      <Icon size={14} className={iconColor} />
+      <span className="text-foreground font-medium">{label}</span>
+      <span className="ml-auto flex items-center gap-1">
+        {isLoading ? (
+          <span className="text-muted-foreground">...</span>
+        ) : (
+          <span className="gl-badge gl-badge-neutral font-semibold">{count ?? 0}</span>
+        )}
+        <ArrowRight size={12} className="text-muted-foreground group-hover:text-foreground transition-colors" />
+      </span>
+    </button>
+  )
+}
+
+
 // ════════════════════════════════════════════════════════════════
 // FIELD DETAIL
 // ════════════════════════════════════════════════════════════════
@@ -197,6 +234,9 @@ export function FieldDetailPanel({ id }: { id: string }) {
   const updateField = useUpdateField()
   const deleteField = useDeleteField()
   const [tab, setTab] = useState<PanelTab>('details')
+
+  // Child count: sites belonging to this field
+  const { data: childSites, isLoading: childSitesLoading } = useSites({ field_id: id, page_size: 1 })
 
   if (!field) return null
 
@@ -348,6 +388,21 @@ export function FieldDetailPanel({ id }: { id: string }) {
           <FormSection title="Tags">
             <TagManager ownerType="ar_field" ownerId={id} compact />
           </FormSection>
+
+          <FormSection title={t('assets.children')}>
+            <ChildLink
+              icon={Landmark}
+              label={t('assets.sites')}
+              count={childSites?.total}
+              isLoading={childSitesLoading}
+              iconColor="text-blue-500"
+              onClick={() => {
+                closeDynamicPanel()
+                // Dispatch event so AssetRegistryPage can switch tab + set filter
+                window.dispatchEvent(new CustomEvent('ar:navigate-children', { detail: { tab: 'sites', filterKey: 'field_id', filterValue: id } }))
+              }}
+            />
+          </FormSection>
         </PanelContentLayout>
       )}
 
@@ -372,6 +427,9 @@ export function SiteDetailPanel({ id }: { id: string }) {
   const { data: site } = useSite(id)
   const { data: parentField } = useField(site?.field_id)
   const updateSite = useUpdateSite()
+
+  // Child count: installations belonging to this site
+  const { data: childInstallations, isLoading: childInstLoading } = useInstallations({ site_id: id, page_size: 1 })
   const deleteSite = useDeleteSite()
   const [tab, setTab] = useState<PanelTab>('details')
 
@@ -561,6 +619,20 @@ export function SiteDetailPanel({ id }: { id: string }) {
           <FormSection title="Tags">
             <TagManager ownerType="ar_site" ownerId={id} compact />
           </FormSection>
+
+          <FormSection title={t('assets.children')}>
+            <ChildLink
+              icon={Factory}
+              label={t('assets.installations')}
+              count={childInstallations?.total}
+              isLoading={childInstLoading}
+              iconColor="text-orange-500"
+              onClick={() => {
+                closeDynamicPanel()
+                window.dispatchEvent(new CustomEvent('ar:navigate-children', { detail: { tab: 'installations', filterKey: 'site_id', filterValue: id } }))
+              }}
+            />
+          </FormSection>
         </PanelContentLayout>
       )}
 
@@ -586,6 +658,9 @@ export function InstallationDetailPanel({ id }: { id: string }) {
   const { data: parentSite } = useSite(inst?.site_id)
   const updateInst = useUpdateInstallation()
   const deleteInst = useDeleteInstallation()
+
+  // Child count: equipment belonging to this installation
+  const { data: childEquipment, isLoading: childEquipLoading } = useEquipmentList({ installation_id: id, page_size: 1 })
   const [tab, setTab] = useState<PanelTab>('details')
 
   if (!inst) return null
@@ -778,6 +853,20 @@ export function InstallationDetailPanel({ id }: { id: string }) {
           <FormSection title="Tags">
             <TagManager ownerType="ar_installation" ownerId={id} compact />
           </FormSection>
+
+          <FormSection title={t('assets.children')}>
+            <ChildLink
+              icon={Wrench}
+              label={t('assets.equipment_tab')}
+              count={childEquipment?.total}
+              isLoading={childEquipLoading}
+              iconColor="text-purple-500"
+              onClick={() => {
+                closeDynamicPanel()
+                window.dispatchEvent(new CustomEvent('ar:navigate-children', { detail: { tab: 'equipment', filterKey: 'installation_id', filterValue: id } }))
+              }}
+            />
+          </FormSection>
         </PanelContentLayout>
       )}
 
@@ -788,6 +877,73 @@ export function InstallationDetailPanel({ id }: { id: string }) {
   )
 }
 
+
+// ════════════════════════════════════════════════════════════════
+// CRANE — Sub-model sections (configs, load chart, lift zones, hooks, reeving)
+// ════════════════════════════════════════════════════════════════
+
+function CraneSubModelSections({ equipmentId, canEdit }: { equipmentId: string; canEdit: boolean }) {
+  const { data: configs } = useCraneConfigurations(equipmentId)
+  const [selectedConfigId, setSelectedConfigId] = useState<string>('')
+
+  return (
+    <>
+      <FormSection title="Configurations grue" collapsible storageKey="panel.ar-equip.sections" id="ar-equip-crane-configs">
+        <CraneConfigurationManager equipmentId={equipmentId} canEdit={canEdit} />
+      </FormSection>
+
+      {/* Config-nested managers: load chart + lift zones */}
+      {(configs?.length ?? 0) > 0 && (
+        <>
+          <FormSection title="Points courbe de charge" collapsible storageKey="panel.ar-equip.sections" id="ar-equip-crane-lcp">
+            <div className="mb-3">
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1">Configuration</label>
+              <select
+                value={selectedConfigId}
+                onChange={(e) => setSelectedConfigId(e.target.value)}
+                className="w-full h-7 rounded-md border border-input bg-background px-2 text-xs"
+              >
+                <option value="">Sélectionner une configuration...</option>
+                {(configs ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>{c.config_code}{c.config_name ? ` — ${c.config_name}` : ''}</option>
+                ))}
+              </select>
+            </div>
+            {selectedConfigId && (
+              <CraneLoadChartPointManager equipmentId={equipmentId} configId={selectedConfigId} canEdit={canEdit} />
+            )}
+          </FormSection>
+
+          <FormSection title="Zones de levage" collapsible storageKey="panel.ar-equip.sections" id="ar-equip-crane-lz">
+            <div className="mb-3">
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1">Configuration</label>
+              <select
+                value={selectedConfigId}
+                onChange={(e) => setSelectedConfigId(e.target.value)}
+                className="w-full h-7 rounded-md border border-input bg-background px-2 text-xs"
+              >
+                <option value="">Sélectionner une configuration...</option>
+                {(configs ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>{c.config_code}{c.config_name ? ` — ${c.config_name}` : ''}</option>
+                ))}
+              </select>
+            </div>
+            {selectedConfigId && (
+              <CraneLiftZoneManager equipmentId={equipmentId} configId={selectedConfigId} canEdit={canEdit} />
+            )}
+          </FormSection>
+        </>
+      )}
+
+      <FormSection title="Moufles / Hook Blocks" collapsible storageKey="panel.ar-equip.sections" id="ar-equip-crane-hooks">
+        <CraneHookBlockManager equipmentId={equipmentId} canEdit={canEdit} />
+      </FormSection>
+      <FormSection title="Guide de mouflage" collapsible storageKey="panel.ar-equip.sections" id="ar-equip-crane-reeving">
+        <CraneReevingGuideManager equipmentId={equipmentId} canEdit={canEdit} />
+      </FormSection>
+    </>
+  )
+}
 
 // ════════════════════════════════════════════════════════════════
 // EQUIPMENT DETAIL
@@ -1031,17 +1187,7 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
 
           {/* Equipment class-specific sub-model managers */}
           {equip.equipment_class === 'CRANE' && (
-            <>
-              <FormSection title="Configurations grue" collapsible storageKey="panel.ar-equip.sections" id="ar-equip-crane-configs">
-                <CraneConfigurationManager equipmentId={id} canEdit={canUpdate} />
-              </FormSection>
-              <FormSection title="Moufles / Hook Blocks" collapsible storageKey="panel.ar-equip.sections" id="ar-equip-crane-hooks">
-                <CraneHookBlockManager equipmentId={id} canEdit={canUpdate} />
-              </FormSection>
-              <FormSection title="Guide de mouflage" collapsible storageKey="panel.ar-equip.sections" id="ar-equip-crane-reeving">
-                <CraneReevingGuideManager equipmentId={id} canEdit={canUpdate} />
-              </FormSection>
-            </>
+            <CraneSubModelSections equipmentId={id} canEdit={canUpdate} />
           )}
           {equip.equipment_class === 'SEPARATOR' && (
             <>

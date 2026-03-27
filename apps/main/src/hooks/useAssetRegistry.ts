@@ -366,6 +366,60 @@ export function useDeleteCraneConfiguration() {
   })
 }
 
+// ── Crane Load Chart Points (nested under config) ────────────
+
+export function useCraneLoadChartPoints(eqId: string | undefined, configId: string | undefined) {
+  return useQuery({ queryKey: ['ar-crane-lcp', eqId, configId], queryFn: () => assetRegistryService.listCraneLoadChartPoints(eqId!, configId!), enabled: !!eqId && !!configId })
+}
+export function useCreateCraneLoadChartPoint() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ eqId, configId, payload }: { eqId: string; configId: string; payload: any }) => assetRegistryService.createCraneLoadChartPoint(eqId, configId, payload),
+    onSuccess: (_, { eqId, configId }) => { qc.invalidateQueries({ queryKey: ['ar-crane-lcp', eqId, configId] }) },
+  })
+}
+export function useUpdateCraneLoadChartPoint() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ eqId, configId, id, payload }: { eqId: string; configId: string; id: string; payload: any }) => assetRegistryService.updateCraneLoadChartPoint(eqId, configId, id, payload),
+    onSuccess: (_, { eqId, configId }) => { qc.invalidateQueries({ queryKey: ['ar-crane-lcp', eqId, configId] }) },
+  })
+}
+export function useDeleteCraneLoadChartPoint() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ eqId, configId, id }: { eqId: string; configId: string; id: string }) => assetRegistryService.deleteCraneLoadChartPoint(eqId, configId, id),
+    onSuccess: (_, { eqId, configId }) => { qc.invalidateQueries({ queryKey: ['ar-crane-lcp', eqId, configId] }) },
+  })
+}
+
+// ── Crane Lift Zones (nested under config) ───────────────────
+
+export function useCraneLiftZones(eqId: string | undefined, configId: string | undefined) {
+  return useQuery({ queryKey: ['ar-crane-lz', eqId, configId], queryFn: () => assetRegistryService.listCraneLiftZones(eqId!, configId!), enabled: !!eqId && !!configId })
+}
+export function useCreateCraneLiftZone() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ eqId, configId, payload }: { eqId: string; configId: string; payload: any }) => assetRegistryService.createCraneLiftZone(eqId, configId, payload),
+    onSuccess: (_, { eqId, configId }) => { qc.invalidateQueries({ queryKey: ['ar-crane-lz', eqId, configId] }) },
+  })
+}
+export function useUpdateCraneLiftZone() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ eqId, configId, id, payload }: { eqId: string; configId: string; id: string; payload: any }) => assetRegistryService.updateCraneLiftZone(eqId, configId, id, payload),
+    onSuccess: (_, { eqId, configId }) => { qc.invalidateQueries({ queryKey: ['ar-crane-lz', eqId, configId] }) },
+  })
+}
+export function useDeleteCraneLiftZone() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ eqId, configId, id }: { eqId: string; configId: string; id: string }) => assetRegistryService.deleteCraneLiftZone(eqId, configId, id),
+    onSuccess: (_, { eqId, configId }) => { qc.invalidateQueries({ queryKey: ['ar-crane-lz', eqId, configId] }) },
+  })
+}
+
 // ── Crane Hook Blocks ────────────────────────────────────────
 
 export function useCraneHookBlocks(eqId: string | undefined) {

@@ -11,8 +11,10 @@ import type {
   InstallationDeck, InstallationDeckCreate, InstallationDeckUpdate,
   RegistryEquipment, EquipmentCreate, EquipmentUpdate,
   RegistryPipeline, PipelineCreate, PipelineUpdate,
-  HierarchyNode, AssetRegistryStats,
+  HierarchyFieldNode, AssetRegistryStats,
   CraneConfiguration, CraneConfigurationCreate, CraneConfigurationUpdate,
+  CraneLoadChartPoint, CraneLoadChartPointCreate, CraneLoadChartPointUpdate,
+  CraneLiftZone, CraneLiftZoneCreate, CraneLiftZoneUpdate,
   CraneHookBlock, CraneHookBlockCreate, CraneHookBlockUpdate,
   CraneReevingGuideEntry, CraneReevingGuideCreate, CraneReevingGuideUpdate,
   SeparatorNozzle, SeparatorNozzleCreate, SeparatorNozzleUpdate,
@@ -232,7 +234,7 @@ export const assetRegistryService = {
   },
 
   // ── Hierarchy & Stats ────────────────────────────────────
-  getHierarchy: async (): Promise<HierarchyNode[]> => {
+  getHierarchy: async (): Promise<HierarchyFieldNode[]> => {
     const { data } = await api.get(`${BASE}/hierarchy`)
     return data
   },
@@ -257,6 +259,40 @@ export const assetRegistryService = {
   },
   deleteCraneConfiguration: async (eqId: string, id: string): Promise<void> => {
     await api.delete(`${BASE}/equipment/${eqId}/crane-configurations/${id}`)
+  },
+
+  // ── Crane Load Chart Points (nested under config) ─────────────
+  listCraneLoadChartPoints: async (eqId: string, configId: string): Promise<CraneLoadChartPoint[]> => {
+    const { data } = await api.get(`${BASE}/equipment/${eqId}/crane-configurations/${configId}/load-chart-points`)
+    return data
+  },
+  createCraneLoadChartPoint: async (eqId: string, configId: string, payload: CraneLoadChartPointCreate): Promise<CraneLoadChartPoint> => {
+    const { data } = await api.post(`${BASE}/equipment/${eqId}/crane-configurations/${configId}/load-chart-points`, payload)
+    return data
+  },
+  updateCraneLoadChartPoint: async (eqId: string, configId: string, id: string, payload: CraneLoadChartPointUpdate): Promise<CraneLoadChartPoint> => {
+    const { data } = await api.patch(`${BASE}/equipment/${eqId}/crane-configurations/${configId}/load-chart-points/${id}`, payload)
+    return data
+  },
+  deleteCraneLoadChartPoint: async (eqId: string, configId: string, id: string): Promise<void> => {
+    await api.delete(`${BASE}/equipment/${eqId}/crane-configurations/${configId}/load-chart-points/${id}`)
+  },
+
+  // ── Crane Lift Zones (nested under config) ────────────────────
+  listCraneLiftZones: async (eqId: string, configId: string): Promise<CraneLiftZone[]> => {
+    const { data } = await api.get(`${BASE}/equipment/${eqId}/crane-configurations/${configId}/lift-zones`)
+    return data
+  },
+  createCraneLiftZone: async (eqId: string, configId: string, payload: CraneLiftZoneCreate): Promise<CraneLiftZone> => {
+    const { data } = await api.post(`${BASE}/equipment/${eqId}/crane-configurations/${configId}/lift-zones`, payload)
+    return data
+  },
+  updateCraneLiftZone: async (eqId: string, configId: string, id: string, payload: CraneLiftZoneUpdate): Promise<CraneLiftZone> => {
+    const { data } = await api.patch(`${BASE}/equipment/${eqId}/crane-configurations/${configId}/lift-zones/${id}`, payload)
+    return data
+  },
+  deleteCraneLiftZone: async (eqId: string, configId: string, id: string): Promise<void> => {
+    await api.delete(`${BASE}/equipment/${eqId}/crane-configurations/${configId}/lift-zones/${id}`)
   },
 
   // ── Crane Hook Blocks ──────────────────────────────────────

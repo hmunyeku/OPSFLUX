@@ -48,10 +48,26 @@ SOFT_DELETE_TABLES = [
 
 
 def upgrade() -> None:
+    conn = op.get_bind()
     for table in SOFT_DELETE_TABLES:
-        op.add_column(table, sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True))
+        # Only add column if table exists in the database
+        result = conn.execute(sa.text(
+            "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = :t"
+        ), {"t": table})
+        if result.fetchone():
+            # Check column doesn't already exist
+            col_check = conn.execute(sa.text(
+                "SELECT 1 FROM information_schema.columns WHERE table_name = :t AND column_name = 'deleted_at'"
+            ), {"t": table})
+            if not col_check.fetchone():
+                op.add_column(table, sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True))
 
 
 def downgrade() -> None:
+    conn = op.get_bind()
     for table in SOFT_DELETE_TABLES:
-        op.drop_column(table, "deleted_at")
+        result = conn.execute(sa.text(
+            "SELECT 1 FROM information_schema.columns WHERE table_name = :t AND column_name = 'deleted_at'"
+        ), {"t": table})
+        if result.fetchone():
+            op.drop_column(table, "deleted_at")

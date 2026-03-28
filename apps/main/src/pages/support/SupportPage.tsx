@@ -459,7 +459,7 @@ function SupportStatsCards() {
 const DISPLAY_LABELS: Record<string, string> = { dashboard: 'Tableau de bord', banner: 'Bannière', login: 'Login', all: 'Partout', modal: 'Modal', logout: 'Déconnexion' }
 const PRIORITY_BADGE: Record<string, 'info' | 'warning' | 'danger' | 'neutral'> = { info: 'info', warning: 'warning', critical: 'danger', maintenance: 'neutral' }
 
-function AnnouncementsAdminTab() {
+function AnnouncementsAdminTab({ showCreate, onToggleCreate }: { showCreate: boolean; onToggleCreate: (v: boolean) => void }) {
   const [page, setPage] = useState(1)
   const { pageSize, setPageSize } = usePageSize()
   const { data, isLoading } = useAnnouncements({ page, page_size: pageSize, active_only: false })
@@ -468,7 +468,6 @@ function AnnouncementsAdminTab() {
   const deleteAnn = useDeleteAnnouncement()
   const confirm = useConfirm()
   const { toast } = useToast()
-  const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState<AnnouncementCreate>({
     title: '', body: '', priority: 'info', target_type: 'all', display_location: 'banner', pinned: false, send_email: false,
   })
@@ -477,7 +476,7 @@ function AnnouncementsAdminTab() {
     if (!form.title.trim() || !form.body.trim()) return
     await createAnn.mutateAsync(form)
     toast({ title: 'Annonce publiée', variant: 'success' })
-    setShowCreate(false)
+    onToggleCreate(false)
     setForm({ title: '', body: '', priority: 'info', target_type: 'all', display_location: 'banner', pinned: false, send_email: false })
   }
 
@@ -531,7 +530,7 @@ function AnnouncementsAdminTab() {
             <label className="flex items-center gap-1.5 text-xs text-muted-foreground"><input type="checkbox" checked={form.pinned} onChange={e => setForm({ ...form, pinned: e.target.checked })} className="h-3 w-3 rounded" /> Épinglée</label>
             <label className="flex items-center gap-1.5 text-xs text-muted-foreground"><input type="checkbox" checked={form.send_email} onChange={e => setForm({ ...form, send_email: e.target.checked })} className="h-3 w-3 rounded" /> Envoyer par email</label>
             <div className="ml-auto flex gap-2">
-              <button className="gl-button-sm gl-button-default" onClick={() => setShowCreate(false)}>Annuler</button>
+              <button className="gl-button-sm gl-button-default" onClick={() => onToggleCreate(false)}>Annuler</button>
               <button className="gl-button-sm gl-button-confirm" onClick={handleCreate} disabled={!form.title.trim() || !form.body.trim() || createAnn.isPending}>
                 {createAnn.isPending ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />} Publier
               </button>
@@ -651,7 +650,7 @@ export function SupportPage() {
 
         {activeTab === 'announcements' && (
           <PanelContent>
-            <AnnouncementsAdminTab key={showCreateAnn ? 'show' : 'hide'} />
+            <AnnouncementsAdminTab showCreate={showCreateAnn} onToggleCreate={setShowCreateAnn} />
           </PanelContent>
         )}
       </div>

@@ -54,6 +54,19 @@ services:
         alembic upgrade head &&
         uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
       "
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=dokploy-network"
+      - "traefik.http.routers.opsflux-api-web.entrypoints=web"
+      - "traefik.http.routers.opsflux-api-web.middlewares=redirect-to-https@file"
+      - "traefik.http.routers.opsflux-api-web.rule=Host(`api.${DOMAIN:-opsflux.io}`)"
+      - "traefik.http.routers.opsflux-api-websecure.entrypoints=websecure"
+      - "traefik.http.routers.opsflux-api-websecure.rule=Host(`api.${DOMAIN:-opsflux.io}`)"
+      - "traefik.http.routers.opsflux-api-websecure.tls.certresolver=letsencrypt"
+      - "traefik.http.services.opsflux-api.loadbalancer.server.port=8000"
+    networks:
+      - default
+      - dokploy-network
 
   # ─── Frontend React PWA (nginx) ─────────────────────────────
   frontend:
@@ -63,6 +76,19 @@ services:
       args:
         VITE_API_URL: https://api.${DOMAIN:-opsflux.io}
     restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=dokploy-network"
+      - "traefik.http.routers.opsflux-app-web.entrypoints=web"
+      - "traefik.http.routers.opsflux-app-web.middlewares=redirect-to-https@file"
+      - "traefik.http.routers.opsflux-app-web.rule=Host(`app.${DOMAIN:-opsflux.io}`)"
+      - "traefik.http.routers.opsflux-app-websecure.entrypoints=websecure"
+      - "traefik.http.routers.opsflux-app-websecure.rule=Host(`app.${DOMAIN:-opsflux.io}`)"
+      - "traefik.http.routers.opsflux-app-websecure.tls.certresolver=letsencrypt"
+      - "traefik.http.services.opsflux-app.loadbalancer.server.port=80"
+    networks:
+      - default
+      - dokploy-network
 
   # ─── Vitrine www.opsflux.io (marketing site) ────────────────
   vitrine:

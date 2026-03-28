@@ -9,7 +9,8 @@ import { useTranslation } from 'react-i18next'
 import {
   LifeBuoy, Plus, Loader2, Trash2, Bug, Lightbulb, HelpCircle, MoreHorizontal,
   MessageSquare, CheckCircle2, Clock, AlertTriangle,
-  BarChart3, ArrowRight, Send, X, Lock, Paperclip,
+  BarChart3, ArrowRight, Send, X, Lock, Paperclip, Megaphone,
+  Eye, EyeOff, Pin,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -37,6 +38,9 @@ import {
   useTicketComments, useAddComment, useTicketStatusHistory, useTicketStats,
 } from '@/hooks/useSupport'
 import type { SupportTicket, TicketCreate, TicketComment, StatusHistoryEntry } from '@/services/supportService'
+import { useAnnouncements, useCreateAnnouncement, useUpdateAnnouncement, useDeleteAnnouncement } from '@/hooks/useAnnouncements'
+import type { Announcement, AnnouncementCreate } from '@/services/announcementService'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -450,10 +454,115 @@ function SupportStatsCards() {
   )
 }
 
+// ── Announcements Admin Tab ──────────────────────────────────
+
+const DISPLAY_LABELS: Record<string, string> = { dashboard: 'Tableau de bord', banner: 'Bannière', login: 'Login', all: 'Partout', modal: 'Modal', logout: 'Déconnexion' }
+const PRIORITY_BADGE: Record<string, 'info' | 'warning' | 'danger' | 'neutral'> = { info: 'info', warning: 'warning', critical: 'danger', maintenance: 'neutral' }
+
+function AnnouncementsAdminTab() {
+  const [page, setPage] = useState(1)
+  const { pageSize, setPageSize } = usePageSize()
+  const { data, isLoading } = useAnnouncements({ page, page_size: pageSize, active_only: false })
+  const createAnn = useCreateAnnouncement()
+  const updateAnn = useUpdateAnnouncement()
+  const deleteAnn = useDeleteAnnouncement()
+  const confirm = useConfirm()
+  const { toast } = useToast()
+  const [showCreate, setShowCreate] = useState(false)
+  const [form, setForm] = useState<AnnouncementCreate>({
+    title: '', body: '', priority: 'info', target_type: 'all', display_location: 'banner', pinned: false, send_email: false,
+  })
+
+  const handleCreate = async () => {
+    if (!form.title.trim() || !form.body.trim()) return
+    await createAnn.mutateAsync(form)
+    toast({ title: 'Annonce publiée', variant: 'success' })
+    setShowCreate(false)
+    setForm({ title: '', body: '', priority: 'info', target_type: 'all', display_location: 'banner', pinned: false, send_email: false })
+  }
+
+  const handleToggleActive = async (ann: Announcement) => {
+    await updateAnn.mutateAsync({ id: ann.id, body: { active: !ann.active } })
+    toast({ title: ann.active ? 'Annonce désactivée' : 'Annonce activée', variant: 'success' })
+  }
+
+  const handleDelete = async (ann: Announcement) => {
+    const ok = await confirm({ title: 'Supprimer l\'annonce ?', message: ann.title, variant: 'danger', confirmLabel: 'Supprimer' })
+    if (ok) {
+      await deleteAnn.mutateAsync(ann.id)
+      toast({ title: 'Annonce supprimée', variant: 'success' })
+    }
+  }
+
+  const annColumns: ColumnDef<Announcement, unknown>[] = [
+    { accessorKey: 'title', header: 'Titre', cell: ({ getValue }) => <span className="text-sm font-medium truncate block max-w-[250px]">{getValue() as string}</span>, size: 250 },
+    { accessorKey: 'priority', header: 'Priorité', cell: ({ getValue }) => <BadgeCell value={String(getValue())} variant={PRIORITY_BADGE[getValue() as string] || 'neutral'} />, size: 90 },
+    { accessorKey: 'display_location', header: 'Emplacement', cell: ({ getValue }) => <span className="text-xs text-muted-foreground">{DISPLAY_LABELS[getValue() as string] || String(getValue())}</span>, size: 110 },
+    { accessorKey: 'active', header: 'Actif', cell: ({ row }) => (
+      <button onClick={(e) => { e.stopPropagation(); handleToggleActive(row.original) }} className="p-0.5">
+        {row.original.active ? <Eye size={14} className="text-emerald-500" /> : <EyeOff size={14} className="text-muted-foreground" />}
+      </button>
+    ), size: 50 },
+    { accessorKey: 'pinned', header: '', cell: ({ row }) => row.original.pinned ? <Pin size={11} className="text-amber-500" /> : null, size: 30 },
+    { accessorKey: 'created_at', header: 'Créé le', cell: ({ getValue }) => <DateCell value={getValue() as string} />, size: 120 },
+    { id: 'actions', header: '', size: 40, cell: ({ row }) => (
+      <button onClick={(e) => { e.stopPropagation(); handleDelete(row.original) }} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+        <Trash2 size={12} />
+      </button>
+    ) },
+  ]
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Create announcement form */}
+      {showCreate && (
+        <div className="border-b border-border p-4 space-y-3 bg-muted/10 shrink-0">
+          <div className="grid grid-cols-2 gap-3">
+            <input className="gl-form-input text-sm col-span-2" placeholder="Titre de l'annonce..." value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} autoFocus />
+            <textarea className="gl-form-input text-sm col-span-2 min-h-[60px] resize-y" placeholder="Contenu..." value={form.body} onChange={e => setForm({ ...form, body: e.target.value })} />
+            <select className="gl-form-select text-xs" value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value })}>
+              <option value="info">Info</option><option value="warning">Attention</option><option value="critical">Critique</option><option value="maintenance">Maintenance</option>
+            </select>
+            <select className="gl-form-select text-xs" value={form.display_location} onChange={e => setForm({ ...form, display_location: e.target.value })}>
+              <option value="banner">Bannière</option><option value="dashboard">Tableau de bord</option><option value="all">Partout</option><option value="login">Page login</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground"><input type="checkbox" checked={form.pinned} onChange={e => setForm({ ...form, pinned: e.target.checked })} className="h-3 w-3 rounded" /> Épinglée</label>
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground"><input type="checkbox" checked={form.send_email} onChange={e => setForm({ ...form, send_email: e.target.checked })} className="h-3 w-3 rounded" /> Envoyer par email</label>
+            <div className="ml-auto flex gap-2">
+              <button className="gl-button-sm gl-button-default" onClick={() => setShowCreate(false)}>Annuler</button>
+              <button className="gl-button-sm gl-button-confirm" onClick={handleCreate} disabled={!form.title.trim() || !form.body.trim() || createAnn.isPending}>
+                {createAnn.isPending ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />} Publier
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <DataTable<Announcement>
+        columns={annColumns}
+        data={data?.items ?? []}
+        isLoading={isLoading}
+        getRowId={(row) => row.id}
+        storageKey="support-announcements"
+        pagination={data ? { page: data.page, pageSize: data.page_size, total: data.total, pages: data.pages } : undefined}
+        onPaginationChange={(p, size) => { setPage(p); setPageSize(size) }}
+        sortable
+        emptyIcon={Megaphone}
+        emptyTitle="Aucune annonce"
+      />
+    </div>
+  )
+}
+
 // ── Main Page ───────────────────────────────────────────────
+
+type SupportTab = 'tickets' | 'announcements'
 
 export function SupportPage() {
   useTranslation() // loaded for future i18n
+  const [activeTab, setActiveTab] = useState<SupportTab>('tickets')
   const [page, setPage] = useState(1)
   const { pageSize, setPageSize } = usePageSize()
   const [search, setSearch] = useState('')
@@ -465,6 +574,8 @@ export function SupportPage() {
   const { hasPermission } = usePermission()
   const isAdmin = hasPermission('support.ticket.manage')
   const canCreate = hasPermission('support.ticket.create')
+  const canManageAnnouncements = hasPermission('messaging.announcement.create')
+  const [showCreateAnn, setShowCreateAnn] = useState(false)
 
   const { data, isLoading } = useTickets({
     page,
@@ -482,61 +593,66 @@ export function SupportPage() {
     if (id === 'ticket_type') { setTypeFilter(v); setPage(1) }
   }, [])
 
+  const toolbarAction = activeTab === 'tickets' && canCreate
+    ? <ToolbarButton icon={Plus} label="Soumettre un ticket" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'support' })} />
+    : activeTab === 'announcements' && canManageAnnouncements
+      ? <ToolbarButton icon={Plus} label="Nouvelle annonce" variant="primary" onClick={() => setShowCreateAnn(v => !v)} />
+      : null
+
   return (
     <div className="flex h-full">
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
         <PanelHeader
           title="Support & Feedback"
-          subtitle="Tickets, rapports de bugs et demandes d'amélioration"
+          subtitle="Tickets, annonces et communication"
           icon={LifeBuoy}
         >
-          {canCreate && (
-            <ToolbarButton
-              icon={Plus}
-              label="Soumettre un ticket"
-              variant="primary"
-              onClick={() => openDynamicPanel({ type: 'create', module: 'support' })}
-            />
-          )}
+          {toolbarAction}
         </PanelHeader>
 
-        {/* Admin stats */}
-        {isAdmin && <SupportStatsCards />}
+        <TabBar
+          items={[
+            { id: 'tickets' as const, label: 'Tickets', icon: LifeBuoy },
+            ...(canManageAnnouncements ? [{ id: 'announcements' as const, label: 'Annonces', icon: Megaphone }] : []),
+          ]}
+          activeId={activeTab}
+          onTabChange={(id) => setActiveTab(id as SupportTab)}
+        />
 
-        <PanelContent>
-          <DataTable<SupportTicket>
-            columns={ticketColumns}
-            data={data?.items ?? []}
-            isLoading={isLoading}
-            getRowId={(row) => row.id}
-            storageKey="support-tickets"
+        {activeTab === 'tickets' && (
+          <>
+            {isAdmin && <SupportStatsCards />}
+            <PanelContent>
+              <DataTable<SupportTicket>
+                columns={ticketColumns}
+                data={data?.items ?? []}
+                isLoading={isLoading}
+                getRowId={(row) => row.id}
+                storageKey="support-tickets"
+                searchValue={search}
+                onSearchChange={setSearch}
+                searchPlaceholder="Rechercher par référence, titre..."
+                pagination={data ? { page: data.page, pageSize: data.page_size, total: data.total, pages: data.pages } : undefined}
+                onPaginationChange={(p, size) => { setPage(p); setPageSize(size) }}
+                sortable
+                columnVisibility
+                columnResizing
+                filters={FILTER_DEFS}
+                activeFilters={{ status: statusFilter, priority: priorityFilter, ticket_type: typeFilter }}
+                onFilterChange={handleFilterChange}
+                onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'support', id: row.id })}
+                emptyIcon={LifeBuoy}
+                emptyTitle="Aucun ticket"
+              />
+            </PanelContent>
+          </>
+        )}
 
-            searchValue={search}
-            onSearchChange={setSearch}
-            searchPlaceholder="Rechercher par référence, titre..."
-
-            pagination={data ? {
-              page: data.page,
-              pageSize: data.page_size,
-              total: data.total,
-              pages: data.pages,
-            } : undefined}
-            onPaginationChange={(p, size) => { setPage(p); setPageSize(size) }}
-
-            sortable
-            columnVisibility
-            columnResizing
-
-            filters={FILTER_DEFS}
-            activeFilters={{ status: statusFilter, priority: priorityFilter, ticket_type: typeFilter }}
-            onFilterChange={handleFilterChange}
-
-            onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'support', id: row.id })}
-
-            emptyIcon={LifeBuoy}
-            emptyTitle="Aucun ticket"
-          />
-        </PanelContent>
+        {activeTab === 'announcements' && (
+          <PanelContent>
+            <AnnouncementsAdminTab key={showCreateAnn ? 'show' : 'hide'} />
+          </PanelContent>
+        )}
       </div>
     </div>
   )

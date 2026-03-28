@@ -875,29 +875,26 @@ export function AssetRegistryPage() {
         <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
           <PanelHeader
             title={t('assets.registry_title')}
+            subtitle={t('assets.subtitle')}
             icon={Layers}
           >
             {showCreateButton && (
               <ToolbarButton icon={Plus} label={t('common.create')} variant="primary" onClick={handleCreate} />
             )}
           </PanelHeader>
-          <PanelContent className="flex flex-col">
-            <div className="border-b border-border px-4 shrink-0">
-              <TabBar>
-                {TABS.map(({ key, icon, labelKey }) => (
-                  <TabButton
-                    key={key}
-                    active={activeTab === key}
-                    onClick={() => setActiveTab(key)}
-                    icon={icon}
-                    label={t(labelKey)}
-                  />
-                ))}
-              </TabBar>
-            </div>
-            <div className="flex-1 min-h-0">
-              {tabContent[activeTab]}
-            </div>
+          <TabBar>
+            {TABS.map(({ key, icon, labelKey }) => (
+              <TabButton
+                key={key}
+                active={activeTab === key}
+                onClick={() => setActiveTab(key)}
+                icon={icon}
+                label={t(labelKey)}
+              />
+            ))}
+          </TabBar>
+          <PanelContent>
+            {tabContent[activeTab]}
           </PanelContent>
         </div>
       )}

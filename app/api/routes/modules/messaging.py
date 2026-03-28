@@ -56,6 +56,7 @@ async def list_announcements(
     now = datetime.now(UTC)
 
     stmt = select(Announcement).where(
+        Announcement.deleted_at.is_(None),
         or_(
             Announcement.entity_id == entity_id,
             Announcement.entity_id.is_(None),  # Global announcements
@@ -168,6 +169,7 @@ async def list_public_announcements(
     stmt = (
         select(Announcement)
         .where(
+            Announcement.deleted_at.is_(None),
             Announcement.active == True,
             Announcement.target_type == "all",
             or_(

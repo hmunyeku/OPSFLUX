@@ -19,7 +19,7 @@ from app.api.deps import (
 )
 from app.core.database import get_db
 from app.models.common import User
-from app.models.support import SupportTicket, TicketComment, TicketStatusHistory
+from app.models.support import SupportTicket, TicketComment, TicketStatusHistory, TicketTodo
 from app.schemas.common import PaginatedResponse
 from app.schemas.support import (
     CommentCreate,
@@ -31,6 +31,9 @@ from app.schemas.support import (
     TicketResolve,
     TicketStats,
     TicketUpdate,
+    TodoCreate,
+    TodoRead,
+    TodoUpdate,
 )
 
 logger = logging.getLogger(__name__)
@@ -126,6 +129,20 @@ async def _notify_ticket_event(
                     body=f"Un commentaire a été ajouté au ticket « {ticket.title} ».",
                     category="info", link=link,
                 )
+                # Send email notification to reporter when admin comments
+                from app.core.email_templates import render_and_send_email
+                for uid in recipients:
+                    user = await db.get(User, uid)
+                    if user and user.email:
+                        await render_and_send_email(
+                            db, slug="ticket_comment", entity_id=entity_id,
+                            language=user.language or "fr", to=user.email,
+                            variables={
+                                "reference": ticket.reference,
+                                "title": ticket.title,
+                                "link": f"https://app.opsflux.io/support",
+                            },
+                        )
     except Exception:
         logger.warning("Failed to send notification for ticket %s event %s", ticket.reference, event, exc_info=True)
 
@@ -581,6 +598,7 @@ async def add_comment(
         author_id=current_user.id,
         body=body.body,
         is_internal=body.is_internal,
+        attachment_ids=[str(a) for a in body.attachment_ids] if body.attachment_ids else None,
     )
     db.add(comment)
     await db.commit()
@@ -592,6 +610,7 @@ async def add_comment(
     return CommentRead(
         id=comment.id, ticket_id=comment.ticket_id, author_id=comment.author_id,
         body=comment.body, is_internal=comment.is_internal,
+        attachment_ids=comment.attachment_ids,
         created_at=comment.created_at, updated_at=comment.updated_at,
         author_name=umap.get(current_user.id),
     )
@@ -710,3 +729,98 @@ async def get_ticket_stats(
         avg_resolution_hours=round(avg_hours, 1) if avg_hours else None,
         resolved_this_week=resolved_week,
     )
+
+
+# ═══════════════════════════════════════════════════════════════════
+# TICKET TODOS / CHECKLIST
+# ═══════════════════════════════════════════════════════════════════
+
+
+@router.get("/tickets/{ticket_id}/todos", response_model=list[TodoRead])
+async def list_ticket_todos(
+    ticket_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("support.ticket.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """List all todo items for a ticket."""
+    result = await db.execute(
+        select(TicketTodo)
+        .where(TicketTodo.ticket_id == ticket_id)
+        .order_by(TicketTodo.order, TicketTodo.created_at)
+    )
+    return [TodoRead.model_validate(t) for t in result.scalars().all()]
+
+
+@router.post("/tickets/{ticket_id}/todos", response_model=TodoRead, status_code=201)
+async def add_ticket_todo(
+    ticket_id: UUID,
+    body: TodoCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("support.ticket.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Add a todo item to a ticket."""
+    # Verify ticket exists
+    ticket = await db.execute(
+        select(SupportTicket).where(SupportTicket.id == ticket_id, SupportTicket.entity_id == entity_id)
+    )
+    if not ticket.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Ticket not found")
+
+    todo = TicketTodo(ticket_id=ticket_id, title=body.title, order=body.order)
+    db.add(todo)
+    await db.commit()
+    await db.refresh(todo)
+    return TodoRead.model_validate(todo)
+
+
+@router.patch("/todos/{todo_id}", response_model=TodoRead)
+async def update_ticket_todo(
+    todo_id: UUID,
+    body: TodoUpdate,
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("support.ticket.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update a ticket todo item (title, completed, order)."""
+    result = await db.execute(select(TicketTodo).where(TicketTodo.id == todo_id))
+    todo = result.scalar_one_or_none()
+    if not todo:
+        raise HTTPException(status_code=404, detail="Todo not found")
+
+    if body.title is not None:
+        todo.title = body.title
+    if body.order is not None:
+        todo.order = body.order
+    if body.completed is not None:
+        todo.completed = body.completed
+        if body.completed:
+            todo.completed_at = datetime.now(UTC)
+            todo.completed_by = current_user.id
+        else:
+            todo.completed_at = None
+            todo.completed_by = None
+
+    await db.commit()
+    await db.refresh(todo)
+    return TodoRead.model_validate(todo)
+
+
+@router.delete("/todos/{todo_id}", status_code=204)
+async def delete_ticket_todo(
+    todo_id: UUID,
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("support.ticket.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a ticket todo item."""
+    result = await db.execute(select(TicketTodo).where(TicketTodo.id == todo_id))
+    todo = result.scalar_one_or_none()
+    if not todo:
+        raise HTTPException(status_code=404, detail="Todo not found")
+
+    await db.delete(todo)
+    await db.commit()

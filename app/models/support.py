@@ -61,6 +61,7 @@ class SupportTicket(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     # Relationships
     comments = relationship("TicketComment", back_populates="ticket", cascade="all, delete-orphan", order_by="TicketComment.created_at")
     status_history = relationship("TicketStatusHistory", back_populates="ticket", cascade="all, delete-orphan", order_by="TicketStatusHistory.created_at.desc()")
+    todos = relationship("TicketTodo", back_populates="ticket", cascade="all, delete-orphan", order_by="TicketTodo.order")
 
 
 class TicketComment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -74,6 +75,7 @@ class TicketComment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     author_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     body: Mapped[str] = mapped_column(Text, nullable=False)
     is_internal: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    attachment_ids: Mapped[list | None] = mapped_column(JSONB, nullable=True)
 
     # Relationships
     ticket = relationship("SupportTicket", back_populates="comments")
@@ -95,3 +97,21 @@ class TicketStatusHistory(UUIDPrimaryKeyMixin, Base):
 
     # Relationships
     ticket = relationship("SupportTicket", back_populates="status_history")
+
+
+class TicketTodo(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Todo/checklist item attached to a support ticket (improvement tracking)."""
+    __tablename__ = "ticket_todos"
+    __table_args__ = (
+        Index("idx_ticket_todos_ticket", "ticket_id"),
+    )
+
+    ticket_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("support_tickets.id", ondelete="CASCADE"), nullable=False)
+    title: Mapped[str] = mapped_column(String(300), nullable=False)
+    completed: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    order: Mapped[int] = mapped_column(Integer, server_default="0")
+
+    # Relationships
+    ticket = relationship("SupportTicket", back_populates="todos")

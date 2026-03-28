@@ -62,9 +62,21 @@ export interface TicketComment {
   author_id: string
   body: string
   is_internal: boolean
+  attachment_ids: string[] | null
   created_at: string
   updated_at: string
   author_name: string | null
+}
+
+export interface TicketTodo {
+  id: string
+  ticket_id: string
+  title: string
+  completed: boolean
+  completed_at: string | null
+  completed_by: string | null
+  order: number
+  created_at: string
 }
 
 export interface StatusHistoryEntry {
@@ -153,8 +165,10 @@ export const supportService = {
     return data
   },
 
-  addComment: async (ticketId: string, body: string, isInternal = false): Promise<TicketComment> => {
-    const { data } = await api.post(`/api/v1/support/tickets/${ticketId}/comments`, { body, is_internal: isInternal })
+  addComment: async (ticketId: string, body: string, isInternal = false, attachmentIds?: string[]): Promise<TicketComment> => {
+    const { data } = await api.post(`/api/v1/support/tickets/${ticketId}/comments`, {
+      body, is_internal: isInternal, attachment_ids: attachmentIds || null,
+    })
     return data
   },
 
@@ -168,5 +182,25 @@ export const supportService = {
   getStats: async (): Promise<TicketStats> => {
     const { data } = await api.get('/api/v1/support/stats')
     return data
+  },
+
+  // ── Todos ──
+  listTodos: async (ticketId: string): Promise<TicketTodo[]> => {
+    const { data } = await api.get(`/api/v1/support/tickets/${ticketId}/todos`)
+    return data
+  },
+
+  addTodo: async (ticketId: string, title: string, order = 0): Promise<TicketTodo> => {
+    const { data } = await api.post(`/api/v1/support/tickets/${ticketId}/todos`, { title, order })
+    return data
+  },
+
+  updateTodo: async (todoId: string, payload: { title?: string; completed?: boolean; order?: number }): Promise<TicketTodo> => {
+    const { data } = await api.patch(`/api/v1/support/todos/${todoId}`, payload)
+    return data
+  },
+
+  deleteTodo: async (todoId: string): Promise<void> => {
+    await api.delete(`/api/v1/support/todos/${todoId}`)
   },
 }

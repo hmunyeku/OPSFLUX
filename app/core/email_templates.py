@@ -1328,6 +1328,44 @@ DEFAULT_TEMPLATES: list[dict] = [
             },
         },
     },
+    {
+        "slug": "ticket_comment",
+        "name": "Nouveau commentaire sur un ticket",
+        "description": "Envoyé quand un commentaire est ajouté à un ticket de support.",
+        "object_type": "support_ticket",
+        "versions": {
+            "fr": {
+                "subject": "Nouveau commentaire sur votre ticket {{reference}}",
+                "body_html": (
+                    "<html><body style='font-family:Arial,sans-serif;color:#333'>"
+                    "<h2 style='color:#2563eb'>Nouveau commentaire</h2>"
+                    "<p>Un commentaire a été ajouté à votre ticket <strong>{{reference}}</strong> — « {{title}} ».</p>"
+                    "<p><a href='{{link}}' style='background:#2563eb;color:#fff;padding:8px 16px;border-radius:6px;text-decoration:none'>Voir le ticket</a></p>"
+                    "<p style='color:#999;font-size:12px'>OpsFlux — Support</p>"
+                    "</body></html>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "ticket_resolved",
+        "name": "Ticket résolu",
+        "description": "Envoyé quand un ticket de support est marqué comme résolu.",
+        "object_type": "support_ticket",
+        "versions": {
+            "fr": {
+                "subject": "Votre ticket {{reference}} a été résolu",
+                "body_html": (
+                    "<html><body style='font-family:Arial,sans-serif;color:#333'>"
+                    "<h2 style='color:#16a34a'>Ticket résolu</h2>"
+                    "<p>Votre ticket <strong>{{reference}}</strong> — « {{title}} » a été résolu.</p>"
+                    "<p><a href='{{link}}' style='background:#16a34a;color:#fff;padding:8px 16px;border-radius:6px;text-decoration:none'>Voir le ticket</a></p>"
+                    "<p style='color:#999;font-size:12px'>OpsFlux — Support</p>"
+                    "</body></html>"
+                ),
+            },
+        },
+    },
 ]
 
 

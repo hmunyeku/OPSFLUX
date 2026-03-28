@@ -8,7 +8,7 @@ import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   LifeBuoy, Plus, Loader2, Trash2, Bug, Lightbulb, HelpCircle, MoreHorizontal,
-  MessageSquare, CheckCircle2, Clock, AlertTriangle,
+  MessageSquare, CheckCircle2, Clock, AlertTriangle, ListTodo, Square, CheckSquare,
   BarChart3, ArrowRight, Send, X, Lock, Paperclip, Megaphone,
   Eye, EyeOff, Pin,
 } from 'lucide-react'
@@ -36,8 +36,9 @@ import {
   useTickets, useTicket, useCreateTicket, useUpdateTicket, useDeleteTicket,
   useResolveTicket, useCloseTicket, useReopenTicket,
   useTicketComments, useAddComment, useTicketStatusHistory, useTicketStats,
+  useTicketTodos, useAddTodo, useUpdateTodo, useDeleteTodo,
 } from '@/hooks/useSupport'
-import type { SupportTicket, TicketCreate, TicketComment, StatusHistoryEntry } from '@/services/supportService'
+import type { SupportTicket, TicketCreate, TicketComment, StatusHistoryEntry, TicketTodo } from '@/services/supportService'
 import { useAnnouncements, useCreateAnnouncement, useUpdateAnnouncement, useDeleteAnnouncement } from '@/hooks/useAnnouncements'
 import type { Announcement, AnnouncementCreate } from '@/services/announcementService'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
@@ -243,7 +244,7 @@ function TicketDetailPanel({ id }: { id: string }) {
   const { toast } = useToast()
   const [commentText, setCommentText] = useState('')
   const [isInternal, setIsInternal] = useState(false)
-  const [detailTab, setDetailTab] = useState<'details' | 'comments' | 'attachments' | 'history'>('details')
+  const [detailTab, setDetailTab] = useState<'details' | 'comments' | 'attachments' | 'todos' | 'history'>('details')
   const [isDeleting, setIsDeleting] = useState(false)
 
   // Auto-close panel if ticket was deleted or returns 404
@@ -311,6 +312,7 @@ function TicketDetailPanel({ id }: { id: string }) {
           { id: 'details' as const, label: 'Détails', icon: LifeBuoy },
           { id: 'comments' as const, label: `Commentaires (${comments?.length ?? 0})`, icon: MessageSquare },
           { id: 'attachments' as const, label: 'Pièces jointes', icon: Paperclip },
+          ...(isAdmin ? [{ id: 'todos' as const, label: 'Checklist', icon: ListTodo }] : []),
           { id: 'history' as const, label: 'Historique', icon: Clock },
         ]}
         activeId={detailTab}
@@ -404,6 +406,10 @@ function TicketDetailPanel({ id }: { id: string }) {
           <AttachmentManager ownerType="support_ticket" ownerId={id} />
         )}
 
+        {detailTab === 'todos' && (
+          <TicketTodoList ticketId={id} />
+        )}
+
         {detailTab === 'history' && (
           <div className="space-y-2">
             {(history ?? []).map((h: StatusHistoryEntry) => (
@@ -431,6 +437,75 @@ function TicketDetailPanel({ id }: { id: string }) {
         )}
       </PanelContentLayout>
     </DynamicPanelShell>
+  )
+}
+
+// ── Ticket Todo List ────────────────────────────────────────
+
+function TicketTodoList({ ticketId }: { ticketId: string }) {
+  const { data: todos } = useTicketTodos(ticketId)
+  const addTodo = useAddTodo()
+  const updateTodo = useUpdateTodo()
+  const deleteTodo = useDeleteTodo()
+  const [newTitle, setNewTitle] = useState('')
+  const { toast } = useToast()
+
+  const handleAdd = async () => {
+    if (!newTitle.trim()) return
+    await addTodo.mutateAsync({ ticketId, title: newTitle.trim(), order: (todos?.length ?? 0) })
+    setNewTitle('')
+    toast({ title: 'Tâche ajoutée', variant: 'success' })
+  }
+
+  const handleToggle = async (todo: TicketTodo) => {
+    await updateTodo.mutateAsync({ todoId: todo.id, ticketId, payload: { completed: !todo.completed } })
+  }
+
+  const handleDelete = async (todo: TicketTodo) => {
+    await deleteTodo.mutateAsync({ todoId: todo.id, ticketId })
+  }
+
+  const done = (todos ?? []).filter((t) => t.completed).length
+  const total = (todos ?? []).length
+
+  return (
+    <div className="space-y-3">
+      {total > 0 && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+            <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${total ? (done / total) * 100 : 0}%` }} />
+          </div>
+          <span>{done}/{total}</span>
+        </div>
+      )}
+
+      <div className="space-y-1">
+        {(todos ?? []).map((todo) => (
+          <div key={todo.id} className="flex items-center gap-2 group py-1">
+            <button onClick={() => handleToggle(todo)} className="shrink-0 text-muted-foreground hover:text-primary transition-colors">
+              {todo.completed ? <CheckSquare size={14} className="text-emerald-500" /> : <Square size={14} />}
+            </button>
+            <span className={cn('flex-1 text-sm', todo.completed && 'line-through text-muted-foreground')}>{todo.title}</span>
+            <button onClick={() => handleDelete(todo)} className="p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+              <X size={10} />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-2">
+        <input
+          className={cn(panelInputClass, 'flex-1')}
+          value={newTitle}
+          onChange={(e) => setNewTitle(e.target.value)}
+          placeholder="Ajouter une tâche..."
+          onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+        />
+        <button onClick={handleAdd} disabled={!newTitle.trim()} className="p-1.5 rounded-md bg-primary text-primary-foreground disabled:opacity-40 hover:bg-primary/90 transition-colors">
+          <Plus size={12} />
+        </button>
+      </div>
+    </div>
   )
 }
 

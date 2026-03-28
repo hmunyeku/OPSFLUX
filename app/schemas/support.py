@@ -78,6 +78,7 @@ class TicketResolve(BaseModel):
 class CommentCreate(BaseModel):
     body: str = Field(..., min_length=1)
     is_internal: bool = False
+    attachment_ids: list[UUID] | None = None
 
 
 class CommentRead(OpsFluxSchema):
@@ -86,6 +87,7 @@ class CommentRead(OpsFluxSchema):
     author_id: UUID
     body: str
     is_internal: bool
+    attachment_ids: list[UUID] | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -120,3 +122,28 @@ class TicketStats(BaseModel):
     by_priority: dict[str, int] = {}
     avg_resolution_hours: float | None = None
     resolved_this_week: int = 0
+
+
+# ── Todo/Checklist ───────────────────────────────────────────────────────────
+
+
+class TodoCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=300)
+    order: int = 0
+
+
+class TodoUpdate(BaseModel):
+    title: str | None = None
+    completed: bool | None = None
+    order: int | None = None
+
+
+class TodoRead(OpsFluxSchema):
+    id: UUID
+    ticket_id: UUID
+    title: str
+    completed: bool
+    completed_at: datetime | None
+    completed_by: UUID | None
+    order: int
+    created_at: datetime

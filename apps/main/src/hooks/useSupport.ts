@@ -100,8 +100,8 @@ export function useTicketComments(ticketId: string) {
 export function useAddComment() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ ticketId, body, isInternal }: { ticketId: string; body: string; isInternal?: boolean }) =>
-      supportService.addComment(ticketId, body, isInternal),
+    mutationFn: ({ ticketId, body, isInternal, attachmentIds }: { ticketId: string; body: string; isInternal?: boolean; attachmentIds?: string[] }) =>
+      supportService.addComment(ticketId, body, isInternal, attachmentIds),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['support-comments', vars.ticketId] })
       qc.invalidateQueries({ queryKey: ['support-tickets'] })
@@ -122,5 +122,42 @@ export function useTicketStats() {
     queryKey: ['support-stats'],
     queryFn: () => supportService.getStats(),
     staleTime: 60_000,
+  })
+}
+
+// ── Todos ──
+
+export function useTicketTodos(ticketId: string) {
+  return useQuery({
+    queryKey: ['support-todos', ticketId],
+    queryFn: () => supportService.listTodos(ticketId),
+    enabled: !!ticketId,
+  })
+}
+
+export function useAddTodo() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ ticketId, title, order }: { ticketId: string; title: string; order?: number }) =>
+      supportService.addTodo(ticketId, title, order),
+    onSuccess: (_data, vars) => qc.invalidateQueries({ queryKey: ['support-todos', vars.ticketId] }),
+  })
+}
+
+export function useUpdateTodo() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ todoId, payload }: { todoId: string; ticketId: string; payload: { title?: string; completed?: boolean; order?: number } }) =>
+      supportService.updateTodo(todoId, payload),
+    onSuccess: (_data, vars) => qc.invalidateQueries({ queryKey: ['support-todos', vars.ticketId] }),
+  })
+}
+
+export function useDeleteTodo() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ todoId }: { todoId: string; ticketId: string }) =>
+      supportService.deleteTodo(todoId),
+    onSuccess: (_data, vars) => qc.invalidateQueries({ queryKey: ['support-todos', vars.ticketId] }),
   })
 }

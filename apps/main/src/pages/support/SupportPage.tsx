@@ -571,6 +571,7 @@ export function SupportPage() {
   const [priorityFilter, setPriorityFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const { hasPermission } = usePermission()
   const isAdmin = hasPermission('support.ticket.manage')
   const canCreate = hasPermission('support.ticket.create')
@@ -654,6 +655,10 @@ export function SupportPage() {
           </PanelContent>
         )}
       </div>
+
+      {/* Dynamic panel — rendered inline */}
+      {dynamicPanel?.module === 'support' && dynamicPanel.type === 'create' && <CreateTicketPanel />}
+      {dynamicPanel?.module === 'support' && dynamicPanel.type === 'detail' && 'id' in dynamicPanel && <TicketDetailPanel id={dynamicPanel.id} />}
     </div>
   )
 }

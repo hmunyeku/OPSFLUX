@@ -237,9 +237,12 @@ async def delete_entity(
     resource_id = str(entity.id) if hasattr(entity, "id") else "unknown"
 
     if mode in ("soft", "soft_purge"):
-        # Soft delete: set archived=True
+        # Soft delete: set archived=True + deleted_at timestamp
         if hasattr(entity, "archived"):
             entity.archived = True
+        if hasattr(entity, "deleted_at"):
+            from datetime import UTC, datetime
+            entity.deleted_at = datetime.now(UTC)
         if hasattr(entity, "active"):
             entity.active = False
         await db.flush()

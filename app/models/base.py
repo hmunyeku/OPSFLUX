@@ -29,12 +29,17 @@ class TimestampMixin:
 
 
 class SoftDeleteMixin:
-    """Mixin adding archived boolean (never physical DELETE)."""
+    """Mixin adding archived boolean + deleted_at timestamp (never physical DELETE)."""
     archived: Mapped[bool] = mapped_column(
         Boolean,
         default=False,
         server_default="false",
         nullable=False,
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        default=None,
     )
 
 

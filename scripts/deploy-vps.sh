@@ -1,7 +1,15 @@
 #!/bin/bash
 # =============================================================================
 # OpsFlux VPS Deploy Script
-# Usage: ssh root@72.60.188.156 'bash -s' < scripts/deploy-vps.sh [backend|frontend|both]
+# Usage: ssh root@72.60.188.156 'bash -s' < scripts/deploy-vps.sh [target]
+#
+# Targets:
+#   backend   — rebuild + restart backend container
+#   frontend  — rebuild + restart frontend container
+#   both      — backend + frontend (default)
+#   services  — rebuild support services (pgadmin, drawio, vitrine, db, redis)
+#   all       — everything (backend + frontend + services)
+#   status    — show status of all containers
 # =============================================================================
 set -e
 TARGET=${1:-both}
@@ -17,7 +25,6 @@ deploy_backend() {
   docker compose -p "$PROJECT" build --no-cache backend
 
   echo "=== Stopping old backend ==="
-  # Stop any existing backend containers (both naming patterns)
   docker ps -a --filter "name=backend" --filter "label=com.docker.compose.project=$PROJECT" -q | xargs -r docker rm -f 2>/dev/null
   docker rm -f ${PROJECT}-backend-1 2>/dev/null || true
 
@@ -46,7 +53,7 @@ deploy_backend() {
   docker network connect ${PROJECT}_default ${PROJECT}-backend-1 2>/dev/null || true
 
   echo "=== Waiting for backend startup ==="
-  sleep 12
+  sleep 15
   docker logs ${PROJECT}-backend-1 --tail 3
   echo ""
   STATUS=$(curl -sk -m5 -o /dev/null -w "%{http_code}" https://api.opsflux.io/api/v1/auth/sso/providers)
@@ -85,11 +92,50 @@ deploy_frontend() {
   echo "Frontend status: $STATUS"
 }
 
+deploy_services() {
+  echo "=== Deploying support services ==="
+
+  # Ensure DB + Redis are running
+  echo "--- DB & Redis ---"
+  docker compose -p "$PROJECT" up -d db redis
+
+  # pgAdmin 4
+  echo "--- pgAdmin 4 ---"
+  docker rm -f ${PROJECT}-pgadmin-1 2>/dev/null || true
+  docker rm -f ${PROJECT}-adminer-1 2>/dev/null || true
+  docker compose -p "$PROJECT" up -d pgadmin
+
+  # Draw.io
+  echo "--- Draw.io ---"
+  docker compose -p "$PROJECT" up -d drawio
+
+  # Vitrine
+  echo "--- Vitrine ---"
+  docker compose -p "$PROJECT" build vitrine 2>/dev/null || true
+  docker compose -p "$PROJECT" up -d vitrine
+
+  echo "=== Services deployed ==="
+}
+
+show_status() {
+  echo "=== OpsFlux Container Status ==="
+  docker ps --filter "name=${PROJECT}" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+  echo ""
+  echo "=== Health Checks ==="
+  API=$(curl -sk -m5 -o /dev/null -w "%{http_code}" https://api.opsflux.io/api/health 2>/dev/null || echo "ERR")
+  APP=$(curl -sk -m5 -o /dev/null -w "%{http_code}" https://app.opsflux.io/login 2>/dev/null || echo "ERR")
+  echo "API:      $API"
+  echo "Frontend: $APP"
+}
+
 case "$TARGET" in
-  backend)  deploy_backend ;;
-  frontend) deploy_frontend ;;
-  both)     deploy_backend && deploy_frontend ;;
-  *)        echo "Usage: $0 [backend|frontend|both]"; exit 1 ;;
+  backend)   deploy_backend ;;
+  frontend)  deploy_frontend ;;
+  both)      deploy_backend && deploy_frontend ;;
+  services)  deploy_services ;;
+  all)       deploy_services && deploy_backend && deploy_frontend ;;
+  status)    show_status ;;
+  *)         echo "Usage: $0 [backend|frontend|both|services|all|status]"; exit 1 ;;
 esac
 
 echo "=== Deploy complete ==="

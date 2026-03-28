@@ -41,6 +41,8 @@ import type { SupportTicket, TicketCreate, TicketComment, StatusHistoryEntry } f
 import { useAnnouncements, useCreateAnnouncement, useUpdateAnnouncement, useDeleteAnnouncement } from '@/hooks/useAnnouncements'
 import type { Announcement, AnnouncementCreate } from '@/services/announcementService'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { useRoles } from '@/hooks/useRbac'
+import { useUsers } from '@/hooks/useUsers'
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -466,6 +468,8 @@ function CreateAnnouncementPanel() {
   const createAnn = useCreateAnnouncement()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { toast } = useToast()
+  const { data: roles } = useRoles()
+  const { data: usersData } = useUsers({ page: 1, page_size: 200, active: true })
   const [form, setForm] = useState<AnnouncementCreate>({
     title: '', body: '', priority: 'info', target_type: 'all', target_value: null, display_location: 'banner', pinned: false, send_email: false, published_at: null, expires_at: null,
   })
@@ -522,9 +526,33 @@ function CreateAnnouncementPanel() {
                 {Object.entries(TARGET_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </DynamicPanelField>
-            {form.target_type !== 'all' && (
-              <DynamicPanelField label={`Valeur (${TARGET_LABELS[form.target_type!] || ''})`}>
-                <input className={panelInputClass} value={form.target_value || ''} onChange={e => setForm({ ...form, target_value: e.target.value || null })} placeholder={form.target_type === 'role' ? 'admin, manager...' : form.target_type === 'user' ? 'UUID utilisateur' : 'Valeur...'} />
+            {form.target_type === 'role' && (
+              <DynamicPanelField label="Rôle">
+                <select className={panelInputClass} value={form.target_value || ''} onChange={e => setForm({ ...form, target_value: e.target.value || null })}>
+                  <option value="">— Sélectionner un rôle —</option>
+                  {(roles ?? []).map((r) => <option key={r.code} value={r.code}>{r.name}</option>)}
+                </select>
+              </DynamicPanelField>
+            )}
+            {form.target_type === 'user' && (
+              <DynamicPanelField label="Utilisateur">
+                <select className={panelInputClass} value={form.target_value || ''} onChange={e => setForm({ ...form, target_value: e.target.value || null })}>
+                  <option value="">— Sélectionner un utilisateur —</option>
+                  {(usersData?.items ?? []).map((u) => <option key={u.id} value={u.id}>{u.first_name} {u.last_name} ({u.email})</option>)}
+                </select>
+              </DynamicPanelField>
+            )}
+            {form.target_type === 'module' && (
+              <DynamicPanelField label="Module">
+                <select className={panelInputClass} value={form.target_value || ''} onChange={e => setForm({ ...form, target_value: e.target.value || null })}>
+                  <option value="">— Sélectionner un module —</option>
+                  {['dashboard', 'tiers', 'projets', 'planner', 'paxlog', 'travelwiz', 'conformite', 'asset-registry', 'support'].map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </DynamicPanelField>
+            )}
+            {form.target_type === 'entity' && (
+              <DynamicPanelField label="Entité (ID)">
+                <input className={panelInputClass} value={form.target_value || ''} onChange={e => setForm({ ...form, target_value: e.target.value || null })} placeholder="UUID de l'entité" />
               </DynamicPanelField>
             )}
           </FormGrid>

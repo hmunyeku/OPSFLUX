@@ -1,8 +1,36 @@
 import { useState, useEffect } from 'react'
-import { X, Download, Pencil, Trash2, Folder, FileText, Image, Film, FileArchive, File, Music } from 'lucide-react'
+import { X, Download, Pencil, Trash2, Folder, FileText, Image, Film, FileArchive, File, Music, Loader2 } from 'lucide-react'
 import api from '@/lib/api'
 import type { FSItem } from '../hooks/useFileManager'
 import { getPreviewType } from '../hooks/useFileManager'
+
+/** Fetches media via authenticated API and renders as blob URL. */
+function AuthMedia({ src, alt, type }: { src: string; alt: string; type: 'image' | 'video' | 'audio' }) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    let revoke: string | null = null
+    setError(false)
+    setBlobUrl(null)
+    api.get(src, { responseType: 'blob' })
+      .then(({ data }) => {
+        const url = URL.createObjectURL(data)
+        revoke = url
+        setBlobUrl(url)
+      })
+      .catch(() => setError(true))
+    return () => { if (revoke) URL.revokeObjectURL(revoke) }
+  }, [src])
+
+  if (error) return <p className="text-xs text-muted-foreground p-3">Impossible de charger le fichier.</p>
+  if (!blobUrl) return <div className="flex items-center justify-center py-12"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+
+  if (type === 'image') return <img src={blobUrl} alt={alt} className="max-w-full max-h-[60vh] object-contain rounded shadow-sm" />
+  if (type === 'video') return <video src={blobUrl} controls className="w-full rounded" />
+  if (type === 'audio') return <audio src={blobUrl} controls className="w-full" />
+  return null
+}
 
 function formatBytes(bytes: number): string {
   if (!bytes) return '—'
@@ -90,11 +118,24 @@ export function FilePreviewPanel({ item, onClose, onDownload, onRename, onDelete
         </button>
       </div>
 
+      {/* Actions — top position per design system */}
+      <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border shrink-0">
+        <a href={downloadUrl} target="_blank" rel="noopener noreferrer" className="gl-button-sm gl-button-confirm flex-1 justify-center" onClick={(e) => e.stopPropagation()}>
+          <Download size={11} /> Télécharger
+        </a>
+        <button onClick={() => onRename(item)} className="gl-button-sm gl-button-default">
+          <Pencil size={11} />
+        </button>
+        <button onClick={() => onDelete(item)} className="gl-button-sm gl-button-danger">
+          <Trash2 size={11} />
+        </button>
+      </div>
+
       {/* Preview content */}
       <div className="flex-1 overflow-auto bg-muted/10">
         {previewType === 'image' && (
           <div className="p-3 flex items-center justify-center min-h-[200px]">
-            <img src={downloadUrl} alt={item.name} className="max-w-full max-h-[60vh] object-contain rounded shadow-sm" />
+            <AuthMedia src={`/api/v1/admin/fs/download?path=${encodeURIComponent(item.path)}`} alt={item.name} type="image" />
           </div>
         )}
         {previewType === 'pdf' && (
@@ -102,13 +143,13 @@ export function FilePreviewPanel({ item, onClose, onDownload, onRename, onDelete
         )}
         {previewType === 'video' && (
           <div className="p-3">
-            <video src={downloadUrl} controls className="w-full rounded" />
+            <AuthMedia src={`/api/v1/admin/fs/download?path=${encodeURIComponent(item.path)}`} alt={item.name} type="video" />
           </div>
         )}
         {previewType === 'audio' && (
           <div className="p-6 flex flex-col items-center gap-4">
             <Music size={48} className="text-muted-foreground/30" />
-            <audio src={downloadUrl} controls className="w-full" />
+            <AuthMedia src={`/api/v1/admin/fs/download?path=${encodeURIComponent(item.path)}`} alt={item.name} type="audio" />
           </div>
         )}
         {previewType === 'text' && (
@@ -128,19 +169,6 @@ export function FilePreviewPanel({ item, onClose, onDownload, onRename, onDelete
         <div className="flex justify-between"><span>Taille</span><span className="font-mono">{formatBytes(item.size || 0)}</span></div>
         <div className="flex justify-between"><span>Modifié</span><span>{formatDate(item.updatedAt)}</span></div>
         <div className="flex justify-between"><span>Chemin</span><span className="font-mono truncate max-w-[180px]" title={item.path}>{item.path}</span></div>
-      </div>
-
-      {/* Actions */}
-      <div className="flex items-center gap-1.5 px-3 py-2 border-t border-border shrink-0">
-        <a href={downloadUrl} target="_blank" rel="noopener noreferrer" className="gl-button-sm gl-button-confirm flex-1 justify-center" onClick={(e) => e.stopPropagation()}>
-          <Download size={11} /> Télécharger
-        </a>
-        <button onClick={() => onRename(item)} className="gl-button-sm gl-button-default">
-          <Pencil size={11} />
-        </button>
-        <button onClick={() => onDelete(item)} className="gl-button-sm gl-button-danger">
-          <Trash2 size={11} />
-        </button>
       </div>
     </div>
   )

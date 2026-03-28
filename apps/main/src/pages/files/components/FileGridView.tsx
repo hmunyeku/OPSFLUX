@@ -1,8 +1,34 @@
+import { useState, useEffect } from 'react'
 import { Folder, FileText, Image, Film, FileArchive, File, Music, Loader2, FolderOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import api from '@/lib/api'
 import type { FSItem } from '../hooks/useFileManager'
 
 const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg']
+
+/** Fetches an image via authenticated API and renders as blob URL. */
+function AuthImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    let revoke: string | null = null
+    setError(false)
+    setBlobUrl(null)
+    api.get(src, { responseType: 'blob' })
+      .then(({ data }) => {
+        const url = URL.createObjectURL(data)
+        revoke = url
+        setBlobUrl(url)
+      })
+      .catch(() => setError(true))
+    return () => { if (revoke) URL.revokeObjectURL(revoke) }
+  }, [src])
+
+  if (error) return <Image size={32} className="text-muted-foreground/50" />
+  if (!blobUrl) return <Loader2 size={16} className="animate-spin text-muted-foreground/30" />
+  return <img src={blobUrl} alt={alt} className={className} loading="lazy" />
+}
 
 function getIcon(item: FSItem) {
   if (item.isDirectory) return Folder
@@ -28,7 +54,7 @@ interface FileGridViewProps {
 }
 
 export function FileGridView({
-  items, loading, search, isSelected, focusedIndex, apiBase,
+  items, loading, search, isSelected, focusedIndex, apiBase: _apiBase,
   onToggleSelect, onOpen, onContextMenu,
 }: FileGridViewProps) {
   if (loading) {
@@ -79,11 +105,10 @@ export function FileGridView({
             {/* Preview area */}
             <div className="h-24 flex items-center justify-center bg-muted/30 overflow-hidden">
               {isImage ? (
-                <img
-                  src={`${apiBase}/api/v1/admin/fs/download?path=${encodeURIComponent(item.path)}`}
+                <AuthImage
+                  src={`/api/v1/admin/fs/download?path=${encodeURIComponent(item.path)}`}
                   alt={item.name}
                   className="w-full h-full object-cover"
-                  loading="lazy"
                 />
               ) : (
                 <Icon size={32} className={item.isDirectory ? 'text-amber-500' : 'text-muted-foreground/50'} />

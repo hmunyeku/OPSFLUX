@@ -76,7 +76,7 @@ export default function FileManagerPage() {
   const allSelected = fm.items.length > 0 && selection.selectedItems.size === fm.items.length
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 overflow-hidden" ref={keyboardRef} tabIndex={0}>
+    <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden" ref={keyboardRef} tabIndex={0}>
       {/* Header */}
       <PanelHeader icon={FolderOpen} title="Gestionnaire de fichiers" subtitle="Documents, pièces jointes et médias">
         <button onClick={() => fm.setSidebarOpen(!fm.sidebarOpen)} className="p-1.5 rounded hover:bg-accent text-muted-foreground lg:hidden">
@@ -120,7 +120,7 @@ export default function FileManagerPage() {
 
         {/* Content area */}
         <div
-          className="flex-1 flex flex-col min-w-0 overflow-hidden relative"
+          className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden relative"
           {...dragDrop}
         >
           {/* Breadcrumbs */}

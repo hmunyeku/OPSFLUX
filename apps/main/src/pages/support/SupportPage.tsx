@@ -454,31 +454,100 @@ function SupportStatsCards() {
   )
 }
 
-// ── Announcements Admin Tab ──────────────────────────────────
+// ── Create Announcement Panel ────────────────────────────────
 
-const DISPLAY_LABELS: Record<string, string> = { dashboard: 'Tableau de bord', banner: 'Bannière', login: 'Login', all: 'Partout', modal: 'Modal', logout: 'Déconnexion' }
-const PRIORITY_BADGE: Record<string, 'info' | 'warning' | 'danger' | 'neutral'> = { info: 'info', warning: 'warning', critical: 'danger', maintenance: 'neutral' }
-
-function AnnouncementsAdminTab({ showCreate, onToggleCreate }: { showCreate: boolean; onToggleCreate: (v: boolean) => void }) {
-  const [page, setPage] = useState(1)
-  const { pageSize, setPageSize } = usePageSize()
-  const { data, isLoading } = useAnnouncements({ page, page_size: pageSize, active_only: false })
+function CreateAnnouncementPanel() {
   const createAnn = useCreateAnnouncement()
-  const updateAnn = useUpdateAnnouncement()
-  const deleteAnn = useDeleteAnnouncement()
-  const confirm = useConfirm()
+  const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { toast } = useToast()
   const [form, setForm] = useState<AnnouncementCreate>({
     title: '', body: '', priority: 'info', target_type: 'all', display_location: 'banner', pinned: false, send_email: false,
   })
 
-  const handleCreate = async () => {
+  const handleSubmit = async () => {
     if (!form.title.trim() || !form.body.trim()) return
-    await createAnn.mutateAsync(form)
-    toast({ title: 'Annonce publiée', variant: 'success' })
-    onToggleCreate(false)
-    setForm({ title: '', body: '', priority: 'info', target_type: 'all', display_location: 'banner', pinned: false, send_email: false })
+    try {
+      await createAnn.mutateAsync(form)
+      toast({ title: 'Annonce publiée', variant: 'success' })
+      closeDynamicPanel()
+    } catch {
+      toast({ title: 'Erreur lors de la publication', variant: 'error' })
+    }
   }
+
+  return (
+    <DynamicPanelShell
+      title="Nouvelle annonce"
+      subtitle="Communication"
+      icon={<Megaphone size={14} className="text-primary" />}
+      actions={
+        <PanelActionButton
+          icon={<Send size={12} />}
+          onClick={handleSubmit}
+          disabled={createAnn.isPending || !form.title.trim() || !form.body.trim()}
+        >
+          Publier
+        </PanelActionButton>
+      }
+    >
+      <PanelContentLayout>
+        <FormSection title="Contenu">
+          <FormGrid>
+            <DynamicPanelField label="Titre" required>
+              <input className={panelInputClass} value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Titre de l'annonce..." autoFocus />
+            </DynamicPanelField>
+            <DynamicPanelField label="Priorité">
+              <select className={panelInputClass} value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value })}>
+                <option value="info">Info</option><option value="warning">Attention</option><option value="critical">Critique</option><option value="maintenance">Maintenance</option>
+              </select>
+            </DynamicPanelField>
+            <DynamicPanelField label="Emplacement">
+              <select className={panelInputClass} value={form.display_location} onChange={e => setForm({ ...form, display_location: e.target.value })}>
+                <option value="banner">Bannière</option><option value="dashboard">Tableau de bord</option><option value="all">Partout</option><option value="login">Page login</option>
+              </select>
+            </DynamicPanelField>
+          </FormGrid>
+        </FormSection>
+
+        <FormSection title="Message">
+          <textarea
+            className={cn(panelInputClass, 'min-h-[120px] resize-y')}
+            value={form.body}
+            onChange={e => setForm({ ...form, body: e.target.value })}
+            placeholder="Contenu de l'annonce..."
+          />
+        </FormSection>
+
+        <FormSection title="Options">
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <input type="checkbox" checked={form.pinned} onChange={e => setForm({ ...form, pinned: e.target.checked })} className="h-3 w-3 rounded" />
+              <Pin size={10} /> Épinglée
+            </label>
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <input type="checkbox" checked={form.send_email} onChange={e => setForm({ ...form, send_email: e.target.checked })} className="h-3 w-3 rounded" />
+              <Send size={10} /> Envoyer par email
+            </label>
+          </div>
+        </FormSection>
+      </PanelContentLayout>
+    </DynamicPanelShell>
+  )
+}
+
+// ── Announcements Admin Tab ──────────────────────────────────
+
+const DISPLAY_LABELS: Record<string, string> = { dashboard: 'Tableau de bord', banner: 'Bannière', login: 'Login', all: 'Partout', modal: 'Modal', logout: 'Déconnexion' }
+const PRIORITY_BADGE: Record<string, 'info' | 'warning' | 'danger' | 'neutral'> = { info: 'info', warning: 'warning', critical: 'danger', maintenance: 'neutral' }
+
+function AnnouncementsAdminTab() {
+  const [page, setPage] = useState(1)
+  const { pageSize, setPageSize } = usePageSize()
+  const { data, isLoading } = useAnnouncements({ page, page_size: pageSize, active_only: false })
+  const updateAnn = useUpdateAnnouncement()
+  const deleteAnn = useDeleteAnnouncement()
+  const confirm = useConfirm()
+  const { toast } = useToast()
 
   const handleToggleActive = async (ann: Announcement) => {
     await updateAnn.mutateAsync({ id: ann.id, body: { active: !ann.active } })
@@ -512,46 +581,18 @@ function AnnouncementsAdminTab({ showCreate, onToggleCreate }: { showCreate: boo
   ]
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Create announcement form */}
-      {showCreate && (
-        <div className="border-b border-border p-4 space-y-3 bg-muted/10 shrink-0">
-          <div className="grid grid-cols-2 gap-3">
-            <input className="gl-form-input text-sm col-span-2" placeholder="Titre de l'annonce..." value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} autoFocus />
-            <textarea className="gl-form-input text-sm col-span-2 min-h-[60px] resize-y" placeholder="Contenu..." value={form.body} onChange={e => setForm({ ...form, body: e.target.value })} />
-            <select className="gl-form-select text-xs" value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value })}>
-              <option value="info">Info</option><option value="warning">Attention</option><option value="critical">Critique</option><option value="maintenance">Maintenance</option>
-            </select>
-            <select className="gl-form-select text-xs" value={form.display_location} onChange={e => setForm({ ...form, display_location: e.target.value })}>
-              <option value="banner">Bannière</option><option value="dashboard">Tableau de bord</option><option value="all">Partout</option><option value="login">Page login</option>
-            </select>
-          </div>
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-1.5 text-xs text-muted-foreground"><input type="checkbox" checked={form.pinned} onChange={e => setForm({ ...form, pinned: e.target.checked })} className="h-3 w-3 rounded" /> Épinglée</label>
-            <label className="flex items-center gap-1.5 text-xs text-muted-foreground"><input type="checkbox" checked={form.send_email} onChange={e => setForm({ ...form, send_email: e.target.checked })} className="h-3 w-3 rounded" /> Envoyer par email</label>
-            <div className="ml-auto flex gap-2">
-              <button className="gl-button-sm gl-button-default" onClick={() => onToggleCreate(false)}>Annuler</button>
-              <button className="gl-button-sm gl-button-confirm" onClick={handleCreate} disabled={!form.title.trim() || !form.body.trim() || createAnn.isPending}>
-                {createAnn.isPending ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />} Publier
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <DataTable<Announcement>
-        columns={annColumns}
-        data={data?.items ?? []}
-        isLoading={isLoading}
-        getRowId={(row) => row.id}
-        storageKey="support-announcements"
-        pagination={data ? { page: data.page, pageSize: data.page_size, total: data.total, pages: data.pages } : undefined}
-        onPaginationChange={(p, size) => { setPage(p); setPageSize(size) }}
-        sortable
-        emptyIcon={Megaphone}
-        emptyTitle="Aucune annonce"
-      />
-    </div>
+    <DataTable<Announcement>
+      columns={annColumns}
+      data={data?.items ?? []}
+      isLoading={isLoading}
+      getRowId={(row) => row.id}
+      storageKey="support-announcements"
+      pagination={data ? { page: data.page, pageSize: data.page_size, total: data.total, pages: data.pages } : undefined}
+      onPaginationChange={(p, size) => { setPage(p); setPageSize(size) }}
+      sortable
+      emptyIcon={Megaphone}
+      emptyTitle="Aucune annonce"
+    />
   )
 }
 
@@ -575,7 +616,6 @@ export function SupportPage() {
   const isAdmin = hasPermission('support.ticket.manage')
   const canCreate = hasPermission('support.ticket.create')
   const canManageAnnouncements = hasPermission('messaging.announcement.create')
-  const [showCreateAnn, setShowCreateAnn] = useState(false)
 
   const { data, isLoading } = useTickets({
     page,
@@ -596,7 +636,7 @@ export function SupportPage() {
   const toolbarAction = activeTab === 'tickets' && canCreate
     ? <ToolbarButton icon={Plus} label="Soumettre un ticket" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'support' })} />
     : activeTab === 'announcements' && canManageAnnouncements
-      ? <ToolbarButton icon={Plus} label="Nouvelle annonce" variant="primary" onClick={() => setShowCreateAnn(v => !v)} />
+      ? <ToolbarButton icon={Plus} label="Nouvelle annonce" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'announcements' })} />
       : null
 
   return (
@@ -650,7 +690,7 @@ export function SupportPage() {
 
         {activeTab === 'announcements' && (
           <PanelContent>
-            <AnnouncementsAdminTab showCreate={showCreateAnn} onToggleCreate={setShowCreateAnn} />
+            <AnnouncementsAdminTab />
           </PanelContent>
         )}
       </div>
@@ -658,6 +698,7 @@ export function SupportPage() {
       {/* Dynamic panel — rendered inline */}
       {dynamicPanel?.module === 'support' && dynamicPanel.type === 'create' && <CreateTicketPanel />}
       {dynamicPanel?.module === 'support' && dynamicPanel.type === 'detail' && 'id' in dynamicPanel && <TicketDetailPanel id={dynamicPanel.id} />}
+      {dynamicPanel?.module === 'announcements' && dynamicPanel.type === 'create' && <CreateAnnouncementPanel />}
     </div>
   )
 }
@@ -667,6 +708,11 @@ export function SupportPage() {
 registerPanelRenderer('support', (view) => {
   if (view.type === 'create') return <CreateTicketPanel />
   if (view.type === 'detail' && 'id' in view) return <TicketDetailPanel id={view.id} />
+  return null
+})
+
+registerPanelRenderer('announcements', (view) => {
+  if (view.type === 'create') return <CreateAnnouncementPanel />
   return null
 })
 

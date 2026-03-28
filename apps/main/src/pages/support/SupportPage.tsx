@@ -454,6 +454,12 @@ function SupportStatsCards() {
   )
 }
 
+// ── Announcement shared constants ────────────────────────────
+
+const TARGET_LABELS: Record<string, string> = { all: 'Tout le monde', entity: 'Entité', role: 'Rôle', module: 'Module', user: 'Utilisateur' }
+const LOCATION_LABELS: Record<string, string> = { dashboard: 'Tableau de bord', banner: 'Bannière', login: 'Page login', all: 'Partout', modal: 'Modal', logout: 'Déconnexion' }
+const ANN_PRIORITY_LABELS: Record<string, string> = { info: 'Info', warning: 'Attention', critical: 'Critique', maintenance: 'Maintenance' }
+
 // ── Create Announcement Panel ────────────────────────────────
 
 function CreateAnnouncementPanel() {
@@ -461,7 +467,7 @@ function CreateAnnouncementPanel() {
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { toast } = useToast()
   const [form, setForm] = useState<AnnouncementCreate>({
-    title: '', body: '', priority: 'info', target_type: 'all', display_location: 'banner', pinned: false, send_email: false,
+    title: '', body: '', priority: 'info', target_type: 'all', target_value: null, display_location: 'banner', pinned: false, send_email: false, published_at: null, expires_at: null,
   })
 
   const handleSubmit = async () => {
@@ -481,11 +487,7 @@ function CreateAnnouncementPanel() {
       subtitle="Communication"
       icon={<Megaphone size={14} className="text-primary" />}
       actions={
-        <PanelActionButton
-          icon={<Send size={12} />}
-          onClick={handleSubmit}
-          disabled={createAnn.isPending || !form.title.trim() || !form.body.trim()}
-        >
+        <PanelActionButton icon={<Send size={12} />} onClick={handleSubmit} disabled={createAnn.isPending || !form.title.trim() || !form.body.trim()}>
           Publier
         </PanelActionButton>
       }
@@ -498,24 +500,45 @@ function CreateAnnouncementPanel() {
             </DynamicPanelField>
             <DynamicPanelField label="Priorité">
               <select className={panelInputClass} value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value })}>
-                <option value="info">Info</option><option value="warning">Attention</option><option value="critical">Critique</option><option value="maintenance">Maintenance</option>
+                {Object.entries(ANN_PRIORITY_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </DynamicPanelField>
             <DynamicPanelField label="Emplacement">
               <select className={panelInputClass} value={form.display_location} onChange={e => setForm({ ...form, display_location: e.target.value })}>
-                <option value="banner">Bannière</option><option value="dashboard">Tableau de bord</option><option value="all">Partout</option><option value="login">Page login</option>
+                {Object.entries(LOCATION_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </DynamicPanelField>
           </FormGrid>
         </FormSection>
 
         <FormSection title="Message">
-          <textarea
-            className={cn(panelInputClass, 'min-h-[120px] resize-y')}
-            value={form.body}
-            onChange={e => setForm({ ...form, body: e.target.value })}
-            placeholder="Contenu de l'annonce..."
-          />
+          <textarea className={cn(panelInputClass, 'min-h-[120px] resize-y')} value={form.body} onChange={e => setForm({ ...form, body: e.target.value })} placeholder="Contenu de l'annonce..." />
+        </FormSection>
+
+        <FormSection title="Ciblage">
+          <FormGrid>
+            <DynamicPanelField label="Destinataires">
+              <select className={panelInputClass} value={form.target_type} onChange={e => setForm({ ...form, target_type: e.target.value, target_value: e.target.value === 'all' ? null : '' })}>
+                {Object.entries(TARGET_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </DynamicPanelField>
+            {form.target_type !== 'all' && (
+              <DynamicPanelField label={`Valeur (${TARGET_LABELS[form.target_type!] || ''})`}>
+                <input className={panelInputClass} value={form.target_value || ''} onChange={e => setForm({ ...form, target_value: e.target.value || null })} placeholder={form.target_type === 'role' ? 'admin, manager...' : form.target_type === 'user' ? 'UUID utilisateur' : 'Valeur...'} />
+              </DynamicPanelField>
+            )}
+          </FormGrid>
+        </FormSection>
+
+        <FormSection title="Programmation">
+          <FormGrid>
+            <DynamicPanelField label="Publication">
+              <input type="datetime-local" className={panelInputClass} value={form.published_at ? form.published_at.slice(0, 16) : ''} onChange={e => setForm({ ...form, published_at: e.target.value ? new Date(e.target.value).toISOString() : null })} />
+            </DynamicPanelField>
+            <DynamicPanelField label="Expiration">
+              <input type="datetime-local" className={panelInputClass} value={form.expires_at ? form.expires_at.slice(0, 16) : ''} onChange={e => setForm({ ...form, expires_at: e.target.value ? new Date(e.target.value).toISOString() : null })} />
+            </DynamicPanelField>
+          </FormGrid>
         </FormSection>
 
         <FormSection title="Options">
@@ -535,6 +558,96 @@ function CreateAnnouncementPanel() {
   )
 }
 
+// ── Announcement Detail Panel ────────────────────────────────
+
+function AnnouncementDetailPanel({ id }: { id: string }) {
+  const { t } = useTranslation()
+  const { data: annData } = useAnnouncements({ page: 1, page_size: 100, active_only: false })
+  const updateAnn = useUpdateAnnouncement()
+  const deleteAnn = useDeleteAnnouncement()
+  const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const { toast } = useToast()
+
+  const ann = annData?.items.find((a) => a.id === id)
+
+  const handleSave = useCallback((field: string, value: string) => {
+    updateAnn.mutate({ id, body: { [field]: value } })
+  }, [id, updateAnn])
+
+  const handleDelete = useCallback(async () => {
+    await deleteAnn.mutateAsync(id)
+    closeDynamicPanel()
+    toast({ title: 'Annonce supprimée', variant: 'success' })
+  }, [id, deleteAnn, closeDynamicPanel, toast])
+
+  const handleToggleActive = useCallback(async () => {
+    if (!ann) return
+    await updateAnn.mutateAsync({ id, body: { active: !ann.active } })
+    toast({ title: ann.active ? 'Annonce désactivée' : 'Annonce activée', variant: 'success' })
+  }, [id, ann, updateAnn, toast])
+
+  if (!ann) {
+    return (
+      <DynamicPanelShell title={t('common.loading')} icon={<Megaphone size={14} className="text-primary" />}>
+        <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+      </DynamicPanelShell>
+    )
+  }
+
+  const fmtDate = (d: string | null) => d ? new Date(d).toLocaleString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
+
+  return (
+    <DynamicPanelShell
+      title={ann.title}
+      subtitle="Annonce"
+      icon={<Megaphone size={14} className="text-primary" />}
+      actions={
+        <>
+          <PanelActionButton icon={ann.active ? <EyeOff size={12} /> : <Eye size={12} />} onClick={handleToggleActive}>
+            {ann.active ? 'Désactiver' : 'Activer'}
+          </PanelActionButton>
+          <DangerConfirmButton icon={<Trash2 size={12} />} onConfirm={handleDelete} confirmLabel="Supprimer ?">
+            {t('common.delete')}
+          </DangerConfirmButton>
+        </>
+      }
+    >
+      <PanelContentLayout>
+        <FormSection title="Informations">
+          <DetailFieldGrid>
+            <InlineEditableRow label="Titre" value={ann.title} onSave={(v) => handleSave('title', v)} />
+            <ReadOnlyRow label="Priorité" value={<BadgeCell value={ANN_PRIORITY_LABELS[ann.priority] || ann.priority} variant={PRIORITY_BADGE[ann.priority] || 'neutral'} />} />
+            <ReadOnlyRow label="Emplacement" value={LOCATION_LABELS[ann.display_location] || ann.display_location} />
+            <ReadOnlyRow label="Statut" value={ann.active ? <BadgeCell value="Actif" variant="success" /> : <BadgeCell value="Inactif" variant="neutral" />} />
+            <ReadOnlyRow label="Épinglée" value={ann.pinned ? 'Oui' : 'Non'} />
+            <ReadOnlyRow label="Email envoyé" value={ann.send_email ? (ann.email_sent_at ? `Oui (${fmtDate(ann.email_sent_at)})` : 'Prévu') : 'Non'} />
+          </DetailFieldGrid>
+        </FormSection>
+
+        <FormSection title="Ciblage">
+          <DetailFieldGrid>
+            <ReadOnlyRow label="Destinataires" value={TARGET_LABELS[ann.target_type] || ann.target_type} />
+            {ann.target_value && <ReadOnlyRow label="Valeur cible" value={ann.target_value} />}
+          </DetailFieldGrid>
+        </FormSection>
+
+        <FormSection title="Programmation">
+          <DetailFieldGrid>
+            <ReadOnlyRow label="Publiée le" value={fmtDate(ann.published_at)} />
+            <ReadOnlyRow label="Expire le" value={fmtDate(ann.expires_at)} />
+            <ReadOnlyRow label="Créée le" value={fmtDate(ann.created_at)} />
+            <ReadOnlyRow label="Par" value={ann.sender_name || '—'} />
+          </DetailFieldGrid>
+        </FormSection>
+
+        <FormSection title="Contenu" collapsible defaultExpanded>
+          <div className="text-sm text-foreground whitespace-pre-wrap">{ann.body}</div>
+        </FormSection>
+      </PanelContentLayout>
+    </DynamicPanelShell>
+  )
+}
+
 // ── Announcements Admin Tab ──────────────────────────────────
 
 const DISPLAY_LABELS: Record<string, string> = { dashboard: 'Tableau de bord', banner: 'Bannière', login: 'Login', all: 'Partout', modal: 'Modal', logout: 'Déconnexion' }
@@ -548,6 +661,7 @@ function AnnouncementsAdminTab() {
   const deleteAnn = useDeleteAnnouncement()
   const confirm = useConfirm()
   const { toast } = useToast()
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
 
   const handleToggleActive = async (ann: Announcement) => {
     await updateAnn.mutateAsync({ id: ann.id, body: { active: !ann.active } })
@@ -589,6 +703,7 @@ function AnnouncementsAdminTab() {
       storageKey="support-announcements"
       pagination={data ? { page: data.page, pageSize: data.page_size, total: data.total, pages: data.pages } : undefined}
       onPaginationChange={(p, size) => { setPage(p); setPageSize(size) }}
+      onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'announcements', id: row.id })}
       sortable
       emptyIcon={Megaphone}
       emptyTitle="Aucune annonce"
@@ -699,6 +814,7 @@ export function SupportPage() {
       {dynamicPanel?.module === 'support' && dynamicPanel.type === 'create' && <CreateTicketPanel />}
       {dynamicPanel?.module === 'support' && dynamicPanel.type === 'detail' && 'id' in dynamicPanel && <TicketDetailPanel id={dynamicPanel.id} />}
       {dynamicPanel?.module === 'announcements' && dynamicPanel.type === 'create' && <CreateAnnouncementPanel />}
+      {dynamicPanel?.module === 'announcements' && dynamicPanel.type === 'detail' && 'id' in dynamicPanel && <AnnouncementDetailPanel id={dynamicPanel.id} />}
     </div>
   )
 }
@@ -713,6 +829,7 @@ registerPanelRenderer('support', (view) => {
 
 registerPanelRenderer('announcements', (view) => {
   if (view.type === 'create') return <CreateAnnouncementPanel />
+  if (view.type === 'detail' && 'id' in view) return <AnnouncementDetailPanel id={view.id} />
   return null
 })
 

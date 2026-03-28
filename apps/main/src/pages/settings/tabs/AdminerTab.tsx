@@ -200,9 +200,12 @@ export function AdminerTab() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center gap-2">
-        <Database size={16} className="text-primary" />
-        <h3 className="text-sm font-semibold text-foreground">SQL Runner</h3>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Database size={16} className="text-primary" />
+          <h3 className="text-sm font-semibold text-foreground">Base de données</h3>
+          <span className="gl-badge gl-badge-warning text-[8px]">Superadmin</span>
+        </div>
       </div>
 
       {/* Connection info */}

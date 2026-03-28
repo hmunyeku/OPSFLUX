@@ -96,22 +96,30 @@ services:
     environment:
       DRAWIO_SELF_CONTAINED: "1"
 
-  # ─── Adminer (DB management — admin only, proxied via backend) ──
-  adminer:
-    image: adminer:latest
+  # ─── pgAdmin 4 (DB management — superadmin only) ──
+  pgadmin:
+    image: dpage/pgadmin4:latest
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     environment:
-      ADMINER_DEFAULT_SERVER: db
-      ADMINER_DESIGN: "pepa-linha-dark"
+      PGADMIN_DEFAULT_EMAIL: admin@opsflux.io
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-OpsFlux2024!}
+      PGADMIN_DISABLE_POSTFIX: "true"
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+      SCRIPT_NAME: /pgadmin
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./pgadmin-servers.json:/pgadmin4/servers.json:ro
     networks:
       - default
 
 volumes:
   pg_data:
   uploads_data:
+  pgadmin_data:
 
 networks:
   dokploy-network:

@@ -10,7 +10,7 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 
 revision = "070_support"
-down_revision = None  # standalone — will run after head
+down_revision = "069"
 branch_labels = None
 depends_on = None
 

@@ -41,7 +41,7 @@ import { AssetPicker } from '@/components/shared/AssetPicker'
 import { ProjectPicker } from '@/components/shared/ProjectPicker'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { useToast } from '@/components/ui/Toast'
-import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { useConfirm, usePromptInput } from '@/components/ui/ConfirmDialog'
 import {
   useActivities,
   useActivity,
@@ -527,6 +527,7 @@ function ActivitiesTab() {
   const [typeFilter, setTypeFilter] = useState('')
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const confirmDialog = useConfirm()
+  const promptInput = usePromptInput()
   const deleteActivity = useDeleteActivity()
   const submitActivity = useSubmitActivity()
   const validateActivity = useValidateActivity()
@@ -669,8 +670,8 @@ function ActivitiesTab() {
                 </button>
                 <button
                   className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-                  onClick={(e) => handleAction(e, () => {
-                    const reason = prompt('Motif du rejet :')
+                  onClick={(e) => handleAction(e, async () => {
+                    const reason = await promptInput({ title: 'Rejeter l\'activité', placeholder: 'Motif du rejet...' })
                     if (reason !== null) rejectActivity.mutate({ id: row.original.id, reason })
                   })}
                   title="Rejeter"
@@ -1321,6 +1322,7 @@ const DEP_TYPE_OPTIONS = [
 
 function ActivityDetailPanel({ id }: { id: string }) {
   const { toast } = useToast()
+  const promptInput = usePromptInput()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { data: activity, isLoading } = useActivity(id)
   const updateActivity = useUpdateActivity()
@@ -1455,8 +1457,8 @@ function ActivityDetailPanel({ id }: { id: string }) {
     })
   }, [id, validateActivity, toast])
 
-  const handleReject = useCallback(() => {
-    const reason = prompt('Motif du rejet :')
+  const handleReject = useCallback(async () => {
+    const reason = await promptInput({ title: 'Rejeter l\'activité', placeholder: 'Motif du rejet...' })
     if (reason === null) return
     rejectActivity.mutate(
       { id, reason },

@@ -44,7 +44,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
-import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { useConfirm, usePromptInput } from '@/components/ui/ConfirmDialog'
 import {
   DynamicPanelShell,
   DynamicPanelField,
@@ -107,6 +107,7 @@ interface RichEditorProps {
 
 function RichEditor({ value, onChange, variables, placeholder, minHeight = 200 }: RichEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null)
+  const promptInput = usePromptInput()
   const [isSource, setIsSource] = useState(false)
   const [sourceCode, setSourceCode] = useState(value)
   const isUpdatingRef = useRef(false)
@@ -153,10 +154,10 @@ function RichEditor({ value, onChange, variables, placeholder, minHeight = 200 }
     handleEditorInput()
   }, [handleEditorInput])
 
-  const insertLink = useCallback(() => {
-    const url = prompt('URL du lien :')
+  const insertLink = useCallback(async () => {
+    const url = await promptInput({ title: 'Insérer un lien', placeholder: 'https://...' })
     if (url) execCmd('createLink', url)
-  }, [execCmd])
+  }, [execCmd, promptInput])
 
   return (
     <div className="rounded-lg border border-border overflow-hidden bg-card">

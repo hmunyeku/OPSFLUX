@@ -207,3 +207,87 @@ export function ConfirmDialog({
     </div>
   )
 }
+
+// ── Prompt Dialog (replaces native prompt()) ────────────────
+
+interface PromptOptions {
+  title?: string
+  message?: string
+  placeholder?: string
+  defaultValue?: string
+  confirmLabel?: string
+  cancelLabel?: string
+}
+
+interface PromptContextValue {
+  promptInput: (options?: PromptOptions) => Promise<string | null>
+}
+
+const PromptContext = createContext<PromptContextValue | null>(null)
+
+export function usePromptInput(): (options?: PromptOptions) => Promise<string | null> {
+  const ctx = useContext(PromptContext)
+  if (!ctx) throw new Error('usePromptInput must be used within PromptProvider')
+  return ctx.promptInput
+}
+
+export function PromptProvider({ children }: { children: React.ReactNode }) {
+  const [state, setState] = useState<{
+    open: boolean
+    options: PromptOptions
+    value: string
+    resolve: ((value: string | null) => void) | null
+  }>({ open: false, options: {}, value: '', resolve: null })
+
+  const promptInput = useCallback((options?: PromptOptions) => {
+    return new Promise<string | null>((resolve) => {
+      setState({ open: true, options: options ?? {}, value: options?.defaultValue ?? '', resolve })
+    })
+  }, [])
+
+  const handleConfirm = useCallback(() => {
+    state.resolve?.(state.value)
+    setState({ open: false, options: {}, value: '', resolve: null })
+  }, [state.resolve, state.value])
+
+  const handleCancel = useCallback(() => {
+    state.resolve?.(null)
+    setState({ open: false, options: {}, value: '', resolve: null })
+  }, [state.resolve])
+
+  return (
+    <PromptContext.Provider value={{ promptInput }}>
+      {children}
+      {state.open && (
+        <div
+          className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in-0 duration-150"
+          onClick={handleCancel}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-sm mx-4 animate-in zoom-in-95 duration-150" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 p-4 pb-2">
+              <div className="p-2 rounded-lg bg-muted text-primary"><HelpCircle size={18} /></div>
+              <h3 className="text-sm font-semibold text-foreground">{state.options.title || 'Saisir une valeur'}</h3>
+            </div>
+            {state.options.message && <p className="px-4 pb-2 text-sm text-muted-foreground">{state.options.message}</p>}
+            <div className="px-4 pb-3">
+              <input
+                className="gl-form-input w-full text-sm"
+                placeholder={state.options.placeholder || ''}
+                value={state.value}
+                onChange={(e) => setState(s => ({ ...s, value: e.target.value }))}
+                onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
+                autoFocus
+              />
+            </div>
+            <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border bg-muted/30 rounded-b-xl">
+              <button onClick={handleCancel} className="gl-button-sm gl-button-default">{state.options.cancelLabel || 'Annuler'}</button>
+              <button onClick={handleConfirm} className="gl-button-sm gl-button-confirm">{state.options.confirmLabel || 'Confirmer'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </PromptContext.Provider>
+  )
+}

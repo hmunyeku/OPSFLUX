@@ -8,7 +8,7 @@ import { AuthProvider } from '@/stores/authStore'
 import { ThemeProvider } from '@/stores/themeStore'
 import { ToastProvider } from '@/components/ui/Toast'
 import { TooltipProvider } from '@/components/ui/Tooltip'
-import { ConfirmProvider } from '@/components/ui/ConfirmDialog'
+import { ConfirmProvider, PromptProvider } from '@/components/ui/ConfirmDialog'
 import { PWAUpdater } from '@/components/pwa/PWAUpdater'
 import App from './App'
 import './index.css'
@@ -26,8 +26,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <TooltipProvider>
               <ToastProvider>
                 <ConfirmProvider>
-                  <PWAUpdater />
-                  <App />
+                  <PromptProvider>
+                    <PWAUpdater />
+                    <App />
+                  </PromptProvider>
                 </ConfirmProvider>
               </ToastProvider>
             </TooltipProvider>

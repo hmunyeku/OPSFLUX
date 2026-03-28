@@ -79,6 +79,7 @@ const adminNavItems: NavItemDef[] = [
   { path: '/assets', icon: Landmark, labelKey: 'nav.assets', module: 'asset-registry', order: 85, requiredPermission: 'asset.read' },
   { path: '/entities', icon: Globe, labelKey: 'nav.entities', module: 'core', order: 88, requiredPermission: 'core.entity.read' },
   { path: '/users', icon: UserCog, labelKey: 'nav.accounts', module: 'core', order: 90, requiredPermission: 'core.users.read' },
+  { path: '/support', icon: LifeBuoy, labelKey: 'nav.support', module: 'support', order: 92, requiredPermission: 'support.ticket.read' },
   { path: '/files', icon: FolderOpen, labelKey: 'nav.files', module: 'core', order: 95, requiredPermission: 'core.settings.manage' },
   { path: '/settings', icon: Settings, labelKey: 'nav.settings', module: 'core', order: 100 },
 ]
@@ -158,29 +159,6 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
       {/* Bottom section: admin + help + network status + collapse toggle */}
       <div className="border-t border-border px-1.5 py-1.5 space-y-0.5 shrink-0">
         {filteredAdminItems.map(renderNavItem)}
-
-        {(!hasPermission('support.ticket.read') ? null : (() => {
-          const isActive = location.pathname === '/support' || location.pathname.startsWith('/support/')
-          return (
-            <button
-              onClick={() => { navigate('/support'); onClose?.() }}
-              className={cn(
-                'group relative flex w-full items-center gap-2.5 rounded-lg h-8 text-sm transition-colors duration-150',
-                isActive
-                  ? 'bg-primary/[0.16] text-foreground font-medium'
-                  : 'text-muted-foreground hover:bg-chrome-hover hover:text-foreground',
-                collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2',
-              )}
-              title={collapsed ? t('nav.support') : undefined}
-            >
-              {isActive && !collapsed && (
-                <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-primary" />
-              )}
-              <LifeBuoy size={16} className="shrink-0" />
-              {!collapsed && <span className="truncate">{t('nav.support')}</span>}
-            </button>
-          )
-        })())}
 
         <button
           onClick={onToggle}

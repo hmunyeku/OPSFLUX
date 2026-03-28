@@ -228,7 +228,7 @@ function CreateTicketPanel() {
 
 function TicketDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
-  const { data: ticket } = useTicket(id)
+  const { data: ticket, isError } = useTicket(id)
   const updateTicket = useUpdateTicket()
   const deleteTicket = useDeleteTicket()
   const resolveTicket = useResolveTicket()
@@ -244,12 +244,19 @@ function TicketDetailPanel({ id }: { id: string }) {
   const [commentText, setCommentText] = useState('')
   const [isInternal, setIsInternal] = useState(false)
   const [detailTab, setDetailTab] = useState<'details' | 'comments' | 'attachments' | 'history'>('details')
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  // Auto-close panel if ticket was deleted or returns 404
+  if (isError && !isDeleting) {
+    closeDynamicPanel()
+  }
 
   const handleSave = useCallback((field: string, value: string) => {
     updateTicket.mutate({ id, payload: normalizeNames({ [field]: value }) })
   }, [id, updateTicket])
 
   const handleDelete = useCallback(async () => {
+    setIsDeleting(true)
     await deleteTicket.mutateAsync(id)
     closeDynamicPanel()
     toast({ title: 'Ticket archivé', variant: 'success' })
@@ -262,9 +269,9 @@ function TicketDetailPanel({ id }: { id: string }) {
     toast({ title: 'Commentaire ajouté', variant: 'success' })
   }, [id, commentText, isInternal, addComment, toast])
 
-  if (!ticket) {
+  if (!ticket || isDeleting) {
     return (
-      <DynamicPanelShell title={t('common.loading')} icon={<LifeBuoy size={14} className="text-primary" />}>
+      <DynamicPanelShell title={isDeleting ? 'Archivage...' : t('common.loading')} icon={<LifeBuoy size={14} className="text-primary" />}>
         <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
       </DynamicPanelShell>
     )

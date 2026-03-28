@@ -30,9 +30,44 @@ import { applyUIScale, getUIScale, setUIScaleAdminDefault } from '@/lib/uiScale'
 import type { SettingRead } from '@/types/api'
 import { Banner } from '@/components/ui/Banner'
 import { useWebSocket } from '@/hooks/useWebSocket'
+import { useActiveAnnouncements, useDismissAnnouncement } from '@/hooks/useAnnouncements'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { DetachedPanelsPortal } from './DetachedPanelRenderer'
+
+// ── Active Banners — renders banner-type announcements at the top ──
+const BANNER_VARIANT_MAP: Record<string, 'info' | 'warning' | 'danger' | 'success'> = {
+  info: 'info',
+  warning: 'warning',
+  critical: 'danger',
+  maintenance: 'info',
+}
+
+function ActiveBanners() {
+  const { data } = useActiveAnnouncements()
+  const dismiss = useDismissAnnouncement()
+
+  const banners = (data?.items ?? []).filter(
+    a => (a.display_location === 'banner' || a.display_location === 'all') && !a.is_read
+  )
+
+  if (banners.length === 0) return null
+
+  return (
+    <div className="shrink-0">
+      {banners.map(b => (
+        <Banner
+          key={b.id}
+          variant={BANNER_VARIANT_MAP[b.priority] || 'info'}
+          title={b.title}
+          description={b.body}
+          compact
+          onDismiss={() => dismiss.mutate(b.id)}
+        />
+      ))}
+    </div>
+  )
+}
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -114,6 +149,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           compact
         />
       )}
+      <ActiveBanners />
 
       {/* ── Body: sidebar + main area ── */}
       <div className="flex flex-1 overflow-hidden">

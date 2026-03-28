@@ -14,6 +14,7 @@ import api from '@/lib/api'
 import { useToast } from '@/components/ui/Toast'
 import { cn } from '@/lib/utils'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
+import { usePageSize } from '@/hooks/usePageSize'
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -93,16 +94,16 @@ const STATUS_BADGE: Record<string, { cls: string; label: string }> = {
 
 // ── Nested History Row ───────────────────────────────────────
 
-const PAGE_SIZE_HIST = 5
-
 function JobHistoryRows({ jobId }: { jobId: string }) {
   const [page, setPage] = useState(1)
+  const { pageSize: histPageSize } = usePageSize()
+  const [histSearch, setHistSearch] = useState('')
 
   const { data, isLoading } = useQuery({
-    queryKey: ['admin-scheduler-history', jobId, page],
+    queryKey: ['admin-scheduler-history', jobId, page, histPageSize],
     queryFn: async () => {
       const { data } = await api.get<{ items: JobExecutionItem[]; total: number; page: number; page_size: number }>('/api/v1/admin/scheduler/history', {
-        params: { job_id: jobId, page, page_size: PAGE_SIZE_HIST },
+        params: { job_id: jobId, page, page_size: histPageSize },
       })
       return data
     },
@@ -118,9 +119,19 @@ function JobHistoryRows({ jobId }: { jobId: string }) {
     )
   }
 
-  const items = data?.items ?? []
+  const allItems = data?.items ?? []
   const total = data?.total ?? 0
-  const totalPages = Math.ceil(total / PAGE_SIZE_HIST)
+  const totalPages = Math.ceil(total / histPageSize)
+
+  // Client-side search filter within loaded page
+  const items = histSearch.trim()
+    ? allItems.filter(i =>
+      i.status.toLowerCase().includes(histSearch.toLowerCase()) ||
+      i.triggered_by.toLowerCase().includes(histSearch.toLowerCase()) ||
+      (i.error_message || '').toLowerCase().includes(histSearch.toLowerCase()) ||
+      (i.id || '').toLowerCase().includes(histSearch.toLowerCase())
+    )
+    : allItems
 
   if (items.length === 0 && page === 1) {
     return (
@@ -136,6 +147,17 @@ function JobHistoryRows({ jobId }: { jobId: string }) {
     <tr>
       <td colSpan={7} className="p-0">
         <div className="ml-8 mr-3 mb-3 border border-border/50 rounded-md overflow-hidden">
+          {/* History search */}
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-accent/20 border-b border-border/30">
+            <input
+              className="gl-form-input text-[10px] h-6 flex-1"
+              placeholder="Filtrer l'historique..."
+              value={histSearch}
+              onChange={(e) => setHistSearch(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+            />
+            <span className="text-[9px] text-muted-foreground tabular-nums">{items.length}/{allItems.length}</span>
+          </div>
           <table className="w-full text-xs">
             <thead>
               <tr className="bg-accent/40 border-b border-border/30">
@@ -177,7 +199,7 @@ function JobHistoryRows({ jobId }: { jobId: string }) {
           {/* Pagination footer */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between px-3 py-1.5 bg-accent/20 border-t border-border/30 text-[10px] text-muted-foreground">
-              <span>{total} exécution(s)</span>
+              <span>{total} exécution(s) · {histPageSize}/page</span>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}

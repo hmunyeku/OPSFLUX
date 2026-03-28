@@ -53,6 +53,8 @@ interface BannerProps {
   secondaryAction?: BannerAction
   /** localStorage key — if set, banner can be dismissed and stays hidden. */
   dismissKey?: string
+  /** Callback when dismissed — alternative to dismissKey for API-backed dismissal. */
+  onDismiss?: () => void
   /** Custom illustration/content on the left side. */
   illustration?: React.ReactNode
   /** Compact mode for inline/panel usage. */
@@ -130,6 +132,7 @@ export function Banner({
   action,
   secondaryAction,
   dismissKey,
+  onDismiss,
   illustration,
   compact = false,
   className,
@@ -143,7 +146,10 @@ export function Banner({
     if (dismissKey) {
       try { localStorage.setItem(dismissKey, '1') } catch { /* noop */ }
     }
-  }, [dismissKey])
+    onDismiss?.()
+  }, [dismissKey, onDismiss])
+
+  const isDismissable = !!(dismissKey || onDismiss)
 
   if (dismissed) return null
 
@@ -218,7 +224,7 @@ export function Banner({
       </div>
 
       {/* Dismiss button */}
-      {dismissKey && (
+      {isDismissable && (
         <button
           type="button"
           onClick={handleDismiss}

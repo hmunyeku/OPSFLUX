@@ -109,12 +109,19 @@ services:
       PGADMIN_DISABLE_POSTFIX: "true"
       PGADMIN_CONFIG_SERVER_MODE: "False"
       PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
-      SCRIPT_NAME: /pgadmin
     volumes:
       - pgadmin_data:/var/lib/pgadmin
       - ./pgadmin-servers.json:/pgadmin4/servers.json:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=dokploy-network"
+      - "traefik.http.routers.pgadmin-websecure.entrypoints=websecure"
+      - "traefik.http.routers.pgadmin-websecure.rule=Host(`db.${DOMAIN:-opsflux.io}`)"
+      - "traefik.http.routers.pgadmin-websecure.tls.certresolver=letsencrypt"
+      - "traefik.http.services.pgadmin-websecure.loadbalancer.server.port=80"
     networks:
       - default
+      - dokploy-network
 
 volumes:
   pg_data:

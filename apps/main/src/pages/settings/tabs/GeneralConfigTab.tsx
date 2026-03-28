@@ -7,8 +7,8 @@
  * Sections are collapsible with deep-link support:
  *   #langue-region, #cartographie, #emails-config
  */
-import { useCallback, useState } from 'react'
-import { Loader2, Crosshair, MapPin } from 'lucide-react'
+import { useCallback, useRef, useState } from 'react'
+import { Loader2, Crosshair, MapPin, Upload, Image as ImageIcon } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { useToast, TOAST_POSITIONS } from '@/components/ui/Toast'
@@ -254,12 +254,10 @@ export function GeneralConfigTab() {
         showSeparator={false}
       >
         <div className="mt-2 space-y-0">
-          <SettingRow label="Logo URL" description="URL du logo affiché dans l'en-tête des emails.">
-            <input
-              type="text"
-              className="gl-form-input w-64 text-sm"
-              defaultValue={(s['core.email_header_logo_url'] as string) ?? '/static/logo-opsflux.png'}
-              onBlur={(e) => save('core.email_header_logo_url', e.target.value)}
+          <SettingRow label="Logo email" description="Logo affiché dans l'en-tête des emails envoyés par OpsFlux.">
+            <EmailLogoUpload
+              currentUrl={(s['core.email_header_logo_url'] as string) ?? '/static/logo-opsflux.png'}
+              onSave={(url) => save('core.email_header_logo_url', url)}
             />
           </SettingRow>
 
@@ -288,6 +286,76 @@ export function GeneralConfigTab() {
         </div>
       </CollapsibleSection>
     </>
+  )
+}
+
+// ── Email Logo Upload component ────────────────────────
+function EmailLogoUpload({ currentUrl, onSave }: { currentUrl: string; onSave: (url: string) => void }) {
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [preview, setPreview] = useState(currentUrl)
+  const apiBase = import.meta.env.VITE_API_URL || ''
+
+  const resolvedUrl = preview.startsWith('/') ? `${apiBase}${preview}` : preview
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('path', 'branding')
+      const { data } = await api.post('/api/v1/admin/fs/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      const uploadedPath = `/static/${data.path || `branding/${file.name}`}`
+      setPreview(uploadedPath)
+      onSave(uploadedPath)
+    } catch {
+      // fallback: keep current
+    } finally {
+      setUploading(false)
+      e.target.value = ''
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      {/* Thumbnail preview */}
+      <div className="h-10 w-24 rounded border border-border bg-muted/30 flex items-center justify-center overflow-hidden shrink-0">
+        {preview ? (
+          <img src={resolvedUrl} alt="Logo" className="h-full w-full object-contain p-1" onError={() => setPreview('')} />
+        ) : (
+          <ImageIcon size={16} className="text-muted-foreground/40" />
+        )}
+      </div>
+
+      {/* Upload button */}
+      <button
+        className="gl-button-sm gl-button-default flex items-center gap-1.5"
+        onClick={() => fileRef.current?.click()}
+        disabled={uploading}
+      >
+        {uploading ? <Loader2 size={11} className="animate-spin" /> : <Upload size={11} />}
+        Charger
+      </button>
+      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
+
+      {/* URL input */}
+      <input
+        type="text"
+        className="gl-form-input w-48 text-xs"
+        placeholder="Ou saisir une URL..."
+        defaultValue={currentUrl}
+        onBlur={(e) => {
+          if (e.target.value !== preview) {
+            setPreview(e.target.value)
+            onSave(e.target.value)
+          }
+        }}
+      />
+    </div>
   )
 }
 

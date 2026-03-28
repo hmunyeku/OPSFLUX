@@ -5,7 +5,7 @@
  */
 import { useState, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ScrollText, Download, Search } from 'lucide-react'
+import { ScrollText, Download, Search, X, User, Clock, Shield, Monitor, FileText } from 'lucide-react'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { usePageSize } from '@/hooks/usePageSize'
 import { useQuery } from '@tanstack/react-query'
@@ -150,12 +150,103 @@ function exportAuditCSV(items: AuditLogEntry[]) {
   URL.revokeObjectURL(url)
 }
 
+// ── Detail Modal ─────────────────────────────────────────────
+
+function AuditDetailModal({ entry, onClose }: { entry: AuditLogEntry; onClose: () => void }) {
+  const formatDate = (d: string) => new Date(d).toLocaleString('fr-FR', {
+    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit',
+  })
+
+  return (
+    <div
+      className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in-0 duration-150"
+      onClick={onClose}
+    >
+      <div
+        className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg mx-4 animate-in zoom-in-95 duration-150 max-h-[80vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
+          <div className="flex items-center gap-2">
+            <ScrollText size={16} className="text-primary" />
+            <h3 className="text-sm font-semibold">Détail de l&apos;entrée d&apos;audit</h3>
+          </div>
+          <button onClick={onClose} className="p-1 rounded hover:bg-muted text-muted-foreground"><X size={14} /></button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          {/* Meta */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex items-start gap-2">
+              <Clock size={13} className="text-muted-foreground mt-0.5 shrink-0" />
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase font-medium">Date</p>
+                <p className="text-sm">{formatDate(entry.created_at)}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <User size={13} className="text-muted-foreground mt-0.5 shrink-0" />
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase font-medium">Utilisateur</p>
+                <p className="text-sm font-mono">{entry.user_id || '—'}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <Shield size={13} className="text-muted-foreground mt-0.5 shrink-0" />
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase font-medium">Action</p>
+                <BadgeCell value={entry.action} variant={ACTION_VARIANT[entry.action] || 'neutral'} />
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <FileText size={13} className="text-muted-foreground mt-0.5 shrink-0" />
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase font-medium">Module</p>
+                <p className="text-sm">{entry.resource_type}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <Monitor size={13} className="text-muted-foreground mt-0.5 shrink-0" />
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase font-medium">Adresse IP</p>
+                <p className="text-sm font-mono">{entry.ip_address || '—'}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <FileText size={13} className="text-muted-foreground mt-0.5 shrink-0" />
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase font-medium">ID Objet</p>
+                <p className="text-sm font-mono break-all">{entry.resource_id || '—'}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Details JSON */}
+          {entry.details && Object.keys(entry.details).length > 0 && (
+            <div>
+              <p className="text-[10px] text-muted-foreground uppercase font-medium mb-1.5">Détails</p>
+              <div className="bg-muted/30 border border-border rounded-lg p-3 overflow-x-auto">
+                <pre className="text-xs font-mono whitespace-pre-wrap break-all text-foreground">
+                  {JSON.stringify(entry.details, null, 2)}
+                </pre>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────
 
 export function AuditTab() {
   const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const { pageSize, setPageSize } = usePageSize()
+  const [selectedEntry, setSelectedEntry] = useState<AuditLogEntry | null>(null)
   const [action, setAction] = useState<string>('')
   const [resourceType, setResourceType] = useState<string>('')
   const [dateFrom, setDateFrom] = useState<string>('')
@@ -283,8 +374,14 @@ export function AuditTab() {
 
           emptyIcon={ScrollText}
           emptyTitle={t('settings.audit.empty')}
+          onRowClick={(row) => setSelectedEntry(row)}
         />
       </div>
+
+      {/* Detail modal */}
+      {selectedEntry && (
+        <AuditDetailModal entry={selectedEntry} onClose={() => setSelectedEntry(null)} />
+      )}
     </CollapsibleSection>
   )
 }

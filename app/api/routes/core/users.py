@@ -1,7 +1,10 @@
 """User management routes."""
 
+import logging
 import os
 from uuid import UUID
+
+logger = logging.getLogger(__name__)
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
@@ -126,6 +129,8 @@ async def create_user(
         entity = await db.get(Entity, entity_id)
         entity_name = entity.name if entity else "OpsFlux"
 
+        logger.info("Sending invitation email to %s (entity=%s, entity_id=%s)", user.email, entity_name, entity_id)
+
         # Try template-based email first, fall back to direct SMTP if template not configured
         sent = await render_and_send_email(
             db=db,
@@ -143,6 +148,7 @@ async def create_user(
 
         # Fallback: send a direct email if template not found/disabled
         if not sent:
+            logger.warning("Template 'user_invitation' not found/disabled — using fallback email for %s", user.email)
             from app.core.notifications import send_email
             inviter_name = f"{current_user.first_name} {current_user.last_name}".strip() or "Un administrateur"
             await send_email(
@@ -165,9 +171,10 @@ async def create_user(
                 ),
                 from_name=entity_name,
             )
+        else:
+            logger.info("Invitation email sent successfully via template to %s", user.email)
     except Exception:
-        import logging
-        logging.getLogger(__name__).warning("Failed to send invitation email to %s", user.email, exc_info=True)
+        logger.warning("Failed to send invitation email to %s", user.email, exc_info=True)
 
     return user
 

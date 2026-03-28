@@ -165,6 +165,7 @@ async def send_email(
         use_tls = encryption == "ssl"
         start_tls = encryption == "tls"
 
+        logger.info("SMTP connecting to %s:%s (tls=%s, starttls=%s) for %s", host, port, use_tls, start_tls, to)
         smtp = aiosmtplib.SMTP(hostname=host, port=port, timeout=30)
         await smtp.connect(use_tls=use_tls)
         if start_tls:
@@ -173,5 +174,6 @@ async def send_email(
             await smtp.login(username, password)
         await smtp.send_message(message)
         await smtp.quit()
+        logger.info("Email sent successfully to %s — subject: %s", to, subject)
     except Exception:
-        logger.exception("Failed to send email to %s", to)
+        logger.exception("Failed to send email to %s — subject: %s", to, subject)

@@ -102,12 +102,12 @@ type ConformiteTab = 'dashboard' | 'referentiel' | 'enregistrements' | 'verifica
 
 const TABS: { id: ConformiteTab; label: string; icon: typeof ShieldCheck }[] = [
   { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
+  { id: 'fiches', label: 'Fiches de poste', icon: Briefcase },
   { id: 'referentiel', label: 'Référentiel', icon: ClipboardList },
+  { id: 'regles', label: 'Règles', icon: Scale },
+  { id: 'exemptions', label: 'Exemptions', icon: ShieldOff },
   { id: 'enregistrements', label: 'Enregistrements', icon: FileCheck },
   { id: 'verifications', label: 'Vérifications', icon: ClipboardCheck },
-  { id: 'exemptions', label: 'Exemptions', icon: ShieldOff },
-  { id: 'fiches', label: 'Fiches de poste', icon: Briefcase },
-  { id: 'regles', label: 'Règles', icon: Scale },
   { id: 'transferts', label: 'Transferts', icon: GitBranch },
 ]
 
@@ -611,6 +611,9 @@ const PRIORITY_COLORS: Record<string, string> = { high: 'bg-red-600', normal: 'b
 function JobPositionDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const { hasPermission } = usePermission()
+  const canReadRules = hasPermission('conformite.read')
   const { data } = useJobPositions({ page: 1, page_size: 100 })
   const jp = data?.items.find((j) => j.id === id)
   const updateJP = useUpdateJobPosition()
@@ -684,10 +687,20 @@ function JobPositionDetailPanel({ id }: { id: string }) {
               {linkedRules.map(r => {
                 const ct = typesMap.get(r.compliance_type_id)
                 const validityDays = r.override_validity_days ?? ct?.validity_days
+                const isClickable = canReadRules
                 return (
-                  <div key={r.id} className="flex items-center gap-2 text-xs py-1.5 px-2.5 bg-muted/30 rounded border border-border/50">
+                  <div
+                    key={r.id}
+                    className={cn(
+                      'flex items-center gap-2 text-xs py-1.5 px-2.5 bg-muted/30 rounded border border-border/50',
+                      isClickable && 'cursor-pointer hover:bg-primary/5 hover:border-primary/30 transition-colors',
+                    )}
+                    onClick={isClickable ? () => openDynamicPanel({ type: 'edit', module: 'conformite', id: r.id, meta: { subtype: 'rule' }, data: { rule: r } }) : undefined}
+                    role={isClickable ? 'button' : undefined}
+                    tabIndex={isClickable ? 0 : undefined}
+                  >
                     <Scale size={10} className="text-muted-foreground shrink-0" />
-                    <span className="flex-1 font-medium text-foreground truncate">
+                    <span className={cn('flex-1 font-medium truncate', isClickable ? 'text-primary' : 'text-foreground')}>
                       {ct ? ct.name : r.description || r.compliance_type_id}
                     </span>
                     {ct && (

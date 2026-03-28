@@ -23,14 +23,17 @@ export function FieldLicenseManager({ fieldId, compact, hideAddButton, onAddRef 
   const update = useUpdateFieldLicense()
   const del = useDeleteFieldLicense()
 
-  const dictType = useDictionaryOptions('license_type')
+  const dictType = useDictionaryOptions('field_license_type')
   const typeOptions = dictType.length > 0 ? dictType : [
-    { value: 'PSC', label: 'PSC' },
+    { value: 'PSC', label: 'PSC (Contrat de Partage de Production)' },
     { value: 'CONCESSION', label: 'Concession' },
-    { value: 'JOA', label: 'JOA' },
+    { value: 'JOA', label: 'JOA (Accord d\'opération conjointe)' },
     { value: 'SERVICE_CONTRACT', label: 'Contrat de service' },
-    { value: 'EXPLORATION', label: 'Exploration' },
-    { value: 'EXPLOITATION', label: 'Exploitation' },
+    { value: 'EXPLORATION', label: 'Permis d\'exploration' },
+    { value: 'EXPLOITATION', label: 'Permis d\'exploitation' },
+    { value: 'RECONNAISSANCE', label: 'Autorisation de reconnaissance' },
+    { value: 'TRANSPORT', label: 'Autorisation de transport' },
+    { value: 'ENVIRONMENTAL', label: 'Permis environnemental' },
   ]
 
   const dictStatus = useDictionaryOptions('license_status')

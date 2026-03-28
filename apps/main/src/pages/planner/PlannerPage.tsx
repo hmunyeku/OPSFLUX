@@ -41,6 +41,7 @@ import { AssetPicker } from '@/components/shared/AssetPicker'
 import { ProjectPicker } from '@/components/shared/ProjectPicker'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { useToast } from '@/components/ui/Toast'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import {
   useActivities,
   useActivity,
@@ -525,6 +526,7 @@ function ActivitiesTab() {
   const [statusFilter, setStatusFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const confirmDialog = useConfirm()
   const deleteActivity = useDeleteActivity()
   const submitActivity = useSubmitActivity()
   const validateActivity = useValidateActivity()
@@ -680,8 +682,9 @@ function ActivitiesTab() {
             {!['completed', 'cancelled'].includes(s) && (
               <button
                 className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-                onClick={(e) => handleAction(e, () => {
-                  if (confirm('Annuler cette activite ?')) cancelActivity.mutate(row.original.id)
+                onClick={(e) => handleAction(e, async () => {
+                  const ok = await confirmDialog({ title: 'Annuler ?', message: 'Annuler cette activité ?', confirmLabel: 'Annuler', variant: 'warning' })
+                  if (ok) cancelActivity.mutate(row.original.id)
                 })}
                 title="Annuler"
               >
@@ -691,8 +694,9 @@ function ActivitiesTab() {
             {canDelete && (
               <button
                 className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-                onClick={(e) => handleAction(e, () => {
-                  if (confirm('Supprimer cette activite ?')) deleteActivity.mutate(row.original.id)
+                onClick={(e) => handleAction(e, async () => {
+                  const ok = await confirmDialog({ title: 'Supprimer ?', message: 'Supprimer cette activité ?', confirmLabel: 'Supprimer', variant: 'danger' })
+                  if (ok) deleteActivity.mutate(row.original.id)
                 })}
                 title="Supprimer"
               >

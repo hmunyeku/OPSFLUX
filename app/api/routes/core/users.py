@@ -1,8 +1,10 @@
 """User management routes."""
 
+import os
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -81,8 +83,7 @@ async def create_user(
         language=body.language,
     )
     db.add(user)
-    await db.commit()
-    await db.refresh(user)
+    await db.flush()  # flush to get user.id without committing
 
     # Auto-assign user to entity's default group (if entity has one)
     target_entity_id = body.default_entity_id or entity_id
@@ -106,7 +107,10 @@ async def create_user(
             )
             if not existing_member.scalar_one_or_none():
                 db.add(UserGroupMember(user_id=user.id, group_id=group.id))
-                await db.commit()
+
+    # Single commit for user creation + group assignment
+    await db.commit()
+    await db.refresh(user)
 
     # Send invitation email (non-blocking — don't fail creation if email fails)
     try:
@@ -987,3 +991,102 @@ async def unlink_user_from_tier(
 
     await db.delete(link_obj)
     await db.commit()
+
+
+# ── Admin Avatar Upload ──────────────────────────────────────
+AVATAR_DIR = os.path.join("static", "avatars")
+ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/webp"}
+
+
+@router.post("/{user_id}/avatar", response_model=UserRead)
+async def admin_upload_avatar(
+    user_id: UUID,
+    file: UploadFile,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("user.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Admin: upload avatar image for a specific user."""
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail="Type d'image invalide. Autorisés: png, jpg, webp")
+
+    ext_map = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}
+    ext = ext_map[file.content_type]
+    filename = f"{user_id}.{ext}"
+
+    os.makedirs(AVATAR_DIR, exist_ok=True)
+    for old_ext in ("png", "jpg", "webp"):
+        old_path = os.path.join(AVATAR_DIR, f"{user_id}.{old_ext}")
+        if os.path.exists(old_path):
+            os.remove(old_path)
+
+    file_path = os.path.join(AVATAR_DIR, filename)
+    contents = await file.read()
+    with open(file_path, "wb") as f:
+        f.write(contents)
+
+    from app.core.config import settings
+    api_url = getattr(settings, 'API_URL', '') or ''
+    avatar_url = f"{api_url}/static/avatars/{filename}" if api_url else f"/static/avatars/{filename}"
+    user.avatar_url = avatar_url
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+class AvatarFromURLRequest(BaseModel):
+    url: str = Field(..., description="URL of the image to download")
+
+
+@router.post("/{user_id}/avatar-url", response_model=UserRead)
+async def admin_set_avatar_from_url(
+    user_id: UUID,
+    body: AvatarFromURLRequest,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("user.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Admin: set avatar from external URL (downloads the image)."""
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Download image from URL
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.get(body.url, follow_redirects=True)
+            resp.raise_for_status()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Impossible de télécharger l'image depuis cette URL")
+
+    content_type = resp.headers.get("content-type", "").split(";")[0].strip()
+    if content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail="Type d'image invalide. Autorisés: png, jpg, webp")
+
+    ext_map = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}
+    ext = ext_map[content_type]
+    filename = f"{user_id}.{ext}"
+
+    os.makedirs(AVATAR_DIR, exist_ok=True)
+    for old_ext in ("png", "jpg", "webp"):
+        old_path = os.path.join(AVATAR_DIR, f"{user_id}.{old_ext}")
+        if os.path.exists(old_path):
+            os.remove(old_path)
+
+    file_path = os.path.join(AVATAR_DIR, filename)
+    with open(file_path, "wb") as f:
+        f.write(resp.content)
+
+    from app.core.config import settings
+    api_url = getattr(settings, 'API_URL', '') or ''
+    avatar_url = f"{api_url}/static/avatars/{filename}" if api_url else f"/static/avatars/{filename}"
+    user.avatar_url = avatar_url
+    await db.commit()
+    await db.refresh(user)
+    return user

@@ -91,10 +91,29 @@ api.interceptors.response.use(
         } catch {
           isRefreshing = false
           onRefreshFailed()
-          // Refresh failed — clear tokens (authStore.fetchUser handles redirect)
+          // Refresh failed — clear session & redirect to login
           localStorage.removeItem('access_token')
           localStorage.removeItem('refresh_token')
+          if (window.location.pathname !== '/login') {
+            window.location.href = '/login'
+          }
         }
+      } else {
+        // No refresh token — session expired, redirect to login
+        localStorage.removeItem('access_token')
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login'
+        }
+      }
+    }
+
+    // Network error (server unreachable) — invalidate session for security
+    if (!error.response && error.code === 'ERR_NETWORK') {
+      const token = localStorage.getItem('access_token')
+      if (token && window.location.pathname !== '/login') {
+        localStorage.removeItem('access_token')
+        localStorage.removeItem('refresh_token')
+        window.location.href = '/login'
       }
     }
 

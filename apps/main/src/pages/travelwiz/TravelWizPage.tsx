@@ -38,6 +38,7 @@ import { NoteManager } from '@/components/shared/NoteManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { AssetPicker } from '@/components/shared/AssetPicker'
 import { useToast } from '@/components/ui/Toast'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import {
   useVoyages,
   useVoyage,
@@ -387,6 +388,7 @@ function VoyagesTab() {
   const debouncedSearch = useDebounce(search, 300)
   const [statusFilter, setStatusFilter] = useState('')
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const confirmDialog = useConfirm()
   const deleteVoyage = useDeleteVoyage()
   const { hasPermission } = usePermission()
   const canDelete = hasPermission('travelwiz.voyage.delete')
@@ -488,7 +490,7 @@ function VoyagesTab() {
       cell: ({ row }: { row: { original: { id: string } } }) => (
         <button
           className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-          onClick={(e: React.MouseEvent) => { e.stopPropagation(); if (confirm('Supprimer ce voyage ?')) deleteVoyage.mutate(row.original.id) }}
+          onClick={async (e: React.MouseEvent) => { e.stopPropagation(); const ok = await confirmDialog({ title: 'Supprimer ?', message: 'Supprimer ce voyage ?', confirmLabel: 'Supprimer', variant: 'danger' }); if (ok) deleteVoyage.mutate(row.original.id) }}
           title="Supprimer"
         >
           <span className="text-xs">&times;</span>
@@ -871,6 +873,7 @@ function VecteursTab() {
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const confirmDialog = useConfirm()
   const deleteVector = useDeleteVector()
   const { hasPermission } = usePermission()
   const canDelete = hasPermission('travelwiz.voyage.delete')
@@ -941,7 +944,7 @@ function VecteursTab() {
       cell: ({ row }: { row: { original: { id: string } } }) => (
         <button
           className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-          onClick={(e: React.MouseEvent) => { e.stopPropagation(); if (confirm('Supprimer ce vecteur ?')) deleteVector.mutate(row.original.id) }}
+          onClick={async (e: React.MouseEvent) => { e.stopPropagation(); const ok = await confirmDialog({ title: 'Supprimer ?', message: 'Supprimer ce vecteur ?', confirmLabel: 'Supprimer', variant: 'danger' }); if (ok) deleteVector.mutate(row.original.id) }}
           title="Supprimer"
         >
           <span className="text-xs">&times;</span>

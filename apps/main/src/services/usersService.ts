@@ -95,6 +95,22 @@ export const usersService = {
     const { data } = await api.get(`/api/v1/users/${userId}/profile-completeness`)
     return data
   },
+
+  /** Admin: upload avatar file for a specific user. */
+  uploadUserAvatar: async (userId: string, file: File): Promise<UserRead> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const { data } = await api.post(`/api/v1/users/${userId}/avatar`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return data
+  },
+
+  /** Admin: set avatar from URL for a specific user. */
+  setUserAvatarFromURL: async (userId: string, url: string): Promise<UserRead> => {
+    const { data } = await api.post(`/api/v1/users/${userId}/avatar-url`, { url })
+    return data
+  },
 }
 
 export interface ProfileCompleteness {

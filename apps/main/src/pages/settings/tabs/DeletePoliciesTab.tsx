@@ -14,6 +14,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Trash2, Archive, Clock, AlertTriangle, Loader2, RefreshCw } from 'lucide-react'
 import api from '@/lib/api'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 
 interface DeletePolicy {
   entity_type: string
@@ -28,6 +29,7 @@ interface DeletePolicy {
 
 export function DeletePoliciesTab() {
   const { t } = useTranslation()
+  const confirm = useConfirm()
   const queryClient = useQueryClient()
   const [editingType, setEditingType] = useState<string | null>(null)
   const [editMode, setEditMode] = useState<string>('soft')
@@ -168,10 +170,14 @@ export function DeletePoliciesTab() {
                 </button>
                 {p.archived_count > 0 && (
                   <button
-                    onClick={() => {
-                      if (confirm(t('delete_policies.purge_confirm', { count: p.archived_count }))) {
-                        purgeMutation.mutate(p.entity_type)
-                      }
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: t('delete_policies.purge_now'),
+                        message: t('delete_policies.purge_confirm', { count: p.archived_count }),
+                        confirmLabel: t('delete_policies.purge_now'),
+                        variant: 'danger',
+                      })
+                      if (ok) purgeMutation.mutate(p.entity_type)
                     }}
                     disabled={purgeMutation.isPending}
                     className="h-6 rounded bg-destructive/10 px-2 text-[11px] font-medium text-destructive hover:bg-destructive/20 disabled:opacity-50"

@@ -144,3 +144,29 @@ export function useProfileCompleteness(userId: string) {
     enabled: !!userId,
   })
 }
+
+// ── Admin Avatar Upload ──
+
+export function useAdminUploadAvatar() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ userId, file }: { userId: string; file: File }) =>
+      usersService.uploadUserAvatar(userId, file),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ['users', variables.userId] })
+      qc.invalidateQueries({ queryKey: ['users'] })
+    },
+  })
+}
+
+export function useAdminSetAvatarFromURL() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ userId, url }: { userId: string; url: string }) =>
+      usersService.setUserAvatarFromURL(userId, url),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ['users', variables.userId] })
+      qc.invalidateQueries({ queryKey: ['users'] })
+    },
+  })
+}

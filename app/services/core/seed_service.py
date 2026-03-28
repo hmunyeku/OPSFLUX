@@ -780,13 +780,23 @@ async def seed_dictionary_entries(db: AsyncSession) -> None:
         ("relationship", "friend", "Ami(e)", 5),
         ("relationship", "colleague", "Collègue", 6),
         ("relationship", "other", "Autre", 10),
-        # ── Driving license types ──
+        # ── Driving license types (user module) ──
         ("license_type", "A", "A — Moto", 1),
         ("license_type", "B", "B — Véhicule léger", 2),
         ("license_type", "C", "C — Poids lourd", 3),
         ("license_type", "D", "D — Transport en commun", 4),
         ("license_type", "E", "E — Remorque", 5),
         ("license_type", "F", "F — Véhicule spécial", 6),
+        # ── Oil field license/permit types (asset registry) ──
+        ("field_license_type", "PSC", "PSC (Contrat de Partage de Production)", 1),
+        ("field_license_type", "CONCESSION", "Concession", 2),
+        ("field_license_type", "JOA", "JOA (Accord d'opération conjointe)", 3),
+        ("field_license_type", "SERVICE_CONTRACT", "Contrat de service", 4),
+        ("field_license_type", "EXPLORATION", "Permis d'exploration", 5),
+        ("field_license_type", "EXPLOITATION", "Permis d'exploitation", 6),
+        ("field_license_type", "RECONNAISSANCE", "Autorisation de reconnaissance", 7),
+        ("field_license_type", "TRANSPORT", "Autorisation de transport", 8),
+        ("field_license_type", "ENVIRONMENTAL", "Permis environnemental", 9),
         # ── Language proficiency ──
         ("proficiency_level", "native", "Langue maternelle", 1),
         ("proficiency_level", "fluent", "Courant", 2),

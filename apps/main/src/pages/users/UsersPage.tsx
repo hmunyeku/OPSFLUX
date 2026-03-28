@@ -17,7 +17,7 @@ import {
   CheckSquare, Square, Shield, KeyRound, LogOut,
   Building2, Trash2, X,
   ShieldCheck, Lock, Unlock, AlertTriangle, Globe,
-  Phone, Mail, MapPin, MessageSquare, Paperclip, Camera,
+  Phone, Mail, MapPin, MessageSquare, Paperclip, Camera, Upload, Link2,
   LayoutDashboard,
   FileText, Stamp, Heart, CreditCard, Syringe, Languages, Car, Wifi, Stethoscope,
 } from 'lucide-react'
@@ -41,7 +41,7 @@ import {
 } from '@/components/layout/DynamicPanel'
 import { useUIStore } from '@/stores/uiStore'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
-import { useUsers, useUser, useCreateUser, useUpdateUser, useRevokeAllSessions, useUserEntities, useAssignUserToEntity, useRemoveUserFromEntity, useSendPasswordReset, useUsersStats, useRecentActivity, useUserTierLinks, useLinkUserToTier, useUnlinkUserFromTier, useProfileCompleteness } from '@/hooks/useUsers'
+import { useUsers, useUser, useCreateUser, useUpdateUser, useRevokeAllSessions, useUserEntities, useAssignUserToEntity, useRemoveUserFromEntity, useSendPasswordReset, useUsersStats, useRecentActivity, useUserTierLinks, useLinkUserToTier, useUnlinkUserFromTier, useProfileCompleteness, useAdminUploadAvatar, useAdminSetAvatarFromURL } from '@/hooks/useUsers'
 import { useAllEntities } from '@/hooks/useEntities'
 import { usePageSize } from '@/hooks/usePageSize'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
@@ -49,7 +49,7 @@ import { useToast } from '@/components/ui/Toast'
 import { RolesTab, GroupsTab, GroupDetailPanel, RoleDetailPanel, CreateGroupForm } from '@/pages/settings/tabs/RbacAdminTab'
 import { useRoles, useGroups, useAddGroupMembers } from '@/hooks/useRbac'
 import { usePermission } from '@/hooks/usePermission'
-import { useUploadAvatar, usePhones, useContactEmails, useAddresses, useNotes, useAttachments } from '@/hooks/useSettings'
+import { usePhones, useContactEmails, useAddresses, useNotes, useAttachments } from '@/hooks/useSettings'
 import { useSSOProviders, useDeleteSSOProvider, useUserIPLocation } from '@/hooks/useUserSubModels'
 import { useTiers } from '@/hooks/useTiers'
 import { AddressManager } from '@/components/shared/AddressManager'
@@ -1044,7 +1044,11 @@ function UserDetailPanel({ id }: { id: string }) {
   const revokeAllSessions = useRevokeAllSessions()
   const sendPasswordReset = useSendPasswordReset()
   const { toast } = useToast()
-  const uploadAvatar = useUploadAvatar()
+  const uploadAvatar = useAdminUploadAvatar()
+  const setAvatarFromURL = useAdminSetAvatarFromURL()
+  const [showAvatarMenu, setShowAvatarMenu] = useState(false)
+  const [showUrlInput, setShowUrlInput] = useState(false)
+  const [avatarUrl, setAvatarUrl] = useState('')
   const { data: userEntities } = useUserEntities(id)
 
   // Derive this user's groups/roles from their entity memberships (not the logged-in user's /me data)
@@ -1097,9 +1101,17 @@ function UserDetailPanel({ id }: { id: string }) {
 
   const handleAvatarUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) uploadAvatar.mutate(file)
+    if (file) uploadAvatar.mutate({ userId: id, file })
     e.target.value = ''
-  }, [uploadAvatar])
+  }, [uploadAvatar, id])
+
+  const handleAvatarFromURL = useCallback(() => {
+    if (!avatarUrl.trim()) return
+    setAvatarFromURL.mutate({ userId: id, url: avatarUrl.trim() }, {
+      onSuccess: () => { setShowUrlInput(false); setAvatarUrl(''); toast({ title: 'Avatar mis à jour', variant: 'success' }) },
+      onError: () => toast({ title: 'Erreur lors du téléchargement de l\'image', variant: 'error' }),
+    })
+  }, [id, avatarUrl, setAvatarFromURL, toast])
 
   const handlePasswordReset = useCallback(() => {
     if (user?.email) sendPasswordReset.mutate(user.email, {
@@ -1170,7 +1182,7 @@ function UserDetailPanel({ id }: { id: string }) {
             )}
             <button
               className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-              onClick={() => avatarInputRef.current?.click()}
+              onClick={() => setShowAvatarMenu(v => !v)}
               title="Changer l'avatar"
             >
               <Camera size={16} className="text-white" />
@@ -1180,14 +1192,55 @@ function UserDetailPanel({ id }: { id: string }) {
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={handleAvatarUpload}
+              onChange={(e) => { handleAvatarUpload(e); setShowAvatarMenu(false) }}
             />
-            {uploadAvatar.isPending && (
+            {(uploadAvatar.isPending || setAvatarFromURL.isPending) && (
               <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50">
                 <Loader2 size={16} className="animate-spin text-white" />
               </div>
             )}
+            {/* Avatar options dropdown */}
+            {showAvatarMenu && (
+              <div className="absolute top-full left-0 mt-1 z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[180px]">
+                <button
+                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted transition-colors flex items-center gap-2"
+                  onClick={() => { avatarInputRef.current?.click() }}
+                >
+                  <Upload size={12} className="text-muted-foreground" />
+                  Charger depuis le PC
+                </button>
+                <button
+                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted transition-colors flex items-center gap-2"
+                  onClick={() => { setShowUrlInput(true); setShowAvatarMenu(false) }}
+                >
+                  <Link2 size={12} className="text-muted-foreground" />
+                  Importer depuis une URL
+                </button>
+              </div>
+            )}
           </div>
+          {/* URL input overlay */}
+          {showUrlInput && (
+            <div className="absolute left-0 right-0 top-0 z-50 bg-card border border-border rounded-lg shadow-lg p-3 mx-4">
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">URL de l&apos;image</label>
+              <div className="flex gap-2">
+                <input
+                  className="gl-form-input flex-1 text-xs"
+                  placeholder="https://example.com/photo.jpg"
+                  value={avatarUrl}
+                  onChange={e => setAvatarUrl(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleAvatarFromURL()}
+                  autoFocus
+                />
+                <button className="gl-button-sm gl-button-confirm" onClick={handleAvatarFromURL} disabled={setAvatarFromURL.isPending}>
+                  {setAvatarFromURL.isPending ? <Loader2 size={12} className="animate-spin" /> : 'OK'}
+                </button>
+                <button className="gl-button-sm gl-button-default" onClick={() => { setShowUrlInput(false); setAvatarUrl('') }}>
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
           <div className="min-w-0 flex-1">
             <h3 className="text-base font-semibold text-foreground truncate">{user.first_name} {user.last_name}</h3>
             <p className="text-sm text-muted-foreground truncate">{user.email}</p>

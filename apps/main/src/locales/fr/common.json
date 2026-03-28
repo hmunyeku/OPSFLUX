@@ -261,6 +261,7 @@
     "search_equipment": "Rechercher par tag, nom, classe…",
     "search_pipelines": "Rechercher par ID, nom de pipeline…",
     "search_hierarchy": "Rechercher dans la hiérarchie…",
+    "children": "Éléments rattachés",
 
     "no_fields": "Aucun champ enregistré",
     "no_sites": "Aucun site enregistré",

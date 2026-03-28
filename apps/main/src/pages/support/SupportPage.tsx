@@ -44,14 +44,15 @@ import type { Announcement, AnnouncementCreate } from '@/services/announcementSe
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { useRoles } from '@/hooks/useRbac'
 import { useUsers } from '@/hooks/useUsers'
+import { useDictionaryOptions } from '@/hooks/useDictionary'
 
-// ── Constants ────────────────────────────────────────────────
+// ── Constants (fallbacks — overridden by dictionary entries when available) ──
 
 const TYPE_ICONS: Record<string, typeof Bug> = { bug: Bug, improvement: Lightbulb, question: HelpCircle, other: MoreHorizontal }
-const TYPE_LABELS: Record<string, string> = { bug: 'Bug', improvement: 'Amélioration', question: 'Question', other: 'Autre' }
-const PRIORITY_LABELS: Record<string, string> = { low: 'Basse', medium: 'Moyenne', high: 'Haute', critical: 'Critique' }
+const TYPE_LABELS_FALLBACK: Record<string, string> = { bug: 'Bug', improvement: 'Amélioration', question: 'Question', other: 'Autre' }
+const PRIORITY_LABELS_FALLBACK: Record<string, string> = { low: 'Basse', medium: 'Moyenne', high: 'Haute', critical: 'Critique' }
 const PRIORITY_VARIANTS: Record<string, 'neutral' | 'info' | 'warning' | 'danger'> = { low: 'neutral', medium: 'info', high: 'warning', critical: 'danger' }
-const STATUS_LABELS: Record<string, string> = { open: 'Ouvert', in_progress: 'En cours', waiting_info: 'En attente', resolved: 'Résolu', closed: 'Fermé', rejected: 'Rejeté' }
+const STATUS_LABELS_FALLBACK: Record<string, string> = { open: 'Ouvert', in_progress: 'En cours', waiting_info: 'En attente', resolved: 'Résolu', closed: 'Fermé', rejected: 'Rejeté' }
 const STATUS_VARIANTS: Record<string, 'neutral' | 'info' | 'warning' | 'success' | 'danger'> = { open: 'info', in_progress: 'warning', waiting_info: 'neutral', resolved: 'success', closed: 'neutral', rejected: 'danger' }
 
 // ── Column definitions ───────────────────────────────────────
@@ -78,7 +79,7 @@ const ticketColumns: ColumnDef<SupportTicket, unknown>[] = [
       return (
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Icon size={12} />
-          {TYPE_LABELS[t] || t}
+          {TYPE_LABELS_FALLBACK[t] || t}
         </span>
       )
     },
@@ -87,13 +88,13 @@ const ticketColumns: ColumnDef<SupportTicket, unknown>[] = [
   {
     accessorKey: 'priority',
     header: 'Priorité',
-    cell: ({ getValue }) => <BadgeCell value={PRIORITY_LABELS[getValue() as string] || (getValue() as string)} variant={PRIORITY_VARIANTS[getValue() as string] || 'neutral'} />,
+    cell: ({ getValue }) => <BadgeCell value={PRIORITY_LABELS_FALLBACK[getValue() as string] || (getValue() as string)} variant={PRIORITY_VARIANTS[getValue() as string] || 'neutral'} />,
     size: 90,
   },
   {
     accessorKey: 'status',
     header: 'Statut',
-    cell: ({ getValue }) => <BadgeCell value={STATUS_LABELS[getValue() as string] || (getValue() as string)} variant={STATUS_VARIANTS[getValue() as string] || 'neutral'} />,
+    cell: ({ getValue }) => <BadgeCell value={STATUS_LABELS_FALLBACK[getValue() as string] || (getValue() as string)} variant={STATUS_VARIANTS[getValue() as string] || 'neutral'} />,
     size: 100,
   },
   {
@@ -130,15 +131,15 @@ const ticketColumns: ColumnDef<SupportTicket, unknown>[] = [
 const FILTER_DEFS: DataTableFilterDef[] = [
   {
     id: 'status', label: 'Statut', type: 'select',
-    options: [{ value: '', label: 'Tous' }, ...Object.entries(STATUS_LABELS).map(([v, l]) => ({ value: v, label: l }))],
+    options: [{ value: '', label: 'Tous' }, ...Object.entries(STATUS_LABELS_FALLBACK).map(([v, l]) => ({ value: v, label: l }))],
   },
   {
     id: 'priority', label: 'Priorité', type: 'select',
-    options: [{ value: '', label: 'Toutes' }, ...Object.entries(PRIORITY_LABELS).map(([v, l]) => ({ value: v, label: l }))],
+    options: [{ value: '', label: 'Toutes' }, ...Object.entries(PRIORITY_LABELS_FALLBACK).map(([v, l]) => ({ value: v, label: l }))],
   },
   {
     id: 'ticket_type', label: 'Type', type: 'select',
-    options: [{ value: '', label: 'Tous' }, ...Object.entries(TYPE_LABELS).map(([v, l]) => ({ value: v, label: l }))],
+    options: [{ value: '', label: 'Tous' }, ...Object.entries(TYPE_LABELS_FALLBACK).map(([v, l]) => ({ value: v, label: l }))],
   },
 ]
 
@@ -148,6 +149,8 @@ function CreateTicketPanel() {
   const createTicket = useCreateTicket()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { toast } = useToast()
+  const typeOptions = useDictionaryOptions('ticket_type')
+  const priorityOptions = useDictionaryOptions('ticket_priority')
   const [form, setForm] = useState<TicketCreate>({
     title: '',
     description: '',
@@ -201,12 +204,12 @@ function CreateTicketPanel() {
             </DynamicPanelField>
             <DynamicPanelField label="Type">
               <select className={panelInputClass} value={form.ticket_type} onChange={e => setForm({ ...form, ticket_type: e.target.value as TicketCreate['ticket_type'] })}>
-                {Object.entries(TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                {(typeOptions.length ? typeOptions : Object.entries(TYPE_LABELS_FALLBACK).map(([v, l]) => ({ value: v, label: l }))).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </DynamicPanelField>
             <DynamicPanelField label="Priorité">
               <select className={panelInputClass} value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value as TicketCreate['priority'] })}>
-                {Object.entries(PRIORITY_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                {(priorityOptions.length ? priorityOptions : Object.entries(PRIORITY_LABELS_FALLBACK).map(([v, l]) => ({ value: v, label: l }))).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </DynamicPanelField>
           </FormGrid>
@@ -329,11 +332,11 @@ function TicketDetailPanel({ id }: { id: string }) {
                 <ReadOnlyRow label="Type" value={
                   <span className="flex items-center gap-1.5">
                     {(() => { const Icon = TYPE_ICONS[ticket.ticket_type] || HelpCircle; return <Icon size={12} /> })()}
-                    {TYPE_LABELS[ticket.ticket_type] || ticket.ticket_type}
+                    {TYPE_LABELS_FALLBACK[ticket.ticket_type] || ticket.ticket_type}
                   </span>
                 } />
-                <ReadOnlyRow label="Priorité" value={<BadgeCell value={PRIORITY_LABELS[ticket.priority] || ticket.priority} variant={PRIORITY_VARIANTS[ticket.priority] || 'neutral'} />} />
-                <ReadOnlyRow label="Statut" value={<BadgeCell value={STATUS_LABELS[ticket.status] || ticket.status} variant={STATUS_VARIANTS[ticket.status] || 'neutral'} />} />
+                <ReadOnlyRow label="Priorité" value={<BadgeCell value={PRIORITY_LABELS_FALLBACK[ticket.priority] || ticket.priority} variant={PRIORITY_VARIANTS[ticket.priority] || 'neutral'} />} />
+                <ReadOnlyRow label="Statut" value={<BadgeCell value={STATUS_LABELS_FALLBACK[ticket.status] || ticket.status} variant={STATUS_VARIANTS[ticket.status] || 'neutral'} />} />
                 <ReadOnlyRow label="Rapporté par" value={ticket.reporter_name || '—'} />
                 <ReadOnlyRow label="Assigné à" value={ticket.assignee_name || '—'} />
               </DetailFieldGrid>
@@ -419,9 +422,9 @@ function TicketDetailPanel({ id }: { id: string }) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    {h.old_status && <BadgeCell value={STATUS_LABELS[h.old_status] || h.old_status} variant={STATUS_VARIANTS[h.old_status] || 'neutral'} />}
+                    {h.old_status && <BadgeCell value={STATUS_LABELS_FALLBACK[h.old_status] || h.old_status} variant={STATUS_VARIANTS[h.old_status] || 'neutral'} />}
                     {h.old_status && <ArrowRight size={10} className="text-muted-foreground" />}
-                    <BadgeCell value={STATUS_LABELS[h.new_status] || h.new_status} variant={STATUS_VARIANTS[h.new_status] || 'neutral'} />
+                    <BadgeCell value={STATUS_LABELS_FALLBACK[h.new_status] || h.new_status} variant={STATUS_VARIANTS[h.new_status] || 'neutral'} />
                   </div>
                   <p className="text-[10px] text-muted-foreground mt-0.5">
                     {h.changed_by_name || 'Système'} · {new Date(h.created_at).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
@@ -552,6 +555,7 @@ function CreateAnnouncementPanel() {
   const { toast } = useToast()
   const { data: roles } = useRoles()
   const { data: usersData } = useUsers({ page: 1, page_size: 200, active: true })
+  const annPriorityOptions = useDictionaryOptions('announcement_priority')
   const [form, setForm] = useState<AnnouncementCreate>({
     title: '', body: '', priority: 'info', target_type: 'all', target_value: null, display_location: 'banner', pinned: false, send_email: false, published_at: null, expires_at: null,
   })
@@ -586,7 +590,7 @@ function CreateAnnouncementPanel() {
             </DynamicPanelField>
             <DynamicPanelField label="Priorité">
               <select className={panelInputClass} value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value })}>
-                {Object.entries(ANN_PRIORITY_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                {(annPriorityOptions.length ? annPriorityOptions : Object.entries(ANN_PRIORITY_LABELS).map(([v, l]) => ({ value: v, label: l }))).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </DynamicPanelField>
             <DynamicPanelField label="Emplacement">

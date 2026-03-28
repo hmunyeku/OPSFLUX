@@ -1022,6 +1022,55 @@ async def seed_dictionary_entries(db: AsyncSession) -> None:
         ("epi_type", "ear_protection", "Protection auditive", 7),
         ("epi_type", "respirator", "Masque respiratoire", 8),
         ("epi_type", "life_jacket", "Gilet de sauvetage", 9),
+        # ── Support ticket types ──
+        ("ticket_type", "bug", "Bug / Anomalie", 1),
+        ("ticket_type", "improvement", "Amélioration", 2),
+        ("ticket_type", "question", "Question", 3),
+        ("ticket_type", "other", "Autre", 4),
+        # ── Support ticket priorities ──
+        ("ticket_priority", "low", "Faible", 1),
+        ("ticket_priority", "medium", "Moyenne", 2),
+        ("ticket_priority", "high", "Haute", 3),
+        ("ticket_priority", "critical", "Critique", 4),
+        # ── Support ticket statuses ──
+        ("ticket_status", "open", "Ouvert", 1),
+        ("ticket_status", "in_progress", "En cours", 2),
+        ("ticket_status", "waiting_info", "En attente d'info", 3),
+        ("ticket_status", "resolved", "Résolu", 4),
+        ("ticket_status", "closed", "Fermé", 5),
+        ("ticket_status", "rejected", "Rejeté", 6),
+        # ── Asset registry statuses ──
+        ("ar_status", "OPERATIONAL", "Opérationnel", 1),
+        ("ar_status", "STANDBY", "En attente", 2),
+        ("ar_status", "UNDER_CONSTRUCTION", "En construction", 3),
+        ("ar_status", "SUSPENDED", "Suspendu", 4),
+        ("ar_status", "DECOMMISSIONED", "Décommissionné", 5),
+        ("ar_status", "ABANDONED", "Abandonné", 6),
+        # ── Pipeline services ──
+        ("pipeline_service", "OIL", "Pétrole", 1),
+        ("pipeline_service", "GAS", "Gaz", 2),
+        ("pipeline_service", "WATER", "Eau", 3),
+        ("pipeline_service", "CONDENSATE", "Condensat", 4),
+        ("pipeline_service", "MULTIPHASE", "Multiphase", 5),
+        ("pipeline_service", "GAS_LIFT", "Gas-lift", 6),
+        ("pipeline_service", "CHEMICAL", "Chimique", 7),
+        ("pipeline_service", "HYDRAULIC", "Hydraulique", 8),
+        ("pipeline_service", "INJECTION", "Injection", 9),
+        ("pipeline_service", "OTHER", "Autre", 10),
+        # ── Pipe materials ──
+        ("pipe_material", "CARBON_STEEL", "Acier carbone", 1),
+        ("pipe_material", "STAINLESS_STEEL", "Acier inoxydable", 2),
+        ("pipe_material", "DUPLEX", "Duplex", 3),
+        ("pipe_material", "SUPER_DUPLEX", "Super Duplex", 4),
+        ("pipe_material", "CRA_LINED", "Revêtu CRA", 5),
+        ("pipe_material", "HDPE", "PEHD", 6),
+        ("pipe_material", "GRP", "PRV (fibre de verre)", 7),
+        ("pipe_material", "FLEXIBLE", "Flexible", 8),
+        # ── Announcement priorities ──
+        ("announcement_priority", "info", "Information", 1),
+        ("announcement_priority", "warning", "Avertissement", 2),
+        ("announcement_priority", "critical", "Critique", 3),
+        ("announcement_priority", "maintenance", "Maintenance", 4),
     ]
 
     # ── Nationality entries with country + nationality metadata columns ──

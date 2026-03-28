@@ -56,6 +56,21 @@ export function useDictionaryOptions(category: string) {
  * Example: useDictionaryColumnOptions('nationality', 'country')
  *   → [{value: 'FR', label: 'France'}, ...]
  */
+/**
+ * Returns a Record<code, label> map for a category.
+ * Merges with optional fallback to ensure values are always available
+ * even if dictionary is not yet loaded.
+ */
+export function useDictionaryLabels(category: string, fallback: Record<string, string> = {}): Record<string, string> {
+  const { i18n } = useTranslation()
+  const lang = i18n.language
+  const { data } = useDictionary(category)
+  if (!data || data.length === 0) return fallback
+  const map: Record<string, string> = { ...fallback }
+  for (const e of data) map[e.code] = resolveLabel(e, lang)
+  return map
+}
+
 export function useDictionaryColumnOptions(category: string, column: string) {
   const { data } = useDictionary(category)
   return (data ?? []).map((e) => ({

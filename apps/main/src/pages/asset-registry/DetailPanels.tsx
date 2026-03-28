@@ -69,6 +69,7 @@ import {
   useCraneConfigurations,
 } from '@/hooks/useAssetRegistry'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
+import { useDictionaryOptions } from '@/hooks/useDictionary'
 import {
   CreateFieldPanel,
   CreateSitePanel,
@@ -89,7 +90,7 @@ const STATUS_COLORS: Record<string, string> = {
   ABANDONED: 'gl-badge-danger',
 }
 
-const STATUS_OPTIONS = [
+const STATUS_OPTIONS_FALLBACK = [
   { value: 'OPERATIONAL', label: 'Opérationnel' },
   { value: 'STANDBY', label: 'En attente' },
   { value: 'UNDER_CONSTRUCTION', label: 'En construction' },
@@ -97,6 +98,12 @@ const STATUS_OPTIONS = [
   { value: 'DECOMMISSIONED', label: 'Décommissionné' },
   { value: 'ABANDONED', label: 'Abandonné' },
 ]
+
+/** AR status options from dictionary with fallback to hardcoded. */
+function useArStatusOptions() {
+  const dictOpts = useDictionaryOptions('ar_status')
+  return dictOpts.length ? dictOpts : STATUS_OPTIONS_FALLBACK
+}
 
 const BOOL_OPTIONS = [
   { value: 'true', label: 'Oui' },
@@ -143,7 +150,7 @@ const CRITICALITY_OPTIONS = [
   { value: 'C', label: 'C — Mineur' },
 ]
 
-const PIPELINE_SERVICE_OPTIONS = [
+const PIPELINE_SERVICE_FALLBACK = [
   { value: 'OIL', label: 'Pétrole' },
   { value: 'GAS', label: 'Gaz' },
   { value: 'WATER', label: 'Eau' },
@@ -232,6 +239,7 @@ export function FieldDetailPanel({ id }: { id: string }) {
   const canUpdate = hasPermission('asset.update')
   const canDelete = hasPermission('asset.delete')
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const statusOptions = useArStatusOptions()
   const { data: field } = useField(id)
   const updateField = useUpdateField()
   const deleteField = useDeleteField()
@@ -282,7 +290,7 @@ export function FieldDetailPanel({ id }: { id: string }) {
               }
               <ReadOnlyRow label={t('common.code')} value={<span className="font-mono font-semibold">{field.code}</span>} />
               {canUpdate
-                ? <InlineEditableTags label={t('common.status')} value={field.status} options={STATUS_OPTIONS} onSave={(v) => handleSave('status', v)} />
+                ? <InlineEditableTags label={t('common.status')} value={field.status} options={statusOptions} onSave={(v) => handleSave('status', v)} />
                 : <ReadOnlyRow label={t('common.status')} value={<StatusBadge status={field.status} />} />
               }
               {canUpdate
@@ -428,6 +436,7 @@ export function SiteDetailPanel({ id }: { id: string }) {
   const canUpdate = hasPermission('asset.update')
   const canDelete = hasPermission('asset.delete')
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const statusOptions = useArStatusOptions()
   const { data: site } = useSite(id)
   const { data: parentField } = useField(site?.field_id)
   const updateSite = useUpdateSite()
@@ -483,7 +492,7 @@ export function SiteDetailPanel({ id }: { id: string }) {
                 : <ReadOnlyRow label={t('common.type')} value={<span className="gl-badge gl-badge-neutral">{site.site_type.replace(/_/g, ' ')}</span>} />
               }
               {canUpdate
-                ? <InlineEditableTags label={t('common.status')} value={site.status} options={STATUS_OPTIONS} onSave={(v) => handleSave('status', v)} />
+                ? <InlineEditableTags label={t('common.status')} value={site.status} options={statusOptions} onSave={(v) => handleSave('status', v)} />
                 : <ReadOnlyRow label={t('common.status')} value={<StatusBadge status={site.status} />} />
               }
               <ReadOnlyRow label={t('assets.field_parent')} value={
@@ -660,6 +669,7 @@ export function InstallationDetailPanel({ id }: { id: string }) {
   const canUpdate = hasPermission('asset.update')
   const canDelete = hasPermission('asset.delete')
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const statusOptions = useArStatusOptions()
   const { data: inst } = useInstallation(id)
   const { data: parentSite } = useSite(inst?.site_id)
   const updateInst = useUpdateInstallation()
@@ -715,7 +725,7 @@ export function InstallationDetailPanel({ id }: { id: string }) {
                 : <ReadOnlyRow label={t('common.type')} value={<span className="gl-badge gl-badge-neutral">{inst.installation_type.replace(/_/g, ' ')}</span>} />
               }
               {canUpdate
-                ? <InlineEditableTags label={t('common.status')} value={inst.status} options={STATUS_OPTIONS} onSave={(v) => handleSave('status', v)} />
+                ? <InlineEditableTags label={t('common.status')} value={inst.status} options={statusOptions} onSave={(v) => handleSave('status', v)} />
                 : <ReadOnlyRow label={t('common.status')} value={<StatusBadge status={inst.status} />} />
               }
               <ReadOnlyRow label={t('assets.site_parent')} value={
@@ -963,6 +973,7 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
   const canUpdate = hasPermission('asset.update')
   const canDelete = hasPermission('asset.delete')
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const statusOptions = useArStatusOptions()
   const { data: equip } = useEquipmentItem(id)
   const { data: parentInstallation } = useInstallation(equip?.installation_id ?? undefined)
   const updateEquip = useUpdateEquipment()
@@ -1015,7 +1026,7 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
                 : <ReadOnlyRow label={t('assets.equipment_class')} value={<span className="gl-badge gl-badge-neutral">{equip.equipment_class.replace(/_/g, ' ')}</span>} />
               }
               {canUpdate
-                ? <InlineEditableTags label={t('common.status')} value={equip.status} options={STATUS_OPTIONS} onSave={(v) => handleSave('status', v)} />
+                ? <InlineEditableTags label={t('common.status')} value={equip.status} options={statusOptions} onSave={(v) => handleSave('status', v)} />
                 : <ReadOnlyRow label={t('common.status')} value={<StatusBadge status={equip.status} />} />
               }
               {equip.installation_id && (
@@ -1244,6 +1255,9 @@ export function PipelineDetailPanel({ id }: { id: string }) {
   const canUpdate = hasPermission('asset.update')
   const canDelete = hasPermission('asset.delete')
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const statusOptions = useArStatusOptions()
+  const pipeServiceDict = useDictionaryOptions('pipeline_service')
+  const pipelineServiceOptions = pipeServiceDict.length ? pipeServiceDict : PIPELINE_SERVICE_FALLBACK
   const { data: pipe } = usePipeline(id)
   const { data: fromInst } = useInstallation(pipe?.from_installation_id)
   const { data: toInst } = useInstallation(pipe?.to_installation_id)
@@ -1293,11 +1307,11 @@ export function PipelineDetailPanel({ id }: { id: string }) {
               }
               <ReadOnlyRow label="ID Pipeline" value={<span className="font-mono font-semibold">{pipe.pipeline_id}</span>} />
               {canUpdate
-                ? <InlineEditableSelect label={t('assets.service')} value={pipe.service} options={PIPELINE_SERVICE_OPTIONS} onSave={(v) => handleSave('service', v)} />
+                ? <InlineEditableSelect label={t('assets.service')} value={pipe.service} options={pipelineServiceOptions} onSave={(v) => handleSave('service', v)} />
                 : <ReadOnlyRow label={t('assets.service')} value={<span className="gl-badge gl-badge-info">{pipe.service.replace(/_/g, ' ')}</span>} />
               }
               {canUpdate
-                ? <InlineEditableTags label={t('common.status')} value={pipe.status} options={STATUS_OPTIONS} onSave={(v) => handleSave('status', v)} />
+                ? <InlineEditableTags label={t('common.status')} value={pipe.status} options={statusOptions} onSave={(v) => handleSave('status', v)} />
                 : <ReadOnlyRow label={t('common.status')} value={<StatusBadge status={pipe.status} />} />
               }
             </DetailFieldGrid>

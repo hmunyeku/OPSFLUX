@@ -44,9 +44,15 @@ function getFileIcon(contentType: string) {
   return File
 }
 
+/** Strip params like ";codecs=vp9" from content-type for matching */
+function baseContentType(ct: string): string {
+  return ct.split(';')[0].trim()
+}
+
 function canPreview(contentType: string): boolean {
-  return IMAGE_TYPES.includes(contentType) || VIDEO_TYPES.includes(contentType) ||
-    AUDIO_TYPES.includes(contentType) || PDF_TYPES.includes(contentType)
+  const base = baseContentType(contentType)
+  return IMAGE_TYPES.includes(base) || VIDEO_TYPES.includes(base) ||
+    AUDIO_TYPES.includes(base) || PDF_TYPES.includes(base)
 }
 
 /** Authenticated media component — fetches via API and renders as blob URL */
@@ -71,16 +77,17 @@ function AuthMediaPreview({ src, contentType, name }: { src: string; contentType
   if (error) return <p className="text-xs text-muted-foreground p-2">Impossible de charger l'aperçu.</p>
   if (!blobUrl) return <div className="flex items-center justify-center py-6"><Loader2 size={14} className="animate-spin text-muted-foreground" /></div>
 
-  if (IMAGE_TYPES.includes(contentType)) {
+  const base = baseContentType(contentType)
+  if (IMAGE_TYPES.includes(base)) {
     return <img src={blobUrl} alt={name} className="max-w-full max-h-[300px] object-contain rounded" />
   }
-  if (VIDEO_TYPES.includes(contentType)) {
+  if (VIDEO_TYPES.includes(base)) {
     return <video src={blobUrl} controls className="w-full max-h-[300px] rounded" />
   }
-  if (AUDIO_TYPES.includes(contentType)) {
+  if (AUDIO_TYPES.includes(base)) {
     return <audio src={blobUrl} controls className="w-full" />
   }
-  if (PDF_TYPES.includes(contentType)) {
+  if (PDF_TYPES.includes(base)) {
     return <iframe src={blobUrl} className="w-full h-[400px] rounded border-0" title={name} />
   }
   return null
@@ -242,7 +249,7 @@ export function AttachmentManager({ ownerType, ownerId, compact, initialShowForm
             )}
 
             {/* Auto-expand image thumbnails for images */}
-            {!isExpanded && IMAGE_TYPES.includes(att.content_type) && (
+            {!isExpanded && IMAGE_TYPES.includes(baseContentType(att.content_type)) && (
               <div
                 className="px-3 pb-2 cursor-pointer"
                 onClick={() => togglePreview(att.id)}

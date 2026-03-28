@@ -41,6 +41,13 @@ const OWNER_TYPE_LABELS: Record<string, string> = {
   job_position: 'Fiches de poste',
   project: 'Projets',
   note: 'Notes',
+  support_ticket: 'Tickets support',
+  ar_field: 'Champs pétroliers',
+  ar_site: 'Sites',
+  ar_installation: 'Installations',
+  ar_equipment: 'Équipements',
+  ar_pipeline: 'Pipelines',
+  announcement: 'Annonces',
 }
 
 export function FileManagerTab() {

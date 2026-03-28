@@ -34,6 +34,7 @@ import { useActiveAnnouncements, useDismissAnnouncement } from '@/hooks/useAnnou
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { DetachedPanelsPortal } from './DetachedPanelRenderer'
+import { FeedbackWidget } from './FeedbackWidget'
 
 // ── Active Banners — renders banner-type announcements at the top ──
 const BANNER_VARIANT_MAP: Record<string, 'info' | 'warning' | 'danger' | 'success'> = {
@@ -190,6 +191,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
       {/* Floating detached panels (rendered via portal to body) */}
       <DetachedPanelsPortal />
+      <FeedbackWidget />
     </div>
   )
 }

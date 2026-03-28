@@ -27,6 +27,7 @@ const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage').then(m =
 const SearchPage = lazy(() => import('@/pages/search/SearchPage').then(m => ({ default: m.SearchPage })))
 const CaptainPortalPage = lazy(() => import('@/pages/travelwiz/CaptainPortalPage').then(m => ({ default: m.CaptainPortalPage })))
 const FileManagerPage = lazy(() => import('@/pages/files/FileManagerPage'))
+const SupportPage = lazy(() => import('@/pages/support/SupportPage').then(m => ({ default: m.SupportPage })))
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore()
@@ -74,6 +75,7 @@ export default function App() {
                   <Route path="/report-editor/*" element={<RequirePermission permission="document.read"><ReportEditorPage /></RequirePermission>} />
                   <Route path="/pid-pfd/*" element={<RequirePermission permission="pid.read"><PidPfdPage /></RequirePermission>} />
                   <Route path="/files/*" element={<RequirePermission permission="core.settings.manage"><Suspense fallback={<div className="flex items-center justify-center h-full"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}><FileManagerPage /></Suspense></RequirePermission>} />
+                  <Route path="/support/*" element={<RequirePermission permission="support.ticket.read"><SupportPage /></RequirePermission>} />
                   <Route path="/settings/*" element={<SettingsPage />} />
                 </Routes>
               </Suspense>

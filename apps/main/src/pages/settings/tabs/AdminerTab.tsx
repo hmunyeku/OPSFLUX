@@ -217,25 +217,14 @@ export function AdminerTab() {
         </a>
       </div>
 
-      {/* Connection info */}
-      <div className="border border-border rounded-lg divide-y divide-border">
-        {dbInfo.map(({ label, value }) => (
-          <div key={label} className="flex items-center justify-between px-4 py-2.5">
-            <span className="text-xs font-medium text-muted-foreground">{label}</span>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-foreground font-mono">{value}</span>
-              <button
-                onClick={() => copyToClipboard(value, label)}
-                className="p-1 rounded hover:bg-muted text-muted-foreground transition-colors"
-              >
-                {copied === label ? (
-                  <Check size={10} className="text-green-500" />
-                ) : (
-                  <Copy size={10} />
-                )}
-              </button>
-            </div>
-          </div>
+      {/* Connection info — single compact line */}
+      <div className="flex items-center gap-3 flex-wrap text-[11px] text-muted-foreground px-1">
+        {dbInfo.map(({ label, value }, i) => (
+          <span key={label} className="flex items-center gap-1.5">
+            {i > 0 && <span className="text-border">·</span>}
+            <span>{label}:</span>
+            <span className="font-mono text-foreground">{value}</span>
+          </span>
         ))}
       </div>
 

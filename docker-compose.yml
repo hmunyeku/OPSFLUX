@@ -141,10 +141,13 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=dokploy-network"
+      - "traefik.http.routers.pgadmin-web.entrypoints=web"
+      - "traefik.http.routers.pgadmin-web.rule=Host(`db.${DOMAIN:-opsflux.io}`)"
+      - "traefik.http.routers.pgadmin-web.middlewares=redirect-to-https@file"
       - "traefik.http.routers.pgadmin-websecure.entrypoints=websecure"
       - "traefik.http.routers.pgadmin-websecure.rule=Host(`db.${DOMAIN:-opsflux.io}`)"
       - "traefik.http.routers.pgadmin-websecure.tls.certresolver=letsencrypt"
-      - "traefik.http.services.pgadmin-websecure.loadbalancer.server.port=80"
+      - "traefik.http.services.pgadmin.loadbalancer.server.port=80"
     networks:
       - default
       - dokploy-network

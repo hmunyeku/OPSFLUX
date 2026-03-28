@@ -43,7 +43,15 @@ export function useDeleteTicket() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => supportService.deleteTicket(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['support-tickets'] }),
+    onSuccess: (_data, id) => {
+      // Remove the specific ticket + related queries before invalidating list
+      // to prevent a 404 refetch on the now-archived ticket
+      qc.removeQueries({ queryKey: ['support-tickets', id] })
+      qc.removeQueries({ queryKey: ['support-comments', id] })
+      qc.removeQueries({ queryKey: ['support-history', id] })
+      qc.invalidateQueries({ queryKey: ['support-tickets'] })
+      qc.invalidateQueries({ queryKey: ['support-stats'] })
+    },
   })
 }
 

@@ -230,6 +230,7 @@ async def create_ticket(
         tags=body.tags,
     )
     db.add(ticket)
+    await db.flush()  # flush to get ticket.id before adding status history
 
     # Initial status history
     db.add(TicketStatusHistory(

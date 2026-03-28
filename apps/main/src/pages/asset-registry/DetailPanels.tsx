@@ -383,14 +383,6 @@ export function FieldDetailPanel({ id }: { id: string }) {
             </DetailFieldGrid>
           </FormSection>
 
-          <FormSection title={t('common.notes')} collapsible storageKey="panel.ar-field.sections" id="ar-field-notes-field">
-            <DetailFieldGrid>
-              {canUpdate
-                ? <InlineEditableRow label={t('common.notes')} value={field.notes || ''} onSave={(v) => handleSave('notes', v || null)} />
-                : <ReadOnlyRow label={t('common.notes')} value={field.notes || '—'} />
-              }
-            </DetailFieldGrid>
-          </FormSection>
 
           <FormSection title={t('assets.license')} collapsible storageKey="panel.ar-field.sections" id="ar-field-license">
             <FieldLicenseManager fieldId={id} compact />
@@ -621,14 +613,6 @@ export function SiteDetailPanel({ id }: { id: string }) {
             </DetailFieldGrid>
           </FormSection>
 
-          <FormSection title={t('common.notes')} collapsible storageKey="panel.ar-site.sections" id="ar-site-notes-field">
-            <DetailFieldGrid>
-              {canUpdate
-                ? <InlineEditableRow label={t('common.notes')} value={site.notes || ''} onSave={(v) => handleSave('notes', v || null)} />
-                : <ReadOnlyRow label={t('common.notes')} value={site.notes || '—'} />
-              }
-            </DetailFieldGrid>
-          </FormSection>
 
           <FormSection title="Tags">
             <TagManager ownerType="ar_site" ownerId={id} compact />
@@ -845,14 +829,6 @@ export function InstallationDetailPanel({ id }: { id: string }) {
             </DetailFieldGrid>
           </FormSection>
 
-          <FormSection title={t('common.notes')} collapsible storageKey="panel.ar-inst.sections" id="ar-inst-notes-field">
-            <DetailFieldGrid>
-              {canUpdate
-                ? <InlineEditableRow label={t('common.notes')} value={inst.notes || ''} onSave={(v) => handleSave('notes', v || null)} />
-                : <ReadOnlyRow label={t('common.notes')} value={inst.notes || '—'} />
-              }
-            </DetailFieldGrid>
-          </FormSection>
 
           <FormSection title={t('assets.inst_sub.decks')} collapsible storageKey="panel.ar-inst.sections" id="ar-inst-decks">
             <InstallationDeckManager installationId={id} compact />
@@ -1189,14 +1165,6 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
             </DetailFieldGrid>
           </FormSection>
 
-          <FormSection title={t('common.notes')} collapsible storageKey="panel.ar-equip.sections" id="ar-equip-notes-field">
-            <DetailFieldGrid>
-              {canUpdate
-                ? <InlineEditableRow label={t('common.notes')} value={equip.notes || ''} onSave={(v) => handleSave('notes', v || null)} />
-                : <ReadOnlyRow label={t('common.notes')} value={equip.notes || '—'} />
-              }
-            </DetailFieldGrid>
-          </FormSection>
 
           {/* Specialized equipment sub-type fields */}
           <EquipmentContextualFields
@@ -1501,14 +1469,6 @@ export function PipelineDetailPanel({ id }: { id: string }) {
             </DetailFieldGrid>
           </FormSection>
 
-          <FormSection title={t('common.notes')} collapsible storageKey="panel.ar-pipe.sections" id="ar-pipe-notes-field">
-            <DetailFieldGrid>
-              {canUpdate
-                ? <InlineEditableRow label={t('common.notes')} value={pipe.notes || ''} onSave={(v) => handleSave('notes', v || null)} />
-                : <ReadOnlyRow label={t('common.notes')} value={pipe.notes || '—'} />
-              }
-            </DetailFieldGrid>
-          </FormSection>
 
           {pipe.waypoints && pipe.waypoints.length > 0 && (
             <FormSection title={t('assets.waypoints')} collapsible storageKey="panel.ar-pipe.sections" id="ar-pipe-wpts">

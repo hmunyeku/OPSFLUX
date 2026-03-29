@@ -1846,8 +1846,8 @@ function AdsDetailPanel({ id }: { id: string }) {
                       {ap.pax_type === 'internal' ? 'Int.' : 'Ext.'}
                     </span>
                     <StatusBadge status={ap.status} />
-                    {/* Remove button — always visible for admins */}
-                    {ap.pax_id && (
+                    {/* Remove button — visible only with paxlog.ads.update permission */}
+                    {ap.pax_id && hasPermission('paxlog.ads.update') && (
                       <button
                         className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                         onClick={() => removePax.mutate({ adsId: id, paxId: ap.pax_id! })}

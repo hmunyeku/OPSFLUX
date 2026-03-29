@@ -124,7 +124,7 @@ def upgrade() -> None:
             UPDATE {poly_table} p SET owner_type = 'user', owner_id = pp.user_id::text
             FROM pax_profiles pp
             WHERE p.owner_type = 'pax_profile'
-              AND p.owner_id = pp.id::text
+              AND p.owner_id::text = pp.id::text
               AND pp.user_id IS NOT NULL
         """))
         # External PAX → owner_type = 'tier_contact', resolve contact_id
@@ -135,7 +135,7 @@ def upgrade() -> None:
               AND LOWER(TRIM(tc.first_name)) = LOWER(TRIM(pp.first_name))
               AND LOWER(TRIM(tc.last_name)) = LOWER(TRIM(pp.last_name))
             WHERE p.owner_type = 'pax_profile'
-              AND p.owner_id = pp.id::text
+              AND p.owner_id::text = pp.id::text
               AND pp.user_id IS NULL
         """))
 

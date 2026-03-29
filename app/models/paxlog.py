@@ -1,4 +1,8 @@
-"""PaxLog ORM models — PAX profiles, credentials, compliance, AdS, incidents."""
+"""PaxLog ORM models — credentials, compliance, AdS, incidents, missions.
+
+PAX identity lives on User (internal) and TierContact (external).
+Child tables use a dual FK pattern: exactly one of user_id / contact_id is set.
+"""
 
 from datetime import date, datetime
 from decimal import Decimal
@@ -44,73 +48,6 @@ class PaxGroup(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
 
-# ─── PAX Profiles ────────────────────────────────────────────────────────────
-
-class PaxProfile(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
-    __tablename__ = "pax_profiles"
-    __table_args__ = (
-        Index("idx_pax_entity", "entity_id"),
-        Index("idx_pax_company", "company_id"),
-        Index("idx_pax_user", "user_id"),
-        # Duplicate prevention: same person (normalized names + birth_date) per entity
-        UniqueConstraint(
-            "entity_id", "first_name_normalized", "last_name_normalized", "birth_date",
-            name="uq_pax_identity",
-        ),
-        # Badge number unique per entity (when not NULL)
-        Index(
-            "uq_pax_badge_entity",
-            "entity_id", "badge_number",
-            unique=True,
-            postgresql_where=text("badge_number IS NOT NULL AND archived = false"),
-        ),
-        CheckConstraint(
-            "status IN ('active','incomplete','suspended','archived')",
-            name="ck_pax_status",
-        ),
-        CheckConstraint("type IN ('internal','external')", name="ck_pax_type"),
-        CheckConstraint(
-            "profile_completeness BETWEEN 0 AND 100",
-            name="ck_pax_completeness",
-        ),
-    )
-
-    entity_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
-    )
-    type: Mapped[str] = mapped_column(String(20), nullable=False)
-    first_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    last_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    first_name_normalized: Mapped[str] = mapped_column(String(100), nullable=False)
-    last_name_normalized: Mapped[str] = mapped_column(String(100), nullable=False)
-    birth_date: Mapped[date | None] = mapped_column(Date)
-    nationality: Mapped[str | None] = mapped_column(String(100))
-    company_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tiers.id")
-    )
-    group_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("pax_groups.id")
-    )
-    user_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id")
-    )
-    badge_number: Mapped[str | None] = mapped_column(String(100))
-    photo_url: Mapped[str | None] = mapped_column(Text)
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
-    profile_completeness: Mapped[int] = mapped_column(
-        SmallInteger, nullable=False, default=0
-    )
-    synced_from_intranet: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False
-    )
-    intranet_id: Mapped[str | None] = mapped_column(String(100))
-    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-
-    credentials: Mapped[list["PaxCredential"]] = relationship(
-        back_populates="pax_profile", cascade="all, delete-orphan"
-    )
-
-
 # ─── Credential Types (global reference — no entity_id) ─────────────────────
 
 class CredentialType(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -142,17 +79,28 @@ class CredentialType(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 class PaxCredential(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "pax_credentials"
     __table_args__ = (
-        UniqueConstraint("pax_id", "credential_type_id", name="uq_pax_credential"),
-        Index("idx_creds_pax", "pax_id"),
+        # Unique per user or contact + credential type
+        UniqueConstraint("user_id", "credential_type_id", name="uq_cred_user"),
+        UniqueConstraint("contact_id", "credential_type_id", name="uq_cred_contact"),
+        Index("idx_creds_user", "user_id"),
+        Index("idx_creds_contact", "contact_id"),
         Index("idx_creds_status", "status"),
+        CheckConstraint(
+            "(user_id IS NOT NULL AND contact_id IS NULL) OR "
+            "(user_id IS NULL AND contact_id IS NOT NULL)",
+            name="ck_pax_credentials_pax_xor",
+        ),
         CheckConstraint(
             "status IN ('valid','expired','pending_validation','rejected')",
             name="ck_cred_status",
         ),
     )
 
-    pax_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("pax_profiles.id"), nullable=False
+    user_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id")
+    )
+    contact_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tier_contacts.id")
     )
     credential_type_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("credential_types.id"), nullable=False
@@ -170,7 +118,6 @@ class PaxCredential(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     rejection_reason: Mapped[str | None] = mapped_column(Text)
     notes: Mapped[str | None] = mapped_column(Text)
 
-    pax_profile: Mapped["PaxProfile"] = relationship(back_populates="credentials")
     credential_type: Mapped["CredentialType"] = relationship()
 
 
@@ -298,10 +245,17 @@ class Ads(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
 class AdsPax(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "ads_pax"
     __table_args__ = (
-        UniqueConstraint("ads_id", "pax_id", name="uq_ads_pax"),
+        UniqueConstraint("ads_id", "user_id", name="uq_adspax_user"),
+        UniqueConstraint("ads_id", "contact_id", name="uq_adspax_contact"),
         Index("idx_ads_pax_ads", "ads_id"),
-        Index("idx_ads_pax_pax", "pax_id"),
+        Index("idx_ads_pax_user", "user_id"),
+        Index("idx_ads_pax_contact", "contact_id"),
         Index("idx_ads_pax_status", "status"),
+        CheckConstraint(
+            "(user_id IS NOT NULL AND contact_id IS NULL) OR "
+            "(user_id IS NULL AND contact_id IS NOT NULL)",
+            name="ck_ads_pax_pax_xor",
+        ),
         CheckConstraint(
             "status IN ('pending_check','compliant','blocked','approved','rejected','no_show')",
             name="ck_ads_pax_status",
@@ -311,8 +265,11 @@ class AdsPax(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     ads_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("ads.id", ondelete="CASCADE"), nullable=False
     )
-    pax_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("pax_profiles.id"), nullable=False
+    user_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id")
+    )
+    contact_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tier_contacts.id")
     )
     status: Mapped[str] = mapped_column(
         String(30), nullable=False, default="pending_check"
@@ -336,8 +293,14 @@ class AdsPax(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 class PaxIncident(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "pax_incidents"
     __table_args__ = (
-        Index("idx_incidents_pax", "pax_id"),
+        Index("idx_incidents_user", "user_id"),
+        Index("idx_incidents_contact", "contact_id"),
         Index("idx_incidents_company", "company_id"),
+        # Incidents: allow both NULL (company-level)
+        CheckConstraint(
+            "NOT (user_id IS NOT NULL AND contact_id IS NOT NULL)",
+            name="ck_pax_incidents_pax_xor",
+        ),
         CheckConstraint(
             "severity IN ('info','warning','temp_ban','permanent_ban')",
             name="ck_incident_severity",
@@ -347,8 +310,11 @@ class PaxIncident(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     entity_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
     )
-    pax_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("pax_profiles.id")
+    user_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id")
+    )
+    contact_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tier_contacts.id")
     )
     company_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("tiers.id")
@@ -472,14 +438,23 @@ class MissionProgramPax(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """PAX assigned to a program line."""
     __tablename__ = "mission_program_pax"
     __table_args__ = (
-        UniqueConstraint("mission_program_id", "pax_id", name="uq_mission_program_pax"),
+        UniqueConstraint("mission_program_id", "user_id", name="uq_mppax_user"),
+        UniqueConstraint("mission_program_id", "contact_id", name="uq_mppax_contact"),
+        CheckConstraint(
+            "(user_id IS NOT NULL AND contact_id IS NULL) OR "
+            "(user_id IS NULL AND contact_id IS NOT NULL)",
+            name="ck_mission_program_pax_pax_xor",
+        ),
     )
 
     mission_program_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("mission_programs.id", ondelete="CASCADE"), nullable=False
     )
-    pax_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("pax_profiles.id"), nullable=False
+    user_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id")
+    )
+    contact_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tier_contacts.id")
     )
     role_in_mission: Mapped[str | None] = mapped_column(String(100))
 
@@ -625,16 +600,18 @@ class PaxRotationCycle(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """On/off rotation cycle for a PAX at a specific site."""
     __tablename__ = "pax_rotation_cycles"
     __table_args__ = (
-        Index("idx_rotation_pax", "pax_id"),
+        Index("idx_rotation_user", "user_id"),
+        Index("idx_rotation_contact", "contact_id"),
         Index("idx_rotation_site", "site_asset_id"),
         Index(
             "idx_rotation_active",
             "entity_id",
             postgresql_where=text("status = 'active'"),
         ),
-        UniqueConstraint(
-            "pax_id", "site_asset_id", "status",
-            name="uq_rotation_pax_site_status",
+        CheckConstraint(
+            "(user_id IS NOT NULL AND contact_id IS NULL) OR "
+            "(user_id IS NULL AND contact_id IS NOT NULL)",
+            name="ck_pax_rotation_cycles_pax_xor",
         ),
         CheckConstraint("rotation_days_on > 0", name="ck_rotation_days_on"),
         CheckConstraint("rotation_days_off > 0", name="ck_rotation_days_off"),
@@ -643,8 +620,11 @@ class PaxRotationCycle(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     entity_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
     )
-    pax_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("pax_profiles.id"), nullable=False
+    user_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id")
+    )
+    contact_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tier_contacts.id")
     )
     site_asset_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False
@@ -686,7 +666,13 @@ class StayProgram(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "stay_programs"
     __table_args__ = (
         Index("idx_stay_programs_ads", "ads_id"),
-        Index("idx_stay_programs_pax", "pax_id"),
+        Index("idx_stay_programs_user", "user_id"),
+        Index("idx_stay_programs_contact", "contact_id"),
+        CheckConstraint(
+            "(user_id IS NOT NULL AND contact_id IS NULL) OR "
+            "(user_id IS NULL AND contact_id IS NOT NULL)",
+            name="ck_stay_programs_pax_xor",
+        ),
     )
 
     entity_id: Mapped[PyUUID] = mapped_column(
@@ -695,8 +681,11 @@ class StayProgram(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     ads_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("ads.id"), nullable=False
     )
-    pax_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("pax_profiles.id"), nullable=False
+    user_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id")
+    )
+    contact_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tier_contacts.id")
     )
     status: Mapped[str] = mapped_column(
         String(30), nullable=False, default="draft", server_default="draft"
@@ -743,14 +732,23 @@ class ProfileType(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 # ─── Pax Profile Type (junction) ─────────────────────────────────────────
 
 class PaxProfileType(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """Junction linking a PAX to one or more profile types."""
+    """Junction linking a PAX (user or contact) to one or more profile types."""
     __tablename__ = "pax_profile_types"
     __table_args__ = (
-        UniqueConstraint("pax_id", "profile_type_id", name="uq_pax_profile_type"),
+        UniqueConstraint("user_id", "profile_type_id", name="uq_ppt_user"),
+        UniqueConstraint("contact_id", "profile_type_id", name="uq_ppt_contact"),
+        CheckConstraint(
+            "(user_id IS NOT NULL AND contact_id IS NULL) OR "
+            "(user_id IS NULL AND contact_id IS NOT NULL)",
+            name="ck_pax_profile_types_pax_xor",
+        ),
     )
 
-    pax_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("pax_profiles.id", ondelete="CASCADE"), nullable=False
+    user_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE")
+    )
+    contact_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tier_contacts.id", ondelete="CASCADE")
     )
     profile_type_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("profile_types.id"), nullable=False

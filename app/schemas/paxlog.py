@@ -1,4 +1,8 @@
-"""Pydantic schemas for PaxLog module — profiles, credentials, AdS, incidents."""
+"""Pydantic schemas for PaxLog module.
+
+PAX identity lives on User (internal) and TierContact (external).
+"PAX Profile" is a virtual read-view projected from either source.
+"""
 
 from datetime import date, datetime
 from uuid import UUID
@@ -9,68 +13,52 @@ from app.schemas.common import OpsFluxSchema
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# PAX PROFILES
+# PAX PROFILES (virtual view over User / TierContact)
 # ══════════════════════════════════════════════════════════════════════════════
 
-class PaxProfileCreate(BaseModel):
-    type: str = Field(pattern=r"^(internal|external)$")
-    first_name: str = Field(min_length=1, max_length=100)
-    last_name: str = Field(min_length=1, max_length=100)
-    birth_date: date | None = None
-    nationality: str | None = None
-    company_id: UUID | None = None
-    user_id: UUID | None = None
-    group_id: UUID | None = None
-    badge_number: str | None = None
-
-
-class PaxProfileUpdate(BaseModel):
-    first_name: str | None = None
-    last_name: str | None = None
-    birth_date: date | None = None
-    nationality: str | None = None
-    company_id: UUID | None = None
-    group_id: UUID | None = None
-    badge_number: str | None = None
-    status: str | None = Field(default=None, pattern=r"^(active|incomplete|suspended|archived)$")
-
-
 class PaxProfileRead(OpsFluxSchema):
+    """Unified read DTO for a PAX — backed by either User or TierContact."""
     id: UUID
+    pax_source: str  # "user" | "contact"
     entity_id: UUID
-    type: str
+    pax_type: str  # "internal" | "external"
     first_name: str
     last_name: str
-    birth_date: date | None
-    nationality: str | None
-    company_id: UUID | None
+    birth_date: date | None = None
+    nationality: str | None = None
+    company_id: UUID | None = None
     company_name: str | None = None
-    group_id: UUID | None
-    user_id: UUID | None
-    user_email: str | None = None
-    badge_number: str | None
-    photo_url: str | None
-    status: str
-    profile_completeness: int
-    synced_from_intranet: bool
-    archived: bool
-    created_at: datetime
-    updated_at: datetime
+    group_id: UUID | None = None
+    badge_number: str | None = None
+    photo_url: str | None = None
+    email: str | None = None
+    active: bool = True
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class PaxProfileSummary(OpsFluxSchema):
+    """Lightweight PAX summary for lists and pickers."""
     id: UUID
-    entity_id: UUID
-    type: str
+    pax_source: str  # "user" | "contact"
+    entity_id: UUID | None = None
+    pax_type: str
     first_name: str
     last_name: str
-    company_id: UUID | None
+    company_id: UUID | None = None
     company_name: str | None = None
-    user_id: UUID | None = None
-    badge_number: str | None
-    status: str
-    profile_completeness: int
-    created_at: datetime
+    badge_number: str | None = None
+    active: bool = True
+    created_at: datetime | None = None
+
+
+class PaxProfileUpdate(BaseModel):
+    """Update PAX-specific fields on a User or TierContact."""
+    birth_date: date | None = None
+    nationality: str | None = None
+    badge_number: str | None = None
+    photo_url: str | None = None
+    pax_group_id: UUID | None = None
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -119,7 +107,8 @@ class PaxCredentialValidate(BaseModel):
 
 class PaxCredentialRead(OpsFluxSchema):
     id: UUID
-    pax_id: UUID
+    user_id: UUID | None = None
+    contact_id: UUID | None = None
     credential_type_id: UUID
     obtained_date: date
     expiry_date: date | None
@@ -164,7 +153,8 @@ class ComplianceMatrixRead(OpsFluxSchema):
 
 
 class ComplianceCheckResult(BaseModel):
-    pax_id: UUID
+    user_id: UUID | None = None
+    contact_id: UUID | None = None
     asset_id: UUID
     compliant: bool
     missing_credentials: list[str] = []
@@ -176,6 +166,12 @@ class ComplianceCheckResult(BaseModel):
 # AVIS DE SÉJOUR (AdS)
 # ══════════════════════════════════════════════════════════════════════════════
 
+class AdsPaxEntry(BaseModel):
+    """Identifies a PAX by user_id or contact_id (exactly one)."""
+    user_id: UUID | None = None
+    contact_id: UUID | None = None
+
+
 class AdsCreate(BaseModel):
     type: str = Field(default="individual", pattern=r"^(individual|team)$")
     site_entry_asset_id: UUID
@@ -185,7 +181,7 @@ class AdsCreate(BaseModel):
     )
     start_date: date
     end_date: date
-    pax_ids: list[UUID] = []
+    pax_entries: list[AdsPaxEntry] = []
     planner_activity_id: UUID | None = None
     project_id: UUID | None = None
     outbound_transport_mode: str | None = None
@@ -212,7 +208,8 @@ class AdsUpdate(BaseModel):
 class AdsPaxRead(OpsFluxSchema):
     id: UUID
     ads_id: UUID
-    pax_id: UUID
+    user_id: UUID | None = None
+    contact_id: UUID | None = None
     status: str
     compliance_checked_at: datetime | None
     compliance_summary: dict | None
@@ -268,7 +265,8 @@ class AdsSummary(OpsFluxSchema):
 # ══════════════════════════════════════════════════════════════════════════════
 
 class PaxIncidentCreate(BaseModel):
-    pax_id: UUID | None = None
+    user_id: UUID | None = None
+    contact_id: UUID | None = None
     company_id: UUID | None = None
     asset_id: UUID | None = None
     severity: str = Field(pattern=r"^(info|warning|temp_ban|permanent_ban)$")
@@ -285,7 +283,8 @@ class PaxIncidentResolve(BaseModel):
 class PaxIncidentRead(OpsFluxSchema):
     id: UUID
     entity_id: UUID
-    pax_id: UUID | None
+    user_id: UUID | None = None
+    contact_id: UUID | None = None
     company_id: UUID | None
     asset_id: UUID | None
     severity: str
@@ -314,7 +313,7 @@ class MissionProgramCreate(BaseModel):
     planned_start_date: date | None = None
     planned_end_date: date | None = None
     project_id: UUID | None = None
-    pax_ids: list[UUID] = []
+    pax_entries: list[AdsPaxEntry] = []
     notes: str | None = None
 
 
@@ -330,7 +329,7 @@ class MissionProgramRead(OpsFluxSchema):
     project_id: UUID | None
     generated_ads_id: UUID | None
     notes: str | None
-    pax_ids: list[UUID] = []
+    pax_entries: list[AdsPaxEntry] = []
     site_name: str | None = None
 
 

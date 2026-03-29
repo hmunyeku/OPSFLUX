@@ -1530,7 +1530,7 @@ async def cancel_ads(
 async def list_ads_events(
     ads_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = Depends(require_permission("paxlog.ads.read")),
+    _: None = require_permission("paxlog.ads.read"),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -1548,7 +1548,7 @@ async def resubmit_ads(
     reason: str = Body(..., min_length=1, embed=True),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_permission("paxlog.ads.update")),
+    _: None = require_permission("paxlog.ads.update"),
     db: AsyncSession = Depends(get_db),
 ):
     """Resubmit an AdS after requires_review — motif obligatoire."""

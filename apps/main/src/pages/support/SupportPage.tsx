@@ -45,6 +45,7 @@ import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { useRoles } from '@/hooks/useRbac'
 import { useUsers } from '@/hooks/useUsers'
 import { useDictionaryOptions } from '@/hooks/useDictionary'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 // ── Constants (fallbacks — overridden by dictionary entries when available) ──
 
@@ -67,7 +68,7 @@ const ticketColumns: ColumnDef<SupportTicket, unknown>[] = [
   {
     accessorKey: 'title',
     header: 'Titre',
-    cell: ({ getValue }) => <span className="text-sm font-medium text-foreground truncate block max-w-[300px]">{getValue() as string}</span>,
+    cell: ({ getValue }) => <span className="text-sm font-medium text-foreground truncate block max-w-[180px] sm:max-w-[300px]">{getValue() as string}</span>,
     size: 300,
   },
   {
@@ -354,7 +355,7 @@ function TicketDetailPanel({ id }: { id: string }) {
 
             {ticket.source_url && (
               <FormSection title="Contexte" collapsible defaultExpanded={false}>
-                <ReadOnlyRow label="URL source" value={<a href={ticket.source_url} className="text-xs text-primary hover:underline truncate block max-w-[300px]">{ticket.source_url}</a>} />
+                <ReadOnlyRow label="URL source" value={<a href={ticket.source_url} className="text-xs text-primary hover:underline truncate block max-w-[180px] sm:max-w-[300px]">{ticket.source_url}</a>} />
                 {ticket.browser_info && (
                   <ReadOnlyRow label="Navigateur" value={<span className="text-xs font-mono text-muted-foreground">{(ticket.browser_info as Record<string, string>).userAgent?.slice(0, 80)}...</span>} />
                 )}
@@ -385,9 +386,9 @@ function TicketDetailPanel({ id }: { id: string }) {
                 value={commentText}
                 onChange={e => setCommentText(e.target.value)}
               />
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 {hasPermission('support.comment.internal') && (
-                  <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                  <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground whitespace-nowrap">
                     <input type="checkbox" checked={isInternal} onChange={e => setIsInternal(e.target.checked)} className="h-3 w-3 rounded" />
                     <Lock size={9} /> Note interne
                   </label>
@@ -421,9 +422,9 @@ function TicketDetailPanel({ id }: { id: string }) {
                   <Clock size={10} className="text-muted-foreground" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     {h.old_status && <BadgeCell value={STATUS_LABELS_FALLBACK[h.old_status] || h.old_status} variant={STATUS_VARIANTS[h.old_status] || 'neutral'} />}
-                    {h.old_status && <ArrowRight size={10} className="text-muted-foreground" />}
+                    {h.old_status && <ArrowRight size={10} className="text-muted-foreground shrink-0" />}
                     <BadgeCell value={STATUS_LABELS_FALLBACK[h.new_status] || h.new_status} variant={STATUS_VARIANTS[h.new_status] || 'neutral'} />
                   </div>
                   <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -527,7 +528,7 @@ function SupportStatsCards() {
   ]
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 px-4 py-3 border-b border-border shrink-0">
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 px-4 py-3 border-b border-border shrink-0">
       {cards.map(c => (
         <div key={c.label} className="flex items-center gap-2 p-2 rounded-lg border border-border/50 bg-muted/10">
           <c.icon size={16} className={c.color} />
@@ -770,6 +771,7 @@ const PRIORITY_BADGE: Record<string, 'info' | 'warning' | 'danger' | 'neutral'> 
 function AnnouncementsAdminTab() {
   const [page, setPage] = useState(1)
   const { pageSize, setPageSize } = usePageSize()
+  const isMobile = useIsMobile()
   const { data, isLoading } = useAnnouncements({ page, page_size: pageSize, active_only: false })
   const updateAnn = useUpdateAnnouncement()
   const deleteAnn = useDeleteAnnouncement()
@@ -791,7 +793,7 @@ function AnnouncementsAdminTab() {
   }
 
   const annColumns: ColumnDef<Announcement, unknown>[] = [
-    { accessorKey: 'title', header: 'Titre', cell: ({ getValue }) => <span className="text-sm font-medium truncate block max-w-[250px]">{getValue() as string}</span>, size: 250 },
+    { accessorKey: 'title', header: 'Titre', cell: ({ getValue }) => <span className="text-sm font-medium truncate block max-w-[160px] sm:max-w-[250px]">{getValue() as string}</span>, size: 250 },
     { accessorKey: 'priority', header: 'Priorité', cell: ({ getValue }) => <BadgeCell value={String(getValue())} variant={PRIORITY_BADGE[getValue() as string] || 'neutral'} />, size: 90 },
     { accessorKey: 'display_location', header: 'Emplacement', cell: ({ getValue }) => <span className="text-xs text-muted-foreground">{DISPLAY_LABELS[getValue() as string] || String(getValue())}</span>, size: 110 },
     { accessorKey: 'active', header: 'Actif', cell: ({ row }) => (
@@ -810,7 +812,7 @@ function AnnouncementsAdminTab() {
 
   return (
     <DataTable<Announcement>
-      columns={annColumns}
+      columns={isMobile ? annColumns.filter(c => !MOBILE_HIDDEN_ANN_COLS.has((c as { accessorKey?: string }).accessorKey ?? '')) : annColumns}
       data={data?.items ?? []}
       isLoading={isLoading}
       getRowId={(row) => row.id}
@@ -829,8 +831,13 @@ function AnnouncementsAdminTab() {
 
 type SupportTab = 'tickets' | 'announcements'
 
+// Columns to hide on mobile (< 768px)
+const MOBILE_HIDDEN_TICKET_COLS = new Set(['reporter_name', 'assignee_name', 'comment_count', 'created_at', 'ticket_type'])
+const MOBILE_HIDDEN_ANN_COLS = new Set(['display_location', 'created_at', 'active'])
+
 export function SupportPage() {
   useTranslation() // loaded for future i18n
+  const isMobile = useIsMobile()
   const [activeTab, setActiveTab] = useState<SupportTab>('tickets')
   const [page, setPage] = useState(1)
   const { pageSize, setPageSize } = usePageSize()
@@ -862,10 +869,13 @@ export function SupportPage() {
     if (id === 'ticket_type') { setTypeFilter(v); setPage(1) }
   }, [])
 
+  // Responsive column filtering — hide secondary columns on mobile
+  const visibleTicketCols = isMobile ? ticketColumns.filter(c => !MOBILE_HIDDEN_TICKET_COLS.has((c as { accessorKey?: string }).accessorKey ?? '')) : ticketColumns
+
   const toolbarAction = activeTab === 'tickets' && canCreate
-    ? <ToolbarButton icon={Plus} label="Soumettre un ticket" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'support' })} />
+    ? <ToolbarButton icon={Plus} label={isMobile ? 'Ticket' : 'Soumettre un ticket'} variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'support' })} />
     : activeTab === 'announcements' && canManageAnnouncements
-      ? <ToolbarButton icon={Plus} label="Nouvelle annonce" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'announcements' })} />
+      ? <ToolbarButton icon={Plus} label={isMobile ? 'Annonce' : 'Nouvelle annonce'} variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'announcements' })} />
       : null
 
   return (
@@ -893,7 +903,7 @@ export function SupportPage() {
             {isAdmin && <SupportStatsCards />}
             <PanelContent>
               <DataTable<SupportTicket>
-                columns={ticketColumns}
+                columns={visibleTicketCols}
                 data={data?.items ?? []}
                 isLoading={isLoading}
                 getRowId={(row) => row.id}

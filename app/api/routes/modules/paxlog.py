@@ -2090,10 +2090,10 @@ async def list_imputations(
     result = await db.execute(
         sa_text(
             """
-            SELECT id, ads_id, project_id, cost_center_id, wbs_id, percentage, created_at
+            SELECT id, ads_id, project_id, cost_center_id, wbs_id, percentage
             FROM ads_imputations
             WHERE ads_id = :ads_id
-            ORDER BY created_at
+            ORDER BY id
             """
         ),
         {"ads_id": str(ads_id)},
@@ -2107,7 +2107,6 @@ async def list_imputations(
             "cost_center_id": str(r[3]) if r[3] else None,
             "wbs_id": str(r[4]) if r[4] else None,
             "percentage": float(r[5]),
-            "created_at": str(r[6]),
         }
         for r in rows
     ]

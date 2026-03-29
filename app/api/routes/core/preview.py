@@ -99,12 +99,12 @@ async def _preview_assets(db: AsyncSession, entity_id: UUID, record_id: UUID) ->
         return None
     return PreviewResponse(
         id=str(row.id),
-        code=row.code,
+        code=getattr(row, 'code', None),
         name=row.name,
-        type=row.type,
-        status=row.status,
-        created_at=_format_dt(row.created_at),
-        extra={"max_pax": row.max_pax} if row.max_pax else None,
+        type=getattr(row, 'installation_type', getattr(row, 'type', None)),
+        status=getattr(row, 'status', None),
+        created_at=_format_dt(getattr(row, 'created_at', None)),
+        extra={"max_pax": getattr(row, 'max_pax', None)} if getattr(row, 'max_pax', None) else None,
     )
 
 

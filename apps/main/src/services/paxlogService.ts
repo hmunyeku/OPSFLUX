@@ -96,7 +96,8 @@ export interface CredentialTypeCreate {
 // PAX Credentials
 export interface PaxCredential {
   id: string
-  pax_id: string
+  user_id: string | null
+  contact_id: string | null
   credential_type_id: string
   obtained_date: string
   expiry_date: string | null
@@ -148,7 +149,8 @@ export interface ComplianceMatrixCreate {
 }
 
 export interface ComplianceCheckResult {
-  pax_id: string
+  user_id: string | null
+  contact_id: string | null
   asset_id: string
   compliant: boolean
   missing_credentials: string[]
@@ -167,7 +169,8 @@ export interface ComplianceStats {
 
 export interface ExpiringCredential {
   id: string
-  pax_id: string
+  user_id: string | null
+  contact_id: string | null
   pax_first_name: string
   pax_last_name: string
   pax_company_name: string | null
@@ -229,6 +232,20 @@ export interface AdsSummary {
   site_name?: string | null
 }
 
+export interface AdsEvent {
+  id: string
+  entity_id: string
+  ads_id: string
+  ads_pax_id: string | null
+  event_type: string
+  old_status: string | null
+  new_status: string | null
+  actor_id: string | null
+  reason: string | null
+  metadata_json: Record<string, unknown> | null
+  recorded_at: string
+}
+
 export interface AdsCreate {
   type?: 'individual' | 'team'
   site_entry_asset_id: string
@@ -236,7 +253,7 @@ export interface AdsCreate {
   visit_category: string
   start_date: string
   end_date: string
-  pax_ids?: string[]
+  pax_entries?: Array<{ user_id?: string | null; contact_id?: string | null }>
   project_id?: string | null
   planner_activity_id?: string | null
   outbound_transport_mode?: string | null
@@ -251,7 +268,6 @@ export interface AdsCreate {
 export interface PaxCandidate {
   id: string
   source: 'pax_profile' | 'user' | 'contact'
-  pax_id?: string
   user_id?: string
   contact_id?: string
   first_name: string
@@ -264,7 +280,6 @@ export interface PaxCandidate {
 }
 
 export interface AddPaxBody {
-  pax_id?: string | null
   user_id?: string | null
   contact_id?: string | null
 }
@@ -285,7 +300,8 @@ export interface AdsUpdate {
 export interface AdsPax {
   id: string
   ads_id: string
-  pax_id: string
+  user_id: string | null
+  contact_id: string | null
   status: string
   compliance_checked_at: string | null
   compliance_summary: Record<string, unknown> | null
@@ -347,7 +363,8 @@ export interface AdsExternalLinkCreate {
 export interface PaxIncident {
   id: string
   entity_id: string
-  pax_id: string | null
+  user_id: string | null
+  contact_id: string | null
   company_id: string | null
   asset_id: string | null
   severity: 'info' | 'warning' | 'temp_ban' | 'permanent_ban'
@@ -367,7 +384,8 @@ export interface PaxIncident {
 }
 
 export interface PaxIncidentCreate {
-  pax_id?: string | null
+  user_id?: string | null
+  contact_id?: string | null
   company_id?: string | null
   asset_id?: string | null
   severity: 'info' | 'warning' | 'temp_ban' | 'permanent_ban'
@@ -385,7 +403,8 @@ export interface PaxIncidentResolve {
 export interface RotationCycle {
   id: string
   entity_id: string
-  pax_id: string
+  user_id: string | null
+  contact_id: string | null
   site_asset_id: string
   status: 'active' | 'paused' | 'completed'
   days_on: number
@@ -404,7 +423,8 @@ export interface RotationCycle {
 }
 
 export interface RotationCycleCreate {
-  pax_id: string
+  user_id?: string | null
+  contact_id?: string | null
   site_asset_id: string
   days_on: number
   days_off: number
@@ -424,7 +444,8 @@ export interface StayProgram {
   id: string
   entity_id: string
   ads_id: string | null
-  pax_id: string
+  user_id: string | null
+  contact_id: string | null
   status: 'draft' | 'submitted' | 'approved' | 'rejected'
   title: string
   start_date: string
@@ -441,7 +462,8 @@ export interface StayProgram {
 
 export interface StayProgramCreate {
   ads_id?: string | null
-  pax_id: string
+  user_id?: string | null
+  contact_id?: string | null
   title: string
   start_date: string
   end_date: string
@@ -467,7 +489,8 @@ export interface ProfileTypeCreate {
 
 export interface PaxProfileType {
   id: string
-  pax_id: string
+  user_id: string | null
+  contact_id: string | null
   profile_type_id: string
   assigned_at: string
   profile_type_name?: string | null
@@ -490,7 +513,7 @@ export interface MissionProgramCreate {
   planned_start_date?: string | null
   planned_end_date?: string | null
   project_id?: string | null
-  pax_ids?: string[]
+  pax_entries?: Array<{ user_id?: string | null; contact_id?: string | null }>
   notes?: string | null
 }
 
@@ -506,7 +529,7 @@ export interface MissionProgramRead {
   project_id: string | null
   generated_ads_id: string | null
   notes: string | null
-  pax_ids: string[]
+  pax_entries: Array<{ user_id?: string | null; contact_id?: string | null }>
   site_name: string | null
 }
 
@@ -614,21 +637,24 @@ interface AdsListParams extends PaginationParams {
 }
 
 interface IncidentListParams extends PaginationParams {
-  pax_id?: string
+  user_id?: string
+  contact_id?: string
   asset_id?: string
   severity?: string
   active_only?: boolean
 }
 
 interface RotationCycleListParams extends PaginationParams {
-  pax_id?: string
+  user_id?: string
+  contact_id?: string
   site_asset_id?: string
   status?: string
 }
 
 interface StayProgramListParams extends PaginationParams {
   ads_id?: string
-  pax_id?: string
+  user_id?: string
+  contact_id?: string
   status?: string
 }
 
@@ -765,6 +791,16 @@ export const paxlogService = {
     return data
   },
 
+  listAdsEvents: async (adsId: string): Promise<AdsEvent[]> => {
+    const { data } = await api.get<AdsEvent[]>(`/api/v1/pax/ads/${adsId}/events`)
+    return data
+  },
+
+  resubmitAds: async (adsId: string, reason: string) => {
+    const { data } = await api.post(`/api/v1/pax/ads/${adsId}/resubmit`, { reason })
+    return data
+  },
+
   getAdsByReference: async (reference: string): Promise<Ads> => {
     const { data } = await api.get(`/api/v1/pax/ads/by-reference/${encodeURIComponent(reference)}`)
     return data
@@ -785,14 +821,14 @@ export const paxlogService = {
     return data
   },
 
-  /** Add a PAX by pax_id, user_id, or contact_id (auto-creates PaxProfile if needed) */
+  /** Add a PAX by user_id or contact_id (auto-creates PaxProfile if needed) */
   addPaxToAdsV2: async (adsId: string, body: AddPaxBody) => {
     const { data } = await api.post(`/api/v1/pax/ads/${adsId}/add-pax`, body)
-    return data as { status: string; pax_id: string; name: string; auto_created: boolean }
+    return data as { status: string; user_id: string | null; contact_id: string | null; name: string; auto_created: boolean }
   },
 
-  removePaxFromAds: async (adsId: string, paxId: string): Promise<void> => {
-    await api.delete(`/api/v1/pax/ads/${adsId}/pax/${paxId}`)
+  removePaxFromAds: async (adsId: string, entryId: string): Promise<void> => {
+    await api.delete(`/api/v1/pax/ads/${adsId}/pax/${entryId}`)
   },
 
   /** Search PAX candidates: existing profiles + users + contacts */

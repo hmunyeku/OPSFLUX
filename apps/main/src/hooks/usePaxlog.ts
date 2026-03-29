@@ -278,8 +278,8 @@ export function useAddPaxToAds() {
 export function useRemovePaxFromAds() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ adsId, paxId }: { adsId: string; paxId: string }) =>
-      paxlogService.removePaxFromAds(adsId, paxId),
+    mutationFn: ({ adsId, entryId }: { adsId: string; entryId: string }) =>
+      paxlogService.removePaxFromAds(adsId, entryId),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['paxlog', 'ads', vars.adsId, 'pax'] })
       qc.invalidateQueries({ queryKey: ['paxlog', 'ads'] })

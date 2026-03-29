@@ -1770,7 +1770,9 @@ function AdsDetailPanel({ id }: { id: string }) {
                     <div className="max-h-[200px] overflow-y-auto space-y-0.5">
                       {paxCandidates.map((c: PaxCandidate) => {
                         // Check if already in AdS
-                        const alreadyAdded = adsPax?.some((ap: AdsPax) => ap.pax_id === c.pax_id)
+                        const alreadyAdded = adsPax?.some((ap: AdsPax) =>
+                          (c.user_id && ap.user_id === c.user_id) || (c.contact_id && ap.contact_id === c.contact_id)
+                        )
                         return (
                           <button
                             key={`${c.source}-${c.id}`}
@@ -1780,11 +1782,9 @@ function AdsDetailPanel({ id }: { id: string }) {
                               alreadyAdded ? 'opacity-40 cursor-not-allowed' : 'hover:bg-accent/60 cursor-pointer',
                             )}
                             onClick={() => {
-                              const body = c.source === 'pax_profile'
-                                ? { pax_id: c.pax_id! }
-                                : c.source === 'user'
-                                  ? { user_id: c.user_id! }
-                                  : { contact_id: c.contact_id! }
+                              const body = c.source === 'user'
+                                ? { user_id: c.user_id! }
+                                : { contact_id: c.contact_id! }
                               addPaxV2.mutate({ adsId: id, body }, {
                                 onSuccess: () => setPaxSearch(''),
                               })
@@ -1829,8 +1829,8 @@ function AdsDetailPanel({ id }: { id: string }) {
                 <div key={ap.id} className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-accent/50 text-xs group">
                   <div className="min-w-0 flex-1">
                     <p className="font-medium truncate">
-                      {ap.pax_id ? (
-                        <CrossModuleLink module="paxlog" id={ap.pax_id} subtype="profile"
+                      {(ap.user_id || ap.contact_id) ? (
+                        <CrossModuleLink module="paxlog" id={(ap.user_id || ap.contact_id)!} subtype="profile"
                           label={`${ap.pax_last_name ?? ''} ${ap.pax_first_name ?? ''}`.trim()} showIcon={false} />
                       ) : (
                         <>{ap.pax_last_name ?? ''} {ap.pax_first_name ?? ''}</>
@@ -1847,10 +1847,10 @@ function AdsDetailPanel({ id }: { id: string }) {
                     </span>
                     <StatusBadge status={ap.status} />
                     {/* Remove button — visible only with paxlog.ads.update permission */}
-                    {ap.pax_id && hasPermission('paxlog.ads.update') && (
+                    {(ap.user_id || ap.contact_id) && hasPermission('paxlog.ads.update') && (
                       <button
                         className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                        onClick={() => removePax.mutate({ adsId: id, paxId: ap.pax_id! })}
+                        onClick={() => removePax.mutate({ adsId: id, entryId: ap.id })}
                         title="Retirer ce passager"
                       >
                         <Trash2 size={12} />
@@ -2005,7 +2005,8 @@ function CreateIncidentPanel() {
     severity: 'info' | 'warning' | 'temp_ban' | 'permanent_ban'
     description: string
     incident_date: string
-    pax_id: string | null
+    user_id: string | null
+    contact_id: string | null
     pax_display: string | null
     ban_start_date: string | null
     ban_end_date: string | null
@@ -2013,7 +2014,8 @@ function CreateIncidentPanel() {
     severity: 'warning',
     description: '',
     incident_date: new Date().toISOString().split('T')[0],
-    pax_id: null,
+    user_id: null,
+    contact_id: null,
     pax_display: null,
     ban_start_date: null,
     ban_end_date: null,
@@ -2025,7 +2027,8 @@ function CreateIncidentPanel() {
       severity: form.severity,
       description: form.description,
       incident_date: form.incident_date,
-      pax_id: form.pax_id || null,
+      user_id: form.user_id || null,
+      contact_id: form.contact_id || null,
       ban_start_date: form.ban_start_date || null,
       ban_end_date: form.ban_end_date || null,
     })
@@ -2071,9 +2074,12 @@ function CreateIncidentPanel() {
             searchValue={paxSearch}
             onSearchChange={setPaxSearch}
             renderItem={(p) => <>{p.last_name} {p.first_name} {p.company_name ? <span className="text-muted-foreground">— {p.company_name}</span> : ''}</>}
-            selectedId={form.pax_id}
-            onSelect={(p) => setForm({ ...form, pax_id: p.id, pax_display: `${p.last_name} ${p.first_name}` })}
-            onClear={() => setForm({ ...form, pax_id: null, pax_display: null })}
+            selectedId={form.user_id || form.contact_id}
+            onSelect={(p) => {
+              const isUser = p.pax_source === 'user' || p.pax_type === 'internal'
+              setForm({ ...form, user_id: isUser ? p.id : null, contact_id: isUser ? null : p.id, pax_display: `${p.last_name} ${p.first_name}` })
+            }}
+            onClear={() => setForm({ ...form, user_id: null, contact_id: null, pax_display: null })}
             placeholder="Rechercher un PAX..."
           />
         </FormSection>
@@ -2122,7 +2128,8 @@ function CreateRotationPanel() {
   const { data: paxData, isLoading: paxLoading } = usePaxProfiles({ page: 1, page_size: 20, search: paxSearch || undefined })
 
   const [form, setForm] = useState({
-    pax_id: null as string | null,
+    user_id: null as string | null,
+    contact_id: null as string | null,
     site_asset_id: '',
     days_on: 28,
     days_off: 28,
@@ -2132,9 +2139,10 @@ function CreateRotationPanel() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.pax_id) return
+    if (!form.user_id && !form.contact_id) return
     await createRotation.mutateAsync({
-      pax_id: form.pax_id,
+      user_id: form.user_id,
+      contact_id: form.contact_id,
       site_asset_id: form.site_asset_id,
       days_on: form.days_on,
       days_off: form.days_off,
@@ -2154,7 +2162,7 @@ function CreateRotationPanel() {
           <PanelActionButton onClick={closeDynamicPanel}>{t('common.cancel')}</PanelActionButton>
           <PanelActionButton
             variant="primary"
-            disabled={createRotation.isPending || !form.pax_id}
+            disabled={createRotation.isPending || (!form.user_id && !form.contact_id)}
             onClick={() => (document.getElementById('create-rotation-form') as HTMLFormElement)?.requestSubmit()}
           >
             {createRotation.isPending ? <Loader2 size={12} className="animate-spin" /> : t('common.create')}
@@ -2173,9 +2181,12 @@ function CreateRotationPanel() {
             searchValue={paxSearch}
             onSearchChange={setPaxSearch}
             renderItem={(p) => <>{p.last_name} {p.first_name}</>}
-            selectedId={form.pax_id}
-            onSelect={(p) => setForm({ ...form, pax_id: p.id })}
-            onClear={() => setForm({ ...form, pax_id: null })}
+            selectedId={form.user_id || form.contact_id}
+            onSelect={(p) => {
+              const isUser = p.pax_source === 'user' || p.pax_type === 'internal'
+              setForm({ ...form, user_id: isUser ? p.id : null, contact_id: isUser ? null : p.id })
+            }}
+            onClear={() => setForm({ ...form, user_id: null, contact_id: null })}
             placeholder="Rechercher un PAX..."
           />
         </FormSection>
@@ -2580,7 +2591,7 @@ function AvmDetailPanel({ id }: { id?: string }) {
                   {(prog.planned_start_date || prog.planned_end_date) && (
                     <div className="text-[11px] text-muted-foreground tabular-nums">{formatDateShort(prog.planned_start_date)} — {formatDateShort(prog.planned_end_date)}</div>
                   )}
-                  {prog.pax_ids.length > 0 && <div className="text-[11px] text-muted-foreground">{prog.pax_ids.length} PAX</div>}
+                  {(prog.pax_entries?.length || 0) > 0 && <div className="text-[11px] text-muted-foreground">{prog.pax_entries.length} PAX</div>}
                   {prog.generated_ads_id && (
                     <button
                       className="text-[11px] text-primary hover:underline flex items-center gap-1"

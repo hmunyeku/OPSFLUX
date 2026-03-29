@@ -10,7 +10,7 @@ Integrates with:
 import logging
 import unicodedata
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
@@ -3402,6 +3402,103 @@ async def resolve_signalement(
         },
     ))
 
+    return incident
+
+
+@router.post("/signalements/{signalement_id}/validate", response_model=PaxIncidentRead)
+async def validate_signalement(
+    signalement_id: UUID,
+    decision: str | None = None,
+    decision_duration_days: int | None = None,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.incident.resolve"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Validate a signalement — confirms the decision (ban, warning, etc.)."""
+    result = await db.execute(
+        select(PaxIncident).where(
+            PaxIncident.id == signalement_id,
+            PaxIncident.entity_id == entity_id,
+        )
+    )
+    incident = result.scalar_one_or_none()
+    if not incident:
+        raise HTTPException(status_code=404, detail="Signalement not found")
+
+    if decision:
+        incident.decision = decision
+    if decision_duration_days:
+        incident.decision_duration_days = decision_duration_days
+        incident.decision_end_date = date.today() + timedelta(days=decision_duration_days)
+
+    await db.commit()
+    await db.refresh(incident)
+    return incident
+
+
+@router.post("/signalements/{signalement_id}/lift", response_model=PaxIncidentRead)
+async def lift_signalement(
+    signalement_id: UUID,
+    lift_reason: str = Body(..., min_length=1, embed=True),
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.incident.resolve"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Lift a signalement — removes the ban/sanction with justification."""
+    result = await db.execute(
+        select(PaxIncident).where(
+            PaxIncident.id == signalement_id,
+            PaxIncident.entity_id == entity_id,
+        )
+    )
+    incident = result.scalar_one_or_none()
+    if not incident:
+        raise HTTPException(status_code=404, detail="Signalement not found")
+
+    incident.resolved_at = func.now()
+    incident.resolved_by = current_user.id
+    incident.resolution_notes = f"[LEVEE] {lift_reason}"
+
+    # Re-activate PAX if no other active bans
+    if incident.severity in ("temp_ban", "permanent_ban"):
+        pax_col = "user_id" if incident.user_id else "contact_id"
+        pax_val = str(incident.user_id or incident.contact_id)
+        if pax_val:
+            other_bans = await db.execute(
+                text(
+                    f"SELECT COUNT(*) FROM pax_incidents "
+                    f"WHERE entity_id = :eid AND {pax_col} = :pax_fk "
+                    f"AND id != :sig_id "
+                    f"AND severity IN ('temp_ban', 'permanent_ban') "
+                    f"AND resolved_at IS NULL"
+                ),
+                {"eid": str(entity_id), "pax_fk": pax_val, "sig_id": str(signalement_id)},
+            )
+            if (other_bans.scalar() or 0) == 0:
+                table = "users" if incident.user_id else "tier_contacts"
+                await db.execute(
+                    text(f"UPDATE {table} SET pax_status = 'active' WHERE id = :pid"),
+                    {"pid": pax_val},
+                )
+
+    await db.commit()
+    await db.refresh(incident)
+
+    from app.core.events import OpsFluxEvent, event_bus as _event_bus
+    await _event_bus.publish(OpsFluxEvent(
+        event_type="paxlog.signalement.lifted",
+        payload={
+            "incident_id": str(signalement_id),
+            "entity_id": str(entity_id),
+            "lifted_by": str(current_user.id),
+            "lift_reason": lift_reason,
+        },
+    ))
+
+    return incident
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # AVIS DE MISSION (AVM)
@@ -3761,6 +3858,64 @@ async def cancel_avm(
             "reference": avm.reference,
             "cancelled_by": str(current_user.id),
             "reason": reason,
+        },
+    ))
+
+    return await _build_avm_read(db, avm)
+
+
+@router.post("/avm/{avm_id}/modify", response_model=MissionNoticeRead)
+async def modify_active_avm(
+    avm_id: UUID,
+    body: MissionNoticeUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.avm.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Modify an active AVM (PAX potentially on site).
+
+    Allowed on status: active, in_preparation.
+    Logs modification reason and notifies stakeholders.
+    """
+    result = await db.execute(
+        select(MissionNotice).where(
+            MissionNotice.id == avm_id,
+            MissionNotice.entity_id == entity_id,
+        )
+    )
+    avm = result.scalar_one_or_none()
+    if not avm:
+        raise HTTPException(status_code=404, detail="AVM not found")
+    if avm.status not in ("active", "in_preparation"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot modify AVM with status '{avm.status}'",
+        )
+
+    update_data = body.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(avm, key, value)
+
+    await db.commit()
+    await db.refresh(avm)
+
+    await record_audit(
+        db, action="paxlog.avm.modify_active", resource_type="mission_notice",
+        resource_id=str(avm.id), user_id=current_user.id, entity_id=entity_id,
+        details={"modified_fields": list(update_data.keys())},
+    )
+    await db.commit()
+
+    from app.core.events import OpsFluxEvent, event_bus as _event_bus
+    await _event_bus.publish(OpsFluxEvent(
+        event_type="paxlog.mission_notice.modified",
+        payload={
+            "avm_id": str(avm.id),
+            "entity_id": str(entity_id),
+            "reference": avm.reference,
+            "modified_by": str(current_user.id),
+            "modified_fields": list(update_data.keys()),
         },
     ))
 

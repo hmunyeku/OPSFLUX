@@ -1,10 +1,12 @@
 """Core ORM models — entities, users, roles, assets, tiers, departments, etc."""
 
 from datetime import date, datetime
+from decimal import Decimal
 from uuid import UUID as PyUUID
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Column,
     Date,
     DateTime,
@@ -12,6 +14,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -1036,6 +1039,51 @@ class Attachment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
     uploader: Mapped["User"] = relationship(foreign_keys=[uploaded_by])
+
+
+# ─── Cost Imputations (polymorphic — cost splits for any object) ─────────
+
+class CostImputation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Polymorphic cost imputation split — linked to any entity via owner_type + owner_id.
+
+    Allows fractional cost allocation across projects and cost centers.
+    Sum of percentages per owner must equal 100 (application-level constraint).
+    owner_type: 'ads', 'voyage', 'mission', 'purchase_order', etc.
+    owner_id:   UUID of the owning object.
+    """
+    __tablename__ = "cost_imputations"
+    __table_args__ = (
+        Index("idx_cost_imp_owner", "owner_type", "owner_id"),
+        Index("idx_cost_imp_project", "project_id"),
+        Index("idx_cost_imp_cost_center", "cost_center_id"),
+        CheckConstraint(
+            "percentage > 0 AND percentage <= 100",
+            name="ck_cost_imp_pct",
+        ),
+    )
+
+    owner_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    owner_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    project_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("projects.id"), nullable=True
+    )
+    wbs_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    cost_center_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("cost_centers.id"), nullable=True
+    )
+    percentage: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False)
+    cross_imputation: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", nullable=False
+    )
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+
+    # Relationships
+    project: Mapped["Project | None"] = relationship(foreign_keys=[project_id])
+    cost_center: Mapped["CostCenter | None"] = relationship(foreign_keys=[cost_center_id])
+    author: Mapped["User"] = relationship(foreign_keys=[created_by])
 
 
 # ─── Social Networks (polymorphic — links for any object) ──────────────────

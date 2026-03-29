@@ -533,3 +533,50 @@ export const openingHourService = {
     await api.delete(`/api/v1/opening-hours/${id}`)
   },
 }
+
+// ── Cost Imputations (polymorphic) ────────────────────────
+
+export interface CostImputation {
+  id: string
+  owner_type: string
+  owner_id: string
+  project_id: string | null
+  wbs_id: string | null
+  cost_center_id: string | null
+  percentage: number
+  cross_imputation: boolean
+  notes: string | null
+  created_by: string
+  created_at: string
+  updated_at: string
+  project_name: string | null
+  cost_center_name: string | null
+  author_name: string | null
+}
+
+export interface CostImputationCreate {
+  owner_type: string
+  owner_id: string
+  project_id?: string | null
+  wbs_id?: string | null
+  cost_center_id?: string | null
+  percentage: number
+  cross_imputation?: boolean
+  notes?: string | null
+}
+
+export const costImputationsService = {
+  list: async (ownerType: string, ownerId: string): Promise<CostImputation[]> => {
+    const { data } = await api.get('/api/v1/cost-imputations', {
+      params: { owner_type: ownerType, owner_id: ownerId },
+    })
+    return data
+  },
+  create: async (payload: CostImputationCreate): Promise<CostImputation> => {
+    const { data } = await api.post('/api/v1/cost-imputations', payload)
+    return data
+  },
+  remove: async (id: string): Promise<void> => {
+    await api.delete(`/api/v1/cost-imputations/${id}`)
+  },
+}

@@ -533,37 +533,6 @@ class MissionStakeholder(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     mission_notice: Mapped["MissionNotice"] = relationship(back_populates="stakeholders")
 
 
-# ─── AdS Imputation ──────────────────────────────────────────────────────
-
-class AdsImputation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """Cost imputation split for an Avis de Sejour."""
-    __tablename__ = "ads_imputations"
-    __table_args__ = (
-        Index("idx_ads_imp_ads", "ads_id"),
-        Index("idx_ads_imp_project", "project_id"),
-        CheckConstraint(
-            "percentage > 0 AND percentage <= 100",
-            name="ck_ads_imp_pct",
-        ),
-    )
-
-    ads_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("ads.id", ondelete="CASCADE"), nullable=False
-    )
-    project_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False
-    )
-    wbs_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True))
-    cost_center_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("cost_centers.id"), nullable=False
-    )
-    percentage: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False)
-    cross_imputation: Mapped[bool] = mapped_column(
-        Boolean, default=False, server_default="false", nullable=False
-    )
-    notes: Mapped[str | None] = mapped_column(Text)
-
-
 # ─── AdS Events (audit log) ─────────────────────────────────────────────
 
 class AdsEvent(UUIDPrimaryKeyMixin, Base):

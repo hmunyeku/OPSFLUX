@@ -495,10 +495,11 @@ async def on_project_status_changed(event: OpsFluxEvent) -> None:
         async with async_session_factory() as db:
             result = await db.execute(
                 text(
-                    "SELECT DISTINCT ai.ads_id, a.reference, a.requester_id "
-                    "FROM ads_imputations ai "
-                    "JOIN ads a ON a.id = ai.ads_id "
-                    "WHERE ai.project_id = :pid "
+                    "SELECT DISTINCT ci.owner_id AS ads_id, a.reference, a.requester_id "
+                    "FROM cost_imputations ci "
+                    "JOIN ads a ON a.id = ci.owner_id "
+                    "WHERE ci.owner_type = 'ads' "
+                    "AND ci.project_id = :pid "
                     "AND a.status NOT IN ('completed', 'cancelled', 'rejected')"
                 ),
                 {"pid": str(project_id)},

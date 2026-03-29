@@ -58,7 +58,6 @@ from app.models.travelwiz import (  # noqa: F401
 from app.models.paxlog import (  # noqa: F401
     Ads,
     AdsEvent,
-    AdsImputation,
     AdsPax,
     ComplianceMatrixEntry,
     CredentialType,
@@ -78,4 +77,4 @@ from app.models.paxlog import (  # noqa: F401
     ProfileType,
     StayProgram,
 )
-from app.models.common import ImportMapping  # noqa: F401
+from app.models.common import CostImputation, ImportMapping  # noqa: F401

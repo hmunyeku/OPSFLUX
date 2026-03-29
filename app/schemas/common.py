@@ -776,6 +776,47 @@ class AttachmentRead(OpsFluxSchema):
     created_at: datetime
 
 
+# ─── Cost Imputations (polymorphic) ──────────────────────────────────────────
+
+class CostImputationCreate(BaseModel):
+    owner_type: str = Field(..., min_length=1, max_length=50)
+    owner_id: UUID
+    project_id: UUID | None = None
+    wbs_id: UUID | None = None
+    cost_center_id: UUID | None = None
+    percentage: float = Field(..., gt=0, le=100)
+    cross_imputation: bool = False
+    notes: str | None = None
+
+
+class CostImputationUpdate(BaseModel):
+    project_id: UUID | None = None
+    wbs_id: UUID | None = None
+    cost_center_id: UUID | None = None
+    percentage: float | None = Field(None, gt=0, le=100)
+    cross_imputation: bool | None = None
+    notes: str | None = None
+
+
+class CostImputationRead(OpsFluxSchema):
+    id: UUID
+    owner_type: str
+    owner_id: UUID
+    project_id: UUID | None
+    wbs_id: UUID | None
+    cost_center_id: UUID | None
+    percentage: float
+    cross_imputation: bool
+    notes: str | None
+    created_by: UUID
+    created_at: datetime
+    updated_at: datetime
+    # Enriched (joined)
+    project_name: str | None = None
+    cost_center_name: str | None = None
+    author_name: str | None = None
+
+
 # ─── Social Networks (polymorphic) ───────────────────────────────────────────
 
 class SocialNetworkCreate(BaseModel):

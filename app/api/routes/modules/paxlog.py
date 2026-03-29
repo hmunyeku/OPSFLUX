@@ -2077,8 +2077,8 @@ async def list_imputations(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """List cost imputations for an AdS. Sum of percentages must = 100."""
-    from sqlalchemy import text as sa_text
+    """List cost imputations for an AdS — delegates to core cost_imputations."""
+    from app.api.routes.core.cost_imputations import list_cost_imputations
 
     # Verify AdS
     ads_result = await db.execute(
@@ -2087,29 +2087,9 @@ async def list_imputations(
     if not ads_result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="AdS not found")
 
-    result = await db.execute(
-        sa_text(
-            """
-            SELECT id, ads_id, project_id, cost_center_id, wbs_id, percentage
-            FROM ads_imputations
-            WHERE ads_id = :ads_id
-            ORDER BY id
-            """
-        ),
-        {"ads_id": str(ads_id)},
+    return await list_cost_imputations(
+        owner_type="ads", owner_id=ads_id, current_user=current_user, db=db
     )
-    rows = result.all()
-    return [
-        {
-            "id": str(r[0]),
-            "ads_id": str(r[1]),
-            "project_id": str(r[2]) if r[2] else None,
-            "cost_center_id": str(r[3]) if r[3] else None,
-            "wbs_id": str(r[4]) if r[4] else None,
-            "percentage": float(r[5]),
-        }
-        for r in rows
-    ]
 
 
 @router.post("/ads/{ads_id}/imputations", status_code=201)
@@ -2124,8 +2104,9 @@ async def add_imputation(
     _: None = require_permission("paxlog.ads.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Add a cost imputation line. Validates sum <= 100."""
-    from sqlalchemy import text as sa_text
+    """Add a cost imputation line — delegates to core cost_imputations."""
+    from app.api.routes.core.cost_imputations import create_cost_imputation
+    from app.schemas.common import CostImputationCreate
 
     # Verify AdS
     ads_result = await db.execute(
@@ -2134,46 +2115,15 @@ async def add_imputation(
     if not ads_result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="AdS not found")
 
-    # Check current total
-    total_result = await db.execute(
-        sa_text("SELECT COALESCE(SUM(percentage), 0) FROM ads_imputations WHERE ads_id = :ads_id"),
-        {"ads_id": str(ads_id)},
+    body = CostImputationCreate(
+        owner_type="ads",
+        owner_id=ads_id,
+        project_id=project_id,
+        cost_center_id=cost_center_id,
+        percentage=percentage,
+        wbs_id=wbs_id,
     )
-    current_total = float(total_result.scalar() or 0)
-
-    if current_total + percentage > 100.0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Total des imputations dépasserait 100% ({current_total}% + {percentage}% = {current_total + percentage}%).",
-        )
-
-    result = await db.execute(
-        sa_text(
-            """
-            INSERT INTO ads_imputations (ads_id, project_id, cost_center_id, wbs_id, percentage, created_at)
-            VALUES (:ads_id, :project_id, :cc_id, :wbs_id, :percentage, NOW())
-            RETURNING id
-            """
-        ),
-        {
-            "ads_id": str(ads_id),
-            "project_id": str(project_id) if project_id else None,
-            "cc_id": str(cost_center_id) if cost_center_id else None,
-            "wbs_id": str(wbs_id) if wbs_id else None,
-            "percentage": percentage,
-        },
-    )
-    new_id = result.scalar()
-    await db.commit()
-
-    return {
-        "id": str(new_id),
-        "ads_id": str(ads_id),
-        "project_id": str(project_id) if project_id else None,
-        "cost_center_id": str(cost_center_id) if cost_center_id else None,
-        "wbs_id": str(wbs_id) if wbs_id else None,
-        "percentage": percentage,
-    }
+    return await create_cost_imputation(body=body, current_user=current_user, db=db)
 
 
 @router.delete("/ads/{ads_id}/imputations/{imputation_id}", status_code=204)
@@ -2185,8 +2135,8 @@ async def delete_imputation(
     _: None = require_permission("paxlog.ads.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Remove a cost imputation line."""
-    from sqlalchemy import text as sa_text
+    """Remove a cost imputation line — delegates to core cost_imputations."""
+    from app.api.routes.core.cost_imputations import delete_cost_imputation
 
     # Verify AdS belongs to entity
     ads_result = await db.execute(
@@ -2195,18 +2145,9 @@ async def delete_imputation(
     if not ads_result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="AdS not found")
 
-    # Junction record — physical delete (not policy-managed)
-    result = await db.execute(
-        sa_text(
-            "DELETE FROM ads_imputations WHERE id = :imp_id AND ads_id = :ads_id RETURNING id"
-        ),
-        {"imp_id": str(imputation_id), "ads_id": str(ads_id)},
+    return await delete_cost_imputation(
+        imputation_id=imputation_id, current_user=current_user, db=db
     )
-    deleted = result.scalar()
-    if not deleted:
-        raise HTTPException(status_code=404, detail="Imputation not found")
-    await db.commit()
-    return None
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

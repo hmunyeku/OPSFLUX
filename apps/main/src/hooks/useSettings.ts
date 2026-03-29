@@ -27,6 +27,7 @@ import {
   mfaService,
   socialNetworkService,
   openingHourService,
+  costImputationsService,
 } from '@/services/settingsService'
 import type {
   ProfileUpdate,
@@ -45,7 +46,7 @@ import type {
   OAuthAppCreate,
   NotificationPreferenceUpdate,
 } from '@/types/api'
-import type { SocialNetworkCreate, OpeningHourCreate } from '@/services/settingsService'
+import type { SocialNetworkCreate, OpeningHourCreate, CostImputationCreate } from '@/services/settingsService'
 
 // ═════════════════════════════════════════════════════════════
 // PROFILE
@@ -750,5 +751,36 @@ export function useDeleteOpeningHour() {
     mutationFn: (vars: { id: string; ownerType: string; ownerId: string }) =>
       openingHourService.remove(vars.id),
     onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['opening-hours', v.ownerType, v.ownerId] }) },
+  })
+}
+
+// ═════════════════════════════════════════════════════════════
+// COST IMPUTATIONS (polymorphic)
+// ═════════════════════════════════════════════════════════════
+
+export function useCostImputations(ownerType: string, ownerId: string | undefined) {
+  return useQuery({
+    queryKey: ['cost-imputations', ownerType, ownerId],
+    queryFn: () => costImputationsService.list(ownerType, ownerId!),
+    enabled: !!ownerId,
+  })
+}
+
+export function useCreateCostImputation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: CostImputationCreate) => costImputationsService.create(payload),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ['cost-imputations', variables.owner_type, variables.owner_id] })
+    },
+  })
+}
+
+export function useDeleteCostImputation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (vars: { id: string; ownerType: string; ownerId: string }) =>
+      costImputationsService.remove(vars.id),
+    onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['cost-imputations', v.ownerType, v.ownerId] }) },
   })
 }

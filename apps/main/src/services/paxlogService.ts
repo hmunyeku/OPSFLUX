@@ -33,17 +33,16 @@ export interface PaxProfile {
 
 export interface PaxProfileSummary {
   id: string
-  entity_id: string
-  type: 'internal' | 'external'
+  pax_source: 'user' | 'contact'
+  entity_id: string | null
+  pax_type: 'internal' | 'external'
   first_name: string
   last_name: string
   company_id: string | null
   company_name: string | null
-  user_id: string | null
   badge_number: string | null
-  status: string
-  profile_completeness: number
-  created_at: string
+  active: boolean
+  created_at: string | null
 }
 
 export interface PaxProfileCreate {

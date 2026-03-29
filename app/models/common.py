@@ -229,6 +229,17 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     emails: Mapped[list["UserEmail"]] = relationship(back_populates="user")
     oauth_applications: Mapped[list["OAuthApplication"]] = relationship(back_populates="user")
 
+    # ── PAX-specific fields (migrated from pax_profiles) ──
+    badge_number: Mapped[str | None] = mapped_column(String(100))
+    pax_group_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("pax_groups.id", ondelete="SET NULL")
+    )
+
+    @property
+    def pax_type(self) -> str:
+        """PAX type derived from user_type (for compliance scope filtering)."""
+        return self.user_type  # 'internal' or 'external'
+
     @property
     def full_name(self) -> str:
         return f"{self.first_name} {self.last_name}"
@@ -558,8 +569,26 @@ class TierContact(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     is_primary: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
+    # ── PAX-specific fields (migrated from pax_profiles) ──
+    birth_date: Mapped[date | None] = mapped_column(Date)
+    nationality: Mapped[str | None] = mapped_column(String(100))
+    badge_number: Mapped[str | None] = mapped_column(String(100))
+    photo_url: Mapped[str | None] = mapped_column(Text)
+    pax_group_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("pax_groups.id", ondelete="SET NULL")
+    )
+
     tier: Mapped["Tier"] = relationship(back_populates="contacts")
     job_position: Mapped["JobPosition | None"] = relationship(foreign_keys=[job_position_id])
+
+    @property
+    def pax_type(self) -> str:
+        """TierContacts are always external PAX."""
+        return "external"
+
+    @property
+    def full_name(self) -> str:
+        return f"{self.first_name} {self.last_name}"
 
 
 class LegalIdentifier(UUIDPrimaryKeyMixin, TimestampMixin, Base):

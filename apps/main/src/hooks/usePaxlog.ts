@@ -287,7 +287,7 @@ export function useRemovePaxFromAds() {
   })
 }
 
-/** Add a PAX by pax_id, user_id, or contact_id (auto-creates PaxProfile) */
+/** Add a PAX by user_id or contact_id */
 export function useAddPaxToAdsV2() {
   const qc = useQueryClient()
   return useMutation({
@@ -358,7 +358,7 @@ export function useCreateExternalLink() {
 
 // ── PAX Incidents / Signalements ──
 
-export function usePaxIncidents(params: { page?: number; page_size?: number; pax_id?: string; asset_id?: string; severity?: string; active_only?: boolean } = {}) {
+export function usePaxIncidents(params: { page?: number; page_size?: number; user_id?: string; contact_id?: string; asset_id?: string; severity?: string; active_only?: boolean } = {}) {
   return useQuery({
     queryKey: ['paxlog', 'incidents', params],
     queryFn: () => paxlogService.listIncidents(params),
@@ -388,7 +388,7 @@ export function useResolvePaxIncident() {
 
 // ── Rotation Cycles ──
 
-export function useRotationCycles(params: { page?: number; page_size?: number; pax_id?: string; site_asset_id?: string; status?: string } = {}) {
+export function useRotationCycles(params: { page?: number; page_size?: number; user_id?: string; contact_id?: string; site_asset_id?: string; status?: string } = {}) {
   return useQuery({
     queryKey: ['paxlog', 'rotation-cycles', params],
     queryFn: () => paxlogService.listRotationCycles(params),
@@ -428,7 +428,7 @@ export function useEndRotationCycle() {
 
 // ── Stay Programs ──
 
-export function useStayPrograms(params: { page?: number; page_size?: number; ads_id?: string; pax_id?: string; status?: string } = {}) {
+export function useStayPrograms(params: { page?: number; page_size?: number; ads_id?: string; user_id?: string; contact_id?: string; status?: string } = {}) {
   return useQuery({
     queryKey: ['paxlog', 'stay-programs', params],
     queryFn: () => paxlogService.listStayPrograms(params),

@@ -1786,8 +1786,7 @@ function AdsDetailPanel({ id }: { id: string }) {
                             <div className="min-w-0 flex-1">
                               <p className="font-medium truncate">{c.last_name} {c.first_name}</p>
                               <p className="text-[10px] text-muted-foreground">
-                                {c.source === 'pax_profile' ? `Profil PAX${c.badge ? ` • ${c.badge}` : ''}` :
-                                  c.source === 'user' ? `Utilisateur${c.email ? ` • ${c.email}` : ''}` :
+                                {c.source === 'user' ? `Utilisateur${c.email ? ` • ${c.email}` : ''}` :
                                     `Contact${c.position ? ` • ${c.position}` : ''}`}
                               </p>
                             </div>

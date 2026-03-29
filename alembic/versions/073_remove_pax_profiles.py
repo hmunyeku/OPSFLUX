@@ -118,24 +118,26 @@ def upgrade() -> None:
     """))
 
     # 4f: Migrate polymorphic records (tags, attachments, notes)
+    # owner_id column type varies: UUID in some tables, text in others.
+    # Use CAST to handle both cases safely.
     for poly_table in ["tags", "attachments", "notes"]:
         # Internal PAX → owner_type = 'user', owner_id = users.id
         conn.execute(sa.text(f"""
-            UPDATE {poly_table} p SET owner_type = 'user', owner_id = pp.user_id::text
+            UPDATE {poly_table} p SET owner_type = 'user', owner_id = pp.user_id
             FROM pax_profiles pp
             WHERE p.owner_type = 'pax_profile'
-              AND p.owner_id::text = pp.id::text
+              AND p.owner_id = pp.id
               AND pp.user_id IS NOT NULL
         """))
         # External PAX → owner_type = 'tier_contact', resolve contact_id
         conn.execute(sa.text(f"""
-            UPDATE {poly_table} p SET owner_type = 'tier_contact', owner_id = tc.id::text
+            UPDATE {poly_table} p SET owner_type = 'tier_contact', owner_id = tc.id
             FROM pax_profiles pp
             JOIN tier_contacts tc ON tc.tier_id = pp.company_id
               AND LOWER(TRIM(tc.first_name)) = LOWER(TRIM(pp.first_name))
               AND LOWER(TRIM(tc.last_name)) = LOWER(TRIM(pp.last_name))
             WHERE p.owner_type = 'pax_profile'
-              AND p.owner_id::text = pp.id::text
+              AND p.owner_id = pp.id
               AND pp.user_id IS NULL
         """))
 

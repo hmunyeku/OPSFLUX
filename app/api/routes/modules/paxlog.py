@@ -23,7 +23,7 @@ from app.core.audit import record_audit
 from app.core.database import get_db
 from app.core.pagination import PaginationParams, paginate
 from app.core.references import generate_reference
-from app.models.common import Tier, User
+from app.models.common import Tier, TierContact, User
 from app.models.paxlog import (
     Ads,
     AdsPax,
@@ -37,10 +37,10 @@ from app.models.paxlog import (
     PaxCredential,
     PaxGroup,
     PaxIncident,
-    PaxProfile,
 )
 from app.schemas.paxlog import (
     AdsCreate,
+    AdsPaxEntry,
     AdsRead,
     AdsSummary,
     AdsUpdate,
@@ -61,7 +61,6 @@ from app.schemas.paxlog import (
     PaxIncidentCreate,
     PaxIncidentRead,
     PaxIncidentResolve,
-    PaxProfileCreate,
     PaxProfileRead,
     PaxProfileSummary,
     PaxProfileUpdate,
@@ -122,35 +121,141 @@ def _normalize_name(name: str) -> str:
     return re.sub(r"[^a-z0-9 ]", "", ascii_str.lower()).strip()
 
 
-def _compute_completeness(profile: PaxProfile, has_credentials: bool = False) -> int:
-    """Calculate profile completeness as a percentage (0-100).
+def _compute_completeness(
+    entity: User | TierContact,
+    has_credentials: bool = False,
+) -> int:
+    """Calculate PAX profile completeness as a percentage (0-100).
 
-    Weights: first_name 10%, last_name 10%, birth_date 10%, nationality 10%,
-    company_id 10%, badge_number 10%, photo_url 10%, group_id 5%,
-    status != 'incomplete' 15%, at least 1 credential 10%.
+    Works for both User and TierContact objects.
+    Weights: first_name 15%, last_name 15%, birth_date 15%, nationality 15%,
+    badge_number 15%, pax_group_id 10%, at least 1 credential 15%.
     """
     score = 0
-    if profile.first_name:
-        score += 10
-    if profile.last_name:
-        score += 10
-    if profile.birth_date:
-        score += 10
-    if profile.nationality:
-        score += 10
-    if profile.company_id:
-        score += 10
-    if profile.badge_number:
-        score += 10
-    if profile.photo_url:
-        score += 10
-    if profile.group_id:
-        score += 5
-    if profile.status and profile.status != "incomplete":
+    if getattr(entity, "first_name", None):
         score += 15
-    if has_credentials:
+    if getattr(entity, "last_name", None):
+        score += 15
+    if getattr(entity, "birth_date", None):
+        score += 15
+    if getattr(entity, "nationality", None):
+        score += 15
+    if getattr(entity, "badge_number", None):
+        score += 15
+    if getattr(entity, "pax_group_id", None):
         score += 10
+    if has_credentials:
+        score += 15
     return min(score, 100)
+
+
+def _user_to_pax_summary(u: User, company_name: str | None = None) -> PaxProfileSummary:
+    """Build a PaxProfileSummary from a User row."""
+    return PaxProfileSummary(
+        id=u.id,
+        pax_source="user",
+        entity_id=u.default_entity_id,
+        pax_type=u.pax_type,
+        first_name=u.first_name,
+        last_name=u.last_name,
+        company_id=None,
+        company_name=company_name,
+        badge_number=u.badge_number,
+        active=u.active,
+        created_at=u.created_at,
+    )
+
+
+def _contact_to_pax_summary(c: TierContact, company_name: str | None = None) -> PaxProfileSummary:
+    """Build a PaxProfileSummary from a TierContact row."""
+    return PaxProfileSummary(
+        id=c.id,
+        pax_source="contact",
+        entity_id=None,
+        pax_type="external",
+        first_name=c.first_name,
+        last_name=c.last_name,
+        company_id=c.tier_id,
+        company_name=company_name,
+        badge_number=c.badge_number,
+        active=c.active,
+        created_at=c.created_at,
+    )
+
+
+def _user_to_pax_read(u: User, company_name: str | None = None) -> PaxProfileRead:
+    """Build a PaxProfileRead from a User row."""
+    return PaxProfileRead(
+        id=u.id,
+        pax_source="user",
+        entity_id=u.default_entity_id,
+        pax_type=u.pax_type,
+        first_name=u.first_name,
+        last_name=u.last_name,
+        birth_date=u.birth_date,
+        nationality=u.nationality,
+        company_id=None,
+        company_name=company_name,
+        group_id=u.pax_group_id,
+        badge_number=u.badge_number,
+        photo_url=u.avatar_url,
+        email=u.email,
+        active=u.active,
+        created_at=u.created_at,
+        updated_at=u.updated_at,
+    )
+
+
+def _contact_to_pax_read(c: TierContact, company_name: str | None = None) -> PaxProfileRead:
+    """Build a PaxProfileRead from a TierContact row."""
+    return PaxProfileRead(
+        id=c.id,
+        pax_source="contact",
+        entity_id=None,
+        pax_type="external",
+        first_name=c.first_name,
+        last_name=c.last_name,
+        birth_date=c.birth_date,
+        nationality=c.nationality,
+        company_id=c.tier_id,
+        company_name=company_name,
+        group_id=c.pax_group_id,
+        badge_number=c.badge_number,
+        photo_url=c.photo_url,
+        email=c.email,
+        active=c.active,
+        created_at=c.created_at,
+        updated_at=c.updated_at,
+    )
+
+
+async def _resolve_pax_identity(
+    db: AsyncSession,
+    profile_id: UUID,
+    pax_source: str,
+) -> tuple[User | TierContact, str | None]:
+    """Resolve a PAX entity (User or TierContact) by id and source.
+
+    Returns (entity, company_name) or raises 404.
+    """
+    if pax_source == "user":
+        result = await db.execute(select(User).where(User.id == profile_id))
+        entity = result.scalar_one_or_none()
+        if not entity:
+            raise HTTPException(status_code=404, detail="PAX user not found")
+        return entity, None
+    elif pax_source == "contact":
+        result = await db.execute(
+            select(TierContact, Tier.name.label("company_name"))
+            .outerjoin(Tier, Tier.id == TierContact.tier_id)
+            .where(TierContact.id == profile_id)
+        )
+        row = result.one_or_none()
+        if not row:
+            raise HTTPException(status_code=404, detail="PAX contact not found")
+        return row[0], row[1]
+    else:
+        raise HTTPException(status_code=400, detail="pax_source must be 'user' or 'contact'")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -161,7 +266,6 @@ def _compute_completeness(profile: PaxProfile, has_credentials: bool = False) ->
 @router.get("/profiles", response_model=PaginatedResponse[PaxProfileSummary])
 async def list_profiles(
     search: str | None = None,
-    status_filter: str | None = None,
     type_filter: str | None = None,
     company_id: UUID | None = None,
     pagination: PaginationParams = Depends(),
@@ -169,50 +273,59 @@ async def list_profiles(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """List PAX profiles for the current entity with company/user info."""
-    query = (
-        select(
-            PaxProfile,
-            Tier.name.label("company_name"),
-            User.email.label("user_email"),
-        )
-        .outerjoin(Tier, Tier.id == PaxProfile.company_id)
-        .outerjoin(User, User.id == PaxProfile.user_id)
-        .where(PaxProfile.entity_id == entity_id, PaxProfile.archived == False)
-    )
-    if search:
-        norm = _normalize_name(search)
-        like = f"%{norm}%"
-        query = query.where(
-            PaxProfile.last_name_normalized.ilike(like)
-            | PaxProfile.first_name_normalized.ilike(like)
-            | PaxProfile.badge_number.ilike(f"%{search}%")
-            | Tier.name.ilike(f"%{search}%")
-        )
-    if status_filter:
-        query = query.where(PaxProfile.status == status_filter)
-    if type_filter:
-        query = query.where(PaxProfile.type == type_filter)
-    if company_id:
-        query = query.where(PaxProfile.company_id == company_id)
-    query = query.order_by(PaxProfile.last_name, PaxProfile.first_name)
+    """List PAX profiles — virtual UNION of Users + TierContacts."""
+    like = f"%{search}%" if search else None
+    items: list[PaxProfileSummary] = []
 
-    # Custom paginate with row mapping (profile + joined fields)
-    count_query = select(func.count()).select_from(
-        query.with_only_columns(PaxProfile.id).subquery()
-    )
-    total = (await db.execute(count_query)).scalar() or 0
+    # ── 1. Internal PAX (Users belonging to this entity) ──
+    if type_filter in (None, "internal"):
+        user_q = (
+            select(User)
+            .where(User.default_entity_id == entity_id, User.active == True)  # noqa: E712
+        )
+        if like:
+            user_q = user_q.where(
+                User.first_name.ilike(like)
+                | User.last_name.ilike(like)
+                | User.badge_number.ilike(like)
+                | User.email.ilike(like)
+            )
+        user_q = user_q.order_by(User.last_name, User.first_name)
+        user_rows = (await db.execute(user_q)).scalars().all()
+        for u in user_rows:
+            items.append(_user_to_pax_summary(u))
+
+    # ── 2. External PAX (TierContacts linked to entity's Tiers) ──
+    if type_filter in (None, "external"):
+        contact_q = (
+            select(TierContact, Tier.name.label("company_name"))
+            .join(Tier, Tier.id == TierContact.tier_id)
+            .where(Tier.entity_id == entity_id, TierContact.active == True)  # noqa: E712
+        )
+        if like:
+            contact_q = contact_q.where(
+                TierContact.first_name.ilike(like)
+                | TierContact.last_name.ilike(like)
+                | TierContact.badge_number.ilike(like)
+                | Tier.name.ilike(like)
+            )
+        if company_id:
+            contact_q = contact_q.where(TierContact.tier_id == company_id)
+        contact_q = contact_q.order_by(TierContact.last_name, TierContact.first_name)
+        contact_rows = (await db.execute(contact_q)).all()
+        for c, comp_name in contact_rows:
+            items.append(_contact_to_pax_summary(c, comp_name))
+
+    # ── Sort combined results by last_name, first_name ──
+    items.sort(key=lambda x: (x.last_name.lower(), x.first_name.lower()))
+
+    # ── Manual pagination ──
+    total = len(items)
     offset = (pagination.page - 1) * pagination.page_size
-    rows = (await db.execute(query.offset(offset).limit(pagination.page_size))).all()
-
-    items = []
-    for profile, comp_name, u_email in rows:
-        d = PaxProfileSummary.model_validate(profile)
-        d.company_name = comp_name
-        items.append(d)
+    page_items = items[offset : offset + pagination.page_size]
 
     return {
-        "items": items,
+        "items": page_items,
         "total": total,
         "page": pagination.page,
         "page_size": pagination.page_size,
@@ -220,30 +333,44 @@ async def list_profiles(
     }
 
 
+class _ExternalPaxCreate(BaseModel):
+    """Body to create an external PAX (TierContact)."""
+    first_name: str
+    last_name: str
+    company_id: UUID
+    birth_date: date | None = None
+    nationality: str | None = None
+    badge_number: str | None = None
+    photo_url: str | None = None
+    pax_group_id: UUID | None = None
+    email: str | None = None
+    phone: str | None = None
+    position: str | None = None
+
+
 @router.post("/profiles", response_model=PaxProfileRead, status_code=201)
 async def create_profile(
-    body: PaxProfileCreate,
+    body: _ExternalPaxCreate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("paxlog.profile.create"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a PAX profile with duplicate detection."""
+    """Create an external PAX (TierContact). Internal PAX are created via user management."""
+    # ── Duplicate detection ──
     fn_norm = _normalize_name(body.first_name)
     ln_norm = _normalize_name(body.last_name)
 
-    # ── Duplicate detection: same normalized names + birth_date in same entity ──
-    dup_query = select(PaxProfile.id, PaxProfile.first_name, PaxProfile.last_name, PaxProfile.badge_number).where(
-        PaxProfile.entity_id == entity_id,
-        PaxProfile.archived == False,  # noqa: E712
-        PaxProfile.first_name_normalized == fn_norm,
-        PaxProfile.last_name_normalized == ln_norm,
+    dup_query = (
+        select(TierContact.id, TierContact.first_name, TierContact.last_name, TierContact.badge_number)
+        .join(Tier, Tier.id == TierContact.tier_id)
+        .where(Tier.entity_id == entity_id, TierContact.active == True)  # noqa: E712
     )
-    if body.birth_date:
-        dup_query = dup_query.where(PaxProfile.birth_date == body.birth_date)
-
     dup_result = await db.execute(dup_query)
-    duplicates = dup_result.all()
+    duplicates = [
+        d for d in dup_result.all()
+        if _normalize_name(d.first_name) == fn_norm and _normalize_name(d.last_name) == ln_norm
+    ]
 
     if duplicates:
         dup_info = [
@@ -254,59 +381,43 @@ async def create_profile(
             status_code=409,
             detail={
                 "code": "DUPLICATE_PAX_PROFILE",
-                "message": f"Un profil PAX similaire existe déjà ({len(duplicates)} doublon(s) détecté(s)).",
+                "message": f"Un contact PAX similaire existe déjà ({len(duplicates)} doublon(s) détecté(s)).",
                 "duplicates": dup_info,
             },
         )
 
-    # ── Badge number uniqueness check (if provided) ──
-    if body.badge_number:
-        badge_exists = await db.execute(
-            select(PaxProfile.id).where(
-                PaxProfile.entity_id == entity_id,
-                PaxProfile.badge_number == body.badge_number,
-                PaxProfile.archived == False,  # noqa: E712
-            )
-        )
-        if badge_exists.scalar_one_or_none():
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "code": "DUPLICATE_BADGE_NUMBER",
-                    "message": f"Le numéro de badge «{body.badge_number}» est déjà attribué à un autre profil.",
-                },
-            )
-
-    profile = PaxProfile(
-        entity_id=entity_id,
-        type=body.type,
+    contact = TierContact(
+        tier_id=body.company_id,
         first_name=body.first_name,
         last_name=body.last_name,
-        first_name_normalized=fn_norm,
-        last_name_normalized=ln_norm,
         birth_date=body.birth_date,
         nationality=body.nationality,
-        company_id=body.company_id,
-        user_id=body.user_id,
-        group_id=body.group_id,
         badge_number=body.badge_number,
+        photo_url=body.photo_url,
+        pax_group_id=body.pax_group_id,
+        email=body.email,
+        phone=body.phone,
+        position=body.position,
     )
-    profile.profile_completeness = _compute_completeness(profile)
-    db.add(profile)
+    db.add(contact)
     await db.commit()
-    await db.refresh(profile)
+    await db.refresh(contact)
+
+    # Fetch company name
+    tier_result = await db.execute(select(Tier.name).where(Tier.id == body.company_id))
+    company_name = tier_result.scalar()
 
     await record_audit(
         db,
         action="paxlog.profile.create",
-        resource_type="pax_profile",
-        resource_id=str(profile.id),
+        resource_type="tier_contact",
+        resource_id=str(contact.id),
         user_id=current_user.id,
         entity_id=entity_id,
-        details={"name": f"{body.first_name} {body.last_name}", "type": body.type},
+        details={"name": f"{body.first_name} {body.last_name}", "type": "external"},
     )
     await db.commit()
-    return profile
+    return _contact_to_pax_read(contact, company_name)
 
 
 @router.post("/profiles/check-duplicates")
@@ -319,7 +430,7 @@ async def check_profile_duplicates(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Check for potential duplicate PAX profiles before creation (lightweight pre-check).
+    """Check for potential duplicate PAX (Users + TierContacts) before creation.
 
     Returns a list of similar profiles so the frontend can warn the user.
     """
@@ -327,50 +438,76 @@ async def check_profile_duplicates(
     ln_norm = _normalize_name(last_name)
     matches: list[dict] = []
 
-    # Exact normalized name match
-    name_query = (
-        select(PaxProfile.id, PaxProfile.first_name, PaxProfile.last_name,
-               PaxProfile.birth_date, PaxProfile.badge_number, PaxProfile.status)
-        .where(
-            PaxProfile.entity_id == entity_id,
-            PaxProfile.archived == False,  # noqa: E712
-            PaxProfile.first_name_normalized == fn_norm,
-            PaxProfile.last_name_normalized == ln_norm,
-        )
+    # ── Users with matching names ──
+    user_q = (
+        select(User.id, User.first_name, User.last_name, User.birth_date, User.badge_number)
+        .where(User.default_entity_id == entity_id, User.active == True)  # noqa: E712
     )
-    rows = (await db.execute(name_query)).all()
-    for r in rows:
-        matches.append({
-            "id": str(r.id),
-            "first_name": r.first_name,
-            "last_name": r.last_name,
-            "birth_date": str(r.birth_date) if r.birth_date else None,
-            "badge_number": r.badge_number,
-            "status": r.status,
-            "match_type": "name_exact",
-        })
-
-    # Badge number match (if provided and no name match found)
-    if badge_number and not matches:
-        badge_query = (
-            select(PaxProfile.id, PaxProfile.first_name, PaxProfile.last_name,
-                   PaxProfile.birth_date, PaxProfile.badge_number, PaxProfile.status)
-            .where(
-                PaxProfile.entity_id == entity_id,
-                PaxProfile.badge_number == badge_number,
-                PaxProfile.archived == False,  # noqa: E712
-            )
-        )
-        badge_rows = (await db.execute(badge_query)).all()
-        for r in badge_rows:
+    user_rows = (await db.execute(user_q)).all()
+    for r in user_rows:
+        if _normalize_name(r.first_name) == fn_norm and _normalize_name(r.last_name) == ln_norm:
             matches.append({
                 "id": str(r.id),
                 "first_name": r.first_name,
                 "last_name": r.last_name,
                 "birth_date": str(r.birth_date) if r.birth_date else None,
                 "badge_number": r.badge_number,
-                "status": r.status,
-                "match_type": "badge_number",
+                "pax_source": "user",
+                "match_type": "name_exact",
+            })
+
+    # ── TierContacts with matching names ──
+    contact_q = (
+        select(TierContact.id, TierContact.first_name, TierContact.last_name,
+               TierContact.birth_date, TierContact.badge_number)
+        .join(Tier, Tier.id == TierContact.tier_id)
+        .where(Tier.entity_id == entity_id, TierContact.active == True)  # noqa: E712
+    )
+    contact_rows = (await db.execute(contact_q)).all()
+    for r in contact_rows:
+        if _normalize_name(r.first_name) == fn_norm and _normalize_name(r.last_name) == ln_norm:
+            matches.append({
+                "id": str(r.id),
+                "first_name": r.first_name,
+                "last_name": r.last_name,
+                "birth_date": str(r.birth_date) if r.birth_date else None,
+                "badge_number": r.badge_number,
+                "pax_source": "contact",
+                "match_type": "name_exact",
+            })
+
+    # ── Badge number match (if provided and no name match found) ──
+    if badge_number and not matches:
+        badge_user_q = (
+            select(User.id, User.first_name, User.last_name, User.birth_date, User.badge_number)
+            .where(
+                User.default_entity_id == entity_id,
+                User.badge_number == badge_number,
+                User.active == True,  # noqa: E712
+            )
+        )
+        for r in (await db.execute(badge_user_q)).all():
+            matches.append({
+                "id": str(r.id), "first_name": r.first_name, "last_name": r.last_name,
+                "birth_date": str(r.birth_date) if r.birth_date else None,
+                "badge_number": r.badge_number, "pax_source": "user", "match_type": "badge_number",
+            })
+
+        badge_contact_q = (
+            select(TierContact.id, TierContact.first_name, TierContact.last_name,
+                   TierContact.birth_date, TierContact.badge_number)
+            .join(Tier, Tier.id == TierContact.tier_id)
+            .where(
+                Tier.entity_id == entity_id,
+                TierContact.badge_number == badge_number,
+                TierContact.active == True,  # noqa: E712
+            )
+        )
+        for r in (await db.execute(badge_contact_q)).all():
+            matches.append({
+                "id": str(r.id), "first_name": r.first_name, "last_name": r.last_name,
+                "birth_date": str(r.birth_date) if r.birth_date else None,
+                "badge_number": r.badge_number, "pax_source": "contact", "match_type": "badge_number",
             })
 
     return {"has_duplicates": len(matches) > 0, "matches": matches}
@@ -379,78 +516,50 @@ async def check_profile_duplicates(
 @router.get("/profiles/{profile_id}", response_model=PaxProfileRead)
 async def get_profile(
     profile_id: UUID,
+    pax_source: str = Query("user", pattern=r"^(user|contact)$"),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get a PAX profile by ID with company/user info."""
-    result = await db.execute(
-        select(
-            PaxProfile,
-            Tier.name.label("company_name"),
-            User.email.label("user_email"),
-        )
-        .outerjoin(Tier, Tier.id == PaxProfile.company_id)
-        .outerjoin(User, User.id == PaxProfile.user_id)
-        .where(
-            PaxProfile.id == profile_id,
-            PaxProfile.entity_id == entity_id,
-        )
-    )
-    row = result.one_or_none()
-    if not row:
-        raise HTTPException(status_code=404, detail="PAX profile not found")
-    profile, comp_name, u_email = row
-    resp = PaxProfileRead.model_validate(profile)
-    resp.company_name = comp_name
-    resp.user_email = u_email
-    return resp
+    """Get a PAX profile by ID. Use pax_source=user or pax_source=contact."""
+    entity, company_name = await _resolve_pax_identity(db, profile_id, pax_source)
+    if pax_source == "user":
+        return _user_to_pax_read(entity, company_name)  # type: ignore[arg-type]
+    return _contact_to_pax_read(entity, company_name)  # type: ignore[arg-type]
 
 
 @router.patch("/profiles/{profile_id}", response_model=PaxProfileRead)
 async def update_profile(
     profile_id: UUID,
     body: PaxProfileUpdate,
+    pax_source: str = Query("user", pattern=r"^(user|contact)$"),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("paxlog.profile.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Update a PAX profile."""
-    result = await db.execute(
-        select(PaxProfile).where(
-            PaxProfile.id == profile_id,
-            PaxProfile.entity_id == entity_id,
-        )
-    )
-    profile = result.scalar_one_or_none()
-    if not profile:
-        raise HTTPException(status_code=404, detail="PAX profile not found")
-
-    if profile.synced_from_intranet:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Ce profil est synchronisé depuis l'intranet et ne peut pas être modifié manuellement.",
-        )
+    """Update PAX-specific fields on a User or TierContact."""
+    entity, company_name = await _resolve_pax_identity(db, profile_id, pax_source)
 
     update_data = body.model_dump(exclude_unset=True)
-    if "first_name" in update_data:
-        update_data["first_name_normalized"] = _normalize_name(update_data["first_name"])
-    if "last_name" in update_data:
-        update_data["last_name_normalized"] = _normalize_name(update_data["last_name"])
+    # Map PaxProfileUpdate fields to entity fields
+    field_mapping = {
+        "birth_date": "birth_date",
+        "nationality": "nationality",
+        "badge_number": "badge_number",
+        "photo_url": "photo_url" if pax_source == "contact" else "avatar_url",
+        "pax_group_id": "pax_group_id",
+    }
+    for schema_field, model_field in field_mapping.items():
+        if schema_field in update_data:
+            setattr(entity, model_field, update_data[schema_field])
 
-    for field_name, value in update_data.items():
-        setattr(profile, field_name, value)
-
-    # Check if profile has at least one credential
-    cred_result = await db.execute(
-        select(PaxCredential.id).where(PaxCredential.pax_id == profile_id).limit(1)
-    )
-    has_creds = cred_result.scalar_one_or_none() is not None
-    profile.profile_completeness = _compute_completeness(profile, has_credentials=has_creds)
     await db.commit()
-    await db.refresh(profile)
-    return profile
+    await db.refresh(entity)
+
+    if pax_source == "user":
+        return _user_to_pax_read(entity, company_name)  # type: ignore[arg-type]
+    return _contact_to_pax_read(entity, company_name)  # type: ignore[arg-type]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -510,30 +619,28 @@ async def create_credential_type(
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+def _cred_pax_filter(profile_id: UUID, pax_source: str):
+    """Return an or_() filter for PaxCredential matching user_id or contact_id."""
+    if pax_source == "user":
+        return PaxCredential.user_id == profile_id
+    return PaxCredential.contact_id == profile_id
+
+
 @router.get(
     "/profiles/{profile_id}/credentials",
     response_model=list[PaxCredentialRead],
 )
 async def list_credentials(
     profile_id: UUID,
+    pax_source: str = Query("user", pattern=r"^(user|contact)$"),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """List credentials for a PAX profile."""
-    # Verify profile exists and belongs to entity
-    pax_result = await db.execute(
-        select(PaxProfile.id).where(
-            PaxProfile.id == profile_id,
-            PaxProfile.entity_id == entity_id,
-        )
-    )
-    if not pax_result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="PAX profile not found")
-
+    """List credentials for a PAX (user or contact)."""
     result = await db.execute(
         select(PaxCredential)
-        .where(PaxCredential.pax_id == profile_id)
+        .where(_cred_pax_filter(profile_id, pax_source))
         .order_by(PaxCredential.created_at.desc())
     )
     return result.scalars().all()
@@ -547,23 +654,16 @@ async def list_credentials(
 async def create_credential(
     profile_id: UUID,
     body: PaxCredentialCreate,
+    pax_source: str = Query("user", pattern=r"^(user|contact)$"),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("paxlog.credential.create"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Add a credential to a PAX profile (status=pending_validation)."""
-    pax_result = await db.execute(
-        select(PaxProfile.id).where(
-            PaxProfile.id == profile_id,
-            PaxProfile.entity_id == entity_id,
-        )
-    )
-    if not pax_result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="PAX profile not found")
-
+    """Add a credential to a PAX (status=pending_validation)."""
     credential = PaxCredential(
-        pax_id=profile_id,
+        user_id=profile_id if pax_source == "user" else None,
+        contact_id=profile_id if pax_source == "contact" else None,
         credential_type_id=body.credential_type_id,
         obtained_date=body.obtained_date,
         expiry_date=body.expiry_date,
@@ -585,6 +685,7 @@ async def validate_credential(
     profile_id: UUID,
     credential_id: UUID,
     body: PaxCredentialValidate,
+    pax_source: str = Query("user", pattern=r"^(user|contact)$"),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("paxlog.credential.validate"),
@@ -594,7 +695,7 @@ async def validate_credential(
     result = await db.execute(
         select(PaxCredential).where(
             PaxCredential.id == credential_id,
-            PaxCredential.pax_id == profile_id,
+            _cred_pax_filter(profile_id, pax_source),
         )
     )
     credential = result.scalar_one_or_none()
@@ -698,21 +799,25 @@ async def delete_compliance_entry(
 async def check_compliance(
     profile_id: UUID,
     asset_id: UUID,
+    pax_source: str = Query("user", pattern=r"^(user|contact)$"),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Check a PAX profile's compliance against a specific asset's requirements."""
-    # Load profile
-    pax_result = await db.execute(
-        select(PaxProfile).where(
-            PaxProfile.id == profile_id,
-            PaxProfile.entity_id == entity_id,
-        )
-    )
-    profile = pax_result.scalar_one_or_none()
-    if not profile:
-        raise HTTPException(status_code=404, detail="PAX profile not found")
+    """Check a PAX's compliance against a specific asset's requirements."""
+    # Determine pax_type for scope filtering
+    if pax_source == "user":
+        u_result = await db.execute(select(User).where(User.id == profile_id))
+        pax_entity = u_result.scalar_one_or_none()
+        if not pax_entity:
+            raise HTTPException(status_code=404, detail="PAX user not found")
+        pax_type = pax_entity.pax_type
+    else:
+        c_result = await db.execute(select(TierContact).where(TierContact.id == profile_id))
+        pax_entity = c_result.scalar_one_or_none()
+        if not pax_entity:
+            raise HTTPException(status_code=404, detail="PAX contact not found")
+        pax_type = "external"
 
     # Load matrix requirements for this asset
     matrix_result = await db.execute(
@@ -730,14 +835,14 @@ async def check_compliance(
     for req in requirements:
         if req.scope == "all_visitors":
             filtered_reqs.append(req)
-        elif req.scope == "contractors_only" and profile.type == "external":
+        elif req.scope == "contractors_only" and pax_type == "external":
             filtered_reqs.append(req)
-        elif req.scope == "permanent_staff_only" and profile.type == "internal":
+        elif req.scope == "permanent_staff_only" and pax_type == "internal":
             filtered_reqs.append(req)
 
     # Load PAX credentials
     creds_result = await db.execute(
-        select(PaxCredential).where(PaxCredential.pax_id == profile_id)
+        select(PaxCredential).where(_cred_pax_filter(profile_id, pax_source))
     )
     credentials = {c.credential_type_id: c for c in creds_result.scalars().all()}
 
@@ -749,7 +854,6 @@ async def check_compliance(
     for req in filtered_reqs:
         cred = credentials.get(req.credential_type_id)
         if not cred:
-            # Load credential type name
             ct_result = await db.execute(
                 select(CredentialType.name).where(CredentialType.id == req.credential_type_id)
             )
@@ -769,7 +873,8 @@ async def check_compliance(
             pending.append(ct_name)
 
     return ComplianceCheckResult(
-        pax_id=profile_id,
+        user_id=profile_id if pax_source == "user" else None,
+        contact_id=profile_id if pax_source == "contact" else None,
         asset_id=asset_id,
         compliant=len(missing) == 0 and len(expired) == 0,
         missing_credentials=missing,
@@ -868,9 +973,14 @@ async def create_ads(
     db.add(ads)
     await db.flush()
 
-    # Add PAX entries
-    for pax_id in body.pax_ids:
-        ads_pax = AdsPax(ads_id=ads.id, pax_id=pax_id, status="pending_check")
+    # Add PAX entries (dual FK: user_id or contact_id)
+    for entry in body.pax_entries:
+        ads_pax = AdsPax(
+            ads_id=ads.id,
+            user_id=entry.user_id,
+            contact_id=entry.contact_id,
+            status="pending_check",
+        )
         db.add(ads_pax)
 
     await db.commit()
@@ -888,7 +998,7 @@ async def create_ads(
             "type": body.type,
             "site_asset_id": str(body.site_entry_asset_id),
             "dates": f"{body.start_date} → {body.end_date}",
-            "pax_count": len(body.pax_ids),
+            "pax_count": len(body.pax_entries),
         },
     )
     await db.commit()
@@ -996,9 +1106,15 @@ async def submit_ads(
 
     has_compliance_issues = False
     for pax_entry in pax_entries:
-        # Load PAX profile for scope filtering
-        pax_profile = await db.get(PaxProfile, pax_entry.pax_id)
-        if not pax_profile:
+        # Determine PAX type for scope filtering
+        if pax_entry.user_id:
+            u = await db.get(User, pax_entry.user_id)
+            pax_type = u.pax_type if u else "internal"
+            cred_filter = PaxCredential.user_id == pax_entry.user_id
+        elif pax_entry.contact_id:
+            pax_type = "external"
+            cred_filter = PaxCredential.contact_id == pax_entry.contact_id
+        else:
             continue
 
         # Filter requirements by scope
@@ -1006,14 +1122,14 @@ async def submit_ads(
         for req in requirements:
             if req.scope == "all_visitors":
                 applicable_reqs.append(req)
-            elif req.scope == "contractors_only" and pax_profile.type == "external":
+            elif req.scope == "contractors_only" and pax_type == "external":
                 applicable_reqs.append(req)
-            elif req.scope == "permanent_staff_only" and pax_profile.type == "internal":
+            elif req.scope == "permanent_staff_only" and pax_type == "internal":
                 applicable_reqs.append(req)
 
         # Load PAX credentials
         creds_result = await db.execute(
-            select(PaxCredential).where(PaxCredential.pax_id == pax_entry.pax_id)
+            select(PaxCredential).where(cred_filter)
         )
         credentials = {c.credential_type_id: c for c in creds_result.scalars().all()}
 
@@ -1380,7 +1496,7 @@ async def list_ads_pax(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """List PAX entries for an AdS with profile details."""
+    """List PAX entries for an AdS with profile details (User + TierContact)."""
     # Verify AdS
     ads_result = await db.execute(
         select(Ads.id).where(Ads.id == ads_id, Ads.entity_id == entity_id)
@@ -1388,132 +1504,57 @@ async def list_ads_pax(
     if not ads_result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="AdS not found")
 
-    result = await db.execute(
-        select(AdsPax, PaxProfile)
-        .join(PaxProfile, PaxProfile.id == AdsPax.pax_id)
-        .where(AdsPax.ads_id == ads_id)
-        .order_by(PaxProfile.last_name, PaxProfile.first_name)
+    pax_result = await db.execute(
+        select(AdsPax).where(AdsPax.ads_id == ads_id)
     )
-    rows = result.all()
-    return [
-        {
-            "id": str(ads_pax.id),
-            "ads_id": str(ads_pax.ads_id),
-            "pax_id": str(ads_pax.pax_id),
-            "status": ads_pax.status,
-            "compliance_summary": ads_pax.compliance_summary,
-            "priority_score": ads_pax.priority_score,
-            "pax_first_name": profile.first_name,
-            "pax_last_name": profile.last_name,
-            "pax_company_id": str(profile.company_id) if profile.company_id else None,
-            "pax_badge": profile.badge_number,
-            "pax_type": profile.type,
-        }
-        for ads_pax, profile in rows
-    ]
+    entries = pax_result.scalars().all()
+
+    items = []
+    for ads_pax in entries:
+        if ads_pax.user_id:
+            u = await db.get(User, ads_pax.user_id)
+            items.append({
+                "id": str(ads_pax.id),
+                "ads_id": str(ads_pax.ads_id),
+                "user_id": str(ads_pax.user_id),
+                "contact_id": None,
+                "pax_source": "user",
+                "status": ads_pax.status,
+                "compliance_summary": ads_pax.compliance_summary,
+                "priority_score": ads_pax.priority_score,
+                "pax_first_name": u.first_name if u else "?",
+                "pax_last_name": u.last_name if u else "?",
+                "pax_company_id": None,
+                "pax_badge": u.badge_number if u else None,
+                "pax_type": u.pax_type if u else "internal",
+            })
+        elif ads_pax.contact_id:
+            c = await db.get(TierContact, ads_pax.contact_id)
+            items.append({
+                "id": str(ads_pax.id),
+                "ads_id": str(ads_pax.ads_id),
+                "user_id": None,
+                "contact_id": str(ads_pax.contact_id),
+                "pax_source": "contact",
+                "status": ads_pax.status,
+                "compliance_summary": ads_pax.compliance_summary,
+                "priority_score": ads_pax.priority_score,
+                "pax_first_name": c.first_name if c else "?",
+                "pax_last_name": c.last_name if c else "?",
+                "pax_company_id": str(c.tier_id) if c else None,
+                "pax_badge": c.badge_number if c else None,
+                "pax_type": "external",
+            })
+
+    # Sort by last_name, first_name
+    items.sort(key=lambda x: (x["pax_last_name"].lower(), x["pax_first_name"].lower()))
+    return items
 
 
 class AddPaxBody(BaseModel):
-    """Body to add a PAX to an AdS. Provide ONE of pax_id, user_id, or contact_id.
-    If user_id or contact_id is provided and no PaxProfile exists, one is auto-created."""
-    pax_id: UUID | None = None
+    """Body to add a PAX to an AdS. Provide exactly one of user_id or contact_id."""
     user_id: UUID | None = None
     contact_id: UUID | None = None
-
-
-async def _get_or_create_pax_profile(
-    db: AsyncSession,
-    entity_id: UUID,
-    *,
-    user_id: UUID | None = None,
-    contact_id: UUID | None = None,
-) -> PaxProfile:
-    """Find existing PaxProfile for a user/contact, or auto-create one."""
-    from app.models.common import TierContact
-
-    if user_id:
-        # Check if profile already exists for this user
-        result = await db.execute(
-            select(PaxProfile).where(
-                PaxProfile.entity_id == entity_id,
-                PaxProfile.user_id == user_id,
-                PaxProfile.archived == False,
-            )
-        )
-        existing = result.scalar_one_or_none()
-        if existing:
-            return existing
-
-        # Fetch user data to auto-create
-        user_result = await db.execute(select(User).where(User.id == user_id))
-        user = user_result.scalar_one_or_none()
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-
-        profile = PaxProfile(
-            entity_id=entity_id,
-            type="internal",
-            first_name=user.first_name,
-            last_name=user.last_name,
-            first_name_normalized=_normalize_name(user.first_name),
-            last_name_normalized=_normalize_name(user.last_name),
-            user_id=user_id,
-            status="active",
-        )
-
-    elif contact_id:
-        # Check if profile already exists for this contact
-        result = await db.execute(
-            select(PaxProfile).where(
-                PaxProfile.entity_id == entity_id,
-                PaxProfile.first_name_normalized.isnot(None),
-                PaxProfile.archived == False,
-            ).join(
-                TierContact, PaxProfile.company_id == TierContact.tier_id
-            ).where(
-                TierContact.id == contact_id,
-            )
-        )
-        # Simpler: just check by name match
-        contact_result = await db.execute(
-            select(TierContact).where(TierContact.id == contact_id, TierContact.active == True)
-        )
-        contact = contact_result.scalar_one_or_none()
-        if not contact:
-            raise HTTPException(status_code=404, detail="Contact not found")
-
-        # Check by normalized name match
-        fn_norm = _normalize_name(contact.first_name)
-        ln_norm = _normalize_name(contact.last_name)
-        existing_result = await db.execute(
-            select(PaxProfile).where(
-                PaxProfile.entity_id == entity_id,
-                PaxProfile.first_name_normalized == fn_norm,
-                PaxProfile.last_name_normalized == ln_norm,
-                PaxProfile.archived == False,
-            )
-        )
-        existing = existing_result.scalar_one_or_none()
-        if existing:
-            return existing
-
-        profile = PaxProfile(
-            entity_id=entity_id,
-            type="external",
-            first_name=contact.first_name,
-            last_name=contact.last_name,
-            first_name_normalized=fn_norm,
-            last_name_normalized=ln_norm,
-            company_id=contact.tier_id,
-            status="active",
-        )
-    else:
-        raise HTTPException(status_code=400, detail="Provide user_id or contact_id")
-
-    profile.profile_completeness = _compute_completeness(profile)
-    db.add(profile)
-    await db.flush()
-    return profile
 
 
 @router.get("/candidates")
@@ -1524,79 +1565,47 @@ async def search_pax_candidates(
     _: None = require_permission("paxlog.ads.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Search for PAX candidates: existing PaxProfiles + Users + TierContacts.
+    """Search for PAX candidates: Users + TierContacts.
 
     Returns a unified list for the PAX picker in the AdS detail panel.
     """
-    from app.models.common import TierContact
-
     candidates = []
     like = f"%{search}%"
 
-    # 1. Existing PaxProfiles
-    pax_q = select(PaxProfile).where(
-        PaxProfile.entity_id == entity_id,
-        PaxProfile.archived == False,
-    )
-    if search:
-        pax_q = pax_q.where(
-            or_(
-                PaxProfile.first_name.ilike(like),
-                PaxProfile.last_name.ilike(like),
-                PaxProfile.badge_number.ilike(like),
-            )
-        )
-    pax_result = await db.execute(pax_q.limit(20))
-    for p in pax_result.scalars().all():
-        candidates.append({
-            "id": str(p.id),
-            "source": "pax_profile",
-            "pax_id": str(p.id),
-            "first_name": p.first_name,
-            "last_name": p.last_name,
-            "type": p.type,
-            "badge": p.badge_number,
-            "company_id": str(p.company_id) if p.company_id else None,
-            "user_id": str(p.user_id) if p.user_id else None,
-        })
-
-    # Collect already-found user/contact IDs to avoid duplicates
-    found_user_ids = {c["user_id"] for c in candidates if c["user_id"]}
-
-    # 2. Users not yet having a PaxProfile
-    user_q = select(User).where(User.active == True)
+    # 1. Users (internal PAX)
+    user_q = select(User).where(User.active == True)  # noqa: E712
     if search:
         user_q = user_q.where(
             or_(
                 User.first_name.ilike(like),
                 User.last_name.ilike(like),
                 User.email.ilike(like),
+                User.badge_number.ilike(like),
             )
         )
     user_result = await db.execute(user_q.limit(15))
     for u in user_result.scalars().all():
-        if str(u.id) in found_user_ids:
-            continue
         candidates.append({
             "id": str(u.id),
             "source": "user",
             "user_id": str(u.id),
             "first_name": u.first_name,
             "last_name": u.last_name,
-            "type": "internal",
-            "badge": None,
+            "type": u.pax_type,
+            "badge": u.badge_number,
             "company_id": None,
             "email": u.email,
         })
 
-    # 3. Tier contacts
-    contact_q = select(TierContact).where(TierContact.active == True)
+    # 2. Tier contacts (external PAX)
+    contact_q = select(TierContact).where(TierContact.active == True)  # noqa: E712
     if search:
         contact_q = contact_q.where(
             or_(
                 TierContact.first_name.ilike(like),
                 TierContact.last_name.ilike(like),
                 TierContact.email.ilike(like),
+                TierContact.badge_number.ilike(like),
             )
         )
     contact_result = await db.execute(contact_q.limit(15))
@@ -1608,40 +1617,12 @@ async def search_pax_candidates(
             "first_name": c.first_name,
             "last_name": c.last_name,
             "type": "external",
-            "badge": None,
+            "badge": c.badge_number,
             "company_id": str(c.tier_id) if c.tier_id else None,
             "position": c.position,
         })
 
     return candidates[:30]
-
-
-@router.post("/ads/{ads_id}/pax/{pax_id}", status_code=201)
-async def add_pax_to_ads_by_id(
-    ads_id: UUID,
-    pax_id: UUID,
-    entity_id: UUID = Depends(get_current_entity),
-    current_user: User = Depends(get_current_user),
-    _: None = require_permission("paxlog.ads.update"),
-    db: AsyncSession = Depends(get_db),
-):
-    """Add an existing PAX profile to an AdS (legacy path-param route)."""
-    ads_result = await db.execute(
-        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
-    )
-    ads = ads_result.scalar_one_or_none()
-    if not ads:
-        raise HTTPException(status_code=404, detail="AdS not found")
-    if ads.status not in ("draft", "requires_review"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="PAX can only be added to draft or review-pending AdS.",
-        )
-
-    entry = AdsPax(ads_id=ads_id, pax_id=pax_id, status="pending_check")
-    db.add(entry)
-    await db.commit()
-    return {"status": "added"}
 
 
 @router.post("/ads/{ads_id}/add-pax", status_code=201)
@@ -1653,11 +1634,7 @@ async def add_pax_to_ads(
     _: None = require_permission("paxlog.ads.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Add a PAX to an AdS. Accepts pax_id, user_id, or contact_id.
-
-    If user_id or contact_id is provided and no PaxProfile exists yet,
-    one is auto-created transparently.
-    """
+    """Add a PAX to an AdS. Provide exactly one of user_id or contact_id."""
     # Verify AdS
     ads_result = await db.execute(
         select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
@@ -1671,58 +1648,64 @@ async def add_pax_to_ads(
             detail="PAX can only be added to draft or review-pending AdS.",
         )
 
-    # Resolve the PAX profile
-    if body.pax_id:
-        pax_result = await db.execute(
-            select(PaxProfile).where(
-                PaxProfile.id == body.pax_id,
-                PaxProfile.entity_id == entity_id,
-                PaxProfile.archived == False,
-            )
-        )
-        profile = pax_result.scalar_one_or_none()
-        if not profile:
-            raise HTTPException(status_code=404, detail="PAX profile not found")
-    elif body.user_id or body.contact_id:
-        profile = await _get_or_create_pax_profile(
-            db, entity_id, user_id=body.user_id, contact_id=body.contact_id,
+    if not body.user_id and not body.contact_id:
+        raise HTTPException(status_code=400, detail="Provide user_id or contact_id")
+    if body.user_id and body.contact_id:
+        raise HTTPException(status_code=400, detail="Provide only one of user_id or contact_id")
+
+    # Verify the PAX entity exists
+    if body.user_id:
+        u = await db.get(User, body.user_id)
+        if not u:
+            raise HTTPException(status_code=404, detail="User not found")
+        pax_name = f"{u.first_name} {u.last_name}"
+        # Check not already in this AdS
+        existing = await db.execute(
+            select(AdsPax.id).where(AdsPax.ads_id == ads_id, AdsPax.user_id == body.user_id)
         )
     else:
-        raise HTTPException(status_code=400, detail="Provide pax_id, user_id, or contact_id")
+        c = await db.get(TierContact, body.contact_id)
+        if not c:
+            raise HTTPException(status_code=404, detail="Contact not found")
+        pax_name = f"{c.first_name} {c.last_name}"
+        existing = await db.execute(
+            select(AdsPax.id).where(AdsPax.ads_id == ads_id, AdsPax.contact_id == body.contact_id)
+        )
 
-    # Check not already in this AdS
-    existing = await db.execute(
-        select(AdsPax.id).where(AdsPax.ads_id == ads_id, AdsPax.pax_id == profile.id)
-    )
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Ce PAX est déjà dans cet AdS")
 
-    entry = AdsPax(ads_id=ads_id, pax_id=profile.id, status="pending_check")
+    entry = AdsPax(
+        ads_id=ads_id,
+        user_id=body.user_id,
+        contact_id=body.contact_id,
+        status="pending_check",
+    )
     db.add(entry)
     await db.commit()
 
     return {
         "status": "added",
-        "pax_id": str(profile.id),
-        "name": f"{profile.first_name} {profile.last_name}",
-        "auto_created": body.pax_id is None,
+        "user_id": str(body.user_id) if body.user_id else None,
+        "contact_id": str(body.contact_id) if body.contact_id else None,
+        "name": pax_name,
     }
 
 
-@router.delete("/ads/{ads_id}/pax/{pax_id}", status_code=204)
+@router.delete("/ads/{ads_id}/pax/{entry_id}", status_code=204)
 async def remove_pax_from_ads(
     ads_id: UUID,
-    pax_id: UUID,
+    entry_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("paxlog.ads.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Remove a PAX from an AdS."""
+    """Remove a PAX entry from an AdS by AdsPax id."""
     result = await db.execute(
         select(AdsPax).where(
+            AdsPax.id == entry_id,
             AdsPax.ads_id == ads_id,
-            AdsPax.pax_id == pax_id,
         )
     )
     entry = result.scalar_one_or_none()
@@ -1783,24 +1766,35 @@ async def download_ads_pdf(
     if not ads:
         raise HTTPException(status_code=404, detail="AdS introuvable")
 
-    # Load PAX entries with profile details
+    # Load PAX entries with profile details (User + TierContact)
     pax_result = await db.execute(
-        select(AdsPax, PaxProfile)
-        .join(PaxProfile, PaxProfile.id == AdsPax.pax_id)
-        .where(AdsPax.ads_id == ads_id)
+        select(AdsPax).where(AdsPax.ads_id == ads_id)
     )
-    pax_rows = pax_result.all()
+    pax_rows = pax_result.scalars().all()
     passengers = []
-    for ads_pax, profile in pax_rows:
-        passengers.append({
-            "first_name": profile.first_name,
-            "last_name": profile.last_name,
-            "badge_number": profile.badge_number or "—",
-            "company": "",  # Will be enriched below if needed
-            "type": profile.type,
-            "status": ads_pax.status or "pending",
-            "compliant": (ads_pax.compliance_summary or {}).get("compliant", False),
-        })
+    for ads_pax in pax_rows:
+        if ads_pax.user_id:
+            u = await db.get(User, ads_pax.user_id)
+            passengers.append({
+                "first_name": u.first_name if u else "?",
+                "last_name": u.last_name if u else "?",
+                "badge_number": (u.badge_number if u else None) or "—",
+                "company": "",
+                "type": u.pax_type if u else "internal",
+                "status": ads_pax.status or "pending",
+                "compliant": (ads_pax.compliance_summary or {}).get("compliant", False),
+            })
+        elif ads_pax.contact_id:
+            c = await db.get(TierContact, ads_pax.contact_id)
+            passengers.append({
+                "first_name": c.first_name if c else "?",
+                "last_name": c.last_name if c else "?",
+                "badge_number": (c.badge_number if c else None) or "—",
+                "company": "",
+                "type": "external",
+                "status": ads_pax.status or "pending",
+                "compliant": (ads_pax.compliance_summary or {}).get("compliant", False),
+            })
 
     # Load requester info
     from sqlalchemy import text as sql_text
@@ -1870,7 +1864,8 @@ async def download_ads_pdf(
 
 @router.get("/incidents", response_model=PaginatedResponse[PaxIncidentRead])
 async def list_incidents(
-    pax_id: UUID | None = None,
+    user_id: UUID | None = None,
+    contact_id: UUID | None = None,
     active_only: bool = True,
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
@@ -1879,10 +1874,12 @@ async def list_incidents(
 ):
     """List PAX incidents."""
     query = select(PaxIncident).where(PaxIncident.entity_id == entity_id)
-    if pax_id:
-        query = query.where(PaxIncident.pax_id == pax_id)
+    if user_id:
+        query = query.where(PaxIncident.user_id == user_id)
+    if contact_id:
+        query = query.where(PaxIncident.contact_id == contact_id)
     if active_only:
-        query = query.where(PaxIncident.resolved_at == None)
+        query = query.where(PaxIncident.resolved_at == None)  # noqa: E711
     query = query.order_by(PaxIncident.created_at.desc())
     return await paginate(db, query, pagination)
 
@@ -1898,7 +1895,8 @@ async def create_incident(
     """Record a PAX incident."""
     incident = PaxIncident(
         entity_id=entity_id,
-        pax_id=body.pax_id,
+        user_id=body.user_id,
+        contact_id=body.contact_id,
         company_id=body.company_id,
         asset_id=body.asset_id,
         severity=body.severity,
@@ -1921,7 +1919,8 @@ async def create_incident(
         entity_id=entity_id,
         details={
             "severity": body.severity,
-            "pax_id": str(body.pax_id) if body.pax_id else None,
+            "user_id": str(body.user_id) if body.user_id else None,
+            "contact_id": str(body.contact_id) if body.contact_id else None,
         },
     )
     await db.commit()
@@ -2115,7 +2114,8 @@ async def delete_imputation(
 
 @router.get("/rotation-cycles")
 async def list_rotation_cycles(
-    pax_id: UUID | None = None,
+    user_id: UUID | None = None,
+    contact_id: UUID | None = None,
     site_asset_id: UUID | None = None,
     status_filter: str | None = None,
     entity_id: UUID = Depends(get_current_entity),
@@ -2128,9 +2128,12 @@ async def list_rotation_cycles(
     conditions = ["entity_id = :eid"]
     params: dict = {"eid": str(entity_id)}
 
-    if pax_id:
-        conditions.append("pax_id = :pax_id")
-        params["pax_id"] = str(pax_id)
+    if user_id:
+        conditions.append("user_id = :user_id")
+        params["user_id"] = str(user_id)
+    if contact_id:
+        conditions.append("contact_id = :contact_id")
+        params["contact_id"] = str(contact_id)
     if site_asset_id:
         conditions.append("site_asset_id = :site_id")
         params["site_id"] = str(site_asset_id)
@@ -2142,7 +2145,7 @@ async def list_rotation_cycles(
     result = await db.execute(
         sa_text(
             f"""
-            SELECT id, pax_id, site_asset_id, rotation_days_on, rotation_days_off,
+            SELECT id, user_id, contact_id, site_asset_id, rotation_days_on, rotation_days_off,
                    cycle_start_date, status,
                    auto_create_ads, ads_lead_days,
                    default_project_id, default_cc_id, created_at
@@ -2157,17 +2160,18 @@ async def list_rotation_cycles(
     return [
         {
             "id": str(r[0]),
-            "pax_id": str(r[1]),
-            "site_asset_id": str(r[2]),
-            "days_on": r[3],
-            "days_off": r[4],
-            "cycle_start_date": str(r[5]) if r[5] else None,
-            "status": r[6],
-            "auto_create_ads": r[7],
-            "ads_lead_days": r[8],
-            "default_project_id": str(r[9]) if r[9] else None,
-            "default_cc_id": str(r[10]) if r[10] else None,
-            "created_at": str(r[11]),
+            "user_id": str(r[1]) if r[1] else None,
+            "contact_id": str(r[2]) if r[2] else None,
+            "site_asset_id": str(r[3]),
+            "days_on": r[4],
+            "days_off": r[5],
+            "cycle_start_date": str(r[6]) if r[6] else None,
+            "status": r[7],
+            "auto_create_ads": r[8],
+            "ads_lead_days": r[9],
+            "default_project_id": str(r[10]) if r[10] else None,
+            "default_cc_id": str(r[11]) if r[11] else None,
+            "created_at": str(r[12]),
         }
         for r in rows
     ]
@@ -2175,11 +2179,12 @@ async def list_rotation_cycles(
 
 @router.post("/rotation-cycles", status_code=201)
 async def create_rotation_cycle(
-    pax_id: UUID,
     site_asset_id: UUID,
     days_on: int,
     days_off: int,
     cycle_start_date: date,
+    user_id: UUID | None = None,
+    contact_id: UUID | None = None,
     auto_create_ads: bool = True,
     ads_lead_days: int = 7,
     default_project_id: UUID | None = None,
@@ -2192,25 +2197,19 @@ async def create_rotation_cycle(
     """Create a rotation cycle for a PAX on a site."""
     from sqlalchemy import text as sa_text
 
-    # Verify PAX exists
-    pax_result = await db.execute(
-        select(PaxProfile.id).where(
-            PaxProfile.id == pax_id, PaxProfile.entity_id == entity_id
-        )
-    )
-    if not pax_result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="PAX profile not found")
+    if not user_id and not contact_id:
+        raise HTTPException(status_code=400, detail="Provide user_id or contact_id")
 
     result = await db.execute(
         sa_text(
             """
             INSERT INTO pax_rotation_cycles (
-                entity_id, pax_id, site_asset_id, days_on, days_off,
+                entity_id, user_id, contact_id, site_asset_id, days_on, days_off,
                 cycle_start_date, next_on_date, status,
                 auto_create_ads, ads_lead_days,
                 default_project_id, default_cc_id, created_at
             ) VALUES (
-                :eid, :pax_id, :site_id, :days_on, :days_off,
+                :eid, :user_id, :contact_id, :site_id, :days_on, :days_off,
                 :start_date, :start_date, 'active',
                 :auto_ads, :lead_days,
                 :project_id, :cc_id, NOW()
@@ -2219,7 +2218,8 @@ async def create_rotation_cycle(
         ),
         {
             "eid": str(entity_id),
-            "pax_id": str(pax_id),
+            "user_id": str(user_id) if user_id else None,
+            "contact_id": str(contact_id) if contact_id else None,
             "site_id": str(site_asset_id),
             "days_on": days_on,
             "days_off": days_off,
@@ -2240,13 +2240,20 @@ async def create_rotation_cycle(
         resource_id=str(new_id),
         user_id=current_user.id,
         entity_id=entity_id,
-        details={"pax_id": str(pax_id), "site_asset_id": str(site_asset_id), "days_on": days_on, "days_off": days_off},
+        details={
+            "user_id": str(user_id) if user_id else None,
+            "contact_id": str(contact_id) if contact_id else None,
+            "site_asset_id": str(site_asset_id),
+            "days_on": days_on,
+            "days_off": days_off,
+        },
     )
     await db.commit()
 
     return {
         "id": str(new_id),
-        "pax_id": str(pax_id),
+        "user_id": str(user_id) if user_id else None,
+        "contact_id": str(contact_id) if contact_id else None,
         "site_asset_id": str(site_asset_id),
         "days_on": days_on,
         "days_off": days_off,
@@ -2494,7 +2501,8 @@ async def access_external_link(
 @router.get("/stay-programs")
 async def list_stay_programs(
     ads_id: UUID | None = None,
-    pax_id: UUID | None = None,
+    user_id: UUID | None = None,
+    contact_id: UUID | None = None,
     status_filter: str | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
@@ -2509,9 +2517,12 @@ async def list_stay_programs(
     if ads_id:
         conditions.append("sp.ads_id = :ads_id")
         params["ads_id"] = str(ads_id)
-    if pax_id:
-        conditions.append("sp.pax_id = :pax_id")
-        params["pax_id"] = str(pax_id)
+    if user_id:
+        conditions.append("sp.user_id = :user_id")
+        params["user_id"] = str(user_id)
+    if contact_id:
+        conditions.append("sp.contact_id = :contact_id")
+        params["contact_id"] = str(contact_id)
     if status_filter:
         conditions.append("sp.status = :status")
         params["status"] = status_filter
@@ -2520,8 +2531,8 @@ async def list_stay_programs(
     result = await db.execute(
         sa_text(
             f"""
-            SELECT sp.id, sp.ads_id, sp.pax_id, sp.status, sp.movements, sp.created_at
-            FROM pax_stay_programs sp
+            SELECT sp.id, sp.ads_id, sp.user_id, sp.contact_id, sp.status, sp.movements, sp.created_at
+            FROM stay_programs sp
             WHERE {where_clause}
             ORDER BY sp.created_at DESC
             """
@@ -2533,10 +2544,11 @@ async def list_stay_programs(
         {
             "id": str(r[0]),
             "ads_id": str(r[1]),
-            "pax_id": str(r[2]),
-            "status": r[3],
-            "movements": r[4],
-            "created_at": str(r[5]),
+            "user_id": str(r[2]) if r[2] else None,
+            "contact_id": str(r[3]) if r[3] else None,
+            "status": r[4],
+            "movements": r[5],
+            "created_at": str(r[6]),
         }
         for r in rows
     ]
@@ -2545,8 +2557,9 @@ async def list_stay_programs(
 @router.post("/stay-programs", status_code=201)
 async def create_stay_program(
     ads_id: UUID,
-    pax_id: UUID,
     movements: list[dict],
+    user_id: UUID | None = None,
+    contact_id: UUID | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("paxlog.stay.create"),
@@ -2555,6 +2568,9 @@ async def create_stay_program(
     """Create a stay program (intra-field movement plan for a PAX in an AdS)."""
     from sqlalchemy import text as sa_text
     import json
+
+    if not user_id and not contact_id:
+        raise HTTPException(status_code=400, detail="Provide user_id or contact_id")
 
     # Verify AdS
     ads_result = await db.execute(
@@ -2566,15 +2582,16 @@ async def create_stay_program(
     result = await db.execute(
         sa_text(
             """
-            INSERT INTO pax_stay_programs (entity_id, ads_id, pax_id, status, movements, created_by, created_at)
-            VALUES (:eid, :ads_id, :pax_id, 'draft', :movements, :created_by, NOW())
+            INSERT INTO stay_programs (entity_id, ads_id, user_id, contact_id, status, movements, created_by, created_at)
+            VALUES (:eid, :ads_id, :user_id, :contact_id, 'draft', :movements, :created_by, NOW())
             RETURNING id
             """
         ),
         {
             "eid": str(entity_id),
             "ads_id": str(ads_id),
-            "pax_id": str(pax_id),
+            "user_id": str(user_id) if user_id else None,
+            "contact_id": str(contact_id) if contact_id else None,
             "movements": json.dumps(movements),
             "created_by": str(current_user.id),
         },
@@ -2582,7 +2599,13 @@ async def create_stay_program(
     new_id = result.scalar()
     await db.commit()
 
-    return {"id": str(new_id), "ads_id": str(ads_id), "pax_id": str(pax_id), "status": "draft"}
+    return {
+        "id": str(new_id),
+        "ads_id": str(ads_id),
+        "user_id": str(user_id) if user_id else None,
+        "contact_id": str(contact_id) if contact_id else None,
+        "status": "draft",
+    }
 
 
 @router.post("/stay-programs/{program_id}/submit")
@@ -2598,7 +2621,7 @@ async def submit_stay_program(
 
     result = await db.execute(
         sa_text(
-            "UPDATE pax_stay_programs SET status = 'submitted' "
+            "UPDATE stay_programs SET status = 'submitted' "
             "WHERE id = :pid AND entity_id = :eid AND status = 'draft' "
             "RETURNING id"
         ),
@@ -2626,7 +2649,7 @@ async def approve_stay_program(
 
     result = await db.execute(
         sa_text(
-            "UPDATE pax_stay_programs SET status = 'approved', approved_by = :uid, approved_at = NOW() "
+            "UPDATE stay_programs SET status = 'approved', approved_by = :uid, approved_at = NOW() "
             "WHERE id = :pid AND entity_id = :eid AND status = 'submitted' "
             "RETURNING id"
         ),
@@ -2724,27 +2747,22 @@ async def create_profile_type(
 @router.get("/pax/{pax_id}/profile-types")
 async def list_pax_profile_types(
     pax_id: UUID,
+    pax_source: str = Query("user", pattern=r"^(user|contact)$"),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """List profile types assigned to a PAX."""
+    """List profile types assigned to a PAX (user or contact)."""
     from sqlalchemy import text as sa_text
 
-    # Verify PAX
-    pax_result = await db.execute(
-        select(PaxProfile.id).where(PaxProfile.id == pax_id, PaxProfile.entity_id == entity_id)
-    )
-    if not pax_result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="PAX profile not found")
-
+    fk_col = "user_id" if pax_source == "user" else "contact_id"
     result = await db.execute(
         sa_text(
-            """
-            SELECT pt.id, pt.code, pt.name, pt.description, ppta.assigned_at
-            FROM pax_profile_type_assignments ppta
-            JOIN pax_profile_types pt ON pt.id = ppta.profile_type_id
-            WHERE ppta.pax_id = :pax_id
+            f"""
+            SELECT pt.id, pt.code, pt.name, pt.description, ppt.created_at
+            FROM pax_profile_types ppt
+            JOIN pax_profile_types pt ON pt.id = ppt.profile_type_id
+            WHERE ppt.{fk_col} = :pax_id
             ORDER BY pt.name
             """
         ),
@@ -2767,25 +2785,22 @@ async def list_pax_profile_types(
 async def assign_profile_type(
     pax_id: UUID,
     profile_type_id: UUID,
+    pax_source: str = Query("user", pattern=r"^(user|contact)$"),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("paxlog.profile.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Assign a profile type to a PAX."""
+    """Assign a profile type to a PAX (user or contact)."""
     from sqlalchemy import text as sa_text
+    from app.models.paxlog import PaxProfileType
 
-    # Verify PAX
-    pax_result = await db.execute(
-        select(PaxProfile.id).where(PaxProfile.id == pax_id, PaxProfile.entity_id == entity_id)
-    )
-    if not pax_result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="PAX profile not found")
+    fk_col = "user_id" if pax_source == "user" else "contact_id"
 
     # Check if already assigned
     existing = await db.execute(
         sa_text(
-            "SELECT 1 FROM pax_profile_type_assignments WHERE pax_id = :pax_id AND profile_type_id = :pt_id"
+            f"SELECT 1 FROM pax_profile_types WHERE {fk_col} = :pax_id AND profile_type_id = :pt_id"
         ),
         {"pax_id": str(pax_id), "pt_id": str(profile_type_id)},
     )
@@ -2795,18 +2810,15 @@ async def assign_profile_type(
             detail="Profile type already assigned to this PAX",
         )
 
-    await db.execute(
-        sa_text(
-            """
-            INSERT INTO pax_profile_type_assignments (pax_id, profile_type_id, assigned_at, assigned_by)
-            VALUES (:pax_id, :pt_id, NOW(), :user_id)
-            """
-        ),
-        {"pax_id": str(pax_id), "pt_id": str(profile_type_id), "user_id": str(current_user.id)},
+    ppt = PaxProfileType(
+        user_id=pax_id if pax_source == "user" else None,
+        contact_id=pax_id if pax_source == "contact" else None,
+        profile_type_id=profile_type_id,
     )
+    db.add(ppt)
     await db.commit()
 
-    return {"pax_id": str(pax_id), "profile_type_id": str(profile_type_id), "status": "assigned"}
+    return {"pax_id": str(pax_id), "pax_source": pax_source, "profile_type_id": str(profile_type_id), "status": "assigned"}
 
 
 @router.get("/habilitation-matrix")
@@ -2930,36 +2942,66 @@ async def get_expiring_credentials(
     today = date.today()
     cutoff = today + td(days=days_ahead)
 
-    result = await db.execute(
+    # Credentials linked to Users
+    user_creds = await db.execute(
         select(
             PaxCredential.id,
-            PaxCredential.pax_id,
+            PaxCredential.user_id,
             PaxCredential.credential_type_id,
             PaxCredential.expiry_date,
             PaxCredential.status,
-            PaxProfile.first_name,
-            PaxProfile.last_name,
-            PaxProfile.badge_number,
+            User.first_name,
+            User.last_name,
+            User.badge_number,
             CredentialType.code.label("cred_code"),
             CredentialType.name.label("cred_name"),
         )
-        .join(PaxProfile, PaxProfile.id == PaxCredential.pax_id)
+        .join(User, User.id == PaxCredential.user_id)
         .join(CredentialType, CredentialType.id == PaxCredential.credential_type_id)
         .where(
-            PaxProfile.entity_id == entity_id,
-            PaxProfile.archived == False,  # noqa: E712
-            PaxCredential.expiry_date != None,  # noqa: E711
+            PaxCredential.user_id.isnot(None),
+            PaxCredential.expiry_date.isnot(None),
             PaxCredential.expiry_date <= cutoff,
             PaxCredential.expiry_date >= today,
             PaxCredential.status == "valid",
         )
         .order_by(PaxCredential.expiry_date)
     )
-    rows = result.all()
-    return [
-        {
+    # Credentials linked to TierContacts
+    contact_creds = await db.execute(
+        select(
+            PaxCredential.id,
+            PaxCredential.contact_id,
+            PaxCredential.credential_type_id,
+            PaxCredential.expiry_date,
+            PaxCredential.status,
+            TierContact.first_name,
+            TierContact.last_name,
+            TierContact.badge_number,
+            CredentialType.code.label("cred_code"),
+            CredentialType.name.label("cred_name"),
+        )
+        .join(TierContact, TierContact.id == PaxCredential.contact_id)
+        .join(Tier, Tier.id == TierContact.tier_id)
+        .join(CredentialType, CredentialType.id == PaxCredential.credential_type_id)
+        .where(
+            Tier.entity_id == entity_id,
+            PaxCredential.contact_id.isnot(None),
+            PaxCredential.expiry_date.isnot(None),
+            PaxCredential.expiry_date <= cutoff,
+            PaxCredential.expiry_date >= today,
+            PaxCredential.status == "valid",
+        )
+        .order_by(PaxCredential.expiry_date)
+    )
+
+    items = []
+    for r in user_creds.all():
+        items.append({
             "credential_id": str(r[0]),
-            "pax_id": str(r[1]),
+            "user_id": str(r[1]),
+            "contact_id": None,
+            "pax_source": "user",
             "credential_type_id": str(r[2]),
             "expiry_date": str(r[3]),
             "status": r[4],
@@ -2969,9 +3011,26 @@ async def get_expiring_credentials(
             "credential_code": r[8],
             "credential_name": r[9],
             "days_remaining": (r[3] - today).days,
-        }
-        for r in rows
-    ]
+        })
+    for r in contact_creds.all():
+        items.append({
+            "credential_id": str(r[0]),
+            "user_id": None,
+            "contact_id": str(r[1]),
+            "pax_source": "contact",
+            "credential_type_id": str(r[2]),
+            "expiry_date": str(r[3]),
+            "status": r[4],
+            "pax_first_name": r[5],
+            "pax_last_name": r[6],
+            "pax_badge": r[7],
+            "credential_code": r[8],
+            "credential_name": r[9],
+            "days_remaining": (r[3] - today).days,
+        })
+
+    items.sort(key=lambda x: x["expiry_date"])
+    return items
 
 
 @router.get("/compliance/stats")
@@ -2985,22 +3044,22 @@ async def get_compliance_stats(
 
     today = date.today()
 
-    # Total active PAX count
-    total_pax = await db.execute(
-        select(func.count(PaxProfile.id)).where(
-            PaxProfile.entity_id == entity_id,
-            PaxProfile.archived == False,  # noqa: E712
-            PaxProfile.status == "active",
-        )
+    # Total active PAX count (Users in entity + TierContacts of entity's Tiers)
+    user_count = await db.execute(
+        select(func.count(User.id))
+        .where(User.default_entity_id == entity_id, User.active == True)  # noqa: E712
     )
+    contact_count = await db.execute(
+        select(func.count(TierContact.id))
+        .join(Tier, Tier.id == TierContact.tier_id)
+        .where(Tier.entity_id == entity_id, TierContact.active == True)  # noqa: E712
+    )
+    total_pax_value = (user_count.scalar() or 0) + (contact_count.scalar() or 0)
 
     # Expired credentials count
     expired_count = await db.execute(
         select(func.count(PaxCredential.id))
-        .join(PaxProfile, PaxProfile.id == PaxCredential.pax_id)
         .where(
-            PaxProfile.entity_id == entity_id,
-            PaxProfile.archived == False,  # noqa: E712
             PaxCredential.expiry_date < today,
             PaxCredential.status == "valid",
         )
@@ -3009,12 +3068,7 @@ async def get_compliance_stats(
     # Pending validation count
     pending_count = await db.execute(
         select(func.count(PaxCredential.id))
-        .join(PaxProfile, PaxProfile.id == PaxCredential.pax_id)
-        .where(
-            PaxProfile.entity_id == entity_id,
-            PaxProfile.archived == False,  # noqa: E712
-            PaxCredential.status == "pending_validation",
-        )
+        .where(PaxCredential.status == "pending_validation")
     )
 
     # Active incidents count
@@ -3031,7 +3085,7 @@ async def get_compliance_stats(
             """
             SELECT a.site_entry_asset_id, ast.name AS site_name,
                    COUNT(DISTINCT a.id) AS ads_count,
-                   COUNT(DISTINCT ap.pax_id) AS pax_count,
+                   COUNT(DISTINCT ap.id) AS pax_count,
                    COUNT(DISTINCT CASE WHEN ap.status = 'blocked' THEN ap.id END) AS blocked_count
             FROM ads a
             JOIN ads_pax ap ON ap.ads_id = a.id
@@ -3049,7 +3103,7 @@ async def get_compliance_stats(
     sites = site_stats.all()
 
     return {
-        "total_active_pax": total_pax.scalar() or 0,
+        "total_active_pax": total_pax_value,
         "expired_credentials": expired_count.scalar() or 0,
         "pending_validations": pending_count.scalar() or 0,
         "active_incidents": active_incidents.scalar() or 0,
@@ -3086,7 +3140,7 @@ async def list_signalements(
     query = select(PaxIncident).where(PaxIncident.entity_id == entity_id)
 
     if pax_id:
-        query = query.where(PaxIncident.pax_id == pax_id)
+        query = query.where(or_(PaxIncident.user_id == pax_id, PaxIncident.contact_id == pax_id))
     if asset_id:
         query = query.where(PaxIncident.asset_id == asset_id)
     if severity:
@@ -3102,7 +3156,8 @@ async def list_signalements(
 
 @router.post("/signalements", response_model=PaxIncidentRead, status_code=201)
 async def create_signalement(
-    pax_id: UUID | None = None,
+    user_id: UUID | None = None,
+    contact_id: UUID | None = None,
     asset_id: UUID | None = None,
     severity: str = "info",
     description: str = "",
@@ -3130,7 +3185,8 @@ async def create_signalement(
         db,
         entity_id=entity_id,
         data={
-            "pax_id": pax_id,
+            "user_id": user_id,
+            "contact_id": contact_id,
             "asset_id": asset_id,
             "severity": severity,
             "description": description,
@@ -3148,7 +3204,11 @@ async def create_signalement(
         resource_id=str(result["id"]),
         user_id=current_user.id,
         entity_id=entity_id,
-        details={"severity": severity, "pax_id": str(pax_id) if pax_id else None},
+        details={
+            "severity": severity,
+            "user_id": str(user_id) if user_id else None,
+            "contact_id": str(contact_id) if contact_id else None,
+        },
     )
     await db.commit()
 
@@ -3189,29 +3249,28 @@ async def resolve_signalement(
     incident.resolution_notes = resolution_notes
 
     # If PAX was suspended due to a ban, check if they can be re-activated
-    if incident.severity in ("temp_ban", "permanent_ban") and incident.pax_id:
+    pax_filter = None
+    if incident.severity in ("temp_ban", "permanent_ban"):
+        if incident.user_id:
+            pax_filter = PaxIncident.user_id == incident.user_id
+        elif incident.contact_id:
+            pax_filter = PaxIncident.contact_id == incident.contact_id
+
+    if pax_filter is not None:
         # Check if there are other unresolved bans
         other_bans = await db.execute(
             select(func.count(PaxIncident.id)).where(
                 PaxIncident.entity_id == entity_id,
-                PaxIncident.pax_id == incident.pax_id,
+                pax_filter,
                 PaxIncident.id != signalement_id,
                 PaxIncident.severity.in_(["temp_ban", "permanent_ban"]),
                 PaxIncident.resolved_at == None,  # noqa: E711
             )
         )
         if (other_bans.scalar() or 0) == 0:
-            # No other active bans — re-activate PAX
-            pax_result = await db.execute(
-                select(PaxProfile).where(
-                    PaxProfile.id == incident.pax_id,
-                    PaxProfile.entity_id == entity_id,
-                )
-            )
-            profile = pax_result.scalar_one_or_none()
-            if profile and profile.status == "suspended":
-                profile.status = "active"
-                logger.info("PAX %s re-activated after signalement %s resolved", incident.pax_id, signalement_id)
+            # No other active bans — log re-activation
+            pax_id_str = str(incident.user_id or incident.contact_id)
+            logger.info("PAX %s eligible for re-activation after signalement %s resolved", pax_id_str, signalement_id)
 
     await db.commit()
     await db.refresh(incident)
@@ -3233,7 +3292,8 @@ async def resolve_signalement(
         payload={
             "incident_id": str(signalement_id),
             "entity_id": str(entity_id),
-            "pax_id": str(incident.pax_id) if incident.pax_id else None,
+            "user_id": str(incident.user_id) if incident.user_id else None,
+            "contact_id": str(incident.contact_id) if incident.contact_id else None,
             "severity": incident.severity,
             "resolved_by": str(current_user.id),
         },
@@ -3288,7 +3348,7 @@ async def list_avm(
     for avm, creator_first, creator_last in rows:
         # Count PAX across all program lines
         pax_count_result = await db.execute(
-            select(func.count(func.distinct(MissionProgramPax.pax_id))).select_from(
+            select(func.count(func.distinct(MissionProgramPax.id))).select_from(
                 MissionProgramPax
             ).join(
                 MissionProgram, MissionProgram.id == MissionProgramPax.mission_program_id
@@ -3351,13 +3411,11 @@ async def create_avm(
     # ── PAX capacity validation ──────────────────────────────────────────
     # Count total unique non-cancelled PAX across all program lines
     if avm.pax_quota > 0:
-        total_pax_ids: set[UUID] = set()
-        for prog_data in body.programs:
-            total_pax_ids.update(prog_data.pax_ids)
-        if len(total_pax_ids) > avm.pax_quota:
+        total_pax_count = sum(len(prog_data.pax_entries) for prog_data in body.programs)
+        if total_pax_count > avm.pax_quota:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Mission PAX quota exceeded ({len(total_pax_ids)}/{avm.pax_quota})",
+                detail=f"Mission PAX quota exceeded ({total_pax_count}/{avm.pax_quota})",
             )
 
     # Create program lines
@@ -3377,8 +3435,14 @@ async def create_avm(
         await db.flush()
 
         # ── PAX conflict detection — same PAX on overlapping missions ────
-        for pax_id in prog_data.pax_ids:
+        for pax_entry in prog_data.pax_entries:
             if prog.planned_start_date and prog.planned_end_date:
+                # Build filter for matching PAX
+                if pax_entry.user_id:
+                    pax_match = MissionProgramPax.user_id == pax_entry.user_id
+                else:
+                    pax_match = MissionProgramPax.contact_id == pax_entry.contact_id
+
                 conflict_query = (
                     select(
                         MissionNotice.reference,
@@ -3389,7 +3453,7 @@ async def create_avm(
                     .join(MissionProgram, MissionProgram.id == MissionProgramPax.mission_program_id)
                     .join(MissionNotice, MissionNotice.id == MissionProgram.mission_notice_id)
                     .where(
-                        MissionProgramPax.pax_id == pax_id,
+                        pax_match,
                         MissionNotice.id != avm.id,
                         MissionNotice.status != "cancelled",
                         MissionProgram.planned_start_date.isnot(None),
@@ -3411,7 +3475,8 @@ async def create_avm(
 
             db.add(MissionProgramPax(
                 mission_program_id=prog.id,
-                pax_id=pax_id,
+                user_id=pax_entry.user_id,
+                contact_id=pax_entry.contact_id,
             ))
 
     await db.commit()
@@ -3621,11 +3686,14 @@ async def _build_avm_read(db: AsyncSession, avm: MissionNotice) -> MissionNotice
     program_reads = []
     for prog in programs:
         pax_result = await db.execute(
-            select(MissionProgramPax.pax_id).where(
+            select(MissionProgramPax.user_id, MissionProgramPax.contact_id).where(
                 MissionProgramPax.mission_program_id == prog.id,
             )
         )
-        pax_ids = [row[0] for row in pax_result.all()]
+        pax_entries = [
+            AdsPaxEntry(user_id=row[0], contact_id=row[1])
+            for row in pax_result.all()
+        ]
 
         # Get site name if available
         site_name = None
@@ -3639,7 +3707,7 @@ async def _build_avm_read(db: AsyncSession, avm: MissionNotice) -> MissionNotice
             site_name = name_row[0] if name_row else None
 
         pr = MissionProgramRead.model_validate(prog)
-        pr.pax_ids = pax_ids
+        pr.pax_entries = pax_entries
         pr.site_name = site_name
         program_reads.append(pr)
 
@@ -3663,5 +3731,3 @@ async def _build_avm_read(db: AsyncSession, avm: MissionNotice) -> MissionNotice
     read.preparation_progress = prep_status["progress_percent"]
 
     return read
-
-    return incident

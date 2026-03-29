@@ -30,7 +30,6 @@ from app.models.paxlog import (
     MissionProgramPax,
     PaxCredential,
     PaxIncident,
-    PaxProfile,
 )
 
 logger = logging.getLogger(__name__)
@@ -62,11 +61,15 @@ ADS_REF_PREFIX = "ADS"
 
 async def check_pax_compliance(
     db: AsyncSession,
-    pax_id: UUID,
     asset_id: UUID,
     entity_id: UUID,
+    *,
+    user_id: UUID | None = None,
+    contact_id: UUID | None = None,
 ) -> dict:
     """Check a PAX against the compliance matrix for a specific asset.
+
+    Exactly one of user_id / contact_id must be provided.
 
     Returns::
 
@@ -87,16 +90,11 @@ async def check_pax_compliance(
     1. Asset-level compliance matrix (mandatory creds per site)
     2. Profile-level habilitation matrix (creds per job profile)
     """
-    # Load PAX profile
-    pax_result = await db.execute(
-        select(PaxProfile).where(
-            PaxProfile.id == pax_id,
-            PaxProfile.entity_id == entity_id,
-        )
-    )
-    profile = pax_result.scalar_one_or_none()
-    if not profile:
-        return {"compliant": False, "results": [{"credential_type_code": "N/A", "status": "error", "message": "PAX profile not found", "expiry_date": None}]}
+    if not user_id and not contact_id:
+        return {"compliant": False, "results": [{"credential_type_code": "N/A", "status": "error", "message": "No PAX identifier provided", "expiry_date": None}]}
+
+    # Determine PAX type (internal vs external)
+    pax_type = "internal" if user_id else "external"
 
     # ── 1. Asset-level compliance matrix ─────────────────────────────────
     matrix_result = await db.execute(
@@ -113,23 +111,24 @@ async def check_pax_compliance(
     for req in requirements:
         if req.scope == "all_visitors":
             applicable_reqs.append(req)
-        elif req.scope == "contractors_only" and profile.type == "external":
+        elif req.scope == "contractors_only" and pax_type == "external":
             applicable_reqs.append(req)
-        elif req.scope == "permanent_staff_only" and profile.type == "internal":
+        elif req.scope == "permanent_staff_only" and pax_type == "internal":
             applicable_reqs.append(req)
 
     # ── 2. Profile-level habilitation matrix ─────────────────────────────
-    # Fetch profile type assignments for this PAX
+    pax_fk_col = "user_id" if user_id else "contact_id"
+    pax_fk_val = str(user_id or contact_id)
     hab_rows = await db.execute(
         text(
-            """
+            f"""
             SELECT hm.credential_type_id, hm.mandatory
-            FROM pax_profile_type_assignments ppta
+            FROM pax_profile_types ppta
             JOIN habilitation_matrix hm ON hm.profile_type_id = ppta.profile_type_id
-            WHERE ppta.pax_id = :pax_id AND hm.mandatory = true
+            WHERE ppta.{pax_fk_col} = :pax_fk AND hm.mandatory = true
             """
         ),
-        {"pax_id": str(pax_id)},
+        {"pax_fk": pax_fk_val},
     )
     hab_requirements = hab_rows.all()
 
@@ -142,8 +141,9 @@ async def check_pax_compliance(
             hab_credential_type_ids.add(ct_id)
 
     # ── Load PAX credentials ─────────────────────────────────────────────
+    cred_filter = PaxCredential.user_id == user_id if user_id else PaxCredential.contact_id == contact_id
     creds_result = await db.execute(
-        select(PaxCredential).where(PaxCredential.pax_id == pax_id)
+        select(PaxCredential).where(cred_filter)
     )
     credentials = {c.credential_type_id: c for c in creds_result.scalars().all()}
 
@@ -312,9 +312,10 @@ async def submit_ads(
     for pax_entry in pax_entries:
         compliance = await check_pax_compliance(
             db,
-            pax_id=pax_entry.pax_id,
             asset_id=ads.site_entry_asset_id,
             entity_id=entity_id,
+            user_id=pax_entry.user_id,
+            contact_id=pax_entry.contact_id,
         )
 
         pax_entry.compliance_checked_at = func.now()
@@ -330,7 +331,8 @@ async def submit_ads(
             pax_entry.status = "compliant"
 
         pax_results.append({
-            "pax_id": str(pax_entry.pax_id),
+            "user_id": str(pax_entry.user_id) if pax_entry.user_id else None,
+            "contact_id": str(pax_entry.contact_id) if pax_entry.contact_id else None,
             "compliant": compliance["compliant"],
             "results": compliance["results"],
         })
@@ -510,7 +512,7 @@ async def process_rotation_cycles(db: AsyncSession, entity_id: UUID) -> int:
     cycles_result = await db.execute(
         text(
             """
-            SELECT id, pax_id, site_asset_id, days_on, days_off,
+            SELECT id, user_id, contact_id, site_asset_id, days_on, days_off,
                    next_on_date, ads_lead_days, default_project_id, default_cc_id
             FROM pax_rotation_cycles
             WHERE entity_id = :eid
@@ -526,14 +528,15 @@ async def process_rotation_cycles(db: AsyncSession, entity_id: UUID) -> int:
 
     for cycle in cycles:
         cycle_id = cycle[0]
-        pax_id = cycle[1]
-        site_asset_id = cycle[2]
-        days_on = cycle[3]
-        days_off = cycle[4]
-        next_on_date = cycle[5]
-        ads_lead_days = cycle[6]
-        default_project_id = cycle[7]
-        default_cc_id = cycle[8]
+        cycle_user_id = cycle[1]
+        cycle_contact_id = cycle[2]
+        site_asset_id = cycle[3]
+        days_on = cycle[4]
+        days_off = cycle[5]
+        next_on_date = cycle[6]
+        ads_lead_days = cycle[7]
+        default_project_id = cycle[8]
+        default_cc_id = cycle[9]
 
         try:
             # Generate reference
@@ -541,6 +544,9 @@ async def process_rotation_cycles(db: AsyncSession, entity_id: UUID) -> int:
 
             # Compute end date
             end_date = next_on_date + timedelta(days=days_on - 1)
+
+            # Determine requester_id: use user_id if internal, else fallback
+            requester_id = cycle_user_id or cycle_contact_id
 
             # Create draft AdS
             ads_id_result = await db.execute(
@@ -564,7 +570,7 @@ async def process_rotation_cycles(db: AsyncSession, entity_id: UUID) -> int:
                 {
                     "entity_id": str(entity_id),
                     "reference": reference,
-                    "requester_id": str(pax_id),  # PAX is the requester for auto-created
+                    "requester_id": str(requester_id),
                     "site_asset_id": str(site_asset_id),
                     "purpose": f"Rotation automatique (cycle {cycle_id})",
                     "start_date": next_on_date,
@@ -574,15 +580,17 @@ async def process_rotation_cycles(db: AsyncSession, entity_id: UUID) -> int:
             )
             new_ads_id = ads_id_result.scalar()
 
-            # Add PAX to AdS
+            # Add PAX to AdS (dual FK)
+            pax_col = "user_id" if cycle_user_id else "contact_id"
+            pax_val = str(cycle_user_id or cycle_contact_id)
             await db.execute(
                 text(
-                    """
-                    INSERT INTO ads_pax (ads_id, pax_id, status, priority_score)
-                    VALUES (:ads_id, :pax_id, 'pending_check', 0)
+                    f"""
+                    INSERT INTO ads_pax (ads_id, {pax_col}, status, priority_score)
+                    VALUES (:ads_id, :pax_fk, 'pending_check', 0)
                     """
                 ),
-                {"ads_id": str(new_ads_id), "pax_id": str(pax_id)},
+                {"ads_id": str(new_ads_id), "pax_fk": pax_val},
             )
 
             # Advance cycle to next period
@@ -596,9 +604,10 @@ async def process_rotation_cycles(db: AsyncSession, entity_id: UUID) -> int:
             )
 
             created_count += 1
+            pax_label = f"user={cycle_user_id}" if cycle_user_id else f"contact={cycle_contact_id}"
             logger.info(
-                "Rotation cycle %s: created AdS %s for PAX %s (%s -> %s)",
-                cycle_id, reference, pax_id, next_on_date, end_date,
+                "Rotation cycle %s: created AdS %s for %s (%s -> %s)",
+                cycle_id, reference, pax_label, next_on_date, end_date,
             )
 
         except Exception as e:
@@ -654,19 +663,22 @@ async def compute_pax_priority(db: AsyncSession, ads_pax_id: UUID) -> int:
             priority = activity_row[0]
             score += PRIORITY_WEIGHTS.get(f"activity_{priority}", 0)
 
+    # ── Determine PAX FK column for raw SQL ─────────────────────────────
+    pax_fk_col = "user_id" if ads_pax.user_id else "contact_id"
+    pax_fk_val = str(ads_pax.user_id or ads_pax.contact_id)
+
     # ── Role-based scoring ───────────────────────────────────────────────
-    # Check PAX profile type assignments for role information
     role_result = await db.execute(
         text(
-            """
-            SELECT pt.code FROM pax_profile_types pt
-            JOIN pax_profile_type_assignments ppta ON ppta.profile_type_id = pt.id
-            WHERE ppta.pax_id = :pax_id
+            f"""
+            SELECT pt.code FROM profile_types pt
+            JOIN pax_profile_types ppt ON ppt.profile_type_id = pt.id
+            WHERE ppt.{pax_fk_col} = :pax_fk
             ORDER BY pt.code
             LIMIT 1
             """
         ),
-        {"pax_id": str(ads_pax.pax_id)},
+        {"pax_fk": pax_fk_val},
     )
     role_row = role_result.first()
     if role_row:
@@ -683,12 +695,12 @@ async def compute_pax_priority(db: AsyncSession, ads_pax_id: UUID) -> int:
     # ── VIP flag ─────────────────────────────────────────────────────────
     vip_result = await db.execute(
         text(
-            "SELECT 1 FROM pax_profile_type_assignments ppta "
-            "JOIN pax_profile_types pt ON pt.id = ppta.profile_type_id "
-            "WHERE ppta.pax_id = :pax_id AND pt.code ILIKE '%vip%' "
-            "LIMIT 1"
+            f"SELECT 1 FROM pax_profile_types ppt "
+            f"JOIN profile_types pt ON pt.id = ppt.profile_type_id "
+            f"WHERE ppt.{pax_fk_col} = :pax_fk AND pt.code ILIKE '%vip%' "
+            f"LIMIT 1"
         ),
-        {"pax_id": str(ads_pax.pax_id)},
+        {"pax_fk": pax_fk_val},
     )
     if vip_result.first():
         score += PRIORITY_WEIGHTS["vip_flag"]
@@ -698,12 +710,12 @@ async def compute_pax_priority(db: AsyncSession, ads_pax_id: UUID) -> int:
     if entity_id:
         prev_ads_count = await db.execute(
             text(
-                "SELECT COUNT(*) FROM ads_pax ap "
-                "JOIN ads a ON a.id = ap.ads_id "
-                "WHERE ap.pax_id = :pax_id AND a.entity_id = :eid "
-                "AND a.status IN ('approved', 'completed')"
+                f"SELECT COUNT(*) FROM ads_pax ap "
+                f"JOIN ads a ON a.id = ap.ads_id "
+                f"WHERE ap.{pax_fk_col} = :pax_fk AND a.entity_id = :eid "
+                f"AND a.status IN ('approved', 'completed')"
             ),
-            {"pax_id": str(ads_pax.pax_id), "eid": str(entity_id)},
+            {"pax_fk": pax_fk_val, "eid": str(entity_id)},
         )
         count = prev_ads_count.scalar() or 0
         if count == 0:
@@ -738,14 +750,16 @@ async def create_signalement(
 
     Returns the created signalement as a dict.
     """
-    pax_id = data.get("pax_id")
+    inc_user_id = data.get("user_id")
+    inc_contact_id = data.get("contact_id")
     severity = data["severity"]
     recorded_by = data["recorded_by"]
 
     # Create PaxIncident
     incident = PaxIncident(
         entity_id=entity_id,
-        pax_id=pax_id,
+        user_id=inc_user_id,
+        contact_id=inc_contact_id,
         company_id=data.get("company_id"),
         asset_id=data.get("asset_id"),
         severity=severity,
@@ -759,20 +773,19 @@ async def create_signalement(
     await db.flush()
 
     # ── Auto-block PAX on ban severity ───────────────────────────────────
-    if severity in ("temp_ban", "permanent_ban") and pax_id:
-        pax_result = await db.execute(
-            select(PaxProfile).where(
-                PaxProfile.id == pax_id,
-                PaxProfile.entity_id == entity_id,
+    if severity in ("temp_ban", "permanent_ban"):
+        if inc_user_id:
+            await db.execute(
+                text("UPDATE users SET pax_status = 'suspended' WHERE id = :uid"),
+                {"uid": str(inc_user_id)},
             )
-        )
-        profile = pax_result.scalar_one_or_none()
-        if profile:
-            profile.status = "suspended"
-            logger.info(
-                "PAX %s suspended due to %s signalement %s",
-                pax_id, severity, incident.id,
+            logger.info("User %s suspended due to %s signalement %s", inc_user_id, severity, incident.id)
+        elif inc_contact_id:
+            await db.execute(
+                text("UPDATE tier_contacts SET pax_status = 'suspended' WHERE id = :cid"),
+                {"cid": str(inc_contact_id)},
             )
+            logger.info("Contact %s suspended due to %s signalement %s", inc_contact_id, severity, incident.id)
 
     await db.commit()
     await db.refresh(incident)
@@ -783,7 +796,8 @@ async def create_signalement(
         payload={
             "incident_id": str(incident.id),
             "entity_id": str(entity_id),
-            "pax_id": str(pax_id) if pax_id else None,
+            "user_id": str(inc_user_id) if inc_user_id else None,
+            "contact_id": str(inc_contact_id) if inc_contact_id else None,
             "severity": severity,
             "asset_id": str(data.get("asset_id")) if data.get("asset_id") else None,
             "recorded_by": str(recorded_by),
@@ -793,7 +807,8 @@ async def create_signalement(
     return {
         "id": incident.id,
         "entity_id": incident.entity_id,
-        "pax_id": incident.pax_id,
+        "user_id": incident.user_id,
+        "contact_id": incident.contact_id,
         "severity": incident.severity,
         "description": incident.description,
         "incident_date": incident.incident_date,
@@ -981,13 +996,13 @@ async def approve_avm(
     ads_created_count = 0
     for prog in programs:
         if prog.site_asset_id and not prog.generated_ads_id:
-            # Load PAX for this program line
+            # Load PAX for this program line (dual FK)
             pax_result = await db.execute(
-                select(MissionProgramPax.pax_id).where(
+                select(MissionProgramPax.user_id, MissionProgramPax.contact_id).where(
                     MissionProgramPax.mission_program_id == prog.id,
                 )
             )
-            pax_ids = [row[0] for row in pax_result.all()]
+            pax_rows = pax_result.all()
 
             # Generate AdS reference
             ads_ref = await generate_ads_reference(db, entity_id)
@@ -996,7 +1011,7 @@ async def approve_avm(
             ads = Ads(
                 entity_id=entity_id,
                 reference=ads_ref,
-                type="team" if len(pax_ids) > 1 else "individual",
+                type="team" if len(pax_rows) > 1 else "individual",
                 status="draft",
                 requester_id=avm.created_by,
                 site_entry_asset_id=prog.site_asset_id,
@@ -1009,9 +1024,9 @@ async def approve_avm(
             db.add(ads)
             await db.flush()
 
-            # Add PAX entries
-            for pid in pax_ids:
-                db.add(AdsPax(ads_id=ads.id, pax_id=pid, status="pending_check"))
+            # Add PAX entries (dual FK)
+            for row_uid, row_cid in pax_rows:
+                db.add(AdsPax(ads_id=ads.id, user_id=row_uid, contact_id=row_cid, status="pending_check"))
 
             prog.generated_ads_id = ads.id
             ads_created_count += 1

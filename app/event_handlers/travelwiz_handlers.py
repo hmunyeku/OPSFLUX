@@ -35,6 +35,20 @@ async def _get_user_email_and_name(user_id: UUID, db) -> tuple[str | None, str]:
     return (row[0], row[1]) if row else (None, "")
 
 
+async def _get_contact_email_and_name(contact_id: UUID, db) -> tuple[str | None, str]:
+    """Get email and display name for a TierContact (external PAX)."""
+    from sqlalchemy import text
+    result = await db.execute(
+        text(
+            "SELECT tc.email, COALESCE(tc.first_name || ' ' || tc.last_name, tc.email) "
+            "FROM tier_contacts tc WHERE tc.id = :cid"
+        ),
+        {"cid": contact_id},
+    )
+    row = result.first()
+    return (row[0], row[1]) if row else (None, "")
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Handler: on_voyage_confirmed
 # When a voyage is confirmed — notify manifest passengers
@@ -60,7 +74,6 @@ async def on_voyage_confirmed(event: OpsFluxEvent) -> None:
         from app.core.notifications import send_in_app
         from app.core.email_templates import render_and_send_email
         from app.models.travelwiz import VoyageManifest, ManifestPassenger
-        from app.models.paxlog import PaxProfile
 
         eid = UUID(str(entity_id))
         vid = UUID(str(voyage_id))
@@ -86,38 +99,39 @@ async def on_voyage_confirmed(event: OpsFluxEvent) -> None:
                 passengers = pax_result.scalars().all()
 
                 for passenger in passengers:
-                    pax_profile_id = passenger.pax_profile_id
-                    if not pax_profile_id:
+                    # Resolve user_id (internal) or contact_id (external)
+                    uid = passenger.user_id
+                    contact_id = passenger.contact_id
+                    if not uid and not contact_id:
                         continue
-                    pax_id_str = str(pax_profile_id)
-                    if pax_id_str in notified_pax:
+                    pax_key = str(uid or contact_id)
+                    if pax_key in notified_pax:
                         continue
-                    notified_pax.add(pax_id_str)
+                    notified_pax.add(pax_key)
 
-                    # Look up PAX profile to find linked user_id
-                    pax_profile = await db.get(PaxProfile, pax_profile_id)
-                    if not pax_profile or not pax_profile.user_id:
-                        continue
+                    # Resolve email + name
+                    if uid:
+                        email, name = await _get_user_email_and_name(uid, db)
+                    else:
+                        email, name = await _get_contact_email_and_name(contact_id, db)
 
-                    uid = pax_profile.user_id
-
-                    # In-app notification
+                    # In-app notification (only for internal users)
                     try:
-                        await send_in_app(
-                            db,
-                            user_id=uid,
-                            entity_id=eid,
-                            title="Voyage confirmé",
-                            body=(
-                                f"Le voyage {code} ({departure_base} → {destination}) "
-                                f"prévu le {scheduled_departure} est confirmé."
-                            ),
-                            category="travelwiz",
-                            link=f"/travelwiz/voyages/{voyage_id}",
-                        )
+                        if uid:
+                            await send_in_app(
+                                db,
+                                user_id=uid,
+                                entity_id=eid,
+                                title="Voyage confirmé",
+                                body=(
+                                    f"Le voyage {code} ({departure_base} → {destination}) "
+                                    f"prévu le {scheduled_departure} est confirmé."
+                                ),
+                                category="travelwiz",
+                                link=f"/travelwiz/voyages/{voyage_id}",
+                            )
 
                         # Email via configurable template
-                        email, name = await _get_user_email_and_name(uid, db)
                         if email:
                             await render_and_send_email(
                                 db,
@@ -137,7 +151,7 @@ async def on_voyage_confirmed(event: OpsFluxEvent) -> None:
                             )
                     except Exception:
                         logger.exception(
-                            "Failed to notify PAX %s for voyage %s", pax_id_str, voyage_id
+                            "Failed to notify PAX %s for voyage %s", pax_key, voyage_id
                         )
 
             await db.commit()
@@ -177,7 +191,6 @@ async def on_manifest_validated(event: OpsFluxEvent) -> None:
         from app.core.notifications import send_in_app
         from app.core.email_templates import render_and_send_email
         from app.models.travelwiz import ManifestPassenger
-        from app.models.paxlog import PaxProfile
 
         eid = UUID(str(entity_id))
         mid = UUID(str(manifest_id))
@@ -236,35 +249,39 @@ async def on_manifest_validated(event: OpsFluxEvent) -> None:
 
             notified_pax: set[str] = set()
             for passenger in passengers:
-                pax_profile_id = passenger.pax_profile_id
-                if not pax_profile_id:
+                # Resolve user_id (internal) or contact_id (external)
+                uid = passenger.user_id
+                contact_id = passenger.contact_id
+                if not uid and not contact_id:
                     continue
-                pax_id_str = str(pax_profile_id)
-                if pax_id_str in notified_pax:
+                pax_key = str(uid or contact_id)
+                if pax_key in notified_pax:
                     continue
-                notified_pax.add(pax_id_str)
+                notified_pax.add(pax_key)
 
-                pax_profile = await db.get(PaxProfile, pax_profile_id)
-                if not pax_profile or not pax_profile.user_id:
-                    continue
-
-                uid = pax_profile.user_id
+                # Resolve email + name
+                if uid:
+                    email, name = await _get_user_email_and_name(uid, db)
+                else:
+                    email, name = await _get_contact_email_and_name(contact_id, db)
 
                 try:
-                    await send_in_app(
-                        db,
-                        user_id=uid,
-                        entity_id=eid,
-                        title="Manifeste validé — Embarquement confirmé",
-                        body=(
-                            f"Le manifeste du voyage {code} a été validé. "
-                            f"Votre embarquement est confirmé."
-                        ),
-                        category="travelwiz",
-                        link=f"/travelwiz/voyages/{voyage_id}",
-                    )
+                    # In-app notification (only for internal users)
+                    if uid:
+                        await send_in_app(
+                            db,
+                            user_id=uid,
+                            entity_id=eid,
+                            title="Manifeste validé — Embarquement confirmé",
+                            body=(
+                                f"Le manifeste du voyage {code} a été validé. "
+                                f"Votre embarquement est confirmé."
+                            ),
+                            category="travelwiz",
+                            link=f"/travelwiz/voyages/{voyage_id}",
+                        )
 
-                    email, name = await _get_user_email_and_name(uid, db)
+                    # Email for both internal and external PAX
                     if email:
                         await render_and_send_email(
                             db,
@@ -285,7 +302,7 @@ async def on_manifest_validated(event: OpsFluxEvent) -> None:
                         )
                 except Exception:
                     logger.exception(
-                        "Failed to notify PAX %s for manifest %s", pax_id_str, manifest_id
+                        "Failed to notify PAX %s for manifest %s", pax_key, manifest_id
                     )
 
             await db.commit()
@@ -388,7 +405,7 @@ async def on_ads_approved(event: OpsFluxEvent) -> None:
             # Get approved PAX from the AdS
             pax_result = await db.execute(
                 text(
-                    "SELECT ap.id, ap.pax_id, ap.priority_score "
+                    "SELECT ap.id, ap.user_id, ap.contact_id, ap.priority_score "
                     "FROM ads_pax ap "
                     "WHERE ap.ads_id = :aid "
                     "AND ap.status IN ('compliant', 'approved')"
@@ -399,14 +416,14 @@ async def on_ads_approved(event: OpsFluxEvent) -> None:
 
             added = 0
             for prow in pax_rows:
-                ads_pax_id, pax_id, priority = prow
-                # Check if already in manifest
+                ads_pax_id, ap_user_id, ap_contact_id, priority = prow
+                # Check if already in manifest (by ads_pax_id)
                 existing = await db.execute(
                     text(
                         "SELECT 1 FROM pax_manifest_entries "
-                        "WHERE manifest_id = :mid AND pax_id = :pid"
+                        "WHERE manifest_id = :mid AND ads_pax_id = :apid"
                     ),
-                    {"mid": str(manifest_id), "pid": str(pax_id)},
+                    {"mid": str(manifest_id), "apid": str(ads_pax_id)},
                 )
                 if existing.first():
                     continue
@@ -414,12 +431,13 @@ async def on_ads_approved(event: OpsFluxEvent) -> None:
                 await db.execute(
                     text(
                         "INSERT INTO pax_manifest_entries "
-                        "(manifest_id, pax_id, ads_pax_id, status, priority_score, added_manually) "
-                        "VALUES (:mid, :pid, :apid, 'confirmed', :ps, FALSE)"
+                        "(manifest_id, user_id, contact_id, ads_pax_id, status, priority_score, added_manually) "
+                        "VALUES (:mid, :uid, :cid, :apid, 'confirmed', :ps, FALSE)"
                     ),
                     {
                         "mid": str(manifest_id),
-                        "pid": str(pax_id),
+                        "uid": str(ap_user_id) if ap_user_id else None,
+                        "cid": str(ap_contact_id) if ap_contact_id else None,
                         "apid": str(ads_pax_id),
                         "ps": priority or 0,
                     },

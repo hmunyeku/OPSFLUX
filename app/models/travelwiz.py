@@ -218,14 +218,18 @@ class ManifestPassenger(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "manifest_passengers"
     __table_args__ = (
         Index("idx_mpax_manifest", "manifest_id"),
-        Index("idx_mpax_pax_profile", "pax_profile_id"),
+        Index("idx_mpax_user", "user_id"),
+        Index("idx_mpax_contact", "contact_id"),
     )
 
     manifest_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("voyage_manifests.id"), nullable=False
     )
-    pax_profile_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("pax_profiles.id")
+    user_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id")
+    )
+    contact_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tier_contacts.id")
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     company: Mapped[str | None] = mapped_column(String(200))

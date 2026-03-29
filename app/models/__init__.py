@@ -71,7 +71,6 @@ from app.models.paxlog import (  # noqa: F401
     PaxCredential,
     PaxGroup,
     PaxIncident,
-    PaxProfile,
     PaxProfileType,
     PaxRotationCycle,
     ProfileHabilitationMatrix,

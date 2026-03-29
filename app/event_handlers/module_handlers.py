@@ -264,7 +264,7 @@ async def on_ads_approved(event: OpsFluxEvent) -> None:
 
     try:
         from sqlalchemy import select, and_
-        from app.models.paxlog import Ads, AdsPax, PaxProfile
+        from app.models.paxlog import Ads, AdsPax
         from app.models.travelwiz import (
             Voyage, VoyageStop, VoyageManifest, ManifestPassenger,
         )
@@ -381,25 +381,35 @@ async def on_ads_approved(event: OpsFluxEvent) -> None:
             # Add each approved PAX to the manifest
             added_count = 0
             for ads_pax_entry in approved_pax:
-                # Check if PAX already in manifest
+                # Check if PAX already in manifest (by ads_pax_id to avoid duplicates)
                 existing = await db.execute(
                     select(ManifestPassenger).where(
                         ManifestPassenger.manifest_id == manifest.id,
-                        ManifestPassenger.pax_id == ads_pax_entry.pax_id,
+                        ManifestPassenger.ads_pax_id == ads_pax_entry.id,
                     )
                 )
                 if existing.scalar_one_or_none():
                     continue
 
-                # Load PAX profile for weight
-                pax_profile = await db.get(PaxProfile, ads_pax_entry.pax_id)
+                # Resolve PAX name from User or TierContact
+                pax_name = ""
+                if ads_pax_entry.user_id:
+                    from app.models.core import User as UserModel
+                    u = await db.get(UserModel, ads_pax_entry.user_id)
+                    pax_name = f"{u.first_name} {u.last_name}" if u else ""
+                elif ads_pax_entry.contact_id:
+                    from app.models.common import TierContact
+                    tc = await db.get(TierContact, ads_pax_entry.contact_id)
+                    pax_name = f"{tc.first_name} {tc.last_name}" if tc else ""
 
                 passenger = ManifestPassenger(
                     manifest_id=manifest.id,
-                    pax_id=ads_pax_entry.pax_id,
+                    user_id=ads_pax_entry.user_id,
+                    contact_id=ads_pax_entry.contact_id,
+                    name=pax_name,
                     ads_pax_id=ads_pax_entry.id,
                     boarding_status="pending",
-                    declared_weight=0,  # Will be updated at check-in
+                    declared_weight_kg=0,
                     priority_score=ads_pax_entry.priority_score,
                     standby=False,
                 )

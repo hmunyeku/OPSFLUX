@@ -18,9 +18,9 @@ from app.models.common import (
     ComplianceType,
     Project,
     Tier,
+    TierContact,
     User,
 )
-from app.models.paxlog import PaxProfile
 from app.models.planner import PlannerActivity
 
 logger = logging.getLogger(__name__)
@@ -149,19 +149,38 @@ async def _preview_planner(db: AsyncSession, entity_id: UUID, record_id: UUID) -
 
 
 async def _preview_paxlog(db: AsyncSession, entity_id: UUID, record_id: UUID) -> PreviewResponse | None:
-    stmt = select(PaxProfile).where(PaxProfile.id == record_id, PaxProfile.entity_id == entity_id)
+    # PAX identity now lives on User or TierContact — try both.
+    # 1) Try User
+    stmt = select(User).where(User.id == record_id)
     row = (await db.execute(stmt)).scalar_one_or_none()
-    if not row:
-        return None
-    return PreviewResponse(
-        id=str(row.id),
-        code=row.badge_number,
-        name=f"{row.first_name} {row.last_name}",
-        type=row.type,
-        status=row.status,
-        created_at=_format_dt(row.created_at),
-        extra={"nationality": row.nationality} if row.nationality else None,
+    if row:
+        return PreviewResponse(
+            id=str(row.id),
+            code=row.badge_number,
+            name=row.full_name,
+            type=row.pax_type,
+            status="actif" if row.active else "inactif",
+            created_at=_format_dt(row.created_at),
+            extra={"nationality": row.nationality} if row.nationality else None,
+        )
+    # 2) Try TierContact (scoped via its parent Tier's entity_id)
+    stmt = (
+        select(TierContact)
+        .join(Tier, TierContact.tier_id == Tier.id)
+        .where(TierContact.id == record_id, Tier.entity_id == entity_id)
     )
+    row = (await db.execute(stmt)).scalar_one_or_none()
+    if row:
+        return PreviewResponse(
+            id=str(row.id),
+            code=row.badge_number,
+            name=row.full_name,
+            type=row.pax_type,
+            status="actif" if row.active else "inactif",
+            created_at=_format_dt(row.created_at),
+            extra={"nationality": row.nationality} if row.nationality else None,
+        )
+    return None
 
 
 async def _preview_conformite(db: AsyncSession, entity_id: UUID, record_id: UUID) -> PreviewResponse | None:

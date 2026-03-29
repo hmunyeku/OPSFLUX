@@ -38,7 +38,7 @@ from app.models.common import (
     Tier,
     TierContact,
 )
-from app.models.paxlog import PaxProfile
+from app.models.core import User
 from app.schemas.import_assistant import (
     RowValidationError,
     TargetFieldDef,
@@ -629,6 +629,13 @@ class ContactHandler(TargetObjectHandler):
 
 
 class PaxProfileHandler(TargetObjectHandler):
+    """Import PAX profiles.
+
+    - type=internal → upsert User rows (matched by first+last name within entity)
+    - type=external → upsert TierContact rows (matched by first+last name within entity)
+    PAX-specific fields (birth_date, nationality, badge_number) are stored directly
+    on User / TierContact after the Phase 2b migration.
+    """
     key = "pax_profile"
     label = "Profils PAX"
 
@@ -665,55 +672,80 @@ class PaxProfileHandler(TargetObjectHandler):
         bd = _safe_date(row.get("birth_date"))
         if not first or not last:
             return None
-        stmt = select(PaxProfile.id).where(
-            PaxProfile.entity_id == entity_id,
-            PaxProfile.first_name_normalized == first,
-            PaxProfile.last_name_normalized == last,
-        )
-        if bd:
-            stmt = stmt.where(PaxProfile.birth_date == bd)
+        pax_type = str(row.get("type", "external")).strip().lower()
+        if pax_type == "internal":
+            stmt = select(User.id).where(
+                User.entity_id == entity_id,
+                func.lower(func.trim(User.first_name)) == first,
+                func.lower(func.trim(User.last_name)) == last,
+            )
+            if bd:
+                stmt = stmt.where(User.pax_birth_date == bd)
+        else:
+            stmt = select(TierContact.id).where(
+                TierContact.entity_id == entity_id,
+                func.lower(func.trim(TierContact.first_name)) == first,
+                func.lower(func.trim(TierContact.last_name)) == last,
+            )
+            if bd:
+                stmt = stmt.where(TierContact.pax_birth_date == bd)
         result = await db.execute(stmt)
         return result.scalar_one_or_none()
 
     async def create_record(self, row: dict[str, Any], entity_id: UUID, user_id: UUID, db: AsyncSession) -> UUID:
         first = str(row.get("first_name", "")).strip()
         last = str(row.get("last_name", "")).strip()
+        pax_type = str(row.get("type", "external")).strip().lower()
+
         company_id = None
         if row.get("company_code"):
             res = await db.execute(select(Tier.id).where(Tier.entity_id == entity_id, Tier.code == str(row["company_code"]).strip()))
             company_id = res.scalar_one_or_none()
-        obj = PaxProfile(
-            entity_id=entity_id,
-            type=str(row.get("type", "external")).strip().lower(),
-            first_name=first,
-            last_name=last,
-            first_name_normalized=_normalize(first),
-            last_name_normalized=_normalize(last),
-            birth_date=_safe_date(row.get("birth_date")),
-            nationality=str(row.get("nationality", "")).strip() or None,
-            company_id=company_id,
-            badge_number=str(row.get("badge_number", "")).strip() or None,
-            status="active",
-        )
+
+        if pax_type == "internal":
+            # Create a User (no login — import only sets PAX fields)
+            obj = User(
+                entity_id=entity_id,
+                first_name=first,
+                last_name=last,
+                email=f"import-{_normalize(first)}.{_normalize(last)}@placeholder.local",
+                pax_birth_date=_safe_date(row.get("birth_date")),
+                pax_nationality=str(row.get("nationality", "")).strip() or None,
+                pax_badge_number=str(row.get("badge_number", "")).strip() or None,
+                is_active=True,
+            )
+        else:
+            obj = TierContact(
+                entity_id=entity_id,
+                tier_id=company_id,
+                first_name=first,
+                last_name=last,
+                pax_birth_date=_safe_date(row.get("birth_date")),
+                pax_nationality=str(row.get("nationality", "")).strip() or None,
+                pax_badge_number=str(row.get("badge_number", "")).strip() or None,
+                active=True,
+            )
         db.add(obj)
         await db.flush()
         return obj.id
 
     async def update_record(self, record_id: UUID, row: dict[str, Any], user_id: UUID, db: AsyncSession) -> None:
-        result = await db.execute(select(PaxProfile).where(PaxProfile.id == record_id))
+        pax_type = str(row.get("type", "external")).strip().lower()
+        if pax_type == "internal":
+            result = await db.execute(select(User).where(User.id == record_id))
+        else:
+            result = await db.execute(select(TierContact).where(TierContact.id == record_id))
         obj = result.scalar_one()
         if row.get("first_name"):
             obj.first_name = str(row["first_name"]).strip()
-            obj.first_name_normalized = _normalize(obj.first_name)
         if row.get("last_name"):
             obj.last_name = str(row["last_name"]).strip()
-            obj.last_name_normalized = _normalize(obj.last_name)
         if row.get("nationality") is not None:
-            obj.nationality = str(row["nationality"]).strip() or None
+            obj.pax_nationality = str(row["nationality"]).strip() or None
         if row.get("birth_date") is not None:
-            obj.birth_date = _safe_date(row["birth_date"])
+            obj.pax_birth_date = _safe_date(row["birth_date"])
         if row.get("badge_number") is not None:
-            obj.badge_number = str(row["badge_number"]).strip() or None
+            obj.pax_badge_number = str(row["badge_number"]).strip() or None
 
 
 class ProjectHandler(TargetObjectHandler):

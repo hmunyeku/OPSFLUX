@@ -171,13 +171,20 @@ async def generate_pax_manifest_from_ads(
     # Find approved AdS PAX matching departure date and destination
     pax_query = text(
         """
-        SELECT ap.id AS ads_pax_id, ap.pax_id, ap.priority_score,
-               pp.first_name || ' ' || pp.last_name AS name,
-               t.name AS company
+        SELECT ap.id AS ads_pax_id, ap.user_id, ap.contact_id,
+               ap.priority_score,
+               COALESCE(
+                   u.first_name || ' ' || u.last_name,
+                   tc.first_name || ' ' || tc.last_name
+               ) AS name,
+               COALESCE(tu.name, tt.name) AS company
         FROM ads_pax ap
         JOIN ads a ON a.id = ap.ads_id
-        JOIN pax_profiles pp ON pp.id = ap.pax_id
-        LEFT JOIN tiers t ON t.id = pp.company_id
+        LEFT JOIN users u ON u.id = ap.user_id
+        LEFT JOIN user_tiers ut ON ut.user_id = u.id
+        LEFT JOIN tiers tu ON tu.id = ut.tier_id
+        LEFT JOIN tier_contacts tc ON tc.id = ap.contact_id
+        LEFT JOIN tiers tt ON tt.id = tc.tier_id
         WHERE a.entity_id = :eid
           AND ap.status IN ('approved', 'compliant')
           AND a.status = 'approved'
@@ -187,7 +194,8 @@ async def generate_pax_manifest_from_ads(
               a.site_entry_asset_id = ANY(:dest_ids)
               OR :no_dests
           )
-        ORDER BY ap.priority_score DESC, pp.last_name
+        ORDER BY ap.priority_score DESC,
+                 COALESCE(u.last_name, tc.last_name)
         """
     )
     pax_result = await db.execute(
@@ -214,7 +222,7 @@ async def generate_pax_manifest_from_ads(
     skipped_count = 0
 
     for row in ads_pax_rows:
-        ads_pax_id, pax_id, priority_score, name, company = row
+        ads_pax_id, user_id, contact_id, priority_score, name, company = row
 
         if str(ads_pax_id) in existing_ads_pax_ids:
             skipped_count += 1
@@ -222,7 +230,8 @@ async def generate_pax_manifest_from_ads(
 
         pax = ManifestPassenger(
             manifest_id=manifest.id,
-            pax_profile_id=pax_id,
+            user_id=user_id,
+            contact_id=contact_id,
             name=name or "Unknown",
             company=company,
             priority_score=priority_score or 0,

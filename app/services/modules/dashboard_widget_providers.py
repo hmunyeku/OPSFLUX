@@ -331,18 +331,22 @@ async def provider_compliance_expiry(
     result = await db.execute(text("""
         SELECT
             pc.id,
-            pp.first_name || ' ' || pp.last_name AS pax_name,
-            pp.badge_number,
+            COALESCE(
+                u.first_name || ' ' || u.last_name,
+                tc.first_name || ' ' || tc.last_name
+            ) AS pax_name,
+            COALESCE(u.badge_number, tc.badge_number) AS badge_number,
             ct.name AS credential_name,
             ct.category,
             pc.expiry_date,
             pc.status,
             pc.expiry_date - CURRENT_DATE AS days_remaining
         FROM pax_credentials pc
-        JOIN pax_profiles pp ON pp.id = pc.pax_id
+        LEFT JOIN users u ON u.id = pc.user_id
+        LEFT JOIN tier_contacts tc ON tc.id = pc.contact_id
         JOIN credential_types ct ON ct.id = pc.credential_type_id
-        WHERE pp.entity_id = :entity_id
-          AND pp.archived = FALSE
+        WHERE COALESCE(u.entity_id, tc.entity_id) = :entity_id
+          AND COALESCE(u.archived, tc.archived) = FALSE
           AND pc.expiry_date IS NOT NULL
           AND pc.expiry_date BETWEEN CURRENT_DATE AND CURRENT_DATE + :days_ahead
           AND pc.status IN ('valid', 'pending_validation')
@@ -387,11 +391,15 @@ async def provider_signalements_actifs(
             pi.severity,
             pi.description,
             pi.incident_date,
-            pp.first_name || ' ' || pp.last_name AS pax_name,
+            COALESCE(
+                u.first_name || ' ' || u.last_name,
+                tc.first_name || ' ' || tc.last_name
+            ) AS pax_name,
             a.name AS asset_name,
             pi.created_at
         FROM pax_incidents pi
-        LEFT JOIN pax_profiles pp ON pp.id = pi.pax_id
+        LEFT JOIN users u ON u.id = pi.user_id
+        LEFT JOIN tier_contacts tc ON tc.id = pi.contact_id
         LEFT JOIN ar_installations a ON a.id = pi.asset_id
         WHERE pi.entity_id = :entity_id
           AND pi.resolved_at IS NULL
@@ -582,11 +590,11 @@ async def provider_capacity_heatmap(
                 asset.id   AS asset_id,
                 asset.name AS asset_name,
                 d::date    AS date,
-                COUNT(DISTINCT ap.pax_id)::int AS load,
+                COUNT(DISTINCT ap.id)::int AS load,
                 COALESCE(asset.pax_capacity, 0) AS capacity,
                 CASE WHEN COALESCE(asset.pax_capacity, 0) > 0
                      THEN ROUND(
-                         (COUNT(DISTINCT ap.pax_id)::numeric
+                         (COUNT(DISTINCT ap.id)::numeric
                           / asset.pax_capacity) * 100, 1)
                      ELSE 0
                 END AS percentage

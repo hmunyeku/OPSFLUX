@@ -234,12 +234,36 @@ export interface AdsCreate {
   start_date: string
   end_date: string
   pax_ids?: string[]
+  project_id?: string | null
+  planner_activity_id?: string | null
   outbound_transport_mode?: string | null
   outbound_departure_base_id?: string | null
   outbound_notes?: string | null
   return_transport_mode?: string | null
   return_departure_base_id?: string | null
   return_notes?: string | null
+}
+
+/** Candidate from /pax/candidates search — unified user/contact/profile */
+export interface PaxCandidate {
+  id: string
+  source: 'pax_profile' | 'user' | 'contact'
+  pax_id?: string
+  user_id?: string
+  contact_id?: string
+  first_name: string
+  last_name: string
+  type: 'internal' | 'external'
+  badge?: string | null
+  company_id?: string | null
+  email?: string
+  position?: string
+}
+
+export interface AddPaxBody {
+  pax_id?: string | null
+  user_id?: string | null
+  contact_id?: string | null
 }
 
 export interface AdsUpdate {
@@ -758,8 +782,20 @@ export const paxlogService = {
     return data
   },
 
+  /** Add a PAX by pax_id, user_id, or contact_id (auto-creates PaxProfile if needed) */
+  addPaxToAdsV2: async (adsId: string, body: AddPaxBody) => {
+    const { data } = await api.post(`/api/v1/pax/ads/${adsId}/add-pax`, body)
+    return data as { status: string; pax_id: string; name: string; auto_created: boolean }
+  },
+
   removePaxFromAds: async (adsId: string, paxId: string): Promise<void> => {
     await api.delete(`/api/v1/pax/ads/${adsId}/pax/${paxId}`)
+  },
+
+  /** Search PAX candidates: existing profiles + users + contacts */
+  searchPaxCandidates: async (search: string): Promise<PaxCandidate[]> => {
+    const { data } = await api.get('/api/v1/pax/candidates', { params: { search } })
+    return data
   },
 
   // ── AdS Imputations ──

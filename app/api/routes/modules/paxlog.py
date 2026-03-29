@@ -13,8 +13,9 @@ import re
 from datetime import date, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func, select
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, has_user_permission, require_permission
@@ -1412,8 +1413,211 @@ async def list_ads_pax(
     ]
 
 
+class AddPaxBody(BaseModel):
+    """Body to add a PAX to an AdS. Provide ONE of pax_id, user_id, or contact_id.
+    If user_id or contact_id is provided and no PaxProfile exists, one is auto-created."""
+    pax_id: UUID | None = None
+    user_id: UUID | None = None
+    contact_id: UUID | None = None
+
+
+async def _get_or_create_pax_profile(
+    db: AsyncSession,
+    entity_id: UUID,
+    *,
+    user_id: UUID | None = None,
+    contact_id: UUID | None = None,
+) -> PaxProfile:
+    """Find existing PaxProfile for a user/contact, or auto-create one."""
+    from app.models.common import TierContact
+
+    if user_id:
+        # Check if profile already exists for this user
+        result = await db.execute(
+            select(PaxProfile).where(
+                PaxProfile.entity_id == entity_id,
+                PaxProfile.user_id == user_id,
+                PaxProfile.archived == False,
+            )
+        )
+        existing = result.scalar_one_or_none()
+        if existing:
+            return existing
+
+        # Fetch user data to auto-create
+        user_result = await db.execute(select(User).where(User.id == user_id))
+        user = user_result.scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        profile = PaxProfile(
+            entity_id=entity_id,
+            type="internal",
+            first_name=user.first_name,
+            last_name=user.last_name,
+            first_name_normalized=_normalize_name(user.first_name),
+            last_name_normalized=_normalize_name(user.last_name),
+            user_id=user_id,
+            status="active",
+        )
+
+    elif contact_id:
+        # Check if profile already exists for this contact
+        result = await db.execute(
+            select(PaxProfile).where(
+                PaxProfile.entity_id == entity_id,
+                PaxProfile.first_name_normalized.isnot(None),
+                PaxProfile.archived == False,
+            ).join(
+                TierContact, PaxProfile.company_id == TierContact.tier_id
+            ).where(
+                TierContact.id == contact_id,
+            )
+        )
+        # Simpler: just check by name match
+        contact_result = await db.execute(
+            select(TierContact).where(TierContact.id == contact_id, TierContact.active == True)
+        )
+        contact = contact_result.scalar_one_or_none()
+        if not contact:
+            raise HTTPException(status_code=404, detail="Contact not found")
+
+        # Check by normalized name match
+        fn_norm = _normalize_name(contact.first_name)
+        ln_norm = _normalize_name(contact.last_name)
+        existing_result = await db.execute(
+            select(PaxProfile).where(
+                PaxProfile.entity_id == entity_id,
+                PaxProfile.first_name_normalized == fn_norm,
+                PaxProfile.last_name_normalized == ln_norm,
+                PaxProfile.archived == False,
+            )
+        )
+        existing = existing_result.scalar_one_or_none()
+        if existing:
+            return existing
+
+        profile = PaxProfile(
+            entity_id=entity_id,
+            type="external",
+            first_name=contact.first_name,
+            last_name=contact.last_name,
+            first_name_normalized=fn_norm,
+            last_name_normalized=ln_norm,
+            company_id=contact.tier_id,
+            status="active",
+        )
+    else:
+        raise HTTPException(status_code=400, detail="Provide user_id or contact_id")
+
+    profile.profile_completeness = _compute_completeness(profile)
+    db.add(profile)
+    await db.flush()
+    return profile
+
+
+@router.get("/candidates")
+async def search_pax_candidates(
+    search: str = Query("", min_length=0),
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.ads.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Search for PAX candidates: existing PaxProfiles + Users + TierContacts.
+
+    Returns a unified list for the PAX picker in the AdS detail panel.
+    """
+    from app.models.common import TierContact
+
+    candidates = []
+    like = f"%{search}%"
+
+    # 1. Existing PaxProfiles
+    pax_q = select(PaxProfile).where(
+        PaxProfile.entity_id == entity_id,
+        PaxProfile.archived == False,
+    )
+    if search:
+        pax_q = pax_q.where(
+            or_(
+                PaxProfile.first_name.ilike(like),
+                PaxProfile.last_name.ilike(like),
+                PaxProfile.badge_number.ilike(like),
+            )
+        )
+    pax_result = await db.execute(pax_q.limit(20))
+    for p in pax_result.scalars().all():
+        candidates.append({
+            "id": str(p.id),
+            "source": "pax_profile",
+            "pax_id": str(p.id),
+            "first_name": p.first_name,
+            "last_name": p.last_name,
+            "type": p.type,
+            "badge": p.badge_number,
+            "company_id": str(p.company_id) if p.company_id else None,
+            "user_id": str(p.user_id) if p.user_id else None,
+        })
+
+    # Collect already-found user/contact IDs to avoid duplicates
+    found_user_ids = {c["user_id"] for c in candidates if c["user_id"]}
+
+    # 2. Users not yet having a PaxProfile
+    user_q = select(User).where(User.active == True)
+    if search:
+        user_q = user_q.where(
+            or_(
+                User.first_name.ilike(like),
+                User.last_name.ilike(like),
+                User.email.ilike(like),
+            )
+        )
+    user_result = await db.execute(user_q.limit(15))
+    for u in user_result.scalars().all():
+        if str(u.id) in found_user_ids:
+            continue
+        candidates.append({
+            "id": str(u.id),
+            "source": "user",
+            "user_id": str(u.id),
+            "first_name": u.first_name,
+            "last_name": u.last_name,
+            "type": "internal",
+            "badge": None,
+            "company_id": None,
+            "email": u.email,
+        })
+
+    # 3. Tier contacts
+    contact_q = select(TierContact).where(TierContact.active == True)
+    if search:
+        contact_q = contact_q.where(
+            or_(
+                TierContact.first_name.ilike(like),
+                TierContact.last_name.ilike(like),
+                TierContact.email.ilike(like),
+            )
+        )
+    contact_result = await db.execute(contact_q.limit(15))
+    for c in contact_result.scalars().all():
+        candidates.append({
+            "id": str(c.id),
+            "source": "contact",
+            "contact_id": str(c.id),
+            "first_name": c.first_name,
+            "last_name": c.last_name,
+            "type": "external",
+            "badge": None,
+            "company_id": str(c.tier_id) if c.tier_id else None,
+            "position": c.position,
+        })
+
+    return candidates[:30]
+
+
 @router.post("/ads/{ads_id}/pax/{pax_id}", status_code=201)
-async def add_pax_to_ads(
+async def add_pax_to_ads_by_id(
     ads_id: UUID,
     pax_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
@@ -1421,8 +1625,7 @@ async def add_pax_to_ads(
     _: None = require_permission("paxlog.ads.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Add a PAX to an AdS."""
-    # Verify AdS
+    """Add an existing PAX profile to an AdS (legacy path-param route)."""
     ads_result = await db.execute(
         select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
     )
@@ -1439,6 +1642,71 @@ async def add_pax_to_ads(
     db.add(entry)
     await db.commit()
     return {"status": "added"}
+
+
+@router.post("/ads/{ads_id}/add-pax", status_code=201)
+async def add_pax_to_ads(
+    ads_id: UUID,
+    body: AddPaxBody,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.ads.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Add a PAX to an AdS. Accepts pax_id, user_id, or contact_id.
+
+    If user_id or contact_id is provided and no PaxProfile exists yet,
+    one is auto-created transparently.
+    """
+    # Verify AdS
+    ads_result = await db.execute(
+        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
+    )
+    ads = ads_result.scalar_one_or_none()
+    if not ads:
+        raise HTTPException(status_code=404, detail="AdS not found")
+    if ads.status not in ("draft", "requires_review"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="PAX can only be added to draft or review-pending AdS.",
+        )
+
+    # Resolve the PAX profile
+    if body.pax_id:
+        pax_result = await db.execute(
+            select(PaxProfile).where(
+                PaxProfile.id == body.pax_id,
+                PaxProfile.entity_id == entity_id,
+                PaxProfile.archived == False,
+            )
+        )
+        profile = pax_result.scalar_one_or_none()
+        if not profile:
+            raise HTTPException(status_code=404, detail="PAX profile not found")
+    elif body.user_id or body.contact_id:
+        profile = await _get_or_create_pax_profile(
+            db, entity_id, user_id=body.user_id, contact_id=body.contact_id,
+        )
+    else:
+        raise HTTPException(status_code=400, detail="Provide pax_id, user_id, or contact_id")
+
+    # Check not already in this AdS
+    existing = await db.execute(
+        select(AdsPax.id).where(AdsPax.ads_id == ads_id, AdsPax.pax_id == profile.id)
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Ce PAX est déjà dans cet AdS")
+
+    entry = AdsPax(ads_id=ads_id, pax_id=profile.id, status="pending_check")
+    db.add(entry)
+    await db.commit()
+
+    return {
+        "status": "added",
+        "pax_id": str(profile.id),
+        "name": f"{profile.first_name} {profile.last_name}",
+        "auto_created": body.pax_id is None,
+    }
 
 
 @router.delete("/ads/{ads_id}/pax/{pax_id}", status_code=204)

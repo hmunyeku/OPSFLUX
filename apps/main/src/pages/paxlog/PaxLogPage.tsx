@@ -96,12 +96,16 @@ import {
   useSubmitAvm,
   useApproveAvm,
   useCancelAvm,
+  useAddPaxToAdsV2,
+  useRemovePaxFromAds,
+  usePaxCandidates,
 } from '@/hooks/usePaxlog'
 import { useTiers } from '@/hooks/useTiers'
 import { useUsers } from '@/hooks/useUsers'
 import { useAssetTree } from '@/hooks/useAssets'
 import type { AssetTreeNode } from '@/types/api'
 import { usePermission } from '@/hooks/usePermission'
+import { useProjects } from '@/hooks/useProjets'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { AssetPicker } from '@/components/shared/AssetPicker'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
@@ -118,6 +122,7 @@ import type {
   ComplianceMatrixEntry,
   MissionNoticeSummary,
   MissionProgramRead,
+  PaxCandidate,
 } from '@/services/paxlogService'
 
 // ── Constants ──────────────────────────────────────────────────
@@ -1447,6 +1452,7 @@ function CreateAdsPanel() {
   const { t } = useTranslation()
   const createAds = useCreateAds()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const { data: projects } = useProjects({ page: 1, page_size: 100 })
 
   const [form, setForm] = useState<{
     type: 'individual' | 'team'
@@ -1455,6 +1461,7 @@ function CreateAdsPanel() {
     visit_category: string
     start_date: string
     end_date: string
+    project_id: string
   }>({
     type: 'individual',
     site_entry_asset_id: '',
@@ -1462,11 +1469,16 @@ function CreateAdsPanel() {
     visit_category: 'project_work',
     start_date: '',
     end_date: '',
+    project_id: '',
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    await createAds.mutateAsync(form)
+    const payload = {
+      ...form,
+      project_id: form.project_id || null,
+    }
+    await createAds.mutateAsync(payload)
     closeDynamicPanel()
   }
 
@@ -1515,6 +1527,12 @@ function CreateAdsPanel() {
                 {VISIT_CATEGORY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </DynamicPanelField>
+            <DynamicPanelField label="Projet associé">
+              <select value={form.project_id} onChange={(e) => setForm({ ...form, project_id: e.target.value })} className={panelInputClass}>
+                <option value="">— Aucun projet —</option>
+                {(projects?.items ?? []).map((p) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
+              </select>
+            </DynamicPanelField>
             <DynamicPanelField label="Dates" required>
               <DateRangePicker
                 startDate={form.start_date || null}
@@ -1552,11 +1570,17 @@ function AdsDetailPanel({ id }: { id: string }) {
   const downloadPdf = useAdsPdf()
   const createExtLink = useCreateExternalLink()
   const deleteImputation = useDeleteImputation()
+  const addPaxV2 = useAddPaxToAdsV2()
+  const removePax = useRemovePaxFromAds()
   const { hasPermission } = usePermission()
   const { data: assetTree = [] } = useAssetTree()
 
   const [rejectReason, setRejectReason] = useState('')
   const [showRejectForm, setShowRejectForm] = useState(false)
+  const [paxSearch, setPaxSearch] = useState('')
+  const [showPaxPicker, setShowPaxPicker] = useState(false)
+  const debouncedPaxSearch = useDebounce(paxSearch, 300)
+  const { data: paxCandidates } = usePaxCandidates(debouncedPaxSearch)
 
   // Resolve asset name from tree
   const resolveAssetName = useCallback((assetId: string | null | undefined): string | null => {
@@ -1703,14 +1727,96 @@ function AdsDetailPanel({ id }: { id: string }) {
           </CollapsibleSection>
         )}
 
-        {/* PAX list with compliance status */}
+        {/* PAX list with compliance status + add/remove */}
         <CollapsibleSection id="ads-pax" title={`Passagers (${adsPax?.length || 0})`} defaultExpanded>
+          {/* PAX Search & Add — only for draft/review status */}
+          {ads && ['draft', 'requires_review'].includes(ads.status) && (
+            <div className="mb-3">
+              {!showPaxPicker ? (
+                <button
+                  className="gl-button-sm gl-button-confirm w-full"
+                  onClick={() => setShowPaxPicker(true)}
+                >
+                  <Plus size={12} /> Ajouter un passager
+                </button>
+              ) : (
+                <div className="space-y-2 p-2 rounded-md border border-border bg-card">
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                      <input
+                        className={cn(panelInputClass, 'pl-7')}
+                        placeholder="Rechercher un utilisateur, contact, profil PAX..."
+                        value={paxSearch}
+                        onChange={(e) => setPaxSearch(e.target.value)}
+                        autoFocus
+                      />
+                    </div>
+                    <button className="p-1 text-muted-foreground hover:text-foreground" onClick={() => { setShowPaxPicker(false); setPaxSearch('') }}>
+                      <X size={14} />
+                    </button>
+                  </div>
+                  {paxCandidates && paxCandidates.length > 0 && (
+                    <div className="max-h-[200px] overflow-y-auto space-y-0.5">
+                      {paxCandidates.map((c: PaxCandidate) => {
+                        // Check if already in AdS
+                        const alreadyAdded = adsPax?.some((ap: AdsPax) => ap.pax_id === c.pax_id)
+                        return (
+                          <button
+                            key={`${c.source}-${c.id}`}
+                            disabled={alreadyAdded || addPaxV2.isPending}
+                            className={cn(
+                              'w-full flex items-center justify-between px-2 py-1.5 rounded text-xs text-left transition-colors',
+                              alreadyAdded ? 'opacity-40 cursor-not-allowed' : 'hover:bg-accent/60 cursor-pointer',
+                            )}
+                            onClick={() => {
+                              const body = c.source === 'pax_profile'
+                                ? { pax_id: c.pax_id! }
+                                : c.source === 'user'
+                                  ? { user_id: c.user_id! }
+                                  : { contact_id: c.contact_id! }
+                              addPaxV2.mutate({ adsId: id, body }, {
+                                onSuccess: () => setPaxSearch(''),
+                              })
+                            }}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium truncate">{c.last_name} {c.first_name}</p>
+                              <p className="text-[10px] text-muted-foreground">
+                                {c.source === 'pax_profile' ? `Profil PAX${c.badge ? ` • ${c.badge}` : ''}` :
+                                  c.source === 'user' ? `Utilisateur${c.email ? ` • ${c.email}` : ''}` :
+                                    `Contact${c.position ? ` • ${c.position}` : ''}`}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className={cn('gl-badge text-[9px]', c.type === 'internal' ? 'gl-badge-info' : 'gl-badge-neutral')}>
+                                {c.type === 'internal' ? 'Int.' : 'Ext.'}
+                              </span>
+                              {alreadyAdded ? (
+                                <CheckCircle2 size={12} className="text-green-500" />
+                              ) : (
+                                <Plus size={12} className="text-primary" />
+                              )}
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                  {paxSearch.length >= 1 && paxCandidates && paxCandidates.length === 0 && (
+                    <p className="text-xs text-muted-foreground text-center py-2 italic">Aucun résultat pour « {paxSearch} »</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {!adsPax || adsPax.length === 0 ? (
             <p className="text-xs text-muted-foreground py-2 italic">Aucun passager. Ajoutez des PAX pour pouvoir soumettre l'AdS.</p>
           ) : (
             <div className="space-y-1">
               {adsPax.map((ap: AdsPax) => (
-                <div key={ap.id} className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-accent/50 text-xs">
+                <div key={ap.id} className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-accent/50 text-xs group">
                   <div className="min-w-0 flex-1">
                     <p className="font-medium truncate">
                       {ap.pax_id ? (
@@ -1724,13 +1830,22 @@ function AdsDetailPanel({ id }: { id: string }) {
                     {ap.pax_company_name && <p className="text-[10px] text-muted-foreground">{ap.pax_company_name}</p>}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    {/* Compliance indicator */}
                     {ap.compliant === true && <CheckCircle2 size={13} className="text-green-600" />}
                     {ap.compliant === false && <XCircle size={13} className="text-red-500" />}
                     <span className={cn('gl-badge', ap.pax_type === 'internal' ? 'gl-badge-info' : 'gl-badge-neutral')}>
                       {ap.pax_type === 'internal' ? 'Int.' : 'Ext.'}
                     </span>
                     <StatusBadge status={ap.status} />
+                    {/* Remove button — only in draft/review */}
+                    {ads && ['draft', 'requires_review'].includes(ads.status) && ap.pax_id && (
+                      <button
+                        className="p-0.5 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => removePax.mutate({ adsId: id, paxId: ap.pax_id! })}
+                        title="Retirer"
+                      >
+                        <Trash2 size={11} />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}

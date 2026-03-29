@@ -22,6 +22,7 @@ import type {
   ProfileTypeCreate,
   MissionNoticeCreate,
   MissionNoticeUpdate,
+  AddPaxBody,
 } from '@/services/paxlogService'
 
 // ── PAX Profiles ──
@@ -283,6 +284,30 @@ export function useRemovePaxFromAds() {
       qc.invalidateQueries({ queryKey: ['paxlog', 'ads', vars.adsId, 'pax'] })
       qc.invalidateQueries({ queryKey: ['paxlog', 'ads'] })
     },
+  })
+}
+
+/** Add a PAX by pax_id, user_id, or contact_id (auto-creates PaxProfile) */
+export function useAddPaxToAdsV2() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ adsId, body }: { adsId: string; body: AddPaxBody }) =>
+      paxlogService.addPaxToAdsV2(adsId, body),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['paxlog', 'ads', vars.adsId, 'pax'] })
+      qc.invalidateQueries({ queryKey: ['paxlog', 'ads'] })
+      qc.invalidateQueries({ queryKey: ['paxlog', 'profiles'] })
+    },
+  })
+}
+
+/** Search PAX candidates (profiles + users + contacts) */
+export function usePaxCandidates(search: string) {
+  return useQuery({
+    queryKey: ['paxlog', 'candidates', search],
+    queryFn: () => paxlogService.searchPaxCandidates(search),
+    enabled: search.length >= 1,
+    staleTime: 10_000,
   })
 }
 

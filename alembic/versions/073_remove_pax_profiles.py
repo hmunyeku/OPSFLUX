@@ -5,14 +5,14 @@ Convert 8 child tables from pax_id FK to dual FK (user_id + contact_id).
 Backfill data from pax_profiles, then drop the table.
 
 Revision ID: 073_remove_pax_profiles
-Revises: 072_add_deleted_at_to_soft_delete_mixin
+Revises: 072_deleted_at
 """
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID
 
 revision = "073_remove_pax_profiles"
-down_revision = "072_add_deleted_at_to_soft_delete_mixin"
+down_revision = "072_deleted_at"
 branch_labels = None
 depends_on = None
 

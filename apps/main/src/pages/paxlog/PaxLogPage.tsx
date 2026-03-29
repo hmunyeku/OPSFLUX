@@ -99,6 +99,7 @@ import {
   useAddPaxToAdsV2,
   useRemovePaxFromAds,
   usePaxCandidates,
+  useAddImputation,
 } from '@/hooks/usePaxlog'
 import { useTiers } from '@/hooks/useTiers'
 import { useUsers } from '@/hooks/useUsers'
@@ -1572,8 +1573,10 @@ function AdsDetailPanel({ id }: { id: string }) {
   const deleteImputation = useDeleteImputation()
   const addPaxV2 = useAddPaxToAdsV2()
   const removePax = useRemovePaxFromAds()
+  const addImputation = useAddImputation()
   const { hasPermission } = usePermission()
   const { data: assetTree = [] } = useAssetTree()
+  const { data: projects } = useProjects({ page: 1, page_size: 100 })
 
   const [rejectReason, setRejectReason] = useState('')
   const [showRejectForm, setShowRejectForm] = useState(false)
@@ -1581,6 +1584,8 @@ function AdsDetailPanel({ id }: { id: string }) {
   const [showPaxPicker, setShowPaxPicker] = useState(false)
   const debouncedPaxSearch = useDebounce(paxSearch, 300)
   const { data: paxCandidates } = usePaxCandidates(debouncedPaxSearch)
+  const [showImputationForm, setShowImputationForm] = useState(false)
+  const [impForm, setImpForm] = useState({ project_id: '', cost_center_id: '', percentage: 100 })
 
   // Resolve asset name from tree
   const resolveAssetName = useCallback((assetId: string | null | undefined): string | null => {
@@ -1714,6 +1719,11 @@ function AdsDetailPanel({ id }: { id: string }) {
             } />
             <ReadOnlyRow label="Dates" value={`${formatDate(ads.start_date)} → ${formatDate(ads.end_date)}`} />
             {ads.requester_name && <ReadOnlyRow label="Demandeur" value={ads.requester_name} />}
+            {ads.project_id && (
+              <ReadOnlyRow label="Projet" value={
+                <CrossModuleLink module="projets" id={ads.project_id} label={ads.project_name || ads.project_id} mode="navigate" />
+              } />
+            )}
           </div>
         </CollapsibleSection>
 
@@ -1855,8 +1865,53 @@ function AdsDetailPanel({ id }: { id: string }) {
 
         {/* Cost Imputations */}
         <CollapsibleSection id="ads-imputations" title={`Imputations (${imputations?.length || 0})`} defaultExpanded>
+          {/* Add imputation form */}
+          {ads && ['draft', 'requires_review'].includes(ads.status) && (
+            <div className="mb-3">
+              {!showImputationForm ? (
+                <button className="gl-button-sm gl-button-confirm w-full" onClick={() => setShowImputationForm(true)}>
+                  <Plus size={12} /> Ajouter une imputation
+                </button>
+              ) : (
+                <div className="space-y-2 p-2 rounded-md border border-border bg-card">
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-[10px] font-medium text-muted-foreground">Projet</label>
+                      <select className={panelInputClass} value={impForm.project_id} onChange={(e) => setImpForm({ ...impForm, project_id: e.target.value })}>
+                        <option value="">— Projet —</option>
+                        {(projects?.items ?? []).map((p) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-medium text-muted-foreground">Centre de coût</label>
+                      <input className={panelInputClass} value={impForm.cost_center_id} onChange={(e) => setImpForm({ ...impForm, cost_center_id: e.target.value })} placeholder="ID centre de coût" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-medium text-muted-foreground">%</label>
+                      <input type="number" className={panelInputClass} value={impForm.percentage} onChange={(e) => setImpForm({ ...impForm, percentage: Number(e.target.value) })} min={1} max={100} />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 justify-end">
+                    <button className="gl-button-sm" onClick={() => setShowImputationForm(false)}>Annuler</button>
+                    <button
+                      className="gl-button-sm gl-button-confirm"
+                      disabled={!impForm.project_id || !impForm.cost_center_id || addImputation.isPending}
+                      onClick={() => {
+                        addImputation.mutate({ adsId: id, payload: impForm }, {
+                          onSuccess: () => { setShowImputationForm(false); setImpForm({ project_id: '', cost_center_id: '', percentage: 100 }) },
+                        })
+                      }}
+                    >
+                      {addImputation.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Ajouter'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {!imputations || imputations.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-2 italic">Aucune imputation de cout.</p>
+            <p className="text-xs text-muted-foreground py-2 italic">Aucune imputation de coût.</p>
           ) : (
             <div className="space-y-1">
               {/* Imputation table header */}

@@ -195,6 +195,8 @@ export interface Ads {
   end_date: string
   outbound_transport_mode: string | null
   return_transport_mode: string | null
+  project_id: string | null
+  planner_activity_id: string | null
   cross_company_flag: boolean
   submitted_at: string | null
   approved_at: string | null
@@ -206,6 +208,7 @@ export interface Ads {
   // Enriched
   requester_name?: string | null
   site_name?: string | null
+  project_name?: string | null
   pax_count?: number
 }
 

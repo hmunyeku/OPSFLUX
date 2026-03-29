@@ -1849,11 +1849,11 @@ function AdsDetailPanel({ id }: { id: string }) {
                     {/* Remove button — only in draft/review */}
                     {ads && ['draft', 'requires_review'].includes(ads.status) && ap.pax_id && (
                       <button
-                        className="p-0.5 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                         onClick={() => removePax.mutate({ adsId: id, paxId: ap.pax_id! })}
-                        title="Retirer"
+                        title="Retirer ce passager"
                       >
-                        <Trash2 size={11} />
+                        <Trash2 size={12} />
                       </button>
                     )}
                   </div>

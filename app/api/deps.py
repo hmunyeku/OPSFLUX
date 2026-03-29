@@ -210,6 +210,8 @@ _OWNER_PERMISSION_MAP: dict[str, tuple[str, str]] = {
     # Support tickets
     "support_ticket": ("support.ticket.read", "support.ticket.update"),
     "ticket_comment": ("support.ticket.read", "support.comment.create"),
+    # PaxLog
+    "ads": ("paxlog.ads.read", "paxlog.ads.update"),
 }
 
 

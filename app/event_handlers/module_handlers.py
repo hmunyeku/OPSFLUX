@@ -394,7 +394,7 @@ async def on_ads_approved(event: OpsFluxEvent) -> None:
                 # Resolve PAX name from User or TierContact
                 pax_name = ""
                 if ads_pax_entry.user_id:
-                    from app.models.core import User as UserModel
+                    from app.models.common import User as UserModel
                     u = await db.get(UserModel, ads_pax_entry.user_id)
                     pax_name = f"{u.first_name} {u.last_name}" if u else ""
                 elif ads_pax_entry.contact_id:

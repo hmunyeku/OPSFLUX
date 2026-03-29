@@ -38,7 +38,7 @@ from app.models.common import (
     Tier,
     TierContact,
 )
-from app.models.core import User
+from app.models.common import User
 from app.schemas.import_assistant import (
     RowValidationError,
     TargetFieldDef,

@@ -848,6 +848,7 @@ export function SupportPage() {
   const [typeFilter, setTypeFilter] = useState('')
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
+  const panelMode = useUIStore((s) => s.dynamicPanelMode)
   const { hasPermission } = usePermission()
   const isAdmin = hasPermission('support.ticket.manage')
   const canCreate = hasPermission('support.ticket.create')
@@ -878,9 +879,11 @@ export function SupportPage() {
       ? <ToolbarButton icon={Plus} label={isMobile ? 'Annonce' : 'Nouvelle annonce'} variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'announcements' })} />
       : null
 
+  const isFullPanel = panelMode === 'full' && dynamicPanel !== null && (dynamicPanel.module === 'support' || dynamicPanel.module === 'announcements')
+
   return (
     <div className="flex h-full">
-      <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
+      {!isFullPanel && <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
         <PanelHeader
           title="Support & Feedback"
           subtitle="Tickets, annonces et communication"
@@ -932,7 +935,7 @@ export function SupportPage() {
             <AnnouncementsAdminTab />
           </PanelContent>
         )}
-      </div>
+      </div>}
 
       {/* Dynamic panel — rendered inline */}
       {dynamicPanel?.module === 'support' && dynamicPanel.type === 'create' && <CreateTicketPanel />}

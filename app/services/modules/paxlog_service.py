@@ -97,10 +97,28 @@ async def check_pax_compliance(
     pax_type = "internal" if user_id else "external"
 
     # ── 1. Asset-level compliance matrix ─────────────────────────────────
+    # Recursive CTE to get asset + all parent assets in hierarchy
+    asset_hierarchy = await db.execute(
+        text("""
+            WITH RECURSIVE asset_tree AS (
+                SELECT id, parent_id FROM ar_installations WHERE id = :asset_id
+                UNION ALL
+                SELECT a.id, a.parent_id
+                FROM ar_installations a
+                JOIN asset_tree t ON a.id = t.parent_id
+            )
+            SELECT id FROM asset_tree
+        """),
+        {"asset_id": str(asset_id)},
+    )
+    ancestor_ids = [row[0] for row in asset_hierarchy.all()]
+    if not ancestor_ids:
+        ancestor_ids = [asset_id]
+
     matrix_result = await db.execute(
         select(ComplianceMatrixEntry).where(
             ComplianceMatrixEntry.entity_id == entity_id,
-            ComplianceMatrixEntry.asset_id == asset_id,
+            ComplianceMatrixEntry.asset_id.in_(ancestor_ids),
             ComplianceMatrixEntry.mandatory == True,  # noqa: E712
         )
     )

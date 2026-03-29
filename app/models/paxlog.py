@@ -339,6 +339,16 @@ class PaxIncident(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
+    # ── Signalement enrichment (spec §10) ──
+    reference: Mapped[str | None] = mapped_column(String(50))
+    category: Mapped[str | None] = mapped_column(String(30))
+    # hse | discipline | access | security
+    decision: Mapped[str | None] = mapped_column(String(40))
+    # avertissement | exclusion_site | blacklist_temporaire | blacklist_permanent
+    decision_duration_days: Mapped[int | None] = mapped_column(SmallInteger)
+    decision_end_date: Mapped[date | None] = mapped_column(Date)
+    evidence_urls: Mapped[list | None] = mapped_column(JSONB)
+
 
 # ─── Avis de Mission (AVM) ─────────────────────────────────────────────────
 
@@ -552,6 +562,29 @@ class AdsImputation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Boolean, default=False, server_default="false", nullable=False
     )
     notes: Mapped[str | None] = mapped_column(Text)
+
+
+# ─── AdS Events (audit log) ─────────────────────────────────────────────
+
+class AdsEvent(UUIDPrimaryKeyMixin, Base):
+    """Immutable audit log for AdS lifecycle events."""
+    __tablename__ = "ads_events"
+    __table_args__ = (
+        Index("idx_ads_events_ads", "ads_id"),
+        Index("idx_ads_events_type", "entity_id", "event_type"),
+        Index("idx_ads_events_time", "entity_id", "recorded_at"),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
+    ads_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ads.id", ondelete="CASCADE"), nullable=False)
+    ads_pax_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ads_pax.id"))
+    event_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    old_status: Mapped[str | None] = mapped_column(String(40))
+    new_status: Mapped[str | None] = mapped_column(String(40))
+    actor_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    reason: Mapped[str | None] = mapped_column(Text)
+    metadata_json: Mapped[dict | None] = mapped_column(JSONB)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
 
 
 # ─── External Access Link ────────────────────────────────────────────────

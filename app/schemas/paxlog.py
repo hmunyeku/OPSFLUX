@@ -260,6 +260,20 @@ class AdsSummary(OpsFluxSchema):
     created_at: datetime
 
 
+class AdsEventRead(OpsFluxSchema):
+    id: UUID
+    entity_id: UUID
+    ads_id: UUID
+    ads_pax_id: UUID | None = None
+    event_type: str
+    old_status: str | None = None
+    new_status: str | None = None
+    actor_id: UUID | None = None
+    reason: str | None = None
+    metadata_json: dict | None = None
+    recorded_at: datetime
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # PAX INCIDENTS
 # ══════════════════════════════════════════════════════════════════════════════
@@ -274,6 +288,9 @@ class PaxIncidentCreate(BaseModel):
     incident_date: date
     ban_start_date: date | None = None
     ban_end_date: date | None = None
+    category: str | None = None
+    decision: str | None = None
+    decision_duration_days: int | None = None
 
 
 class PaxIncidentResolve(BaseModel):
@@ -297,6 +314,12 @@ class PaxIncidentRead(OpsFluxSchema):
     resolved_by: UUID | None
     resolution_notes: str | None
     created_at: datetime
+    reference: str | None = None
+    category: str | None = None
+    decision: str | None = None
+    decision_duration_days: int | None = None
+    decision_end_date: date | None = None
+    evidence_urls: list | None = None
 
 
 # ══════════════════════════════════════════════════════════════════════════════

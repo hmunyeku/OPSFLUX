@@ -680,7 +680,7 @@ class PaxProfileHandler(TargetObjectHandler):
                 func.lower(func.trim(User.last_name)) == last,
             )
             if bd:
-                stmt = stmt.where(User.pax_birth_date == bd)
+                stmt = stmt.where(User.birth_date == bd)
         else:
             stmt = select(TierContact.id).where(
                 TierContact.entity_id == entity_id,
@@ -688,7 +688,7 @@ class PaxProfileHandler(TargetObjectHandler):
                 func.lower(func.trim(TierContact.last_name)) == last,
             )
             if bd:
-                stmt = stmt.where(TierContact.pax_birth_date == bd)
+                stmt = stmt.where(TierContact.birth_date == bd)
         result = await db.execute(stmt)
         return result.scalar_one_or_none()
 
@@ -705,24 +705,23 @@ class PaxProfileHandler(TargetObjectHandler):
         if pax_type == "internal":
             # Create a User (no login — import only sets PAX fields)
             obj = User(
-                entity_id=entity_id,
+                default_entity_id=entity_id,
                 first_name=first,
                 last_name=last,
                 email=f"import-{_normalize(first)}.{_normalize(last)}@placeholder.local",
-                pax_birth_date=_safe_date(row.get("birth_date")),
-                pax_nationality=str(row.get("nationality", "")).strip() or None,
-                pax_badge_number=str(row.get("badge_number", "")).strip() or None,
-                is_active=True,
+                birth_date=_safe_date(row.get("birth_date")),
+                nationality=str(row.get("nationality", "")).strip() or None,
+                badge_number=str(row.get("badge_number", "")).strip() or None,
+                active=True,
             )
         else:
             obj = TierContact(
-                entity_id=entity_id,
                 tier_id=company_id,
                 first_name=first,
                 last_name=last,
-                pax_birth_date=_safe_date(row.get("birth_date")),
-                pax_nationality=str(row.get("nationality", "")).strip() or None,
-                pax_badge_number=str(row.get("badge_number", "")).strip() or None,
+                birth_date=_safe_date(row.get("birth_date")),
+                nationality=str(row.get("nationality", "")).strip() or None,
+                badge_number=str(row.get("badge_number", "")).strip() or None,
                 active=True,
             )
         db.add(obj)
@@ -741,11 +740,11 @@ class PaxProfileHandler(TargetObjectHandler):
         if row.get("last_name"):
             obj.last_name = str(row["last_name"]).strip()
         if row.get("nationality") is not None:
-            obj.pax_nationality = str(row["nationality"]).strip() or None
+            obj.nationality = str(row["nationality"]).strip() or None
         if row.get("birth_date") is not None:
-            obj.pax_birth_date = _safe_date(row["birth_date"])
+            obj.birth_date = _safe_date(row["birth_date"])
         if row.get("badge_number") is not None:
-            obj.pax_badge_number = str(row["badge_number"]).strip() or None
+            obj.badge_number = str(row["badge_number"]).strip() or None
 
 
 class ProjectHandler(TargetObjectHandler):

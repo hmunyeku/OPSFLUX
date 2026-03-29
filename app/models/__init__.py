@@ -57,6 +57,7 @@ from app.models.travelwiz import (  # noqa: F401
 )
 from app.models.paxlog import (  # noqa: F401
     Ads,
+    AdsEvent,
     AdsImputation,
     AdsPax,
     ComplianceMatrixEntry,

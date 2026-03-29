@@ -234,6 +234,9 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     pax_group_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("pax_groups.id", ondelete="SET NULL")
     )
+    pax_status: Mapped[str] = mapped_column(
+        String(20), default="active", server_default="active", nullable=False
+    )  # active | incomplete | suspended | archived
 
     @property
     def pax_type(self) -> str:
@@ -577,6 +580,9 @@ class TierContact(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     pax_group_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("pax_groups.id", ondelete="SET NULL")
     )
+    pax_status: Mapped[str] = mapped_column(
+        String(20), default="active", server_default="active", nullable=False
+    )  # active | incomplete | suspended | archived
 
     tier: Mapped["Tier"] = relationship(back_populates="contacts")
     job_position: Mapped["JobPosition | None"] = relationship(foreign_keys=[job_position_id])

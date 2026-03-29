@@ -13,7 +13,7 @@ import re
 from datetime import date, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,6 +26,7 @@ from app.core.references import generate_reference
 from app.models.common import Tier, TierContact, User
 from app.models.paxlog import (
     Ads,
+    AdsEvent,
     AdsPax,
     ComplianceMatrixEntry,
     CredentialType,
@@ -40,6 +41,7 @@ from app.models.paxlog import (
 )
 from app.schemas.paxlog import (
     AdsCreate,
+    AdsEventRead,
     AdsPaxEntry,
     AdsRead,
     AdsSummary,
@@ -1177,6 +1179,15 @@ async def submit_ads(
     ads.status = target_status
     ads.submitted_at = func.now()
 
+    db.add(AdsEvent(
+        entity_id=entity_id,
+        ads_id=ads.id,
+        event_type="submitted",
+        old_status=from_state,
+        new_status=target_status,
+        actor_id=current_user.id,
+    ))
+
     await db.commit()
     await db.refresh(ads)
 
@@ -1301,6 +1312,16 @@ async def approve_ads(
 
     ads.status = "approved"
     ads.approved_at = func.now()
+
+    db.add(AdsEvent(
+        entity_id=entity_id,
+        ads_id=ads.id,
+        event_type="approved",
+        old_status=from_state,
+        new_status="approved",
+        actor_id=current_user.id,
+    ))
+
     await db.commit()
     await db.refresh(ads)
 
@@ -1391,6 +1412,17 @@ async def reject_ads(
     ads.status = "rejected"
     ads.rejected_at = func.now()
     ads.rejection_reason = reason
+
+    db.add(AdsEvent(
+        entity_id=entity_id,
+        ads_id=ads.id,
+        event_type="rejected",
+        old_status=from_state,
+        new_status="rejected",
+        actor_id=current_user.id,
+        reason=reason,
+    ))
+
     await db.commit()
     await db.refresh(ads)
 
@@ -1453,6 +1485,16 @@ async def cancel_ads(
     )
 
     ads.status = "cancelled"
+
+    db.add(AdsEvent(
+        entity_id=entity_id,
+        ads_id=ads.id,
+        event_type="cancelled",
+        old_status=from_state,
+        new_status="cancelled",
+        actor_id=current_user.id,
+    ))
+
     await db.commit()
     await db.refresh(ads)
 
@@ -1481,6 +1523,67 @@ async def cancel_ads(
         },
     ))
 
+    return ads
+
+
+@router.get("/ads/{ads_id}/events", response_model=list[AdsEventRead])
+async def list_ads_events(
+    ads_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = Depends(require_permission("paxlog.ads.read")),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(AdsEvent).where(
+            AdsEvent.ads_id == ads_id,
+            AdsEvent.entity_id == entity_id,
+        ).order_by(AdsEvent.recorded_at.desc())
+    )
+    return result.scalars().all()
+
+
+@router.post("/ads/{ads_id}/resubmit", response_model=AdsRead)
+async def resubmit_ads(
+    ads_id: UUID,
+    reason: str = Body(..., min_length=1, embed=True),
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = Depends(require_permission("paxlog.ads.update")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Resubmit an AdS after requires_review — motif obligatoire."""
+    result = await db.execute(
+        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
+    )
+    ads = result.scalar_one_or_none()
+    if not ads:
+        raise HTTPException(status_code=404, detail="AdS not found")
+    if ads.status != "requires_review":
+        raise HTTPException(status_code=400, detail=f"Cannot resubmit AdS with status '{ads.status}'")
+
+    old_status = ads.status
+    ads.status = "submitted"
+
+    # Log event
+    db.add(AdsEvent(
+        entity_id=entity_id,
+        ads_id=ads.id,
+        event_type="resubmitted",
+        old_status=old_status,
+        new_status="submitted",
+        actor_id=current_user.id,
+        reason=reason,
+    ))
+
+    await _try_ads_workflow_transition(
+        db,
+        entity_id_str=str(ads.id),
+        to_state="submitted",
+        actor_id=current_user.id,
+        entity_id_scope=entity_id,
+    )
+    await db.commit()
+    await db.refresh(ads)
     return ads
 
 

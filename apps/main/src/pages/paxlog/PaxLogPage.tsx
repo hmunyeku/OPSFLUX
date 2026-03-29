@@ -683,11 +683,11 @@ function ProfilesTab({ openDetail }: { openDetail: (id: string) => void }) {
           : <span className="text-muted-foreground">—</span>,
     },
     {
-      accessorKey: 'type',
+      accessorKey: 'pax_type',
       header: 'Type',
       cell: ({ row }) => (
-        <span className={cn('gl-badge', row.original.type === 'internal' ? 'gl-badge-info' : 'gl-badge-neutral')}>
-          {row.original.type === 'internal' ? 'Interne' : 'Externe'}
+        <span className={cn('gl-badge', row.original.pax_type === 'internal' ? 'gl-badge-info' : 'gl-badge-neutral')}>
+          {row.original.pax_type === 'internal' ? 'Interne' : 'Externe'}
         </span>
       ),
       size: 80,
@@ -698,15 +698,9 @@ function ProfilesTab({ openDetail }: { openDetail: (id: string) => void }) {
       cell: ({ row }) => <span className="text-muted-foreground">{row.original.badge_number || '—'}</span>,
     },
     {
-      accessorKey: 'profile_completeness',
-      header: 'Completude',
-      cell: ({ row }) => <CompletenessBar value={row.original.profile_completeness} />,
-      size: 120,
-    },
-    {
-      accessorKey: 'status',
+      accessorKey: 'active',
       header: 'Statut',
-      cell: ({ row }) => <StatusBadge status={row.original.status} />,
+      cell: ({ row }) => <StatusBadge status={row.original.active ? 'active' : 'inactive'} />,
       size: 90,
     },
   ], [])
@@ -1352,7 +1346,7 @@ function ProfileDetailPanel({ id }: { id: string }) {
   return (
     <DynamicPanelShell
       title={`${profile.first_name} ${profile.last_name}`}
-      subtitle={profile.badge_number || profile.type}
+      subtitle={profile.badge_number || profile.pax_type}
       icon={<User size={14} className="text-primary" />}
       actions={
         <DangerConfirmButton
@@ -1366,11 +1360,10 @@ function ProfileDetailPanel({ id }: { id: string }) {
     >
       <PanelContentLayout>
         <div className="flex items-center gap-2 flex-wrap">
-          <StatusBadge status={profile.status} />
-          <span className={cn('gl-badge', profile.type === 'internal' ? 'gl-badge-info' : 'gl-badge-neutral')}>
-            {profile.type === 'internal' ? 'Interne' : 'Externe'}
+          <StatusBadge status={profile.active ? 'active' : 'inactive'} />
+          <span className={cn('gl-badge', profile.pax_type === 'internal' ? 'gl-badge-info' : 'gl-badge-neutral')}>
+            {profile.pax_type === 'internal' ? 'Interne' : 'Externe'}
           </span>
-          <CompletenessBar value={profile.profile_completeness} />
         </div>
 
         {profile.company_name && (

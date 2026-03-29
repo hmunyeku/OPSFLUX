@@ -107,15 +107,10 @@ api.interceptors.response.use(
       }
     }
 
-    // Network error (server unreachable) — invalidate session for security
-    if (!error.response && error.code === 'ERR_NETWORK') {
-      const token = localStorage.getItem('access_token')
-      if (token && window.location.pathname !== '/login') {
-        localStorage.removeItem('access_token')
-        localStorage.removeItem('refresh_token')
-        window.location.href = '/login'
-      }
-    }
+    // Network error (server unreachable) — log but do NOT force logout.
+    // Transient network errors (server restart, deploy) should not
+    // destroy the session. React Query will retry automatically.
+    // Only the 401 refresh-failure path above should force logout.
 
     return Promise.reject(error)
   },

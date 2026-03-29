@@ -10,8 +10,9 @@ import type { PaginatedResponse, PaginationParams } from '@/types/api'
 // PAX Profiles
 export interface PaxProfile {
   id: string
+  pax_source: 'user' | 'contact'
   entity_id: string
-  type: 'internal' | 'external'
+  pax_type: 'internal' | 'external'
   first_name: string
   last_name: string
   birth_date: string | null
@@ -19,16 +20,12 @@ export interface PaxProfile {
   company_id: string | null
   company_name: string | null
   group_id: string | null
-  user_id: string | null
-  user_email: string | null
   badge_number: string | null
   photo_url: string | null
-  status: 'active' | 'incomplete' | 'suspended' | 'archived'
-  profile_completeness: number
-  synced_from_intranet: boolean
-  archived: boolean
-  created_at: string
-  updated_at: string
+  email: string | null
+  active: boolean
+  created_at: string | null
+  updated_at: string | null
 }
 
 export interface PaxProfileSummary {
@@ -266,12 +263,14 @@ export interface AdsCreate {
 /** Candidate from /pax/candidates search — unified user/contact/profile */
 export interface PaxCandidate {
   id: string
-  source: 'pax_profile' | 'user' | 'contact'
+  source: 'user' | 'contact'
   user_id?: string
   contact_id?: string
   first_name: string
   last_name: string
-  type: 'internal' | 'external'
+  pax_type: 'internal' | 'external'
+  /** @deprecated use pax_type */
+  type?: 'internal' | 'external'
   badge?: string | null
   company_id?: string | null
   email?: string

@@ -1375,11 +1375,11 @@ function ProfileDetailPanel({ id }: { id: string }) {
             </div>
           </div>
         )}
-        {profile.user_email && (
+        {profile.email && (
           <div className="flex items-center gap-2 px-2.5 py-2 rounded-md bg-muted/40 border border-border">
             <User size={13} className="text-muted-foreground shrink-0" />
             <div className="min-w-0">
-              <p className="text-xs font-medium text-foreground truncate">{profile.user_email}</p>
+              <p className="text-xs font-medium text-foreground truncate">{profile.email}</p>
               <p className="text-[10px] text-muted-foreground">Compte utilisateur lie</p>
             </div>
           </div>
@@ -1395,9 +1395,9 @@ function ProfileDetailPanel({ id }: { id: string }) {
               <InlineEditableRow label="N badge" value={profile.badge_number || ''} onSave={(v) => handleSave('badge_number', v)} />
             </FormSection>
 
-            {profile.synced_from_intranet && (
-              <div className="flex items-center gap-1.5 px-2 py-1.5 rounded bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 text-xs">
-                <Info size={12} /> Profil synchronise depuis l'intranet — edition limitee
+            {profile.pax_source === 'user' && (
+              <div className="flex items-center gap-1.5 px-2 py-1.5 rounded bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 text-xs">
+                <Info size={12} /> Profil utilisateur interne
               </div>
             )}
           </div>
@@ -1792,8 +1792,8 @@ function AdsDetailPanel({ id }: { id: string }) {
                               </p>
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
-                              <span className={cn('gl-badge text-[9px]', c.type === 'internal' ? 'gl-badge-info' : 'gl-badge-neutral')}>
-                                {c.type === 'internal' ? 'Int.' : 'Ext.'}
+                              <span className={cn('gl-badge text-[9px]', (c.pax_type || c.type) === 'internal' ? 'gl-badge-info' : 'gl-badge-neutral')}>
+                                {(c.pax_type || c.type) === 'internal' ? 'Int.' : 'Ext.'}
                               </span>
                               {alreadyAdded ? (
                                 <CheckCircle2 size={12} className="text-green-500" />

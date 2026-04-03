@@ -68,7 +68,7 @@ function relativeTime(dateStr: string | null): string {
   const now = new Date()
   const diffMs = now.getTime() - d.getTime()
   const mins = Math.floor(diffMs / 60000)
-  if (mins < 1) return '\u00c0 l\u2019instant'
+  if (mins < 1) return "À l'instant"
   if (mins < 60) return `Il y a ${mins} min`
   const hours = Math.floor(mins / 60)
   if (hours < 24) return `Il y a ${hours}h`
@@ -78,11 +78,11 @@ function relativeTime(dateStr: string | null): string {
 }
 
 function expiryLabel(dateStr: string | null): { text: string; warn: boolean } {
-  if (!dateStr) return { text: 'N\u2019expire jamais', warn: false }
+  if (!dateStr) return { text: "N'expire jamais", warn: false }
   const d = new Date(dateStr)
   const now = new Date()
   const daysLeft = Math.ceil((d.getTime() - now.getTime()) / 86400000)
-  if (daysLeft < 0) return { text: 'Expir\u00e9', warn: true }
+  if (daysLeft < 0) return { text: 'Expiré', warn: true }
   if (daysLeft < 7) return { text: `Expire dans ${daysLeft}j`, warn: true }
   if (daysLeft < 30) return { text: `Expire dans ${daysLeft}j`, warn: false }
   return { text: `Expire le ${d.toLocaleDateString('fr')}`, warn: false }
@@ -107,9 +107,9 @@ export function McpGatewayTab() {
           <div className="space-y-1">
             <h3 className="text-sm font-semibold">MCP Gateway</h3>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Le gateway MCP permet aux clients IA (Claude, Cursor, etc.) d'acc&eacute;der aux outils
-              OpsFlux via le protocole MCP. Cr&eacute;ez un token ci-dessous et configurez votre client
-              avec l'URL du backend souhait&eacute;.
+              Le gateway MCP permet aux clients IA (Claude, Cursor, etc.) d'accéder aux outils
+              OpsFlux via le protocole MCP. Créez un token ci-dessous et configurez votre client
+              avec l'URL du backend souhaité.
             </p>
           </div>
         </div>
@@ -138,7 +138,7 @@ export function McpGatewayTab() {
       {/* ── Tokens ── */}
       <div>
         <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
-          <Key size={14} /> Tokens d'acc&egrave;s
+          <Key size={14} /> {"Tokens d'accès"}
         </h3>
         <TokensSection backends={backends} mcpBaseUrl={mcpBaseUrl} />
       </div>
@@ -215,14 +215,14 @@ function TokensSection({ backends, mcpBaseUrl }: { backends: Backend[]; mcpBaseU
       setShowForm(false)
       setForm({ name: '', scopes: '*', expires_in_days: '' })
     },
-    onError: () => notify.error('Erreur lors de la cr\u00e9ation'),
+    onError: () => notify.error('Erreur lors de la création'),
   })
 
   const revokeMut = useMutation({
     mutationFn: (id: string) => api.post(`/api/v1/mcp-gateway/tokens/${id}/revoke`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['mcp-gw-tokens'] })
-      notify.success('Token r\u00e9voqu\u00e9')
+      notify.success('Token révoqué')
     },
   })
 
@@ -230,7 +230,7 @@ function TokensSection({ backends, mcpBaseUrl }: { backends: Backend[]; mcpBaseU
     mutationFn: (id: string) => api.delete(`/api/v1/mcp-gateway/tokens/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['mcp-gw-tokens'] })
-      notify.success('Token supprim\u00e9')
+      notify.success('Token supprimé')
     },
   })
 
@@ -248,7 +248,7 @@ function TokensSection({ backends, mcpBaseUrl }: { backends: Backend[]; mcpBaseU
   return (
     <div className="space-y-4">
       <p className="text-xs text-muted-foreground">
-        Cr\u00e9ez un token Bearer pour authentifier un client MCP. Le token complet n'est affich\u00e9 qu'une seule fois.
+        {"Créez un token Bearer pour authentifier un client MCP. Le token complet n'est affiché qu'une seule fois."}
       </p>
 
       {/* Newly created token alert */}
@@ -256,7 +256,7 @@ function TokensSection({ backends, mcpBaseUrl }: { backends: Backend[]; mcpBaseU
         <div className="p-4 rounded-lg border-2 border-amber-500/50 bg-amber-50 dark:bg-amber-950/20 space-y-3">
           <div className="flex items-center gap-2 text-sm font-medium text-amber-700 dark:text-amber-400">
             <AlertTriangle size={14} />
-            Token cr\u00e9\u00e9 — copiez-le maintenant !
+            {"Token créé — copiez-le maintenant !"}
           </div>
           <div className="flex items-center gap-2">
             <code className="flex-1 text-xs font-mono bg-background border border-border rounded-md px-3 py-2 select-all break-all">
@@ -267,7 +267,7 @@ function TokensSection({ backends, mcpBaseUrl }: { backends: Backend[]; mcpBaseU
               onClick={() => copyToken(newToken.token)}
             >
               {copied ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
-              {copied ? 'Copi\u00e9' : 'Copier'}
+              {copied ? 'Copié' : 'Copier'}
             </button>
           </div>
 
@@ -301,7 +301,7 @@ function TokensSection({ backends, mcpBaseUrl }: { backends: Backend[]; mcpBaseU
 
       {/* Active tokens */}
       {activeTokens.length === 0 && revokedTokens.length === 0 && !showForm && (
-        <p className="text-sm text-muted-foreground italic">Aucun token cr\u00e9\u00e9.</p>
+        <p className="text-sm text-muted-foreground italic">Aucun token créé.</p>
       )}
 
       <div className="space-y-2">
@@ -319,7 +319,7 @@ function TokensSection({ backends, mcpBaseUrl }: { backends: Backend[]; mcpBaseU
       {revokedTokens.length > 0 && (
         <details className="text-sm">
           <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
-            {revokedTokens.length} token{revokedTokens.length > 1 ? 's' : ''} r\u00e9voqu\u00e9{revokedTokens.length > 1 ? 's' : ''}
+            {revokedTokens.length} token{revokedTokens.length > 1 ? 's' : ''} révoqué{revokedTokens.length > 1 ? 's' : ''}
           </summary>
           <div className="space-y-2 mt-2">
             {revokedTokens.map(t => (
@@ -363,7 +363,7 @@ function TokensSection({ backends, mcpBaseUrl }: { backends: Backend[]; mcpBaseU
           </div>
           {backends.length > 1 && (
             <div>
-              <label className="text-xs font-medium text-foreground">Backends autoris\u00e9s</label>
+              <label className="text-xs font-medium text-foreground">Backends autorisés</label>
               <div className="flex flex-wrap gap-2 mt-1.5">
                 <label className="flex items-center gap-1.5 text-sm cursor-pointer">
                   <input
@@ -405,14 +405,14 @@ function TokensSection({ backends, mcpBaseUrl }: { backends: Backend[]; mcpBaseU
               })}
             >
               {createMut.isPending ? <Loader2 size={14} className="animate-spin" /> : <Shield size={14} />}
-              G\u00e9n\u00e9rer le token
+              Générer le token
             </button>
             <button className="gl-btn gl-btn-default text-sm" onClick={() => setShowForm(false)}>Annuler</button>
           </div>
         </div>
       ) : (
         <button className="gl-btn gl-btn-default text-sm" onClick={() => setShowForm(true)}>
-          <Plus size={14} /> Cr\u00e9er un token
+          <Plus size={14} /> Créer un token
         </button>
       )}
     </div>
@@ -438,7 +438,7 @@ function TokenRow({ token: t, onRevoke, onDelete }: { token: Token; onRevoke?: (
           </code>
           {t.revoked && (
             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 font-medium">
-              R\u00e9voqu\u00e9
+              Révoqué
             </span>
           )}
           {!t.revoked && expiry.warn && (
@@ -465,7 +465,7 @@ function TokenRow({ token: t, onRevoke, onDelete }: { token: Token; onRevoke?: (
         {confirming ? (
           <div className="flex items-center gap-1">
             <span className="text-[11px] text-muted-foreground mr-1">
-              {confirming === 'delete' ? 'Supprimer ?' : 'R\u00e9voquer ?'}
+              {confirming === 'delete' ? 'Supprimer ?' : 'Révoquer ?'}
             </span>
             <button
               className="gl-button-sm gl-button-danger"
@@ -486,7 +486,7 @@ function TokenRow({ token: t, onRevoke, onDelete }: { token: Token; onRevoke?: (
               <button
                 onClick={() => setConfirming('revoke')}
                 className="p-1.5 rounded-md hover:bg-amber-500/10 text-muted-foreground hover:text-amber-600 transition-colors"
-                title="R\u00e9voquer"
+                title="Révoquer"
               >
                 <Ban size={14} />
               </button>

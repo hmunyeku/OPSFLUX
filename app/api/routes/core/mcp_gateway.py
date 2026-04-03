@@ -439,13 +439,20 @@ def _verify_pkce(verifier: str, challenge: str, method: str) -> bool:
     return False
 
 
+def _get_base_url(request: Request) -> str:
+    """Return the public-facing base URL (handles reverse proxy)."""
+    proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+    host = request.headers.get("x-forwarded-host", request.headers.get("host", ""))
+    return f"{proto}://{host}"
+
+
 @proxy_router.get("/.well-known/oauth-authorization-server")
 async def oauth_metadata(request: Request):
     """RFC 8414 — OAuth 2.0 Authorization Server Metadata."""
-    base = str(request.base_url).rstrip("/")
+    base = _get_base_url(request)
     return JSONResponse({
         "issuer": base,
-        "authorization_endpoint": f"{base}/mcp-gw/oauth/authorize",
+        "authorization_endpoint": f"{base}/authorize",
         "token_endpoint": f"{base}/mcp-gw/oauth/token",
         "registration_endpoint": f"{base}/mcp-gw/oauth/register",
         "response_types_supported": ["code"],
@@ -471,7 +478,9 @@ async def oauth_register(request: Request):
     }, status_code=201)
 
 
-_AUTHORIZE_HTML = """\
+from string import Template as _T
+
+_AUTHORIZE_HTML = _T("""\
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -497,8 +506,6 @@ _AUTHORIZE_HTML = """\
          border:none;cursor:pointer;transition:all .15s}
   .btn-primary{background:#3b82f6;color:#fff}
   .btn-primary:hover{background:#2563eb}
-  .btn-cancel{background:#334155;color:#94a3b8}
-  .btn-cancel:hover{background:#475569;color:#e2e8f0}
   .error{background:#450a0a;border:1px solid #991b1b;color:#fca5a5;
          padding:.6rem .75rem;border-radius:8px;font-size:.8rem;margin-bottom:1rem}
   .app{color:#60a5fa;font-weight:600}
@@ -508,17 +515,17 @@ _AUTHORIZE_HTML = """\
 <div class="card">
   <h1>OpsFlux MCP Gateway</h1>
   <p class="sub">
-    <span class="app">{client_id}</span> demande l'acc&egrave;s aux outils MCP.
+    <span class="app">$client_id</span> demande l'acc&egrave;s aux outils MCP.
   </p>
-  {error}
-  <form method="POST">
-    <input type="hidden" name="response_type" value="{response_type}">
-    <input type="hidden" name="client_id" value="{client_id}">
-    <input type="hidden" name="redirect_uri" value="{redirect_uri}">
-    <input type="hidden" name="code_challenge" value="{code_challenge}">
-    <input type="hidden" name="code_challenge_method" value="{code_challenge_method}">
-    <input type="hidden" name="state" value="{state}">
-    <input type="hidden" name="scope" value="{scope}">
+  $error
+  <form method="POST" action="$form_action">
+    <input type="hidden" name="response_type" value="$response_type">
+    <input type="hidden" name="client_id" value="$client_id">
+    <input type="hidden" name="redirect_uri" value="$redirect_uri">
+    <input type="hidden" name="code_challenge" value="$code_challenge">
+    <input type="hidden" name="code_challenge_method" value="$code_challenge_method">
+    <input type="hidden" name="state" value="$state">
+    <input type="hidden" name="scope" value="$scope">
     <label for="token">Token MCP Bearer</label>
     <input type="password" id="token" name="token" placeholder="Collez votre token MCP ici"
            autofocus required>
@@ -529,24 +536,31 @@ _AUTHORIZE_HTML = """\
   </form>
 </div>
 </body>
-</html>"""
+</html>""")
+
+
+def _render_authorize(request: Request, error: str = "", **overrides) -> str:
+    params = request.query_params
+    base = _get_base_url(request)
+    vals = {
+        "client_id": params.get("client_id", "MCP Client"),
+        "response_type": params.get("response_type", "code"),
+        "redirect_uri": params.get("redirect_uri", ""),
+        "code_challenge": params.get("code_challenge", ""),
+        "code_challenge_method": params.get("code_challenge_method", "S256"),
+        "state": params.get("state", ""),
+        "scope": params.get("scope", ""),
+        "form_action": f"{base}/mcp-gw/oauth/authorize",
+        "error": error,
+    }
+    vals.update(overrides)
+    return _AUTHORIZE_HTML.safe_substitute(vals)
 
 
 @proxy_router.get("/oauth/authorize")
 async def oauth_authorize_form(request: Request):
     """Show authorization form — user pastes their MCP Bearer token."""
-    params = request.query_params
-    html = _AUTHORIZE_HTML.format(
-        client_id=params.get("client_id", "MCP Client"),
-        response_type=params.get("response_type", "code"),
-        redirect_uri=params.get("redirect_uri", ""),
-        code_challenge=params.get("code_challenge", ""),
-        code_challenge_method=params.get("code_challenge_method", "S256"),
-        state=params.get("state", ""),
-        scope=params.get("scope", ""),
-        error="",
-    )
-    return HTMLResponse(html)
+    return HTMLResponse(_render_authorize(request))
 
 
 @proxy_router.post("/oauth/authorize")
@@ -563,15 +577,14 @@ async def oauth_authorize_submit(request: Request):
     # Validate the token
     verified = await _verify_mcp_token(f"Bearer {raw_token}")
     if verified is None:
-        html = _AUTHORIZE_HTML.format(
+        html = _render_authorize(
+            request,
+            error='<div class="error">Token invalide. Vérifiez votre token MCP et réessayez.</div>',
             client_id=client_id or "MCP Client",
-            response_type=str(form.get("response_type", "code")),
             redirect_uri=redirect_uri,
             code_challenge=code_challenge,
             code_challenge_method=code_challenge_method,
             state=state,
-            scope=str(form.get("scope", "")),
-            error='<div class="error">Token invalide. V\u00e9rifiez votre token MCP et r\u00e9essayez.</div>',
         )
         return HTMLResponse(html, status_code=400)
 
@@ -790,19 +803,28 @@ async def proxy_to_backend(backend_slug: str, path: str, request: Request):
     )
 
 
-# ── Root-level .well-known (some clients look here instead of /mcp-gw/) ──────
+# ── Root-level OAuth endpoints (Claude.ai uses {issuer}/authorize) ────────────
 
-well_known_router = APIRouter(tags=["mcp-gateway-proxy"])
+root_oauth_router = APIRouter(tags=["mcp-gateway-proxy"])
 
 
-@well_known_router.get("/.well-known/oauth-authorization-server")
+@root_oauth_router.get("/.well-known/oauth-authorization-server")
 async def root_oauth_metadata(request: Request):
-    """Root-level alias — redirects to /mcp-gw/.well-known/..."""
     return await oauth_metadata(request)
+
+
+@root_oauth_router.get("/authorize")
+async def root_authorize_form(request: Request):
+    return await oauth_authorize_form(request)
+
+
+@root_oauth_router.post("/authorize")
+async def root_authorize_submit(request: Request):
+    return await oauth_authorize_submit(request)
 
 
 # Combined router for main.py registration
 router = APIRouter()
 router.include_router(admin_router)
 router.include_router(proxy_router)
-router.include_router(well_known_router)
+router.include_router(root_oauth_router)

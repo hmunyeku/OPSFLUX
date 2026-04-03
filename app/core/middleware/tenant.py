@@ -25,6 +25,7 @@ class TenantSchemaMiddleware(BaseHTTPMiddleware):
         "/api/v1/auth/sso/callback",
         "/mcp-gw/",
         "/.well-known/",
+        "/authorize",
     }
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:

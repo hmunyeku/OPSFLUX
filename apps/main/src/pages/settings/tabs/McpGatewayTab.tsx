@@ -8,8 +8,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import {
   Key, Plus, Trash2, Ban, Copy, Check,
-  Loader2, Shield, AlertTriangle, Globe, Plug,
-  ExternalLink, Clock, Eye, EyeOff,
+  Loader2, Shield, AlertTriangle, Globe, Plug, Clock,
 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'

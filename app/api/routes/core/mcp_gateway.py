@@ -446,6 +446,22 @@ def _get_base_url(request: Request) -> str:
     return f"{proto}://{host}"
 
 
+@proxy_router.get("/.well-known/oauth-protected-resource")
+async def oauth_protected_resource(request: Request):
+    """RFC 9728 — OAuth 2.0 Protected Resource Metadata.
+
+    Claude.ai fetches this from the resource_metadata URL in WWW-Authenticate.
+    It tells the client which authorization server to use.
+    """
+    base = _get_base_url(request)
+    return JSONResponse({
+        "resource": f"{base}/mcp-gw/gouti",
+        "authorization_servers": [base],
+        "scopes_supported": ["mcp"],
+        "bearer_methods_supported": ["header"],
+    })
+
+
 @proxy_router.get("/.well-known/oauth-authorization-server")
 async def oauth_metadata(request: Request):
     """RFC 8414 — OAuth 2.0 Authorization Server Metadata."""
@@ -740,7 +756,7 @@ async def proxy_to_backend(backend_slug: str, path: str, request: Request):
             {"error": "Unauthorized — invalid or missing Bearer token"},
             status_code=401,
             headers={
-                "WWW-Authenticate": f'Bearer resource_metadata="{base}/mcp-gw/.well-known/oauth-authorization-server"',
+                "WWW-Authenticate": f'Bearer resource_metadata="{base}/mcp-gw/.well-known/oauth-protected-resource"',
             },
         )
 
@@ -847,6 +863,11 @@ async def proxy_to_backend(backend_slug: str, path: str, request: Request):
 # ── Root-level OAuth endpoints (Claude.ai uses {issuer}/authorize) ────────────
 
 root_oauth_router = APIRouter(tags=["mcp-gateway-proxy"])
+
+
+@root_oauth_router.get("/.well-known/oauth-protected-resource")
+async def root_protected_resource(request: Request):
+    return await oauth_protected_resource(request)
 
 
 @root_oauth_router.get("/.well-known/oauth-authorization-server")

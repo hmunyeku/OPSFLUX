@@ -3,7 +3,6 @@
 import hashlib
 import logging
 import os
-import secrets
 
 from app.mcp.registry import mcp_registry
 

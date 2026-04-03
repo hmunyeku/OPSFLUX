@@ -734,12 +734,15 @@ async def _find_gouti_settings() -> tuple[str, dict[str, str]]:
             row[0] for row in result.fetchall()
             if row[0] not in _SYSTEM_SCHEMAS
         ]
+        logger.debug("Gouti settings scan: checking %d schemas: %s", len(schemas), schemas)
 
-        for schema in schemas:
-            # Validate identifier (prevent injection)
-            if not schema.isidentifier():
-                continue
-            try:
+    # Use a separate session per schema to avoid broken transaction state
+    # when a schema doesn't have a settings table
+    for schema in schemas:
+        if not schema.isidentifier():
+            continue
+        try:
+            async with async_session_factory() as session:
                 await session.execute(text(f"SET search_path TO {schema}"))
                 result = await session.execute(text(
                     "SELECT key, value FROM settings "
@@ -747,28 +750,31 @@ async def _find_gouti_settings() -> tuple[str, dict[str, str]]:
                     "AND scope = 'entity'"
                 ))
                 rows = result.fetchall()
-            except Exception:
-                # Schema might not have a settings table — skip
-                continue
+        except Exception as exc:
+            logger.debug("Gouti settings scan: schema '%s' skipped (%s)", schema, exc)
+            continue
 
-            if not rows:
-                continue
+        if not rows:
+            logger.debug("Gouti settings scan: schema '%s' has no gouti settings", schema)
+            continue
 
-            settings: dict[str, str] = {}
-            for row in rows:
-                field = row[0].replace(_GOUTI_PREFIX + ".", "")
-                val = row[1].get("v", "") if isinstance(row[1], dict) else str(row[1])
-                settings[field] = str(val).strip() if val else ""
+        settings: dict[str, str] = {}
+        for row in rows:
+            field = row[0].replace(_GOUTI_PREFIX + ".", "")
+            val = row[1].get("v", "") if isinstance(row[1], dict) else str(row[1])
+            settings[field] = str(val).strip() if val else ""
 
-            # Accept if we have client_id + (token OR client_secret)
-            if settings.get("client_id") and (
-                settings.get("token") or settings.get("client_secret")
-            ):
-                logger.info(
-                    "Gouti native: found settings in schema '%s' (%d keys, token=%s)",
-                    schema, len(settings), bool(settings.get("token")),
-                )
-                return schema, settings
+        logger.debug("Gouti settings scan: schema '%s' has keys: %s", schema, list(settings.keys()))
+
+        # Accept if we have client_id + (token OR client_secret)
+        if settings.get("client_id") and (
+            settings.get("token") or settings.get("client_secret")
+        ):
+            logger.info(
+                "Gouti native: found settings in schema '%s' (%d keys, token=%s)",
+                schema, len(settings), bool(settings.get("token")),
+            )
+            return schema, settings
 
     raise RuntimeError(
         "Aucun tenant avec Gouti configuré trouvé. "
@@ -787,8 +793,6 @@ async def create_gouti_backend(config: dict) -> "NativeBackend":
     Reads credentials from the existing integration.gouti.* settings
     already configured in the OpsFlux UI (Paramètres > Intégrations > Gouti).
     Auto-detects which tenant schema contains the settings.
-
-    Config: ``{}`` — no configuration needed (reads from Settings table).
     """
     from app.mcp.mcp_native import NativeBackend
 

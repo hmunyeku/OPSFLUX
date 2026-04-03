@@ -486,38 +486,68 @@ _AUTHORIZE_HTML = _T("""\
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>OpsFlux MCP — Autorisation</title>
+<title>Connexion - OpsFlux</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-       background:#0f172a;color:#e2e8f0;display:flex;align-items:center;
-       justify-content:center;min-height:100vh;padding:1rem}
-  .card{background:#1e293b;border-radius:12px;padding:2rem;max-width:420px;
-        width:100%;box-shadow:0 25px 50px rgba(0,0,0,.5)}
-  h1{font-size:1.25rem;margin-bottom:.25rem}
-  .sub{color:#94a3b8;font-size:.85rem;margin-bottom:1.5rem}
-  label{display:block;font-size:.8rem;font-weight:600;margin-bottom:.5rem;color:#cbd5e1}
-  input[type=password]{width:100%;padding:.65rem .75rem;border-radius:8px;border:1px solid #334155;
-        background:#0f172a;color:#f1f5f9;font-family:monospace;font-size:.85rem}
-  input:focus{outline:none;border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.3)}
-  .hint{color:#64748b;font-size:.75rem;margin-top:.35rem}
-  .actions{display:flex;gap:.75rem;margin-top:1.5rem}
-  button{flex:1;padding:.65rem;border-radius:8px;font-size:.9rem;font-weight:600;
-         border:none;cursor:pointer;transition:all .15s}
-  .btn-primary{background:#3b82f6;color:#fff}
-  .btn-primary:hover{background:#2563eb}
-  .error{background:#450a0a;border:1px solid #991b1b;color:#fca5a5;
-         padding:.6rem .75rem;border-radius:8px;font-size:.8rem;margin-bottom:1rem}
-  .app{color:#60a5fa;font-weight:600}
+  body{font-family:'Google Sans',Roboto,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+       background:#f0f4f9;color:#202124;display:flex;flex-direction:column;
+       align-items:center;justify-content:center;min-height:100vh;padding:1rem}
+  .card{background:#fff;border-radius:28px;padding:48px 40px 36px;max-width:450px;
+        width:100%;border:1px solid #dadce0}
+  .logo{display:flex;align-items:center;gap:10px;margin-bottom:24px;justify-content:center}
+  .logo svg{width:28px;height:28px}
+  .logo-text{font-size:22px;font-weight:400;color:#202124;letter-spacing:-0.5px}
+  h1{font-size:24px;font-weight:400;color:#202124;text-align:center;margin-bottom:4px}
+  .sub{color:#5f6368;font-size:14px;text-align:center;margin-bottom:28px;line-height:1.5}
+  .app-name{font-weight:500;color:#1a73e8}
+  label{display:block;font-size:12px;font-weight:500;color:#5f6368;margin-bottom:8px;
+        letter-spacing:0.2px}
+  .input-wrapper{position:relative;margin-bottom:4px}
+  input[type=password]{width:100%;padding:13px 16px;border-radius:8px;
+        border:1px solid #dadce0;background:#fff;color:#202124;
+        font-family:monospace;font-size:14px;transition:border-color .2s}
+  input:hover{border-color:#202124}
+  input:focus{outline:none;border-color:#1a73e8;border-width:2px;padding:12px 15px}
+  .hint{color:#5f6368;font-size:12px;margin-top:8px;line-height:1.5}
+  .hint a{color:#1a73e8;text-decoration:none;font-weight:500}
+  .hint a:hover{text-decoration:underline}
+  .actions{display:flex;justify-content:flex-end;margin-top:32px}
+  button{padding:10px 24px;border-radius:20px;font-size:14px;font-weight:500;
+         border:none;cursor:pointer;transition:all .2s;letter-spacing:0.25px}
+  .btn-primary{background:#1a73e8;color:#fff}
+  .btn-primary:hover{background:#1557b0;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+  .btn-primary:active{background:#174ea6}
+  .error{background:#fce8e6;border:1px solid #f5c6cb;color:#c5221f;
+         padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:20px;
+         line-height:1.5}
+  .footer{margin-top:24px;display:flex;justify-content:space-between;
+          font-size:12px;color:#5f6368;max-width:450px;width:100%;padding:0 8px}
+  .footer a{color:#5f6368;text-decoration:none}
+  .footer a:hover{color:#202124}
+  .divider{border-top:1px solid #dadce0;margin:24px 0 20px}
+  .scope-info{background:#f8f9fa;border-radius:8px;padding:12px 16px;margin-bottom:24px;
+              font-size:13px;color:#3c4043;line-height:1.6}
+  .scope-info strong{font-weight:500;color:#202124}
 </style>
 </head>
 <body>
 <div class="card">
-  <h1>OpsFlux MCP Gateway</h1>
+  <div class="logo">
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
+            stroke="#1a73e8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span class="logo-text">OpsFlux</span>
+  </div>
+  <h1>Autoriser l'acc&egrave;s</h1>
   <p class="sub">
-    <span class="app">$client_id</span> demande l'acc&egrave;s aux outils MCP.
+    <span class="app-name">$client_id</span> souhaite acc&eacute;der aux outils MCP de votre espace OpsFlux.
   </p>
   $error
+  <div class="scope-info">
+    <strong>Cette application pourra :</strong><br>
+    Lire et utiliser les outils MCP configur&eacute;s sur votre gateway.
+  </div>
   <form method="POST" action="$form_action">
     <input type="hidden" name="response_type" value="$response_type">
     <input type="hidden" name="client_id" value="$client_id">
@@ -526,14 +556,25 @@ _AUTHORIZE_HTML = _T("""\
     <input type="hidden" name="code_challenge_method" value="$code_challenge_method">
     <input type="hidden" name="state" value="$state">
     <input type="hidden" name="scope" value="$scope">
-    <label for="token">Token MCP Bearer</label>
-    <input type="password" id="token" name="token" placeholder="Collez votre token MCP ici"
-           autofocus required>
-    <p class="hint">Cr&eacute;ez un token dans OpsFlux &gt; Param&egrave;tres &gt; MCP Gateway</p>
+    <label for="token">Token d'acc&egrave;s MCP</label>
+    <div class="input-wrapper">
+      <input type="password" id="token" name="token"
+             placeholder="Collez votre token ici"
+             autofocus required>
+    </div>
+    <p class="hint">
+      G&eacute;n&eacute;rez un token dans
+      <a href="javascript:void(0)">Param&egrave;tres &gt; MCP Gateway</a>
+    </p>
+    <div class="divider"></div>
     <div class="actions">
       <button type="submit" class="btn-primary">Autoriser</button>
     </div>
   </form>
+</div>
+<div class="footer">
+  <span>OpsFlux MCP Gateway</span>
+  <span>OAuth 2.0 + PKCE</span>
 </div>
 </body>
 </html>""")

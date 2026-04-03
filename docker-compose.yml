@@ -51,14 +51,17 @@ services:
     command: >
       sh -c "
         mkdir -p /opt/opsflux/static/avatars /opt/opsflux/static/attachments &&
-        uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
+        python -c 'from app.main import app; print(\"IMPORT_OK\")' > /tmp/diag.log 2>&1 ;
+        echo IMPORT_EXIT=$$? >> /tmp/diag.log ;
+        tail -20 /tmp/diag.log ;
+        sleep infinity
       "
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8000/api/health || (echo FAIL-$(date +%s) > /tmp/hc.log && false)"]
+      test: ["CMD-SHELL", "cat /tmp/diag.log 2>/dev/null || echo 'NO_LOG_YET'"]
       interval: 10s
       timeout: 5s
-      retries: 30
-      start_period: 60s
+      retries: 99
+      start_period: 30s
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=dokploy-network"

@@ -1,6 +1,9 @@
 """MCP plugin registration — called at startup."""
 
+import hashlib
 import logging
+import os
+import secrets
 
 from app.mcp.registry import mcp_registry
 
@@ -36,6 +39,40 @@ async def _ensure_gouti_backend() -> None:
         logger.info("MCP: auto-created Gouti native backend entry")
 
 
+async def _ensure_mcp_token() -> None:
+    """Ensure at least one MCP gateway token exists.
+
+    If MCP_GATEWAY_TOKEN env var is set, creates a token with that value
+    (idempotent by name). Otherwise skips — tokens are managed via admin UI.
+    """
+    raw_token = os.environ.get("MCP_GATEWAY_TOKEN", "")
+    if not raw_token:
+        return
+
+    from sqlalchemy import select, text
+    from app.core.database import async_session_factory
+    from app.models.mcp_gateway import McpGatewayToken
+
+    token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+
+    async with async_session_factory() as session:
+        await session.execute(text("SET search_path TO public"))
+        result = await session.execute(
+            select(McpGatewayToken).where(McpGatewayToken.token_hash == token_hash)
+        )
+        if result.scalar_one_or_none() is not None:
+            return  # already exists
+
+        token = McpGatewayToken(
+            name="auto-mcp-token",
+            token_hash=token_hash,
+            scopes="*",
+        )
+        session.add(token)
+        await session.commit()
+        logger.info("MCP: auto-created gateway token from MCP_GATEWAY_TOKEN env")
+
+
 async def register_mcp_plugins() -> None:
     """Register all MCP tool plugins from active modules.
 
@@ -51,10 +88,15 @@ async def register_mcp_plugins() -> None:
     from app.mcp.gouti_tools import create_gouti_backend
     register_native_initializer("gouti", create_gouti_backend)
 
-    # Ensure Gouti backend row exists in DB (idempotent)
+    # Ensure Gouti backend row + MCP token exist in DB (idempotent)
     try:
         await _ensure_gouti_backend()
     except Exception as exc:
         logger.warning("MCP: could not auto-create Gouti backend entry: %s", exc)
+
+    try:
+        await _ensure_mcp_token()
+    except Exception as exc:
+        logger.warning("MCP: could not auto-create MCP token: %s", exc)
 
     logger.info("MCP: all plugins registered (%d tools total)", mcp_registry.tool_count)

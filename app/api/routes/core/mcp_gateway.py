@@ -18,12 +18,11 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
 from app.core.database import get_db, async_session_factory
-from app.core.tenant_context import set_tenant_schema
 from app.models.common import User
 from app.models.mcp_gateway import McpGatewayBackend, McpGatewayToken
 
@@ -82,9 +81,7 @@ async def _verify_mcp_token(
     token_hash = _hash_token(raw)
 
     async with async_session_factory() as session:
-        await session.execute(
-            __import__("sqlalchemy").text("SET search_path TO public")
-        )
+        await session.execute(text("SET search_path TO public"))
         result = await session.execute(
             select(McpGatewayToken).where(
                 McpGatewayToken.token_hash == token_hash,
@@ -377,9 +374,7 @@ async def proxy_to_backend(backend_slug: str, path: str, request: Request):
 
     # 3. Look up backend
     async with async_session_factory() as session:
-        await session.execute(
-            __import__("sqlalchemy").text("SET search_path TO public")
-        )
+        await session.execute(text("SET search_path TO public"))
         result = await session.execute(
             select(McpGatewayBackend).where(
                 McpGatewayBackend.slug == backend_slug,

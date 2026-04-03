@@ -77,8 +77,9 @@ def _week(val: str, name: str) -> str:
 class GoutiApiClient:
     """Async Gouti API client with automatic token refresh on 401."""
 
-    def __init__(self, *, base_url: str, client_id: str, client_secret: str,
-                 entity_code: str, token: str | None = None):
+    def __init__(self, *, base_url: str, client_id: str,
+                 client_secret: str = "", entity_code: str = "",
+                 token: str | None = None):
         self.base_url = base_url.rstrip("/")
         self.client_id = client_id
         self.client_secret = client_secret
@@ -759,16 +760,20 @@ async def _find_gouti_settings() -> tuple[str, dict[str, str]]:
                 val = row[1].get("v", "") if isinstance(row[1], dict) else str(row[1])
                 settings[field] = str(val).strip() if val else ""
 
-            if settings.get("client_id") and settings.get("client_secret"):
+            # Accept if we have client_id + (token OR client_secret)
+            if settings.get("client_id") and (
+                settings.get("token") or settings.get("client_secret")
+            ):
                 logger.info(
-                    "Gouti native: found settings in schema '%s' (%d keys)",
-                    schema, len(settings),
+                    "Gouti native: found settings in schema '%s' (%d keys, token=%s)",
+                    schema, len(settings), bool(settings.get("token")),
                 )
                 return schema, settings
 
     raise RuntimeError(
         "Aucun tenant avec Gouti configuré trouvé. "
-        "Configurez Gouti dans Paramètres > Intégrations > Gouti."
+        "Configurez Gouti dans Paramètres > Intégrations > Gouti "
+        "(client_id + token ou client_secret requis)."
     )
 
 
@@ -801,15 +806,21 @@ async def create_gouti_backend(config: dict) -> "NativeBackend":
     client = GoutiApiClient(
         base_url=settings.get("base_url", "https://apiprd.gouti.net/v1/client"),
         client_id=settings["client_id"],
-        client_secret=settings["client_secret"],
+        client_secret=settings.get("client_secret", ""),
         entity_code=settings.get("entity_code", ""),
         token=settings.get("token"),
     )
 
-    # Authenticate immediately if no cached token
-    if not client._token:
+    # Authenticate via OAuth2 only if no token and we have a secret
+    if not client._token and client.client_secret:
         await client.authenticate()
-        logger.info("Gouti native: authenticated to %s", client.base_url)
+        logger.info("Gouti native: authenticated via OAuth2 to %s", client.base_url)
+    elif client._token:
+        logger.info("Gouti native: using existing token for %s", client.base_url)
+    else:
+        raise RuntimeError(
+            "Gouti: ni token ni client_secret configuré — impossible de s'authentifier."
+        )
 
     async def call_tool(name: str, arguments: dict) -> dict:
         handler = GOUTI_HANDLERS.get(name)

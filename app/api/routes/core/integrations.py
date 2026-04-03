@@ -377,21 +377,42 @@ async def _test_ai(cfg: dict[str, str]) -> tuple[str, str]:
 
 
 async def _test_gouti(settings: dict[str, Any]) -> tuple[str, str]:
-    """Test Gouti project management API connection (OAuth2 code → token flow)."""
+    """Test Gouti API connection — uses token directly if available, otherwise OAuth2 flow."""
     base_url = str(settings.get("base_url", "https://apiprd.gouti.net/v1/client")).strip()
     client_id = str(settings.get("client_id", "")).strip()
     client_secret = str(settings.get("client_secret", "")).strip()
     entity_code = str(settings.get("entity_code", "")).strip()
+    token = str(settings.get("token", "")).strip()
 
-    if not client_id or not client_secret:
-        return "error", "Client ID ou Secret client non configuré pour Gouti"
-    if not entity_code:
-        return "error", "Code entité non configuré pour Gouti"
+    if not client_id:
+        return "error", "Code entreprise (Client ID) non configuré pour Gouti"
+    if not token and not client_secret:
+        return "error", "Token ou Secret client requis pour Gouti"
 
     try:
         import httpx
         async with httpx.AsyncClient(timeout=15) as client:
-            # Step 1: Request authorization code
+            # Strategy 1: Direct token — just call a lightweight endpoint
+            if token:
+                headers = {
+                    "Authorization": f"Bearer {token}",
+                    "Client-Id": client_id,
+                    "Accept": "application/json",
+                }
+                if entity_code:
+                    headers["Entity-Code"] = entity_code
+                resp = await client.get(
+                    f"{base_url.rstrip('/')}/e-categories",
+                    headers=headers,
+                )
+                if 200 <= resp.status_code < 300:
+                    return "ok", "Connexion Gouti réussie (token direct)"
+                if resp.status_code == 401 and client_secret:
+                    pass  # Fall through to OAuth2
+                else:
+                    return "error", f"Gouti: HTTP {resp.status_code} — token invalide ou expiré"
+
+            # Strategy 2: OAuth2 code → token flow
             code_resp = await client.post(
                 f"{base_url.rstrip('/')}/code",
                 json={
@@ -406,7 +427,6 @@ async def _test_gouti(settings: dict[str, Any]) -> tuple[str, str]:
             if not auth_code:
                 return "error", "Aucun code d'autorisation retourné par l'API Gouti"
 
-            # Step 2: Exchange code for token
             token_resp = await client.post(
                 f"{base_url.rstrip('/')}/token",
                 json={
@@ -418,11 +438,11 @@ async def _test_gouti(settings: dict[str, Any]) -> tuple[str, str]:
             )
             token_resp.raise_for_status()
             token_data = token_resp.json()
-            token = token_data.get("token") or token_data.get("access_token")
-            if not token:
+            new_token = token_data.get("token") or token_data.get("access_token")
+            if not new_token:
                 return "error", "Aucun token retourné par l'API Gouti"
 
-            return "ok", "Connexion réussie à l'API Gouti"
+            return "ok", "Connexion Gouti réussie (OAuth2)"
     except ImportError:
         return "error", "httpx non installé"
     except httpx.HTTPStatusError as e:

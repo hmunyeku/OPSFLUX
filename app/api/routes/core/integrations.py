@@ -9,9 +9,10 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.database import get_db
 from app.models.common import Setting, User
+from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +30,14 @@ class TestResult(BaseModel):
     tested_at: str  # ISO datetime
 
 
-async def _get_connector_settings(db: AsyncSession, prefix: str) -> dict[str, str]:
+async def _get_connector_settings(db: AsyncSession, entity_id: UUID, prefix: str) -> dict[str, str]:
     """Fetch all settings with the given prefix."""
     result = await db.execute(
-        select(Setting).where(Setting.key.startswith(prefix), Setting.scope == "entity")
+        select(Setting).where(
+            Setting.key.startswith(prefix),
+            Setting.scope == "entity",
+            Setting.scope_id == str(entity_id),
+        )
     )
     settings = {}
     for s in result.scalars().all():
@@ -43,7 +48,13 @@ async def _get_connector_settings(db: AsyncSession, prefix: str) -> dict[str, st
     return settings
 
 
-async def _save_test_result(db: AsyncSession, connector_id: str, status: str, message: str) -> None:
+async def _save_test_result(
+    db: AsyncSession,
+    entity_id: UUID,
+    connector_id: str,
+    status: str,
+    message: str,
+) -> None:
     """Store the test result in settings for frontend display."""
     now = datetime.now(timezone.utc).isoformat()
 
@@ -53,13 +64,17 @@ async def _save_test_result(db: AsyncSession, connector_id: str, status: str, me
         (f"integration.{connector_id}.last_test_error", message if status == "error" else ""),
     ]:
         result = await db.execute(
-            select(Setting).where(Setting.key == key, Setting.scope == "entity")
+            select(Setting).where(
+                Setting.key == key,
+                Setting.scope == "entity",
+                Setting.scope_id == str(entity_id),
+            )
         )
         existing = result.scalar_one_or_none()
         if existing:
             existing.value = {"v": value}
         else:
-            db.add(Setting(key=key, value={"v": value}, scope="entity"))
+            db.add(Setting(key=key, value={"v": value}, scope="entity", scope_id=str(entity_id)))
 
     await db.commit()
 
@@ -363,10 +378,10 @@ async def _test_ai(cfg: dict[str, str]) -> tuple[str, str]:
 
 async def _test_gouti(settings: dict[str, Any]) -> tuple[str, str]:
     """Test Gouti project management API connection (OAuth2 code → token flow)."""
-    base_url = settings.get("base_url", "https://apiprd.gouti.net/v1/client")
-    client_id = settings.get("client_id", "")
-    client_secret = settings.get("client_secret", "")
-    entity_code = settings.get("entity_code", "")
+    base_url = str(settings.get("base_url", "https://apiprd.gouti.net/v1/client")).strip()
+    client_id = str(settings.get("client_id", "")).strip()
+    client_secret = str(settings.get("client_secret", "")).strip()
+    entity_code = str(settings.get("entity_code", "")).strip()
 
     if not client_id or not client_secret:
         return "error", "Client ID ou Secret client non configuré pour Gouti"
@@ -449,7 +464,9 @@ CONNECTOR_TESTERS = {
 @router.post("/test", response_model=TestResult)
 async def test_connector(
     body: TestRequest,
+    entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("core.integrations.manage"),
     db: AsyncSession = Depends(get_db),
 ):
     """Test a connector's connectivity/credentials."""
@@ -464,12 +481,12 @@ async def test_connector(
         )
 
     prefix, tester = CONNECTOR_TESTERS[connector_id]
-    cfg = await _get_connector_settings(db, prefix)
+    cfg = await _get_connector_settings(db, entity_id, prefix)
 
     status, message = await tester(cfg)
 
     # Persist the test result
-    await _save_test_result(db, connector_id, status, message)
+    await _save_test_result(db, entity_id, connector_id, status, message)
 
     return TestResult(
         connector_id=connector_id,
@@ -497,7 +514,9 @@ class SendTestResult(BaseModel):
 @router.post("/test-send", response_model=SendTestResult)
 async def test_send_real(
     body: SendTestRequest,
+    entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("core.integrations.manage"),
     db: AsyncSession = Depends(get_db),
 ):
     """Send a real test message (email, SMS or WhatsApp) to verify the integration works end-to-end.
@@ -514,11 +533,11 @@ async def test_send_real(
 
     try:
         if connector_id == "smtp":
-            return await _send_test_email(db, recipient, sender_name, now_iso)
+            return await _send_test_email(db, entity_id, recipient, sender_name, now_iso)
         elif connector_id in ("sms_twilio", "sms_vonage", "sms_ovh"):
-            return await _send_test_sms(db, connector_id, recipient, sender_name, now_iso)
+            return await _send_test_sms(db, entity_id, connector_id, recipient, sender_name, now_iso)
         elif connector_id == "whatsapp":
-            return await _send_test_whatsapp(db, recipient, sender_name, now_iso)
+            return await _send_test_whatsapp(db, entity_id, recipient, sender_name, now_iso)
         else:
             return SendTestResult(connector_id=connector_id, status="error", message=f"Envoi de test non supporté pour: {connector_id}", channel="", sent_at=now_iso)
     except Exception as e:
@@ -526,7 +545,13 @@ async def test_send_real(
         return SendTestResult(connector_id=connector_id, status="error", message=f"Erreur: {str(e)[:300]}", channel=connector_id, sent_at=now_iso)
 
 
-async def _send_test_email(db: AsyncSession, recipient: str, sender_name: str, now_iso: str) -> SendTestResult:
+async def _send_test_email(
+    db: AsyncSession,
+    entity_id: UUID,
+    recipient: str,
+    sender_name: str,
+    now_iso: str,
+) -> SendTestResult:
     """Send a real test email via the configured SMTP."""
     from app.core.notifications import send_email
 
@@ -560,11 +585,18 @@ async def _send_test_email(db: AsyncSession, recipient: str, sender_name: str, n
         return SendTestResult(connector_id="smtp", status="error", message=f"Échec envoi email: {str(e)[:300]}", channel="email", sent_at=now_iso)
 
 
-async def _send_test_sms(db: AsyncSession, connector_id: str, recipient: str, sender_name: str, now_iso: str) -> SendTestResult:
+async def _send_test_sms(
+    db: AsyncSession,
+    entity_id: UUID,
+    connector_id: str,
+    recipient: str,
+    sender_name: str,
+    now_iso: str,
+) -> SendTestResult:
     """Send a real test SMS via the specified provider."""
     from app.core.sms_service import _send_twilio, _send_vonage, _send_ovh
 
-    cfg = await _get_connector_settings(db, f"integration.{connector_id}")
+    cfg = await _get_connector_settings(db, entity_id, f"integration.{connector_id}")
     message = f"OpsFlux — Test SMS par {sender_name}. Si vous recevez ce message, la configuration fonctionne. ({now_iso[:16]})"
 
     try:
@@ -584,9 +616,15 @@ async def _send_test_sms(db: AsyncSession, connector_id: str, recipient: str, se
         return SendTestResult(connector_id=connector_id, status="error", message=f"Erreur SMS: {str(e)[:300]}", channel="sms", sent_at=now_iso)
 
 
-async def _send_test_whatsapp(db: AsyncSession, recipient: str, sender_name: str, now_iso: str) -> SendTestResult:
+async def _send_test_whatsapp(
+    db: AsyncSession,
+    entity_id: UUID,
+    recipient: str,
+    sender_name: str,
+    now_iso: str,
+) -> SendTestResult:
     """Send a real test WhatsApp message via Cloud API."""
-    cfg = await _get_connector_settings(db, "integration.whatsapp")
+    cfg = await _get_connector_settings(db, entity_id, "integration.whatsapp")
     phone_number_id = cfg.get("phone_number_id", "")
     access_token = cfg.get("access_token", "")
     api_version = cfg.get("api_version", "v21.0")

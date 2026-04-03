@@ -41,16 +41,29 @@ async def sync_permissions_and_roles() -> None:
 
         # Add core RBAC permissions (not declared by any module)
         core_permissions = [
+            {"code": "admin.system", "name": "Admin System", "module": "core"},
+            {"code": "admin.users.read", "name": "Admin Read Users", "module": "core"},
+            {"code": "admin.users.create", "name": "Admin Create Users", "module": "core"},
             {"code": "core.rbac.manage", "name": "Manage RBAC", "module": "core"},
             {"code": "core.rbac.read", "name": "Read RBAC", "module": "core"},
             {"code": "core.users.read", "name": "Read Users", "module": "core"},
             {"code": "core.users.manage", "name": "Manage Users", "module": "core"},
             {"code": "core.audit.read", "name": "Read Audit Log", "module": "core"},
             {"code": "core.settings.manage", "name": "Manage Settings", "module": "core"},
+            {"code": "core.integrations.manage", "name": "Manage Integrations", "module": "core"},
             {"code": "core.entity.read", "name": "Read Entities", "module": "core"},
             {"code": "core.entity.create", "name": "Create Entity", "module": "core"},
             {"code": "core.entity.update", "name": "Update Entity", "module": "core"},
             {"code": "core.entity.delete", "name": "Delete Entity", "module": "core"},
+            {"code": "user.read", "name": "Read Users", "module": "core"},
+            {"code": "user.create", "name": "Create Users", "module": "core"},
+            {"code": "user.update", "name": "Update Users", "module": "core"},
+            {"code": "department.create", "name": "Create Business Units", "module": "core"},
+            {"code": "department.update", "name": "Update Business Units", "module": "core"},
+            {"code": "department.delete", "name": "Delete Business Units", "module": "core"},
+            {"code": "cost_center.create", "name": "Create Cost Centers", "module": "core"},
+            {"code": "cost_center.update", "name": "Update Cost Centers", "module": "core"},
+            {"code": "cost_center.delete", "name": "Delete Cost Centers", "module": "core"},
             {"code": "*", "name": "All Permissions (Super Admin)", "module": "core"},
         ]
         all_permissions.extend(core_permissions)

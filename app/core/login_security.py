@@ -97,8 +97,11 @@ async def verify_captcha(
     secret = (config or {}).get("captcha_secret_key", settings.AUTH_CAPTCHA_SECRET_KEY)
 
     if not secret:
-        logger.warning("CAPTCHA enabled but no secret key configured — skipping verification")
-        return True
+        logger.error("CAPTCHA enabled but no secret key configured")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="CAPTCHA provider misconfigured.",
+        )
 
     verify_urls = {
         "turnstile": "https://challenges.cloudflare.com/turnstile/v0/siteverify",
@@ -109,7 +112,10 @@ async def verify_captcha(
     url = verify_urls.get(provider)
     if not url:
         logger.error("Unknown CAPTCHA provider: %s", provider)
-        return True  # fail open to avoid blocking login
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="CAPTCHA provider misconfigured.",
+        )
 
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
@@ -125,9 +131,15 @@ async def verify_captcha(
             return True
     except httpx.TimeoutException:
         logger.error("CAPTCHA verification timed out")
-        return True  # fail open
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="CAPTCHA verification unavailable. Please try again.",
+        )
     except HTTPException:
         raise
     except Exception as e:
         logger.error("CAPTCHA verification error: %s", e)
-        return True  # fail open
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="CAPTCHA verification unavailable. Please try again.",
+        )

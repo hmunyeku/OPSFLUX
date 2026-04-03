@@ -83,6 +83,7 @@ from app.api.routes.core.social_networks import router as social_networks_router
 from app.api.routes.core.opening_hours import router as opening_hours_router
 from app.api.routes.core.mcp import router as mcp_router
 from app.api.routes.core.mcp_gateway import router as mcp_gateway_router, close_http_client
+from app.mcp.mcp_native import close_all_backends as close_native_backends
 from app.api.routes.core.ws_notifications import router as ws_notifications_router
 from app.api.routes.core.workflow import router as workflow_router
 from app.api.routes.core.dashboard import router as dashboard_router
@@ -148,11 +149,15 @@ async def lifespan(app: FastAPI):
     # MCP plugins
     await register_mcp_plugins()
 
-    # Seed initial data (idempotent — creates entity, admin user, default groups)
-    from app.core.database import async_session_factory as async_session
-    from app.services.core.seed_service import seed_dev_data
-    async with async_session() as session:
-        await seed_dev_data(session)
+    # Seed dev data only when explicitly enabled.
+    if settings.is_dev and settings.DEV_SEED_ON_STARTUP:
+        from app.core.database import async_session_factory as async_session
+        from app.services.core.seed_service import seed_dev_data
+        logger.warning("DEV_SEED_ON_STARTUP enabled — seeding development data")
+        async with async_session() as session:
+            await seed_dev_data(session)
+    else:
+        logger.info("Development seed skipped at startup")
 
     # APScheduler
     await start_scheduler()
@@ -163,6 +168,7 @@ async def lifespan(app: FastAPI):
 
     # ── SHUTDOWN ─────────────────────────────────────────────────
     await stop_scheduler()
+    await close_native_backends()
     await close_http_client()
     await close_db()
     await close_redis()

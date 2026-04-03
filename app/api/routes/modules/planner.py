@@ -326,6 +326,7 @@ async def list_activities(
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.activity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     query = (
@@ -406,6 +407,7 @@ async def get_activity(
     activity_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.activity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     activity = await _get_activity_or_404(db, activity_id, entity_id)
@@ -835,6 +837,7 @@ async def list_conflicts(
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.conflict.read"),
     db: AsyncSession = Depends(get_db),
 ):
     query = (
@@ -979,6 +982,7 @@ async def get_capacity(
     date_to: date = Query(..., description="End date (inclusive)"),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.capacity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Compute daily capacity usage for an asset over a date range.
@@ -1043,6 +1047,7 @@ async def list_dependencies(
     activity_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.activity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_activity_or_404(db, activity_id, entity_id)
@@ -1112,6 +1117,7 @@ async def get_availability(
     exclude_activity_id: UUID | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.capacity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Check PAX capacity availability for an asset over a date range.
@@ -1171,6 +1177,7 @@ async def list_asset_capacities(
     asset_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.capacity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get the full capacity history for an asset (most recent first)."""
@@ -1330,6 +1337,7 @@ async def get_gantt(
     show_permanent_ops: bool = True,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.activity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get Gantt chart data — activities grouped by asset with capacity info."""
@@ -1358,6 +1366,7 @@ async def get_heatmap(
     asset_id: UUID | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.capacity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get capacity heatmap data — daily saturation percentage per asset."""
@@ -1378,6 +1387,7 @@ async def get_calendar(
     view: str = Query("month", pattern=r"^(month|week)$", description="Calendar view mode"),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.activity.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Return activities grouped by day for a calendar UI.

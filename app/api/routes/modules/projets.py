@@ -95,6 +95,7 @@ async def list_projects(
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.read"),
     db: AsyncSession = Depends(get_db),
 ):
     # Subqueries for counts
@@ -203,6 +204,7 @@ async def list_all_tasks(
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """List all tasks across all projects — for MS Project-like spreadsheet view."""
@@ -247,6 +249,7 @@ async def get_project(
     project_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.read"),
     db: AsyncSession = Depends(get_db),
 ):
     project = await _get_project_or_404(db, project_id, entity_id)
@@ -337,6 +340,7 @@ async def list_project_members(
     project_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.read"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
@@ -407,6 +411,7 @@ async def list_project_tasks(
     assignee_id: UUID | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.read"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
@@ -559,6 +564,7 @@ async def list_project_milestones(
     project_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.read"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
@@ -640,6 +646,7 @@ async def list_sub_projects(
     project_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """List sub-projects of a macro-project."""
@@ -677,6 +684,7 @@ async def list_revisions(
     project_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.read"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
@@ -851,6 +859,7 @@ async def list_deliverables(
     task_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.read"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
@@ -934,6 +943,7 @@ async def list_actions(
     task_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.read"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
@@ -1037,6 +1047,7 @@ async def list_task_changelog(
     task_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.read"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
@@ -1063,6 +1074,7 @@ async def list_task_dependencies(
     project_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """List all task dependencies for a project."""

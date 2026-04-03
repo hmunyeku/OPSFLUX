@@ -15,6 +15,7 @@ MANIFEST = ModuleManifest(
         "travelwiz.vector.delete",
         # Voyages
         "travelwiz.voyage.read",
+        "travelwiz.voyage.read_all",
         "travelwiz.voyage.create",
         "travelwiz.voyage.update",
         "travelwiz.voyage.delete",
@@ -25,6 +26,7 @@ MANIFEST = ModuleManifest(
         "travelwiz.manifest.validate",
         # Cargo
         "travelwiz.cargo.read",
+        "travelwiz.cargo.read_all",
         "travelwiz.cargo.create",
         "travelwiz.cargo.update",
         "travelwiz.cargo.receive",
@@ -36,6 +38,11 @@ MANIFEST = ModuleManifest(
         "travelwiz.emergency.declare",
         # Pickup / shuttle
         "travelwiz.pickup.manage",
+        "travelwiz.pickup.create",
+        "travelwiz.pickup.update",
+        # Tracking / weather
+        "travelwiz.tracking.update",
+        "travelwiz.weather.create",
     ],
     roles=[
         {
@@ -44,12 +51,16 @@ MANIFEST = ModuleManifest(
             "description": "Full transport logistics management",
             "permissions": [
                 "travelwiz.vector.read", "travelwiz.vector.create", "travelwiz.vector.update",
-                "travelwiz.voyage.read", "travelwiz.voyage.create", "travelwiz.voyage.update",
+                "travelwiz.voyage.read", "travelwiz.voyage.read_all",
+                "travelwiz.voyage.create", "travelwiz.voyage.update",
                 "travelwiz.voyage.validate",
                 "travelwiz.manifest.read", "travelwiz.manifest.create", "travelwiz.manifest.validate",
-                "travelwiz.cargo.read", "travelwiz.cargo.create", "travelwiz.cargo.update", "travelwiz.cargo.receive",
+                "travelwiz.cargo.read", "travelwiz.cargo.read_all",
+                "travelwiz.cargo.create", "travelwiz.cargo.update", "travelwiz.cargo.receive",
                 "travelwiz.boarding.manage", "travelwiz.deck.manage",
                 "travelwiz.emergency.declare", "travelwiz.pickup.manage",
+                "travelwiz.pickup.create", "travelwiz.pickup.update",
+                "travelwiz.tracking.update", "travelwiz.weather.create",
             ],
         },
         {
@@ -58,11 +69,14 @@ MANIFEST = ModuleManifest(
             "description": "Voyage planning and coordination",
             "permissions": [
                 "travelwiz.vector.read", "travelwiz.vector.create", "travelwiz.vector.update",
-                "travelwiz.voyage.read", "travelwiz.voyage.create", "travelwiz.voyage.update",
+                "travelwiz.voyage.read", "travelwiz.voyage.read_all",
+                "travelwiz.voyage.create", "travelwiz.voyage.update",
                 "travelwiz.voyage.validate",
                 "travelwiz.manifest.read", "travelwiz.manifest.create", "travelwiz.manifest.validate",
                 "travelwiz.boarding.manage", "travelwiz.deck.manage",
                 "travelwiz.emergency.declare", "travelwiz.pickup.manage",
+                "travelwiz.pickup.create", "travelwiz.pickup.update",
+                "travelwiz.tracking.update", "travelwiz.weather.create",
             ],
         },
         {
@@ -74,6 +88,8 @@ MANIFEST = ModuleManifest(
                 "travelwiz.manifest.read",
                 "travelwiz.boarding.manage",
                 "travelwiz.emergency.declare",
+                "travelwiz.tracking.update",
+                "travelwiz.weather.create",
             ],
         },
         {
@@ -86,6 +102,7 @@ MANIFEST = ModuleManifest(
                 "travelwiz.cargo.read", "travelwiz.cargo.create", "travelwiz.cargo.receive",
                 "travelwiz.boarding.manage",
                 "travelwiz.emergency.declare",
+                "travelwiz.tracking.update",
             ],
         },
     ],

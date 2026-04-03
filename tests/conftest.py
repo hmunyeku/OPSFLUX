@@ -1,6 +1,7 @@
 """Test configuration and fixtures."""
 
 import asyncio
+import os
 from collections.abc import AsyncGenerator
 
 import pytest
@@ -14,6 +15,16 @@ from app.main import app
 from app.models.base import Base
 
 
+def _get_test_database_url() -> str:
+    url = os.getenv("TEST_DATABASE_URL", "").strip()
+    if not url:
+        pytest.skip("TEST_DATABASE_URL is not configured")
+    lowered = url.lower()
+    if "test" not in lowered:
+        raise RuntimeError("Unsafe TEST_DATABASE_URL: database name must clearly target a test database")
+    return url
+
+
 @pytest.fixture(scope="session")
 def event_loop():
     loop = asyncio.new_event_loop()
@@ -23,7 +34,7 @@ def event_loop():
 
 @pytest_asyncio.fixture(scope="session")
 async def test_engine():
-    engine = create_async_engine(settings.DATABASE_URL, echo=False)
+    engine = create_async_engine(_get_test_database_url(), echo=False)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield engine

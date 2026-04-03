@@ -1,4 +1,4 @@
-"""TenantSchemaMiddleware — resolve tenant schema from subdomain and set context."""
+"""TenantSchemaMiddleware — resolve tenant schema from host and set context."""
 
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
@@ -8,7 +8,7 @@ from app.core.tenant_context import set_tenant_schema
 
 
 class TenantSchemaMiddleware(BaseHTTPMiddleware):
-    """Resolves tenant schema from request subdomain and sets PostgreSQL search_path."""
+    """Resolve tenant schema with secure defaults."""
 
     # Paths that don't require tenant context
     EXEMPT_PATHS = {
@@ -37,15 +37,18 @@ class TenantSchemaMiddleware(BaseHTTPMiddleware):
 
         # Extract tenant from subdomain: perenco.app.opsflux.io -> perenco
         host = request.headers.get("host", "localhost")
-        parts = host.split(".")
+        host_no_port = host.split(":")[0].strip().lower()
+        parts = host_no_port.split(".")
 
         if len(parts) >= 3 and parts[1] in ("app", "api"):
             tenant_slug = parts[0].lower().replace("-", "_")
-        elif request.headers.get("X-Tenant"):
-            tenant_slug = request.headers["X-Tenant"].lower().replace("-", "_")
-        else:
-            # Default to public schema in development
+        elif host_no_port in {"localhost", "127.0.0.1"}:
             tenant_slug = "public"
+        else:
+            return JSONResponse(
+                status_code=400,
+                content={"detail": "Unable to resolve tenant from request host"},
+            )
 
         # Validate tenant slug (prevent SQL injection)
         if not tenant_slug.isidentifier():

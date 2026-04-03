@@ -118,6 +118,10 @@ class BackendCreate(BaseModel):
     upstream_url: str = Field(max_length=500)
     description: str | None = None
     active: bool = True
+    config: dict | None = Field(
+        default=None,
+        description="Backend-specific config (credentials for native/internal:// backends)",
+    )
 
 
 class BackendUpdate(BaseModel):
@@ -125,6 +129,7 @@ class BackendUpdate(BaseModel):
     upstream_url: str | None = None
     description: str | None = None
     active: bool | None = None
+    config: dict | None = None
 
 
 class BackendOut(BaseModel):
@@ -134,10 +139,20 @@ class BackendOut(BaseModel):
     upstream_url: str
     description: str | None
     active: bool
+    has_config: bool = False
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @classmethod
+    def from_model(cls, b: "McpGatewayBackend") -> "BackendOut":
+        return cls(
+            id=b.id, slug=b.slug, name=b.name, upstream_url=b.upstream_url,
+            description=b.description, active=b.active,
+            has_config=bool(b.config),
+            created_at=b.created_at, updated_at=b.updated_at,
+        )
 
 
 class TokenCreate(BaseModel):
@@ -187,7 +202,7 @@ async def list_backends(
     result = await db.execute(
         select(McpGatewayBackend).order_by(McpGatewayBackend.slug)
     )
-    return result.scalars().all()
+    return [BackendOut.from_model(b) for b in result.scalars().all()]
 
 
 @admin_router.post("/backends", response_model=BackendOut, status_code=201)
@@ -202,11 +217,12 @@ async def create_backend(
         upstream_url=body.upstream_url.rstrip("/"),
         description=body.description,
         active=body.active,
+        config=body.config,
     )
     db.add(backend)
     await db.commit()
     await db.refresh(backend)
-    return backend
+    return BackendOut.from_model(backend)
 
 
 @admin_router.put("/backends/{backend_id}", response_model=BackendOut)
@@ -223,14 +239,23 @@ async def update_backend(
     if not backend:
         raise HTTPException(404, "Backend not found")
 
-    for field, value in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    config_changed = "config" in updates
+
+    for field, value in updates.items():
         if field == "upstream_url" and value:
             value = value.rstrip("/")
         setattr(backend, field, value)
 
     await db.commit()
     await db.refresh(backend)
-    return backend
+
+    # Invalidate cached native backend if config changed
+    if config_changed:
+        from app.mcp.mcp_native import invalidate_backend
+        invalidate_backend(backend.slug)
+
+    return BackendOut.from_model(backend)
 
 
 @admin_router.delete("/backends/{backend_id}", status_code=204)
@@ -245,8 +270,13 @@ async def delete_backend(
     backend = result.scalar_one_or_none()
     if not backend:
         raise HTTPException(404, "Backend not found")
+    slug = backend.slug
     await db.delete(backend)
     await db.commit()
+
+    # Clean up cached native backend
+    from app.mcp.mcp_native import invalidate_backend
+    invalidate_backend(slug)
 
 
 # ── Tokens CRUD ───────────────────────────────────────────────────────────────
@@ -389,7 +419,19 @@ async def proxy_to_backend(backend_slug: str, path: str, request: Request):
             status_code=404,
         )
 
-    # 4. Build upstream request
+    # 4. Native backend — serve MCP protocol directly (no proxy)
+    if backend.upstream_url.startswith("internal://"):
+        from app.mcp.mcp_native import get_or_create_backend, handle_mcp_request
+        native = await get_or_create_backend(backend.slug, backend.config or {})
+        if native is None:
+            return JSONResponse(
+                {"error": f"Native backend '{backend_slug}' not configured"},
+                status_code=500,
+            )
+        body = await request.body()
+        return await handle_mcp_request(native, body)
+
+    # 5. Build upstream request
     upstream_url = f"{backend.upstream_url}/{path}"
     if request.url.query:
         upstream_url += f"?{request.url.query}"

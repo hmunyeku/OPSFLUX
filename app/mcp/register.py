@@ -17,4 +17,9 @@ async def register_mcp_plugins() -> None:
 
     register_core_tools(mcp_registry)
 
+    # Register native MCP backend initializers (lazy — actual init on first request)
+    from app.mcp.mcp_native import register_native_initializer
+    from app.mcp.gouti_tools import create_gouti_backend
+    register_native_initializer("gouti", create_gouti_backend)
+
     logger.info("MCP: all plugins registered (%d tools total)", mcp_registry.tool_count)

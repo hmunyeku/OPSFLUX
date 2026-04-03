@@ -10,6 +10,7 @@ MANIFEST = ModuleManifest(
     permissions=[
         # Activities
         "planner.activity.read",
+        "planner.activity.read_all",
         "planner.activity.create",
         "planner.activity.update",
         "planner.activity.delete",
@@ -21,6 +22,9 @@ MANIFEST = ModuleManifest(
         "planner.conflict.resolve",
         # Capacity
         "planner.capacity.read",
+        "planner.capacity.update",
+        # Overrides
+        "planner.priority.override",
         # Permanent ops
         "planner.permanent_ops.manage",
         # Emergency maintenance
@@ -32,11 +36,14 @@ MANIFEST = ModuleManifest(
             "name": "Directeur des Op\u00e9rations",
             "description": "Full planner access including conflict arbitration",
             "permissions": [
-                "planner.activity.read", "planner.activity.create", "planner.activity.update",
+                "planner.activity.read", "planner.activity.read_all",
+                "planner.activity.create", "planner.activity.update",
                 "planner.activity.delete", "planner.activity.submit", "planner.activity.validate",
                 "planner.activity.cancel",
                 "planner.conflict.read", "planner.conflict.resolve",
-                "planner.capacity.read", "planner.permanent_ops.manage", "planner.emergency.approve",
+                "planner.capacity.read", "planner.capacity.update",
+                "planner.priority.override", "planner.permanent_ops.manage",
+                "planner.emergency.approve",
             ],
         },
         {
@@ -44,9 +51,11 @@ MANIFEST = ModuleManifest(
             "name": "Directeur de Production",
             "description": "Activity validation and capacity management",
             "permissions": [
-                "planner.activity.read", "planner.activity.create", "planner.activity.update",
+                "planner.activity.read", "planner.activity.read_all",
+                "planner.activity.create", "planner.activity.update",
                 "planner.activity.submit", "planner.activity.validate",
-                "planner.capacity.read", "planner.permanent_ops.manage",
+                "planner.capacity.read", "planner.capacity.update",
+                "planner.permanent_ops.manage",
             ],
         },
         {
@@ -54,7 +63,8 @@ MANIFEST = ModuleManifest(
             "name": "Chef de Site",
             "description": "Site-scoped activity validation",
             "permissions": [
-                "planner.activity.read", "planner.activity.create", "planner.activity.update",
+                "planner.activity.read", "planner.activity.read_all",
+                "planner.activity.create", "planner.activity.update",
                 "planner.activity.submit", "planner.activity.validate",
                 "planner.capacity.read", "planner.permanent_ops.manage",
             ],
@@ -64,7 +74,8 @@ MANIFEST = ModuleManifest(
             "name": "Planificateur",
             "description": "Activity creation and submission",
             "permissions": [
-                "planner.activity.read", "planner.activity.create", "planner.activity.update",
+                "planner.activity.read", "planner.activity.read_all",
+                "planner.activity.create", "planner.activity.update",
                 "planner.activity.submit", "planner.capacity.read",
             ],
         },

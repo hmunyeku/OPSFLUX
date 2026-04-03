@@ -40,6 +40,7 @@ async def list_tiers(
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("tier.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """List companies/organizations with contact count."""
@@ -122,6 +123,7 @@ async def get_tier(
     tier_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("tier.read"),
     db: AsyncSession = Depends(get_db),
 ):
     tier = await _get_tier_or_404(db, tier_id, entity_id)
@@ -175,6 +177,7 @@ async def list_all_contacts(
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("tier.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """List all contacts across all companies, with search and filters."""
@@ -220,6 +223,7 @@ def _contact_with_tier(row) -> dict:
 async def list_tier_contacts(
     tier_id: UUID, entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("tier.read"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_tier_or_404(db, tier_id, entity_id)
@@ -235,6 +239,7 @@ async def list_tier_contacts(
 async def count_tier_contacts(
     tier_id: UUID, entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("tier.read"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_tier_or_404(db, tier_id, entity_id)
@@ -250,6 +255,7 @@ async def get_tier_contact(
     tier_id: UUID, contact_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("tier.read"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_tier_or_404(db, tier_id, entity_id)
@@ -356,6 +362,7 @@ async def list_tier_blocks(
     tier_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("tier.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """List the blocking/unblocking history for a tier."""
@@ -457,6 +464,7 @@ async def list_external_refs(
     tier_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("tier.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """List external references (SAP, Gouti, etc.) for a tier."""

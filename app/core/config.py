@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     CORS_ALLOWED_METHODS: str = "GET,POST,PUT,PATCH,DELETE,OPTIONS"
     CORS_ALLOWED_HEADERS: str = "Authorization,Content-Type,X-Entity-ID,X-Tenant,X-Request-Id,Accept,Accept-Language"
     LOG_LEVEL: str = "INFO"
+    DEV_SEED_ON_STARTUP: bool = False
 
     # ── PostgreSQL ───────────────────────────────────────────────
     DATABASE_URL: str = "postgresql+asyncpg://opsflux:opsflux_dev@localhost:5432/opsflux"

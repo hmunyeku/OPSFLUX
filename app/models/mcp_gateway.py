@@ -4,7 +4,7 @@ from datetime import datetime
 from uuid import UUID as PyUUID
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -21,6 +21,10 @@ class McpGatewayBackend(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     upstream_url: Mapped[str] = mapped_column(String(500), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    config: Mapped[dict | None] = mapped_column(
+        JSONB, nullable=True,
+        comment="Backend-specific config (credentials for native backends)",
+    )
 
 
 class McpGatewayToken(UUIDPrimaryKeyMixin, TimestampMixin, Base):

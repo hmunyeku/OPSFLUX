@@ -858,11 +858,43 @@ def _build_provider_urls(provider_id: str, cfg: dict[str, str]) -> dict[str, str
 
 
 @router.get("/sso/providers")
-async def list_sso_providers(db: AsyncSession = Depends(get_db)):
-    """Return list of configured SSO providers (those with client_id set)."""
+async def list_sso_providers(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Return list of configured SSO providers (those with client_id set).
+
+    Public endpoint (no auth) — called on the login page.
+    Uses X-Entity-ID header if present, otherwise scans for any configured provider.
+    """
+    # Try to get entity_id from header (login page may send it)
+    raw_entity = request.headers.get("X-Entity-ID")
+    if raw_entity:
+        try:
+            eid = UUID(raw_entity)
+        except (ValueError, TypeError):
+            return []
+    else:
+        # No entity context — scan entity-scoped settings without scope_id filter
+        eid = None
+
     providers = []
     for provider_id, provider_def in SSO_PROVIDERS.items():
-        cfg = await _get_sso_settings(db, entity_id, provider_def["settings_prefix"])
+        if eid is not None:
+            cfg = await _get_sso_settings(db, eid, provider_def["settings_prefix"])
+        else:
+            # Fetch without entity filter (any entity that has it configured)
+            result = await db.execute(
+                select(Setting).where(
+                    Setting.key.startswith(provider_def["settings_prefix"]),
+                    Setting.scope == "entity",
+                )
+            )
+            cfg: dict[str, str] = {}
+            for s in result.scalars().all():
+                field = s.key.replace(provider_def["settings_prefix"] + ".", "")
+                val = s.value.get("v", "") if isinstance(s.value, dict) else str(s.value)
+                cfg[field] = str(val) if val else ""
         if cfg.get("client_id"):
             providers.append({
                 "id": provider_id,

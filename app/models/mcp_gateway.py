@@ -3,7 +3,7 @@
 from datetime import datetime
 from uuid import UUID as PyUUID
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, Text
+from sqlalchemy import Boolean, DateTime, Index, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -43,7 +43,8 @@ class McpGatewayToken(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         comment="Comma-separated backend slugs, or '*' for all",
     )
     created_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("public.users.id"), nullable=True,
+        UUID(as_uuid=True), nullable=True,
+        comment="User ID who created this token (no FK — users are in tenant schemas)",
     )
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     revoked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

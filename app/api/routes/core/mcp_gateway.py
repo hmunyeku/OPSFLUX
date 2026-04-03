@@ -199,10 +199,12 @@ async def list_backends(
     _: None = require_permission("admin.system"),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(McpGatewayBackend).order_by(McpGatewayBackend.slug)
-    )
-    return [BackendOut.from_model(b) for b in result.scalars().all()]
+    async with async_session_factory() as pub_session:
+        await pub_session.execute(text("SET search_path TO public"))
+        result = await pub_session.execute(
+            select(McpGatewayBackend).order_by(McpGatewayBackend.slug)
+        )
+        return [BackendOut.from_model(b) for b in result.scalars().all()]
 
 
 @admin_router.post("/backends", response_model=BackendOut, status_code=201)
@@ -211,18 +213,20 @@ async def create_backend(
     _: None = require_permission("admin.system"),
     db: AsyncSession = Depends(get_db),
 ):
-    backend = McpGatewayBackend(
-        slug=body.slug,
-        name=body.name,
-        upstream_url=body.upstream_url.rstrip("/"),
-        description=body.description,
-        active=body.active,
-        config=body.config,
-    )
-    db.add(backend)
-    await db.commit()
-    await db.refresh(backend)
-    return BackendOut.from_model(backend)
+    async with async_session_factory() as pub_session:
+        await pub_session.execute(text("SET search_path TO public"))
+        backend = McpGatewayBackend(
+            slug=body.slug,
+            name=body.name,
+            upstream_url=body.upstream_url.rstrip("/"),
+            description=body.description,
+            active=body.active,
+            config=body.config,
+        )
+        pub_session.add(backend)
+        await pub_session.commit()
+        await pub_session.refresh(backend)
+        return BackendOut.from_model(backend)
 
 
 @admin_router.put("/backends/{backend_id}", response_model=BackendOut)
@@ -232,23 +236,25 @@ async def update_backend(
     _: None = require_permission("admin.system"),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(McpGatewayBackend).where(McpGatewayBackend.id == backend_id)
-    )
-    backend = result.scalar_one_or_none()
-    if not backend:
-        raise HTTPException(404, "Backend not found")
+    async with async_session_factory() as pub_session:
+        await pub_session.execute(text("SET search_path TO public"))
+        result = await pub_session.execute(
+            select(McpGatewayBackend).where(McpGatewayBackend.id == backend_id)
+        )
+        backend = result.scalar_one_or_none()
+        if not backend:
+            raise HTTPException(404, "Backend not found")
 
-    updates = body.model_dump(exclude_unset=True)
-    config_changed = "config" in updates
+        updates = body.model_dump(exclude_unset=True)
+        config_changed = "config" in updates
 
-    for field, value in updates.items():
-        if field == "upstream_url" and value:
-            value = value.rstrip("/")
-        setattr(backend, field, value)
+        for field, value in updates.items():
+            if field == "upstream_url" and value:
+                value = value.rstrip("/")
+            setattr(backend, field, value)
 
-    await db.commit()
-    await db.refresh(backend)
+        await pub_session.commit()
+        await pub_session.refresh(backend)
 
     # Invalidate cached native backend if config changed
     if config_changed:
@@ -264,15 +270,17 @@ async def delete_backend(
     _: None = require_permission("admin.system"),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(McpGatewayBackend).where(McpGatewayBackend.id == backend_id)
-    )
-    backend = result.scalar_one_or_none()
-    if not backend:
-        raise HTTPException(404, "Backend not found")
-    slug = backend.slug
-    await db.delete(backend)
-    await db.commit()
+    async with async_session_factory() as pub_session:
+        await pub_session.execute(text("SET search_path TO public"))
+        result = await pub_session.execute(
+            select(McpGatewayBackend).where(McpGatewayBackend.id == backend_id)
+        )
+        backend = result.scalar_one_or_none()
+        if not backend:
+            raise HTTPException(404, "Backend not found")
+        slug = backend.slug
+        await pub_session.delete(backend)
+        await pub_session.commit()
 
     # Clean up cached native backend
     from app.mcp.mcp_native import invalidate_backend
@@ -286,23 +294,25 @@ async def list_tokens(
     _: None = require_permission("admin.system"),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(McpGatewayToken).order_by(McpGatewayToken.created_at.desc())
-    )
-    tokens = result.scalars().all()
-    return [
-        TokenOut(
-            id=t.id,
-            name=t.name,
-            scopes=t.scopes,
-            created_at=t.created_at,
-            expires_at=t.expires_at,
-            revoked=t.revoked,
-            last_used_at=t.last_used_at,
-            token_preview=t.token_hash[:8] + "...",
+    async with async_session_factory() as pub_session:
+        await pub_session.execute(text("SET search_path TO public"))
+        result = await pub_session.execute(
+            select(McpGatewayToken).order_by(McpGatewayToken.created_at.desc())
         )
-        for t in tokens
-    ]
+        tokens = result.scalars().all()
+        return [
+            TokenOut(
+                id=t.id,
+                name=t.name,
+                scopes=t.scopes,
+                created_at=t.created_at,
+                expires_at=t.expires_at,
+                revoked=t.revoked,
+                last_used_at=t.last_used_at,
+                token_preview=t.token_hash[:8] + "...",
+            )
+            for t in tokens
+        ]
 
 
 @admin_router.post("/tokens", response_model=TokenCreated, status_code=201)
@@ -317,16 +327,19 @@ async def create_token(
     if body.expires_in_days:
         expires_at = datetime.now(UTC) + timedelta(days=body.expires_in_days)
 
-    token = McpGatewayToken(
-        name=body.name,
-        token_hash=_hash_token(raw_token),
-        scopes=body.scopes,
-        created_by=current_user.id,
-        expires_at=expires_at,
-    )
-    db.add(token)
-    await db.commit()
-    await db.refresh(token)
+    # Use a dedicated public-schema session for MCP tables
+    async with async_session_factory() as pub_session:
+        await pub_session.execute(text("SET search_path TO public"))
+        token = McpGatewayToken(
+            name=body.name,
+            token_hash=_hash_token(raw_token),
+            scopes=body.scopes,
+            created_by=current_user.id,
+            expires_at=expires_at,
+        )
+        pub_session.add(token)
+        await pub_session.commit()
+        await pub_session.refresh(token)
 
     return TokenCreated(
         id=token.id,
@@ -343,14 +356,16 @@ async def revoke_token(
     _: None = require_permission("admin.system"),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(McpGatewayToken).where(McpGatewayToken.id == token_id)
-    )
-    token = result.scalar_one_or_none()
-    if not token:
-        raise HTTPException(404, "Token not found")
-    token.revoked = True
-    await db.commit()
+    async with async_session_factory() as pub_session:
+        await pub_session.execute(text("SET search_path TO public"))
+        result = await pub_session.execute(
+            select(McpGatewayToken).where(McpGatewayToken.id == token_id)
+        )
+        token = result.scalar_one_or_none()
+        if not token:
+            raise HTTPException(404, "Token not found")
+        token.revoked = True
+        await pub_session.commit()
     return {"status": "revoked"}
 
 
@@ -360,14 +375,16 @@ async def delete_token(
     _: None = require_permission("admin.system"),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(McpGatewayToken).where(McpGatewayToken.id == token_id)
-    )
-    token = result.scalar_one_or_none()
-    if not token:
-        raise HTTPException(404, "Token not found")
-    await db.delete(token)
-    await db.commit()
+    async with async_session_factory() as pub_session:
+        await pub_session.execute(text("SET search_path TO public"))
+        result = await pub_session.execute(
+            select(McpGatewayToken).where(McpGatewayToken.id == token_id)
+        )
+        token = result.scalar_one_or_none()
+        if not token:
+            raise HTTPException(404, "Token not found")
+        await pub_session.delete(token)
+        await pub_session.commit()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

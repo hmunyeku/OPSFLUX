@@ -104,6 +104,8 @@ import { useUsers } from '@/hooks/useUsers'
 import { useAssetTree } from '@/hooks/useAssets'
 import type { AssetTreeNode } from '@/types/api'
 import { usePermission } from '@/hooks/usePermission'
+import { useDictionaryLabels, useDictionaryOptions } from '@/hooks/useDictionary'
+import { useAuthStore } from '@/stores/authStore'
 import { useProjects } from '@/hooks/useProjets'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { ImputationManager } from '@/components/shared/ImputationManager'
@@ -125,11 +127,6 @@ import type {
 } from '@/services/paxlogService'
 
 // ── Constants ──────────────────────────────────────────────────
-
-const PAX_TYPE_OPTIONS = [
-  { value: 'internal', label: 'Interne' },
-  { value: 'external', label: 'Externe' },
-]
 
 const PAX_STATUS_OPTIONS = [
   { value: '', label: 'Tous' },
@@ -164,15 +161,6 @@ const ADS_STATUS_MAP: Record<string, { label: string; badge: string }> = {
   in_progress: { label: 'En cours', badge: 'gl-badge-success' },
   completed: { label: 'Termine', badge: 'gl-badge-success' },
 }
-
-const VISIT_CATEGORY_OPTIONS = [
-  { value: 'project_work', label: 'Projet' },
-  { value: 'maintenance', label: 'Maintenance' },
-  { value: 'inspection', label: 'Inspection' },
-  { value: 'visit', label: 'Visite' },
-  { value: 'permanent_ops', label: 'Operations permanentes' },
-  { value: 'other', label: 'Autre' },
-]
 
 const SEVERITY_OPTIONS = [
   { value: 'info', label: 'Info', color: 'gl-badge-info' },
@@ -213,14 +201,7 @@ const AVM_STATUS_MAP: Record<string, { label: string; badge: string }> = {
   cancelled: { label: 'Annulee', badge: 'gl-badge-neutral' },
 }
 
-const AVM_MISSION_TYPE_OPTIONS = [
-  { value: 'standard', label: 'Standard' },
-  { value: 'vip', label: 'VIP' },
-  { value: 'regulatory', label: 'Reglementaire' },
-  { value: 'emergency', label: 'Urgence' },
-]
-
-const MAIN_TABS = [
+const ALL_TABS = [
   { id: 'dashboard' as const, label: 'Tableau de bord', icon: LayoutDashboard },
   { id: 'ads' as const, label: 'Avis de Sejour', icon: ClipboardList },
   { id: 'profiles' as const, label: 'Profils PAX', icon: Users },
@@ -230,7 +211,7 @@ const MAIN_TABS = [
   { id: 'avm' as const, label: 'Missions (AVM)', icon: Briefcase },
 ]
 
-type MainTabId = (typeof MAIN_TABS)[number]['id']
+type MainTabId = (typeof ALL_TABS)[number]['id']
 
 // ── Helpers ────────────────────────────────────────────────────
 
@@ -391,6 +372,7 @@ function DashboardTab() {
   const { data: complianceStats } = useComplianceStats()
   const { data: expiringCreds } = useExpiringCredentials(30)
   const { data: incidentsData } = usePaxIncidents({ page: 1, page_size: 5, active_only: true })
+  const visitCategoryLabels = useDictionaryLabels('visit_category')
 
   const paxOnSite = profilesData?.total ?? 0
   const adsPending = useMemo(() => {
@@ -451,7 +433,7 @@ function DashboardTab() {
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-medium font-mono text-foreground">{ads.reference}</p>
                     <p className="text-[10px] text-muted-foreground">
-                      {VISIT_CATEGORY_OPTIONS.find((o) => o.value === ads.visit_category)?.label || ads.visit_category}
+                      {visitCategoryLabels[ads.visit_category] || ads.visit_category}
                       {' — '}
                       {formatDate(ads.start_date)} → {formatDate(ads.end_date)}
                     </p>
@@ -511,6 +493,139 @@ function DashboardTab() {
   )
 }
 
+function RequesterHomeTab({
+  currentUserId,
+  onCreateAds,
+  onCreateAvm,
+  onOpenAds,
+  onOpenAvm,
+}: {
+  currentUserId: string | null
+  onCreateAds: () => void
+  onCreateAvm: () => void
+  onOpenAds: (id: string) => void
+  onOpenAvm: (id: string) => void
+}) {
+  const { data: myAds, isLoading: adsLoading } = useAdsList({
+    page: 1,
+    page_size: 8,
+    requester_id: currentUserId || undefined,
+  })
+  const { data: avmData, isLoading: avmLoading } = useAvmList({ page: 1, page_size: 12 })
+
+  const myAvm = useMemo(
+    () => (avmData?.items ?? []).filter((item) => item.created_by === currentUserId).slice(0, 6),
+    [avmData, currentUserId],
+  )
+
+  const draftAds = (myAds?.items ?? []).filter((item) => item.status === 'draft').length
+  const pendingAds = (myAds?.items ?? []).filter((item) => ['submitted', 'pending_compliance', 'pending_validation', 'requires_review'].includes(item.status)).length
+  const activeAds = (myAds?.items ?? []).filter((item) => ['approved', 'in_progress'].includes(item.status)).length
+
+  return (
+    <PanelContent>
+      <div className="p-4 space-y-5">
+        <div className="rounded-xl border border-border bg-gradient-to-br from-primary/[0.08] via-background to-amber-500/[0.06] p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div className="space-y-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Parcours demandeur</p>
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Demander un sejour ou preparer une mission</h2>
+                <p className="text-sm text-muted-foreground">
+                  Commencez par un AdS si vous gerez un sejour. Utilisez un AVM si vous structurez une mission avec plusieurs etapes ou AdS associees.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-95" onClick={onCreateAds}>
+                <ClipboardList size={14} />
+                Nouvel AdS
+              </button>
+              <button className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-xs font-medium text-foreground hover:bg-accent" onClick={onCreateAvm}>
+                <Briefcase size={14} />
+                Nouvel AVM
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatCard label="Mes AdS" value={myAds?.total ?? 0} icon={ClipboardList} />
+          <StatCard label="Brouillons" value={draftAds} icon={Clock} accent={draftAds > 0 ? 'text-amber-600 dark:text-amber-400' : undefined} />
+          <StatCard label="A traiter" value={pendingAds} icon={Info} accent={pendingAds > 0 ? 'text-primary' : undefined} />
+          <StatCard label="Sejours actifs" value={activeAds} icon={CheckCircle2} accent={activeAds > 0 ? 'text-emerald-600 dark:text-emerald-400' : undefined} />
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+          <CollapsibleSection id="requester-my-ads" title="Mes demandes de sejour" defaultExpanded>
+            <div className="space-y-2">
+              {adsLoading && <p className="text-xs text-muted-foreground">Chargement...</p>}
+              {!adsLoading && (myAds?.items ?? []).length === 0 && (
+                <p className="text-xs text-muted-foreground italic">Aucun AdS pour le moment.</p>
+              )}
+              {(myAds?.items ?? []).map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => onOpenAds(item.id)}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-left hover:bg-accent"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-mono text-xs font-medium text-foreground">{item.reference}</p>
+                      <p className="truncate text-sm text-foreground">{item.site_name || 'Site non renseigne'}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {formatDateShort(item.start_date)} → {formatDateShort(item.end_date)} • {item.pax_count} PAX
+                      </p>
+                    </div>
+                    <StatusBadge status={item.status} map={ADS_STATUS_MAP} className="shrink-0" />
+                  </div>
+                </button>
+              ))}
+            </div>
+          </CollapsibleSection>
+
+          <div className="space-y-4">
+            <CollapsibleSection id="requester-my-avm" title="Mes avis de mission" defaultExpanded>
+              <div className="space-y-2">
+                {avmLoading && <p className="text-xs text-muted-foreground">Chargement...</p>}
+                {!avmLoading && myAvm.length === 0 && (
+                  <p className="text-xs text-muted-foreground italic">Aucun AVM recent.</p>
+                )}
+                {myAvm.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => onOpenAvm(item.id)}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-left hover:bg-accent"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-mono text-xs font-medium text-foreground">{item.reference}</p>
+                        <p className="truncate text-sm text-foreground">{item.title}</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {formatDateShort(item.planned_start_date)} → {formatDateShort(item.planned_end_date)} • {item.pax_count} PAX
+                        </p>
+                      </div>
+                      <StatusBadge status={item.status} map={AVM_STATUS_MAP} className="shrink-0" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </CollapsibleSection>
+
+            <CollapsibleSection id="requester-guidance" title="Avant de soumettre">
+              <div className="space-y-2 text-xs text-muted-foreground">
+                <p>Ajoutez les PAX, puis verifiez la destination, les dates et l’imputation avant soumission.</p>
+                <p>Utilisez un AVM si vous devez preparer une mission avec plusieurs activites, sites ou AdS rattachees.</p>
+                <p>Les validateurs peuvent ajuster l’imputation avant validation, mais la saisie du demandeur interne fait foi au depart.</p>
+              </div>
+            </CollapsibleSection>
+          </div>
+        </div>
+      </div>
+    </PanelContent>
+  )
+}
+
 // ═══════════════════════════════════════════════════════════════
 // TAB 2: AVIS DE SEJOUR (AdS)
 // ═══════════════════════════════════════════════════════════════
@@ -521,6 +636,7 @@ function AdsTab({ openDetail }: { openDetail: (id: string) => void }) {
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [statusFilter, setStatusFilter] = useState('')
+  const visitCategoryLabels = useDictionaryLabels('visit_category')
 
   const { data, isLoading } = useAdsList({
     page,
@@ -569,7 +685,7 @@ function AdsTab({ openDetail }: { openDetail: (id: string) => void }) {
       header: 'Categorie',
       cell: ({ row }) => (
         <span className="gl-badge gl-badge-neutral">
-          {VISIT_CATEGORY_OPTIONS.find((o) => o.value === row.original.visit_category)?.label || row.original.visit_category}
+          {visitCategoryLabels[row.original.visit_category] || row.original.visit_category}
         </span>
       ),
     },
@@ -597,7 +713,7 @@ function AdsTab({ openDetail }: { openDetail: (id: string) => void }) {
       cell: ({ row }) => <StatusBadge status={row.original.status} map={ADS_STATUS_MAP} />,
       size: 110,
     },
-  ], [])
+  ], [visitCategoryLabels])
 
   return (
     <>
@@ -654,6 +770,8 @@ function ProfilesTab({ openDetail }: { openDetail: (id: string) => void }) {
   const [statusFilter, setStatusFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
   const { hasPermission } = usePermission()
+  const paxTypeOptions = useDictionaryOptions('pax_type')
+  const paxTypeLabels = useDictionaryLabels('pax_type', { internal: 'Interne', external: 'Externe' })
   const canImport = hasPermission('paxlog.import')
   const canExport = hasPermission('paxlog.export') || hasPermission('paxlog.profile.read')
 
@@ -685,7 +803,7 @@ function ProfilesTab({ openDetail }: { openDetail: (id: string) => void }) {
       header: 'Type',
       cell: ({ row }) => (
         <span className={cn('gl-badge', row.original.pax_type === 'internal' ? 'gl-badge-info' : 'gl-badge-neutral')}>
-          {row.original.pax_type === 'internal' ? 'Interne' : 'Externe'}
+          {paxTypeLabels[row.original.pax_type] || row.original.pax_type}
         </span>
       ),
       size: 80,
@@ -701,7 +819,7 @@ function ProfilesTab({ openDetail }: { openDetail: (id: string) => void }) {
       cell: ({ row }) => <StatusBadge status={row.original.active ? 'active' : 'inactive'} />,
       size: 90,
     },
-  ], [])
+  ], [paxTypeLabels])
 
   return (
     <>
@@ -714,7 +832,7 @@ function ProfilesTab({ openDetail }: { openDetail: (id: string) => void }) {
             </button>
           ))}
           <span className="mx-1 h-3 w-px bg-border" />
-          {PAX_TYPE_OPTIONS.map((opt) => (
+          {paxTypeOptions.map((opt) => (
             <button key={opt.value} onClick={() => { setTypeFilter(typeFilter === opt.value ? '' : opt.value); setPage(1) }}
               className={cn('px-2 py-0.5 rounded text-xs font-medium transition-colors', typeFilter === opt.value ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground')}>
               {opt.label}
@@ -1169,6 +1287,8 @@ function CreateProfilePanel() {
   const { t } = useTranslation()
   const createProfile = useCreatePaxProfile()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const paxTypeOptions = useDictionaryOptions('pax_type')
+  const paxTypeLabels = useDictionaryLabels('pax_type', { internal: 'Interne', external: 'Externe' })
 
   const [form, setForm] = useState({
     type: 'external' as 'internal' | 'external',
@@ -1237,7 +1357,7 @@ function CreateProfilePanel() {
         <PanelContentLayout>
         <FormSection title="Type de profil">
           <TagSelector
-            options={PAX_TYPE_OPTIONS}
+            options={paxTypeOptions}
             value={form.type}
             onChange={(v) => setForm({ ...form, type: v as 'internal' | 'external', company_id: null, user_id: null })}
           />
@@ -1246,6 +1366,7 @@ function CreateProfilePanel() {
               ? 'Personnel Perenco — lie a un compte utilisateur'
               : 'Sous-traitant / visiteur — lie a une entreprise (tier)'}
           </p>
+          <p className="text-[10px] text-muted-foreground">{paxTypeLabels[form.type] || form.type}</p>
         </FormSection>
 
         {form.type === 'external' && (
@@ -1322,6 +1443,7 @@ function ProfileDetailPanel({ id }: { id: string }) {
   const updateProfile = useUpdatePaxProfile()
   const { data: credentials } = usePaxCredentials(id)
   const { data: credentialTypes } = useCredentialTypes()
+  const paxTypeLabels = useDictionaryLabels('pax_type', { internal: 'Interne', external: 'Externe' })
 
   const handleSave = useCallback((field: string, value: string) => {
     updateProfile.mutate({ id, payload: normalizeNames({ [field]: value }) })
@@ -1360,7 +1482,7 @@ function ProfileDetailPanel({ id }: { id: string }) {
         <div className="flex items-center gap-2 flex-wrap">
           <StatusBadge status={profile.active ? 'active' : 'inactive'} />
           <span className={cn('gl-badge', profile.pax_type === 'internal' ? 'gl-badge-info' : 'gl-badge-neutral')}>
-            {profile.pax_type === 'internal' ? 'Interne' : 'Externe'}
+            {paxTypeLabels[profile.pax_type] || profile.pax_type}
           </span>
         </div>
 
@@ -1445,6 +1567,8 @@ function CreateAdsPanel() {
   const createAds = useCreateAds()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { data: projects } = useProjects({ page: 1, page_size: 100 })
+  const visitCategoryOptions = useDictionaryOptions('visit_category')
+  const transportModeOptions = useDictionaryOptions('transport_mode')
 
   const [form, setForm] = useState<{
     type: 'individual' | 'team'
@@ -1454,21 +1578,36 @@ function CreateAdsPanel() {
     start_date: string
     end_date: string
     project_id: string
+    outbound_transport_mode: string
+    return_transport_mode: string
   }>({
     type: 'individual',
     site_entry_asset_id: '',
     visit_purpose: '',
-    visit_category: 'project_work',
+    visit_category: '',
     start_date: '',
     end_date: '',
     project_id: '',
+    outbound_transport_mode: '',
+    return_transport_mode: '',
   })
+
+  const adsChecklist = [
+    { label: 'Destination renseignee', done: !!form.site_entry_asset_id },
+    { label: 'Categorie choisie', done: !!form.visit_category },
+    { label: 'Periode renseignee', done: !!form.start_date && !!form.end_date },
+    { label: 'Objet de visite renseigne', done: form.visit_purpose.trim().length > 0 },
+  ]
+  const adsReady = adsChecklist.every((item) => item.done)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const payload = {
       ...form,
       project_id: form.project_id || null,
+      visit_category: form.visit_category,
+      outbound_transport_mode: form.outbound_transport_mode || null,
+      return_transport_mode: form.return_transport_mode || null,
     }
     await createAds.mutateAsync(payload)
     closeDynamicPanel()
@@ -1484,7 +1623,7 @@ function CreateAdsPanel() {
           <PanelActionButton onClick={closeDynamicPanel}>{t('common.cancel')}</PanelActionButton>
           <PanelActionButton
             variant="primary"
-            disabled={createAds.isPending}
+            disabled={createAds.isPending || !adsReady}
             onClick={() => (document.getElementById('create-ads-form') as HTMLFormElement)?.requestSubmit()}
           >
             {createAds.isPending ? <Loader2 size={12} className="animate-spin" /> : t('common.create')}
@@ -1494,6 +1633,24 @@ function CreateAdsPanel() {
     >
       <form id="create-ads-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
+        <FormSection title="Demande">
+          <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Creez d’abord l’AdS avec la destination, la periode et le motif. Vous ajouterez ensuite les PAX, l’imputation et les pieces dans le dossier.
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {adsChecklist.map((item) => (
+                <div key={item.label} className="flex items-center gap-2 text-xs">
+                  <span className={cn('inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px]', item.done ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300')}>
+                    {item.done ? '✓' : '•'}
+                  </span>
+                  <span className={item.done ? 'text-foreground' : 'text-muted-foreground'}>{item.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </FormSection>
+
         <FormSection title="Type et destination">
           <FormGrid>
             <DynamicPanelField label="Type">
@@ -1515,8 +1672,9 @@ function CreateAdsPanel() {
         <FormSection title="Détails de la visite">
           <FormGrid>
             <DynamicPanelField label="Catégorie" required>
-              <select value={form.visit_category} onChange={(e) => setForm({ ...form, visit_category: e.target.value })} className={panelInputClass}>
-                {VISIT_CATEGORY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              <select value={form.visit_category} onChange={(e) => setForm({ ...form, visit_category: e.target.value })} className={panelInputClass} required>
+                <option value="">— Selectionner —</option>
+                {visitCategoryOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </DynamicPanelField>
             <DynamicPanelField label="Projet associé">
@@ -1533,6 +1691,18 @@ function CreateAdsPanel() {
                 onEndChange={(v) => setForm({ ...form, end_date: v })}
                 required
               />
+            </DynamicPanelField>
+            <DynamicPanelField label="Transport aller">
+              <select value={form.outbound_transport_mode} onChange={(e) => setForm({ ...form, outbound_transport_mode: e.target.value })} className={panelInputClass}>
+                <option value="">— Non defini —</option>
+                {transportModeOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </DynamicPanelField>
+            <DynamicPanelField label="Transport retour">
+              <select value={form.return_transport_mode} onChange={(e) => setForm({ ...form, return_transport_mode: e.target.value })} className={panelInputClass}>
+                <option value="">— Non defini —</option>
+                {transportModeOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
             </DynamicPanelField>
           </FormGrid>
           <DynamicPanelField label="Objet de la visite" required>
@@ -1564,6 +1734,8 @@ function AdsDetailPanel({ id }: { id: string }) {
   const removePax = useRemovePaxFromAds()
   const { hasPermission } = usePermission()
   const { data: assetTree = [] } = useAssetTree()
+  const visitCategoryLabels = useDictionaryLabels('visit_category')
+  const transportModeLabels = useDictionaryLabels('transport_mode')
 
   const [rejectReason, setRejectReason] = useState('')
   const [showRejectForm, setShowRejectForm] = useState(false)
@@ -1615,7 +1787,7 @@ function AdsDetailPanel({ id }: { id: string }) {
   return (
     <DynamicPanelShell
       title={ads.reference}
-      subtitle={`AdS — ${VISIT_CATEGORY_OPTIONS.find((o) => o.value === ads.visit_category)?.label || ads.visit_category}`}
+      subtitle={`AdS — ${visitCategoryLabels[ads.visit_category] || ads.visit_category}`}
       icon={<ClipboardList size={14} className="text-primary" />}
       actions={
         <div className="flex items-center gap-1">
@@ -1690,7 +1862,7 @@ function AdsDetailPanel({ id }: { id: string }) {
         <CollapsibleSection id="ads-visit" title="Visite & Transport" defaultExpanded>
           <DetailFieldGrid>
             <ReadOnlyRow label="Objet" value={ads.visit_purpose} />
-            <ReadOnlyRow label="Catégorie" value={VISIT_CATEGORY_OPTIONS.find((o) => o.value === ads.visit_category)?.label || ads.visit_category} />
+            <ReadOnlyRow label="Catégorie" value={visitCategoryLabels[ads.visit_category] || ads.visit_category} />
             <ReadOnlyRow label="Site" value={
               ads.site_entry_asset_id ? (
                 <CrossModuleLink module="assets" id={ads.site_entry_asset_id} label={resolveAssetName(ads.site_entry_asset_id) || ads.site_name || ads.site_entry_asset_id} mode="navigate" />
@@ -1703,8 +1875,8 @@ function AdsDetailPanel({ id }: { id: string }) {
                 <CrossModuleLink module="projets" id={ads.project_id} label={ads.project_name || ads.project_id} mode="navigate" />
               } />
             )}
-            {ads.outbound_transport_mode && <ReadOnlyRow label="Transport aller" value={ads.outbound_transport_mode} />}
-            {ads.return_transport_mode && <ReadOnlyRow label="Transport retour" value={ads.return_transport_mode} />}
+            {ads.outbound_transport_mode && <ReadOnlyRow label="Transport aller" value={transportModeLabels[ads.outbound_transport_mode] || ads.outbound_transport_mode} />}
+            {ads.return_transport_mode && <ReadOnlyRow label="Transport retour" value={transportModeLabels[ads.return_transport_mode] || ads.return_transport_mode} />}
           </DetailFieldGrid>
         </CollapsibleSection>
 
@@ -2123,6 +2295,7 @@ function AvmTab({ openDetail }: { openDetail: (id: string) => void }) {
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [statusFilter, setStatusFilter] = useState('')
+  const missionTypeLabels = useDictionaryLabels('mission_type')
 
   const { data, isLoading } = useAvmList({
     page,
@@ -2164,6 +2337,12 @@ function AvmTab({ openDetail }: { openDetail: (id: string) => void }) {
       size: 180,
     },
     {
+      accessorKey: 'mission_type',
+      header: 'Type',
+      cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{missionTypeLabels[row.original.mission_type] || row.original.mission_type}</span>,
+      size: 110,
+    },
+    {
       id: 'pax_count',
       header: 'PAX',
       cell: ({ row }) => <span className="text-xs text-foreground tabular-nums">{row.original.pax_count}</span>,
@@ -2181,7 +2360,7 @@ function AvmTab({ openDetail }: { openDetail: (id: string) => void }) {
       cell: ({ row }) => <CompletenessBar value={row.original.preparation_progress} />,
       size: 110,
     },
-  ], [openDetail])
+  ], [missionTypeLabels, openDetail])
 
   return (
     <>
@@ -2224,18 +2403,73 @@ function CreateAvmPanel() {
   const { t } = useTranslation()
   const createAvm = useCreateAvm()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const missionTypeOptions = useDictionaryOptions('mission_type')
+  const missionActivityTypeOptions = useDictionaryOptions('mission_activity_type')
+  const { data: projects } = useProjects({ page: 1, page_size: 100 })
 
   const [form, setForm] = useState({
     title: '',
     description: '',
     planned_start_date: '',
     planned_end_date: '',
-    mission_type: 'standard' as 'standard' | 'vip' | 'regulatory' | 'emergency',
+    mission_type: '',
+    pax_quota: 0,
     requires_badge: false,
     requires_epi: false,
     requires_visa: false,
     eligible_displacement_allowance: false,
+    programs: [
+      {
+        activity_description: '',
+        activity_type: 'visit' as 'visit' | 'meeting' | 'inspection' | 'training' | 'handover' | 'other',
+        site_asset_id: '',
+        planned_start_date: '',
+        planned_end_date: '',
+        project_id: '',
+        notes: '',
+      },
+    ],
   })
+
+  const avmChecklist = [
+    { label: 'Titre de mission renseigne', done: form.title.trim().length > 0 },
+    { label: 'Type de mission choisi', done: !!form.mission_type },
+    { label: 'Periode previsionnelle renseignee', done: !!form.planned_start_date && !!form.planned_end_date },
+    { label: 'Au moins une ligne de programme decrite', done: form.programs.some((p) => p.activity_description.trim().length > 0) },
+  ]
+  const avmReady = avmChecklist.every((item) => item.done)
+
+  const updateProgram = (index: number, patch: Partial<(typeof form.programs)[number]>) => {
+    setForm((prev) => ({
+      ...prev,
+      programs: prev.programs.map((program, i) => (i === index ? { ...program, ...patch } : program)),
+    }))
+  }
+
+  const addProgramLine = () => {
+    setForm((prev) => ({
+      ...prev,
+      programs: [
+        ...prev.programs,
+        {
+          activity_description: '',
+          activity_type: 'visit',
+          site_asset_id: '',
+          planned_start_date: '',
+          planned_end_date: '',
+          project_id: '',
+          notes: '',
+        },
+      ],
+    }))
+  }
+
+  const removeProgramLine = (index: number) => {
+    setForm((prev) => ({
+      ...prev,
+      programs: prev.programs.length === 1 ? prev.programs : prev.programs.filter((_, i) => i !== index),
+    }))
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -2244,11 +2478,23 @@ function CreateAvmPanel() {
       description: form.description || undefined,
       planned_start_date: form.planned_start_date || undefined,
       planned_end_date: form.planned_end_date || undefined,
-      mission_type: form.mission_type,
+      mission_type: (form.mission_type || undefined) as 'standard' | 'vip' | 'regulatory' | 'emergency' | undefined,
+      pax_quota: form.pax_quota,
       requires_badge: form.requires_badge,
       requires_epi: form.requires_epi,
       requires_visa: form.requires_visa,
       eligible_displacement_allowance: form.eligible_displacement_allowance,
+      programs: form.programs
+        .filter((program) => program.activity_description.trim().length > 0)
+        .map((program) => ({
+          activity_description: program.activity_description,
+          activity_type: program.activity_type,
+          site_asset_id: program.site_asset_id || null,
+          planned_start_date: program.planned_start_date || null,
+          planned_end_date: program.planned_end_date || null,
+          project_id: program.project_id || null,
+          notes: program.notes || null,
+        })),
     })
     closeDynamicPanel()
   }
@@ -2263,7 +2509,7 @@ function CreateAvmPanel() {
           <PanelActionButton onClick={closeDynamicPanel}>{t('common.cancel')}</PanelActionButton>
           <PanelActionButton
             variant="primary"
-            disabled={createAvm.isPending || !form.title}
+            disabled={createAvm.isPending || !avmReady}
             onClick={() => (document.getElementById('create-avm-form') as HTMLFormElement)?.requestSubmit()}
           >
             {createAvm.isPending ? <Loader2 size={12} className="animate-spin" /> : t('common.create')}
@@ -2273,6 +2519,24 @@ function CreateAvmPanel() {
     >
       <form id="create-avm-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
+        <FormSection title="Preparation mission">
+          <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
+            <p className="text-xs text-muted-foreground">
+              L’AVM sert a cadrer une mission avant generation ou rattachement des AdS. Decrivez la mission, sa fenetre et ses lignes de programme.
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {avmChecklist.map((item) => (
+                <div key={item.label} className="flex items-center gap-2 text-xs">
+                  <span className={cn('inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px]', item.done ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300')}>
+                    {item.done ? '✓' : '•'}
+                  </span>
+                  <span className={item.done ? 'text-foreground' : 'text-muted-foreground'}>{item.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </FormSection>
+
         <FormSection title="Mission">
           <FormGrid>
             <DynamicPanelField label="Titre" required>
@@ -2280,10 +2544,14 @@ function CreateAvmPanel() {
             </DynamicPanelField>
             <DynamicPanelField label="Type de mission">
               <select value={form.mission_type} onChange={(e) => setForm({ ...form, mission_type: e.target.value as typeof form.mission_type })} className={panelInputClass}>
-                {AVM_MISSION_TYPE_OPTIONS.map((opt) => (
+                <option value="">— Selectionner —</option>
+                {missionTypeOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
+            </DynamicPanelField>
+            <DynamicPanelField label="PAX prevus">
+              <input type="number" min={0} value={form.pax_quota} onChange={(e) => setForm({ ...form, pax_quota: parseInt(e.target.value || '0', 10) || 0 })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
           <DynamicPanelField label="Description">
@@ -2322,6 +2590,67 @@ function CreateAvmPanel() {
             ))}
           </FormGrid>
         </FormSection>
+
+        <FormSection title="Programme initial">
+          <div className="space-y-3">
+            {form.programs.map((program, index) => (
+              <div key={index} className="rounded-lg border border-border p-3 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-semibold text-foreground">Ligne {index + 1}</p>
+                  {form.programs.length > 1 && (
+                    <button type="button" className="text-xs text-destructive hover:underline" onClick={() => removeProgramLine(index)}>
+                      Supprimer
+                    </button>
+                  )}
+                </div>
+                <FormGrid>
+                  <DynamicPanelField label="Activite" required>
+                    <input
+                      type="text"
+                      value={program.activity_description}
+                      onChange={(e) => updateProgram(index, { activity_description: e.target.value })}
+                      className={panelInputClass}
+                      placeholder="Ex: inspection ligne, reunion projet, handover..."
+                    />
+                  </DynamicPanelField>
+                  <DynamicPanelField label="Type d'activite">
+                    <select value={program.activity_type} onChange={(e) => updateProgram(index, { activity_type: e.target.value as typeof program.activity_type })} className={panelInputClass}>
+                      {missionActivityTypeOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </DynamicPanelField>
+                  <DynamicPanelField label="Site">
+                    <AssetPicker value={program.site_asset_id || null} onChange={(id) => updateProgram(index, { site_asset_id: id || '' })} />
+                  </DynamicPanelField>
+                  <DynamicPanelField label="Projet">
+                    <select value={program.project_id} onChange={(e) => updateProgram(index, { project_id: e.target.value })} className={panelInputClass}>
+                      <option value="">— Aucun projet —</option>
+                      {(projects?.items ?? []).map((p) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
+                    </select>
+                  </DynamicPanelField>
+                  <DynamicPanelField label="Dates de ligne">
+                    <DateRangePicker
+                      startDate={program.planned_start_date || null}
+                      endDate={program.planned_end_date || null}
+                      onStartChange={(v) => updateProgram(index, { planned_start_date: v })}
+                      onEndChange={(v) => updateProgram(index, { planned_end_date: v })}
+                      startLabel="Debut"
+                      endLabel="Fin"
+                    />
+                  </DynamicPanelField>
+                </FormGrid>
+                <DynamicPanelField label="Notes">
+                  <textarea value={program.notes} onChange={(e) => updateProgram(index, { notes: e.target.value })} className={cn(panelInputClass, 'min-h-[56px] resize-y')} placeholder="Contraintes, participants, dependances..." />
+                </DynamicPanelField>
+              </div>
+            ))}
+            <button type="button" className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-xs font-medium text-foreground hover:bg-accent" onClick={addProgramLine}>
+              <Plus size={13} />
+              Ajouter une ligne de programme
+            </button>
+          </div>
+        </FormSection>
         </PanelContentLayout>
       </form>
     </DynamicPanelShell>
@@ -2336,6 +2665,8 @@ function AvmDetailPanel({ id }: { id?: string }) {
   const submitAvmMut = useSubmitAvm()
   const approveAvmMut = useApproveAvm()
   const cancelAvmMut = useCancelAvm()
+  const missionTypeLabels = useDictionaryLabels('mission_type')
+  const missionActivityTypeLabels = useDictionaryLabels('mission_activity_type')
 
   const { data: avm, isLoading } = useAvm(id || '')
 
@@ -2401,7 +2732,7 @@ function AvmDetailPanel({ id }: { id?: string }) {
             <ReadOnlyRow label="Reference" value={avm.reference} />
             <ReadOnlyRow label="Titre" value={avm.title} />
             <ReadOnlyRow label="Statut" value={<StatusBadge status={avm.status} map={AVM_STATUS_MAP} />} />
-            <ReadOnlyRow label="Type de mission" value={AVM_MISSION_TYPE_OPTIONS.find((o: { value: string; label: string }) => o.value === avm.mission_type)?.label || avm.mission_type} />
+            <ReadOnlyRow label="Type de mission" value={missionTypeLabels[avm.mission_type] || avm.mission_type} />
             <ReadOnlyRow label="Createur" value={avm.creator_name || '—'} />
             <ReadOnlyRow label="Dates prevues" value={`${formatDateShort(avm.planned_start_date)} — ${formatDateShort(avm.planned_end_date)}`} />
             {avm.description && <ReadOnlyRow label="Description" value={avm.description} />}
@@ -2471,7 +2802,7 @@ function AvmDetailPanel({ id }: { id?: string }) {
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-medium text-muted-foreground bg-muted rounded px-1.5 py-0.5">{idx + 1}</span>
                     <span className="text-xs font-medium text-foreground flex-1 truncate">{prog.activity_description}</span>
-                    <span className="text-[10px] text-muted-foreground capitalize">{prog.activity_type}</span>
+                    <span className="text-[10px] text-muted-foreground">{missionActivityTypeLabels[prog.activity_type] || prog.activity_type}</span>
                   </div>
                   {prog.site_name && <div className="text-[11px] text-muted-foreground">Site : {prog.site_name}</div>}
                   {(prog.planned_start_date || prog.planned_end_date) && (
@@ -2511,33 +2842,53 @@ function AvmDetailPanel({ id }: { id?: string }) {
 
 export function PaxLogPage() {
   const [activeTab, setActiveTab] = useState<MainTabId>('dashboard')
+  const user = useAuthStore((s) => s.user)
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const panelMode = useUIStore((s) => s.dynamicPanelMode)
+  const { hasPermission, hasAny } = usePermission()
 
   const isFullPanel = panelMode === 'full' && dynamicPanel !== null && dynamicPanel.module === 'paxlog'
+  const isRequesterProfile = hasAny(['paxlog.ads.read', 'paxlog.ads.create', 'paxlog.avm.create', 'paxlog.avm.update']) &&
+    !hasAny(['paxlog.profile.read', 'paxlog.compliance.read', 'paxlog.rotation.manage', 'paxlog.profile_type.manage', 'paxlog.credtype.manage'])
+
+  const visibleTabs = useMemo(() => {
+    const tabs = ALL_TABS.filter((tab) => {
+      if (tab.id === 'dashboard') return true
+      if (tab.id === 'ads') return hasAny(['paxlog.ads.read', 'paxlog.ads.create', 'paxlog.ads.update', 'paxlog.ads.approve'])
+      if (tab.id === 'avm') return hasAny(['paxlog.avm.create', 'paxlog.avm.update', 'paxlog.avm.approve'])
+      if (tab.id === 'profiles') return hasPermission('paxlog.profile.read')
+      if (tab.id === 'compliance') return hasPermission('paxlog.compliance.read')
+      if (tab.id === 'signalements') return hasPermission('paxlog.incident.read')
+      if (tab.id === 'rotations') return hasPermission('paxlog.rotation.manage')
+      return false
+    })
+    return tabs.length ? tabs : ALL_TABS.filter((tab) => tab.id === 'dashboard')
+  }, [hasAny, hasPermission])
+
+  const effectiveTab = visibleTabs.some((tab) => tab.id === activeTab) ? activeTab : visibleTabs[0].id
 
   const handleCreate = useCallback(() => {
-    if (activeTab === 'profiles') openDynamicPanel({ type: 'create', module: 'paxlog', meta: { subtype: 'profile' } })
-    else if (activeTab === 'ads') openDynamicPanel({ type: 'create', module: 'paxlog', meta: { subtype: 'ads' } })
-    else if (activeTab === 'signalements') openDynamicPanel({ type: 'create', module: 'paxlog', meta: { subtype: 'incident' } })
-    else if (activeTab === 'rotations') openDynamicPanel({ type: 'create', module: 'paxlog', meta: { subtype: 'rotation' } })
-    else if (activeTab === 'avm') openDynamicPanel({ type: 'create', module: 'paxlog', meta: { subtype: 'avm' } })
-  }, [activeTab, openDynamicPanel])
+    if (effectiveTab === 'profiles') openDynamicPanel({ type: 'create', module: 'paxlog', meta: { subtype: 'profile' } })
+    else if (effectiveTab === 'ads') openDynamicPanel({ type: 'create', module: 'paxlog', meta: { subtype: 'ads' } })
+    else if (effectiveTab === 'signalements') openDynamicPanel({ type: 'create', module: 'paxlog', meta: { subtype: 'incident' } })
+    else if (effectiveTab === 'rotations') openDynamicPanel({ type: 'create', module: 'paxlog', meta: { subtype: 'rotation' } })
+    else if (effectiveTab === 'avm') openDynamicPanel({ type: 'create', module: 'paxlog', meta: { subtype: 'avm' } })
+  }, [effectiveTab, openDynamicPanel])
 
   const handleOpenDetail = useCallback((id: string) => {
-    if (activeTab === 'profiles') openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'profile' } })
-    else if (activeTab === 'ads') openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'ads' } })
-    else if (activeTab === 'avm') openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'avm' } })
-  }, [activeTab, openDynamicPanel])
+    if (effectiveTab === 'profiles') openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'profile' } })
+    else if (effectiveTab === 'ads') openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'ads' } })
+    else if (effectiveTab === 'avm') openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'avm' } })
+  }, [effectiveTab, openDynamicPanel])
 
-  const createLabel = activeTab === 'profiles' ? 'Nouveau profil'
-    : activeTab === 'ads' ? 'Nouvel AdS'
-    : activeTab === 'signalements' ? 'Nouveau signalement'
-    : activeTab === 'rotations' ? 'Nouvelle rotation'
-    : activeTab === 'avm' ? 'Nouvelle mission'
+  const createLabel = effectiveTab === 'profiles' ? 'Nouveau profil'
+    : effectiveTab === 'ads' ? 'Nouvel AdS'
+    : effectiveTab === 'signalements' ? 'Nouveau signalement'
+    : effectiveTab === 'rotations' ? 'Nouvelle rotation'
+    : effectiveTab === 'avm' ? 'Nouvelle mission'
     : ''
-  const showCreate = ['profiles', 'ads', 'signalements', 'rotations', 'avm'].includes(activeTab)
+  const showCreate = ['profiles', 'ads', 'signalements', 'rotations', 'avm'].includes(effectiveTab)
 
   return (
     <div className="flex h-full">
@@ -2549,13 +2900,13 @@ export function PaxLogPage() {
 
           {/* Tab bar */}
           <div className="flex items-center gap-1 border-b border-border px-3.5 h-9 shrink-0 overflow-x-auto">
-            {MAIN_TABS.map((tab) => {
+            {visibleTabs.map((tab) => {
               const Icon = tab.icon
               return (
                 <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                   className={cn(
                     'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap',
-                    activeTab === tab.id ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent',
+                    effectiveTab === tab.id ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent',
                   )}>
                   <Icon size={12} />
                   {tab.label}
@@ -2564,13 +2915,17 @@ export function PaxLogPage() {
             })}
           </div>
 
-          {activeTab === 'dashboard' && <DashboardTab />}
-          {activeTab === 'ads' && <AdsTab openDetail={handleOpenDetail} />}
-          {activeTab === 'profiles' && <ProfilesTab openDetail={handleOpenDetail} />}
-          {activeTab === 'compliance' && <ComplianceTab />}
-          {activeTab === 'signalements' && <SignalementsTab />}
-          {activeTab === 'rotations' && <RotationsTab />}
-          {activeTab === 'avm' && <AvmTab openDetail={handleOpenDetail} />}
+          {effectiveTab === 'dashboard' && (
+            isRequesterProfile
+              ? <RequesterHomeTab currentUserId={user?.id || null} onCreateAds={() => openDynamicPanel({ type: 'create', module: 'paxlog', meta: { subtype: 'ads' } })} onCreateAvm={() => openDynamicPanel({ type: 'create', module: 'paxlog', meta: { subtype: 'avm' } })} onOpenAds={(id) => openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'ads' } })} onOpenAvm={(id) => openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'avm' } })} />
+              : <DashboardTab />
+          )}
+          {effectiveTab === 'ads' && <AdsTab openDetail={handleOpenDetail} />}
+          {effectiveTab === 'profiles' && <ProfilesTab openDetail={handleOpenDetail} />}
+          {effectiveTab === 'compliance' && <ComplianceTab />}
+          {effectiveTab === 'signalements' && <SignalementsTab />}
+          {effectiveTab === 'rotations' && <RotationsTab />}
+          {effectiveTab === 'avm' && <AvmTab openDetail={handleOpenDetail} />}
         </div>
       )}
 

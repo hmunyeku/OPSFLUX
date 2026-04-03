@@ -48,12 +48,13 @@ class SingleProjectSyncResult(BaseModel):
 # ── Helpers ───────────────────────────────────────────────────────────────
 
 
-async def _get_gouti_settings(db: AsyncSession) -> dict[str, str]:
+async def _get_gouti_settings(db: AsyncSession, entity_id: UUID) -> dict[str, str]:
     """Fetch all integration.gouti.* settings from the Setting table."""
     result = await db.execute(
         select(Setting).where(
             Setting.key.startswith(GOUTI_SETTINGS_PREFIX + "."),
             Setting.scope == "entity",
+            Setting.scope_id == str(entity_id),
         )
     )
     settings: dict[str, str] = {}
@@ -251,16 +252,20 @@ async def _upsert_project_from_gouti(
         return project, "created"
 
 
-async def _save_setting(db: AsyncSession, key: str, value: str) -> None:
+async def _save_setting(db: AsyncSession, entity_id: UUID, key: str, value: str) -> None:
     """Upsert a single setting."""
     result = await db.execute(
-        select(Setting).where(Setting.key == key, Setting.scope == "entity")
+        select(Setting).where(
+            Setting.key == key,
+            Setting.scope == "entity",
+            Setting.scope_id == str(entity_id),
+        )
     )
     existing = result.scalar_one_or_none()
     if existing:
         existing.value = {"v": value}
     else:
-        db.add(Setting(key=key, value={"v": value}, scope="entity"))
+        db.add(Setting(key=key, value={"v": value}, scope="entity", scope_id=str(entity_id)))
 
 
 # ── Routes ────────────────────────────────────────────────────────────────
@@ -278,7 +283,7 @@ async def sync_all_projects(
     Reads Gouti credentials from integration.gouti.* settings, fetches all projects,
     and upserts them locally using external_ref to track origin.
     """
-    gouti_settings = await _get_gouti_settings(db)
+    gouti_settings = await _get_gouti_settings(db, entity_id)
     connector = _build_connector(gouti_settings)
 
     # Fetch projects from Gouti
@@ -321,8 +326,8 @@ async def sync_all_projects(
 
     # Record last sync timestamp
     now_iso = datetime.now(timezone.utc).isoformat()
-    await _save_setting(db, f"{GOUTI_SETTINGS_PREFIX}.last_sync_at", now_iso)
-    await _save_setting(db, f"{GOUTI_SETTINGS_PREFIX}.last_sync_count", str(created + updated))
+    await _save_setting(db, entity_id, f"{GOUTI_SETTINGS_PREFIX}.last_sync_at", now_iso)
+    await _save_setting(db, entity_id, f"{GOUTI_SETTINGS_PREFIX}.last_sync_count", str(created + updated))
     await db.commit()
 
     logger.info(
@@ -345,7 +350,7 @@ async def get_sync_status(
     db: AsyncSession = Depends(get_db),
 ):
     """Return the last Gouti sync timestamp and project count."""
-    gouti_settings = await _get_gouti_settings(db)
+    gouti_settings = await _get_gouti_settings(db, entity_id)
 
     last_sync_at = gouti_settings.get("last_sync_at") or None
 
@@ -385,7 +390,7 @@ async def sync_single_project(
     upserts the project locally, and stores report data in the project description
     (appended as a summary section).
     """
-    gouti_settings = await _get_gouti_settings(db)
+    gouti_settings = await _get_gouti_settings(db, entity_id)
     connector = _build_connector(gouti_settings)
 
     errors: list[str] = []
@@ -458,7 +463,7 @@ async def sync_single_project(
 
     # Update last sync timestamp
     now_iso = datetime.now(timezone.utc).isoformat()
-    await _save_setting(db, f"{GOUTI_SETTINGS_PREFIX}.last_sync_at", now_iso)
+    await _save_setting(db, entity_id, f"{GOUTI_SETTINGS_PREFIX}.last_sync_at", now_iso)
     await db.commit()
 
     logger.info(

@@ -488,10 +488,14 @@ class Notification(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 # ─── Settings (DB-stored tenant/user preferences) ───────────────────────────
 
-class Setting(Base):
+class Setting(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "settings"
+    __table_args__ = (
+        UniqueConstraint("key", "scope", "scope_id", name="uq_settings_key_scope_scope_id"),
+        Index("idx_settings_scope_scope_id", "scope", "scope_id"),
+    )
 
-    key: Mapped[str] = mapped_column(String(200), primary_key=True)
+    key: Mapped[str] = mapped_column(String(200), nullable=False)
     value: Mapped[dict] = mapped_column(JSONB, nullable=False)
     scope: Mapped[str] = mapped_column(
         String(20), nullable=False, default="tenant"

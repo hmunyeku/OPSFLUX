@@ -58,6 +58,7 @@ export interface NavItemDef {
   order: number
   badge?: number
   requiredPermission?: string
+  requiredAnyPermissions?: string[]
 }
 
 // Core navigation items — sourced from module manifests
@@ -67,7 +68,7 @@ const moduleNavItems: NavItemDef[] = [
   { path: '/tiers', icon: Building2, labelKey: 'nav.tiers', module: 'tiers', order: 30, requiredPermission: 'tier.read' },
   { path: '/projets', icon: FolderKanban, labelKey: 'nav.projets', module: 'projets', order: 38, requiredPermission: 'project.read' },
   { path: '/planner', icon: CalendarClock, labelKey: 'nav.planner', module: 'planner', order: 39, requiredPermission: 'planner.activity.read' },
-  { path: '/paxlog', icon: Users, labelKey: 'nav.paxlog', module: 'paxlog', order: 40, requiredPermission: 'paxlog.profile.read' },
+  { path: '/paxlog', icon: Users, labelKey: 'nav.paxlog', module: 'paxlog', order: 40, requiredAnyPermissions: ['paxlog.ads.read', 'paxlog.ads.create', 'paxlog.avm.create', 'paxlog.avm.update', 'paxlog.avm.approve', 'paxlog.profile.read', 'paxlog.compliance.read'] },
   { path: '/travelwiz', icon: Ship, labelKey: 'nav.travelwiz', module: 'travelwiz', order: 42, requiredPermission: 'travelwiz.voyage.read' },
   { path: '/report-editor', icon: FileText, labelKey: 'nav.report_editor', module: 'report-editor', order: 55, requiredPermission: 'document.read' },
   { path: '/pid-pfd', icon: Workflow, labelKey: 'nav.pid_pfd', module: 'pid-pfd', order: 58, requiredPermission: 'pid.read' },
@@ -88,11 +89,15 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
   const { t } = useTranslation()
   const location = useLocation()
   const navigate = useNavigate()
-  const { hasPermission } = usePermission()
+  const { hasPermission, hasAny } = usePermission()
 
   // Filter items based on requiredPermission, then sort by order
   const filterByPermission = (items: NavItemDef[]) =>
-    items.filter((item) => !item.requiredPermission || hasPermission(item.requiredPermission))
+    items.filter((item) => {
+      if (item.requiredAnyPermissions?.length) return hasAny(item.requiredAnyPermissions)
+      if (item.requiredPermission) return hasPermission(item.requiredPermission)
+      return true
+    })
 
   const sortedModuleItems = filterByPermission([...moduleNavItems]).sort((a, b) => a.order - b.order)
   const filteredAdminItems = filterByPermission([...adminNavItems]).sort((a, b) => a.order - b.order)

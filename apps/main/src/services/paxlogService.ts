@@ -551,6 +551,7 @@ export interface MissionNoticeCreate {
   planned_start_date?: string | null
   planned_end_date?: string | null
   mission_type?: 'standard' | 'vip' | 'regulatory' | 'emergency'
+  pax_quota?: number
   requires_badge?: boolean
   requires_epi?: boolean
   requires_visa?: boolean
@@ -565,6 +566,7 @@ export interface MissionNoticeUpdate {
   planned_start_date?: string | null
   planned_end_date?: string | null
   mission_type?: 'standard' | 'vip' | 'regulatory' | 'emergency'
+  pax_quota?: number
   requires_badge?: boolean
   requires_epi?: boolean
   requires_visa?: boolean
@@ -588,6 +590,7 @@ export interface MissionNoticeRead {
   eligible_displacement_allowance: boolean
   epi_measurements: Record<string, unknown> | null
   mission_type: 'standard' | 'vip' | 'regulatory' | 'emergency'
+  pax_quota: number
   archived: boolean
   cancellation_reason: string | null
   created_at: string
@@ -606,6 +609,7 @@ export interface MissionNoticeSummary {
   title: string
   status: 'draft' | 'in_preparation' | 'active' | 'ready' | 'completed' | 'cancelled'
   mission_type: string
+  pax_quota: number
   planned_start_date: string | null
   planned_end_date: string | null
   created_by: string

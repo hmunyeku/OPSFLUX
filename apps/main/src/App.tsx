@@ -43,6 +43,13 @@ function RequirePermission({ permission, children }: { permission: string; child
   return <>{children}</>
 }
 
+function RequireAnyPermission({ permissions, children }: { permissions: string[]; children: React.ReactNode }) {
+  const { hasAny, loading } = usePermission()
+  if (loading) return <div className="flex items-center justify-center h-full"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+  if (!hasAny(permissions)) return <Navigate to="/dashboard" replace />
+  return <>{children}</>
+}
+
 export default function App() {
   return (
     <Routes>
@@ -69,7 +76,7 @@ export default function App() {
                   <Route path="/conformite/*" element={<RequirePermission permission="conformite.record.read"><ConformitePage /></RequirePermission>} />
                   <Route path="/projets/*" element={<RequirePermission permission="project.read"><ProjetsPage /></RequirePermission>} />
                   <Route path="/workflow/*" element={<RequirePermission permission="workflow.definition.read"><WorkflowPage /></RequirePermission>} />
-                  <Route path="/paxlog/*" element={<RequirePermission permission="paxlog.profile.read"><PaxLogPage /></RequirePermission>} />
+                  <Route path="/paxlog/*" element={<RequireAnyPermission permissions={['paxlog.ads.read', 'paxlog.ads.create', 'paxlog.avm.create', 'paxlog.avm.update', 'paxlog.avm.approve', 'paxlog.profile.read', 'paxlog.compliance.read']}><PaxLogPage /></RequireAnyPermission>} />
                   <Route path="/planner/*" element={<RequirePermission permission="planner.activity.read"><PlannerPage /></RequirePermission>} />
                   <Route path="/travelwiz/*" element={<RequirePermission permission="travelwiz.voyage.read"><TravelWizPage /></RequirePermission>} />
                   <Route path="/report-editor/*" element={<RequirePermission permission="document.read"><ReportEditorPage /></RequirePermission>} />

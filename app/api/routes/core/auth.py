@@ -802,10 +802,14 @@ SSO_PROVIDERS = {
 }
 
 
-async def _get_sso_settings(db: AsyncSession, prefix: str) -> dict[str, str]:
+async def _get_sso_settings(db: AsyncSession, entity_id: UUID, prefix: str) -> dict[str, str]:
     """Fetch all settings for a provider prefix from entity scope."""
     result = await db.execute(
-        select(Setting).where(Setting.key.startswith(prefix), Setting.scope == "entity")
+        select(Setting).where(
+            Setting.key.startswith(prefix),
+            Setting.scope == "entity",
+            Setting.scope_id == str(entity_id),
+        )
     )
     cfg: dict[str, str] = {}
     for s in result.scalars().all():
@@ -858,7 +862,7 @@ async def list_sso_providers(db: AsyncSession = Depends(get_db)):
     """Return list of configured SSO providers (those with client_id set)."""
     providers = []
     for provider_id, provider_def in SSO_PROVIDERS.items():
-        cfg = await _get_sso_settings(db, provider_def["settings_prefix"])
+        cfg = await _get_sso_settings(db, entity_id, provider_def["settings_prefix"])
         if cfg.get("client_id"):
             providers.append({
                 "id": provider_id,
@@ -878,7 +882,7 @@ async def sso_authorize(
         raise HTTPException(status_code=400, detail=f"Unknown SSO provider: {provider}")
 
     provider_def = SSO_PROVIDERS[provider]
-    cfg = await _get_sso_settings(db, provider_def["settings_prefix"])
+    cfg = await _get_sso_settings(db, entity_id, provider_def["settings_prefix"])
 
     client_id = cfg.get("client_id", "")
     if not client_id:
@@ -947,7 +951,7 @@ async def sso_callback(
         return RedirectResponse(f"{settings.APP_URL}/login?sso_error=unknown_provider")
 
     provider_def = SSO_PROVIDERS[provider_id]
-    cfg = await _get_sso_settings(db, provider_def["settings_prefix"])
+    cfg = await _get_sso_settings(db, entity_id, provider_def["settings_prefix"])
     urls = _build_provider_urls(provider_id, cfg)
     if not urls:
         return RedirectResponse(f"{settings.APP_URL}/login?sso_error=provider_config")
@@ -1132,7 +1136,7 @@ async def sso_link_authorize(
         raise HTTPException(400, f"Unknown SSO provider: {provider}")
 
     provider_def = SSO_PROVIDERS[provider]
-    cfg = await _get_sso_settings(db, provider_def["settings_prefix"])
+    cfg = await _get_sso_settings(db, entity_id, provider_def["settings_prefix"])
     client_id = cfg.get("client_id", "")
     if not client_id:
         raise HTTPException(400, f"SSO provider '{provider}' is not configured")

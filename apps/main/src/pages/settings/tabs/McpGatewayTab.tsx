@@ -8,11 +8,19 @@
 import { useState, useCallback } from 'react'
 import {
   Server, Key, Plus, Trash2, Ban, Copy, Check,
-  Loader2, ExternalLink, Shield, AlertTriangle,
+  Loader2, Shield, AlertTriangle,
 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { useToast } from '@/components/ui/Toast'
+
+function useNotify() {
+  const { toast } = useToast()
+  return {
+    success: (msg: string) => toast({ title: msg, variant: 'success' }),
+    error: (msg: string) => toast({ title: msg, variant: 'error' }),
+  }
+}
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 
 // ── Types ──
@@ -57,7 +65,7 @@ const fetchTokens = () => api.get<Token[]>('/api/v1/mcp-gateway/tokens').then(r 
 export function McpGatewayTab() {
   return (
     <div className="space-y-1">
-      <CollapsibleSection id="mcp-backends" title="Backends MCP" defaultOpen>
+      <CollapsibleSection id="mcp-backends" title="Backends MCP" defaultExpanded>
         <BackendsSection />
       </CollapsibleSection>
       <CollapsibleSection id="mcp-tokens" title="Tokens d'acc&egrave;s">
@@ -73,7 +81,7 @@ export function McpGatewayTab() {
 
 function BackendsSection() {
   const qc = useQueryClient()
-  const toast = useToast()
+  const notify = useNotify()
   const { data: backends = [], isLoading } = useQuery({ queryKey: ['mcp-gw-backends'], queryFn: fetchBackends })
 
   const [showForm, setShowForm] = useState(false)
@@ -85,16 +93,16 @@ function BackendsSection() {
       qc.invalidateQueries({ queryKey: ['mcp-gw-backends'] })
       setShowForm(false)
       setForm({ slug: '', name: '', upstream_url: '', description: '' })
-      toast.success('Backend ajout\u00e9')
+      notify.success('Backend ajout\u00e9')
     },
-    onError: () => toast.error('Erreur lors de la cr\u00e9ation'),
+    onError: () => notify.error('Erreur lors de la cr\u00e9ation'),
   })
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => api.delete(`/api/v1/mcp-gateway/backends/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['mcp-gw-backends'] })
-      toast.success('Backend supprim\u00e9')
+      notify.success('Backend supprim\u00e9')
     },
   })
 
@@ -205,7 +213,7 @@ function BackendsSection() {
 
 function TokensSection() {
   const qc = useQueryClient()
-  const toast = useToast()
+  const notify = useNotify()
   const { data: tokens = [], isLoading } = useQuery({ queryKey: ['mcp-gw-tokens'], queryFn: fetchTokens })
   const { data: backends = [] } = useQuery({ queryKey: ['mcp-gw-backends'], queryFn: fetchBackends })
 
@@ -223,14 +231,14 @@ function TokensSection() {
       setShowForm(false)
       setForm({ name: '', scopes: '*', expires_in_days: '' })
     },
-    onError: () => toast.error('Erreur lors de la cr\u00e9ation'),
+    onError: () => notify.error('Erreur lors de la cr\u00e9ation'),
   })
 
   const revokeMut = useMutation({
     mutationFn: (id: string) => api.post(`/api/v1/mcp-gateway/tokens/${id}/revoke`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['mcp-gw-tokens'] })
-      toast.success('Token r\u00e9voqu\u00e9')
+      notify.success('Token r\u00e9voqu\u00e9')
     },
   })
 
@@ -238,7 +246,7 @@ function TokensSection() {
     mutationFn: (id: string) => api.delete(`/api/v1/mcp-gateway/tokens/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['mcp-gw-tokens'] })
-      toast.success('Token supprim\u00e9')
+      notify.success('Token supprim\u00e9')
     },
   })
 

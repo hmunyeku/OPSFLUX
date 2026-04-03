@@ -394,6 +394,97 @@ async def delete_token(
 proxy_router = APIRouter(prefix="/mcp-gw", tags=["mcp-gateway-proxy"])
 
 
+# ── OAuth2 endpoints (for Claude.ai and other MCP clients) ───────────────────
+
+@proxy_router.get("/.well-known/oauth-authorization-server")
+async def oauth_metadata(request: Request):
+    """RFC 8414 — OAuth 2.0 Authorization Server Metadata.
+
+    Claude.ai discovers this to learn how to authenticate with the MCP gateway.
+    """
+    base = str(request.base_url).rstrip("/")
+    return JSONResponse({
+        "issuer": base,
+        "token_endpoint": f"{base}/mcp-gw/oauth/token",
+        "registration_endpoint": f"{base}/mcp-gw/oauth/register",
+        "response_types_supported": [],
+        "grant_types_supported": ["client_credentials"],
+        "token_endpoint_auth_methods_supported": ["client_secret_post"],
+        "scopes_supported": ["mcp"],
+    })
+
+
+@proxy_router.post("/oauth/register")
+async def oauth_register(request: Request):
+    """Dynamic Client Registration (RFC 7591) — stub.
+
+    MCP clients may call this before authenticating. We return the
+    submitted client_id / client_secret unchanged (our tokens are
+    pre-provisioned via the admin UI, not registered dynamically).
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    client_id = body.get("client_id", body.get("client_name", "mcp-client"))
+    return JSONResponse({
+        "client_id": client_id,
+        "client_secret": "",
+        "token_endpoint_auth_method": "client_secret_post",
+    }, status_code=201)
+
+
+@proxy_router.post("/oauth/token")
+async def oauth_token(request: Request):
+    """OAuth 2.0 Token Endpoint — client_credentials grant.
+
+    Claude.ai sends client_id + client_secret (which is the MCP Bearer token
+    created via the admin UI). We validate and return it as an access_token.
+    """
+    # Accept both form-encoded and JSON
+    content_type = (request.headers.get("content-type") or "").lower()
+    if "application/json" in content_type:
+        try:
+            data = await request.json()
+        except Exception:
+            data = {}
+    else:
+        form = await request.form()
+        data = dict(form)
+
+    grant_type = data.get("grant_type", "")
+    client_secret = data.get("client_secret", "")
+
+    if grant_type != "client_credentials":
+        return JSONResponse(
+            {"error": "unsupported_grant_type", "error_description": "Only client_credentials is supported"},
+            status_code=400,
+        )
+
+    if not client_secret:
+        return JSONResponse(
+            {"error": "invalid_client", "error_description": "client_secret is required (use your MCP Bearer token)"},
+            status_code=401,
+        )
+
+    # Validate the secret as a Bearer token
+    token = await _verify_mcp_token(f"Bearer {client_secret}")
+    if token is None:
+        return JSONResponse(
+            {"error": "invalid_client", "error_description": "Invalid token"},
+            status_code=401,
+        )
+
+    return JSONResponse({
+        "access_token": client_secret,
+        "token_type": "bearer",
+        "scope": "mcp",
+    })
+
+
+# ── Proxy route ──────────────────────────────────────────────────────────────
+
 @proxy_router.api_route(
     "/{backend_slug}/{path:path}",
     methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
@@ -401,13 +492,21 @@ proxy_router = APIRouter(prefix="/mcp-gw", tags=["mcp-gateway-proxy"])
 async def proxy_to_backend(backend_slug: str, path: str, request: Request):
     """Authenticate via MCP Bearer token, then proxy to the upstream backend."""
 
+    # Skip OAuth well-known / token paths that matched the catch-all
+    if backend_slug in (".well-known", "oauth"):
+        return JSONResponse({"error": "Not found"}, status_code=404)
+
     # 1. Validate Bearer token
     auth_header = request.headers.get("authorization")
     token = await _verify_mcp_token(auth_header)
     if token is None:
+        base = str(request.base_url).rstrip("/")
         return JSONResponse(
             {"error": "Unauthorized — invalid or missing Bearer token"},
             status_code=401,
+            headers={
+                "WWW-Authenticate": f'Bearer resource_metadata="{base}/mcp-gw/.well-known/oauth-authorization-server"',
+            },
         )
 
     # 2. Check scope
@@ -510,7 +609,19 @@ async def proxy_to_backend(backend_slug: str, path: str, request: Request):
     )
 
 
+# ── Root-level .well-known (some clients look here instead of /mcp-gw/) ──────
+
+well_known_router = APIRouter(tags=["mcp-gateway-proxy"])
+
+
+@well_known_router.get("/.well-known/oauth-authorization-server")
+async def root_oauth_metadata(request: Request):
+    """Root-level alias — redirects to /mcp-gw/.well-known/..."""
+    return await oauth_metadata(request)
+
+
 # Combined router for main.py registration
 router = APIRouter()
 router.include_router(admin_router)
 router.include_router(proxy_router)
+router.include_router(well_known_router)

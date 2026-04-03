@@ -82,6 +82,7 @@ from app.api.routes.core.references import router as references_router
 from app.api.routes.core.social_networks import router as social_networks_router
 from app.api.routes.core.opening_hours import router as opening_hours_router
 from app.api.routes.core.mcp import router as mcp_router
+from app.api.routes.core.mcp_gateway import router as mcp_gateway_router, close_http_client
 from app.api.routes.core.ws_notifications import router as ws_notifications_router
 from app.api.routes.core.workflow import router as workflow_router
 from app.api.routes.core.dashboard import router as dashboard_router
@@ -162,6 +163,7 @@ async def lifespan(app: FastAPI):
 
     # ── SHUTDOWN ─────────────────────────────────────────────────
     await stop_scheduler()
+    await close_http_client()
     await close_db()
     await close_redis()
     logger.info("OpsFlux shutdown complete")
@@ -248,6 +250,7 @@ app.include_router(roles_router)
 app.include_router(groups_router)
 app.include_router(references_router)
 app.include_router(mcp_router)
+app.include_router(mcp_gateway_router)
 app.include_router(paxlog_router)
 app.include_router(planner_router)
 app.include_router(travelwiz_router)

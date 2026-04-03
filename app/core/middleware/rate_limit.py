@@ -15,11 +15,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.max_requests = max_requests
         self.window_seconds = window_seconds
 
-    # Paths exempt from rate limiting
+    # Paths exempt from rate limiting (exact match)
     EXEMPT_PATHS = {"/api/health", "/api/docs", "/api/redoc"}
+    # Path prefixes exempt from rate limiting
+    EXEMPT_PREFIXES = {"/mcp-gw/"}
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
-        if request.url.path in self.EXEMPT_PATHS:
+        path = request.url.path
+        if path in self.EXEMPT_PATHS or any(path.startswith(p) for p in self.EXEMPT_PREFIXES):
             return await call_next(request)
 
         client_ip = request.client.host if request.client else "unknown"

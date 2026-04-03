@@ -422,7 +422,14 @@ async def proxy_to_backend(backend_slug: str, path: str, request: Request):
     # 4. Native backend — serve MCP protocol directly (no proxy)
     if backend.upstream_url.startswith("internal://"):
         from app.mcp.mcp_native import get_or_create_backend, handle_mcp_request
-        native = await get_or_create_backend(backend.slug, backend.config or {})
+        try:
+            native = await get_or_create_backend(backend.slug, backend.config or {})
+        except Exception as exc:
+            logger.error("Native backend '%s' init failed: %s", backend_slug, exc)
+            return JSONResponse(
+                {"error": f"Native backend '{backend_slug}' initialization failed: {str(exc)[:300]}"},
+                status_code=503,
+            )
         if native is None:
             return JSONResponse(
                 {"error": f"Native backend '{backend_slug}' not configured"},

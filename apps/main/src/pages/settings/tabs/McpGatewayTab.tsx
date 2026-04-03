@@ -309,8 +309,8 @@ function TokensSection({ backends, mcpBaseUrl }: { backends: Backend[]; mcpBaseU
           <TokenRow
             key={t.id}
             token={t}
-            onRevoke={() => { if (confirm(`R\u00e9voquer le token "${t.name}" ?`)) revokeMut.mutate(t.id) }}
-            onDelete={() => { if (confirm(`Supprimer d\u00e9finitivement le token "${t.name}" ?`)) deleteMut.mutate(t.id) }}
+            onRevoke={() => revokeMut.mutate(t.id)}
+            onDelete={() => deleteMut.mutate(t.id)}
           />
         ))}
       </div>
@@ -326,7 +326,7 @@ function TokensSection({ backends, mcpBaseUrl }: { backends: Backend[]; mcpBaseU
               <TokenRow
                 key={t.id}
                 token={t}
-                onDelete={() => { if (confirm(`Supprimer d\u00e9finitivement le token "${t.name}" ?`)) deleteMut.mutate(t.id) }}
+                onDelete={() => deleteMut.mutate(t.id)}
               />
             ))}
           </div>
@@ -422,6 +422,7 @@ function TokensSection({ backends, mcpBaseUrl }: { backends: Backend[]; mcpBaseU
 // ── Token row ──
 
 function TokenRow({ token: t, onRevoke, onDelete }: { token: Token; onRevoke?: () => void; onDelete: () => void }) {
+  const [confirming, setConfirming] = useState<'revoke' | 'delete' | null>(null)
   const expiry = expiryLabel(t.expires_at)
 
   return (
@@ -461,22 +462,44 @@ function TokenRow({ token: t, onRevoke, onDelete }: { token: Token; onRevoke?: (
         </div>
       </div>
       <div className="flex gap-1 shrink-0">
-        {onRevoke && !t.revoked && (
-          <button
-            onClick={onRevoke}
-            className="p-1.5 rounded-md hover:bg-amber-500/10 text-muted-foreground hover:text-amber-600 transition-colors"
-            title="R\u00e9voquer"
-          >
-            <Ban size={14} />
-          </button>
+        {confirming ? (
+          <div className="flex items-center gap-1">
+            <span className="text-[11px] text-muted-foreground mr-1">
+              {confirming === 'delete' ? 'Supprimer ?' : 'R\u00e9voquer ?'}
+            </span>
+            <button
+              className="gl-button-sm gl-button-danger"
+              onClick={() => { setConfirming(null); confirming === 'delete' ? onDelete() : onRevoke?.() }}
+            >
+              Oui
+            </button>
+            <button
+              className="gl-button-sm gl-button-default"
+              onClick={() => setConfirming(null)}
+            >
+              Non
+            </button>
+          </div>
+        ) : (
+          <>
+            {onRevoke && !t.revoked && (
+              <button
+                onClick={() => setConfirming('revoke')}
+                className="p-1.5 rounded-md hover:bg-amber-500/10 text-muted-foreground hover:text-amber-600 transition-colors"
+                title="R\u00e9voquer"
+              >
+                <Ban size={14} />
+              </button>
+            )}
+            <button
+              onClick={() => setConfirming('delete')}
+              className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+              title="Supprimer"
+            >
+              <Trash2 size={14} />
+            </button>
+          </>
         )}
-        <button
-          onClick={onDelete}
-          className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-          title="Supprimer"
-        >
-          <Trash2 size={14} />
-        </button>
       </div>
     </div>
   )

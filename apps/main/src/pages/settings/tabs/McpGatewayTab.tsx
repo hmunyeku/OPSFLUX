@@ -1,14 +1,15 @@
 /**
- * MCP Gateway — manage backends and tokens for remote MCP server proxy.
+ * MCP Gateway — manage tokens and view active backends.
  *
  * Admin-only tab: requires admin.system permission.
- * Backends define upstream MCP servers (e.g., Gouti).
+ * Backends are auto-provisioned (read-only view).
  * Tokens are Bearer tokens given to MCP clients (e.g., claude.ai).
  */
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import {
-  Server, Key, Plus, Trash2, Ban, Copy, Check,
-  Loader2, Shield, AlertTriangle,
+  Key, Plus, Trash2, Ban, Copy, Check,
+  Loader2, Shield, AlertTriangle, Globe, Plug,
+  ExternalLink, Clock, Eye, EyeOff,
 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
@@ -21,7 +22,6 @@ function useNotify() {
     error: (msg: string) => toast({ title: msg, variant: 'error' }),
   }
 }
-import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 
 // ── Types ──
 
@@ -32,6 +32,7 @@ interface Backend {
   upstream_url: string
   description: string | null
   active: boolean
+  has_config: boolean
   created_at: string
   updated_at: string
 }
@@ -60,149 +61,134 @@ interface TokenCreated {
 const fetchBackends = () => api.get<Backend[]>('/api/v1/mcp-gateway/backends').then(r => r.data)
 const fetchTokens = () => api.get<Token[]>('/api/v1/mcp-gateway/tokens').then(r => r.data)
 
+// ── Helpers ──
+
+function relativeTime(dateStr: string | null): string {
+  if (!dateStr) return 'Jamais'
+  const d = new Date(dateStr)
+  const now = new Date()
+  const diffMs = now.getTime() - d.getTime()
+  const mins = Math.floor(diffMs / 60000)
+  if (mins < 1) return '\u00c0 l\u2019instant'
+  if (mins < 60) return `Il y a ${mins} min`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `Il y a ${hours}h`
+  const days = Math.floor(hours / 24)
+  if (days < 30) return `Il y a ${days}j`
+  return d.toLocaleDateString('fr')
+}
+
+function expiryLabel(dateStr: string | null): { text: string; warn: boolean } {
+  if (!dateStr) return { text: 'N\u2019expire jamais', warn: false }
+  const d = new Date(dateStr)
+  const now = new Date()
+  const daysLeft = Math.ceil((d.getTime() - now.getTime()) / 86400000)
+  if (daysLeft < 0) return { text: 'Expir\u00e9', warn: true }
+  if (daysLeft < 7) return { text: `Expire dans ${daysLeft}j`, warn: true }
+  if (daysLeft < 30) return { text: `Expire dans ${daysLeft}j`, warn: false }
+  return { text: `Expire le ${d.toLocaleDateString('fr')}`, warn: false }
+}
+
 // ── Main component ──
 
 export function McpGatewayTab() {
+  const { data: backends = [], isLoading: loadingBackends } = useQuery({ queryKey: ['mcp-gw-backends'], queryFn: fetchBackends })
+
+  const mcpBaseUrl = useMemo(() => {
+    const origin = window.location.origin.replace('app.', 'api.')
+    return `${origin}/mcp-gw`
+  }, [])
+
   return (
-    <div className="space-y-1">
-      <CollapsibleSection id="mcp-backends" title="Backends MCP" defaultExpanded>
-        <BackendsSection />
-      </CollapsibleSection>
-      <CollapsibleSection id="mcp-tokens" title="Tokens d'acc&egrave;s">
-        <TokensSection />
-      </CollapsibleSection>
+    <div className="space-y-6">
+      {/* ── Header: what is MCP Gateway ── */}
+      <div className="p-4 rounded-lg border border-border bg-accent/30">
+        <div className="flex items-start gap-3">
+          <Plug size={20} className="text-primary shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <h3 className="text-sm font-semibold">MCP Gateway</h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Le gateway MCP permet aux clients IA (Claude, Cursor, etc.) d'acc&eacute;der aux outils
+              OpsFlux via le protocole MCP. Cr&eacute;ez un token ci-dessous et configurez votre client
+              avec l'URL du backend souhait&eacute;.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Active backends (read-only) ── */}
+      <div>
+        <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+          <Globe size={14} /> Backends disponibles
+        </h3>
+        {loadingBackends ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+            <Loader2 size={14} className="animate-spin" /> Chargement...
+          </div>
+        ) : backends.length === 0 ? (
+          <p className="text-sm text-muted-foreground italic">Aucun backend actif.</p>
+        ) : (
+          <div className="grid gap-2">
+            {backends.map(b => (
+              <BackendCard key={b.id} backend={b} mcpBaseUrl={mcpBaseUrl} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Tokens ── */}
+      <div>
+        <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+          <Key size={14} /> Tokens d'acc&egrave;s
+        </h3>
+        <TokensSection backends={backends} mcpBaseUrl={mcpBaseUrl} />
+      </div>
     </div>
   )
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Backends
+// Backend card (read-only)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function BackendsSection() {
-  const qc = useQueryClient()
-  const notify = useNotify()
-  const { data: backends = [], isLoading } = useQuery({ queryKey: ['mcp-gw-backends'], queryFn: fetchBackends })
+function BackendCard({ backend: b, mcpBaseUrl }: { backend: Backend; mcpBaseUrl: string }) {
+  const [copied, setCopied] = useState(false)
+  const endpointUrl = `${mcpBaseUrl}/${b.slug}/mcp`
 
-  const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ slug: '', name: '', upstream_url: '', description: '' })
+  const copy = () => {
+    navigator.clipboard.writeText(endpointUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
-  const createMut = useMutation({
-    mutationFn: (body: typeof form) => api.post('/api/v1/mcp-gateway/backends', body),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['mcp-gw-backends'] })
-      setShowForm(false)
-      setForm({ slug: '', name: '', upstream_url: '', description: '' })
-      notify.success('Backend ajout\u00e9')
-    },
-    onError: () => notify.error('Erreur lors de la cr\u00e9ation'),
-  })
-
-  const deleteMut = useMutation({
-    mutationFn: (id: string) => api.delete(`/api/v1/mcp-gateway/backends/${id}`),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['mcp-gw-backends'] })
-      notify.success('Backend supprim\u00e9')
-    },
-  })
-
-  if (isLoading) return <div className="flex items-center gap-2 text-sm text-muted-foreground py-4"><Loader2 size={14} className="animate-spin" /> Chargement...</div>
+  const isNative = b.upstream_url.startsWith('internal://')
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Serveurs MCP upstream vers lesquels le gateway proxifie les requ&ecirc;tes.
-      </p>
-
-      {/* Backend list */}
-      {backends.length === 0 && !showForm && (
-        <p className="text-sm text-muted-foreground italic">Aucun backend configur&eacute;.</p>
-      )}
-
-      <div className="space-y-2">
-        {backends.map(b => (
-          <div key={b.id} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-background">
-            <Server size={16} className="text-muted-foreground shrink-0" />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">{b.name}</span>
-                <code className="text-xs px-1.5 py-0.5 rounded bg-accent text-muted-foreground">{b.slug}</code>
-                <span className={`gl-badge text-[10px] ${b.active ? 'gl-badge-success' : 'gl-badge-neutral'}`}>
-                  {b.active ? 'Actif' : 'Inactif'}
-                </span>
-              </div>
-              <div className="text-xs text-muted-foreground mt-0.5 font-mono truncate">{b.upstream_url}</div>
-              {b.description && <div className="text-xs text-muted-foreground mt-0.5">{b.description}</div>}
-            </div>
-            <button
-              onClick={() => { if (confirm(`Supprimer le backend "${b.name}" ?`)) deleteMut.mutate(b.id) }}
-              className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-              title="Supprimer"
-            >
-              <Trash2 size={14} />
-            </button>
-          </div>
-        ))}
-      </div>
-
-      {/* Add form */}
-      {showForm ? (
-        <div className="p-4 rounded-lg border border-border bg-background space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium text-foreground">Slug</label>
-              <input
-                className="gl-form-input text-sm w-full mt-1"
-                placeholder="gouti"
-                value={form.slug}
-                onChange={e => setForm(f => ({ ...f, slug: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '') }))}
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-foreground">Nom</label>
-              <input
-                className="gl-form-input text-sm w-full mt-1"
-                placeholder="Gouti Project Management"
-                value={form.name}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              />
-            </div>
-          </div>
-          <div>
-            <label className="text-xs font-medium text-foreground">URL upstream</label>
-            <input
-              className="gl-form-input text-sm w-full mt-1 font-mono"
-              placeholder="http://mcp-gouti:8000"
-              value={form.upstream_url}
-              onChange={e => setForm(f => ({ ...f, upstream_url: e.target.value }))}
-            />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-foreground">Description</label>
-            <input
-              className="gl-form-input text-sm w-full mt-1"
-              placeholder="Optionnel"
-              value={form.description}
-              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-            />
-          </div>
-          <div className="flex gap-2">
-            <button
-              className="gl-btn gl-btn-confirm text-sm"
-              disabled={!form.slug || !form.name || !form.upstream_url || createMut.isPending}
-              onClick={() => createMut.mutate(form)}
-            >
-              {createMut.isPending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-              Ajouter
-            </button>
-            <button className="gl-btn gl-btn-default text-sm" onClick={() => setShowForm(false)}>Annuler</button>
-          </div>
+    <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-background">
+      <div className={`w-2 h-2 rounded-full shrink-0 ${b.active ? 'bg-green-500' : 'bg-neutral-400'}`} />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">{b.name}</span>
+          {isNative && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 font-medium">
+              Natif
+            </span>
+          )}
         </div>
-      ) : (
-        <button className="gl-btn gl-btn-default text-sm" onClick={() => setShowForm(true)}>
-          <Plus size={14} /> Ajouter un backend
-        </button>
-      )}
+        <div className="flex items-center gap-1.5 mt-1">
+          <code className="text-[11px] font-mono text-muted-foreground bg-accent/50 px-1.5 py-0.5 rounded truncate">
+            {endpointUrl}
+          </code>
+          <button
+            onClick={copy}
+            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors shrink-0"
+            title="Copier l'URL"
+          >
+            {copied ? <Check size={12} className="text-green-600" /> : <Copy size={12} />}
+          </button>
+        </div>
+        {b.description && <p className="text-[11px] text-muted-foreground mt-1">{b.description}</p>}
+      </div>
     </div>
   )
 }
@@ -211,11 +197,10 @@ function BackendsSection() {
 // Tokens
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function TokensSection() {
+function TokensSection({ backends, mcpBaseUrl }: { backends: Backend[]; mcpBaseUrl: string }) {
   const qc = useQueryClient()
   const notify = useNotify()
   const { data: tokens = [], isLoading } = useQuery({ queryKey: ['mcp-gw-tokens'], queryFn: fetchTokens })
-  const { data: backends = [] } = useQuery({ queryKey: ['mcp-gw-backends'], queryFn: fetchBackends })
 
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ name: '', scopes: '*', expires_in_days: '' as string })
@@ -256,21 +241,23 @@ function TokensSection() {
     setTimeout(() => setCopied(false), 2000)
   }, [])
 
-  if (isLoading) return <div className="flex items-center gap-2 text-sm text-muted-foreground py-4"><Loader2 size={14} className="animate-spin" /> Chargement...</div>
+  if (isLoading) return <div className="flex items-center gap-2 text-sm text-muted-foreground py-2"><Loader2 size={14} className="animate-spin" /> Chargement...</div>
+
+  const activeTokens = tokens.filter(t => !t.revoked)
+  const revokedTokens = tokens.filter(t => t.revoked)
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Tokens Bearer pour les clients MCP externes (claude.ai, etc.).
-        Le token complet n'est affich&eacute; qu'une seule fois &agrave; la cr&eacute;ation.
+      <p className="text-xs text-muted-foreground">
+        Cr\u00e9ez un token Bearer pour authentifier un client MCP. Le token complet n'est affich\u00e9 qu'une seule fois.
       </p>
 
       {/* Newly created token alert */}
       {newToken && (
-        <div className="p-4 rounded-lg border-2 border-amber-500/50 bg-amber-50 dark:bg-amber-950/20 space-y-2">
+        <div className="p-4 rounded-lg border-2 border-amber-500/50 bg-amber-50 dark:bg-amber-950/20 space-y-3">
           <div className="flex items-center gap-2 text-sm font-medium text-amber-700 dark:text-amber-400">
             <AlertTriangle size={14} />
-            Token cr&eacute;&eacute; — copiez-le maintenant, il ne sera plus affich&eacute;
+            Token cr\u00e9\u00e9 — copiez-le maintenant !
           </div>
           <div className="flex items-center gap-2">
             <code className="flex-1 text-xs font-mono bg-background border border-border rounded-md px-3 py-2 select-all break-all">
@@ -284,70 +271,82 @@ function TokensSection() {
               {copied ? 'Copi\u00e9' : 'Copier'}
             </button>
           </div>
-          <div className="text-xs text-muted-foreground">
-            <strong>Nom :</strong> {newToken.name} &middot;{' '}
-            <strong>Scopes :</strong> {newToken.scopes} &middot;{' '}
-            <strong>Expire :</strong> {newToken.expires_at ? new Date(newToken.expires_at).toLocaleDateString('fr') : 'Jamais'}
-          </div>
-          <button className="text-xs text-muted-foreground underline" onClick={() => setNewToken(null)}>Fermer</button>
+
+          {/* Usage example */}
+          <details className="text-xs text-muted-foreground">
+            <summary className="cursor-pointer font-medium hover:text-foreground">
+              Comment utiliser ce token ?
+            </summary>
+            <div className="mt-2 space-y-2 pl-1">
+              <p>Ajoutez ce serveur MCP dans votre client (claude.ai, Cursor, etc.) :</p>
+              <pre className="bg-background border border-border rounded-md p-2 font-mono text-[11px] overflow-x-auto whitespace-pre">
+{JSON.stringify({
+  mcpServers: {
+    opsflux: {
+      url: `${mcpBaseUrl}/${backends[0]?.slug || 'gouti'}/mcp`,
+      headers: {
+        Authorization: `Bearer ${newToken.token.slice(0, 12)}...`
+      }
+    }
+  }
+}, null, 2)}
+              </pre>
+            </div>
+          </details>
+
+          <button className="text-xs text-muted-foreground underline" onClick={() => setNewToken(null)}>
+            Fermer
+          </button>
         </div>
       )}
 
-      {/* Token list */}
-      {tokens.length === 0 && !showForm && (
-        <p className="text-sm text-muted-foreground italic">Aucun token cr&eacute;&eacute;.</p>
+      {/* Active tokens */}
+      {activeTokens.length === 0 && revokedTokens.length === 0 && !showForm && (
+        <p className="text-sm text-muted-foreground italic">Aucun token cr\u00e9\u00e9.</p>
       )}
 
       <div className="space-y-2">
-        {tokens.map(t => (
-          <div key={t.id} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-background">
-            <Key size={16} className={`shrink-0 ${t.revoked ? 'text-destructive' : 'text-muted-foreground'}`} />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">{t.name}</span>
-                <code className="text-xs px-1.5 py-0.5 rounded bg-accent text-muted-foreground font-mono">{t.token_preview}</code>
-                {t.revoked && <span className="gl-badge gl-badge-danger text-[10px]">R&eacute;voqu&eacute;</span>}
-              </div>
-              <div className="text-xs text-muted-foreground mt-0.5">
-                Scopes: <strong>{t.scopes}</strong>
-                {t.expires_at && <> &middot; Expire: {new Date(t.expires_at).toLocaleDateString('fr')}</>}
-                {t.last_used_at && <> &middot; Dernier usage: {new Date(t.last_used_at).toLocaleDateString('fr')}</>}
-              </div>
-            </div>
-            <div className="flex gap-1 shrink-0">
-              {!t.revoked && (
-                <button
-                  onClick={() => { if (confirm(`R\u00e9voquer le token "${t.name}" ?`)) revokeMut.mutate(t.id) }}
-                  className="p-1.5 rounded-md hover:bg-amber-500/10 text-muted-foreground hover:text-amber-600 transition-colors"
-                  title="R\u00e9voquer"
-                >
-                  <Ban size={14} />
-                </button>
-              )}
-              <button
-                onClick={() => { if (confirm(`Supprimer d\u00e9finitivement le token "${t.name}" ?`)) deleteMut.mutate(t.id) }}
-                className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                title="Supprimer"
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
-          </div>
+        {activeTokens.map(t => (
+          <TokenRow
+            key={t.id}
+            token={t}
+            onRevoke={() => { if (confirm(`R\u00e9voquer le token "${t.name}" ?`)) revokeMut.mutate(t.id) }}
+            onDelete={() => { if (confirm(`Supprimer d\u00e9finitivement le token "${t.name}" ?`)) deleteMut.mutate(t.id) }}
+          />
         ))}
       </div>
+
+      {/* Revoked tokens (collapsed) */}
+      {revokedTokens.length > 0 && (
+        <details className="text-sm">
+          <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+            {revokedTokens.length} token{revokedTokens.length > 1 ? 's' : ''} r\u00e9voqu\u00e9{revokedTokens.length > 1 ? 's' : ''}
+          </summary>
+          <div className="space-y-2 mt-2">
+            {revokedTokens.map(t => (
+              <TokenRow
+                key={t.id}
+                token={t}
+                onDelete={() => { if (confirm(`Supprimer d\u00e9finitivement le token "${t.name}" ?`)) deleteMut.mutate(t.id) }}
+              />
+            ))}
+          </div>
+        </details>
+      )}
 
       {/* Create form */}
       {showForm ? (
         <div className="p-4 rounded-lg border border-border bg-background space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-foreground">Nom du token</label>
+              <label className="text-xs font-medium text-foreground">Nom</label>
               <input
                 className="gl-form-input text-sm w-full mt-1"
-                placeholder="claude-herve"
+                placeholder="Ex: claude-herve"
                 value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
               />
+              <p className="text-[10px] text-muted-foreground mt-0.5">Identifiant pour retrouver ce token</p>
             </div>
             <div>
               <label className="text-xs font-medium text-foreground">Expiration (jours)</label>
@@ -360,41 +359,42 @@ function TokensSection() {
                 value={form.expires_in_days}
                 onChange={e => setForm(f => ({ ...f, expires_in_days: e.target.value }))}
               />
+              <p className="text-[10px] text-muted-foreground mt-0.5">Laissez vide pour un token permanent</p>
             </div>
           </div>
-          <div>
-            <label className="text-xs font-medium text-foreground">Scopes (backends autoris&eacute;s)</label>
-            <div className="flex flex-wrap gap-2 mt-1.5">
-              <label className="flex items-center gap-1.5 text-sm cursor-pointer">
-                <input
-                  type="radio"
-                  checked={form.scopes === '*'}
-                  onChange={() => setForm(f => ({ ...f, scopes: '*' }))}
-                />
-                Tous les backends
-              </label>
-              {backends.map(b => (
-                <label key={b.slug} className="flex items-center gap-1.5 text-sm cursor-pointer">
+          {backends.length > 1 && (
+            <div>
+              <label className="text-xs font-medium text-foreground">Backends autoris\u00e9s</label>
+              <div className="flex flex-wrap gap-2 mt-1.5">
+                <label className="flex items-center gap-1.5 text-sm cursor-pointer">
                   <input
-                    type="checkbox"
-                    checked={form.scopes !== '*' && form.scopes.split(',').includes(b.slug)}
-                    onChange={(e) => {
-                      setForm(f => {
-                        if (f.scopes === '*') {
-                          return { ...f, scopes: b.slug }
-                        }
-                        const current = new Set(f.scopes.split(',').filter(Boolean))
-                        if (e.target.checked) current.add(b.slug)
-                        else current.delete(b.slug)
-                        return { ...f, scopes: current.size === 0 ? '*' : [...current].join(',') }
-                      })
-                    }}
+                    type="radio"
+                    checked={form.scopes === '*'}
+                    onChange={() => setForm(f => ({ ...f, scopes: '*' }))}
                   />
-                  {b.name} ({b.slug})
+                  Tous
                 </label>
-              ))}
+                {backends.map(b => (
+                  <label key={b.slug} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.scopes !== '*' && form.scopes.split(',').includes(b.slug)}
+                      onChange={(e) => {
+                        setForm(f => {
+                          if (f.scopes === '*') return { ...f, scopes: b.slug }
+                          const current = new Set(f.scopes.split(',').filter(Boolean))
+                          if (e.target.checked) current.add(b.slug)
+                          else current.delete(b.slug)
+                          return { ...f, scopes: current.size === 0 ? '*' : [...current].join(',') }
+                        })
+                      }}
+                    />
+                    {b.name}
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
           <div className="flex gap-2">
             <button
               className="gl-btn gl-btn-confirm text-sm"
@@ -406,16 +406,79 @@ function TokensSection() {
               })}
             >
               {createMut.isPending ? <Loader2 size={14} className="animate-spin" /> : <Shield size={14} />}
-              G&eacute;n&eacute;rer le token
+              G\u00e9n\u00e9rer le token
             </button>
             <button className="gl-btn gl-btn-default text-sm" onClick={() => setShowForm(false)}>Annuler</button>
           </div>
         </div>
       ) : (
         <button className="gl-btn gl-btn-default text-sm" onClick={() => setShowForm(true)}>
-          <Plus size={14} /> Cr&eacute;er un token
+          <Plus size={14} /> Cr\u00e9er un token
         </button>
       )}
+    </div>
+  )
+}
+
+// ── Token row ──
+
+function TokenRow({ token: t, onRevoke, onDelete }: { token: Token; onRevoke?: () => void; onDelete: () => void }) {
+  const expiry = expiryLabel(t.expires_at)
+
+  return (
+    <div className={`flex items-center gap-3 p-3 rounded-lg border bg-background ${
+      t.revoked ? 'border-border/50 opacity-60' : 'border-border'
+    }`}>
+      <Key size={16} className={`shrink-0 ${t.revoked ? 'text-destructive' : 'text-primary'}`} />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-medium">{t.name}</span>
+          <code className="text-[10px] px-1.5 py-0.5 rounded bg-accent text-muted-foreground font-mono">
+            {t.token_preview}
+          </code>
+          {t.revoked && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 font-medium">
+              R\u00e9voqu\u00e9
+            </span>
+          )}
+          {!t.revoked && expiry.warn && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 font-medium flex items-center gap-1">
+              <Clock size={10} /> {expiry.text}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-1">
+          {t.scopes === '*' ? (
+            <span>Tous les backends</span>
+          ) : (
+            <span>Scopes: <strong>{t.scopes}</strong></span>
+          )}
+          {!expiry.warn && <span>{expiry.text}</span>}
+          {t.last_used_at && (
+            <span className="flex items-center gap-1">
+              <Clock size={10} /> {relativeTime(t.last_used_at)}
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="flex gap-1 shrink-0">
+        {onRevoke && !t.revoked && (
+          <button
+            onClick={onRevoke}
+            className="p-1.5 rounded-md hover:bg-amber-500/10 text-muted-foreground hover:text-amber-600 transition-colors"
+            title="R\u00e9voquer"
+          >
+            <Ban size={14} />
+          </button>
+        )}
+        <button
+          onClick={onDelete}
+          className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+          title="Supprimer"
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
     </div>
   )
 }

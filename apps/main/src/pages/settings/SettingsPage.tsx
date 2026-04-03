@@ -99,7 +99,6 @@ const SECTION_TAB_MAP: Record<string, string> = {
   // AuditTab sections
   'audit-log': 'audit-log',
   // McpGatewayTab sections
-  'mcp-backends': 'mcp-gateway',
   'mcp-tokens': 'mcp-gateway',
   // EntitiesTab sections
   'entity-users': 'entities',

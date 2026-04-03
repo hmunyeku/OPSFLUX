@@ -51,12 +51,7 @@ services:
     command: >
       sh -c "
         mkdir -p /opt/opsflux/static/avatars /opt/opsflux/static/attachments &&
-        echo '[STEP 1] alembic starting...' >&2 &&
-        alembic upgrade head 2>&1 &&
-        echo '[STEP 2] alembic done, testing import...' >&2 &&
-        python -c 'from app.main import app; print(\"[STEP 3] import OK\")' >&2 &&
-        echo '[STEP 4] starting uvicorn...' >&2 &&
-        uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4 --log-level debug
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
       "
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8000/api/health || (echo FAIL-$(date +%s) > /tmp/hc.log && false)"]

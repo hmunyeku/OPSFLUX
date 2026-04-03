@@ -432,7 +432,8 @@ const CONNECTORS_CATALOG: ConnectorDef[] = [
     fields: [
       { key: 'base_url', label: 'URL de l\'API', type: 'text' as const, placeholder: 'https://apiprd.gouti.net/v1/client' },
       { key: 'client_id', label: 'Client ID', type: 'text' as const, placeholder: 'Ex: PERDRAPI010' },
-      { key: 'client_secret', label: 'Secret client', type: 'secret' as const, placeholder: '••••••' },
+      { key: 'client_secret', label: 'Secret client', type: 'secret' as const, placeholder: '••••••', helpText: 'Optionnel si un token JWT est fourni' },
+      { key: 'token', label: 'Token JWT', type: 'secret' as const, placeholder: 'eyJ0eXAiOiJKV1Qi...', helpText: 'Token JWT direct (optionnel si secret client fourni)' },
       { key: 'entity_code', label: 'Code entité', type: 'text' as const, placeholder: 'Ex: P3R3NCOD3' },
     ],
   },

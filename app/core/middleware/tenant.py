@@ -41,14 +41,16 @@ class TenantSchemaMiddleware(BaseHTTPMiddleware):
         parts = host_no_port.split(".")
 
         if len(parts) >= 3 and parts[1] in ("app", "api"):
+            # perenco.app.opsflux.io → perenco
             tenant_slug = parts[0].lower().replace("-", "_")
+        elif request.headers.get("X-Tenant"):
+            # Explicit header (used by api.opsflux.io clients)
+            tenant_slug = request.headers["X-Tenant"].lower().replace("-", "_")
         elif host_no_port in {"localhost", "127.0.0.1"}:
             tenant_slug = "public"
         else:
-            return JSONResponse(
-                status_code=400,
-                content={"detail": "Unable to resolve tenant from request host"},
-            )
+            # Default to public for bare domains (api.opsflux.io)
+            tenant_slug = "public"
 
         # Validate tenant slug (prevent SQL injection)
         if not tenant_slug.isidentifier():

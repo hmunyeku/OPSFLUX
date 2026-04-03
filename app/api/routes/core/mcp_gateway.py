@@ -735,7 +735,7 @@ async def proxy_to_backend(backend_slug: str, path: str, request: Request):
     auth_header = request.headers.get("authorization")
     token = await _verify_mcp_token(auth_header)
     if token is None:
-        base = str(request.base_url).rstrip("/")
+        base = _get_base_url(request)
         return JSONResponse(
             {"error": "Unauthorized — invalid or missing Bearer token"},
             status_code=401,

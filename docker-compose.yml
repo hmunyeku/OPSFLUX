@@ -48,6 +48,8 @@ services:
     volumes:
       - uploads_data:/opt/opsflux/static
     user: "${UID:-0}:${GID:-0}"
+    extra_hosts:
+      - "mail.opsflux.io:host-gateway"
     command: >
       sh -c "
         mkdir -p /opt/opsflux/static/avatars /opt/opsflux/static/attachments &&

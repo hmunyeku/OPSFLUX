@@ -59,8 +59,15 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=dokploy-network"
-      # Service definition (Dokploy auto-generates api.opsflux.io routers)
       - "traefik.http.services.opsflux-api.loadbalancer.server.port=8000"
+      - "traefik.http.routers.opsflux-api-web.entrypoints=web"
+      - "traefik.http.routers.opsflux-api-web.rule=Host(`api.${DOMAIN:-opsflux.io}`)"
+      - "traefik.http.routers.opsflux-api-web.middlewares=redirect-to-https@file"
+      - "traefik.http.routers.opsflux-api-web.service=opsflux-api"
+      - "traefik.http.routers.opsflux-api-websecure.entrypoints=websecure"
+      - "traefik.http.routers.opsflux-api-websecure.rule=Host(`api.${DOMAIN:-opsflux.io}`)"
+      - "traefik.http.routers.opsflux-api-websecure.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.opsflux-api-websecure.service=opsflux-api"
       # ── MCP Gateway (mcp.opsflux.io → backend /mcp-gw/) ──
       - "traefik.http.routers.opsflux-mcp-web.entrypoints=web"
       - "traefik.http.routers.opsflux-mcp-web.rule=Host(`mcp.${DOMAIN:-opsflux.io}`)"

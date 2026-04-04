@@ -187,9 +187,48 @@ def _items(data: Any, key: str) -> Any:
     return data
 
 
+# Fields to keep when summarising list items (keeps responses compact)
+_SUMMARY_FIELDS = {
+    "id", "Id", "ID", "name", "Name", "label", "Label", "title", "Title",
+    "status", "Status", "state", "code", "Code", "slug", "type", "Type",
+    "start_date", "end_date", "due_date", "priority", "Priority",
+    "assigned_to", "owner", "matricule", "email", "first_name", "last_name",
+    "description",
+}
+
+_MAX_LIST_ITEMS = 50
+
+
+def _summarise_list(items: list) -> dict:
+    """Return a compact summary of a list, keeping only key fields."""
+    total = len(items)
+    truncated = items[:_MAX_LIST_ITEMS]
+    compact = []
+    for item in truncated:
+        if isinstance(item, dict):
+            # Keep only essential fields + any field containing "name" or "id"
+            row = {
+                k: v for k, v in item.items()
+                if k in _SUMMARY_FIELDS or "name" in k.lower() or k.lower() == "id"
+            }
+            compact.append(row if row else item)
+        else:
+            compact.append(item)
+    result: dict = {"count": total, "items": compact}
+    if total > _MAX_LIST_ITEMS:
+        result["note"] = f"Affichage limité à {_MAX_LIST_ITEMS}/{total} éléments. Utilisez un filtre pour affiner."
+    return result
+
+
+_MAX_RESPONSE_CHARS = 12_000  # ~3 000 tokens — keeps Claude context manageable
+
+
 def _ok(data: Any) -> dict:
-    """Format a successful MCP tool result."""
-    return {"content": [{"type": "text", "text": json.dumps(data, ensure_ascii=False, indent=2)}]}
+    """Format a successful MCP tool result, truncating if too large."""
+    text = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+    if len(text) > _MAX_RESPONSE_CHARS:
+        text = text[:_MAX_RESPONSE_CHARS] + '\n... [tronqué — réponse trop longue, affinez votre requête]'
+    return {"content": [{"type": "text", "text": text}]}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -223,14 +262,14 @@ async def _get_activity_label(c: GoutiApiClient, a: dict) -> dict:
 async def _list_projects(c: GoutiApiClient, a: dict) -> dict:
     resp = await c.call("projects")
     if resp["ok"]:
-        resp["items"] = _items(resp["data"], "projects")
+        return _ok(_summarise_list(_items(resp["data"], "projects")))
     return _ok(resp)
 
 
 async def _list_archived_projects(c: GoutiApiClient, a: dict) -> dict:
     resp = await c.call("projects/archived")
     if resp["ok"]:
-        resp["items"] = _items(resp["data"], "projects")
+        return _ok(_summarise_list(_items(resp["data"], "projects")))
     return _ok(resp)
 
 
@@ -250,7 +289,7 @@ async def _update_project(c: GoutiApiClient, a: dict) -> dict:
 async def _list_project_tasks(c: GoutiApiClient, a: dict) -> dict:
     resp = await c.call(f"projects/{_pid(a)}/tasks")
     if resp["ok"]:
-        resp["items"] = _items(resp["data"], "tasks")
+        return _ok(_summarise_list(_items(resp["data"], "tasks")))
     return _ok(resp)
 
 
@@ -276,7 +315,7 @@ async def _refresh_tasks(c: GoutiApiClient, a: dict) -> dict:
 async def _list_project_actions(c: GoutiApiClient, a: dict) -> dict:
     resp = await c.call(f"projects/{_pid(a)}/actions")
     if resp["ok"]:
-        resp["items"] = _items(resp["data"], "actions")
+        return _ok(_summarise_list(_items(resp["data"], "actions")))
     return _ok(resp)
 
 
@@ -298,7 +337,7 @@ async def _update_action(c: GoutiApiClient, a: dict) -> dict:
 async def _list_project_issues(c: GoutiApiClient, a: dict) -> dict:
     resp = await c.call(f"projects/{_pid(a)}/issues")
     if resp["ok"]:
-        resp["items"] = _items(resp["data"], "issues")
+        return _ok(_summarise_list(_items(resp["data"], "issues")))
     return _ok(resp)
 
 
@@ -320,7 +359,7 @@ async def _update_issue(c: GoutiApiClient, a: dict) -> dict:
 async def _list_project_deliverables(c: GoutiApiClient, a: dict) -> dict:
     resp = await c.call(f"projects/{_pid(a)}/deliverables")
     if resp["ok"]:
-        resp["items"] = _items(resp["data"], "deliverables")
+        return _ok(_summarise_list(_items(resp["data"], "deliverables")))
     return _ok(resp)
 
 
@@ -334,7 +373,7 @@ async def _get_deliverable(c: GoutiApiClient, a: dict) -> dict:
 async def _list_project_goals(c: GoutiApiClient, a: dict) -> dict:
     resp = await c.call(f"projects/{_pid(a)}/goals")
     if resp["ok"]:
-        resp["items"] = _items(resp["data"], "goals")
+        return _ok(_summarise_list(_items(resp["data"], "goals")))
     return _ok(resp)
 
 
@@ -359,7 +398,7 @@ async def _get_organization_unit(c: GoutiApiClient, a: dict) -> dict:
 async def _list_project_reports(c: GoutiApiClient, a: dict) -> dict:
     resp = await c.call(f"projects/{_pid(a)}/reports")
     if resp["ok"]:
-        resp["items"] = _items(resp["data"], "reports")
+        return _ok(_summarise_list(_items(resp["data"], "reports")))
     return _ok(resp)
 
 
@@ -378,7 +417,7 @@ async def _get_comments(c: GoutiApiClient, a: dict) -> dict:
 async def _list_users(c: GoutiApiClient, a: dict) -> dict:
     resp = await c.call("users")
     if resp["ok"]:
-        resp["items"] = _items(resp["data"], "users")
+        return _ok(_summarise_list(_items(resp["data"], "users")))
     return _ok(resp)
 
 
@@ -394,21 +433,21 @@ async def _get_user_by_matricule(c: GoutiApiClient, a: dict) -> dict:
 async def _list_user_tasks(c: GoutiApiClient, a: dict) -> dict:
     resp = await c.call(f"users/{_uid(a)}/tasks")
     if resp["ok"]:
-        resp["items"] = _items(resp["data"], "tasks")
+        return _ok(_summarise_list(_items(resp["data"], "tasks")))
     return _ok(resp)
 
 
 async def _list_user_actions(c: GoutiApiClient, a: dict) -> dict:
     resp = await c.call(f"users/{_uid(a)}/actions")
     if resp["ok"]:
-        resp["items"] = _items(resp["data"], "actions")
+        return _ok(_summarise_list(_items(resp["data"], "actions")))
     return _ok(resp)
 
 
 async def _list_user_issues(c: GoutiApiClient, a: dict) -> dict:
     resp = await c.call(f"users/{_uid(a)}/issues")
     if resp["ok"]:
-        resp["items"] = _items(resp["data"], "issues")
+        return _ok(_summarise_list(_items(resp["data"], "issues")))
     return _ok(resp)
 
 

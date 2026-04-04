@@ -1592,6 +1592,7 @@
         "visit_transport": "Visite & transport",
         "passengers": "Passagers ({{count}})",
         "imputations": "Imputations",
+        "stay_programs": "Programme de séjour ({{count}})",
         "tags_notes_files": "Tags, notes & fichiers"
       },
       "fields": {
@@ -1620,12 +1621,38 @@
         "cost_center": "Centre de coût",
         "sources": "Sources : projet={{project}} • centre de coût={{cost_center}}"
       },
+      "stay_programs": {
+        "create": "Créer un programme de séjour",
+        "target_pax": "PAX concerné",
+        "movement": "Mouvement {{index}}",
+        "add_movement": "Ajouter un mouvement",
+        "created_at": "Créé le {{date}}",
+        "empty": "Aucun programme de séjour défini pour cette AdS.",
+        "unknown_pax": "PAX non identifié",
+        "fields": {
+          "effective_date": "Date effective",
+          "from_location": "Depuis",
+          "to_location": "Vers",
+          "transport_mode": "Mode de transport"
+        }
+      },
       "history": {
         "created_at": "Créé le",
         "submitted_at": "Soumis le",
         "approved_at": "Approuvé le {{date}}",
         "rejected_at": "Rejeté le {{date}}",
-        "requires_review": "Renvoyé en correction"
+        "requires_review": "Renvoyé en correction",
+        "events": {
+          "stay_change_requested": "Demande de modification de séjour",
+          "avm_modified_requires_review": "Revue requise suite à une modification d'AVM",
+          "submitted": "Soumission",
+          "approved": "Approbation",
+          "rejected": "Rejet",
+          "cancelled": "Annulation",
+          "resubmitted": "Re-soumission",
+          "updated": "Mise à jour",
+          "requires_review": "Passage en revue"
+        }
       },
       "actions": {
         "external_link": "Lien externe",
@@ -1704,7 +1731,9 @@
         "after": "Après"
       },
       "operational_impacts": {
-        "generated_ads_review": "{{count}} AdS générée(s) liée(s) à cette mission nécessitent une revue suite à un impact Planner ou métier."
+        "generated_ads_review": "{{count}} AdS générée(s) liée(s) à cette mission nécessitent une revue suite à un impact Planner ou métier.",
+        "last_modification_review_count": "La dernière modification de l'AVM a replacé {{count}} AdS en revue.",
+        "impacted_ads": "AdS concernées : {{refs}}"
       },
       "empty": {
         "preparation_tasks": "Aucune tâche de préparation. Soumettez l'AVM pour générer la checklist.",

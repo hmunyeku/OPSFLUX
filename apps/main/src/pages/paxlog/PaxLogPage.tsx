@@ -92,6 +92,10 @@ import {
   useRotationCycles,
   useCreateRotationCycle,
   useEndRotationCycle,
+  useStayPrograms,
+  useCreateStayProgram,
+  useSubmitStayProgram,
+  useApproveStayProgram,
   useComplianceStats,
   useExpiringCredentials,
   useComplianceMatrix,
@@ -125,6 +129,7 @@ import type {
   PaxCredential,
   CredentialType,
   RotationCycle,
+  StayProgramCreate,
   ExpiringCredential,
   AdsPax,
   ComplianceMatrixEntry,
@@ -1927,6 +1932,7 @@ function AdsDetailPanel({ id }: { id: string }) {
   const { data: ads, isLoading } = useAds(id)
   const { data: adsPax } = useAdsPax(id)
   const { data: adsEvents } = useAdsEvents(id)
+  const { data: stayPrograms = [] } = useStayPrograms({ ads_id: id })
   const { data: imputationSuggestion } = useAdsImputationSuggestion(id)
   const submitAds = useSubmitAds()
   const cancelAds = useCancelAds()
@@ -1937,6 +1943,9 @@ function AdsDetailPanel({ id }: { id: string }) {
   const resubmitAds = useResubmitAds()
   const downloadPdf = useAdsPdf()
   const createExtLink = useCreateExternalLink()
+  const createStayProgram = useCreateStayProgram()
+  const submitStayProgram = useSubmitStayProgram()
+  const approveStayProgram = useApproveStayProgram()
   const addPaxV2 = useAddPaxToAdsV2()
   const removePax = useRemovePaxFromAds()
   const { hasPermission } = usePermission()
@@ -1958,6 +1967,11 @@ function AdsDetailPanel({ id }: { id: string }) {
   const [proposedVisitPurpose, setProposedVisitPurpose] = useState('')
   const [paxSearch, setPaxSearch] = useState('')
   const [showPaxPicker, setShowPaxPicker] = useState(false)
+  const [showStayProgramForm, setShowStayProgramForm] = useState(false)
+  const [stayProgramTarget, setStayProgramTarget] = useState<{ user_id?: string | null; contact_id?: string | null }>({})
+  const [stayMovements, setStayMovements] = useState<Array<{ effective_date: string; from_location: string; to_location: string; transport_mode: string; notes: string }>>([
+    { effective_date: '', from_location: '', to_location: '', transport_mode: '', notes: '' },
+  ])
   const debouncedPaxSearch = useDebounce(paxSearch, 300)
   const { data: paxCandidates } = usePaxCandidates(debouncedPaxSearch)
 
@@ -2005,6 +2019,8 @@ function AdsDetailPanel({ id }: { id: string }) {
   const canResubmit = ads.status === 'requires_review' && hasPermission('paxlog.ads.submit')
   const canDownloadPdf = ['approved', 'in_progress', 'completed'].includes(ads.status)
   const canGenerateLink = ['approved', 'in_progress'].includes(ads.status)
+  const canManageStayPrograms = hasPermission('paxlog.stay.create')
+  const canApproveStayPrograms = hasPermission('paxlog.stay.approve')
   const adsSubmissionChecklist = [
     { label: t('paxlog.ads_detail.checklist.destination'), done: !!ads.site_entry_asset_id },
     { label: t('paxlog.ads_detail.checklist.category'), done: !!ads.visit_category },
@@ -2019,6 +2035,20 @@ function AdsDetailPanel({ id }: { id: string }) {
     return JSON.stringify(value)
   }
   const adsTimeline = (adsEvents ?? []).slice(0, 8)
+  const getAdsEventLabel = (eventType: string) => {
+    const eventLabels: Record<string, string> = {
+      stay_change_requested: t('paxlog.ads_detail.history.events.stay_change_requested'),
+      avm_modified_requires_review: t('paxlog.ads_detail.history.events.avm_modified_requires_review'),
+      submitted: t('paxlog.ads_detail.history.events.submitted'),
+      approved: t('paxlog.ads_detail.history.events.approved'),
+      rejected: t('paxlog.ads_detail.history.events.rejected'),
+      requires_review: t('paxlog.ads_detail.history.events.requires_review'),
+      cancelled: t('paxlog.ads_detail.history.events.cancelled'),
+      resubmitted: t('paxlog.ads_detail.history.events.resubmitted'),
+      updated: t('paxlog.ads_detail.history.events.updated'),
+    }
+    return eventLabels[eventType] || eventType
+  }
   const adsReadyToSubmit = adsSubmissionChecklist.every((item) => item.done)
   const adsNextAction =
     ads.status === 'draft'
@@ -2095,6 +2125,44 @@ function AdsDetailPanel({ id }: { id: string }) {
 
   const handleGenerateLink = () => {
     createExtLink.mutate({ adsId: id, payload: { expires_hours: 72, max_uses: 5 } })
+  }
+
+  const addStayMovement = () => {
+    setStayMovements((prev) => [...prev, { effective_date: '', from_location: '', to_location: '', transport_mode: '', notes: '' }])
+  }
+
+  const updateStayMovement = (index: number, patch: Partial<(typeof stayMovements)[number]>) => {
+    setStayMovements((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)))
+  }
+
+  const removeStayMovement = (index: number) => {
+    setStayMovements((prev) => (prev.length === 1 ? prev : prev.filter((_, i) => i !== index)))
+  }
+
+  const handleCreateStayProgram = () => {
+    const movements = stayMovements
+      .filter((row) => row.effective_date || row.from_location || row.to_location || row.transport_mode || row.notes)
+      .map((row) => ({
+        effective_date: row.effective_date || null,
+        from_location: row.from_location || null,
+        to_location: row.to_location || null,
+        transport_mode: row.transport_mode || null,
+        notes: row.notes || null,
+      }))
+    if ((!stayProgramTarget.user_id && !stayProgramTarget.contact_id) || movements.length === 0) return
+    const payload: StayProgramCreate = {
+      ads_id: id,
+      user_id: stayProgramTarget.user_id || null,
+      contact_id: stayProgramTarget.contact_id || null,
+      movements,
+    }
+    createStayProgram.mutate(payload, {
+      onSuccess: () => {
+        setShowStayProgramForm(false)
+        setStayProgramTarget({})
+        setStayMovements([{ effective_date: '', from_location: '', to_location: '', transport_mode: '', notes: '' }])
+      },
+    })
   }
 
   return (
@@ -2479,6 +2547,140 @@ function AdsDetailPanel({ id }: { id: string }) {
           />
         </CollapsibleSection>
 
+        <CollapsibleSection id="ads-stay-programs" title={t('paxlog.ads_detail.sections.stay_programs', { count: stayPrograms.length })} defaultExpanded>
+          <div className="space-y-3 p-3">
+            {canManageStayPrograms && !showStayProgramForm && (
+              <PanelActionButton onClick={() => setShowStayProgramForm(true)}>
+                <Plus size={12} /> {t('paxlog.ads_detail.stay_programs.create')}
+              </PanelActionButton>
+            )}
+
+            {showStayProgramForm && (
+              <div className="space-y-3 rounded-lg border border-border bg-card p-3">
+                <DynamicPanelField label={t('paxlog.ads_detail.stay_programs.target_pax')}>
+                  <select
+                    value={stayProgramTarget.user_id || stayProgramTarget.contact_id || ''}
+                    onChange={(e) => {
+                      const selected = adsPax?.find((entry) => (entry.user_id || entry.contact_id) === e.target.value)
+                      setStayProgramTarget({
+                        user_id: selected?.user_id || null,
+                        contact_id: selected?.contact_id || null,
+                      })
+                    }}
+                    className={panelInputClass}
+                  >
+                    <option value="">{t('common.select')}</option>
+                    {(adsPax || []).map((entry) => {
+                      const value = entry.user_id || entry.contact_id || ''
+                      const label = `${entry.pax_last_name || ''} ${entry.pax_first_name || ''}`.trim() || entry.pax_badge || value
+                      return <option key={entry.id} value={value}>{label}</option>
+                    })}
+                  </select>
+                </DynamicPanelField>
+
+                {stayMovements.map((movement, index) => (
+                  <div key={index} className="space-y-2 rounded-md border border-border/70 p-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-medium text-foreground">{t('paxlog.ads_detail.stay_programs.movement', { index: index + 1 })}</p>
+                      {stayMovements.length > 1 && (
+                        <button type="button" className="text-xs text-danger hover:underline" onClick={() => removeStayMovement(index)}>
+                          {t('common.delete')}
+                        </button>
+                      )}
+                    </div>
+                    <FormGrid className="@\[900px\]:grid-cols-2">
+                      <DynamicPanelField label={t('paxlog.ads_detail.stay_programs.fields.effective_date')}>
+                        <input type="date" value={movement.effective_date} onChange={(e) => updateStayMovement(index, { effective_date: e.target.value })} className={panelInputClass} />
+                      </DynamicPanelField>
+                      <DynamicPanelField label={t('paxlog.ads_detail.stay_programs.fields.transport_mode')}>
+                        <input value={movement.transport_mode} onChange={(e) => updateStayMovement(index, { transport_mode: e.target.value })} className={panelInputClass} />
+                      </DynamicPanelField>
+                      <DynamicPanelField label={t('paxlog.ads_detail.stay_programs.fields.from_location')}>
+                        <input value={movement.from_location} onChange={(e) => updateStayMovement(index, { from_location: e.target.value })} className={panelInputClass} />
+                      </DynamicPanelField>
+                      <DynamicPanelField label={t('paxlog.ads_detail.stay_programs.fields.to_location')}>
+                        <input value={movement.to_location} onChange={(e) => updateStayMovement(index, { to_location: e.target.value })} className={panelInputClass} />
+                      </DynamicPanelField>
+                    </FormGrid>
+                    <DynamicPanelField label={t('common.notes')}>
+                      <textarea value={movement.notes} onChange={(e) => updateStayMovement(index, { notes: e.target.value })} className={cn(panelInputClass, 'min-h-[56px] resize-y')} />
+                    </DynamicPanelField>
+                  </div>
+                ))}
+
+                <div className="flex items-center gap-2">
+                  <PanelActionButton onClick={addStayMovement}>
+                    <Plus size={12} /> {t('paxlog.ads_detail.stay_programs.add_movement')}
+                  </PanelActionButton>
+                  <PanelActionButton variant="primary" disabled={createStayProgram.isPending || (!stayProgramTarget.user_id && !stayProgramTarget.contact_id)} onClick={handleCreateStayProgram}>
+                    {createStayProgram.isPending ? <Loader2 size={12} className="animate-spin" /> : <><Send size={12} /> {t('common.create')}</>}
+                  </PanelActionButton>
+                  <PanelActionButton onClick={() => setShowStayProgramForm(false)}>
+                    <X size={12} /> {t('common.cancel')}
+                  </PanelActionButton>
+                </div>
+              </div>
+            )}
+
+            {stayPrograms.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic">{t('paxlog.ads_detail.stay_programs.empty')}</p>
+            ) : (
+              <div className="space-y-3">
+                {stayPrograms.map((program) => {
+                  const paxEntry = adsPax?.find((entry) =>
+                    (program.user_id && entry.user_id === program.user_id) ||
+                    (program.contact_id && entry.contact_id === program.contact_id),
+                  )
+                  const paxLabel = `${paxEntry?.pax_last_name || ''} ${paxEntry?.pax_first_name || ''}`.trim() || paxEntry?.pax_badge || t('paxlog.ads_detail.stay_programs.unknown_pax')
+                  return (
+                    <div key={program.id} className="rounded-lg border border-border bg-card p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{paxLabel}</p>
+                          <p className="text-[11px] text-muted-foreground">{t('paxlog.ads_detail.stay_programs.created_at', { date: formatDate(program.created_at) })}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <StatusBadge status={program.status} map={{
+                            draft: { labelKey: 'paxlog.status.ads.draft', badge: 'gl-badge-neutral' },
+                            submitted: { labelKey: 'paxlog.status.ads.submitted', badge: 'gl-badge-info' },
+                            approved: { labelKey: 'paxlog.status.ads.approved', badge: 'gl-badge-success' },
+                            rejected: { labelKey: 'paxlog.status.ads.rejected', badge: 'gl-badge-danger' },
+                          }} />
+                          {program.status === 'draft' && canManageStayPrograms && (
+                            <PanelActionButton onClick={() => submitStayProgram.mutate(program.id)} disabled={submitStayProgram.isPending}>
+                              <Send size={12} /> {t('common.submit')}
+                            </PanelActionButton>
+                          )}
+                          {program.status === 'submitted' && canApproveStayPrograms && (
+                            <PanelActionButton variant="primary" onClick={() => approveStayProgram.mutate(program.id)} disabled={approveStayProgram.isPending}>
+                              <CheckCircle2 size={12} /> {t('common.validate')}
+                            </PanelActionButton>
+                          )}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        {program.movements.map((movement, movementIndex) => (
+                          <div key={movementIndex} className="rounded-md bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                            <span className="font-medium text-foreground">{t('paxlog.ads_detail.stay_programs.movement', { index: movementIndex + 1 })}</span>
+                            {' • '}
+                            {String(movement.effective_date || '—')}
+                            {' • '}
+                            {String(movement.from_location || '—')}
+                            {' → '}
+                            {String(movement.to_location || '—')}
+                            {movement.transport_mode ? ` • ${String(movement.transport_mode)}` : ''}
+                            {movement.notes ? ` • ${String(movement.notes)}` : ''}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </CollapsibleSection>
+
         {/* Workflow timeline */}
         <CollapsibleSection id="ads-history" title={t('common.history')}>
           <div className="space-y-1">
@@ -2513,7 +2715,7 @@ function AdsDetailPanel({ id }: { id: string }) {
               return (
                 <div key={event.id} className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 space-y-1.5">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs font-medium text-foreground">{event.event_type}</span>
+                    <span className="text-xs font-medium text-foreground">{getAdsEventLabel(event.event_type)}</span>
                     <span className="text-[11px] text-muted-foreground">{formatDate(event.recorded_at)}</span>
                   </div>
                   {event.reason && <p className="text-xs text-muted-foreground">{event.reason}</p>}
@@ -3463,6 +3665,21 @@ function AvmDetailPanel({ id }: { id?: string }) {
           <CollapsibleSection id="avm-impact-warning" title={t('paxlog.avm_detail.sections.operational_impacts')} defaultExpanded>
             <div className="rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/20 dark:text-amber-100">
               {t('paxlog.avm_detail.operational_impacts.generated_ads_review', { count: generatedAdsReviewCount })}
+            </div>
+          </CollapsibleSection>
+        )}
+
+        {(avm.last_linked_ads_set_to_review || 0) > 0 && (
+          <CollapsibleSection id="avm-last-impact" title={t('paxlog.avm_detail.sections.last_changes')} defaultExpanded>
+            <div className="space-y-2 rounded-md border border-border bg-card px-3 py-2 text-xs">
+              <p className="text-foreground">
+                {t('paxlog.avm_detail.operational_impacts.last_modification_review_count', { count: avm.last_linked_ads_set_to_review || 0 })}
+              </p>
+              {(avm.last_linked_ads_references || []).length > 0 && (
+                <p className="text-muted-foreground">
+                  {t('paxlog.avm_detail.operational_impacts.impacted_ads', { refs: (avm.last_linked_ads_references || []).join(', ') })}
+                </p>
+              )}
             </div>
           </CollapsibleSection>
         )}

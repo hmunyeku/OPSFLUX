@@ -4989,6 +4989,62 @@ async def modify_active_avm(
     if not changes:
         raise HTTPException(status_code=400, detail="No AVM changes detected")
 
+    linked_ads_reviewed = 0
+    linked_ads_refs: list[str] = []
+    linked_ads_result = await db.execute(
+        select(Ads.id, Ads.reference, Ads.status, Ads.requester_id)
+        .join(MissionProgram, MissionProgram.generated_ads_id == Ads.id)
+        .where(
+            MissionProgram.mission_notice_id == avm.id,
+            Ads.entity_id == entity_id,
+            Ads.status.in_((
+                "submitted",
+                "pending_compliance",
+                "pending_validation",
+                "approved",
+                "in_progress",
+            )),
+        )
+    )
+    linked_ads_rows = linked_ads_result.all()
+    for linked_ads_id, linked_ads_ref, linked_ads_status, linked_ads_requester_id in linked_ads_rows:
+        await db.execute(
+            Ads.__table__.update()
+            .where(Ads.id == linked_ads_id)
+            .values(status="requires_review", updated_at=func.now())
+        )
+        db.add(AdsEvent(
+            entity_id=entity_id,
+            ads_id=linked_ads_id,
+            event_type="avm_modified_requires_review",
+            old_status=linked_ads_status,
+            new_status="requires_review",
+            actor_id=current_user.id,
+            reason=body.reason,
+            metadata_json={
+                "avm_id": str(avm.id),
+                "avm_reference": avm.reference,
+                "changes": changes,
+            },
+        ))
+        linked_ads_reviewed += 1
+        linked_ads_refs.append(linked_ads_ref)
+        if linked_ads_requester_id:
+            from app.core.notifications import send_in_app
+            await send_in_app(
+                db,
+                user_id=linked_ads_requester_id,
+                entity_id=entity_id,
+                title="AdS à revoir suite à une modification d'AVM",
+                body=(
+                    f"L'AVM {avm.reference} a été modifiée. "
+                    f"L'AdS {linked_ads_ref} repasse en revue. "
+                    f"Motif: {body.reason}."
+                ),
+                category="paxlog",
+                link=f"/paxlog/ads/{linked_ads_id}",
+            )
+
     await db.commit()
     await db.refresh(avm)
 
@@ -4999,6 +5055,8 @@ async def modify_active_avm(
             "reason": body.reason,
             "modified_fields": list(changes.keys()),
             "changes": changes,
+            "linked_ads_set_to_review": linked_ads_reviewed,
+            "linked_ads_references": linked_ads_refs,
         },
     )
     await db.commit()
@@ -5014,6 +5072,8 @@ async def modify_active_avm(
             "modified_fields": list(changes.keys()),
             "reason": body.reason,
             "changes": changes,
+            "linked_ads_set_to_review": linked_ads_reviewed,
+            "linked_ads_references": linked_ads_refs,
         },
     ))
 
@@ -5054,12 +5114,16 @@ async def _build_avm_read(db: AsyncSession, avm: MissionNotice) -> MissionNotice
     last_modified_by_name = None
     last_modified_fields: list[str] = []
     last_modification_changes = None
+    last_linked_ads_set_to_review = 0
+    last_linked_ads_references: list[str] = []
     if latest_modification:
         last_modified_at = latest_modification[0]
         details = latest_modification[1] or {}
         last_modification_reason = details.get("reason")
         last_modification_changes = details.get("changes")
         last_modified_fields = details.get("modified_fields") or []
+        last_linked_ads_set_to_review = details.get("linked_ads_set_to_review") or 0
+        last_linked_ads_references = details.get("linked_ads_references") or []
         modifier_name = f"{latest_modification[2] or ''} {latest_modification[3] or ''}".strip()
         last_modified_by_name = modifier_name or None
 
@@ -5154,4 +5218,6 @@ async def _build_avm_read(db: AsyncSession, avm: MissionNotice) -> MissionNotice
         last_modified_by_name=last_modified_by_name,
         last_modified_fields=last_modified_fields,
         last_modification_changes=last_modification_changes,
+        last_linked_ads_set_to_review=last_linked_ads_set_to_review,
+        last_linked_ads_references=last_linked_ads_references,
     )

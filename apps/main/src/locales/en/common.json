@@ -1583,6 +1583,7 @@
         "visit_transport": "Visit & transport",
         "passengers": "Passengers ({{count}})",
         "imputations": "Imputations",
+        "stay_programs": "Stay program ({{count}})",
         "tags_notes_files": "Tags, notes & files"
       },
       "fields": {
@@ -1611,12 +1612,38 @@
         "cost_center": "Cost center",
         "sources": "Sources: project={{project}} • cost center={{cost_center}}"
       },
+      "stay_programs": {
+        "create": "Create stay program",
+        "target_pax": "Concerned PAX",
+        "movement": "Movement {{index}}",
+        "add_movement": "Add movement",
+        "created_at": "Created at {{date}}",
+        "empty": "No stay program defined for this visit notice.",
+        "unknown_pax": "Unknown PAX",
+        "fields": {
+          "effective_date": "Effective date",
+          "from_location": "From",
+          "to_location": "To",
+          "transport_mode": "Transport mode"
+        }
+      },
       "history": {
         "created_at": "Created at",
         "submitted_at": "Submitted at",
         "approved_at": "Approved on {{date}}",
         "rejected_at": "Rejected on {{date}}",
-        "requires_review": "Sent back for correction"
+        "requires_review": "Sent back for correction",
+        "events": {
+          "stay_change_requested": "Stay change request",
+          "avm_modified_requires_review": "Review required after AVM change",
+          "submitted": "Submission",
+          "approved": "Approval",
+          "rejected": "Rejection",
+          "cancelled": "Cancellation",
+          "resubmitted": "Resubmission",
+          "updated": "Update",
+          "requires_review": "Moved to review"
+        }
       },
       "actions": {
         "external_link": "External link",
@@ -1695,7 +1722,9 @@
         "after": "After"
       },
       "operational_impacts": {
-        "generated_ads_review": "{{count}} generated visit notice(s) linked to this mission now require review after a Planner or business impact."
+        "generated_ads_review": "{{count}} generated visit notice(s) linked to this mission now require review after a Planner or business impact.",
+        "last_modification_review_count": "The latest AVM change set {{count}} visit notice(s) back to review.",
+        "impacted_ads": "Impacted visit notices: {{refs}}"
       },
       "empty": {
         "preparation_tasks": "No preparation task. Submit the AVM to generate the checklist.",

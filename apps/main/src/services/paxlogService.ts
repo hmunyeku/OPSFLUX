@@ -466,32 +466,19 @@ export interface RotationCycleUpdate {
 // Stay Programs
 export interface StayProgram {
   id: string
-  entity_id: string
   ads_id: string | null
   user_id: string | null
   contact_id: string | null
   status: 'draft' | 'submitted' | 'approved' | 'rejected'
-  title: string
-  start_date: string
-  end_date: string
-  details: Record<string, unknown> | null
-  submitted_at: string | null
-  approved_at: string | null
-  approved_by: string | null
+  movements: Array<Record<string, unknown>>
   created_at: string
-  // Enriched
-  pax_first_name?: string | null
-  pax_last_name?: string | null
 }
 
 export interface StayProgramCreate {
   ads_id?: string | null
   user_id?: string | null
   contact_id?: string | null
-  title: string
-  start_date: string
-  end_date: string
-  details?: Record<string, unknown> | null
+  movements: Array<Record<string, unknown>>
 }
 
 // Profile Types & Habilitation Matrix
@@ -637,6 +624,8 @@ export interface MissionNoticeRead {
   last_modified_by_name?: string | null
   last_modified_fields?: string[]
   last_modification_changes?: Record<string, { before: unknown; after: unknown }> | null
+  last_linked_ads_set_to_review?: number
+  last_linked_ads_references?: string[]
 }
 
 export interface MissionNoticeSummary {
@@ -957,7 +946,7 @@ export const paxlogService = {
 
   // ── Stay Programs ──
 
-  listStayPrograms: async (params: StayProgramListParams = {}): Promise<PaginatedResponse<StayProgram>> => {
+  listStayPrograms: async (params: StayProgramListParams = {}): Promise<StayProgram[]> => {
     const { data } = await api.get('/api/v1/pax/stay-programs', { params })
     return data
   },

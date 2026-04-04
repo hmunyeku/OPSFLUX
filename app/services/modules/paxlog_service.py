@@ -52,6 +52,15 @@ PRIORITY_WEIGHTS = {
 # ── AdS reference prefix ────────────────────────────────────────────────────
 
 ADS_REF_PREFIX = "ADS"
+NON_TRAVELWIZ_OUTBOUND_MODES = {"", "walking"}
+
+
+def ads_requires_travelwiz_transport(
+    outbound_transport_mode: str | None,
+) -> bool:
+    """Return whether AdS approval should trigger TravelWiz manifest lookup."""
+    mode = (outbound_transport_mode or "").strip().lower()
+    return mode not in NON_TRAVELWIZ_OUTBOUND_MODES
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -490,6 +499,8 @@ async def approve_ads(
             "start_date": str(ads.start_date),
             "end_date": str(ads.end_date),
             "outbound_transport_mode": ads.outbound_transport_mode,
+            "return_transport_mode": ads.return_transport_mode,
+            "transport_requested": ads_requires_travelwiz_transport(ads.outbound_transport_mode),
             "outbound_departure_base_id": str(ads.outbound_departure_base_id) if ads.outbound_departure_base_id else None,
             "approved_pax_count": approved_count,
             "planner_activity_id": str(ads.planner_activity_id) if ads.planner_activity_id else None,

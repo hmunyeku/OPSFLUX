@@ -2053,12 +2053,14 @@ function AdsDetailPanel({ id }: { id: string }) {
     return fieldLabels[field] || field
   }
   const adsTimeline = (adsEvents ?? []).slice(0, 8)
-  const latestOperationalImpact = (adsEvents ?? []).find((event) => ['avm_modified_requires_review', 'avm_cancelled'].includes(event.event_type))
+  const latestOperationalImpact = (adsEvents ?? []).find((event) => ['avm_modified_requires_review', 'avm_cancelled', 'planner_activity_modified_requires_review', 'planner_activity_cancelled'].includes(event.event_type))
   const getAdsEventLabel = (eventType: string) => {
     const eventLabels: Record<string, string> = {
       stay_change_requested: t('paxlog.ads_detail.history.events.stay_change_requested'),
       avm_modified_requires_review: t('paxlog.ads_detail.history.events.avm_modified_requires_review'),
       avm_cancelled: t('paxlog.ads_detail.history.events.avm_cancelled'),
+      planner_activity_modified_requires_review: t('paxlog.ads_detail.history.events.planner_activity_modified_requires_review'),
+      planner_activity_cancelled: t('paxlog.ads_detail.history.events.planner_activity_cancelled'),
       submitted: t('paxlog.ads_detail.history.events.submitted'),
       approved: t('paxlog.ads_detail.history.events.approved'),
       rejected: t('paxlog.ads_detail.history.events.rejected'),
@@ -2096,6 +2098,8 @@ function AdsDetailPanel({ id }: { id: string }) {
     changes?: Record<string, { from?: unknown; to?: unknown; before?: unknown; after?: unknown }>
     avm_id?: string
     avm_reference?: string
+    planner_activity_id?: string
+    planner_activity_title?: string
   } | null)?.changes
 
   const handleReject = () => {
@@ -2479,7 +2483,11 @@ function AdsDetailPanel({ id }: { id: string }) {
               <p className="font-medium">
                 {latestOperationalImpact.event_type === 'avm_cancelled'
                   ? t('paxlog.ads_detail.operational_impact.avm_cancelled')
-                  : t('paxlog.ads_detail.operational_impact.avm_modified')}
+                  : latestOperationalImpact.event_type === 'planner_activity_cancelled'
+                    ? t('paxlog.ads_detail.operational_impact.planner_cancelled')
+                    : latestOperationalImpact.event_type === 'planner_activity_modified_requires_review'
+                      ? t('paxlog.ads_detail.operational_impact.planner_modified')
+                      : t('paxlog.ads_detail.operational_impact.avm_modified')}
               </p>
               {!!latestOperationalImpact.reason && (
                 <p className="text-amber-900/90 dark:text-amber-100/90">{latestOperationalImpact.reason}</p>
@@ -2491,9 +2499,15 @@ function AdsDetailPanel({ id }: { id: string }) {
                     module="paxlog"
                     id={(latestOperationalImpact.metadata_json as { avm_id?: string }).avm_id!}
                     subtype="avm"
-                    label={(latestOperationalImpact.metadata_json as { avm_reference?: string }).avm_reference || (latestOperationalImpact.metadata_json as { avm_id?: string }).avm_id!}
-                    mode="navigate"
-                  />
+                  label={(latestOperationalImpact.metadata_json as { avm_reference?: string }).avm_reference || (latestOperationalImpact.metadata_json as { avm_id?: string }).avm_id!}
+                  mode="navigate"
+                />
+              </p>
+              )}
+              {!!(latestOperationalImpact.metadata_json as { planner_activity_title?: string } | null)?.planner_activity_title && (
+                <p className="text-amber-900/90 dark:text-amber-100/90">
+                  {t('paxlog.ads_detail.fields.planner_activity_title')}{' '}
+                  {(latestOperationalImpact.metadata_json as { planner_activity_title?: string }).planner_activity_title}
                 </p>
               )}
               {latestOperationalImpactChanges && (

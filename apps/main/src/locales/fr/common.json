@@ -1660,6 +1660,8 @@
           "stay_change_requested": "Demande de modification de séjour",
           "avm_modified_requires_review": "Revue requise suite à une modification d'AVM",
           "avm_cancelled": "Impact suite à l'annulation de l'AVM",
+          "planner_activity_modified_requires_review": "Revue requise suite à une modification Planner",
+          "planner_activity_cancelled": "Impact suite à l'annulation de l'activité Planner",
           "submitted": "Soumission",
           "approved": "Approbation",
           "rejected": "Rejet",
@@ -1672,6 +1674,8 @@
       "operational_impact": {
         "avm_modified": "Cette AdS est en revue à la suite d'une modification de l'AVM source.",
         "avm_cancelled": "Cette AdS a été impactée par l'annulation de l'AVM source.",
+        "planner_modified": "Cette AdS est en revue à la suite d'une modification de l'activité Planner liée.",
+        "planner_cancelled": "Cette AdS a été impactée par l'annulation de l'activité Planner liée.",
         "changed_fields": "Champs impactés"
       },
       "actions": {

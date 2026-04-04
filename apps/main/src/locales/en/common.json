@@ -1651,6 +1651,8 @@
           "stay_change_requested": "Stay change request",
           "avm_modified_requires_review": "Review required after AVM change",
           "avm_cancelled": "Impact after AVM cancellation",
+          "planner_activity_modified_requires_review": "Review required after Planner change",
+          "planner_activity_cancelled": "Impact after Planner activity cancellation",
           "submitted": "Submission",
           "approved": "Approval",
           "rejected": "Rejection",
@@ -1663,6 +1665,8 @@
       "operational_impact": {
         "avm_modified": "This visit notice is under review following a change to the source AVM.",
         "avm_cancelled": "This visit notice was impacted by the cancellation of the source AVM.",
+        "planner_modified": "This visit notice is under review following a change to the linked Planner activity.",
+        "planner_cancelled": "This visit notice was impacted by the cancellation of the linked Planner activity.",
         "changed_fields": "Impacted fields"
       },
       "actions": {

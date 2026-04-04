@@ -1925,6 +1925,8 @@ async def approve_ads(
 
     Emits ads.approved event which triggers TravelWiz auto-manifest.
     """
+    from app.services.modules.paxlog_service import ads_requires_travelwiz_transport
+
     result = await db.execute(
         select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
     )
@@ -2007,6 +2009,8 @@ async def approve_ads(
             "start_date": str(ads.start_date),
             "end_date": str(ads.end_date),
             "outbound_transport_mode": ads.outbound_transport_mode,
+            "return_transport_mode": ads.return_transport_mode,
+            "transport_requested": ads_requires_travelwiz_transport(ads.outbound_transport_mode),
             "outbound_departure_base_id": str(ads.outbound_departure_base_id) if ads.outbound_departure_base_id else None,
             "requester_id": str(ads.requester_id),
             "reference": ads.reference,

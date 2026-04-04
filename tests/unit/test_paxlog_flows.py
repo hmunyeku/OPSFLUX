@@ -10,6 +10,9 @@ import pytest
 from fastapi import HTTPException
 
 from app.api.routes.modules import paxlog
+from app.core.events import OpsFluxEvent
+from app.event_handlers import module_handlers
+from app.event_handlers import paxlog_handlers
 from app.models.paxlog import AdsEvent
 from app.schemas.paxlog import AdsStayChangeRequest, MissionNoticeModifyRequest, MissionPreparationTaskUpdate
 from app.services.modules import paxlog_service
@@ -77,6 +80,17 @@ class FakeScalarResult:
         return self._rows
 
 
+class FakeAsyncSessionContext:
+    def __init__(self, db):
+        self.db = db
+
+    async def __aenter__(self):
+        return self.db
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+
 def _build_ads(**overrides):
     now = datetime.now(timezone.utc)
     data = {
@@ -95,7 +109,9 @@ def _build_ads(**overrides):
         "start_date": date(2026, 4, 10),
         "end_date": date(2026, 4, 12),
         "outbound_transport_mode": "helicopter",
+        "outbound_departure_base_id": None,
         "return_transport_mode": "boat",
+        "return_departure_base_id": None,
         "cross_company_flag": False,
         "submitted_at": None,
         "approved_at": None,
@@ -346,6 +362,71 @@ async def test_request_ads_stay_change_rejects_no_effective_change(monkeypatch):
 
     assert exc.value.status_code == 400
     assert exc.value.detail == "La demande ne contient aucun changement effectif."
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("outbound_transport_mode", "expected_transport_requested"),
+    [
+        ("helicopter", True),
+        ("walking", False),
+        (None, False),
+    ],
+)
+async def test_approve_ads_emits_transport_requested_flag(
+    monkeypatch,
+    outbound_transport_mode,
+    expected_transport_requested,
+):
+    ads = _build_ads(
+        status="submitted",
+        outbound_transport_mode=outbound_transport_mode,
+    )
+    pax_entry = SimpleNamespace(status="compliant")
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=ads),
+            FakeScalarResult([pax_entry]),
+        ]
+    )
+    emitted_events = []
+    transition_calls = []
+    audits = []
+    published_events = []
+
+    async def fake_transition(*args, **kwargs):
+        transition_calls.append(kwargs)
+
+    async def fake_emit_transition_event(**kwargs):
+        emitted_events.append(kwargs)
+
+    async def fake_record_audit(*args, **kwargs):
+        audits.append(kwargs)
+
+    class FakeEventBus:
+        async def publish(self, event):
+            published_events.append(event)
+
+    monkeypatch.setattr(paxlog, "_try_ads_workflow_transition", fake_transition)
+    monkeypatch.setattr(paxlog.fsm_service, "emit_transition_event", fake_emit_transition_event)
+    monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+    monkeypatch.setattr("app.core.events.event_bus", FakeEventBus())
+
+    response = await paxlog.approve_ads(
+        ads.id,
+        entity_id=ads.entity_id,
+        current_user=SimpleNamespace(id=uuid4()),
+        _=None,
+        db=db,
+    )
+
+    assert response.status == "approved"
+    assert transition_calls and transition_calls[0]["to_state"] == "approved"
+    assert emitted_events and emitted_events[0]["to_state"] == "approved"
+    assert audits and audits[0]["action"] == "paxlog.ads.approve"
+    assert published_events and published_events[0].event_type == "ads.approved"
+    assert published_events[0].payload["transport_requested"] is expected_transport_requested
+    assert published_events[0].payload["outbound_transport_mode"] == outbound_transport_mode
 
 
 @pytest.mark.asyncio
@@ -1184,3 +1265,121 @@ async def test_resubmit_external_ads_uses_finalize_flow(monkeypatch):
     assert finalized_calls and finalized_calls[0]["event_type"] == "external_resubmitted"
     assert finalized_calls[0]["old_status"] == "requires_review"
     assert finalized_calls[0]["reason"] == "Dossier corrigé"
+
+
+@pytest.mark.asyncio
+async def test_module_handler_skips_manifest_lookup_when_transport_not_requested(monkeypatch):
+    def fake_session_factory():
+        raise AssertionError("TravelWiz lookup should be skipped when transport is not requested")
+
+    monkeypatch.setattr(module_handlers, "async_session_factory", fake_session_factory)
+
+    await module_handlers.on_ads_approved(
+        OpsFluxEvent(
+            event_type="ads.approved",
+            payload={
+                "ads_id": str(uuid4()),
+                "entity_id": str(uuid4()),
+                "site_asset_id": str(uuid4()),
+                "start_date": "2026-04-10",
+                "outbound_transport_mode": "walking",
+                "transport_requested": False,
+            },
+        )
+    )
+
+
+@pytest.mark.asyncio
+async def test_module_handler_derives_no_manifest_lookup_for_walking_mode(monkeypatch):
+    def fake_session_factory():
+        raise AssertionError("Walking AdS should not trigger TravelWiz manifest lookup")
+
+    monkeypatch.setattr(module_handlers, "async_session_factory", fake_session_factory)
+
+    await module_handlers.on_ads_approved(
+        OpsFluxEvent(
+            event_type="ads.approved",
+            payload={
+                "ads_id": str(uuid4()),
+                "entity_id": str(uuid4()),
+                "site_asset_id": str(uuid4()),
+                "start_date": "2026-04-10",
+                "outbound_transport_mode": "walking",
+            },
+        )
+    )
+
+
+@pytest.mark.asyncio
+async def test_planner_activity_modified_creates_ads_event_and_notifies(monkeypatch):
+    entity_id = uuid4()
+    activity_id = uuid4()
+    ads_id = uuid4()
+    requester_id = uuid4()
+    db = FakeDB([FakeResult(all_rows=[(ads_id, "ADS-321", requester_id)])])
+    notifications = []
+
+    async def fake_send_in_app(*args, **kwargs):
+        notifications.append(kwargs)
+
+    monkeypatch.setattr("app.core.notifications.send_in_app", fake_send_in_app)
+    monkeypatch.setattr(paxlog_handlers, "async_session_factory", lambda: FakeAsyncSessionContext(db))
+
+    await paxlog_handlers.on_planner_activity_modified(
+        OpsFluxEvent(
+            event_type="planner.activity.modified",
+            payload={
+                "activity_id": str(activity_id),
+                "entity_id": str(entity_id),
+                "title": "Inspection torch line",
+                "changes": {
+                    "start_date": {"old": "2026-04-10", "new": "2026-04-12"},
+                },
+            },
+        )
+    )
+
+    planner_events = [obj for obj in db.added if isinstance(obj, AdsEvent)]
+    assert len(planner_events) == 1
+    assert planner_events[0].event_type == "planner_activity_modified_requires_review"
+    assert planner_events[0].new_status == "requires_review"
+    assert planner_events[0].reason == "Inspection torch line"
+    assert planner_events[0].metadata_json["planner_activity_id"] == str(activity_id)
+    assert planner_events[0].metadata_json["changes"]["start_date"]["new"] == "2026-04-12"
+    assert notifications and notifications[0]["link"] == f"/paxlog/ads/{ads_id}"
+
+
+@pytest.mark.asyncio
+async def test_planner_activity_cancelled_creates_ads_event_and_notifies(monkeypatch):
+    entity_id = uuid4()
+    activity_id = uuid4()
+    ads_id = uuid4()
+    requester_id = uuid4()
+    db = FakeDB([FakeResult(all_rows=[(ads_id, "ADS-654", requester_id)])])
+    notifications = []
+
+    async def fake_send_in_app(*args, **kwargs):
+        notifications.append(kwargs)
+
+    monkeypatch.setattr("app.core.notifications.send_in_app", fake_send_in_app)
+    monkeypatch.setattr(paxlog_handlers, "async_session_factory", lambda: FakeAsyncSessionContext(db))
+
+    await paxlog_handlers.on_planner_activity_cancelled(
+        OpsFluxEvent(
+            event_type="planner.activity.cancelled",
+            payload={
+                "activity_id": str(activity_id),
+                "entity_id": str(entity_id),
+                "title": "Shutdown window",
+            },
+        )
+    )
+
+    planner_events = [obj for obj in db.added if isinstance(obj, AdsEvent)]
+    assert len(planner_events) == 1
+    assert planner_events[0].event_type == "planner_activity_cancelled"
+    assert planner_events[0].new_status == "requires_review"
+    assert planner_events[0].reason == "Shutdown window"
+    assert planner_events[0].metadata_json["planner_activity_id"] == str(activity_id)
+    assert planner_events[0].metadata_json["planner_activity_title"] == "Shutdown window"
+    assert notifications and notifications[0]["link"] == f"/paxlog/ads/{ads_id}"

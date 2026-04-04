@@ -333,12 +333,15 @@ async def on_planner_activity_modified(event: OpsFluxEvent) -> None:
     payload = event.payload
     activity_id = payload.get("activity_id")
     entity_id = payload.get("entity_id")
+    title = payload.get("title", "")
+    changes = payload.get("changes") or {}
 
     if not activity_id or not entity_id:
         return
 
     try:
         from sqlalchemy import text
+        from app.models.paxlog import AdsEvent
 
         async with async_session_factory() as db:
             result = await db.execute(
@@ -356,6 +359,21 @@ async def on_planner_activity_modified(event: OpsFluxEvent) -> None:
             for row in affected:
                 ads_id, ref, requester_id = row
                 from app.core.notifications import send_in_app
+
+                db.add(
+                    AdsEvent(
+                        entity_id=UUID(str(entity_id)),
+                        ads_id=UUID(str(ads_id)),
+                        event_type="planner_activity_modified_requires_review",
+                        new_status="requires_review",
+                        reason=title or None,
+                        metadata_json={
+                            "planner_activity_id": str(activity_id),
+                            "planner_activity_title": title or None,
+                            "changes": changes if isinstance(changes, dict) else {},
+                        },
+                    )
+                )
 
                 await send_in_app(
                     db,
@@ -391,6 +409,7 @@ async def on_planner_activity_cancelled(event: OpsFluxEvent) -> None:
 
     try:
         from sqlalchemy import text
+        from app.models.paxlog import AdsEvent
 
         async with async_session_factory() as db:
             result = await db.execute(
@@ -408,6 +427,20 @@ async def on_planner_activity_cancelled(event: OpsFluxEvent) -> None:
             for row in affected:
                 ads_id, ref, requester_id = row
                 from app.core.notifications import send_in_app
+
+                db.add(
+                    AdsEvent(
+                        entity_id=UUID(str(entity_id)),
+                        ads_id=UUID(str(ads_id)),
+                        event_type="planner_activity_cancelled",
+                        new_status="requires_review",
+                        reason=title or None,
+                        metadata_json={
+                            "planner_activity_id": str(activity_id),
+                            "planner_activity_title": title or None,
+                        },
+                    )
+                )
 
                 await send_in_app(
                     db,

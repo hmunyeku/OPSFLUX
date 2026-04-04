@@ -256,10 +256,23 @@ async def on_ads_approved(event: OpsFluxEvent) -> None:
     start_date_str = payload.get("start_date")
     end_date_str = payload.get("end_date")
     outbound_transport_mode = payload.get("outbound_transport_mode")
+    transport_requested = payload.get("transport_requested")
     outbound_departure_base_id = payload.get("outbound_departure_base_id")
 
     if not ads_id or not entity_id or not site_asset_id:
         logger.warning("on_ads_approved: missing required fields")
+        return
+
+    if transport_requested is None:
+        from app.services.modules.paxlog_service import ads_requires_travelwiz_transport
+
+        transport_requested = ads_requires_travelwiz_transport(outbound_transport_mode)
+
+    if not transport_requested:
+        logger.info(
+            "on_ads_approved: AdS %s does not require TravelWiz transport",
+            ads_id,
+        )
         return
 
     try:

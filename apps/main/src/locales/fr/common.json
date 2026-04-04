@@ -103,6 +103,7 @@
     "no": "Non",
     "all": "Tous",
     "none": "Aucun",
+    "unassigned": "Non assigné",
     "none_root": "Aucun (racine)",
     "filter": "Filtrer",
     "export": "Exporter",
@@ -123,6 +124,7 @@
     "end_date": "Date fin",
     "or": "ou",
     "refresh": "Actualiser",
+    "reset": "Réinitialiser",
     "fullscreen": "Plein écran",
     "minimize": "Réduire",
     "remove": "Retirer",
@@ -1175,14 +1177,16 @@
     "close": "fermer"
   },
   "imputations": {
-    "page_title": "Référentiel et affectations d'imputation",
-    "page_description": "Gérez les références d’imputation, les modèles OTP CAPEX, les règles d’affectation et le défaut entité depuis un module dédié plutôt qu’un simple écran de configuration.",
+    "page_title": "Imputations",
+    "page_description": "Gérez les références d’imputation, les modèles OTP CAPEX, les règles d’affectation et le défaut entité.",
+    "tab_default": "Défaut",
+    "tab_registry": "Registre",
     "asset_link_title": "Lien métier avec les assets",
     "asset_link_description": "Utilisez ce module comme référentiel transverse, puis rattachez les usages d’imputation aux assets, projets, BU et demandes opérationnelles.",
     "assignment_priority_title": "Résolution des affectations",
     "assignment_priority_description": "Les affectations s’appliquent selon le contexte et la priorité avant le fallback entité.",
     "settings_hint_title": "Pourquoi ce module est séparé",
-    "settings_hint_description": "Les paramètres restent dans Configuration, mais le référentiel d’imputation doit rester visible et pilotable comme un module métier à part entière."
+    "settings_hint_description": "Le référentiel d’imputation est visible et pilotable comme un module métier à part entière."
   },
   "paxlog": {
     "title": "PaxLog",
@@ -1743,6 +1747,29 @@
       "empty": {
         "preparation_tasks": "Aucune tâche de préparation. Soumettez l'AVM pour générer la checklist.",
         "program": "Aucune ligne de programme définie."
+      },
+      "preparation": {
+        "auto_generated": "Auto",
+        "linked_ads": "AdS liée",
+        "fields": {
+          "assignee": "Responsable"
+        },
+        "meta": {
+          "task_type": "Type : {{type}}",
+          "assignee": "Responsable : {{assignee}}",
+          "due_date": "Échéance : {{date}}"
+        },
+        "placeholders": {
+          "notes": "Blocages, relance, précision utile..."
+        },
+        "status": {
+          "pending": "En attente",
+          "in_progress": "En cours",
+          "completed": "Terminée",
+          "cancelled": "Annulée",
+          "blocked": "Bloquée",
+          "na": "N/A"
+        }
       },
       "program": {
         "site": "Site : {{site}}",

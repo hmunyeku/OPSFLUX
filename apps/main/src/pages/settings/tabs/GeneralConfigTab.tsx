@@ -11,13 +11,11 @@ import { useCallback, useRef, useState } from 'react'
 import { Loader2, Crosshair, MapPin, Upload, Image as ImageIcon } from 'lucide-react'
 import { useMutation } from '@tanstack/react-query'
 import type { UseMutationResult } from '@tanstack/react-query'
-import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { useToast, TOAST_POSITIONS } from '@/components/ui/Toast'
 import { TagSelector } from '@/components/layout/DynamicPanel'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 import { MapPickerModal } from '@/components/shared/MapPicker'
-import { DefaultImputationSettingEditor } from '@/components/shared/DefaultImputationSettingEditor'
 import { useSaveScopedSetting, useScopedSettingsMap } from '@/hooks/useSettings'
 
 // ── Setting Row component ──
@@ -42,7 +40,6 @@ function SettingRow({
 }
 
 export function GeneralConfigTab() {
-  const { t } = useTranslation()
   const { toast } = useToast()
   const { data: settings, isLoading } = useScopedSettingsMap('entity')
   const mutation = useSaveScopedSetting('entity')
@@ -242,23 +239,6 @@ export function GeneralConfigTab() {
               <span className="text-xs text-muted-foreground">%</span>
             </div>
           </SettingRow>
-        </div>
-      </CollapsibleSection>
-
-      {/* ── Email ── */}
-      <CollapsibleSection
-        id="imputation-default"
-        title={t('settings.default_imputation.entity_section_title')}
-        description={t('settings.default_imputation.entity_section_description')}
-        storageKey="settings.general-config.collapse"
-      >
-        <div className="mt-2">
-          <DefaultImputationSettingEditor
-            scope="entity"
-            title={t('settings.default_imputation.entity_card_title')}
-            description={t('settings.default_imputation.entity_card_description')}
-            hint={t('settings.default_imputation.entity_card_hint')}
-          />
         </div>
       </CollapsibleSection>
 

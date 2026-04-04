@@ -103,6 +103,7 @@
     "no": "No",
     "all": "All",
     "none": "None",
+    "unassigned": "Unassigned",
     "none_root": "None (root)",
     "filter": "Filter",
     "export": "Export",
@@ -123,6 +124,7 @@
     "end_date": "End date",
     "or": "or",
     "refresh": "Refresh",
+    "reset": "Reset",
     "fullscreen": "Full screen",
     "minimize": "Minimize",
     "remove": "Remove",
@@ -1166,14 +1168,16 @@
     "close": "close"
   },
   "imputations": {
-    "page_title": "Imputation registry and assignments",
-    "page_description": "Manage imputation references, CAPEX OTP templates, assignment rules, and the entity default from a dedicated module instead of hiding them in configuration.",
+    "page_title": "Imputations",
+    "page_description": "Manage imputation references, CAPEX OTP templates, assignment rules, and entity defaults.",
+    "tab_default": "Default",
+    "tab_registry": "Registry",
     "asset_link_title": "Operational link with assets",
     "asset_link_description": "Use this module as the transverse registry, then connect imputation usage to assets, projects, business units, and operational requests.",
     "assignment_priority_title": "Assignment resolution",
     "assignment_priority_description": "Assignments are resolved by context and priority before the entity fallback applies.",
     "settings_hint_title": "Why this lives outside Settings",
-    "settings_hint_description": "Settings keeps technical defaults, while the imputation registry must stay visible and operable as a first-class business module."
+    "settings_hint_description": "The imputation registry is visible and operable as a first-class business module."
   },
   "paxlog": {
     "title": "PaxLog",
@@ -1734,6 +1738,29 @@
       "empty": {
         "preparation_tasks": "No preparation task. Submit the AVM to generate the checklist.",
         "program": "No program line defined."
+      },
+      "preparation": {
+        "auto_generated": "Auto",
+        "linked_ads": "Linked AdS",
+        "fields": {
+          "assignee": "Owner"
+        },
+        "meta": {
+          "task_type": "Type: {{type}}",
+          "assignee": "Owner: {{assignee}}",
+          "due_date": "Due date: {{date}}"
+        },
+        "placeholders": {
+          "notes": "Blocker, follow-up, useful note..."
+        },
+        "status": {
+          "pending": "Pending",
+          "in_progress": "In progress",
+          "completed": "Completed",
+          "cancelled": "Cancelled",
+          "blocked": "Blocked",
+          "na": "N/A"
+        }
       },
       "program": {
         "site": "Site: {{site}}",

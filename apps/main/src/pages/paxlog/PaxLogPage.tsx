@@ -2397,6 +2397,33 @@ function AdsDetailPanel({ id }: { id: string }) {
           </DetailFieldGrid>
         </CollapsibleSection>
 
+        {(ads.origin_mission_notice_id || ads.origin_mission_program_id) && (
+          <CollapsibleSection id="ads-origin-avm" title={t('paxlog.ads_detail.sections.origin_mission')} defaultExpanded>
+            <DetailFieldGrid>
+              {ads.origin_mission_notice_id && (
+                <ReadOnlyRow
+                  label={t('paxlog.ads_detail.fields.origin_avm')}
+                  value={
+                    <CrossModuleLink
+                      module="paxlog"
+                      id={ads.origin_mission_notice_id}
+                      subtype="avm"
+                      label={ads.origin_mission_notice_reference || ads.origin_mission_notice_title || ads.origin_mission_notice_id}
+                      mode="navigate"
+                    />
+                  }
+                />
+              )}
+              {ads.origin_mission_notice_title && (
+                <ReadOnlyRow label={t('paxlog.ads_detail.fields.origin_mission_title')} value={ads.origin_mission_notice_title} />
+              )}
+              {ads.origin_mission_program_activity && (
+                <ReadOnlyRow label={t('paxlog.ads_detail.fields.origin_program_activity')} value={ads.origin_mission_program_activity} />
+              )}
+            </DetailFieldGrid>
+          </CollapsibleSection>
+        )}
+
         {/* PAX list with compliance status + add/remove */}
         <CollapsibleSection id="ads-pax" title={t('paxlog.ads_detail.sections.passengers', { count: adsPax?.length || 0 })} defaultExpanded>
           {/* PAX Search & Add — only for draft/review status */}

@@ -1530,7 +1530,29 @@ async def get_ads(
     ads = result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
-    return ads
+    avm_origin_result = await db.execute(
+        select(
+            MissionProgram.id,
+            MissionProgram.activity_description,
+            MissionNotice.id,
+            MissionNotice.reference,
+            MissionNotice.title,
+        )
+        .join(MissionNotice, MissionNotice.id == MissionProgram.mission_notice_id)
+        .where(MissionProgram.generated_ads_id == ads.id)
+        .limit(1)
+    )
+    avm_origin = avm_origin_result.first()
+    data = AdsRead.model_validate(ads).model_dump()
+    if avm_origin:
+        data.update({
+            "origin_mission_program_id": avm_origin[0],
+            "origin_mission_program_activity": avm_origin[1],
+            "origin_mission_notice_id": avm_origin[2],
+            "origin_mission_notice_reference": avm_origin[3],
+            "origin_mission_notice_title": avm_origin[4],
+        })
+    return AdsRead(**data)
 
 
 @router.patch("/ads/{ads_id}", response_model=AdsRead)
@@ -2541,7 +2563,29 @@ async def get_ads_by_reference(
     ads = result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail=f"AdS «{reference}» introuvable")
-    return ads
+    avm_origin_result = await db.execute(
+        select(
+            MissionProgram.id,
+            MissionProgram.activity_description,
+            MissionNotice.id,
+            MissionNotice.reference,
+            MissionNotice.title,
+        )
+        .join(MissionNotice, MissionNotice.id == MissionProgram.mission_notice_id)
+        .where(MissionProgram.generated_ads_id == ads.id)
+        .limit(1)
+    )
+    avm_origin = avm_origin_result.first()
+    data = AdsRead.model_validate(ads).model_dump()
+    if avm_origin:
+        data.update({
+            "origin_mission_program_id": avm_origin[0],
+            "origin_mission_program_activity": avm_origin[1],
+            "origin_mission_notice_id": avm_origin[2],
+            "origin_mission_notice_reference": avm_origin[3],
+            "origin_mission_notice_title": avm_origin[4],
+        })
+    return AdsRead(**data)
 
 
 @router.get("/ads/{ads_id}/pdf")

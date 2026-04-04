@@ -201,6 +201,11 @@ export interface Ads {
   approved_at: string | null
   rejected_at: string | null
   rejection_reason: string | null
+  origin_mission_notice_id?: string | null
+  origin_mission_notice_reference?: string | null
+  origin_mission_notice_title?: string | null
+  origin_mission_program_id?: string | null
+  origin_mission_program_activity?: string | null
   archived: boolean
   created_at: string
   updated_at: string

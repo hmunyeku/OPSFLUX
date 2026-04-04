@@ -1590,6 +1590,7 @@
       },
       "sections": {
         "visit_transport": "Visite & transport",
+        "origin_mission": "Origine mission",
         "passengers": "Passagers ({{count}})",
         "imputations": "Imputations",
         "stay_programs": "Programme de séjour ({{count}})",
@@ -1601,6 +1602,9 @@
         "site": "Site",
         "dates": "Dates",
         "requester": "Demandeur",
+        "origin_avm": "AVM d'origine",
+        "origin_mission_title": "Titre de mission",
+        "origin_program_activity": "Activité d'origine",
         "project": "Projet",
         "outbound_transport": "Transport aller",
         "return_transport": "Transport retour",

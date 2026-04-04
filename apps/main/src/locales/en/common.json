@@ -1581,6 +1581,7 @@
       },
       "sections": {
         "visit_transport": "Visit & transport",
+        "origin_mission": "Mission origin",
         "passengers": "Passengers ({{count}})",
         "imputations": "Imputations",
         "stay_programs": "Stay program ({{count}})",
@@ -1592,6 +1593,9 @@
         "site": "Site",
         "dates": "Dates",
         "requester": "Requester",
+        "origin_avm": "Origin AVM",
+        "origin_mission_title": "Mission title",
+        "origin_program_activity": "Origin activity",
         "project": "Project",
         "outbound_transport": "Outbound transport",
         "return_transport": "Return transport",

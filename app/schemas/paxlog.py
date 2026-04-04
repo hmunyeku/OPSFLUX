@@ -254,6 +254,11 @@ class AdsRead(OpsFluxSchema):
     approved_at: datetime | None
     rejected_at: datetime | None
     rejection_reason: str | None
+    origin_mission_notice_id: UUID | None = None
+    origin_mission_notice_reference: str | None = None
+    origin_mission_notice_title: str | None = None
+    origin_mission_program_id: UUID | None = None
+    origin_mission_program_activity: str | None = None
     archived: bool
     created_at: datetime
     updated_at: datetime
@@ -473,6 +478,8 @@ class MissionNoticeRead(OpsFluxSchema):
     last_modified_by_name: str | None = None
     last_modified_fields: list[str] = []
     last_modification_changes: dict | None = None
+    last_linked_ads_set_to_review: int = 0
+    last_linked_ads_references: list[str] = []
 
 
 class MissionNoticeSummary(OpsFluxSchema):

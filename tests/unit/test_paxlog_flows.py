@@ -306,3 +306,241 @@ async def test_modify_active_avm_sets_linked_ads_to_review_and_notifies(monkeypa
     assert ads_event.event_type == "avm_modified_requires_review"
     assert ads_event.old_status == "approved"
     assert ads_event.new_status == "requires_review"
+
+
+@pytest.mark.asyncio
+async def test_resubmit_ads_clears_rejection_and_rechecks_submission(monkeypatch):
+    ads = _build_ads(status="requires_review", rejection_reason="Pièces manquantes")
+    db = FakeDB([FakeResult(scalar_one_or_none=ads)])
+    transition_calls = []
+    emitted_events = []
+    audits = []
+
+    async def fake_run_submission_checks(*args, **kwargs):
+        return ([{"id": "p1"}], False, "pending_validation")
+
+    async def fake_transition(*args, **kwargs):
+        transition_calls.append(kwargs)
+
+    async def fake_emit_transition_event(**kwargs):
+        emitted_events.append(kwargs)
+
+    async def fake_record_audit(*args, **kwargs):
+        audits.append(kwargs)
+
+    monkeypatch.setattr(paxlog, "_run_ads_submission_checks", fake_run_submission_checks)
+    monkeypatch.setattr(paxlog, "_try_ads_workflow_transition", fake_transition)
+    monkeypatch.setattr(paxlog.fsm_service, "emit_transition_event", fake_emit_transition_event)
+    monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+
+    response = await paxlog.resubmit_ads(
+        ads.id,
+        reason="Pièces complétées",
+        entity_id=ads.entity_id,
+        current_user=SimpleNamespace(id=ads.requester_id),
+        _=None,
+        db=db,
+    )
+
+    assert response.status == "pending_validation"
+    assert response.rejection_reason is None
+    assert transition_calls and transition_calls[0]["to_state"] == "pending_validation"
+    assert emitted_events and emitted_events[0]["to_state"] == "pending_validation"
+    assert audits and audits[0]["action"] == "paxlog.ads.resubmit"
+
+    ads_event = next(obj for obj in db.added if isinstance(obj, AdsEvent))
+    assert ads_event.event_type == "resubmitted"
+    assert ads_event.old_status == "requires_review"
+    assert ads_event.new_status == "pending_validation"
+    assert ads_event.reason == "Pièces complétées"
+
+
+@pytest.mark.asyncio
+async def test_create_stay_program_requires_target_pax():
+    ads = _build_ads()
+    db = FakeDB([FakeResult(scalar_one_or_none=ads.id)])
+
+    with pytest.raises(HTTPException) as exc:
+        await paxlog.create_stay_program(
+            ads_id=ads.id,
+            movements=[{"from_location": "Base", "to_location": "Site"}],
+            entity_id=ads.entity_id,
+            current_user=SimpleNamespace(id=uuid4()),
+            _=None,
+            db=db,
+        )
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail == "Provide user_id or contact_id"
+
+
+@pytest.mark.asyncio
+async def test_create_submit_and_approve_stay_program():
+    ads = _build_ads()
+    program_id = uuid4()
+    pax_user_id = uuid4()
+    approver_id = uuid4()
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=ads.id),
+            FakeResult(scalar=program_id),
+            FakeResult(scalar=program_id),
+            FakeResult(scalar=program_id),
+        ]
+    )
+
+    created = await paxlog.create_stay_program(
+        ads_id=ads.id,
+        movements=[{
+            "effective_date": "2026-04-11",
+            "from_location": "Base",
+            "to_location": "Munja",
+            "transport_mode": "helicopter",
+        }],
+        user_id=pax_user_id,
+        entity_id=ads.entity_id,
+        current_user=SimpleNamespace(id=uuid4()),
+        _=None,
+        db=db,
+    )
+    assert created["id"] == str(program_id)
+    assert created["status"] == "draft"
+    assert created["user_id"] == str(pax_user_id)
+
+    submitted = await paxlog.submit_stay_program(
+        program_id=program_id,
+        entity_id=ads.entity_id,
+        current_user=SimpleNamespace(id=uuid4()),
+        _=None,
+        db=db,
+    )
+    assert submitted == {"id": str(program_id), "status": "submitted"}
+
+    approved = await paxlog.approve_stay_program(
+        program_id=program_id,
+        entity_id=ads.entity_id,
+        current_user=SimpleNamespace(id=approver_id),
+        _=None,
+        db=db,
+    )
+    assert approved == {"id": str(program_id), "status": "approved"}
+
+
+@pytest.mark.asyncio
+async def test_access_external_link_hides_preconfigured_data_without_session(monkeypatch):
+    link = SimpleNamespace(
+        ads_id=uuid4(),
+        otp_required=True,
+        otp_sent_to="contractor@example.com",
+        preconfigured_data={"company_name": "Vendor X"},
+        max_uses=3,
+        use_count=1,
+        expires_at=datetime(2026, 4, 30, tzinfo=timezone.utc),
+    )
+
+    async def fake_get_link(_db, _token):
+        return link
+
+    monkeypatch.setattr(paxlog, "_get_external_link_or_404", fake_get_link)
+
+    response = await paxlog.access_external_link("token-1", x_external_session=None, db=FakeDB([]))
+
+    assert response["ads_id"] == str(link.ads_id)
+    assert response["authenticated"] is False
+    assert response["otp_required"] is True
+    assert response["preconfigured_data"] is None
+    assert response["remaining_uses"] == 2
+
+
+@pytest.mark.asyncio
+async def test_access_external_link_exposes_preconfigured_data_with_valid_session(monkeypatch):
+    link = SimpleNamespace(
+        ads_id=uuid4(),
+        otp_required=True,
+        otp_sent_to="contractor@example.com",
+        preconfigured_data={"company_name": "Vendor X"},
+        max_uses=None,
+        use_count=0,
+        expires_at=datetime(2026, 4, 30, tzinfo=timezone.utc),
+    )
+
+    async def fake_get_link(_db, _token):
+        return link
+
+    async def fake_require_session(_db, token, session_token):
+        assert token == "token-2"
+        assert session_token == "session-123"
+        return link
+
+    monkeypatch.setattr(paxlog, "_get_external_link_or_404", fake_get_link)
+    monkeypatch.setattr(paxlog, "_require_external_session", fake_require_session)
+
+    response = await paxlog.access_external_link(
+        "token-2",
+        x_external_session="session-123",
+        db=FakeDB([]),
+    )
+
+    assert response["authenticated"] is True
+    assert response["preconfigured_data"] == {"company_name": "Vendor X"}
+    assert response["remaining_uses"] is None
+
+
+@pytest.mark.asyncio
+async def test_submit_external_ads_requires_draft(monkeypatch):
+    link = SimpleNamespace(id=uuid4())
+    ads = _build_ads(status="approved")
+
+    async def fake_require_session(_db, token, session_token):
+        return link
+
+    async def fake_get_ads_and_context(_db, link):
+        return ads, ads.entity_id, uuid4()
+
+    monkeypatch.setattr(paxlog, "_require_external_session", fake_require_session)
+    monkeypatch.setattr(paxlog, "_get_external_ads_and_context", fake_get_ads_and_context)
+
+    with pytest.raises(HTTPException) as exc:
+        await paxlog.submit_external_ads(
+            "token-3",
+            request=SimpleNamespace(client=None, headers={}),
+            x_external_session="session-abc",
+            db=FakeDB([]),
+        )
+
+    assert exc.value.status_code == 400
+    assert "Impossible de soumettre" in exc.value.detail
+
+
+@pytest.mark.asyncio
+async def test_resubmit_external_ads_uses_finalize_flow(monkeypatch):
+    link = SimpleNamespace(id=uuid4())
+    ads = _build_ads(status="requires_review")
+    finalized_calls = []
+
+    async def fake_require_session(_db, token, session_token):
+        return link
+
+    async def fake_get_ads_and_context(_db, link):
+        return ads, ads.entity_id, uuid4()
+
+    async def fake_finalize_external_ads_submission(**kwargs):
+        finalized_calls.append(kwargs)
+        return kwargs["ads"]
+
+    monkeypatch.setattr(paxlog, "_require_external_session", fake_require_session)
+    monkeypatch.setattr(paxlog, "_get_external_ads_and_context", fake_get_ads_and_context)
+    monkeypatch.setattr(paxlog, "_finalize_external_ads_submission", fake_finalize_external_ads_submission)
+
+    response = await paxlog.resubmit_external_ads(
+        "token-4",
+        request=SimpleNamespace(client=None, headers={}),
+        reason="Dossier corrigé",
+        x_external_session="session-xyz",
+        db=FakeDB([]),
+    )
+
+    assert response is ads
+    assert finalized_calls and finalized_calls[0]["event_type"] == "external_resubmitted"
+    assert finalized_calls[0]["old_status"] == "requires_review"
+    assert finalized_calls[0]["reason"] == "Dossier corrigé"

@@ -51,7 +51,8 @@ class McpCorsMiddleware(BaseHTTPMiddleware):
 
         # Allow Claude.ai (and others) to embed OAuth pages in iframes/popups.
         # Override the restrictive SecurityHeadersMiddleware defaults.
-        response.headers.pop("X-Frame-Options", None)
+        if "X-Frame-Options" in response.headers:
+            del response.headers["X-Frame-Options"]
         if "Content-Security-Policy" in response.headers:
             csp = response.headers["Content-Security-Policy"]
             response.headers["Content-Security-Policy"] = csp.replace(

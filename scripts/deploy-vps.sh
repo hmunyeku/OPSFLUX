@@ -6,6 +6,7 @@
 # Targets:
 #   backend   — rebuild + restart backend container
 #   frontend  — rebuild + restart frontend container
+#   ext-paxlog — rebuild + restart external PaxLog portal
 #   both      — backend + frontend (default)
 #   services  — rebuild support services (pgadmin, drawio, vitrine, db, redis)
 #   all       — everything (backend + frontend + services)
@@ -92,6 +93,35 @@ deploy_frontend() {
   echo "Frontend status: $STATUS"
 }
 
+deploy_ext_paxlog() {
+  echo "=== Building ext-paxlog ==="
+  docker compose -p "$PROJECT" build --no-cache ext-paxlog
+
+  echo "=== Stopping old ext-paxlog ==="
+  docker rm -f ${PROJECT}-ext-paxlog-1 2>/dev/null || true
+
+  echo "=== Starting ext-paxlog with Traefik labels ==="
+  docker run -d \
+    --name ${PROJECT}-ext-paxlog-1 \
+    --network dokploy-network \
+    --restart unless-stopped \
+    -l "traefik.enable=true" \
+    -l "traefik.docker.network=dokploy-network" \
+    -l "traefik.http.routers.opsflux-ext-paxlog-web.entrypoints=web" \
+    -l "traefik.http.routers.opsflux-ext-paxlog-web.middlewares=redirect-to-https@file" \
+    -l "traefik.http.routers.opsflux-ext-paxlog-web.rule=Host(\`ext.opsflux.io\`)" \
+    -l "traefik.http.routers.opsflux-ext-paxlog-websecure.entrypoints=websecure" \
+    -l "traefik.http.routers.opsflux-ext-paxlog-websecure.rule=Host(\`ext.opsflux.io\`)" \
+    -l "traefik.http.routers.opsflux-ext-paxlog-websecure.tls.certresolver=letsencrypt" \
+    -l "traefik.http.services.opsflux-ext-paxlog.loadbalancer.server.port=80" \
+    ${PROJECT}-ext-paxlog
+
+  echo "=== ext-paxlog deployed ==="
+  sleep 2
+  STATUS=$(curl -sk -m5 -o /dev/null -w "%{http_code}" "https://ext.opsflux.io/?token=healthcheck")
+  echo "ext-paxlog status: $STATUS"
+}
+
 deploy_services() {
   echo "=== Deploying support services ==="
 
@@ -131,11 +161,12 @@ show_status() {
 case "$TARGET" in
   backend)   deploy_backend ;;
   frontend)  deploy_frontend ;;
+  ext-paxlog) deploy_ext_paxlog ;;
   both)      deploy_backend && deploy_frontend ;;
   services)  deploy_services ;;
-  all)       deploy_services && deploy_backend && deploy_frontend ;;
+  all)       deploy_services && deploy_backend && deploy_frontend && deploy_ext_paxlog ;;
   status)    show_status ;;
-  *)         echo "Usage: $0 [backend|frontend|both|services|all|status]"; exit 1 ;;
+  *)         echo "Usage: $0 [backend|frontend|ext-paxlog|both|services|all|status]"; exit 1 ;;
 esac
 
 echo "=== Deploy complete ==="

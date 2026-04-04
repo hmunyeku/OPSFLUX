@@ -582,6 +582,14 @@ class ExternalAccessLink(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Boolean, default=True, server_default="true", nullable=False
     )
     otp_sent_to: Mapped[str | None] = mapped_column(String(255))
+    otp_code_hash: Mapped[str | None] = mapped_column(String(128))
+    otp_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    otp_attempt_count: Mapped[int] = mapped_column(
+        SmallInteger, default=0, server_default="0", nullable=False
+    )
+    session_token_hash: Mapped[str | None] = mapped_column(String(128))
+    session_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_validated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     expires_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )

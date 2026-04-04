@@ -64,6 +64,12 @@ async def sync_permissions_and_roles() -> None:
             {"code": "cost_center.create", "name": "Create Cost Centers", "module": "core"},
             {"code": "cost_center.update", "name": "Update Cost Centers", "module": "core"},
             {"code": "cost_center.delete", "name": "Delete Cost Centers", "module": "core"},
+            {"code": "imputation.read", "name": "Read Imputations", "module": "core"},
+            {"code": "imputation.create", "name": "Create Imputations", "module": "core"},
+            {"code": "imputation.update", "name": "Update Imputations", "module": "core"},
+            {"code": "imputation.delete", "name": "Delete Imputations", "module": "core"},
+            {"code": "imputation.template.manage", "name": "Manage Imputation OTP Templates", "module": "core"},
+            {"code": "imputation.assignment.manage", "name": "Manage Imputation Assignments", "module": "core"},
             {"code": "*", "name": "All Permissions (Super Admin)", "module": "core"},
         ]
         all_permissions.extend(core_permissions)

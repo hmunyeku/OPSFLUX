@@ -77,8 +77,11 @@ import {
   useCancelAds,
   useApproveAds,
   useRejectAds,
+  useRequestReviewAds,
+  useResubmitAds,
   useAdsPdf,
   useAdsPax,
+  useAdsImputationSuggestion,
   useCreateExternalLink,
   usePaxIncidents,
   useCreatePaxIncident,
@@ -105,7 +108,6 @@ import { useAssetTree } from '@/hooks/useAssets'
 import type { AssetTreeNode } from '@/types/api'
 import { usePermission } from '@/hooks/usePermission'
 import { useDictionaryLabels, useDictionaryOptions } from '@/hooks/useDictionary'
-import { useAuthStore } from '@/stores/authStore'
 import { useProjects } from '@/hooks/useProjets'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { ImputationManager } from '@/components/shared/ImputationManager'
@@ -129,96 +131,97 @@ import type {
 // ── Constants ──────────────────────────────────────────────────
 
 const PAX_STATUS_OPTIONS = [
-  { value: '', label: 'Tous' },
-  { value: 'active', label: 'Actif' },
-  { value: 'incomplete', label: 'Incomplet' },
-  { value: 'suspended', label: 'Suspendu' },
-  { value: 'archived', label: 'Archive' },
+  { value: '', labelKey: 'common.all' },
+  { value: 'active', labelKey: 'paxlog.status.generic.active' },
+  { value: 'incomplete', labelKey: 'paxlog.status.generic.incomplete' },
+  { value: 'suspended', labelKey: 'paxlog.status.generic.suspended' },
+  { value: 'archived', labelKey: 'paxlog.status.generic.archived' },
 ]
 
 const ADS_STATUS_OPTIONS = [
-  { value: '', label: 'Tous' },
-  { value: 'draft', label: 'Brouillon' },
-  { value: 'submitted', label: 'Soumis' },
-  { value: 'pending_compliance', label: 'Compliance' },
-  { value: 'pending_validation', label: 'Validation' },
-  { value: 'approved', label: 'Approuve' },
-  { value: 'rejected', label: 'Rejete' },
-  { value: 'in_progress', label: 'En cours' },
-  { value: 'completed', label: 'Termine' },
-  { value: 'cancelled', label: 'Annule' },
+  { value: '', labelKey: 'common.all' },
+  { value: 'draft', labelKey: 'paxlog.status.ads.draft' },
+  { value: 'submitted', labelKey: 'paxlog.status.ads.submitted' },
+  { value: 'pending_compliance', labelKey: 'paxlog.status.ads.pending_compliance' },
+  { value: 'pending_validation', labelKey: 'paxlog.status.ads.pending_validation' },
+  { value: 'approved', labelKey: 'paxlog.status.ads.approved' },
+  { value: 'rejected', labelKey: 'paxlog.status.ads.rejected' },
+  { value: 'in_progress', labelKey: 'paxlog.status.ads.in_progress' },
+  { value: 'completed', labelKey: 'paxlog.status.ads.completed' },
+  { value: 'cancelled', labelKey: 'paxlog.status.ads.cancelled' },
 ]
 
-const ADS_STATUS_MAP: Record<string, { label: string; badge: string }> = {
-  draft: { label: 'Brouillon', badge: 'gl-badge-neutral' },
-  submitted: { label: 'Soumis', badge: 'gl-badge-info' },
-  pending_compliance: { label: 'Compliance', badge: 'gl-badge-warning' },
-  pending_validation: { label: 'Validation', badge: 'gl-badge-warning' },
-  approved: { label: 'Approuve', badge: 'gl-badge-success' },
-  rejected: { label: 'Rejete', badge: 'gl-badge-danger' },
-  cancelled: { label: 'Annule', badge: 'gl-badge-neutral' },
-  requires_review: { label: 'A revoir', badge: 'gl-badge-info' },
-  in_progress: { label: 'En cours', badge: 'gl-badge-success' },
-  completed: { label: 'Termine', badge: 'gl-badge-success' },
+const ADS_STATUS_MAP: Record<string, { labelKey: string; badge: string }> = {
+  draft: { labelKey: 'paxlog.status.ads.draft', badge: 'gl-badge-neutral' },
+  submitted: { labelKey: 'paxlog.status.ads.submitted', badge: 'gl-badge-info' },
+  pending_compliance: { labelKey: 'paxlog.status.ads.pending_compliance', badge: 'gl-badge-warning' },
+  pending_validation: { labelKey: 'paxlog.status.ads.pending_validation', badge: 'gl-badge-warning' },
+  approved: { labelKey: 'paxlog.status.ads.approved', badge: 'gl-badge-success' },
+  rejected: { labelKey: 'paxlog.status.ads.rejected', badge: 'gl-badge-danger' },
+  cancelled: { labelKey: 'paxlog.status.ads.cancelled', badge: 'gl-badge-neutral' },
+  requires_review: { labelKey: 'paxlog.status.ads.requires_review', badge: 'gl-badge-info' },
+  in_progress: { labelKey: 'paxlog.status.ads.in_progress', badge: 'gl-badge-success' },
+  completed: { labelKey: 'paxlog.status.ads.completed', badge: 'gl-badge-success' },
 }
 
 const SEVERITY_OPTIONS = [
-  { value: 'info', label: 'Info', color: 'gl-badge-info' },
-  { value: 'warning', label: 'Avertissement', color: 'gl-badge-warning' },
-  { value: 'temp_ban', label: 'Ban temporaire', color: 'gl-badge-danger' },
-  { value: 'permanent_ban', label: 'Ban permanent', color: 'gl-badge-danger' },
+  { value: 'info', labelKey: 'paxlog.severity.info', color: 'gl-badge-info' },
+  { value: 'warning', labelKey: 'paxlog.severity.warning', color: 'gl-badge-warning' },
+  { value: 'temp_ban', labelKey: 'paxlog.severity.temp_ban', color: 'gl-badge-danger' },
+  { value: 'permanent_ban', labelKey: 'paxlog.severity.permanent_ban', color: 'gl-badge-danger' },
 ]
 
 const ROTATION_STATUS_OPTIONS = [
-  { value: '', label: 'Tous' },
-  { value: 'active', label: 'Actif' },
-  { value: 'paused', label: 'En pause' },
-  { value: 'completed', label: 'Termine' },
+  { value: '', labelKey: 'common.all' },
+  { value: 'active', labelKey: 'paxlog.status.rotation.active' },
+  { value: 'paused', labelKey: 'paxlog.status.rotation.paused' },
+  { value: 'completed', labelKey: 'paxlog.status.rotation.completed' },
 ]
 
-const ROTATION_STATUS_MAP: Record<string, { label: string; badge: string }> = {
-  active: { label: 'Actif', badge: 'gl-badge-success' },
-  paused: { label: 'En pause', badge: 'gl-badge-warning' },
-  completed: { label: 'Termine', badge: 'gl-badge-neutral' },
+const ROTATION_STATUS_MAP: Record<string, { labelKey: string; badge: string }> = {
+  active: { labelKey: 'paxlog.status.rotation.active', badge: 'gl-badge-success' },
+  paused: { labelKey: 'paxlog.status.rotation.paused', badge: 'gl-badge-warning' },
+  completed: { labelKey: 'paxlog.status.rotation.completed', badge: 'gl-badge-neutral' },
 }
 
 const AVM_STATUS_OPTIONS = [
-  { value: '', label: 'Tous' },
-  { value: 'draft', label: 'Brouillon' },
-  { value: 'in_preparation', label: 'En preparation' },
-  { value: 'active', label: 'Active' },
-  { value: 'ready', label: 'Prete' },
-  { value: 'completed', label: 'Terminee' },
-  { value: 'cancelled', label: 'Annulee' },
+  { value: '', labelKey: 'common.all' },
+  { value: 'draft', labelKey: 'paxlog.status.avm.draft' },
+  { value: 'in_preparation', labelKey: 'paxlog.status.avm.in_preparation' },
+  { value: 'active', labelKey: 'paxlog.status.avm.active' },
+  { value: 'ready', labelKey: 'paxlog.status.avm.ready' },
+  { value: 'completed', labelKey: 'paxlog.status.avm.completed' },
+  { value: 'cancelled', labelKey: 'paxlog.status.avm.cancelled' },
 ]
 
-const AVM_STATUS_MAP: Record<string, { label: string; badge: string }> = {
-  draft: { label: 'Brouillon', badge: 'gl-badge-neutral' },
-  in_preparation: { label: 'En preparation', badge: 'gl-badge-warning' },
-  active: { label: 'Active', badge: 'gl-badge-info' },
-  ready: { label: 'Prete', badge: 'gl-badge-success' },
-  completed: { label: 'Terminee', badge: 'gl-badge-success' },
-  cancelled: { label: 'Annulee', badge: 'gl-badge-neutral' },
+const AVM_STATUS_MAP: Record<string, { labelKey: string; badge: string }> = {
+  draft: { labelKey: 'paxlog.status.avm.draft', badge: 'gl-badge-neutral' },
+  in_preparation: { labelKey: 'paxlog.status.avm.in_preparation', badge: 'gl-badge-warning' },
+  active: { labelKey: 'paxlog.status.avm.active', badge: 'gl-badge-info' },
+  ready: { labelKey: 'paxlog.status.avm.ready', badge: 'gl-badge-success' },
+  completed: { labelKey: 'paxlog.status.avm.completed', badge: 'gl-badge-success' },
+  cancelled: { labelKey: 'paxlog.status.avm.cancelled', badge: 'gl-badge-neutral' },
 }
 
 const ALL_TABS = [
-  { id: 'dashboard' as const, label: 'Tableau de bord', icon: LayoutDashboard },
-  { id: 'ads' as const, label: 'Avis de Sejour', icon: ClipboardList },
-  { id: 'profiles' as const, label: 'Profils PAX', icon: Users },
-  { id: 'compliance' as const, label: 'Compliance', icon: Shield },
-  { id: 'signalements' as const, label: 'Signalements', icon: AlertTriangle },
-  { id: 'rotations' as const, label: 'Rotations', icon: RefreshCw },
-  { id: 'avm' as const, label: 'Missions (AVM)', icon: Briefcase },
+  { id: 'dashboard' as const, labelKey: 'paxlog.tabs.dashboard', icon: LayoutDashboard },
+  { id: 'ads' as const, labelKey: 'paxlog.tabs.ads', icon: ClipboardList },
+  { id: 'profiles' as const, labelKey: 'paxlog.tabs.profiles', icon: Users },
+  { id: 'compliance' as const, labelKey: 'paxlog.tabs.compliance', icon: Shield },
+  { id: 'signalements' as const, labelKey: 'paxlog.tabs.signalements', icon: AlertTriangle },
+  { id: 'rotations' as const, labelKey: 'paxlog.tabs.rotations', icon: RefreshCw },
+  { id: 'avm' as const, labelKey: 'paxlog.tabs.avm', icon: Briefcase },
 ]
 
 type MainTabId = (typeof ALL_TABS)[number]['id']
 
 // ── Helpers ────────────────────────────────────────────────────
 
-function StatusBadge({ status, map, className }: { status: string; map?: Record<string, { label: string; badge: string }>; className?: string }) {
+function StatusBadge({ status, map, className }: { status: string; map?: Record<string, { labelKey: string; badge: string }>; className?: string }) {
+  const { t } = useTranslation()
   if (map) {
     const entry = map[status]
-    return <span className={cn('gl-badge', entry?.badge || 'gl-badge-neutral', className)}>{entry?.label || status.replace(/_/g, ' ')}</span>
+    return <span className={cn('gl-badge', entry?.badge || 'gl-badge-neutral', className)}>{entry ? t(entry.labelKey) : status.replace(/_/g, ' ')}</span>
   }
   const colorMap: Record<string, string> = {
     active: 'gl-badge-success', draft: 'gl-badge-neutral', submitted: 'gl-badge-info',
@@ -232,8 +235,9 @@ function StatusBadge({ status, map, className }: { status: string; map?: Record<
 }
 
 function SeverityBadge({ severity }: { severity: string }) {
+  const { t } = useTranslation()
   const opt = SEVERITY_OPTIONS.find((o) => o.value === severity)
-  return <span className={cn('gl-badge', opt?.color || 'gl-badge-neutral')}>{opt?.label || severity}</span>
+  return <span className={cn('gl-badge', opt?.color || 'gl-badge-neutral')}>{opt ? t(opt.labelKey) : severity}</span>
 }
 
 function formatDate(d: string | null) {
@@ -313,6 +317,7 @@ function SearchablePicker<T extends { id: string }>({
   onClear: () => void
   placeholder: string
 }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const selected = selectedId ? items.find((i) => i.id === selectedId) : null
 
@@ -341,9 +346,9 @@ function SearchablePicker<T extends { id: string }>({
           </div>
           {open && (
             <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-popover border border-border rounded-md shadow-md max-h-40 overflow-y-auto">
-              {isLoading && <div className="px-3 py-2 text-xs text-muted-foreground">Chargement...</div>}
+              {isLoading && <div className="px-3 py-2 text-xs text-muted-foreground">{t('common.loading')}</div>}
               {!isLoading && items.length === 0 && (
-                <div className="px-3 py-2 text-xs text-muted-foreground">Aucun resultat</div>
+                <div className="px-3 py-2 text-xs text-muted-foreground">{t('common.no_results')}</div>
               )}
               {items.map((item) => (
                 <button
@@ -367,6 +372,7 @@ function SearchablePicker<T extends { id: string }>({
 // ═══════════════════════════════════════════════════════════════
 
 function DashboardTab() {
+  const { t } = useTranslation()
   const { data: adsData } = useAdsList({ page: 1, page_size: 10 })
   const { data: profilesData } = usePaxProfiles({ page: 1, page_size: 5 })
   const { data: complianceStats } = useComplianceStats()
@@ -398,34 +404,34 @@ function DashboardTab() {
       <div className="p-4 space-y-5">
         {/* KPI Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatCard label="PAX enregistres" value={paxOnSite} icon={Users} />
-          <StatCard label="AdS en attente" value={adsPending} icon={ClipboardList} accent={adsPending > 0 ? 'text-amber-600 dark:text-amber-400' : undefined} />
-          <StatCard label="Signalements actifs" value={activeSignalements} icon={AlertTriangle} accent={activeSignalements > 0 ? 'text-destructive' : undefined} />
-          <StatCard label="Taux compliance" value={`${complianceRate}%`} icon={Shield} accent={complianceRate >= 90 ? 'text-emerald-600 dark:text-emerald-400' : complianceRate >= 70 ? 'text-amber-600 dark:text-amber-400' : 'text-destructive'} />
+          <StatCard label={t('paxlog.dashboard.kpi.registered_pax')} value={paxOnSite} icon={Users} />
+          <StatCard label={t('paxlog.dashboard.kpi.pending_ads')} value={adsPending} icon={ClipboardList} accent={adsPending > 0 ? 'text-amber-600 dark:text-amber-400' : undefined} />
+          <StatCard label={t('paxlog.dashboard.kpi.active_incidents')} value={activeSignalements} icon={AlertTriangle} accent={activeSignalements > 0 ? 'text-destructive' : undefined} />
+          <StatCard label={t('paxlog.dashboard.kpi.compliance_rate')} value={`${complianceRate}%`} icon={Shield} accent={complianceRate >= 90 ? 'text-emerald-600 dark:text-emerald-400' : complianceRate >= 70 ? 'text-amber-600 dark:text-amber-400' : 'text-destructive'} />
         </div>
 
         {/* AdS by status visual */}
-        <CollapsibleSection id="dash-ads-status" title="AdS par statut" defaultExpanded>
+        <CollapsibleSection id="dash-ads-status" title={t('paxlog.dashboard.sections.ads_by_status')} defaultExpanded>
           <div className="flex flex-wrap gap-2">
             {Object.entries(adsStatusCounts).map(([status, count]) => {
               const entry = ADS_STATUS_MAP[status]
               return (
                 <div key={status} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border bg-background">
-                  <span className={cn('gl-badge', entry?.badge || 'gl-badge-neutral')}>{entry?.label || status}</span>
+                  <span className={cn('gl-badge', entry?.badge || 'gl-badge-neutral')}>{entry ? t(entry.labelKey) : status}</span>
                   <span className="text-sm font-semibold tabular-nums">{count}</span>
                 </div>
               )
             })}
             {Object.keys(adsStatusCounts).length === 0 && (
-              <p className="text-xs text-muted-foreground italic">Aucun AdS enregistre.</p>
+              <p className="text-xs text-muted-foreground italic">{t('paxlog.no_ads_registered')}</p>
             )}
           </div>
         </CollapsibleSection>
 
         {/* Recent AdS */}
-        <CollapsibleSection id="dash-recent-ads" title="Derniers Avis de Sejour" defaultExpanded>
+        <CollapsibleSection id="dash-recent-ads" title={t('paxlog.dashboard.sections.recent_ads')} defaultExpanded>
           {recentAds.length === 0 ? (
-            <p className="text-xs text-muted-foreground italic py-2">Aucun AdS recent.</p>
+            <p className="text-xs text-muted-foreground italic py-2">{t('paxlog.no_ads_recent')}</p>
           ) : (
             <div className="space-y-1">
               {recentAds.slice(0, 6).map((ads) => (
@@ -451,9 +457,9 @@ function DashboardTab() {
         </CollapsibleSection>
 
         {/* Expiring credentials */}
-        <CollapsibleSection id="dash-expiring-creds" title="Certifications expirant bientot" defaultExpanded>
+        <CollapsibleSection id="dash-expiring-creds" title={t('paxlog.dashboard.sections.expiring_credentials')} defaultExpanded>
           {expiringList.length === 0 ? (
-            <p className="text-xs text-muted-foreground italic py-2">Aucune certification expirant dans les 30 jours.</p>
+            <p className="text-xs text-muted-foreground italic py-2">{t('paxlog.no_certification_expiring')}</p>
           ) : (
             <div className="space-y-1">
               {expiringList.map((cred) => (
@@ -477,14 +483,14 @@ function DashboardTab() {
 
         {/* Compliance stats */}
         {complianceStats && (
-          <CollapsibleSection id="dash-compliance-stats" title="Statistiques compliance">
+          <CollapsibleSection id="dash-compliance-stats" title={t('paxlog.dashboard.sections.compliance_stats')}>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <StatCard label="Total PAX" value={complianceStats.total_pax} icon={Users} />
-              <StatCard label="Conformes" value={complianceStats.compliant_pax} icon={CheckCircle2} accent="text-emerald-600 dark:text-emerald-400" />
-              <StatCard label="Non conformes" value={complianceStats.non_compliant_pax} icon={XCircle} accent={complianceStats.non_compliant_pax > 0 ? 'text-destructive' : undefined} />
-              <StatCard label="Expirant bientot" value={complianceStats.expiring_soon} icon={Clock} accent="text-amber-600 dark:text-amber-400" />
-              <StatCard label="Expires" value={complianceStats.expired} icon={AlertTriangle} accent={complianceStats.expired > 0 ? 'text-destructive' : undefined} />
-              <StatCard label="Taux compliance" value={`${complianceStats.compliance_rate}%`} icon={Percent} />
+              <StatCard label={t('paxlog.dashboard.kpi.total_pax')} value={complianceStats.total_pax} icon={Users} />
+              <StatCard label={t('paxlog.dashboard.kpi.compliant')} value={complianceStats.compliant_pax} icon={CheckCircle2} accent="text-emerald-600 dark:text-emerald-400" />
+              <StatCard label={t('paxlog.dashboard.kpi.non_compliant')} value={complianceStats.non_compliant_pax} icon={XCircle} accent={complianceStats.non_compliant_pax > 0 ? 'text-destructive' : undefined} />
+              <StatCard label={t('paxlog.dashboard.kpi.expiring_soon')} value={complianceStats.expiring_soon} icon={Clock} accent="text-amber-600 dark:text-amber-400" />
+              <StatCard label={t('paxlog.dashboard.kpi.expired')} value={complianceStats.expired} icon={AlertTriangle} accent={complianceStats.expired > 0 ? 'text-destructive' : undefined} />
+              <StatCard label={t('paxlog.dashboard.kpi.compliance_rate')} value={`${complianceStats.compliance_rate}%`} icon={Percent} />
             </div>
           </CollapsibleSection>
         )}
@@ -494,29 +500,25 @@ function DashboardTab() {
 }
 
 function RequesterHomeTab({
-  currentUserId,
   onCreateAds,
   onCreateAvm,
   onOpenAds,
   onOpenAvm,
 }: {
-  currentUserId: string | null
   onCreateAds: () => void
   onCreateAvm: () => void
   onOpenAds: (id: string) => void
   onOpenAvm: (id: string) => void
 }) {
+  const { t } = useTranslation()
   const { data: myAds, isLoading: adsLoading } = useAdsList({
     page: 1,
     page_size: 8,
-    requester_id: currentUserId || undefined,
+    scope: 'my',
   })
-  const { data: avmData, isLoading: avmLoading } = useAvmList({ page: 1, page_size: 12 })
+  const { data: avmData, isLoading: avmLoading } = useAvmList({ page: 1, page_size: 6, scope: 'my' })
 
-  const myAvm = useMemo(
-    () => (avmData?.items ?? []).filter((item) => item.created_by === currentUserId).slice(0, 6),
-    [avmData, currentUserId],
-  )
+  const myAvm = avmData?.items ?? []
 
   const draftAds = (myAds?.items ?? []).filter((item) => item.status === 'draft').length
   const pendingAds = (myAds?.items ?? []).filter((item) => ['submitted', 'pending_compliance', 'pending_validation', 'requires_review'].includes(item.status)).length
@@ -528,40 +530,40 @@ function RequesterHomeTab({
         <div className="rounded-xl border border-border bg-gradient-to-br from-primary/[0.08] via-background to-amber-500/[0.06] p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div className="space-y-2">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Parcours demandeur</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">{t('paxlog.requester.eyebrow')}</p>
               <div>
-                <h2 className="text-lg font-semibold text-foreground">Demander un sejour ou preparer une mission</h2>
+                <h2 className="text-lg font-semibold text-foreground">{t('paxlog.requester.title')}</h2>
                 <p className="text-sm text-muted-foreground">
-                  Commencez par un AdS si vous gerez un sejour. Utilisez un AVM si vous structurez une mission avec plusieurs etapes ou AdS associees.
+                  {t('paxlog.requester.description')}
                 </p>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
               <button className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-95" onClick={onCreateAds}>
                 <ClipboardList size={14} />
-                Nouvel AdS
+                {t('paxlog.new_ads')}
               </button>
               <button className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-xs font-medium text-foreground hover:bg-accent" onClick={onCreateAvm}>
                 <Briefcase size={14} />
-                Nouvel AVM
+                {t('paxlog.new_avm')}
               </button>
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <StatCard label="Mes AdS" value={myAds?.total ?? 0} icon={ClipboardList} />
-          <StatCard label="Brouillons" value={draftAds} icon={Clock} accent={draftAds > 0 ? 'text-amber-600 dark:text-amber-400' : undefined} />
-          <StatCard label="A traiter" value={pendingAds} icon={Info} accent={pendingAds > 0 ? 'text-primary' : undefined} />
-          <StatCard label="Sejours actifs" value={activeAds} icon={CheckCircle2} accent={activeAds > 0 ? 'text-emerald-600 dark:text-emerald-400' : undefined} />
+          <StatCard label={t('paxlog.requester.kpis.my_ads')} value={myAds?.total ?? 0} icon={ClipboardList} />
+          <StatCard label={t('paxlog.requester.kpis.drafts')} value={draftAds} icon={Clock} accent={draftAds > 0 ? 'text-amber-600 dark:text-amber-400' : undefined} />
+          <StatCard label={t('paxlog.requester.kpis.pending')} value={pendingAds} icon={Info} accent={pendingAds > 0 ? 'text-primary' : undefined} />
+          <StatCard label={t('paxlog.requester.kpis.active_stays')} value={activeAds} icon={CheckCircle2} accent={activeAds > 0 ? 'text-emerald-600 dark:text-emerald-400' : undefined} />
         </div>
 
         <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-          <CollapsibleSection id="requester-my-ads" title="Mes demandes de sejour" defaultExpanded>
+          <CollapsibleSection id="requester-my-ads" title={t('paxlog.requester.sections.my_ads')} defaultExpanded>
             <div className="space-y-2">
-              {adsLoading && <p className="text-xs text-muted-foreground">Chargement...</p>}
+              {adsLoading && <p className="text-xs text-muted-foreground">{t('common.loading')}</p>}
               {!adsLoading && (myAds?.items ?? []).length === 0 && (
-                <p className="text-xs text-muted-foreground italic">Aucun AdS pour le moment.</p>
+                <p className="text-xs text-muted-foreground italic">{t('paxlog.requester.empty.my_ads')}</p>
               )}
               {(myAds?.items ?? []).map((item) => (
                 <button
@@ -572,7 +574,7 @@ function RequesterHomeTab({
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="font-mono text-xs font-medium text-foreground">{item.reference}</p>
-                      <p className="truncate text-sm text-foreground">{item.site_name || 'Site non renseigne'}</p>
+                      <p className="truncate text-sm text-foreground">{item.site_name || t('paxlog.common.site_not_specified')}</p>
                       <p className="text-[11px] text-muted-foreground">
                         {formatDateShort(item.start_date)} → {formatDateShort(item.end_date)} • {item.pax_count} PAX
                       </p>
@@ -585,11 +587,11 @@ function RequesterHomeTab({
           </CollapsibleSection>
 
           <div className="space-y-4">
-            <CollapsibleSection id="requester-my-avm" title="Mes avis de mission" defaultExpanded>
+            <CollapsibleSection id="requester-my-avm" title={t('paxlog.requester.sections.my_avm')} defaultExpanded>
               <div className="space-y-2">
-                {avmLoading && <p className="text-xs text-muted-foreground">Chargement...</p>}
+                {avmLoading && <p className="text-xs text-muted-foreground">{t('common.loading')}</p>}
                 {!avmLoading && myAvm.length === 0 && (
-                  <p className="text-xs text-muted-foreground italic">Aucun AVM recent.</p>
+                  <p className="text-xs text-muted-foreground italic">{t('paxlog.requester.empty.my_avm')}</p>
                 )}
                 {myAvm.map((item) => (
                   <button
@@ -612,11 +614,163 @@ function RequesterHomeTab({
               </div>
             </CollapsibleSection>
 
-            <CollapsibleSection id="requester-guidance" title="Avant de soumettre">
+            <CollapsibleSection id="requester-guidance" title={t('paxlog.requester.sections.before_submit')}>
               <div className="space-y-2 text-xs text-muted-foreground">
-                <p>Ajoutez les PAX, puis verifiez la destination, les dates et l’imputation avant soumission.</p>
-                <p>Utilisez un AVM si vous devez preparer une mission avec plusieurs activites, sites ou AdS rattachees.</p>
-                <p>Les validateurs peuvent ajuster l’imputation avant validation, mais la saisie du demandeur interne fait foi au depart.</p>
+                <p>{t('paxlog.requester.guidance.add_pax')}</p>
+                <p>{t('paxlog.requester.guidance.use_avm')}</p>
+                <p>{t('paxlog.requester.guidance.imputation_rule')}</p>
+              </div>
+            </CollapsibleSection>
+          </div>
+        </div>
+      </div>
+    </PanelContent>
+  )
+}
+
+function ValidatorHomeTab({
+  onOpenAds,
+  onOpenAvm,
+}: {
+  onOpenAds: (id: string) => void
+  onOpenAvm: (id: string) => void
+}) {
+  const { t } = useTranslation()
+  const { hasPermission } = usePermission()
+  const canSeeCompliance = hasPermission('paxlog.compliance.read')
+  const { data: adsData, isLoading: adsLoading } = useAdsList({ page: 1, page_size: 12 })
+  const { data: avmData, isLoading: avmLoading } = useAvmList({ page: 1, page_size: 8 })
+  const { data: expiringCreds, isLoading: expiringLoading } = useExpiringCredentials(30)
+  const visitCategoryLabels = useDictionaryLabels('visit_category')
+
+  const adsItems = adsData?.items ?? []
+  const avmItems = avmData?.items ?? []
+  const adsToValidate = adsItems.filter((item) => ['submitted', 'pending_compliance', 'pending_validation', 'requires_review'].includes(item.status))
+  const adsAwaitingApproval = adsItems.filter((item) => ['submitted', 'pending_validation'].includes(item.status))
+  const adsAwaitingCompliance = adsItems.filter((item) => item.status === 'pending_compliance')
+  const avmToArbitrate = avmItems.filter((item) => ['in_preparation', 'active', 'ready'].includes(item.status))
+  const urgentCreds = (expiringCreds ?? []).filter((item) => item.days_remaining <= 7).slice(0, 6)
+
+  return (
+    <PanelContent>
+      <div className="p-4 space-y-5">
+        <div className="rounded-xl border border-border bg-gradient-to-br from-amber-500/[0.10] via-background to-primary/[0.08] p-4">
+          <div className="space-y-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">{t('paxlog.validator.eyebrow')}</p>
+            <h2 className="text-lg font-semibold text-foreground">{t('paxlog.validator.title')}</h2>
+            <p className="text-sm text-muted-foreground">
+              {t('paxlog.validator.description')}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatCard label={t('paxlog.validator.kpis.ads_to_review')} value={adsToValidate.length} icon={ClipboardList} accent={adsToValidate.length > 0 ? 'text-amber-600 dark:text-amber-400' : undefined} />
+          <StatCard label={t('paxlog.validator.kpis.final_validation')} value={adsAwaitingApproval.length} icon={ThumbsUp} accent={adsAwaitingApproval.length > 0 ? 'text-primary' : undefined} />
+          <StatCard label={t('paxlog.validator.kpis.compliance_review')} value={adsAwaitingCompliance.length} icon={Shield} accent={adsAwaitingCompliance.length > 0 ? 'text-destructive' : undefined} />
+          <StatCard label={t('paxlog.validator.kpis.avm_to_arbitrate')} value={avmToArbitrate.length} icon={Briefcase} accent={avmToArbitrate.length > 0 ? 'text-emerald-600 dark:text-emerald-400' : undefined} />
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+          <CollapsibleSection id="validator-ads-queue" title={t('paxlog.validator.sections.ads_priority')} defaultExpanded>
+            <div className="space-y-2">
+              {adsLoading && <p className="text-xs text-muted-foreground">{t('common.loading')}</p>}
+              {!adsLoading && adsToValidate.length === 0 && (
+                <p className="text-xs text-muted-foreground italic">{t('paxlog.validator.empty.ads_priority')}</p>
+              )}
+              {adsToValidate.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => onOpenAds(item.id)}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-left hover:bg-accent"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-mono text-xs font-medium text-foreground">{item.reference}</p>
+                        <StatusBadge status={item.status} map={ADS_STATUS_MAP} className="shrink-0" />
+                      </div>
+                      <p className="truncate text-sm text-foreground">{item.site_name || t('paxlog.common.site_not_specified')}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {visitCategoryLabels[item.visit_category] || item.visit_category}
+                        {' • '}
+                        {formatDateShort(item.start_date)} → {formatDateShort(item.end_date)}
+                        {' • '}
+                        {item.pax_count} PAX
+                      </p>
+                      {item.requester_name && <p className="text-[11px] text-muted-foreground">{t('paxlog.validator.requester_label', { name: item.requester_name })}</p>}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </CollapsibleSection>
+
+          <div className="space-y-4">
+            <CollapsibleSection id="validator-avm-queue" title={t('paxlog.validator.sections.avm_priority')} defaultExpanded>
+              <div className="space-y-2">
+                {avmLoading && <p className="text-xs text-muted-foreground">{t('common.loading')}</p>}
+                {!avmLoading && avmToArbitrate.length === 0 && (
+                  <p className="text-xs text-muted-foreground italic">{t('paxlog.validator.empty.avm_priority')}</p>
+                )}
+                {avmToArbitrate.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => onOpenAvm(item.id)}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-left hover:bg-accent"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-mono text-xs font-medium text-foreground">{item.reference}</p>
+                          <StatusBadge status={item.status} map={AVM_STATUS_MAP} className="shrink-0" />
+                        </div>
+                        <p className="truncate text-sm text-foreground">{item.title}</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {formatDateShort(item.planned_start_date)} → {formatDateShort(item.planned_end_date)}
+                          {' • '}
+                          {t('paxlog.validator.avm_planned_pax', { count: item.pax_quota })}
+                          {' • '}
+                          {t('paxlog.validator.preparation_progress', { progress: item.preparation_progress })}
+                        </p>
+                        {item.creator_name && <p className="text-[11px] text-muted-foreground">{t('paxlog.validator.creator_label', { name: item.creator_name })}</p>}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </CollapsibleSection>
+
+            {canSeeCompliance && (
+              <CollapsibleSection id="validator-compliance-risks" title={t('paxlog.validator.sections.compliance_risks')}>
+                <div className="space-y-2">
+                  {expiringLoading && <p className="text-xs text-muted-foreground">{t('common.loading')}</p>}
+                  {!expiringLoading && urgentCreds.length === 0 && (
+                    <p className="text-xs text-muted-foreground italic">{t('paxlog.validator.empty.compliance_risks')}</p>
+                  )}
+                  {urgentCreds.map((cred) => (
+                    <div key={cred.id} className="rounded-lg border border-border bg-background px-3 py-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground">{cred.pax_last_name} {cred.pax_first_name}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {cred.credential_type_name}
+                            {cred.pax_company_name ? ` • ${cred.pax_company_name}` : ''}
+                          </p>
+                        </div>
+                        <CountdownBadge days={cred.days_remaining} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CollapsibleSection>
+            )}
+
+            <CollapsibleSection id="validator-guidance" title={t('paxlog.validator.sections.attention_points')}>
+              <div className="space-y-2 text-xs text-muted-foreground">
+                <p>{t('paxlog.validator.guidance.ads_priority')}</p>
+                <p>{t('paxlog.validator.guidance.ads_imputation')}</p>
+                <p>{t('paxlog.validator.guidance.avm_scope')}</p>
               </div>
             </CollapsibleSection>
           </div>
@@ -630,12 +784,13 @@ function RequesterHomeTab({
 // TAB 2: AVIS DE SEJOUR (AdS)
 // ═══════════════════════════════════════════════════════════════
 
-function AdsTab({ openDetail }: { openDetail: (id: string) => void }) {
+function AdsTab({ openDetail, requesterOnly = false, validatorOnly = false }: { openDetail: (id: string) => void; requesterOnly?: boolean; validatorOnly?: boolean }) {
+  const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
-  const [statusFilter, setStatusFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState(validatorOnly ? 'pending_validation' : '')
   const visitCategoryLabels = useDictionaryLabels('visit_category')
 
   const { data, isLoading } = useAdsList({
@@ -643,21 +798,23 @@ function AdsTab({ openDetail }: { openDetail: (id: string) => void }) {
     page_size: pageSize,
     status: statusFilter || undefined,
     search: debouncedSearch || undefined,
+    scope: requesterOnly ? 'my' : undefined,
   })
 
   const items: AdsSummary[] = data?.items ?? []
 
   const stats = useMemo(() => {
     const pending = items.filter((a) => ['submitted', 'pending_compliance', 'pending_validation'].includes(a.status)).length
+    const review = items.filter((a) => ['requires_review', 'pending_compliance'].includes(a.status)).length
     const approved = items.filter((a) => a.status === 'approved').length
     const totalPax = items.reduce((sum, a) => sum + (a.pax_count ?? 0), 0)
-    return { pending, approved, totalPax }
+    return { pending, review, approved, totalPax }
   }, [items])
 
   const adsColumns = useMemo<ColumnDef<AdsSummary, unknown>[]>(() => [
     {
       accessorKey: 'reference',
-      header: 'Reference',
+      header: t('paxlog.reference'),
       cell: ({ row }) => (
         <div className="min-w-0">
           <span className="font-medium text-foreground font-mono text-xs">{row.original.reference}</span>
@@ -672,17 +829,17 @@ function AdsTab({ openDetail }: { openDetail: (id: string) => void }) {
     },
     {
       accessorKey: 'type',
-      header: 'Type',
+      header: t('common.type'),
       cell: ({ row }) => (
         <span className={cn('gl-badge', row.original.type === 'team' ? 'gl-badge-info' : 'gl-badge-neutral')}>
-          {row.original.type === 'individual' ? 'Individuel' : 'Equipe'}
+          {row.original.type === 'individual' ? t('paxlog.create_ads.type.individual') : t('paxlog.create_ads.type.team')}
         </span>
       ),
       size: 90,
     },
     {
       accessorKey: 'visit_category',
-      header: 'Categorie',
+      header: t('paxlog.visit_category'),
       cell: ({ row }) => (
         <span className="gl-badge gl-badge-neutral">
           {visitCategoryLabels[row.original.visit_category] || row.original.visit_category}
@@ -691,12 +848,12 @@ function AdsTab({ openDetail }: { openDetail: (id: string) => void }) {
     },
     {
       id: 'dates',
-      header: 'Dates',
+      header: t('paxlog.ads_detail.fields.dates'),
       cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{formatDate(row.original.start_date)} → {formatDate(row.original.end_date)}</span>,
     },
     {
       accessorKey: 'requester_name',
-      header: 'Demandeur',
+      header: t('paxlog.ads_detail.fields.requester'),
       cell: ({ row }) => <span className="text-xs text-muted-foreground truncate block max-w-[120px]">{row.original.requester_name || '—'}</span>,
     },
     {
@@ -709,20 +866,27 @@ function AdsTab({ openDetail }: { openDetail: (id: string) => void }) {
     },
     {
       accessorKey: 'status',
-      header: 'Statut',
+      header: t('common.status'),
       cell: ({ row }) => <StatusBadge status={row.original.status} map={ADS_STATUS_MAP} />,
       size: 110,
     },
-  ], [visitCategoryLabels])
+  ], [t, visitCategoryLabels])
 
   return (
     <>
+      {validatorOnly && (
+        <div className="px-4 py-3 border-b border-border bg-amber-500/[0.06]">
+          <p className="text-xs text-muted-foreground">
+            {t('paxlog.ads.validator_hint_prefix')} <span className="font-medium text-foreground">pending_validation</span>, {t('paxlog.ads.validator_hint_middle')} <span className="font-medium text-foreground">pending_compliance</span> {t('paxlog.ads.validator_hint_or')} <span className="font-medium text-foreground">requires_review</span>.
+          </p>
+        </div>
+      )}
       {/* Stats grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 border-b border-border">
-        <StatCard label="Total" value={data?.total ?? 0} icon={ClipboardList} />
-        <StatCard label="En attente" value={stats.pending} icon={Clock} accent="text-amber-600 dark:text-amber-400" />
-        <StatCard label="Approuves" value={stats.approved} icon={CheckCircle2} accent="text-emerald-600 dark:text-emerald-400" />
-        <StatCard label="PAX total" value={stats.totalPax} icon={Users} />
+        <StatCard label={requesterOnly ? t('paxlog.ads.kpis.my_ads') : validatorOnly ? t('paxlog.ads.kpis.queue_ads') : t('common.total')} value={data?.total ?? 0} icon={ClipboardList} />
+        <StatCard label={validatorOnly ? t('paxlog.ads.kpis.validation') : t('paxlog.ads.kpis.pending')} value={stats.pending} icon={Clock} accent="text-amber-600 dark:text-amber-400" />
+        <StatCard label={validatorOnly ? t('paxlog.ads.kpis.review_gaps') : t('paxlog.ads.kpis.approved')} value={validatorOnly ? stats.review : stats.approved} icon={validatorOnly ? Shield : CheckCircle2} accent={validatorOnly ? 'text-destructive' : 'text-emerald-600 dark:text-emerald-400'} />
+        <StatCard label={t('paxlog.ads.kpis.total_pax')} value={stats.totalPax} icon={Users} />
       </div>
 
       {/* Filter bar */}
@@ -731,11 +895,11 @@ function AdsTab({ openDetail }: { openDetail: (id: string) => void }) {
           {ADS_STATUS_OPTIONS.map((opt) => (
             <button key={opt.value} onClick={() => { setStatusFilter(opt.value); setPage(1) }}
               className={cn('px-2 py-0.5 rounded text-xs font-medium transition-colors whitespace-nowrap', statusFilter === opt.value ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground')}>
-              {opt.label}
+              {t(opt.labelKey)}
             </button>
           ))}
         </div>
-        {data && <span className="text-xs text-muted-foreground ml-auto shrink-0">{data.total} avis</span>}
+        {data && <span className="text-xs text-muted-foreground ml-auto shrink-0">{t('paxlog.ads.count', { count: data.total, scope: requesterOnly ? t('paxlog.ads.count_scope.requester') : validatorOnly ? t('paxlog.ads.count_scope.validator') : t('paxlog.ads.count_scope.default') })}</span>}
       </div>
 
       <PanelContent>
@@ -747,10 +911,10 @@ function AdsTab({ openDetail }: { openDetail: (id: string) => void }) {
           onPaginationChange={(p) => setPage(p)}
           searchValue={search}
           onSearchChange={(v) => { setSearch(v); setPage(1) }}
-          searchPlaceholder="Rechercher par reference, categorie..."
+          searchPlaceholder={validatorOnly ? t('paxlog.ads.search.validator') : t('paxlog.ads.search.default')}
           onRowClick={(row) => openDetail(row.id)}
           emptyIcon={ClipboardList}
-          emptyTitle="Aucun avis de sejour"
+          emptyTitle={validatorOnly ? t('paxlog.ads.empty.validator') : t('paxlog.ads.empty.default')}
           storageKey="paxlog-ads"
         />
       </PanelContent>
@@ -763,6 +927,7 @@ function AdsTab({ openDetail }: { openDetail: (id: string) => void }) {
 // ═══════════════════════════════════════════════════════════════
 
 function ProfilesTab({ openDetail }: { openDetail: (id: string) => void }) {
+  const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
@@ -771,7 +936,7 @@ function ProfilesTab({ openDetail }: { openDetail: (id: string) => void }) {
   const [typeFilter, setTypeFilter] = useState('')
   const { hasPermission } = usePermission()
   const paxTypeOptions = useDictionaryOptions('pax_type')
-  const paxTypeLabels = useDictionaryLabels('pax_type', { internal: 'Interne', external: 'Externe' })
+  const paxTypeLabels = useDictionaryLabels('pax_type', { internal: t('paxlog.internal'), external: t('paxlog.external') })
   const canImport = hasPermission('paxlog.import')
   const canExport = hasPermission('paxlog.export') || hasPermission('paxlog.profile.read')
 
@@ -785,13 +950,13 @@ function ProfilesTab({ openDetail }: { openDetail: (id: string) => void }) {
   const profileColumns = useMemo<ColumnDef<PaxProfileSummary, unknown>[]>(() => [
     {
       id: 'name',
-      header: 'Nom',
+      header: t('common.name'),
       accessorFn: (row) => `${row.last_name} ${row.first_name}`,
       cell: ({ row }) => <span className="font-medium text-foreground">{row.original.last_name} {row.original.first_name}</span>,
     },
     {
       accessorKey: 'company_name',
-      header: 'Entreprise',
+      header: t('tiers.title'),
       cell: ({ row }) => row.original.company_id
         ? <CrossModuleLink module="tiers" id={row.original.company_id} label={row.original.company_name || row.original.company_id} showIcon={false} className="text-xs" />
         : row.original.company_name
@@ -800,7 +965,7 @@ function ProfilesTab({ openDetail }: { openDetail: (id: string) => void }) {
     },
     {
       accessorKey: 'pax_type',
-      header: 'Type',
+      header: t('common.type'),
       cell: ({ row }) => (
         <span className={cn('gl-badge', row.original.pax_type === 'internal' ? 'gl-badge-info' : 'gl-badge-neutral')}>
           {paxTypeLabels[row.original.pax_type] || row.original.pax_type}
@@ -810,16 +975,16 @@ function ProfilesTab({ openDetail }: { openDetail: (id: string) => void }) {
     },
     {
       accessorKey: 'badge_number',
-      header: 'Badge',
+      header: t('paxlog.badge_number'),
       cell: ({ row }) => <span className="text-muted-foreground">{row.original.badge_number || '—'}</span>,
     },
     {
       accessorKey: 'active',
-      header: 'Statut',
+      header: t('common.status'),
       cell: ({ row }) => <StatusBadge status={row.original.active ? 'active' : 'inactive'} />,
       size: 90,
     },
-  ], [paxTypeLabels])
+  ], [paxTypeLabels, t])
 
   return (
     <>
@@ -828,7 +993,7 @@ function ProfilesTab({ openDetail }: { openDetail: (id: string) => void }) {
           {PAX_STATUS_OPTIONS.map((opt) => (
             <button key={opt.value} onClick={() => { setStatusFilter(opt.value); setPage(1) }}
               className={cn('px-2 py-0.5 rounded text-xs font-medium transition-colors', statusFilter === opt.value ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground')}>
-              {opt.label}
+              {t(opt.labelKey)}
             </button>
           ))}
           <span className="mx-1 h-3 w-px bg-border" />
@@ -839,7 +1004,7 @@ function ProfilesTab({ openDetail }: { openDetail: (id: string) => void }) {
             </button>
           ))}
         </div>
-        {data && <span className="text-xs text-muted-foreground ml-auto">{data.total} profils</span>}
+        {data && <span className="text-xs text-muted-foreground ml-auto">{t('paxlog.profiles_count', { count: data.total })}</span>}
       </div>
 
       <PanelContent>
@@ -851,7 +1016,7 @@ function ProfilesTab({ openDetail }: { openDetail: (id: string) => void }) {
           onPaginationChange={(p) => setPage(p)}
           searchValue={search}
           onSearchChange={(v) => { setSearch(v); setPage(1) }}
-          searchPlaceholder="Rechercher par nom, badge..."
+          searchPlaceholder={t('paxlog.search_profile')}
           onRowClick={(row) => openDetail(row.id)}
           importExport={(canExport || canImport) ? {
             exportFormats: canExport ? ['csv', 'xlsx'] : undefined,
@@ -860,7 +1025,7 @@ function ProfilesTab({ openDetail }: { openDetail: (id: string) => void }) {
             filenamePrefix: 'pax-profiles',
           } : undefined}
           emptyIcon={Users}
-          emptyTitle="Aucun profil PAX"
+          emptyTitle={t('paxlog.no_profile')}
           storageKey="paxlog-profiles"
         />
       </PanelContent>
@@ -873,6 +1038,7 @@ function ProfilesTab({ openDetail }: { openDetail: (id: string) => void }) {
 // ═══════════════════════════════════════════════════════════════
 
 function ComplianceTab() {
+  const { t } = useTranslation()
   const { data: complianceStats } = useComplianceStats()
   const { data: expiringCreds, isLoading: expiringLoading } = useExpiringCredentials(90)
   const { data: matrix, isLoading: matrixLoading } = useComplianceMatrix()
@@ -914,7 +1080,7 @@ function ComplianceTab() {
     },
     {
       accessorKey: 'credential_type_name',
-      header: 'Certification',
+      header: t('paxlog.credentials'),
       cell: ({ row }) => (
         <div className="min-w-0">
           <span className="text-foreground text-xs">{row.original.credential_type_name}</span>
@@ -924,33 +1090,33 @@ function ComplianceTab() {
     },
     {
       accessorKey: 'expiry_date',
-      header: 'Expiration',
+      header: t('paxlog.compliance_tab.expiry'),
       cell: ({ row }) => <span className="text-xs text-muted-foreground tabular-nums">{formatDate(row.original.expiry_date)}</span>,
       size: 100,
     },
     {
       id: 'countdown',
-      header: 'Delai',
+      header: t('paxlog.compliance_tab.delay'),
       cell: ({ row }) => <CountdownBadge days={row.original.days_remaining} />,
       size: 70,
     },
     {
       accessorKey: 'status',
-      header: 'Statut',
+      header: t('common.status'),
       cell: ({ row }) => <StatusBadge status={row.original.status} />,
       size: 90,
     },
-  ], [])
+  ], [t])
 
   const matrixColumns = useMemo<ColumnDef<ComplianceMatrixEntry, unknown>[]>(() => [
     {
       accessorKey: 'asset_id',
-      header: 'Asset',
+      header: t('assets.title'),
       cell: ({ row }) => <span className="text-xs font-mono text-foreground truncate block max-w-[180px]">{row.original.asset_id}</span>,
     },
     {
       accessorKey: 'credential_type_id',
-      header: 'Certification requise',
+      header: t('paxlog.compliance_tab.required_credential'),
       cell: ({ row }) => {
         const ct = credTypeMap[row.original.credential_type_id]
         return <span className="text-xs text-foreground">{ct?.name || row.original.credential_type_id}</span>
@@ -958,28 +1124,32 @@ function ComplianceTab() {
     },
     {
       accessorKey: 'scope',
-      header: 'Portee',
+      header: t('paxlog.compliance_tab.scope'),
       cell: ({ row }) => {
-        const labels: Record<string, string> = { all_visitors: 'Tous', contractors_only: 'Sous-traitants', permanent_staff_only: 'Staff permanent' }
+        const labels: Record<string, string> = {
+          all_visitors: t('paxlog.compliance_tab.scope_values.all_visitors'),
+          contractors_only: t('paxlog.compliance_tab.scope_values.contractors_only'),
+          permanent_staff_only: t('paxlog.compliance_tab.scope_values.permanent_staff_only'),
+        }
         return <span className="gl-badge gl-badge-neutral">{labels[row.original.scope] || row.original.scope}</span>
       },
       size: 120,
     },
     {
       accessorKey: 'mandatory',
-      header: 'Obligatoire',
+      header: t('paxlog.compliance_tab.mandatory'),
       cell: ({ row }) => row.original.mandatory
         ? <CheckCircle2 size={14} className="text-green-600" />
-        : <span className="text-muted-foreground text-xs">Non</span>,
+        : <span className="text-muted-foreground text-xs">{t('common.no')}</span>,
       size: 80,
     },
     {
       accessorKey: 'defined_by',
-      header: 'Defini par',
-      cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{row.original.defined_by === 'hse_central' ? 'HSE Central' : 'Site'}</span>,
+      header: t('paxlog.compliance_tab.defined_by'),
+      cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{row.original.defined_by === 'hse_central' ? t('paxlog.compliance_tab.defined_by_values.hse_central') : t('paxlog.compliance_tab.defined_by_values.site')}</span>,
       size: 100,
     },
-  ], [credTypeMap])
+  ], [credTypeMap, t])
 
   return (
     <PanelContent>
@@ -987,36 +1157,36 @@ function ComplianceTab() {
         {/* Stats */}
         {complianceStats && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <StatCard label="Taux compliance" value={`${complianceStats.compliance_rate}%`} icon={Shield} accent={complianceStats.compliance_rate >= 90 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'} />
-            <StatCard label="Conformes" value={complianceStats.compliant_pax} icon={CheckCircle2} accent="text-emerald-600 dark:text-emerald-400" />
-            <StatCard label="Non conformes" value={complianceStats.non_compliant_pax} icon={XCircle} accent={complianceStats.non_compliant_pax > 0 ? 'text-destructive' : undefined} />
-            <StatCard label="Expirant bientot" value={complianceStats.expiring_soon} icon={Clock} accent="text-amber-600 dark:text-amber-400" />
+            <StatCard label={t('paxlog.compliance_tab.kpis.rate')} value={`${complianceStats.compliance_rate}%`} icon={Shield} accent={complianceStats.compliance_rate >= 90 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'} />
+            <StatCard label={t('paxlog.compliance_tab.kpis.compliant')} value={complianceStats.compliant_pax} icon={CheckCircle2} accent="text-emerald-600 dark:text-emerald-400" />
+            <StatCard label={t('paxlog.compliance_tab.kpis.non_compliant')} value={complianceStats.non_compliant_pax} icon={XCircle} accent={complianceStats.non_compliant_pax > 0 ? 'text-destructive' : undefined} />
+            <StatCard label={t('paxlog.compliance_tab.kpis.expiring_soon')} value={complianceStats.expiring_soon} icon={Clock} accent="text-amber-600 dark:text-amber-400" />
           </div>
         )}
 
         {/* Expiring credentials table */}
-        <CollapsibleSection id="comp-expiring" title={`Certifications expirant sous 90j (${filteredExpiring.length})`} defaultExpanded>
+        <CollapsibleSection id="comp-expiring" title={t('paxlog.compliance_tab.sections.expiring', { count: filteredExpiring.length })} defaultExpanded>
           <DataTable<ExpiringCredential>
             columns={expiringColumns}
             data={filteredExpiring}
             isLoading={expiringLoading}
             searchValue={search}
             onSearchChange={setSearch}
-            searchPlaceholder="Rechercher par PAX, certification..."
+            searchPlaceholder={t('paxlog.search_certification')}
             emptyIcon={FileCheck2}
-            emptyTitle="Aucune certification expirant bientot"
+            emptyTitle={t('paxlog.no_certification_expiring_soon')}
             storageKey="paxlog-expiring"
           />
         </CollapsibleSection>
 
         {/* Compliance matrix */}
-        <CollapsibleSection id="comp-matrix" title={`Matrice de compliance (${matrix?.length ?? 0})`}>
+        <CollapsibleSection id="comp-matrix" title={t('paxlog.compliance_tab.sections.matrix', { count: matrix?.length ?? 0 })}>
           <DataTable<ComplianceMatrixEntry>
             columns={matrixColumns}
             data={matrix ?? []}
             isLoading={matrixLoading}
             emptyIcon={Shield}
-            emptyTitle="Aucune entree dans la matrice"
+            emptyTitle={t('paxlog.no_compliance_entry')}
             storageKey="paxlog-compliance-matrix"
           />
         </CollapsibleSection>
@@ -1030,6 +1200,7 @@ function ComplianceTab() {
 // ═══════════════════════════════════════════════════════════════
 
 function SignalementsTab() {
+  const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
@@ -1068,34 +1239,34 @@ function SignalementsTab() {
     },
     {
       id: 'asset',
-      header: 'Asset',
+      header: t('assets.title'),
       cell: ({ row }) => row.original.asset_id
         ? <CrossModuleLink module="assets" id={row.original.asset_id} label={row.original.asset_name || row.original.asset_id} showIcon={false} className="text-xs" />
         : <span className="text-xs text-muted-foreground">—</span>,
     },
     {
       accessorKey: 'severity',
-      header: 'Severite',
+      header: t('paxlog.severity'),
       cell: ({ row }) => <SeverityBadge severity={row.original.severity} />,
       size: 120,
     },
     {
       accessorKey: 'incident_date',
-      header: 'Date',
+      header: t('common.date'),
       cell: ({ row }) => <span className="text-xs text-muted-foreground whitespace-nowrap tabular-nums">{formatDate(row.original.incident_date)}</span>,
       size: 100,
     },
     {
       accessorKey: 'description',
-      header: 'Description',
+      header: t('common.description'),
       cell: ({ row }) => <span className="text-foreground max-w-[250px] truncate block text-xs">{row.original.description}</span>,
     },
     {
       id: 'resolved',
-      header: 'Statut',
+      header: t('common.status'),
       cell: ({ row }) => row.original.resolved_at
-        ? <span className="inline-flex items-center gap-1 text-xs text-green-600"><CheckCircle2 size={12} /> Resolu</span>
-        : <span className="inline-flex items-center gap-1 text-xs text-amber-500"><Clock size={12} /> Actif</span>,
+        ? <span className="inline-flex items-center gap-1 text-xs text-green-600"><CheckCircle2 size={12} /> {t('paxlog.signalements.status.resolved')}</span>
+        : <span className="inline-flex items-center gap-1 text-xs text-amber-500"><Clock size={12} /> {t('paxlog.signalements.status.active')}</span>,
       size: 80,
     },
     {
@@ -1107,7 +1278,7 @@ function SignalementsTab() {
           onClick={(e) => { e.stopPropagation(); resolveIncident.mutate({ id: row.original.id, payload: {} }) }}
           disabled={resolveIncident.isPending}
         >
-          Resoudre
+          {t('paxlog.resolve')}
         </button>
       ) : null,
       size: 80,
@@ -1119,16 +1290,16 @@ function SignalementsTab() {
       <div className="flex items-center gap-2 border-b border-border px-3.5 h-9 shrink-0">
         <button onClick={() => setActiveOnly(!activeOnly)}
           className={cn('px-2 py-0.5 rounded text-xs font-medium transition-colors', activeOnly ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground')}>
-          Actifs uniquement
+          {t('paxlog.signalements.active_only')}
         </button>
         <span className="mx-1 h-3 w-px bg-border" />
         {SEVERITY_OPTIONS.map((opt) => (
           <button key={opt.value} onClick={() => { setSeverityFilter(severityFilter === opt.value ? '' : opt.value); setPage(1) }}
             className={cn('px-2 py-0.5 rounded text-xs font-medium transition-colors whitespace-nowrap', severityFilter === opt.value ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground')}>
-            {opt.label}
+            {t(opt.labelKey)}
           </button>
         ))}
-        {data && <span className="text-xs text-muted-foreground ml-auto">{data.total} signalements</span>}
+        {data && <span className="text-xs text-muted-foreground ml-auto">{t('paxlog.signalements.count', { count: data.total })}</span>}
       </div>
 
       <PanelContent>
@@ -1140,9 +1311,9 @@ function SignalementsTab() {
           onPaginationChange={(p) => setPage(p)}
           searchValue={search}
           onSearchChange={(v) => { setSearch(v); setPage(1) }}
-          searchPlaceholder="Rechercher par PAX, description..."
+          searchPlaceholder={t('paxlog.search_incident')}
           emptyIcon={AlertTriangle}
-          emptyTitle="Aucun signalement"
+          emptyTitle={t('paxlog.no_incident')}
           storageKey="paxlog-signalements"
         />
       </PanelContent>
@@ -1155,6 +1326,7 @@ function SignalementsTab() {
 // ═══════════════════════════════════════════════════════════════
 
 function RotationsTab() {
+  const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
@@ -1189,12 +1361,12 @@ function RotationsTab() {
     },
     {
       id: 'site',
-      header: 'Site',
+      header: t('assets.site'),
       cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.site_name || '—'}</span>,
     },
     {
       id: 'cycle',
-      header: 'Cycle',
+      header: t('paxlog.rotations_tab.cycle'),
       cell: ({ row }) => (
         <span className="text-xs text-foreground tabular-nums">
           {row.original.days_on}j on / {row.original.days_off}j off
@@ -1204,13 +1376,13 @@ function RotationsTab() {
     },
     {
       accessorKey: 'start_date',
-      header: 'Debut',
+      header: t('paxlog.rotations_tab.start'),
       cell: ({ row }) => <span className="text-xs text-muted-foreground tabular-nums">{formatDateShort(row.original.start_date)}</span>,
       size: 100,
     },
     {
       id: 'next_rotation',
-      header: 'Prochaine rotation',
+      header: t('paxlog.rotations_tab.next_rotation'),
       cell: ({ row }) => {
         if (!row.original.next_rotation_date) return <span className="text-muted-foreground text-xs">—</span>
         const days = daysUntil(row.original.next_rotation_date)
@@ -1224,7 +1396,7 @@ function RotationsTab() {
     },
     {
       accessorKey: 'status',
-      header: 'Statut',
+      header: t('common.status'),
       cell: ({ row }) => <StatusBadge status={row.original.status} map={ROTATION_STATUS_MAP} />,
       size: 90,
     },
@@ -1237,7 +1409,7 @@ function RotationsTab() {
           onClick={(e) => { e.stopPropagation(); endCycle.mutate(row.original.id) }}
           disabled={endCycle.isPending}
         >
-          Terminer
+          {t('paxlog.rotations_tab.finish')}
         </button>
       ) : null,
       size: 80,
@@ -1251,11 +1423,11 @@ function RotationsTab() {
           {ROTATION_STATUS_OPTIONS.map((opt) => (
             <button key={opt.value} onClick={() => { setStatusFilter(opt.value); setPage(1) }}
               className={cn('px-2 py-0.5 rounded text-xs font-medium transition-colors whitespace-nowrap', statusFilter === opt.value ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground')}>
-              {opt.label}
+              {t(opt.labelKey)}
             </button>
           ))}
         </div>
-        {data && <span className="text-xs text-muted-foreground ml-auto">{data.total} rotations</span>}
+        {data && <span className="text-xs text-muted-foreground ml-auto">{t('paxlog.rotations_tab.count', { count: data.total })}</span>}
       </div>
 
       <PanelContent>
@@ -1267,9 +1439,9 @@ function RotationsTab() {
           onPaginationChange={(p) => setPage(p)}
           searchValue={search}
           onSearchChange={(v) => { setSearch(v); setPage(1) }}
-          searchPlaceholder="Rechercher par PAX, site..."
+          searchPlaceholder={t('paxlog.search_rotation')}
           emptyIcon={RefreshCw}
-          emptyTitle="Aucun cycle de rotation"
+          emptyTitle={t('paxlog.no_rotation')}
           storageKey="paxlog-rotations"
         />
       </PanelContent>
@@ -1288,7 +1460,7 @@ function CreateProfilePanel() {
   const createProfile = useCreatePaxProfile()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const paxTypeOptions = useDictionaryOptions('pax_type')
-  const paxTypeLabels = useDictionaryLabels('pax_type', { internal: 'Interne', external: 'Externe' })
+  const paxTypeLabels = useDictionaryLabels('pax_type', { internal: t('paxlog.internal'), external: t('paxlog.external') })
 
   const [form, setForm] = useState({
     type: 'external' as 'internal' | 'external',
@@ -1337,8 +1509,8 @@ function CreateProfilePanel() {
 
   return (
     <DynamicPanelShell
-      title="Nouveau profil PAX"
-      subtitle="PaxLog"
+      title={t('paxlog.profile_panel.create_title')}
+      subtitle={t('paxlog.profile_panel.subtitle')}
       icon={<Users size={14} className="text-primary" />}
       actions={
         <>
@@ -1355,7 +1527,7 @@ function CreateProfilePanel() {
     >
       <form id="create-profile-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
-        <FormSection title="Type de profil">
+        <FormSection title={t('paxlog.profile_panel.sections.profile_type')}>
           <TagSelector
             options={paxTypeOptions}
             value={form.type}
@@ -1363,16 +1535,16 @@ function CreateProfilePanel() {
           />
           <p className="text-[10px] text-muted-foreground mt-1">
             {form.type === 'internal'
-              ? 'Personnel Perenco — lie a un compte utilisateur'
-              : 'Sous-traitant / visiteur — lie a une entreprise (tier)'}
+              ? t('paxlog.profile_panel.type_help.internal')
+              : t('paxlog.profile_panel.type_help.external')}
           </p>
           <p className="text-[10px] text-muted-foreground">{paxTypeLabels[form.type] || form.type}</p>
         </FormSection>
 
         {form.type === 'external' && (
-          <FormSection title="Entreprise">
+          <FormSection title={t('tiers.title')}>
             <SearchablePicker
-              label="Entreprise (tier)"
+              label={t('paxlog.profile_panel.fields.company')}
               icon={<Building2 size={12} className="text-muted-foreground" />}
               items={tiersData?.items || []}
               isLoading={tiersLoading}
@@ -1382,15 +1554,15 @@ function CreateProfilePanel() {
               selectedId={form.company_id}
               onSelect={(tier) => setForm({ ...form, company_id: tier.id })}
               onClear={() => setForm({ ...form, company_id: null })}
-              placeholder="Rechercher une entreprise..."
+              placeholder={t('paxlog.search_company')}
             />
           </FormSection>
         )}
 
         {form.type === 'internal' && (
-          <FormSection title="Compte utilisateur">
+          <FormSection title={t('paxlog.profile_panel.sections.user_account')}>
             <SearchablePicker
-              label="Utilisateur Perenco"
+              label={t('paxlog.profile_panel.fields.user')}
               icon={<User size={12} className="text-muted-foreground" />}
               items={usersData?.items || []}
               isLoading={usersLoading}
@@ -1400,31 +1572,31 @@ function CreateProfilePanel() {
               selectedId={form.user_id}
               onSelect={handleUserSelect}
               onClear={() => setForm({ ...form, user_id: null })}
-              placeholder="Rechercher un utilisateur..."
+              placeholder={t('paxlog.search_user')}
             />
           </FormSection>
         )}
 
-        <FormSection title="Identite">
+        <FormSection title={t('paxlog.profile_panel.sections.identity')}>
           <FormGrid>
-            <DynamicPanelField label="Prenom" required>
+            <DynamicPanelField label={t('paxlog.profile_panel.fields.first_name')} required>
               <input type="text" required value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
-            <DynamicPanelField label="Nom" required>
+            <DynamicPanelField label={t('paxlog.profile_panel.fields.last_name')} required>
               <input type="text" required value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Informations complementaires">
+        <FormSection title={t('paxlog.profile_panel.sections.additional_info')}>
           <FormGrid>
-            <DynamicPanelField label="Date de naissance">
+            <DynamicPanelField label={t('paxlog.profile_panel.fields.birth_date')}>
               <input type="date" value={form.birth_date || ''} onChange={(e) => setForm({ ...form, birth_date: e.target.value || null })} className={panelInputClass} />
             </DynamicPanelField>
-            <DynamicPanelField label="Nationalite">
-              <input type="text" value={form.nationality || ''} onChange={(e) => setForm({ ...form, nationality: e.target.value || null })} className={panelInputClass} placeholder="CM, FR..." />
+            <DynamicPanelField label={t('paxlog.profile_panel.fields.nationality')}>
+              <input type="text" value={form.nationality || ''} onChange={(e) => setForm({ ...form, nationality: e.target.value || null })} className={panelInputClass} placeholder={t('paxlog.profile_panel.placeholders.nationality')} />
             </DynamicPanelField>
-            <DynamicPanelField label="N badge">
+            <DynamicPanelField label={t('paxlog.profile_panel.fields.badge_number')}>
               <input type="text" value={form.badge_number || ''} onChange={(e) => setForm({ ...form, badge_number: e.target.value || null })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
@@ -1438,12 +1610,13 @@ function CreateProfilePanel() {
 // ── PAX Profile Detail Panel ──────────────────────────────────
 
 function ProfileDetailPanel({ id }: { id: string }) {
+  const { t } = useTranslation()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { data: profile, isLoading } = usePaxProfile(id)
   const updateProfile = useUpdatePaxProfile()
   const { data: credentials } = usePaxCredentials(id)
   const { data: credentialTypes } = useCredentialTypes()
-  const paxTypeLabels = useDictionaryLabels('pax_type', { internal: 'Interne', external: 'Externe' })
+  const paxTypeLabels = useDictionaryLabels('pax_type', { internal: t('paxlog.internal'), external: t('paxlog.external') })
 
   const handleSave = useCallback((field: string, value: string) => {
     updateProfile.mutate({ id, payload: normalizeNames({ [field]: value }) })
@@ -1457,7 +1630,7 @@ function ProfileDetailPanel({ id }: { id: string }) {
 
   if (isLoading || !profile) {
     return (
-      <DynamicPanelShell title="Chargement..." icon={<Users size={14} className="text-primary" />}>
+      <DynamicPanelShell title={t('common.loading')} icon={<Users size={14} className="text-primary" />}>
         <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
       </DynamicPanelShell>
     )
@@ -1472,9 +1645,9 @@ function ProfileDetailPanel({ id }: { id: string }) {
         <DangerConfirmButton
           icon={<Trash2 size={12} />}
           onConfirm={() => { updateProfile.mutate({ id, payload: { status: 'archived' } }); closeDynamicPanel() }}
-          confirmLabel="Archiver ?"
+          confirmLabel={t('paxlog.profile_panel.archive_confirm')}
         >
-          Archiver
+          {t('common.archive')}
         </DangerConfirmButton>
       }
     >
@@ -1491,7 +1664,7 @@ function ProfileDetailPanel({ id }: { id: string }) {
             <Building2 size={13} className="text-muted-foreground shrink-0" />
             <div className="min-w-0">
               <p className="text-xs font-medium text-foreground truncate">{profile.company_name}</p>
-              <p className="text-[10px] text-muted-foreground">Entreprise liee</p>
+              <p className="text-[10px] text-muted-foreground">{t('paxlog.profile_panel.linked_company')}</p>
             </div>
           </div>
         )}
@@ -1500,41 +1673,41 @@ function ProfileDetailPanel({ id }: { id: string }) {
             <User size={13} className="text-muted-foreground shrink-0" />
             <div className="min-w-0">
               <p className="text-xs font-medium text-foreground truncate">{profile.email}</p>
-              <p className="text-[10px] text-muted-foreground">Compte utilisateur lie</p>
+              <p className="text-[10px] text-muted-foreground">{t('paxlog.profile_panel.linked_user')}</p>
             </div>
           </div>
         )}
 
         <SectionColumns>
           <div className="@container space-y-5">
-            <FormSection title="Identite">
-              <InlineEditableRow label="Prenom" value={profile.first_name} onSave={(v) => handleSave('first_name', v)} />
-              <InlineEditableRow label="Nom" value={profile.last_name} onSave={(v) => handleSave('last_name', v)} />
-              <ReadOnlyRow label="Date de naissance" value={formatDate(profile.birth_date)} />
-              <InlineEditableRow label="Nationalite" value={profile.nationality || ''} onSave={(v) => handleSave('nationality', v)} />
-              <InlineEditableRow label="N badge" value={profile.badge_number || ''} onSave={(v) => handleSave('badge_number', v)} />
+            <FormSection title={t('paxlog.profile_panel.sections.identity')}>
+              <InlineEditableRow label={t('paxlog.profile_panel.fields.first_name')} value={profile.first_name} onSave={(v) => handleSave('first_name', v)} />
+              <InlineEditableRow label={t('paxlog.profile_panel.fields.last_name')} value={profile.last_name} onSave={(v) => handleSave('last_name', v)} />
+              <ReadOnlyRow label={t('paxlog.profile_panel.fields.birth_date')} value={formatDate(profile.birth_date)} />
+              <InlineEditableRow label={t('paxlog.profile_panel.fields.nationality')} value={profile.nationality || ''} onSave={(v) => handleSave('nationality', v)} />
+              <InlineEditableRow label={t('paxlog.profile_panel.fields.badge_number')} value={profile.badge_number || ''} onSave={(v) => handleSave('badge_number', v)} />
             </FormSection>
 
             {profile.pax_source === 'user' && (
               <div className="flex items-center gap-1.5 px-2 py-1.5 rounded bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 text-xs">
-                <Info size={12} /> Profil utilisateur interne
+                <Info size={12} /> {t('paxlog.profile_panel.internal_user_profile')}
               </div>
             )}
           </div>
 
           <div className="@container space-y-5">
-            <FormSection title={`Certifications (${credentials?.length || 0})`}>
+            <FormSection title={t('paxlog.profile_panel.credentials_title', { count: credentials?.length || 0 })}>
               {!credentials || credentials.length === 0 ? (
-                <p className="text-xs text-muted-foreground py-2 italic">Aucune certification enregistree.</p>
+                <p className="text-xs text-muted-foreground py-2 italic">{t('paxlog.no_certification')}</p>
               ) : (
                 <div className="space-y-1">
                   {credentials.map((cred: PaxCredential) => (
                     <div key={cred.id} className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-accent/50 text-xs">
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium truncate">{credTypeMap[cred.credential_type_id]?.name || 'Certification'}</p>
+                        <p className="font-medium truncate">{credTypeMap[cred.credential_type_id]?.name || t('paxlog.credentials')}</p>
                         <p className="text-[10px] text-muted-foreground">
-                          Obtenu : {formatDate(cred.obtained_date)}
-                          {cred.expiry_date && ` — Expire : ${formatDate(cred.expiry_date)}`}
+                          {t('paxlog.profile_panel.credential_obtained', { date: formatDate(cred.obtained_date) })}
+                          {cred.expiry_date && ` — ${t('paxlog.profile_panel.credential_expires', { date: formatDate(cred.expiry_date) })}`}
                         </p>
                       </div>
                       <StatusBadge status={cred.status} />
@@ -1544,11 +1717,11 @@ function ProfileDetailPanel({ id }: { id: string }) {
               )}
             </FormSection>
 
-            <ReadOnlyRow label="Cree le" value={formatDate(profile.created_at)} />
+            <ReadOnlyRow label={t('common.created_at')} value={formatDate(profile.created_at)} />
           </div>
         </SectionColumns>
 
-        <CollapsibleSection id="profile-tags-notes" title="Tags, notes & fichiers">
+        <CollapsibleSection id="profile-tags-notes" title={t('paxlog.ads_detail.sections.tags_notes_files')}>
           <div className="space-y-3 p-3">
             <TagManager ownerType="pax_profile" ownerId={profile.id} compact />
             <AttachmentManager ownerType="pax_profile" ownerId={profile.id} compact />
@@ -1593,12 +1766,16 @@ function CreateAdsPanel() {
   })
 
   const adsChecklist = [
-    { label: 'Destination renseignee', done: !!form.site_entry_asset_id },
-    { label: 'Categorie choisie', done: !!form.visit_category },
-    { label: 'Periode renseignee', done: !!form.start_date && !!form.end_date },
-    { label: 'Objet de visite renseigne', done: form.visit_purpose.trim().length > 0 },
+    { label: t('paxlog.create_ads.checklist.destination'), done: !!form.site_entry_asset_id },
+    { label: t('paxlog.create_ads.checklist.category'), done: !!form.visit_category },
+    { label: t('paxlog.create_ads.checklist.period'), done: !!form.start_date && !!form.end_date },
+    { label: t('paxlog.create_ads.checklist.purpose'), done: form.visit_purpose.trim().length > 0 },
   ]
   const adsReady = adsChecklist.every((item) => item.done)
+  const selectedVisitCategory = visitCategoryOptions.find((option) => option.value === form.visit_category)?.label || t('paxlog.create_ads.summary.undefined')
+  const selectedProjectLabel = (projects?.items ?? []).find((project) => project.id === form.project_id)
+  const selectedOutboundMode = transportModeOptions.find((option) => option.value === form.outbound_transport_mode)?.label || t('paxlog.create_ads.summary.to_define')
+  const selectedReturnMode = transportModeOptions.find((option) => option.value === form.return_transport_mode)?.label || t('paxlog.create_ads.summary.to_define')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -1615,8 +1792,8 @@ function CreateAdsPanel() {
 
   return (
     <DynamicPanelShell
-      title="Nouvel Avis de Sejour"
-      subtitle="PaxLog"
+      title={t('paxlog.create_ads.title')}
+      subtitle={t('paxlog.create_ads.subtitle')}
       icon={<ClipboardList size={14} className="text-primary" />}
       actions={
         <>
@@ -1633,10 +1810,10 @@ function CreateAdsPanel() {
     >
       <form id="create-ads-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
-        <FormSection title="Demande">
+        <FormSection title={t('paxlog.create_ads.sections.request')}>
           <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
             <p className="text-xs text-muted-foreground">
-              Creez d’abord l’AdS avec la destination, la periode et le motif. Vous ajouterez ensuite les PAX, l’imputation et les pieces dans le dossier.
+              {t('paxlog.create_ads.intro')}
             </p>
             <div className="grid gap-2 sm:grid-cols-2">
               {adsChecklist.map((item) => (
@@ -1649,18 +1826,36 @@ function CreateAdsPanel() {
               ))}
             </div>
           </div>
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-md border border-border bg-card px-3 py-2">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('paxlog.create_ads.summary.format')}</p>
+              <p className="mt-1 text-sm font-semibold text-foreground">{form.type === 'individual' ? t('paxlog.create_ads.type.individual') : t('paxlog.create_ads.type.team')}</p>
+            </div>
+            <div className="rounded-md border border-border bg-card px-3 py-2">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('paxlog.create_ads.summary.category')}</p>
+              <p className="mt-1 text-sm font-semibold text-foreground">{selectedVisitCategory}</p>
+            </div>
+            <div className="rounded-md border border-border bg-card px-3 py-2">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('paxlog.create_ads.summary.project')}</p>
+              <p className="mt-1 text-sm font-semibold text-foreground truncate">{selectedProjectLabel ? `${selectedProjectLabel.code} — ${selectedProjectLabel.name}` : t('paxlog.create_ads.summary.bu_entity_imputation')}</p>
+            </div>
+            <div className="rounded-md border border-border bg-card px-3 py-2">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('paxlog.create_ads.summary.transports')}</p>
+              <p className="mt-1 text-sm font-semibold text-foreground truncate">{selectedOutboundMode} / {selectedReturnMode}</p>
+            </div>
+          </div>
         </FormSection>
 
-        <FormSection title="Type et destination">
+        <FormSection title={t('paxlog.create_ads.sections.type_destination')}>
           <FormGrid>
-            <DynamicPanelField label="Type">
+            <DynamicPanelField label={t('common.type')}>
               <TagSelector
-                options={[{ value: 'individual', label: 'Individuel' }, { value: 'team', label: 'Équipe' }]}
+                options={[{ value: 'individual', label: t('paxlog.create_ads.type.individual') }, { value: 'team', label: t('paxlog.create_ads.type.team') }]}
                 value={form.type}
                 onChange={(v) => setForm({ ...form, type: v as 'individual' | 'team' })}
               />
             </DynamicPanelField>
-            <DynamicPanelField label="Site d'entrée" required>
+            <DynamicPanelField label={t('paxlog.create_ads.fields.entry_site')} required>
               <AssetPicker
                 value={form.site_entry_asset_id || null}
                 onChange={(id) => setForm({ ...form, site_entry_asset_id: id || '' })}
@@ -1669,21 +1864,21 @@ function CreateAdsPanel() {
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Détails de la visite">
+        <FormSection title={t('paxlog.create_ads.sections.visit_details')}>
           <FormGrid>
-            <DynamicPanelField label="Catégorie" required>
+            <DynamicPanelField label={t('paxlog.visit_category')} required>
               <select value={form.visit_category} onChange={(e) => setForm({ ...form, visit_category: e.target.value })} className={panelInputClass} required>
-                <option value="">— Selectionner —</option>
+                <option value="">{t('paxlog.create_ads.select_option')}</option>
                 {visitCategoryOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </DynamicPanelField>
-            <DynamicPanelField label="Projet associé">
+            <DynamicPanelField label={t('paxlog.create_ads.fields.project')}>
               <select value={form.project_id} onChange={(e) => setForm({ ...form, project_id: e.target.value })} className={panelInputClass}>
-                <option value="">— Aucun projet —</option>
+                <option value="">{t('paxlog.create_ads.no_project')}</option>
                 {(projects?.items ?? []).map((p) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
               </select>
             </DynamicPanelField>
-            <DynamicPanelField label="Dates" required>
+            <DynamicPanelField label={t('paxlog.create_ads.fields.dates')} required>
               <DateRangePicker
                 startDate={form.start_date || null}
                 endDate={form.end_date || null}
@@ -1692,26 +1887,26 @@ function CreateAdsPanel() {
                 required
               />
             </DynamicPanelField>
-            <DynamicPanelField label="Transport aller">
+            <DynamicPanelField label={t('paxlog.create_ads.fields.outbound_transport')}>
               <select value={form.outbound_transport_mode} onChange={(e) => setForm({ ...form, outbound_transport_mode: e.target.value })} className={panelInputClass}>
-                <option value="">— Non defini —</option>
+                <option value="">{t('paxlog.create_ads.undefined_option')}</option>
                 {transportModeOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </DynamicPanelField>
-            <DynamicPanelField label="Transport retour">
+            <DynamicPanelField label={t('paxlog.create_ads.fields.return_transport')}>
               <select value={form.return_transport_mode} onChange={(e) => setForm({ ...form, return_transport_mode: e.target.value })} className={panelInputClass}>
-                <option value="">— Non defini —</option>
+                <option value="">{t('paxlog.create_ads.undefined_option')}</option>
                 {transportModeOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </DynamicPanelField>
           </FormGrid>
-          <DynamicPanelField label="Objet de la visite" required>
-            <textarea required value={form.visit_purpose} onChange={(e) => setForm({ ...form, visit_purpose: e.target.value })} className={cn(panelInputClass, 'min-h-[60px] resize-y')} placeholder="Décrire l'objet de la visite..." />
+          <DynamicPanelField label={t('paxlog.visit_purpose')} required>
+            <textarea required value={form.visit_purpose} onChange={(e) => setForm({ ...form, visit_purpose: e.target.value })} className={cn(panelInputClass, 'min-h-[60px] resize-y')} placeholder={t('paxlog.create_ads.placeholders.visit_purpose')} />
           </DynamicPanelField>
         </FormSection>
 
         <p className="text-xs text-muted-foreground italic">
-          Les passagers et imputations peuvent être ajoutés après la création, via le panneau de détail.
+          {t('paxlog.create_ads.footer_hint')}
         </p>
         </PanelContentLayout>
       </form>
@@ -1722,12 +1917,16 @@ function CreateAdsPanel() {
 // ── AdS Detail Panel ──────────────────────────────────────────
 
 function AdsDetailPanel({ id }: { id: string }) {
+  const { t } = useTranslation()
   const { data: ads, isLoading } = useAds(id)
   const { data: adsPax } = useAdsPax(id)
+  const { data: imputationSuggestion } = useAdsImputationSuggestion(id)
   const submitAds = useSubmitAds()
   const cancelAds = useCancelAds()
   const approveAds = useApproveAds()
   const rejectAds = useRejectAds()
+  const requestReviewAds = useRequestReviewAds()
+  const resubmitAds = useResubmitAds()
   const downloadPdf = useAdsPdf()
   const createExtLink = useCreateExternalLink()
   const addPaxV2 = useAddPaxToAdsV2()
@@ -1739,6 +1938,10 @@ function AdsDetailPanel({ id }: { id: string }) {
 
   const [rejectReason, setRejectReason] = useState('')
   const [showRejectForm, setShowRejectForm] = useState(false)
+  const [reviewReason, setReviewReason] = useState('')
+  const [showReviewForm, setShowReviewForm] = useState(false)
+  const [resubmitReason, setResubmitReason] = useState('')
+  const [showResubmitForm, setShowResubmitForm] = useState(false)
   const [paxSearch, setPaxSearch] = useState('')
   const [showPaxPicker, setShowPaxPicker] = useState(false)
   const debouncedPaxSearch = useDebounce(paxSearch, 300)
@@ -1761,23 +1964,83 @@ function AdsDetailPanel({ id }: { id: string }) {
 
   if (isLoading || !ads) {
     return (
-      <DynamicPanelShell title="Chargement..." icon={<ClipboardList size={14} className="text-primary" />}>
+      <DynamicPanelShell title={t('common.loading')} icon={<ClipboardList size={14} className="text-primary" />}>
         <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
       </DynamicPanelShell>
     )
   }
 
-  const canSubmit = ads.status === 'draft'
-  const canCancel = !['cancelled', 'completed', 'rejected'].includes(ads.status)
+  const compliantPaxCount = (adsPax ?? []).filter((entry) => entry.compliant === true).length
+  const nonCompliantPaxCount = (adsPax ?? []).filter((entry) => entry.compliant === false).length
+  const canSubmit = ads.status === 'draft' && hasPermission('paxlog.ads.submit')
+  const canCancel = !['cancelled', 'completed', 'rejected'].includes(ads.status) && hasPermission('paxlog.ads.cancel')
   const canApprove = ['submitted', 'pending_validation'].includes(ads.status) && hasPermission('paxlog.ads.approve')
   const canReject = ['submitted', 'pending_validation'].includes(ads.status) && hasPermission('paxlog.ads.approve')
+  const canRequestReview = ['submitted', 'pending_compliance', 'pending_validation', 'approved', 'in_progress'].includes(ads.status) && hasPermission('paxlog.ads.approve')
+  const canResubmit = ads.status === 'requires_review' && hasPermission('paxlog.ads.submit')
   const canDownloadPdf = ['approved', 'in_progress', 'completed'].includes(ads.status)
   const canGenerateLink = ['approved', 'in_progress'].includes(ads.status)
+  const adsSubmissionChecklist = [
+    { label: t('paxlog.ads_detail.checklist.destination'), done: !!ads.site_entry_asset_id },
+    { label: t('paxlog.ads_detail.checklist.category'), done: !!ads.visit_category },
+    { label: t('paxlog.ads_detail.checklist.dates'), done: !!ads.start_date && !!ads.end_date },
+    { label: t('paxlog.ads_detail.checklist.purpose'), done: !!ads.visit_purpose },
+    { label: t('paxlog.ads_detail.checklist.passenger'), done: (adsPax?.length ?? 0) > 0 },
+  ]
+  const adsReadyToSubmit = adsSubmissionChecklist.every((item) => item.done)
+  const adsNextAction =
+    ads.status === 'draft'
+      ? (adsReadyToSubmit
+        ? t('paxlog.ads_detail.next_action.draft_ready')
+        : t('paxlog.ads_detail.next_action.draft_missing'))
+      : ads.status === 'submitted'
+        ? t('paxlog.ads_detail.next_action.submitted')
+        : ads.status === 'pending_compliance'
+          ? t('paxlog.ads_detail.next_action.pending_compliance')
+          : ads.status === 'pending_validation'
+            ? t('paxlog.ads_detail.next_action.pending_validation')
+            : ads.status === 'requires_review'
+              ? t('paxlog.ads_detail.next_action.requires_review')
+            : ads.status === 'approved'
+              ? t('paxlog.ads_detail.next_action.approved')
+              : ads.status === 'in_progress'
+                ? t('paxlog.ads_detail.next_action.in_progress')
+                : ads.status === 'completed'
+                  ? t('paxlog.ads_detail.next_action.completed')
+                  : ads.status === 'rejected'
+                    ? t('paxlog.ads_detail.next_action.rejected')
+                    : t('paxlog.ads_detail.next_action.cancelled')
 
   const handleReject = () => {
     rejectAds.mutate({ id, reason: rejectReason || undefined })
     setShowRejectForm(false)
     setRejectReason('')
+  }
+
+  const handleRequestReview = () => {
+    if (!reviewReason.trim()) return
+    requestReviewAds.mutate(
+      { id, reason: reviewReason.trim() },
+      {
+        onSuccess: () => {
+          setShowReviewForm(false)
+          setReviewReason('')
+        },
+      },
+    )
+  }
+
+  const handleResubmit = () => {
+    if (!resubmitReason.trim()) return
+    resubmitAds.mutate(
+      { id, reason: resubmitReason.trim() },
+      {
+        onSuccess: () => {
+          setShowResubmitForm(false)
+          setResubmitReason('')
+        },
+      },
+    )
   }
 
   const handleGenerateLink = () => {
@@ -1787,13 +2050,13 @@ function AdsDetailPanel({ id }: { id: string }) {
   return (
     <DynamicPanelShell
       title={ads.reference}
-      subtitle={`AdS — ${visitCategoryLabels[ads.visit_category] || ads.visit_category}`}
+      subtitle={`${t('paxlog.ads')} — ${visitCategoryLabels[ads.visit_category] || ads.visit_category}`}
       icon={<ClipboardList size={14} className="text-primary" />}
       actions={
         <div className="flex items-center gap-1">
           {canGenerateLink && (
             <PanelActionButton variant="default" disabled={createExtLink.isPending} onClick={handleGenerateLink}>
-              {createExtLink.isPending ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />} Lien externe
+              {createExtLink.isPending ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />} {t('paxlog.ads_detail.actions.external_link')}
             </PanelActionButton>
           )}
           {canDownloadPdf && (
@@ -1803,26 +2066,36 @@ function AdsDetailPanel({ id }: { id: string }) {
           )}
           {canApprove && (
             <PanelActionButton variant="primary" disabled={approveAds.isPending} onClick={() => approveAds.mutate(id)}>
-              <ThumbsUp size={12} /> Approuver
+              <ThumbsUp size={12} /> {t('common.validate')}
             </PanelActionButton>
           )}
           {canReject && !showRejectForm && (
             <PanelActionButton variant="default" onClick={() => setShowRejectForm(true)}>
-              <ThumbsDown size={12} /> Rejeter
+              <ThumbsDown size={12} /> {t('common.reject')}
+            </PanelActionButton>
+          )}
+          {canRequestReview && !showReviewForm && (
+            <PanelActionButton variant="default" onClick={() => setShowReviewForm(true)}>
+              <RefreshCw size={12} /> {t('paxlog.ads_detail.actions.request_review')}
             </PanelActionButton>
           )}
           {canSubmit && (
             <PanelActionButton variant="primary" disabled={submitAds.isPending} onClick={() => submitAds.mutate(id)}>
-              <Send size={12} /> Soumettre
+              <Send size={12} /> {t('common.submit')}
+            </PanelActionButton>
+          )}
+          {canResubmit && !showResubmitForm && (
+            <PanelActionButton variant="primary" onClick={() => setShowResubmitForm(true)}>
+              <RefreshCw size={12} /> {t('paxlog.ads_detail.actions.resubmit')}
             </PanelActionButton>
           )}
           {canCancel && (
             <DangerConfirmButton
               icon={<XCircle size={12} />}
               onConfirm={() => cancelAds.mutate(id)}
-              confirmLabel="Annuler ?"
+              confirmLabel={t('paxlog.cancel_question')}
             >
-              Annuler
+              {t('common.cancel')}
             </DangerConfirmButton>
           )}
         </div>
@@ -1832,19 +2105,57 @@ function AdsDetailPanel({ id }: { id: string }) {
         {/* Reject reason inline form */}
         {showRejectForm && (
           <div className="border border-red-300 rounded-lg bg-red-50 dark:bg-red-900/10 dark:border-red-800 p-3 space-y-2">
-            <p className="text-xs font-semibold text-red-700 dark:text-red-400">Motif de rejet</p>
+            <p className="text-xs font-semibold text-red-700 dark:text-red-400">{t('paxlog.ads_detail.reject.reason_title')}</p>
             <textarea
               className="gl-form-input text-xs min-h-[60px]"
-              placeholder="Indiquez le motif du rejet (optionnel)..."
+              placeholder={t('paxlog.ads_detail.reject.placeholder')}
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
             />
             <div className="flex items-center gap-2">
               <button className="gl-button-sm gl-button-danger" disabled={rejectAds.isPending} onClick={handleReject}>
                 {rejectAds.isPending ? <Loader2 size={12} className="animate-spin" /> : <ThumbsDown size={12} />}
-                Confirmer le rejet
+                {t('paxlog.confirm_reject')}
               </button>
-              <button className="gl-button-sm gl-button-default" onClick={() => setShowRejectForm(false)}>Annuler</button>
+              <button className="gl-button-sm gl-button-default" onClick={() => setShowRejectForm(false)}>{t('common.cancel')}</button>
+            </div>
+          </div>
+        )}
+
+        {showReviewForm && (
+          <div className="border border-amber-300 rounded-lg bg-amber-50 dark:bg-amber-900/10 dark:border-amber-800 p-3 space-y-2">
+            <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">{t('paxlog.ads_detail.request_review.reason_title')}</p>
+            <textarea
+              className="gl-form-input text-xs min-h-[60px]"
+              placeholder={t('paxlog.ads_detail.request_review.placeholder')}
+              value={reviewReason}
+              onChange={(e) => setReviewReason(e.target.value)}
+            />
+            <div className="flex items-center gap-2">
+              <button className="gl-button-sm gl-button-default" disabled={requestReviewAds.isPending || !reviewReason.trim()} onClick={handleRequestReview}>
+                {requestReviewAds.isPending ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                {t('paxlog.ads_detail.request_review.confirm')}
+              </button>
+              <button className="gl-button-sm gl-button-default" onClick={() => setShowReviewForm(false)}>{t('common.cancel')}</button>
+            </div>
+          </div>
+        )}
+
+        {showResubmitForm && (
+          <div className="border border-sky-300 rounded-lg bg-sky-50 dark:bg-sky-900/10 dark:border-sky-800 p-3 space-y-2">
+            <p className="text-xs font-semibold text-sky-700 dark:text-sky-400">{t('paxlog.ads_detail.resubmit.reason_title')}</p>
+            <textarea
+              className="gl-form-input text-xs min-h-[60px]"
+              placeholder={t('paxlog.ads_detail.resubmit.placeholder')}
+              value={resubmitReason}
+              onChange={(e) => setResubmitReason(e.target.value)}
+            />
+            <div className="flex items-center gap-2">
+              <button className="gl-button-sm gl-button-confirm" disabled={resubmitAds.isPending || !resubmitReason.trim()} onClick={handleResubmit}>
+                {resubmitAds.isPending ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                {t('paxlog.ads_detail.resubmit.confirm')}
+              </button>
+              <button className="gl-button-sm gl-button-default" onClick={() => setShowResubmitForm(false)}>{t('common.cancel')}</button>
             </div>
           </div>
         )}
@@ -1853,35 +2164,74 @@ function AdsDetailPanel({ id }: { id: string }) {
         <div className="flex items-center gap-2 flex-wrap">
           <StatusBadge status={ads.status} map={ADS_STATUS_MAP} />
           <span className={cn('gl-badge', ads.type === 'team' ? 'gl-badge-info' : 'gl-badge-neutral')}>
-            {ads.type === 'individual' ? 'Individuel' : 'Equipe'}
+            {ads.type === 'individual' ? t('paxlog.create_ads.type.individual') : t('paxlog.create_ads.type.team')}
           </span>
-          {ads.cross_company_flag && <span className="gl-badge gl-badge-warning">Cross-company</span>}
+          {ads.cross_company_flag && <span className="gl-badge gl-badge-warning">{t('paxlog.ads_detail.cross_company')}</span>}
         </div>
 
+        <CollapsibleSection
+          id="ads-readiness"
+          title={ads.status === 'draft' ? t('paxlog.ads_detail.readiness.title_draft', { status: adsReadyToSubmit ? t('paxlog.ads_detail.readiness.ready') : t('paxlog.ads_detail.readiness.to_complete') }) : t('paxlog.ads_detail.readiness.title_readonly')}
+          defaultExpanded
+        >
+          <div className="space-y-3">
+            {ads.status === 'draft' && (
+              <div className="space-y-2">
+                {adsSubmissionChecklist.map((item) => (
+                  <div key={item.label} className="flex items-center gap-2 text-xs">
+                    <span className={cn('inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px]', item.done ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300')}>
+                      {item.done ? '✓' : '•'}
+                    </span>
+                    <span className={item.done ? 'text-foreground' : 'text-muted-foreground'}>{item.label}</span>
+                  </div>
+                ))}
+                <p className="pt-1 text-[11px] text-muted-foreground">
+                  {t('paxlog.ads_detail.readiness.imputation_hint')}
+                </p>
+              </div>
+            )}
+            <div className="grid gap-2 sm:grid-cols-3">
+              <div className="rounded-md border border-border bg-card px-3 py-2">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('paxlog.ads_detail.kpis.passengers')}</p>
+                <p className="mt-1 text-sm font-semibold text-foreground">{adsPax?.length ?? 0}</p>
+              </div>
+              <div className="rounded-md border border-border bg-card px-3 py-2">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('paxlog.ads_detail.kpis.compliant_pax')}</p>
+                <p className="mt-1 text-sm font-semibold text-foreground">{compliantPaxCount}</p>
+              </div>
+              <div className="rounded-md border border-border bg-card px-3 py-2">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('paxlog.ads_detail.kpis.compliance_gaps')}</p>
+                <p className="mt-1 text-sm font-semibold text-foreground">{nonCompliantPaxCount}</p>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">{adsNextAction}</p>
+          </div>
+        </CollapsibleSection>
+
         {/* Visit details + Transport — 2-column grid */}
-        <CollapsibleSection id="ads-visit" title="Visite & Transport" defaultExpanded>
+        <CollapsibleSection id="ads-visit" title={t('paxlog.ads_detail.sections.visit_transport')} defaultExpanded>
           <DetailFieldGrid>
-            <ReadOnlyRow label="Objet" value={ads.visit_purpose} />
-            <ReadOnlyRow label="Catégorie" value={visitCategoryLabels[ads.visit_category] || ads.visit_category} />
-            <ReadOnlyRow label="Site" value={
+            <ReadOnlyRow label={t('paxlog.ads_detail.fields.purpose')} value={ads.visit_purpose} />
+            <ReadOnlyRow label={t('paxlog.ads_detail.fields.category')} value={visitCategoryLabels[ads.visit_category] || ads.visit_category} />
+            <ReadOnlyRow label={t('paxlog.ads_detail.fields.site')} value={
               ads.site_entry_asset_id ? (
                 <CrossModuleLink module="assets" id={ads.site_entry_asset_id} label={resolveAssetName(ads.site_entry_asset_id) || ads.site_name || ads.site_entry_asset_id} mode="navigate" />
               ) : (ads.site_name || '—')
             } />
-            <ReadOnlyRow label="Dates" value={`${formatDate(ads.start_date)} → ${formatDate(ads.end_date)}`} />
-            {ads.requester_name && <ReadOnlyRow label="Demandeur" value={ads.requester_name} />}
+            <ReadOnlyRow label={t('paxlog.ads_detail.fields.dates')} value={`${formatDate(ads.start_date)} → ${formatDate(ads.end_date)}`} />
+            {ads.requester_name && <ReadOnlyRow label={t('paxlog.ads_detail.fields.requester')} value={ads.requester_name} />}
             {ads.project_id && (
-              <ReadOnlyRow label="Projet" value={
+              <ReadOnlyRow label={t('paxlog.ads_detail.fields.project')} value={
                 <CrossModuleLink module="projets" id={ads.project_id} label={ads.project_name || ads.project_id} mode="navigate" />
               } />
             )}
-            {ads.outbound_transport_mode && <ReadOnlyRow label="Transport aller" value={transportModeLabels[ads.outbound_transport_mode] || ads.outbound_transport_mode} />}
-            {ads.return_transport_mode && <ReadOnlyRow label="Transport retour" value={transportModeLabels[ads.return_transport_mode] || ads.return_transport_mode} />}
+            {ads.outbound_transport_mode && <ReadOnlyRow label={t('paxlog.ads_detail.fields.outbound_transport')} value={transportModeLabels[ads.outbound_transport_mode] || ads.outbound_transport_mode} />}
+            {ads.return_transport_mode && <ReadOnlyRow label={t('paxlog.ads_detail.fields.return_transport')} value={transportModeLabels[ads.return_transport_mode] || ads.return_transport_mode} />}
           </DetailFieldGrid>
         </CollapsibleSection>
 
         {/* PAX list with compliance status + add/remove */}
-        <CollapsibleSection id="ads-pax" title={`Passagers (${adsPax?.length || 0})`} defaultExpanded>
+        <CollapsibleSection id="ads-pax" title={t('paxlog.ads_detail.sections.passengers', { count: adsPax?.length || 0 })} defaultExpanded>
           {/* PAX Search & Add — only for draft/review status */}
           {ads && ['draft', 'requires_review'].includes(ads.status) && (
             <div className="mb-3">
@@ -1890,7 +2240,7 @@ function AdsDetailPanel({ id }: { id: string }) {
                   className="gl-button-sm gl-button-confirm w-full"
                   onClick={() => setShowPaxPicker(true)}
                 >
-                  <Plus size={12} /> Ajouter un passager
+                  <Plus size={12} /> {t('paxlog.ads_detail.actions.add_passenger')}
                 </button>
               ) : (
                 <div className="space-y-2 p-2 rounded-md border border-border bg-card">
@@ -1899,7 +2249,7 @@ function AdsDetailPanel({ id }: { id: string }) {
                       <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
                       <input
                         className={cn(panelInputClass, 'pl-7')}
-                        placeholder="Rechercher un utilisateur, contact, profil PAX..."
+                        placeholder={t('paxlog.ads_detail.search_pax_placeholder')}
                         value={paxSearch}
                         onChange={(e) => setPaxSearch(e.target.value)}
                         autoFocus
@@ -1936,13 +2286,14 @@ function AdsDetailPanel({ id }: { id: string }) {
                             <div className="min-w-0 flex-1">
                               <p className="font-medium truncate">{c.last_name} {c.first_name}</p>
                               <p className="text-[10px] text-muted-foreground">
-                                {c.source === 'user' ? `Utilisateur${c.email ? ` • ${c.email}` : ''}` :
-                                    `Contact${c.position ? ` • ${c.position}` : ''}`}
+                                {c.source === 'user'
+                                  ? t('paxlog.ads_detail.pax_candidate.user', { email: c.email ? ` • ${c.email}` : '' })
+                                  : t('paxlog.ads_detail.pax_candidate.contact', { position: c.position ? ` • ${c.position}` : '' })}
                               </p>
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
                               <span className={cn('gl-badge text-[9px]', (c.pax_type || c.type) === 'internal' ? 'gl-badge-info' : 'gl-badge-neutral')}>
-                                {(c.pax_type || c.type) === 'internal' ? 'Int.' : 'Ext.'}
+                                {(c.pax_type || c.type) === 'internal' ? t('paxlog.ads_detail.passenger_type.internal') : t('paxlog.ads_detail.passenger_type.external')}
                               </span>
                               {alreadyAdded ? (
                                 <CheckCircle2 size={12} className="text-green-500" />
@@ -1956,7 +2307,7 @@ function AdsDetailPanel({ id }: { id: string }) {
                     </div>
                   )}
                   {paxSearch.length >= 1 && paxCandidates && paxCandidates.length === 0 && (
-                    <p className="text-xs text-muted-foreground text-center py-2 italic">Aucun résultat pour « {paxSearch} »</p>
+                    <p className="text-xs text-muted-foreground text-center py-2 italic">{t('paxlog.ads_detail.empty.pax_search', { search: paxSearch })}</p>
                   )}
                 </div>
               )}
@@ -1964,7 +2315,7 @@ function AdsDetailPanel({ id }: { id: string }) {
           )}
 
           {!adsPax || adsPax.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-2 italic">Aucun passager. Ajoutez des PAX pour pouvoir soumettre l'AdS.</p>
+            <p className="text-xs text-muted-foreground py-2 italic">{t('paxlog.ads_detail.empty.passengers')}</p>
           ) : (
             <div className="space-y-1">
               {adsPax.map((ap: AdsPax) => (
@@ -1978,14 +2329,14 @@ function AdsDetailPanel({ id }: { id: string }) {
                         <>{ap.pax_last_name ?? ''} {ap.pax_first_name ?? ''}</>
                       )}
                     </p>
-                    {ap.pax_badge && <p className="text-[10px] text-muted-foreground">Badge: {ap.pax_badge}</p>}
+                    {ap.pax_badge && <p className="text-[10px] text-muted-foreground">{t('paxlog.ads_detail.fields.badge', { value: ap.pax_badge })}</p>}
                     {ap.pax_company_name && <p className="text-[10px] text-muted-foreground">{ap.pax_company_name}</p>}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {ap.compliant === true && <CheckCircle2 size={13} className="text-green-600" />}
                     {ap.compliant === false && <XCircle size={13} className="text-red-500" />}
                     <span className={cn('gl-badge', ap.pax_type === 'internal' ? 'gl-badge-info' : 'gl-badge-neutral')}>
-                      {ap.pax_type === 'internal' ? 'Int.' : 'Ext.'}
+                      {ap.pax_type === 'internal' ? t('paxlog.ads_detail.passenger_type.internal') : t('paxlog.ads_detail.passenger_type.external')}
                     </span>
                     <StatusBadge status={ap.status} />
                     {/* Remove button — visible only with paxlog.ads.update permission */}
@@ -1993,7 +2344,7 @@ function AdsDetailPanel({ id }: { id: string }) {
                       <button
                         className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                         onClick={() => removePax.mutate({ adsId: id, entryId: ap.id })}
-                        title="Retirer ce passager"
+                        title={t('paxlog.ads_detail.actions.remove_passenger')}
                       >
                         <Trash2 size={12} />
                       </button>
@@ -2006,38 +2357,62 @@ function AdsDetailPanel({ id }: { id: string }) {
         </CollapsibleSection>
 
         {/* Cost Imputations */}
-        <CollapsibleSection id="ads-imputations" title="Imputations" defaultExpanded>
+        <CollapsibleSection id="ads-imputations" title={t('paxlog.ads_detail.sections.imputations')} defaultExpanded>
+          {imputationSuggestion && (
+            <div className="mb-3 rounded-lg border border-border bg-muted/20 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('paxlog.ads_detail.imputation.backend_suggestion')}</p>
+              <p className="mt-1 text-xs text-foreground">
+                {t('paxlog.ads_detail.imputation.project')}: <span className="font-medium">{imputationSuggestion.project_name || t('common.none')}</span>
+                {' • '}
+                {t('paxlog.ads_detail.imputation.cost_center')}: <span className="font-medium">{imputationSuggestion.cost_center_name || t('common.none')}</span>
+              </p>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {t('paxlog.ads_detail.imputation.sources', { project: imputationSuggestion.project_source, cost_center: imputationSuggestion.cost_center_source })}
+              </p>
+            </div>
+          )}
           <ImputationManager
             ownerType="ads"
             ownerId={id}
             editable={!!ads && ['draft', 'requires_review'].includes(ads.status)}
+            defaultProjectId={imputationSuggestion?.project_id || ads.project_id}
+            defaultCostCenterId={imputationSuggestion?.cost_center_id || null}
           />
         </CollapsibleSection>
 
         {/* Workflow timeline */}
-        <CollapsibleSection id="ads-history" title="Historique">
+        <CollapsibleSection id="ads-history" title={t('common.history')}>
           <div className="space-y-1">
-            <ReadOnlyRow label="Cree le" value={formatDate(ads.created_at)} />
-            {ads.submitted_at && <ReadOnlyRow label="Soumis le" value={formatDate(ads.submitted_at)} />}
+            <ReadOnlyRow label={t('paxlog.ads_detail.history.created_at')} value={formatDate(ads.created_at)} />
+            {ads.submitted_at && <ReadOnlyRow label={t('paxlog.ads_detail.history.submitted_at')} value={formatDate(ads.submitted_at)} />}
             {ads.approved_at && (
               <div className="flex items-center gap-1.5 px-2 py-1">
                 <CheckCircle2 size={12} className="text-green-600 shrink-0" />
-                <span className="text-xs text-green-700 dark:text-green-400 font-medium">Approuve le {formatDate(ads.approved_at)}</span>
+                <span className="text-xs text-green-700 dark:text-green-400 font-medium">{t('paxlog.ads_detail.history.approved_at', { date: formatDate(ads.approved_at) })}</span>
               </div>
             )}
             {ads.rejected_at && (
               <div className="px-2 py-1 space-y-0.5">
                 <div className="flex items-center gap-1.5">
                   <XCircle size={12} className="text-red-600 shrink-0" />
-                  <span className="text-xs text-red-700 dark:text-red-400 font-medium">Rejete le {formatDate(ads.rejected_at)}</span>
+                  <span className="text-xs text-red-700 dark:text-red-400 font-medium">{t('paxlog.ads_detail.history.rejected_at', { date: formatDate(ads.rejected_at) })}</span>
                 </div>
                 {ads.rejection_reason && <p className="text-xs text-muted-foreground pl-5">{ads.rejection_reason}</p>}
+              </div>
+            )}
+            {ads.status === 'requires_review' && ads.rejection_reason && (
+              <div className="px-2 py-1 space-y-0.5">
+                <div className="flex items-center gap-1.5">
+                  <RefreshCw size={12} className="text-amber-600 shrink-0" />
+                  <span className="text-xs text-amber-700 dark:text-amber-400 font-medium">{t('paxlog.ads_detail.history.requires_review')}</span>
+                </div>
+                <p className="text-xs text-muted-foreground pl-5">{ads.rejection_reason}</p>
               </div>
             )}
           </div>
         </CollapsibleSection>
 
-        <CollapsibleSection id="ads-tags-notes" title="Tags, notes & fichiers">
+        <CollapsibleSection id="ads-tags-notes" title={t('paxlog.ads_detail.sections.tags_notes_files')}>
           <div className="space-y-3 p-3">
             <TagManager ownerType="ads" ownerId={ads.id} compact />
             <AttachmentManager ownerType="ads" ownerId={ads.id} compact />
@@ -2097,8 +2472,8 @@ function CreateIncidentPanel() {
 
   return (
     <DynamicPanelShell
-      title="Nouveau signalement"
-      subtitle="PaxLog — Signalements"
+      title={t('paxlog.incident_panel.create_title')}
+      subtitle={t('paxlog.incident_panel.subtitle')}
       icon={<AlertTriangle size={14} className="text-destructive" />}
       actions={
         <>
@@ -2115,17 +2490,17 @@ function CreateIncidentPanel() {
     >
       <form id="create-incident-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
-        <FormSection title="Severite">
+        <FormSection title={t('paxlog.incident_panel.sections.severity')}>
           <TagSelector
-            options={SEVERITY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+            options={SEVERITY_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
             value={form.severity}
             onChange={(v) => setForm({ ...form, severity: v as typeof form.severity })}
           />
         </FormSection>
 
-        <FormSection title="PAX concerne">
+        <FormSection title={t('paxlog.incident_panel.sections.concerned_pax')}>
           <SearchablePicker
-            label="Profil PAX"
+            label={t('paxlog.incident_panel.fields.pax_profile')}
             icon={<User size={12} className="text-muted-foreground" />}
             items={paxData?.items || []}
             isLoading={paxLoading}
@@ -2138,32 +2513,32 @@ function CreateIncidentPanel() {
               setForm({ ...form, user_id: isUser ? p.id : null, contact_id: isUser ? null : p.id, pax_display: `${p.last_name} ${p.first_name}` })
             }}
             onClear={() => setForm({ ...form, user_id: null, contact_id: null, pax_display: null })}
-            placeholder="Rechercher un PAX..."
+            placeholder={t('paxlog.incident_panel.placeholders.search_pax')}
           />
         </FormSection>
 
-        <FormSection title="Details">
-          <DynamicPanelField label="Date de l'incident" required>
+        <FormSection title={t('paxlog.incident_panel.sections.details')}>
+          <DynamicPanelField label={t('paxlog.incident_panel.fields.incident_date')} required>
             <input type="date" required value={form.incident_date} onChange={(e) => setForm({ ...form, incident_date: e.target.value })} className={panelInputClass} />
           </DynamicPanelField>
-          <DynamicPanelField label="Description" required>
-            <textarea required value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className={cn(panelInputClass, 'min-h-[80px] resize-y')} placeholder="Decrire l'incident..." />
+          <DynamicPanelField label={t('common.description')} required>
+            <textarea required value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className={cn(panelInputClass, 'min-h-[80px] resize-y')} placeholder={t('paxlog.incident_panel.placeholders.description')} />
           </DynamicPanelField>
         </FormSection>
 
         {showBanDates && (
-          <FormSection title="Periode de ban">
+          <FormSection title={t('paxlog.incident_panel.sections.ban_period')}>
             {form.severity === 'temp_ban' ? (
               <DateRangePicker
                 startDate={form.ban_start_date || null}
                 endDate={form.ban_end_date || null}
                 onStartChange={(v) => setForm({ ...form, ban_start_date: v || null })}
                 onEndChange={(v) => setForm({ ...form, ban_end_date: v || null })}
-                startLabel="Debut du ban"
-                endLabel="Fin du ban"
+                startLabel={t('paxlog.incident_panel.fields.ban_start')}
+                endLabel={t('paxlog.incident_panel.fields.ban_end')}
               />
             ) : (
-              <DynamicPanelField label="Debut du ban">
+              <DynamicPanelField label={t('paxlog.incident_panel.fields.ban_start')}>
                 <input type="date" value={form.ban_start_date || ''} onChange={(e) => setForm({ ...form, ban_start_date: e.target.value || null })} className={panelInputClass} />
               </DynamicPanelField>
             )}
@@ -2212,8 +2587,8 @@ function CreateRotationPanel() {
 
   return (
     <DynamicPanelShell
-      title="Nouveau cycle de rotation"
-      subtitle="PaxLog — Rotations"
+      title={t('paxlog.rotation_panel.create_title')}
+      subtitle={t('paxlog.rotation_panel.subtitle')}
       icon={<RefreshCw size={14} className="text-primary" />}
       actions={
         <>
@@ -2232,7 +2607,7 @@ function CreateRotationPanel() {
         <PanelContentLayout>
         <FormSection title="PAX">
           <SearchablePicker
-            label="Profil PAX"
+            label={t('paxlog.rotation_panel.fields.pax_profile')}
             icon={<User size={12} className="text-muted-foreground" />}
             items={paxData?.items || []}
             isLoading={paxLoading}
@@ -2245,37 +2620,37 @@ function CreateRotationPanel() {
               setForm({ ...form, user_id: isUser ? p.id : null, contact_id: isUser ? null : p.id })
             }}
             onClear={() => setForm({ ...form, user_id: null, contact_id: null })}
-            placeholder="Rechercher un PAX..."
+            placeholder={t('paxlog.rotation_panel.placeholders.search_pax')}
           />
         </FormSection>
 
-        <FormSection title="Site">
-          <DynamicPanelField label="Site" required>
+        <FormSection title={t('assets.site')}>
+          <DynamicPanelField label={t('assets.site')} required>
             <AssetPicker
               value={form.site_asset_id || null}
               onChange={(id) => setForm({ ...form, site_asset_id: id || '' })}
-              label="Site"
+              label={t('assets.site')}
             />
           </DynamicPanelField>
         </FormSection>
 
-        <FormSection title="Cycle">
+        <FormSection title={t('paxlog.rotation_panel.sections.cycle')}>
           <FormGrid>
-            <DynamicPanelField label="Jours on" required>
+            <DynamicPanelField label={t('paxlog.rotation_panel.fields.days_on')} required>
               <input type="number" required min={1} value={form.days_on} onChange={(e) => setForm({ ...form, days_on: parseInt(e.target.value) || 28 })} className={panelInputClass} />
             </DynamicPanelField>
-            <DynamicPanelField label="Jours off" required>
+            <DynamicPanelField label={t('paxlog.rotation_panel.fields.days_off')} required>
               <input type="number" required min={1} value={form.days_off} onChange={(e) => setForm({ ...form, days_off: parseInt(e.target.value) || 28 })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
-          <DynamicPanelField label="Date de debut" required>
+          <DynamicPanelField label={t('paxlog.rotation_panel.fields.start_date')} required>
             <input type="date" required value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} className={panelInputClass} />
           </DynamicPanelField>
         </FormSection>
 
-        <FormSection title="Notes">
-          <DynamicPanelField label="Notes">
-            <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className={cn(panelInputClass, 'min-h-[60px] resize-y')} placeholder="Notes optionnelles..." />
+        <FormSection title={t('common.notes')}>
+          <DynamicPanelField label={t('common.notes')}>
+            <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className={cn(panelInputClass, 'min-h-[60px] resize-y')} placeholder={t('paxlog.rotation_panel.placeholders.notes')} />
           </DynamicPanelField>
         </FormSection>
         </PanelContentLayout>
@@ -2289,12 +2664,13 @@ function CreateRotationPanel() {
 // TAB 7: MISSIONS (AVM)
 // ═══════════════════════════════════════════════════════════════
 
-function AvmTab({ openDetail }: { openDetail: (id: string) => void }) {
+function AvmTab({ openDetail, requesterOnly = false, validatorOnly = false }: { openDetail: (id: string) => void; requesterOnly?: boolean; validatorOnly?: boolean }) {
+  const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
-  const [statusFilter, setStatusFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState(validatorOnly ? 'in_preparation' : '')
   const missionTypeLabels = useDictionaryLabels('mission_type')
 
   const { data, isLoading } = useAvmList({
@@ -2302,12 +2678,20 @@ function AvmTab({ openDetail }: { openDetail: (id: string) => void }) {
     page_size: pageSize,
     search: debouncedSearch || undefined,
     status: statusFilter || undefined,
+    scope: requesterOnly ? 'my' : undefined,
   })
+  const items = data?.items || []
+  const avmStats = useMemo(() => {
+    const toArbitrate = items.filter((item) => ['in_preparation', 'active', 'ready'].includes(item.status)).length
+    const ready = items.filter((item) => item.status === 'ready').length
+    const paxPlanned = items.reduce((sum, item) => sum + (item.pax_quota ?? 0), 0)
+    return { toArbitrate, ready, paxPlanned }
+  }, [items])
 
   const avmColumns = useMemo<ColumnDef<MissionNoticeSummary, unknown>[]>(() => [
     {
       accessorKey: 'reference',
-      header: 'Reference',
+      header: t('paxlog.reference'),
       cell: ({ row }) => (
         <button className="font-medium text-primary hover:underline text-xs" onClick={() => openDetail(row.original.id)}>
           {row.original.reference}
@@ -2317,18 +2701,18 @@ function AvmTab({ openDetail }: { openDetail: (id: string) => void }) {
     },
     {
       accessorKey: 'title',
-      header: 'Titre',
+      header: t('common.title'),
       cell: ({ row }) => <span className="text-xs text-foreground truncate max-w-[200px] block">{row.original.title}</span>,
     },
     {
       id: 'creator',
-      header: 'Createur',
+      header: t('paxlog.avm_detail.fields.creator'),
       cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.creator_name || '—'}</span>,
       size: 130,
     },
     {
       id: 'dates',
-      header: 'Dates',
+      header: t('paxlog.avm_detail.fields.planned_dates'),
       cell: ({ row }) => (
         <span className="text-xs text-muted-foreground tabular-nums">
           {formatDateShort(row.original.planned_start_date)} {'—'} {formatDateShort(row.original.planned_end_date)}
@@ -2338,7 +2722,7 @@ function AvmTab({ openDetail }: { openDetail: (id: string) => void }) {
     },
     {
       accessorKey: 'mission_type',
-      header: 'Type',
+      header: t('common.type'),
       cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{missionTypeLabels[row.original.mission_type] || row.original.mission_type}</span>,
       size: 110,
     },
@@ -2350,44 +2734,57 @@ function AvmTab({ openDetail }: { openDetail: (id: string) => void }) {
     },
     {
       accessorKey: 'status',
-      header: 'Statut',
+      header: t('common.status'),
       cell: ({ row }) => <StatusBadge status={row.original.status} map={AVM_STATUS_MAP} />,
       size: 120,
     },
     {
       id: 'preparation',
-      header: 'Preparation %',
+      header: t('paxlog.avm_table.preparation_percent'),
       cell: ({ row }) => <CompletenessBar value={row.original.preparation_progress} />,
       size: 110,
     },
-  ], [missionTypeLabels, openDetail])
+  ], [missionTypeLabels, openDetail, t])
 
   return (
     <>
+      {validatorOnly && (
+        <div className="px-4 py-3 border-b border-border bg-emerald-500/[0.06]">
+          <p className="text-xs text-muted-foreground">
+            {t('paxlog.avm.validator_hint_prefix')} <span className="font-medium text-foreground">in_preparation</span>, {t('paxlog.avm.validator_hint_middle')} <span className="font-medium text-foreground">ready</span> {t('paxlog.avm.validator_hint_suffix')}
+          </p>
+        </div>
+      )}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 border-b border-border">
+        <StatCard label={requesterOnly ? t('paxlog.avm.kpis.my_avm') : validatorOnly ? t('paxlog.avm.kpis.queue_avm') : t('common.total')} value={data?.total ?? 0} icon={Briefcase} />
+        <StatCard label={validatorOnly ? t('paxlog.avm.kpis.to_arbitrate') : t('paxlog.avm.kpis.in_progress')} value={avmStats.toArbitrate} icon={Clock} accent="text-amber-600 dark:text-amber-400" />
+        <StatCard label={t('paxlog.avm.kpis.ready')} value={avmStats.ready} icon={CheckCircle2} accent="text-emerald-600 dark:text-emerald-400" />
+        <StatCard label={t('paxlog.avm.kpis.planned_pax')} value={avmStats.paxPlanned} icon={Users} />
+      </div>
       <div className="flex items-center gap-2 border-b border-border px-3.5 h-9 shrink-0">
         <div className="flex items-center gap-1">
           {AVM_STATUS_OPTIONS.map((opt) => (
             <button key={opt.value} onClick={() => { setStatusFilter(opt.value); setPage(1) }}
               className={cn('px-2 py-0.5 rounded text-xs font-medium transition-colors whitespace-nowrap', statusFilter === opt.value ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground')}>
-              {opt.label}
+              {t(opt.labelKey)}
             </button>
           ))}
         </div>
-        {data && <span className="text-xs text-muted-foreground ml-auto">{data.total} missions</span>}
+        {data && <span className="text-xs text-muted-foreground ml-auto">{t('paxlog.avm.count', { count: data.total, scope: requesterOnly ? t('paxlog.avm.count_scope.requester') : validatorOnly ? t('paxlog.avm.count_scope.validator') : t('paxlog.avm.count_scope.default') })}</span>}
       </div>
 
       <PanelContent>
         <DataTable<MissionNoticeSummary>
           columns={avmColumns}
-          data={data?.items || []}
+          data={items}
           isLoading={isLoading}
           pagination={data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined}
           onPaginationChange={(p) => setPage(p)}
           searchValue={search}
           onSearchChange={(v) => { setSearch(v); setPage(1) }}
-          searchPlaceholder="Rechercher par reference, titre..."
+          searchPlaceholder={validatorOnly ? t('paxlog.avm.search.validator') : t('paxlog.avm.search.default')}
           emptyIcon={Briefcase}
-          emptyTitle="Aucun avis de mission"
+          emptyTitle={validatorOnly ? t('paxlog.avm.empty.validator') : t('paxlog.avm.empty.default')}
           onRowClick={(row) => openDetail(row.id)}
           storageKey="paxlog-avm"
         />
@@ -2432,12 +2829,16 @@ function CreateAvmPanel() {
   })
 
   const avmChecklist = [
-    { label: 'Titre de mission renseigne', done: form.title.trim().length > 0 },
-    { label: 'Type de mission choisi', done: !!form.mission_type },
-    { label: 'Periode previsionnelle renseignee', done: !!form.planned_start_date && !!form.planned_end_date },
-    { label: 'Au moins une ligne de programme decrite', done: form.programs.some((p) => p.activity_description.trim().length > 0) },
+    { label: t('paxlog.create_avm.checklist.title'), done: form.title.trim().length > 0 },
+    { label: t('paxlog.create_avm.checklist.mission_type'), done: !!form.mission_type },
+    { label: t('paxlog.create_avm.checklist.period'), done: !!form.planned_start_date && !!form.planned_end_date },
+    { label: t('paxlog.create_avm.checklist.program_line'), done: form.programs.some((p) => p.activity_description.trim().length > 0) },
   ]
   const avmReady = avmChecklist.every((item) => item.done)
+  const selectedMissionType = missionTypeOptions.find((option) => option.value === form.mission_type)?.label || t('paxlog.create_avm.summary.undefined')
+  const describedPrograms = form.programs.filter((program) => program.activity_description.trim().length > 0)
+  const programsWithSite = form.programs.filter((program) => !!program.site_asset_id).length
+  const programsWithProject = form.programs.filter((program) => !!program.project_id).length
 
   const updateProgram = (index: number, patch: Partial<(typeof form.programs)[number]>) => {
     setForm((prev) => ({
@@ -2455,8 +2856,8 @@ function CreateAvmPanel() {
           activity_description: '',
           activity_type: 'visit',
           site_asset_id: '',
-          planned_start_date: '',
-          planned_end_date: '',
+          planned_start_date: prev.planned_start_date,
+          planned_end_date: prev.planned_end_date,
           project_id: '',
           notes: '',
         },
@@ -2501,8 +2902,8 @@ function CreateAvmPanel() {
 
   return (
     <DynamicPanelShell
-      title="Nouvel avis de mission"
-      subtitle="PaxLog — Missions (AVM)"
+      title={t('paxlog.create_avm.title')}
+      subtitle={t('paxlog.create_avm.subtitle')}
       icon={<Briefcase size={14} className="text-primary" />}
       actions={
         <>
@@ -2519,10 +2920,10 @@ function CreateAvmPanel() {
     >
       <form id="create-avm-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
-        <FormSection title="Preparation mission">
+        <FormSection title={t('paxlog.create_avm.sections.preparation')}>
           <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
             <p className="text-xs text-muted-foreground">
-              L’AVM sert a cadrer une mission avant generation ou rattachement des AdS. Decrivez la mission, sa fenetre et ses lignes de programme.
+              {t('paxlog.create_avm.intro')}
             </p>
             <div className="grid gap-2 sm:grid-cols-2">
               {avmChecklist.map((item) => (
@@ -2535,48 +2936,81 @@ function CreateAvmPanel() {
               ))}
             </div>
           </div>
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-md border border-border bg-card px-3 py-2">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('paxlog.create_avm.summary.mission_type')}</p>
+              <p className="mt-1 text-sm font-semibold text-foreground">{selectedMissionType}</p>
+            </div>
+            <div className="rounded-md border border-border bg-card px-3 py-2">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('paxlog.create_avm.summary.planned_pax')}</p>
+              <p className="mt-1 text-sm font-semibold text-foreground">{form.pax_quota}</p>
+            </div>
+            <div className="rounded-md border border-border bg-card px-3 py-2">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('paxlog.create_avm.summary.described_lines')}</p>
+              <p className="mt-1 text-sm font-semibold text-foreground">{describedPrograms.length} / {form.programs.length}</p>
+            </div>
+            <div className="rounded-md border border-border bg-card px-3 py-2">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('paxlog.create_avm.summary.sites_projects')}</p>
+              <p className="mt-1 text-sm font-semibold text-foreground">{t('paxlog.create_avm.summary.sites_projects_value', { sites: programsWithSite, projects: programsWithProject })}</p>
+            </div>
+          </div>
         </FormSection>
 
-        <FormSection title="Mission">
+        <FormSection title={t('paxlog.create_avm.sections.mission')}>
           <FormGrid>
-            <DynamicPanelField label="Titre" required>
-              <input type="text" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className={panelInputClass} placeholder="Ex: Mission E-LINE ESF1" />
+            <DynamicPanelField label={t('common.title')} required>
+              <input type="text" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className={panelInputClass} placeholder={t('paxlog.create_avm.placeholders.title')} />
             </DynamicPanelField>
-            <DynamicPanelField label="Type de mission">
+            <DynamicPanelField label={t('paxlog.mission_type')}>
               <select value={form.mission_type} onChange={(e) => setForm({ ...form, mission_type: e.target.value as typeof form.mission_type })} className={panelInputClass}>
-                <option value="">— Selectionner —</option>
+                <option value="">{t('paxlog.create_ads.select_option')}</option>
                 {missionTypeOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
             </DynamicPanelField>
-            <DynamicPanelField label="PAX prevus">
+            <DynamicPanelField label={t('paxlog.create_avm.fields.planned_pax')}>
               <input type="number" min={0} value={form.pax_quota} onChange={(e) => setForm({ ...form, pax_quota: parseInt(e.target.value || '0', 10) || 0 })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
-          <DynamicPanelField label="Description">
-            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className={cn(panelInputClass, 'min-h-[60px] resize-y')} placeholder="Description de la mission..." />
+          <DynamicPanelField label={t('common.description')}>
+            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className={cn(panelInputClass, 'min-h-[60px] resize-y')} placeholder={t('paxlog.create_avm.placeholders.description')} />
           </DynamicPanelField>
         </FormSection>
 
-        <FormSection title="Dates prévues">
+        <FormSection title={t('paxlog.create_avm.sections.planned_dates')}>
           <DateRangePicker
             startDate={form.planned_start_date || null}
             endDate={form.planned_end_date || null}
-            onStartChange={(v) => setForm({ ...form, planned_start_date: v })}
-            onEndChange={(v) => setForm({ ...form, planned_end_date: v })}
-            startLabel="Départ"
-            endLabel="Retour"
+            onStartChange={(v) => setForm((prev) => ({
+              ...prev,
+              planned_start_date: v,
+              programs: prev.programs.map((program) => (
+                program.planned_start_date ? program : { ...program, planned_start_date: v }
+              )),
+            }))}
+            onEndChange={(v) => setForm((prev) => ({
+              ...prev,
+              planned_end_date: v,
+              programs: prev.programs.map((program) => (
+                program.planned_end_date ? program : { ...program, planned_end_date: v }
+              )),
+            }))}
+            startLabel={t('paxlog.create_avm.fields.departure')}
+            endLabel={t('paxlog.create_avm.fields.return')}
           />
+          <p className="text-[11px] text-muted-foreground">
+            {t('paxlog.create_avm.date_hint')}
+          </p>
         </FormSection>
 
-        <FormSection title="Indicateurs de préparation">
+        <FormSection title={t('paxlog.create_avm.sections.preparation_indicators')}>
           <FormGrid>
             {[
-              { key: 'requires_visa' as const, label: 'Visa requis' },
-              { key: 'requires_badge' as const, label: 'Badge site requis' },
-              { key: 'requires_epi' as const, label: 'EPI requis' },
-              { key: 'eligible_displacement_allowance' as const, label: 'Indemnité de déplacement' },
+              { key: 'requires_visa' as const, label: t('paxlog.requires_visa') },
+              { key: 'requires_badge' as const, label: t('paxlog.requires_badge') },
+              { key: 'requires_epi' as const, label: t('paxlog.requires_epi') },
+              { key: 'eligible_displacement_allowance' as const, label: t('paxlog.displacement_allowance') },
             ].map((opt) => (
               <label key={opt.key} className="flex items-center gap-2 text-xs cursor-pointer">
                 <input
@@ -2591,63 +3025,66 @@ function CreateAvmPanel() {
           </FormGrid>
         </FormSection>
 
-        <FormSection title="Programme initial">
+        <FormSection title={t('paxlog.create_avm.sections.initial_program')}>
+          <div className="rounded-lg border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
+            {t('paxlog.create_avm.program_intro')}
+          </div>
           <div className="space-y-3">
             {form.programs.map((program, index) => (
               <div key={index} className="rounded-lg border border-border p-3 space-y-3">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs font-semibold text-foreground">Ligne {index + 1}</p>
+                  <p className="text-xs font-semibold text-foreground">{t('paxlog.create_avm.program.line', { index: index + 1 })}</p>
                   {form.programs.length > 1 && (
                     <button type="button" className="text-xs text-destructive hover:underline" onClick={() => removeProgramLine(index)}>
-                      Supprimer
+                      {t('common.delete')}
                     </button>
                   )}
                 </div>
                 <FormGrid>
-                  <DynamicPanelField label="Activite" required>
+                  <DynamicPanelField label={t('paxlog.create_avm.program.activity')} required>
                     <input
                       type="text"
                       value={program.activity_description}
                       onChange={(e) => updateProgram(index, { activity_description: e.target.value })}
                       className={panelInputClass}
-                      placeholder="Ex: inspection ligne, reunion projet, handover..."
+                      placeholder={t('paxlog.create_avm.program.placeholders.activity')}
                     />
                   </DynamicPanelField>
-                  <DynamicPanelField label="Type d'activite">
+                  <DynamicPanelField label={t('paxlog.create_avm.program.activity_type')}>
                     <select value={program.activity_type} onChange={(e) => updateProgram(index, { activity_type: e.target.value as typeof program.activity_type })} className={panelInputClass}>
                       {missionActivityTypeOptions.map((opt) => (
                         <option key={opt.value} value={opt.value}>{opt.label}</option>
                       ))}
                     </select>
                   </DynamicPanelField>
-                  <DynamicPanelField label="Site">
+                  <DynamicPanelField label={t('assets.site')}>
                     <AssetPicker value={program.site_asset_id || null} onChange={(id) => updateProgram(index, { site_asset_id: id || '' })} />
                   </DynamicPanelField>
-                  <DynamicPanelField label="Projet">
+                  <DynamicPanelField label={t('paxlog.create_ads.fields.project')}>
                     <select value={program.project_id} onChange={(e) => updateProgram(index, { project_id: e.target.value })} className={panelInputClass}>
-                      <option value="">— Aucun projet —</option>
+                      <option value="">{t('paxlog.create_ads.no_project')}</option>
                       {(projects?.items ?? []).map((p) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
                     </select>
                   </DynamicPanelField>
-                  <DynamicPanelField label="Dates de ligne">
+                  <DynamicPanelField label={t('paxlog.create_avm.program.line_dates')}>
                     <DateRangePicker
                       startDate={program.planned_start_date || null}
                       endDate={program.planned_end_date || null}
                       onStartChange={(v) => updateProgram(index, { planned_start_date: v })}
                       onEndChange={(v) => updateProgram(index, { planned_end_date: v })}
-                      startLabel="Debut"
-                      endLabel="Fin"
+                      startLabel={t('paxlog.create_avm.program.start')}
+                      endLabel={t('paxlog.create_avm.program.end')}
                     />
                   </DynamicPanelField>
                 </FormGrid>
-                <DynamicPanelField label="Notes">
-                  <textarea value={program.notes} onChange={(e) => updateProgram(index, { notes: e.target.value })} className={cn(panelInputClass, 'min-h-[56px] resize-y')} placeholder="Contraintes, participants, dependances..." />
+                <DynamicPanelField label={t('common.notes')}>
+                  <textarea value={program.notes} onChange={(e) => updateProgram(index, { notes: e.target.value })} className={cn(panelInputClass, 'min-h-[56px] resize-y')} placeholder={t('paxlog.create_avm.program.placeholders.notes')} />
                 </DynamicPanelField>
               </div>
             ))}
             <button type="button" className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-xs font-medium text-foreground hover:bg-accent" onClick={addProgramLine}>
               <Plus size={13} />
-              Ajouter une ligne de programme
+              {t('paxlog.create_avm.program.add_line')}
             </button>
           </div>
         </FormSection>
@@ -2661,10 +3098,12 @@ function CreateAvmPanel() {
 // ── AVM Detail Panel ─────────────────────────────────────────
 
 function AvmDetailPanel({ id }: { id?: string }) {
+  const { t } = useTranslation()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const submitAvmMut = useSubmitAvm()
   const approveAvmMut = useApproveAvm()
   const cancelAvmMut = useCancelAvm()
+  const { hasPermission } = usePermission()
   const missionTypeLabels = useDictionaryLabels('mission_type')
   const missionActivityTypeLabels = useDictionaryLabels('mission_activity_type')
 
@@ -2672,22 +3111,48 @@ function AvmDetailPanel({ id }: { id?: string }) {
 
   if (!id || isLoading) {
     return (
-      <DynamicPanelShell title="Chargement..." icon={<Briefcase size={14} className="text-primary" />}>
+      <DynamicPanelShell title={t('common.loading')} icon={<Briefcase size={14} className="text-primary" />}>
         <PanelContent><div className="flex items-center justify-center p-8"><Loader2 size={20} className="animate-spin text-muted-foreground" /></div></PanelContent>
       </DynamicPanelShell>
     )
   }
   if (!avm) {
     return (
-      <DynamicPanelShell title="AVM introuvable" icon={<Briefcase size={14} className="text-primary" />}>
-        <PanelContent><p className="p-4 text-sm text-muted-foreground">Avis de mission introuvable.</p></PanelContent>
+      <DynamicPanelShell title={t('paxlog.avm_detail.not_found_title')} icon={<Briefcase size={14} className="text-primary" />}>
+        <PanelContent><p className="p-4 text-sm text-muted-foreground">{t('paxlog.avm_detail.not_found_message')}</p></PanelContent>
       </DynamicPanelShell>
     )
   }
 
-  const canSubmit = avm.status === 'draft'
-  const canApprove = avm.status === 'in_preparation'
-  const canCancel = !['completed', 'cancelled'].includes(avm.status)
+  const generatedAdsCount = avm.programs.filter((program) => !!program.generated_ads_id).length
+  const programsWithSiteCount = avm.programs.filter((program) => !!program.site_asset_id).length
+  const programsWithDatesCount = avm.programs.filter((program) => !!program.planned_start_date && !!program.planned_end_date).length
+  const avmReadinessChecklist = [
+    { label: t('paxlog.avm_detail.checklist.scope'), done: avm.title.trim().length > 0 && !!avm.mission_type },
+    { label: t('paxlog.avm_detail.checklist.window'), done: !!avm.planned_start_date && !!avm.planned_end_date },
+    { label: t('paxlog.avm_detail.checklist.program'), done: avm.programs.length > 0 },
+    { label: t('paxlog.avm_detail.checklist.sites'), done: avm.programs.length > 0 && programsWithSiteCount === avm.programs.length },
+    { label: t('paxlog.avm_detail.checklist.detailed_dates'), done: avm.programs.length > 0 && programsWithDatesCount === avm.programs.length },
+  ]
+  const avmReadyToSubmit = avmReadinessChecklist.every((item) => item.done)
+  const nextAction =
+    avm.status === 'draft'
+      ? (avmReadyToSubmit
+        ? t('paxlog.avm_detail.next_action.draft_ready')
+        : t('paxlog.avm_detail.next_action.draft_missing'))
+      : avm.status === 'in_preparation'
+        ? t('paxlog.avm_detail.next_action.in_preparation')
+        : avm.status === 'active'
+          ? t('paxlog.avm_detail.next_action.active')
+          : avm.status === 'ready'
+            ? t('paxlog.avm_detail.next_action.ready')
+            : avm.status === 'completed'
+              ? t('paxlog.avm_detail.next_action.completed')
+              : t('paxlog.avm_detail.next_action.cancelled')
+
+  const canSubmit = avm.status === 'draft' && hasPermission('paxlog.avm.submit')
+  const canApprove = avm.status === 'in_preparation' && hasPermission('paxlog.avm.approve')
+  const canCancel = !['completed', 'cancelled'].includes(avm.status) && hasPermission('paxlog.avm.cancel')
 
   return (
     <DynamicPanelShell
@@ -2702,7 +3167,7 @@ function AvmDetailPanel({ id }: { id?: string }) {
               disabled={submitAvmMut.isPending}
               onClick={() => submitAvmMut.mutate(avm.id)}
             >
-              {submitAvmMut.isPending ? <Loader2 size={12} className="animate-spin" /> : <><Send size={12} /> Soumettre</>}
+              {submitAvmMut.isPending ? <Loader2 size={12} className="animate-spin" /> : <><Send size={12} /> {t('common.submit')}</>}
             </PanelActionButton>
           )}
           {canApprove && (
@@ -2711,7 +3176,7 @@ function AvmDetailPanel({ id }: { id?: string }) {
               disabled={approveAvmMut.isPending}
               onClick={() => approveAvmMut.mutate(avm.id)}
             >
-              {approveAvmMut.isPending ? <Loader2 size={12} className="animate-spin" /> : <><CheckCircle2 size={12} /> Approuver</>}
+              {approveAvmMut.isPending ? <Loader2 size={12} className="animate-spin" /> : <><CheckCircle2 size={12} /> {t('common.validate')}</>}
             </PanelActionButton>
           )}
           {canCancel && (
@@ -2719,35 +3184,65 @@ function AvmDetailPanel({ id }: { id?: string }) {
               onClick={() => cancelAvmMut.mutate({ id: avm.id })}
               disabled={cancelAvmMut.isPending}
             >
-              {cancelAvmMut.isPending ? <Loader2 size={12} className="animate-spin" /> : <><XCircle size={12} /> Annuler</>}
+              {cancelAvmMut.isPending ? <Loader2 size={12} className="animate-spin" /> : <><XCircle size={12} /> {t('common.cancel')}</>}
             </PanelActionButton>
           )}
         </>
       }
     >
       <div className="p-4 space-y-5">
+        <CollapsibleSection id="avm-requester-readiness" title={t('paxlog.avm_detail.readiness.title', { status: avmReadyToSubmit ? t('paxlog.avm_detail.readiness.ready') : t('paxlog.avm_detail.readiness.to_complete') })} defaultExpanded>
+          <div className="space-y-3">
+            <div className="grid gap-2 sm:grid-cols-2">
+              {avmReadinessChecklist.map((item) => (
+                <div key={item.label} className="flex items-center gap-2 text-xs">
+                  <span className={cn('inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px]', item.done ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300')}>
+                    {item.done ? '✓' : '•'}
+                  </span>
+                  <span className={item.done ? 'text-foreground' : 'text-muted-foreground'}>{item.label}</span>
+                </div>
+              ))}
+            </div>
+            <div className="grid gap-2 sm:grid-cols-3">
+              <div className="rounded-md border border-border bg-card px-3 py-2">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('paxlog.avm_detail.kpis.program_lines')}</p>
+                <p className="mt-1 text-sm font-semibold text-foreground">{avm.programs.length}</p>
+              </div>
+              <div className="rounded-md border border-border bg-card px-3 py-2">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('paxlog.avm_detail.kpis.generated_ads')}</p>
+                <p className="mt-1 text-sm font-semibold text-foreground">{generatedAdsCount}</p>
+              </div>
+              <div className="rounded-md border border-border bg-card px-3 py-2">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('paxlog.avm_detail.kpis.planned_pax')}</p>
+                <p className="mt-1 text-sm font-semibold text-foreground">{avm.pax_quota}</p>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">{nextAction}</p>
+          </div>
+        </CollapsibleSection>
+
         {/* Info section */}
-        <CollapsibleSection id="avm-info" title="Informations" defaultExpanded>
+        <CollapsibleSection id="avm-info" title={t('paxlog.avm_detail.sections.information')} defaultExpanded>
           <div className="space-y-2">
-            <ReadOnlyRow label="Reference" value={avm.reference} />
-            <ReadOnlyRow label="Titre" value={avm.title} />
-            <ReadOnlyRow label="Statut" value={<StatusBadge status={avm.status} map={AVM_STATUS_MAP} />} />
-            <ReadOnlyRow label="Type de mission" value={missionTypeLabels[avm.mission_type] || avm.mission_type} />
-            <ReadOnlyRow label="Createur" value={avm.creator_name || '—'} />
-            <ReadOnlyRow label="Dates prevues" value={`${formatDateShort(avm.planned_start_date)} — ${formatDateShort(avm.planned_end_date)}`} />
-            {avm.description && <ReadOnlyRow label="Description" value={avm.description} />}
-            {avm.cancellation_reason && <ReadOnlyRow label="Motif annulation" value={avm.cancellation_reason} />}
+            <ReadOnlyRow label={t('paxlog.reference')} value={avm.reference} />
+            <ReadOnlyRow label={t('common.title')} value={avm.title} />
+            <ReadOnlyRow label={t('common.status')} value={<StatusBadge status={avm.status} map={AVM_STATUS_MAP} />} />
+            <ReadOnlyRow label={t('paxlog.mission_type')} value={missionTypeLabels[avm.mission_type] || avm.mission_type} />
+            <ReadOnlyRow label={t('paxlog.avm_detail.fields.creator')} value={avm.creator_name || '—'} />
+            <ReadOnlyRow label={t('paxlog.avm_detail.fields.planned_dates')} value={`${formatDateShort(avm.planned_start_date)} — ${formatDateShort(avm.planned_end_date)}`} />
+            {avm.description && <ReadOnlyRow label={t('common.description')} value={avm.description} />}
+            {avm.cancellation_reason && <ReadOnlyRow label={t('paxlog.avm_detail.fields.cancellation_reason')} value={avm.cancellation_reason} />}
           </div>
         </CollapsibleSection>
 
         {/* Indicators */}
-        <CollapsibleSection id="avm-indicators" title="Indicateurs de preparation" defaultExpanded>
+        <CollapsibleSection id="avm-indicators" title={t('paxlog.avm_detail.sections.preparation_indicators')} defaultExpanded>
           <div className="space-y-1">
             {[
-              { flag: avm.requires_visa, label: 'Visa requis' },
-              { flag: avm.requires_badge, label: 'Badge site requis' },
-              { flag: avm.requires_epi, label: 'EPI requis' },
-              { flag: avm.eligible_displacement_allowance, label: 'Indemnite de deplacement' },
+              { flag: avm.requires_visa, label: t('paxlog.requires_visa') },
+              { flag: avm.requires_badge, label: t('paxlog.requires_badge') },
+              { flag: avm.requires_epi, label: t('paxlog.requires_epi') },
+              { flag: avm.eligible_displacement_allowance, label: t('paxlog.displacement_allowance') },
             ].map((ind) => (
               <div key={ind.label} className="flex items-center gap-2 text-xs">
                 <span className={cn('w-4 h-4 rounded flex items-center justify-center text-[10px]', ind.flag ? 'bg-green-100 dark:bg-green-900/30 text-green-700' : 'bg-muted text-muted-foreground')}>
@@ -2760,12 +3255,12 @@ function AvmDetailPanel({ id }: { id?: string }) {
         </CollapsibleSection>
 
         {/* Preparation checklist */}
-        <CollapsibleSection id="avm-preparation" title={`Preparation (${avm.preparation_progress}%)`} defaultExpanded>
+        <CollapsibleSection id="avm-preparation" title={t('paxlog.avm_detail.sections.preparation_tasks', { progress: avm.preparation_progress })} defaultExpanded>
           <div className="mb-2">
             <CompletenessBar value={avm.preparation_progress} />
           </div>
           {avm.preparation_tasks.length === 0 ? (
-            <p className="text-xs text-muted-foreground italic">Aucune tache de preparation. Soumettez l&apos;AVM pour generer la checklist.</p>
+            <p className="text-xs text-muted-foreground italic">{t('paxlog.avm_detail.empty.preparation_tasks')}</p>
           ) : (
             <div className="space-y-1.5">
               {avm.preparation_tasks.map((task) => {
@@ -2792,9 +3287,9 @@ function AvmDetailPanel({ id }: { id?: string }) {
         </CollapsibleSection>
 
         {/* Program lines */}
-        <CollapsibleSection id="avm-programs" title={`Programme (${avm.programs.length} lignes)`} defaultExpanded>
+        <CollapsibleSection id="avm-programs" title={t('paxlog.avm_detail.sections.program', { count: avm.programs.length })} defaultExpanded>
           {avm.programs.length === 0 ? (
-            <p className="text-xs text-muted-foreground italic">Aucune ligne de programme definie.</p>
+            <p className="text-xs text-muted-foreground italic">{t('paxlog.avm_detail.empty.program')}</p>
           ) : (
             <div className="space-y-2">
               {avm.programs.map((prog: MissionProgramRead, idx: number) => (
@@ -2804,17 +3299,21 @@ function AvmDetailPanel({ id }: { id?: string }) {
                     <span className="text-xs font-medium text-foreground flex-1 truncate">{prog.activity_description}</span>
                     <span className="text-[10px] text-muted-foreground">{missionActivityTypeLabels[prog.activity_type] || prog.activity_type}</span>
                   </div>
-                  {prog.site_name && <div className="text-[11px] text-muted-foreground">Site : {prog.site_name}</div>}
+                  {prog.site_name && <div className="text-[11px] text-muted-foreground">{t('paxlog.avm_detail.program.site', { site: prog.site_name })}</div>}
+                  {!prog.site_name && <div className="text-[11px] text-amber-700 dark:text-amber-300">{t('paxlog.avm_detail.program.site_missing')}</div>}
                   {(prog.planned_start_date || prog.planned_end_date) && (
                     <div className="text-[11px] text-muted-foreground tabular-nums">{formatDateShort(prog.planned_start_date)} — {formatDateShort(prog.planned_end_date)}</div>
                   )}
-                  {(prog.pax_entries?.length || 0) > 0 && <div className="text-[11px] text-muted-foreground">{prog.pax_entries.length} PAX</div>}
+                  {!prog.planned_start_date && !prog.planned_end_date && (
+                    <div className="text-[11px] text-amber-700 dark:text-amber-300">{t('paxlog.avm_detail.program.dates_missing')}</div>
+                  )}
+                  {(prog.pax_entries?.length || 0) > 0 && <div className="text-[11px] text-muted-foreground">{t('paxlog.avm_detail.program.pax_count', { count: prog.pax_entries.length })}</div>}
                   {prog.generated_ads_id && (
                     <button
                       className="text-[11px] text-primary hover:underline flex items-center gap-1"
                       onClick={() => openDynamicPanel({ type: 'detail', module: 'paxlog', id: prog.generated_ads_id!, meta: { subtype: 'ads' } })}
                     >
-                      <Link2 size={10} /> AdS generee
+                      <Link2 size={10} /> {t('paxlog.avm_detail.program.generated_ads')}
                     </button>
                   )}
                 </div>
@@ -2824,10 +3323,10 @@ function AvmDetailPanel({ id }: { id?: string }) {
         </CollapsibleSection>
 
         {/* Metadata */}
-        <CollapsibleSection id="avm-metadata" title="Metadonnees">
+        <CollapsibleSection id="avm-metadata" title={t('paxlog.avm_detail.sections.metadata')}>
           <div className="space-y-1">
-            <ReadOnlyRow label="Cree le" value={formatDate(avm.created_at)} />
-            <ReadOnlyRow label="Mis a jour le" value={formatDate(avm.updated_at)} />
+            <ReadOnlyRow label={t('paxlog.avm_detail.fields.created_at')} value={formatDate(avm.created_at)} />
+            <ReadOnlyRow label={t('paxlog.avm_detail.fields.updated_at')} value={formatDate(avm.updated_at)} />
           </div>
         </CollapsibleSection>
       </div>
@@ -2841,8 +3340,8 @@ function AvmDetailPanel({ id }: { id?: string }) {
 // ═══════════════════════════════════════════════════════════════
 
 export function PaxLogPage() {
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<MainTabId>('dashboard')
-  const user = useAuthStore((s) => s.user)
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const panelMode = useUIStore((s) => s.dynamicPanelMode)
@@ -2851,6 +3350,7 @@ export function PaxLogPage() {
   const isFullPanel = panelMode === 'full' && dynamicPanel !== null && dynamicPanel.module === 'paxlog'
   const isRequesterProfile = hasAny(['paxlog.ads.read', 'paxlog.ads.create', 'paxlog.avm.create', 'paxlog.avm.update']) &&
     !hasAny(['paxlog.profile.read', 'paxlog.compliance.read', 'paxlog.rotation.manage', 'paxlog.profile_type.manage', 'paxlog.credtype.manage'])
+  const isValidatorProfile = !isRequesterProfile && hasAny(['paxlog.ads.approve', 'paxlog.compliance.read', 'paxlog.avm.approve'])
 
   const visibleTabs = useMemo(() => {
     const tabs = ALL_TABS.filter((tab) => {
@@ -2882,11 +3382,11 @@ export function PaxLogPage() {
     else if (effectiveTab === 'avm') openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'avm' } })
   }, [effectiveTab, openDynamicPanel])
 
-  const createLabel = effectiveTab === 'profiles' ? 'Nouveau profil'
-    : effectiveTab === 'ads' ? 'Nouvel AdS'
-    : effectiveTab === 'signalements' ? 'Nouveau signalement'
-    : effectiveTab === 'rotations' ? 'Nouvelle rotation'
-    : effectiveTab === 'avm' ? 'Nouvelle mission'
+  const createLabel = effectiveTab === 'profiles' ? t('paxlog.actions.new_profile')
+    : effectiveTab === 'ads' ? t('paxlog.new_ads')
+    : effectiveTab === 'signalements' ? t('paxlog.actions.new_signalement')
+    : effectiveTab === 'rotations' ? t('paxlog.actions.new_rotation')
+    : effectiveTab === 'avm' ? t('paxlog.new_avm')
     : ''
   const showCreate = ['profiles', 'ads', 'signalements', 'rotations', 'avm'].includes(effectiveTab)
 
@@ -2894,7 +3394,7 @@ export function PaxLogPage() {
     <div className="flex h-full">
       {!isFullPanel && (
         <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-          <PanelHeader icon={Users} title="PaxLog" subtitle="Gestion des passagers et avis de sejour">
+          <PanelHeader icon={Users} title={t('paxlog.title')} subtitle={t('paxlog.subtitle')}>
             {showCreate && <ToolbarButton icon={Plus} label={createLabel} variant="primary" onClick={handleCreate} />}
           </PanelHeader>
 
@@ -2909,7 +3409,7 @@ export function PaxLogPage() {
                     effectiveTab === tab.id ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent',
                   )}>
                   <Icon size={12} />
-                  {tab.label}
+                  {t(tab.labelKey)}
                 </button>
               )
             })}
@@ -2917,15 +3417,17 @@ export function PaxLogPage() {
 
           {effectiveTab === 'dashboard' && (
             isRequesterProfile
-              ? <RequesterHomeTab currentUserId={user?.id || null} onCreateAds={() => openDynamicPanel({ type: 'create', module: 'paxlog', meta: { subtype: 'ads' } })} onCreateAvm={() => openDynamicPanel({ type: 'create', module: 'paxlog', meta: { subtype: 'avm' } })} onOpenAds={(id) => openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'ads' } })} onOpenAvm={(id) => openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'avm' } })} />
-              : <DashboardTab />
+              ? <RequesterHomeTab onCreateAds={() => openDynamicPanel({ type: 'create', module: 'paxlog', meta: { subtype: 'ads' } })} onCreateAvm={() => openDynamicPanel({ type: 'create', module: 'paxlog', meta: { subtype: 'avm' } })} onOpenAds={(id) => openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'ads' } })} onOpenAvm={(id) => openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'avm' } })} />
+              : isValidatorProfile
+                ? <ValidatorHomeTab onOpenAds={(id) => openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'ads' } })} onOpenAvm={(id) => openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'avm' } })} />
+                : <DashboardTab />
           )}
-          {effectiveTab === 'ads' && <AdsTab openDetail={handleOpenDetail} />}
+          {effectiveTab === 'ads' && <AdsTab openDetail={handleOpenDetail} requesterOnly={isRequesterProfile} validatorOnly={isValidatorProfile} />}
           {effectiveTab === 'profiles' && <ProfilesTab openDetail={handleOpenDetail} />}
           {effectiveTab === 'compliance' && <ComplianceTab />}
           {effectiveTab === 'signalements' && <SignalementsTab />}
           {effectiveTab === 'rotations' && <RotationsTab />}
-          {effectiveTab === 'avm' && <AvmTab openDetail={handleOpenDetail} />}
+          {effectiveTab === 'avm' && <AvmTab openDetail={handleOpenDetail} requesterOnly={isRequesterProfile} validatorOnly={isValidatorProfile} />}
         </div>
       )}
 

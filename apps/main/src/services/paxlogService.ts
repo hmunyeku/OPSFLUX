@@ -328,6 +328,18 @@ export interface AdsImputation {
   created_at: string
 }
 
+export interface AdsImputationSuggestion {
+  owner_type: string
+  owner_id: string
+  project_id: string | null
+  project_name: string | null
+  project_source: string
+  cost_center_id: string | null
+  cost_center_name: string | null
+  cost_center_source: string
+  resolution_notes: string[]
+}
+
 export interface AdsImputationCreate {
   project_id: string
   cost_center_id: string
@@ -634,6 +646,7 @@ interface AdsListParams extends PaginationParams {
   site_entry_asset_id?: string
   search?: string
   requester_id?: string
+  scope?: 'my' | 'all'
   date_from?: string
   date_to?: string
 }
@@ -664,6 +677,7 @@ interface AvmListParams extends PaginationParams {
   search?: string
   status?: string
   mission_type?: string
+  scope?: 'my' | 'all'
 }
 
 // ── Service ────────────────────────────────────────────────────
@@ -793,12 +807,17 @@ export const paxlogService = {
     return data
   },
 
+  requestReviewAds: async (id: string, reason: string): Promise<Ads> => {
+    const { data } = await api.post(`/api/v1/pax/ads/${id}/request-review`, { reason })
+    return data
+  },
+
   listAdsEvents: async (adsId: string): Promise<AdsEvent[]> => {
     const { data } = await api.get<AdsEvent[]>(`/api/v1/pax/ads/${adsId}/events`)
     return data
   },
 
-  resubmitAds: async (adsId: string, reason: string) => {
+  resubmitAds: async (adsId: string, reason: string): Promise<Ads> => {
     const { data } = await api.post(`/api/v1/pax/ads/${adsId}/resubmit`, { reason })
     return data
   },
@@ -843,6 +862,11 @@ export const paxlogService = {
 
   getAdsImputations: async (adsId: string): Promise<AdsImputation[]> => {
     const { data } = await api.get(`/api/v1/pax/ads/${adsId}/imputations`)
+    return data
+  },
+
+  getAdsImputationSuggestion: async (adsId: string): Promise<AdsImputationSuggestion> => {
+    const { data } = await api.get(`/api/v1/pax/ads/${adsId}/imputation-suggestion`)
     return data
   },
 

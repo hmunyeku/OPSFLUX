@@ -28,6 +28,12 @@ import {
   socialNetworkService,
   openingHourService,
   costImputationsService,
+  costCentersService,
+  businessUnitsService,
+  imputationAssignmentService,
+  imputationOtpTemplateService,
+  imputationReferenceService,
+  scopedSettingsService,
 } from '@/services/settingsService'
 import type {
   ProfileUpdate,
@@ -46,7 +52,18 @@ import type {
   OAuthAppCreate,
   NotificationPreferenceUpdate,
 } from '@/types/api'
-import type { SocialNetworkCreate, OpeningHourCreate, CostImputationCreate } from '@/services/settingsService'
+import type {
+  CostImputationCreate,
+  CostImputationUpdate,
+  ImputationAssignmentCreate,
+  ImputationAssignmentUpdate,
+  ImputationOtpTemplateCreate,
+  ImputationOtpTemplateUpdate,
+  ImputationReferenceCreate,
+  ImputationReferenceUpdate,
+  OpeningHourCreate,
+  SocialNetworkCreate,
+} from '@/services/settingsService'
 
 // ═════════════════════════════════════════════════════════════
 // PROFILE
@@ -782,5 +799,173 @@ export function useDeleteCostImputation() {
     mutationFn: (vars: { id: string; ownerType: string; ownerId: string }) =>
       costImputationsService.remove(vars.id),
     onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['cost-imputations', v.ownerType, v.ownerId] }) },
+  })
+}
+
+export function useUpdateCostImputation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; ownerType: string; ownerId: string; payload: CostImputationUpdate }) =>
+      costImputationsService.update(id, payload),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ['cost-imputations', v.ownerType, v.ownerId] })
+    },
+  })
+}
+
+export function useCostCenters(params: { page?: number; page_size?: number; search?: string } = {}) {
+  return useQuery({
+    queryKey: ['cost-centers', params],
+    queryFn: () => costCentersService.list(params),
+  })
+}
+
+export function useBusinessUnits(params: { page?: number; page_size?: number; search?: string } = {}) {
+  return useQuery({
+    queryKey: ['business-units', params],
+    queryFn: () => businessUnitsService.list(params),
+  })
+}
+
+export function useScopedSettings(scope: string) {
+  return useQuery({
+    queryKey: ['settings', scope],
+    queryFn: () => scopedSettingsService.list(scope),
+  })
+}
+
+export function useScopedSettingsMap(scope: string) {
+  return useQuery({
+    queryKey: ['settings', scope, 'map'],
+    queryFn: () => scopedSettingsService.map(scope),
+  })
+}
+
+export function useImputationReferences() {
+  return useQuery({
+    queryKey: ['imputation-references'],
+    queryFn: () => imputationReferenceService.list(),
+  })
+}
+
+export function useCreateImputationReference() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: ImputationReferenceCreate) => imputationReferenceService.create(payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['imputation-references'] })
+    },
+  })
+}
+
+export function useUpdateImputationReference() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: ImputationReferenceUpdate }) =>
+      imputationReferenceService.update(id, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['imputation-references'] })
+    },
+  })
+}
+
+export function useDeleteImputationReference() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => imputationReferenceService.remove(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['imputation-references'] })
+      qc.invalidateQueries({ queryKey: ['imputation-assignments'] })
+    },
+  })
+}
+
+export function useImputationOtpTemplates() {
+  return useQuery({
+    queryKey: ['imputation-otp-templates'],
+    queryFn: () => imputationOtpTemplateService.list(),
+  })
+}
+
+export function useCreateImputationOtpTemplate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: ImputationOtpTemplateCreate) => imputationOtpTemplateService.create(payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['imputation-otp-templates'] })
+    },
+  })
+}
+
+export function useUpdateImputationOtpTemplate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: ImputationOtpTemplateUpdate }) =>
+      imputationOtpTemplateService.update(id, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['imputation-otp-templates'] })
+      qc.invalidateQueries({ queryKey: ['imputation-references'] })
+    },
+  })
+}
+
+export function useDeleteImputationOtpTemplate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => imputationOtpTemplateService.remove(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['imputation-otp-templates'] })
+      qc.invalidateQueries({ queryKey: ['imputation-references'] })
+    },
+  })
+}
+
+export function useImputationAssignments(params: { target_type?: string; target_id?: string } = {}) {
+  return useQuery({
+    queryKey: ['imputation-assignments', params],
+    queryFn: () => imputationAssignmentService.list(params),
+  })
+}
+
+export function useCreateImputationAssignment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: ImputationAssignmentCreate) => imputationAssignmentService.create(payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['imputation-assignments'] })
+    },
+  })
+}
+
+export function useUpdateImputationAssignment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: ImputationAssignmentUpdate }) =>
+      imputationAssignmentService.update(id, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['imputation-assignments'] })
+    },
+  })
+}
+
+export function useDeleteImputationAssignment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => imputationAssignmentService.remove(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['imputation-assignments'] })
+    },
+  })
+}
+
+export function useSaveScopedSetting(scope: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ key, value }: { key: string; value: unknown }) =>
+      scopedSettingsService.put(scope, key, value),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['settings', scope] })
+      qc.invalidateQueries({ queryKey: ['settings', scope, 'map'] })
+    },
   })
 }

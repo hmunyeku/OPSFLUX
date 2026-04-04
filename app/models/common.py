@@ -134,6 +134,82 @@ class CostCenter(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     entity: Mapped["Entity"] = relationship(back_populates="cost_centers")
 
 
+# ─── Imputation Reference Models ────────────────────────────────────────────
+
+class ImputationOtpTemplate(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "imputation_otp_templates"
+    __table_args__ = (
+        Index("uq_imputation_otp_template_entity_code", "entity_id", "code", unique=True),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
+    )
+    code: Mapped[str] = mapped_column(String(50), nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    rubrics: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+
+class ImputationReference(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "imputation_references"
+    __table_args__ = (
+        Index("uq_imputation_reference_entity_code", "entity_id", "code", unique=True),
+        Index("idx_imputation_reference_type", "entity_id", "imputation_type"),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
+    )
+    code: Mapped[str] = mapped_column(String(50), nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    imputation_type: Mapped[str] = mapped_column(String(20), nullable=False, default="OPEX")
+    otp_policy: Mapped[str] = mapped_column(String(20), nullable=False, default="forbidden")
+    otp_template_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("imputation_otp_templates.id", ondelete="SET NULL")
+    )
+    default_project_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("projects.id", ondelete="SET NULL")
+    )
+    default_cost_center_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("cost_centers.id", ondelete="SET NULL")
+    )
+    valid_from: Mapped[date | None] = mapped_column(Date)
+    valid_to: Mapped[date | None] = mapped_column(Date)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB)
+
+    otp_template: Mapped["ImputationOtpTemplate | None"] = relationship(foreign_keys=[otp_template_id])
+    default_project: Mapped["Project | None"] = relationship(foreign_keys=[default_project_id])
+    default_cost_center: Mapped["CostCenter | None"] = relationship(foreign_keys=[default_cost_center_id])
+
+
+class ImputationAssignment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "imputation_assignments"
+    __table_args__ = (
+        Index("idx_imputation_assignment_entity_target", "entity_id", "target_type", "target_id"),
+        Index("idx_imputation_assignment_reference", "imputation_reference_id"),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
+    )
+    imputation_reference_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("imputation_references.id", ondelete="CASCADE"), nullable=False
+    )
+    target_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    target_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    valid_from: Mapped[date | None] = mapped_column(Date)
+    valid_to: Mapped[date | None] = mapped_column(Date)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    imputation_reference: Mapped["ImputationReference"] = relationship(foreign_keys=[imputation_reference_id])
+
+
 # ─── Users ───────────────────────────────────────────────────────────────────
 
 class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -1058,6 +1134,7 @@ class CostImputation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "cost_imputations"
     __table_args__ = (
         Index("idx_cost_imp_owner", "owner_type", "owner_id"),
+        Index("idx_cost_imp_reference", "imputation_reference_id"),
         Index("idx_cost_imp_project", "project_id"),
         Index("idx_cost_imp_cost_center", "cost_center_id"),
         CheckConstraint(
@@ -1068,6 +1145,9 @@ class CostImputation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     owner_type: Mapped[str] = mapped_column(String(50), nullable=False)
     owner_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    imputation_reference_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("imputation_references.id", ondelete="SET NULL"), nullable=True
+    )
     project_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("projects.id"), nullable=True
     )
@@ -1085,6 +1165,9 @@ class CostImputation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
     # Relationships
+    imputation_reference: Mapped["ImputationReference | None"] = relationship(
+        foreign_keys=[imputation_reference_id]
+    )
     project: Mapped["Project | None"] = relationship(foreign_keys=[project_id])
     cost_center: Mapped["CostCenter | None"] = relationship(foreign_keys=[cost_center_id])
     author: Mapped["User"] = relationship(foreign_keys=[created_by])

@@ -160,13 +160,16 @@
     "select_option": "Sélectionner...",
     "enabled": "Activé",
     "disabled": "Désactivé",
+    "activate": "Activer",
+    "deactivate": "Désactiver",
     "role": "Rôle",
     "group": "Groupe",
     "date": "Date",
     "time": "Heure",
     "duration": "Durée",
     "comment": "Commentaire",
-    "history": "Historique"
+    "history": "Historique",
+    "total": "Total"
   },
   "datatable": {
     "search_filter": "Sélectionner un filtre ou rechercher…",
@@ -1173,6 +1176,60 @@
   "paxlog": {
     "title": "PaxLog",
     "subtitle": "Gestion des passagers et avis de séjour",
+    "tabs": {
+      "dashboard": "Tableau de bord",
+      "ads": "Avis de séjour",
+      "profiles": "Profils PAX",
+      "compliance": "Compliance",
+      "signalements": "Signalements",
+      "rotations": "Rotations",
+      "avm": "Missions (AVM)"
+    },
+    "actions": {
+      "new_profile": "Nouveau profil",
+      "new_signalement": "Nouveau signalement",
+      "new_rotation": "Nouvelle rotation"
+    },
+    "status": {
+      "generic": {
+        "active": "Actif",
+        "inactive": "Inactif",
+        "incomplete": "Incomplet",
+        "suspended": "Suspendu",
+        "archived": "Archivé"
+      },
+      "ads": {
+        "draft": "Brouillon",
+        "submitted": "Soumis",
+        "pending_compliance": "Compliance",
+        "pending_validation": "Validation",
+        "approved": "Approuvé",
+        "rejected": "Rejeté",
+        "cancelled": "Annulé",
+        "requires_review": "À revoir",
+        "in_progress": "En cours",
+        "completed": "Terminé"
+      },
+      "rotation": {
+        "active": "Actif",
+        "paused": "En pause",
+        "completed": "Terminé"
+      },
+      "avm": {
+        "draft": "Brouillon",
+        "in_preparation": "En préparation",
+        "active": "Active",
+        "ready": "Prête",
+        "completed": "Terminée",
+        "cancelled": "Annulée"
+      }
+    },
+    "severity": {
+      "info": "Info",
+      "warning": "Avertissement",
+      "temp_ban": "Ban temporaire",
+      "permanent_ban": "Ban permanent"
+    },
     "profiles": "Profils PAX",
     "ads": "Avis de Séjour",
     "credentials": "Certifications",
@@ -1217,6 +1274,7 @@
     "no_rotation": "Aucun cycle de rotation",
     "no_compliance_entry": "Aucune entrée dans la matrice",
     "no_certification_expiring_soon": "Aucune certification expirant bientôt",
+    "profiles_count": "{{count}} profils",
     "search_profile": "Rechercher par nom, badge...",
     "search_ads": "Rechercher par référence, catégorie...",
     "search_certification": "Rechercher par PAX, certification...",
@@ -1228,7 +1286,506 @@
     "cancel_question": "Annuler ?",
     "no_passenger": "Aucun passager",
     "no_cargo": "Aucun colis",
-    "log_event": "Enregistrer l'événement"
+    "log_event": "Enregistrer l'événement",
+    "common": {
+      "site_not_specified": "Site non renseigné"
+    },
+    "dashboard": {
+      "kpis": {
+        "registered_pax": "PAX enregistrés",
+        "pending_ads": "AdS en attente",
+        "active_incidents": "Signalements actifs",
+        "compliance_rate": "Taux de conformité",
+        "total_pax": "Total PAX",
+        "compliant": "Conformes",
+        "non_compliant": "Non conformes",
+        "expiring_soon": "Expirent bientôt",
+        "expired": "Expirées"
+      },
+      "sections": {
+        "ads_by_status": "AdS par statut",
+        "recent_ads": "AdS récents",
+        "expiring_credentials": "Certifications expirantes",
+        "compliance_stats": "Statistiques de conformité"
+      }
+    },
+    "requester": {
+      "eyebrow": "Parcours demandeur",
+      "title": "Demander un séjour ou préparer une mission",
+      "description": "Commencez par un AdS si vous gérez un séjour. Utilisez un AVM si vous structurez une mission avec plusieurs étapes ou AdS associées.",
+      "kpis": {
+        "my_ads": "Mes AdS",
+        "drafts": "Brouillons",
+        "pending": "À traiter",
+        "active_stays": "Séjours actifs"
+      },
+      "sections": {
+        "my_ads": "Mes demandes de séjour",
+        "my_avm": "Mes avis de mission",
+        "before_submit": "Avant de soumettre"
+      },
+      "guidance": {
+        "add_pax": "Ajoutez les PAX, puis vérifiez la destination, les dates et l’imputation avant soumission.",
+        "use_avm": "Utilisez un AVM si vous devez préparer une mission avec plusieurs activités, sites ou AdS rattachées.",
+        "imputation_rule": "Les validateurs peuvent ajuster l’imputation avant validation, mais la saisie du demandeur interne fait foi au départ."
+      },
+      "empty": {
+        "my_ads": "Aucun AdS pour le moment.",
+        "my_avm": "Aucun AVM récent."
+      }
+    },
+    "validator": {
+      "eyebrow": "Parcours validation",
+      "title": "Traiter les dossiers, arbitrer les écarts, fluidifier les départs",
+      "description": "Cette vue priorise les AdS et AVM qui nécessitent une action de validation, de conformité ou d’arbitrage avant mouvement.",
+      "kpis": {
+        "ads_to_review": "AdS à traiter",
+        "final_validation": "Validation finale",
+        "compliance_review": "Contrôle conformité",
+        "avm_to_arbitrate": "AVM à arbitrer"
+      },
+      "sections": {
+        "ads_priority": "AdS à traiter en priorité",
+        "avm_priority": "AVM à arbitrer",
+        "compliance_risks": "Risques conformité immédiats",
+        "attention_points": "Points d’attention"
+      },
+      "empty": {
+        "ads_priority": "Aucune AdS en attente immédiate.",
+        "avm_priority": "Aucun AVM en attente d’arbitrage.",
+        "compliance_risks": "Aucune certification critique sous 7 jours."
+      },
+      "requester_label": "Demandeur : {{name}}",
+      "creator_label": "Créateur : {{name}}",
+      "avm_planned_pax": "{{count}} PAX prévus",
+      "preparation_progress": "préparation {{progress}}%",
+      "guidance": {
+        "ads_priority": "Traitez d’abord les AdS en `pending_validation`, puis les dossiers en `pending_compliance` si un arbitrage métier est requis.",
+        "ads_imputation": "Sur une AdS, l’imputation peut être ajustée avant validation finale; ce qui compte est la cohérence dossier, PAX et destination.",
+        "avm_scope": "Sur un AVM, l’objectif est de valider le cadrage mission et les lignes qui déclencheront ensuite les AdS ou les révisions."
+      }
+    },
+    "ads": {
+      "validator_hint_prefix": "File de validation : commencez par les dossiers en",
+      "validator_hint_middle": "puis traitez les écarts en",
+      "validator_hint_or": "ou",
+      "kpis": {
+        "my_ads": "Mes AdS",
+        "queue_ads": "File AdS",
+        "validation": "Validation",
+        "pending": "En attente",
+        "review_gaps": "Écarts à revoir",
+        "approved": "Approuvés",
+        "total_pax": "PAX total"
+      },
+      "count": "{{count}} {{scope}}",
+      "count_scope": {
+        "requester": "mes avis",
+        "validator": "dossiers dans la file",
+        "default": "avis"
+      },
+      "search": {
+        "validator": "Rechercher par référence, demandeur, site...",
+        "default": "Rechercher par référence, catégorie..."
+      },
+      "empty": {
+        "validator": "Aucune AdS dans cette file",
+        "default": "Aucun avis de séjour"
+      }
+    },
+    "avm": {
+      "validator_hint_prefix": "File d’arbitrage mission : priorisez les AVM en",
+      "validator_hint_middle": "puis les missions",
+      "validator_hint_suffix": "avant déclenchement ou clôture.",
+      "kpis": {
+        "my_avm": "Mes AVM",
+        "queue_avm": "File AVM",
+        "to_arbitrate": "À arbitrer",
+        "in_progress": "En cours",
+        "ready": "Prêtes",
+        "planned_pax": "PAX prévus"
+      },
+      "count": "{{count}} {{scope}}",
+      "count_scope": {
+        "requester": "mes missions",
+        "validator": "missions dans la file",
+        "default": "missions"
+      },
+      "search": {
+        "validator": "Rechercher par référence, titre, créateur...",
+        "default": "Rechercher par référence, titre..."
+      },
+      "empty": {
+        "validator": "Aucun AVM dans cette file",
+        "default": "Aucun avis de mission"
+      }
+    },
+    "avm_table": {
+      "preparation_percent": "Préparation %"
+    },
+    "create_ads": {
+      "title": "Nouvel avis de séjour",
+      "subtitle": "PaxLog",
+      "intro": "Créez d’abord l’AdS avec la destination, la période et le motif. Vous ajouterez ensuite les PAX, l’imputation et les pièces dans le dossier.",
+      "sections": {
+        "request": "Demande",
+        "type_destination": "Type et destination",
+        "visit_details": "Détails de la visite"
+      },
+      "checklist": {
+        "destination": "Destination renseignée",
+        "category": "Catégorie choisie",
+        "period": "Période renseignée",
+        "purpose": "Objet de visite renseigné"
+      },
+      "summary": {
+        "undefined": "Non définie",
+        "to_define": "À préciser",
+        "format": "Format",
+        "category": "Catégorie",
+        "project": "Projet",
+        "transports": "Transports",
+        "bu_entity_imputation": "Imputation BU / entité"
+      },
+      "type": {
+        "individual": "Individuel",
+        "team": "Équipe"
+      },
+      "fields": {
+        "entry_site": "Site d'entrée",
+        "project": "Projet associé",
+        "dates": "Dates",
+        "outbound_transport": "Transport aller",
+        "return_transport": "Transport retour"
+      },
+      "select_option": "— Sélectionner —",
+      "no_project": "— Aucun projet —",
+      "undefined_option": "— Non défini —",
+      "placeholders": {
+        "visit_purpose": "Décrire l'objet de la visite..."
+      },
+      "footer_hint": "Les passagers et imputations peuvent être ajoutés après la création, via le panneau de détail."
+    },
+    "create_avm": {
+      "title": "Nouvel avis de mission",
+      "subtitle": "PaxLog — Missions (AVM)",
+      "intro": "L’AVM sert à cadrer une mission avant génération ou rattachement des AdS. Décrivez la mission, sa fenêtre et ses lignes de programme.",
+      "sections": {
+        "preparation": "Préparation mission",
+        "mission": "Mission",
+        "planned_dates": "Dates prévues",
+        "preparation_indicators": "Indicateurs de préparation",
+        "initial_program": "Programme initial"
+      },
+      "checklist": {
+        "title": "Titre de mission renseigné",
+        "mission_type": "Type de mission choisi",
+        "period": "Période prévisionnelle renseignée",
+        "program_line": "Au moins une ligne de programme décrite"
+      },
+      "summary": {
+        "undefined": "Non définie",
+        "mission_type": "Type mission",
+        "planned_pax": "PAX prévus",
+        "described_lines": "Lignes décrites",
+        "sites_projects": "Sites / Projets",
+        "sites_projects_value": "{{sites}} sites • {{projects}} projets"
+      },
+      "fields": {
+        "planned_pax": "PAX prévus",
+        "departure": "Départ",
+        "return": "Retour"
+      },
+      "placeholders": {
+        "title": "Ex: Mission E-LINE ESF1",
+        "description": "Description de la mission..."
+      },
+      "date_hint": "La fenêtre mission sert de référence. Les lignes de programme peuvent ensuite affiner leurs propres dates.",
+      "program_intro": "Commencez par les étapes principales de la mission. Vous pourrez ensuite arbitrer, rattacher des AdS et affiner les lignes selon les validations."
+      ,
+      "program": {
+        "line": "Ligne {{index}}",
+        "activity": "Activité",
+        "activity_type": "Type d'activité",
+        "line_dates": "Dates de ligne",
+        "start": "Début",
+        "end": "Fin",
+        "add_line": "Ajouter une ligne de programme",
+        "placeholders": {
+          "activity": "Ex: inspection ligne, réunion projet, handover...",
+          "notes": "Contraintes, participants, dépendances..."
+        }
+      }
+    },
+    "ads_detail": {
+      "actions": {
+        "external_link": "Lien externe"
+      },
+      "reject": {
+        "reason_title": "Motif de rejet",
+        "placeholder": "Indiquez le motif du rejet (optionnel)..."
+      },
+      "request_review": {
+        "reason_title": "Motif du retour pour correction",
+        "placeholder": "Expliquez ce qui doit être corrigé avant re-soumission...",
+        "confirm": "Renvoyer pour correction"
+      },
+      "resubmit": {
+        "reason_title": "Motif de re-soumission",
+        "placeholder": "Décrivez brièvement les corrections apportées...",
+        "confirm": "Re-soumettre le dossier"
+      },
+      "cross_company": "Cross-company",
+      "checklist": {
+        "destination": "Destination renseignée",
+        "category": "Catégorie renseignée",
+        "dates": "Dates renseignées",
+        "purpose": "Objet de visite renseigné",
+        "passenger": "Au moins un passager"
+      },
+      "next_action": {
+        "draft_ready": "Le dossier peut être soumis. Vérifiez les PAX et l’imputation avant envoi.",
+        "draft_missing": "Complétez les informations manquantes et ajoutez au moins un passager avant soumission.",
+        "submitted": "Le dossier attend le passage en revue conformité ou validation.",
+        "pending_compliance": "Le dossier est en contrôle conformité. Surveillez les écarts sur les passagers et les pièces.",
+        "pending_validation": "Le dossier est en validation. Les derniers ajustements portent surtout sur l’imputation et les arbitrages.",
+        "requires_review": "Le dossier a été renvoyé en correction. Corrigez les éléments demandés puis re-soumettez-le.",
+        "approved": "Le séjour est approuvé. Préparez les mouvements et, si nécessaire, partagez le lien externe.",
+        "in_progress": "Le séjour est en cours. Toute modification de date ou de retour doit être réarbitrée.",
+        "completed": "Le séjour est terminé. Le dossier sert désormais de référence et d’audit.",
+        "rejected": "Le dossier a été rejeté. Corrigez le contenu ou créez une nouvelle demande selon le motif.",
+        "cancelled": "Le dossier est annulé. Aucune action opérationnelle n’est attendue."
+      },
+      "readiness": {
+        "title_draft": "Prêt pour soumission • {{status}}",
+        "title_readonly": "Lecture dossier",
+        "ready": "Oui",
+        "to_complete": "À compléter",
+        "imputation_hint": "L’imputation n’est pas bloquante à la création. Elle doit toutefois être revue avant validation finale du dossier."
+      },
+      "kpis": {
+        "passengers": "Passagers",
+        "compliant_pax": "PAX conformes",
+        "compliance_gaps": "Écarts conformité"
+      },
+      "sections": {
+        "visit_transport": "Visite & transport",
+        "passengers": "Passagers ({{count}})",
+        "imputations": "Imputations",
+        "tags_notes_files": "Tags, notes & fichiers"
+      },
+      "fields": {
+        "purpose": "Objet",
+        "category": "Catégorie",
+        "site": "Site",
+        "dates": "Dates",
+        "requester": "Demandeur",
+        "project": "Projet",
+        "outbound_transport": "Transport aller",
+        "return_transport": "Transport retour",
+        "badge": "Badge : {{value}}"
+      },
+      "search_pax_placeholder": "Rechercher un utilisateur, contact, profil PAX...",
+      "passenger_type": {
+        "internal": "Int.",
+        "external": "Ext."
+      },
+      "pax_candidate": {
+        "user": "Utilisateur{{email}}",
+        "contact": "Contact{{position}}"
+      },
+      "imputation": {
+        "backend_suggestion": "Suggestion backend",
+        "project": "Projet",
+        "cost_center": "Centre de coût",
+        "sources": "Sources : projet={{project}} • centre de coût={{cost_center}}"
+      },
+      "history": {
+        "created_at": "Créé le",
+        "submitted_at": "Soumis le",
+        "approved_at": "Approuvé le {{date}}",
+        "rejected_at": "Rejeté le {{date}}",
+        "requires_review": "Renvoyé en correction"
+      },
+      "actions": {
+        "external_link": "Lien externe",
+        "add_passenger": "Ajouter un passager",
+        "remove_passenger": "Retirer ce passager",
+        "request_review": "Renvoyer en correction",
+        "resubmit": "Re-soumettre"
+      },
+      "empty": {
+        "pax_search": "Aucun résultat pour « {{search}} »",
+        "passengers": "Aucun passager. Ajoutez des PAX pour pouvoir soumettre l'AdS."
+      }
+    },
+    "avm_detail": {
+      "not_found_title": "AVM introuvable",
+      "not_found_message": "Avis de mission introuvable.",
+      "checklist": {
+        "scope": "Titre et cadrage mission renseignés",
+        "window": "Fenêtre mission définie",
+        "program": "Programme initial saisi",
+        "sites": "Sites affectés sur les lignes",
+        "detailed_dates": "Dates détaillées sur les lignes"
+      },
+      "next_action": {
+        "draft_ready": "La mission peut être soumise pour lancer la préparation et les validations.",
+        "draft_missing": "Complétez le cadrage mission et les lignes de programme avant soumission.",
+        "in_preparation": "Suivez les tâches de préparation, puis validez les AdS liées avant arbitrage final.",
+        "active": "La mission est en cours. Surveillez les lignes, les AdS générées et les changements de dates.",
+        "ready": "La mission est prête. Vérifiez les derniers écarts avant clôture opérationnelle.",
+        "completed": "Mission clôturée. Utilisez cette vue comme dossier de référence.",
+        "cancelled": "Mission annulée. Conservez le dossier pour audit et historique."
+      },
+      "readiness": {
+        "title": "Lecture demandeur • {{status}}",
+        "ready": "Mission cadrée",
+        "to_complete": "À compléter"
+      },
+      "kpis": {
+        "program_lines": "Lignes programme",
+        "generated_ads": "AdS générées",
+        "planned_pax": "PAX prévus"
+      },
+      "sections": {
+        "information": "Informations",
+        "preparation_indicators": "Indicateurs de préparation",
+        "preparation_tasks": "Préparation ({{progress}}%)",
+        "program": "Programme ({{count}} lignes)",
+        "metadata": "Métadonnées"
+      },
+      "fields": {
+        "creator": "Créateur",
+        "planned_dates": "Dates prévues",
+        "cancellation_reason": "Motif annulation",
+        "created_at": "Créé le",
+        "updated_at": "Mis à jour le"
+      },
+      "empty": {
+        "preparation_tasks": "Aucune tâche de préparation. Soumettez l'AVM pour générer la checklist.",
+        "program": "Aucune ligne de programme définie."
+      },
+      "program": {
+        "site": "Site : {{site}}",
+        "site_missing": "Site à préciser",
+        "dates_missing": "Dates détaillées non définies",
+        "pax_count": "{{count}} PAX",
+        "generated_ads": "AdS générée"
+      }
+    },
+    "compliance_tab": {
+      "expiry": "Expiration",
+      "delay": "Délai",
+      "required_credential": "Certification requise",
+      "scope": "Portée",
+      "mandatory": "Obligatoire",
+      "defined_by": "Défini par",
+      "scope_values": {
+        "all_visitors": "Tous",
+        "contractors_only": "Sous-traitants",
+        "permanent_staff_only": "Staff permanent"
+      },
+      "defined_by_values": {
+        "hse_central": "HSE Central",
+        "site": "Site"
+      },
+      "kpis": {
+        "rate": "Taux compliance",
+        "compliant": "Conformes",
+        "non_compliant": "Non conformes",
+        "expiring_soon": "Expirant bientôt"
+      },
+      "sections": {
+        "expiring": "Certifications expirant sous 90j ({{count}})",
+        "matrix": "Matrice de compliance ({{count}})"
+      }
+    },
+    "signalements": {
+      "active_only": "Actifs uniquement",
+      "count": "{{count}} signalements",
+      "status": {
+        "resolved": "Résolu",
+        "active": "Actif"
+      }
+    },
+    "rotations_tab": {
+      "cycle": "Cycle",
+      "start": "Début",
+      "next_rotation": "Prochaine rotation",
+      "finish": "Terminer",
+      "count": "{{count}} rotations"
+    },
+    "profile_panel": {
+      "create_title": "Nouveau profil PAX",
+      "subtitle": "PaxLog",
+      "sections": {
+        "profile_type": "Type de profil",
+        "user_account": "Compte utilisateur",
+        "identity": "Identité",
+        "additional_info": "Informations complémentaires"
+      },
+      "fields": {
+        "company": "Entreprise (tier)",
+        "user": "Utilisateur Perenco",
+        "first_name": "Prénom",
+        "last_name": "Nom",
+        "birth_date": "Date de naissance",
+        "nationality": "Nationalité",
+        "badge_number": "N badge"
+      },
+      "placeholders": {
+        "nationality": "CM, FR..."
+      },
+      "type_help": {
+        "internal": "Personnel Perenco — lié à un compte utilisateur",
+        "external": "Sous-traitant / visiteur — lié à une entreprise (tier)"
+      },
+      "archive_confirm": "Archiver ?",
+      "linked_company": "Entreprise liée",
+      "linked_user": "Compte utilisateur lié",
+      "internal_user_profile": "Profil utilisateur interne",
+      "credentials_title": "Certifications ({{count}})",
+      "credential_obtained": "Obtenu : {{date}}",
+      "credential_expires": "Expire : {{date}}"
+    },
+    "incident_panel": {
+      "create_title": "Nouveau signalement",
+      "subtitle": "PaxLog — Signalements",
+      "sections": {
+        "severity": "Sévérité",
+        "concerned_pax": "PAX concerné",
+        "details": "Détails",
+        "ban_period": "Période de ban"
+      },
+      "fields": {
+        "pax_profile": "Profil PAX",
+        "incident_date": "Date de l'incident",
+        "ban_start": "Début du ban",
+        "ban_end": "Fin du ban"
+      },
+      "placeholders": {
+        "search_pax": "Rechercher un PAX...",
+        "description": "Décrire l'incident..."
+      }
+    },
+    "rotation_panel": {
+      "create_title": "Nouveau cycle de rotation",
+      "subtitle": "PaxLog — Rotations",
+      "sections": {
+        "cycle": "Cycle"
+      },
+      "fields": {
+        "pax_profile": "Profil PAX",
+        "days_on": "Jours on",
+        "days_off": "Jours off",
+        "start_date": "Date de début"
+      },
+      "placeholders": {
+        "search_pax": "Rechercher un PAX...",
+        "notes": "Notes optionnelles..."
+      }
+    }
   },
   "planner": {
     "title": "Planner",
@@ -1462,6 +2019,104 @@
       "addresses": "Adresses",
       "emails": "Emails",
       "rbac": "RBAC"
+    },
+    "default_imputation": {
+      "saved": "Imputation par défaut enregistrée",
+      "save_error": "Impossible d'enregistrer l'imputation par défaut.",
+      "reset": "Réinitialiser",
+      "reset_success": "Imputation par défaut réinitialisée",
+      "reset_error": "Impossible de réinitialiser l'imputation par défaut.",
+      "default_project": "Projet par défaut",
+      "no_default_project": "Aucun projet par défaut",
+      "default_project_help": "Utilisé en priorité si aucun projet n’est défini directement dans le dossier.",
+      "default_cost_center": "Centre de coût par défaut",
+      "no_default_cost_center": "Aucun centre de coût par défaut",
+      "default_cost_center_help": "Sert de fallback quand le dossier n’hérite ni d’un projet ni d’une règle plus prioritaire.",
+      "user_section_title": "Imputation par défaut",
+      "user_section_description": "Préférence personnelle utilisée avant les règles BU ou entité sur les dossiers que vous initiez.",
+      "user_card_title": "Ma règle d’imputation",
+      "user_card_description": "Cette préférence sert de priorité utilisateur pour les AdS et autres dossiers créés en interne quand aucun projet n’est défini directement.",
+      "user_card_hint": "Cette règle ne s’applique qu’à vos propres créations. Les validateurs peuvent encore ajuster l’imputation avant validation finale.",
+      "entity_section_title": "Imputation par défaut",
+      "entity_section_description": "Fallback d’imputation pour les dossiers créés dans cette entité quand aucune règle plus prioritaire ne s’applique.",
+      "entity_card_title": "Règle d’imputation entité",
+      "entity_card_description": "Cette règle sert de dernier filet pour les AdS et autres dossiers lorsque ni projet, ni préférence utilisateur, ni BU ne fournissent d’imputation exploitable.",
+      "entity_card_hint": "Ordre actuel de résolution AdS: projet du dossier -> défaut utilisateur -> BU du demandeur -> défaut entité -> fallback premier centre de coût actif."
+    },
+    "imputation_manager": {
+      "add": "Ajouter une imputation",
+      "create_error": "Impossible d'ajouter l'imputation.",
+      "update_error": "Impossible de modifier l'imputation.",
+      "delete_error": "Impossible de supprimer l'imputation.",
+      "prefilled_project_help": "Le projet lié au dossier est présélectionné. Ajustez si une autre imputation est requise.",
+      "no_project_help": "Aucun projet n’est lié au dossier. Sélectionnez l’imputation applicable avant validation.",
+      "reference": "Référence",
+      "reference_placeholder": "— Référence d’imputation —",
+      "project": "Projet",
+      "project_placeholder": "— Projet —",
+      "cost_center": "Centre de coût",
+      "cost_center_placeholder": "— Centre de coût —",
+      "empty": "Aucune imputation de coût.",
+      "total_error": "Le total des imputations doit être égal à 100%.",
+      "quick_fill_hint": "Aucune ligne d’imputation encore créée. Le projet du dossier peut être repris en un clic."
+    },
+    "imputations": {
+      "section_title": "Référentiel des imputations",
+      "section_description": "Administrez les références d’imputation, les modèles OTP CAPEX et les affectations actives.",
+      "references_title": "Références d’imputation",
+      "references_description": "Chaque référence définit un code, un type, une politique OTP et des défauts projet / centre de coût.",
+      "import_references": "Importer des références",
+      "export_references": "Exporter les références",
+      "reference_code": "Code de référence",
+      "reference_name": "Nom de référence",
+      "reference_type": "Type d'imputation",
+      "create_reference": "Créer la référence",
+      "reference_created": "Référence d’imputation créée",
+      "reference_create_error": "Impossible de créer la référence d’imputation.",
+      "templates_title": "Modèles OTP",
+      "templates_description": "Réutilisez des rubriques OTP pour les imputations CAPEX qui l’exigent.",
+      "import_templates": "Importer des modèles OTP",
+      "export_templates": "Exporter les modèles OTP",
+      "template_code": "Code du modèle OTP",
+      "template_name": "Nom du modèle OTP",
+      "template_rubrics": "Rubriques OTP séparées par des virgules",
+      "create_template": "Créer le modèle",
+      "template_created": "Modèle OTP créé",
+      "template_create_error": "Impossible de créer le modèle OTP.",
+      "assignments_title": "Affectations actives",
+      "assignments_description": "Lecture rapide des affectations actuellement disponibles pour la résolution automatique.",
+      "import_assignments": "Importer des affectations",
+      "export_assignments": "Exporter les affectations",
+      "assignment_reference": "Référence:",
+      "assignment_reference_placeholder": "— Référence d'imputation —",
+      "assignment_target_type": "Type de cible",
+      "assignment_target_id": "Identifiant cible",
+      "assignment_target_placeholder": "— Cible —",
+      "assignment_target_user": "Utilisateur",
+      "assignment_target_group": "Groupe",
+      "assignment_target_bu": "Business unit",
+      "assignment_target_project": "Projet",
+      "assignment_priority": "Priorité:",
+      "assignment_priority_placeholder": "Priorité",
+      "assignment_notes": "Notes d'affectation",
+      "create_assignment": "Créer l'affectation",
+      "update_assignment": "Mettre à jour l'affectation",
+      "assignment_created": "Affectation créée",
+      "assignment_updated": "Affectation mise à jour",
+      "assignment_save_error": "Impossible d'enregistrer l'affectation.",
+      "assignment_delete_error": "Impossible de supprimer l'affectation.",
+      "no_assignments": "Aucune affectation active.",
+      "otp_forbidden": "OTP interdit",
+      "otp_optional": "OTP optionnel",
+      "otp_required": "OTP requis",
+      "otp_policy": "Politique OTP",
+      "no_otp_template": "Aucun modèle OTP",
+      "no_default_project": "Aucun projet par défaut",
+      "no_default_cost_center": "Aucun centre de coût par défaut",
+      "valid_from": "Valide à partir du",
+      "valid_to": "Valide jusqu'au",
+      "sync_hint": "Les affectations se lisent ici, mais leur édition dédiée viendra après l’ajout des sélecteurs sûrs BU / groupes / utilisateurs.",
+      "error_title": "Erreur imputations"
     },
     "audit": {
       "title": "Journal d'audit",

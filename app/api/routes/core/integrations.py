@@ -81,88 +81,87 @@ async def _save_test_result(
 
 # ── Connector-specific test functions ────────────────────────
 
-async def _test_smtp(cfg: dict[str, str]) -> tuple[str, str]:
-    """Test SMTP connection."""
+async def _smtp_connect(
+    host: str, port: int, encryption: str, username: str, password: str,
+) -> tuple[str, str]:
+    """Try connecting to a single SMTP host. Returns (status, message)."""
     import ssl as _ssl
+    import aiosmtplib
 
+    # Auto-detect SSL mode from port when encryption is ambiguous
+    if port == 465 and encryption != "none":
+        use_tls, start_tls = True, False
+    elif port == 587 or encryption == "tls":
+        use_tls, start_tls = False, True
+    elif encryption == "ssl":
+        use_tls, start_tls = True, False
+    else:
+        use_tls, start_tls = False, False
+
+    tls_context = _ssl.create_default_context()
+    tls_context.check_hostname = False
+    tls_context.verify_mode = _ssl.CERT_NONE
+
+    smtp = aiosmtplib.SMTP(
+        hostname=host, port=port, timeout=15,
+        use_tls=use_tls, tls_context=tls_context if use_tls else None,
+    )
+    await smtp.connect()
+    if start_tls:
+        await smtp.starttls(tls_context=tls_context)
+    if username and password:
+        await smtp.login(username, password)
+    await smtp.quit()
+    return "ok", f"Connexion SMTP réussie ({host}:{port})"
+
+
+# Docker-internal SMTP aliases to try when the configured host is unreachable
+_SMTP_DOCKER_FALLBACKS = ["mailu-smtp", "mailu-front", "front", "smtp", "mail"]
+
+
+async def _test_smtp(cfg: dict[str, str]) -> tuple[str, str]:
+    """Test SMTP connection with automatic Docker-network fallback."""
     host = cfg.get("host", "")
     port = int(cfg.get("port", "587") or "587")
 
     if not host:
         return "error", "Serveur SMTP non configuré"
 
+    encryption = cfg.get("encryption", "").strip().lower()
+    username = cfg.get("username", "")
+    password = cfg.get("password", "")
+
+    # 1. Try the configured host first
     try:
-        import aiosmtplib
-
-        encryption = cfg.get("encryption", "tls")
-        use_tls = encryption == "ssl"
-        start_tls = encryption == "tls"
-
-        # Relaxed TLS context for internal Docker networks
-        tls_context = _ssl.create_default_context()
-        tls_context.check_hostname = False
-        tls_context.verify_mode = _ssl.CERT_NONE
-
-        smtp = aiosmtplib.SMTP(
-            hostname=host, port=port, timeout=15,
-            use_tls=use_tls, tls_context=tls_context if use_tls else None,
-        )
-
-        await smtp.connect()
-        if start_tls:
-            await smtp.starttls(tls_context=tls_context)
-
-        username = cfg.get("username", "")
-        password = cfg.get("password", "")
-        if username and password:
-            await smtp.login(username, password)
-
-        await smtp.quit()
-        return "ok", f"Connexion SMTP réussie ({host}:{port})"
+        return await _smtp_connect(host, port, encryption, username, password)
     except Exception as e:
-        error_msg = f"Échec connexion SMTP ({host}:{port}): {str(e)}"
+        primary_error = str(e)
 
-        # On failure, scan Docker network for reachable SMTP servers
+    # 2. Fallback: try Docker-internal aliases on the same port
+    for fallback in _SMTP_DOCKER_FALLBACKS:
+        if fallback == host:
+            continue
         try:
-            found = await _discover_smtp_hosts()
-            if found:
-                error_msg += f" — Serveurs SMTP détectés sur le réseau Docker: {found}"
-        except Exception:
-            pass
-
-        return "error", error_msg
-
-
-async def _discover_smtp_hosts() -> str:
-    """Scan common Docker hostnames for reachable SMTP servers."""
-    import asyncio
-    import socket
-
-    candidates = [
-        ("front", 25), ("front", 587), ("front", 465),
-        ("smtp", 25), ("smtp", 587),
-        ("mailu-front", 25), ("mailu-front", 587),
-        ("mailu-smtp", 25),
-        ("mail", 25), ("mail", 587),
-        ("mailserver", 25), ("mailserver", 587),
-    ]
-
-    found = []
-
-    for hostname, port in candidates:
-        try:
-            # Quick TCP connect test (1.5s timeout)
-            reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(hostname, port),
-                timeout=1.5,
+            status, msg = await _smtp_connect(fallback, port, encryption, username, password)
+            return status, (
+                f"{msg} (via Docker interne '{fallback}' — "
+                f"'{host}' inaccessible depuis le conteneur)"
             )
-            writer.close()
-            await writer.wait_closed()
-            found.append(f"{hostname}:{port}")
         except Exception:
             continue
 
-    return ", ".join(found) if found else ""
+    # 3. All failed — return diagnostic info
+    error_msg = f"Échec connexion SMTP ({host}:{port}): {primary_error}"
+    import socket
+    try:
+        resolved = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
+        ips = list({r[4][0] for r in resolved})
+        error_msg += f" — DNS: {host} → {', '.join(ips)}"
+    except Exception as dns_err:
+        error_msg += f" — DNS échouée: {dns_err}"
+
+    return "error", error_msg
+
 
 
 async def _test_s3(cfg: dict[str, str]) -> tuple[str, str]:

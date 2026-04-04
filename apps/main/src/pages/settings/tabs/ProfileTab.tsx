@@ -8,6 +8,7 @@
  * - API-backed: PATCH /api/v1/profile, POST /api/v1/profile/avatar
  */
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/authStore'
 import { useUpdateProfile, useUploadAvatar } from '@/hooks/useSettings'
 import { useToast } from '@/components/ui/Toast'
@@ -26,6 +27,7 @@ import { UserLanguageManager } from '@/components/shared/UserLanguageManager'
 import { VaccineManager } from '@/components/shared/VaccineManager'
 import { HealthConditionsChecklist } from '@/components/shared/HealthConditionsChecklist'
 import { ReferentielManager } from '@/components/shared/ReferentielManager'
+import { DefaultImputationSettingEditor } from '@/components/shared/DefaultImputationSettingEditor'
 import { EmailsTab } from './EmailsTab'
 import { AddressesTab } from './AddressesTab'
 import { useDictionaryOptions, useDictionaryColumnOptions } from '@/hooks/useDictionary'
@@ -119,6 +121,7 @@ function DictCombobox({ value, options, onChange, placeholder }: {
 }
 
 export function ProfileTab() {
+  const { t } = useTranslation()
   const { user } = useAuthStore()
   const { toast } = useToast()
   const updateProfile = useUpdateProfile()
@@ -569,6 +572,23 @@ export function ProfileTab() {
       </CollapsibleSection>
 
       {/* Section: Travel & Transport */}
+      <CollapsibleSection
+        id="default-imputation"
+        title={t('settings.default_imputation.user_section_title')}
+        description={t('settings.default_imputation.user_section_description')}
+        storageKey="settings.profile.collapse"
+        showSeparator={false}
+      >
+        <div className="mt-2">
+          <DefaultImputationSettingEditor
+            scope="user"
+            title={t('settings.default_imputation.user_card_title')}
+            description={t('settings.default_imputation.user_card_description')}
+            hint={t('settings.default_imputation.user_card_hint')}
+          />
+        </div>
+      </CollapsibleSection>
+
       <CollapsibleSection
         id="travel"
         title="Voyage & Transport"

@@ -8,12 +8,14 @@ Integrates with:
 """
 
 import logging
+import hashlib
 import unicodedata
 import re
-from datetime import date, datetime, timedelta
+import secrets
+from datetime import date, datetime, timedelta, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Request, status
 from pydantic import BaseModel
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,13 +25,26 @@ from app.core.audit import record_audit
 from app.core.database import get_db
 from app.core.pagination import PaginationParams, paginate
 from app.core.references import generate_reference
-from app.models.common import Tier, TierContact, User
+from app.models.common import (
+    CostCenter,
+    CostImputation,
+    ImputationAssignment,
+    ImputationReference,
+    Project,
+    Setting,
+    Tier,
+    TierContact,
+    User,
+    UserGroup,
+    UserGroupMember,
+)
 from app.models.paxlog import (
     Ads,
     AdsEvent,
     AdsPax,
     ComplianceMatrixEntry,
     CredentialType,
+    ExternalAccessLink,
     MissionNotice,
     MissionPreparationTask,
     MissionProgram,
@@ -41,6 +56,7 @@ from app.models.paxlog import (
 )
 from app.schemas.paxlog import (
     AdsCreate,
+    AdsImputationSuggestionRead,
     AdsEventRead,
     AdsPaxEntry,
     AdsRead,
@@ -75,6 +91,314 @@ logger = logging.getLogger(__name__)
 
 ADS_WORKFLOW_SLUG = "ads-workflow"
 ADS_ENTITY_TYPE = "ads"
+EXTERNAL_OTP_TTL_MINUTES = 10
+EXTERNAL_SESSION_TTL_MINUTES = 30
+EXTERNAL_OTP_MAX_ATTEMPTS = 3
+
+
+async def _resolve_ads_imputation_suggestion(
+    db: AsyncSession,
+    *,
+    ads: Ads,
+    entity_id: UUID,
+) -> AdsImputationSuggestionRead:
+    """Resolve the default imputation suggestion for an AdS.
+
+    Resolution order:
+    - project attached to the AdS
+    - explicit user default (not modelled yet)
+    - explicit group default (not modelled yet)
+    - requester's business unit cost center
+    - entity fallback cost center
+    """
+    notes: list[str] = []
+    project_id: UUID | None = ads.project_id
+    project_name: str | None = None
+    project_source = "none"
+    cost_center_id: UUID | None = None
+    cost_center_name: str | None = None
+    cost_center_source = "none"
+    imputation_reference_id: UUID | None = None
+    imputation_reference_code: str | None = None
+    imputation_reference_name: str | None = None
+    imputation_type: str | None = None
+    otp_policy: str | None = None
+    today = date.today()
+
+    def _apply_reference(reference: ImputationReference, *, source: str) -> None:
+        nonlocal project_id, project_name, project_source
+        nonlocal cost_center_id, cost_center_name, cost_center_source
+        nonlocal imputation_reference_id, imputation_reference_code
+        nonlocal imputation_reference_name, imputation_type, otp_policy
+
+        imputation_reference_id = reference.id
+        imputation_reference_code = reference.code
+        imputation_reference_name = reference.name
+        imputation_type = reference.imputation_type
+        otp_policy = reference.otp_policy
+
+        if not project_id and reference.default_project_id:
+            project_id = reference.default_project_id
+            if reference.default_project:
+                project_name = f"{reference.default_project.code} — {reference.default_project.name}"
+            project_source = source
+
+        if not cost_center_id and reference.default_cost_center_id:
+            cost_center_id = reference.default_cost_center_id
+            if reference.default_cost_center:
+                cost_center_name = f"{reference.default_cost_center.code} — {reference.default_cost_center.name}"
+            cost_center_source = source
+
+    async def _find_assignment_reference(
+        *,
+        target_type: str,
+        target_id: UUID,
+    ) -> ImputationReference | None:
+        result = await db.execute(
+            select(ImputationAssignment, ImputationReference)
+            .join(
+                ImputationReference,
+                ImputationReference.id == ImputationAssignment.imputation_reference_id,
+            )
+            .where(
+                ImputationAssignment.entity_id == entity_id,
+                ImputationAssignment.target_type == target_type,
+                ImputationAssignment.target_id == target_id,
+                ImputationAssignment.active == True,  # noqa: E712
+                ImputationReference.entity_id == entity_id,
+                ImputationReference.active == True,  # noqa: E712
+            )
+            .order_by(ImputationAssignment.priority.asc(), ImputationAssignment.created_at.asc())
+        )
+        for assignment, reference in result.all():
+            if assignment.valid_from and assignment.valid_from > today:
+                continue
+            if assignment.valid_to and assignment.valid_to < today:
+                continue
+            if reference.valid_from and reference.valid_from > today:
+                continue
+            if reference.valid_to and reference.valid_to < today:
+                continue
+            return reference
+        return None
+
+    requester = await db.get(User, ads.requester_id)
+    if not requester:
+        notes.append("Demandeur introuvable pour la résolution d'imputation.")
+    else:
+        if requester.business_unit_id:
+            notes.append("BU du demandeur détectée.")
+        else:
+            notes.append("Aucune BU rattachée au demandeur.")
+
+    if project_id:
+        project = await db.get(Project, project_id)
+        if project and project.entity_id == entity_id:
+            project_name = f"{project.code} — {project.name}"
+            project_source = "project"
+            notes.append("Projet de dossier retenu comme première source d'imputation.")
+            project_reference = await _find_assignment_reference(target_type="project", target_id=project.id)
+            if project_reference:
+                _apply_reference(project_reference, source="project_assignment")
+                notes.append("Référence d'imputation appliquée via l'affectation du projet.")
+        else:
+            project_id = None
+            notes.append("Projet rattaché non résolu dans l'entité courante.")
+    else:
+        notes.append("Aucun projet rattaché au dossier.")
+
+    if requester:
+        user_reference = await _find_assignment_reference(target_type="user", target_id=requester.id)
+        if user_reference:
+            _apply_reference(user_reference, source="user_assignment")
+            notes.append("Référence d'imputation appliquée via l'affectation utilisateur.")
+
+        user_setting_result = await db.execute(
+            select(Setting).where(
+                Setting.key == "core.default_imputation",
+                Setting.scope == "user",
+                Setting.scope_id == str(requester.id),
+            )
+        )
+        user_setting = user_setting_result.scalar_one_or_none()
+        if user_setting:
+            user_value = user_setting.value or {}
+            if not project_id and user_value.get("project_id"):
+                user_project_id = UUID(str(user_value["project_id"]))
+                project = await db.get(Project, user_project_id)
+                if project and project.entity_id == entity_id:
+                    project_id = project.id
+                    project_name = f"{project.code} — {project.name}"
+                    project_source = "user"
+                    notes.append("Projet par défaut appliqué depuis le profil utilisateur.")
+            if user_value.get("cost_center_id"):
+                user_cc_id = UUID(str(user_value["cost_center_id"]))
+                cc = await db.get(CostCenter, user_cc_id)
+                if cc and cc.entity_id == entity_id and cc.active:
+                    cost_center_id = cc.id
+                    cost_center_name = f"{cc.code} — {cc.name}"
+                    cost_center_source = "user"
+                    notes.append("Centre de coût par défaut appliqué depuis le profil utilisateur.")
+        else:
+            notes.append("Aucun défaut explicite utilisateur configuré.")
+
+    group_count = 0
+    if requester:
+        group_ids_result = await db.execute(
+            select(UserGroup.id)
+            .select_from(UserGroupMember)
+            .join(UserGroup, UserGroup.id == UserGroupMember.group_id)
+            .where(
+                UserGroupMember.user_id == requester.id,
+                UserGroup.entity_id == entity_id,
+                UserGroup.active == True,  # noqa: E712
+            )
+            .order_by(UserGroup.name.asc(), UserGroup.created_at.asc())
+        )
+        group_ids = list(group_ids_result.scalars().all())
+        group_count = len(group_ids)
+        for group_id in group_ids:
+            group_reference = await _find_assignment_reference(
+                target_type="user_group",
+                target_id=group_id,
+            )
+            if group_reference:
+                _apply_reference(group_reference, source="group_assignment")
+                notes.append("Référence d'imputation appliquée via une affectation de groupe.")
+                break
+    if group_count > 0:
+        if not imputation_reference_id:
+            notes.append("Groupes utilisateur détectés, mais aucune référence active n'est affectée.")
+    else:
+        notes.append("Aucun groupe utilisateur exploitable pour l'imputation.")
+
+    if requester and requester.business_unit_id:
+        bu_reference = await _find_assignment_reference(
+            target_type="business_unit",
+            target_id=requester.business_unit_id,
+        )
+        if bu_reference:
+            _apply_reference(bu_reference, source="business_unit_assignment")
+            notes.append("Référence d'imputation appliquée via l'affectation de BU.")
+
+        cc_result = await db.execute(
+            select(CostCenter)
+            .where(
+                CostCenter.entity_id == entity_id,
+                CostCenter.department_id == requester.business_unit_id,
+                CostCenter.active == True,  # noqa: E712
+            )
+            .order_by(CostCenter.name, CostCenter.code)
+        )
+        bu_cc = cc_result.scalars().first()
+        if bu_cc:
+            cost_center_id = bu_cc.id
+            cost_center_name = f"{bu_cc.code} — {bu_cc.name}"
+            cost_center_source = "business_unit"
+            notes.append("Centre de coût par défaut trouvé via la BU du demandeur.")
+
+    if not cost_center_id:
+        entity_setting_result = await db.execute(
+            select(Setting).where(
+                Setting.key == "core.default_imputation",
+                Setting.scope == "entity",
+                Setting.scope_id == str(entity_id),
+            )
+        )
+        entity_setting = entity_setting_result.scalar_one_or_none()
+        if entity_setting:
+            entity_value = entity_setting.value or {}
+            if not project_id and entity_value.get("project_id"):
+                entity_project_id = UUID(str(entity_value["project_id"]))
+                project = await db.get(Project, entity_project_id)
+                if project and project.entity_id == entity_id:
+                    project_id = project.id
+                    project_name = f"{project.code} — {project.name}"
+                    project_source = "entity"
+                    notes.append("Projet par défaut appliqué depuis les paramètres entité.")
+            if not cost_center_id and entity_value.get("cost_center_id"):
+                entity_cc_id = UUID(str(entity_value["cost_center_id"]))
+                cc = await db.get(CostCenter, entity_cc_id)
+                if cc and cc.entity_id == entity_id and cc.active:
+                    cost_center_id = cc.id
+                    cost_center_name = f"{cc.code} — {cc.name}"
+                    cost_center_source = "entity"
+                    notes.append("Centre de coût par défaut appliqué depuis les paramètres entité.")
+
+    if not cost_center_id:
+        cc_result = await db.execute(
+            select(CostCenter)
+            .where(
+                CostCenter.entity_id == entity_id,
+                CostCenter.active == True,  # noqa: E712
+            )
+            .order_by(CostCenter.name, CostCenter.code)
+        )
+        entity_cc = cc_result.scalars().first()
+        if entity_cc:
+            cost_center_id = entity_cc.id
+            cost_center_name = f"{entity_cc.code} — {entity_cc.name}"
+            cost_center_source = "entity_fallback"
+            notes.append("Fallback sur le premier centre de coût actif de l'entité.")
+        else:
+            notes.append("Aucun centre de coût actif disponible sur l'entité.")
+
+    return AdsImputationSuggestionRead(
+        owner_id=ads.id,
+        project_id=project_id,
+        project_name=project_name,
+        project_source=project_source,
+        cost_center_id=cost_center_id,
+        cost_center_name=cost_center_name,
+        cost_center_source=cost_center_source,
+        imputation_reference_id=imputation_reference_id,
+        imputation_reference_code=imputation_reference_code,
+        imputation_reference_name=imputation_reference_name,
+        imputation_type=imputation_type,
+        otp_policy=otp_policy,
+        resolution_notes=notes,
+    )
+
+
+async def _ensure_ads_default_imputation(
+    db: AsyncSession,
+    *,
+    ads: Ads,
+    entity_id: UUID,
+    author_id: UUID,
+) -> None:
+    """Create a default 100% imputation line for an AdS if possible and absent."""
+    existing_result = await db.execute(
+        select(CostImputation.id).where(
+            CostImputation.owner_type == "ads",
+            CostImputation.owner_id == ads.id,
+        )
+    )
+    if existing_result.scalar_one_or_none():
+        return
+
+    suggestion = await _resolve_ads_imputation_suggestion(db, ads=ads, entity_id=entity_id)
+    if not suggestion.project_id and not suggestion.cost_center_id:
+        return
+    if suggestion.imputation_type == "CAPEX" or suggestion.otp_policy not in (None, "forbidden"):
+        logger.warning(
+            "Skipped default AdS imputation for %s because suggested reference is not allowed for ads",
+            ads.id,
+        )
+        return
+
+    db.add(
+        CostImputation(
+            owner_type="ads",
+            owner_id=ads.id,
+            imputation_reference_id=suggestion.imputation_reference_id,
+            project_id=suggestion.project_id,
+            cost_center_id=suggestion.cost_center_id,
+            percentage=100.0,
+            created_by=author_id,
+            notes=f"Default imputation applied from {suggestion.project_source}/{suggestion.cost_center_source}",
+        )
+    )
 
 
 async def _try_ads_workflow_transition(
@@ -114,6 +438,171 @@ async def _try_ads_workflow_transition(
             )
             return None, None
         raise HTTPException(400, str(e))
+
+
+async def _run_ads_submission_checks(
+    db: AsyncSession,
+    *,
+    ads: Ads,
+    entity_id: UUID,
+) -> tuple[list[AdsPax], bool, str]:
+    """Run compliance checks and determine the next submission status for an AdS."""
+    pax_entries_result = await db.execute(
+        select(AdsPax).where(AdsPax.ads_id == ads.id)
+    )
+    pax_entries = pax_entries_result.scalars().all()
+    if len(pax_entries) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="L'AdS doit contenir au moins un PAX.",
+        )
+
+    matrix_result = await db.execute(
+        select(ComplianceMatrixEntry).where(
+            ComplianceMatrixEntry.entity_id == entity_id,
+            ComplianceMatrixEntry.asset_id == ads.site_entry_asset_id,
+            ComplianceMatrixEntry.mandatory == True,  # noqa: E712
+        )
+    )
+    requirements = matrix_result.scalars().all()
+
+    has_compliance_issues = False
+    for pax_entry in pax_entries:
+        if pax_entry.user_id:
+            u = await db.get(User, pax_entry.user_id)
+            pax_type = u.pax_type if u else "internal"
+            cred_filter = PaxCredential.user_id == pax_entry.user_id
+        elif pax_entry.contact_id:
+            pax_type = "external"
+            cred_filter = PaxCredential.contact_id == pax_entry.contact_id
+        else:
+            continue
+
+        applicable_reqs = []
+        for req in requirements:
+            if req.scope == "all_visitors":
+                applicable_reqs.append(req)
+            elif req.scope == "contractors_only" and pax_type == "external":
+                applicable_reqs.append(req)
+            elif req.scope == "permanent_staff_only" and pax_type == "internal":
+                applicable_reqs.append(req)
+
+        creds_result = await db.execute(select(PaxCredential).where(cred_filter))
+        credentials = {c.credential_type_id: c for c in creds_result.scalars().all()}
+
+        missing: list[str] = []
+        expired: list[str] = []
+        for req in applicable_reqs:
+            cred = credentials.get(req.credential_type_id)
+            if not cred:
+                ct = await db.get(CredentialType, req.credential_type_id)
+                missing.append(ct.name if ct else str(req.credential_type_id))
+            elif cred.status == "expired" or (cred.expiry_date and cred.expiry_date < date.today()):
+                ct = await db.get(CredentialType, req.credential_type_id)
+                expired.append(ct.name if ct else str(req.credential_type_id))
+            elif cred.expiry_date and cred.expiry_date < ads.end_date:
+                ct = await db.get(CredentialType, req.credential_type_id)
+                expired.append(f"{ct.name if ct else ''} (expire pendant le séjour)")
+
+        pax_entry.compliance_checked_at = func.now()
+        pax_entry.compliance_summary = {
+            "missing": missing,
+            "expired": expired,
+            "compliant": len(missing) == 0 and len(expired) == 0,
+        }
+        if missing or expired:
+            pax_entry.status = "blocked"
+            has_compliance_issues = True
+        else:
+            pax_entry.status = "compliant"
+
+    target_status = "pending_compliance" if has_compliance_issues else "pending_validation"
+    return pax_entries, has_compliance_issues, target_status
+
+
+def _hash_secret(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _append_external_access_log(
+    link: ExternalAccessLink,
+    *,
+    action: str,
+    request: Request | None = None,
+    otp_validated: bool | None = None,
+) -> None:
+    log = list(link.access_log or [])
+    log.append({
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "action": action,
+        "ip": request.client.host if request and request.client else None,
+        "user_agent": request.headers.get("user-agent") if request else None,
+        "otp_validated": otp_validated,
+    })
+    link.access_log = log[-50:]
+
+
+async def _get_external_link_or_404(db: AsyncSession, token: str) -> ExternalAccessLink:
+    result = await db.execute(
+        select(ExternalAccessLink).where(
+            ExternalAccessLink.token == token,
+            ExternalAccessLink.revoked == False,  # noqa: E712
+        )
+    )
+    link = result.scalar_one_or_none()
+    if not link:
+        raise HTTPException(status_code=404, detail="Lien invalide ou expiré")
+
+    expires_at = link.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=410, detail="Ce lien a expiré")
+    if link.max_uses and link.use_count >= link.max_uses:
+        raise HTTPException(status_code=410, detail="Ce lien a atteint le nombre maximum d'utilisations")
+    return link
+
+
+async def _require_external_session(
+    db: AsyncSession,
+    *,
+    token: str,
+    session_token: str | None,
+) -> ExternalAccessLink:
+    link = await _get_external_link_or_404(db, token)
+    if not link.otp_required:
+        return link
+    if not session_token or not link.session_token_hash:
+        raise HTTPException(status_code=401, detail="Session externe requise")
+    if _hash_secret(session_token) != link.session_token_hash:
+        raise HTTPException(status_code=401, detail="Session externe invalide")
+    if not link.session_expires_at:
+        raise HTTPException(status_code=401, detail="Session externe expirée")
+    session_expires_at = link.session_expires_at
+    if session_expires_at.tzinfo is None:
+        session_expires_at = session_expires_at.replace(tzinfo=timezone.utc)
+    if session_expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=401, detail="Session externe expirée")
+    return link
+
+
+async def _get_external_ads_and_context(
+    db: AsyncSession,
+    *,
+    link: ExternalAccessLink,
+) -> tuple[Ads, UUID, UUID | None]:
+    ads = await db.get(Ads, link.ads_id)
+    if not ads:
+        raise HTTPException(status_code=404, detail="AdS introuvable")
+    preconfigured = link.preconfigured_data or {}
+    allowed_company_id: UUID | None = None
+    raw_company_id = preconfigured.get("target_company_id") or preconfigured.get("company_id")
+    if raw_company_id:
+        try:
+            allowed_company_id = UUID(str(raw_company_id))
+        except ValueError:
+            allowed_company_id = None
+    return ads, ads.entity_id, allowed_company_id
 
 
 def _normalize_name(name: str) -> str:
@@ -985,6 +1474,13 @@ async def create_ads(
         )
         db.add(ads_pax)
 
+    await _ensure_ads_default_imputation(
+        db,
+        ads=ads,
+        entity_id=entity_id,
+        author_id=current_user.id,
+    )
+
     await db.commit()
     await db.refresh(ads)
 
@@ -1084,87 +1580,11 @@ async def submit_ads(
             detail=f"Impossible de soumettre un AdS avec le statut '{ads.status}'.",
         )
 
-    # Check at least 1 PAX
-    pax_entries_result = await db.execute(
-        select(AdsPax).where(AdsPax.ads_id == ads_id)
+    pax_entries, has_compliance_issues, target_status = await _run_ads_submission_checks(
+        db,
+        ads=ads,
+        entity_id=entity_id,
     )
-    pax_entries = pax_entries_result.scalars().all()
-    if len(pax_entries) == 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="L'AdS doit contenir au moins un PAX.",
-        )
-
-    # ── Automatic compliance check against site's matrix ─────────────────
-    from datetime import date as date_type
-    matrix_result = await db.execute(
-        select(ComplianceMatrixEntry).where(
-            ComplianceMatrixEntry.entity_id == entity_id,
-            ComplianceMatrixEntry.asset_id == ads.site_entry_asset_id,
-            ComplianceMatrixEntry.mandatory == True,
-        )
-    )
-    requirements = matrix_result.scalars().all()
-
-    has_compliance_issues = False
-    for pax_entry in pax_entries:
-        # Determine PAX type for scope filtering
-        if pax_entry.user_id:
-            u = await db.get(User, pax_entry.user_id)
-            pax_type = u.pax_type if u else "internal"
-            cred_filter = PaxCredential.user_id == pax_entry.user_id
-        elif pax_entry.contact_id:
-            pax_type = "external"
-            cred_filter = PaxCredential.contact_id == pax_entry.contact_id
-        else:
-            continue
-
-        # Filter requirements by scope
-        applicable_reqs = []
-        for req in requirements:
-            if req.scope == "all_visitors":
-                applicable_reqs.append(req)
-            elif req.scope == "contractors_only" and pax_type == "external":
-                applicable_reqs.append(req)
-            elif req.scope == "permanent_staff_only" and pax_type == "internal":
-                applicable_reqs.append(req)
-
-        # Load PAX credentials
-        creds_result = await db.execute(
-            select(PaxCredential).where(cred_filter)
-        )
-        credentials = {c.credential_type_id: c for c in creds_result.scalars().all()}
-
-        # Check each requirement
-        missing = []
-        expired = []
-        for req in applicable_reqs:
-            cred = credentials.get(req.credential_type_id)
-            if not cred:
-                ct = await db.get(CredentialType, req.credential_type_id)
-                missing.append(ct.name if ct else str(req.credential_type_id))
-            elif cred.status == "expired" or (cred.expiry_date and cred.expiry_date < date_type.today()):
-                ct = await db.get(CredentialType, req.credential_type_id)
-                expired.append(ct.name if ct else str(req.credential_type_id))
-            elif cred.expiry_date and cred.expiry_date < ads.end_date:
-                ct = await db.get(CredentialType, req.credential_type_id)
-                expired.append(f"{ct.name if ct else ''} (expire pendant le séjour)")
-
-        # Update PAX entry compliance
-        pax_entry.compliance_checked_at = func.now()
-        pax_entry.compliance_summary = {
-            "missing": missing,
-            "expired": expired,
-            "compliant": len(missing) == 0 and len(expired) == 0,
-        }
-        if len(missing) > 0 or len(expired) > 0:
-            pax_entry.status = "blocked"
-            has_compliance_issues = True
-        else:
-            pax_entry.status = "compliant"
-
-    # Set AdS status based on compliance check
-    target_status = "pending_compliance" if has_compliance_issues else "pending_validation"
 
     # FSM transition: draft → pending_compliance or pending_validation
     from_state = ads.status
@@ -1454,6 +1874,83 @@ async def reject_ads(
     return ads
 
 
+@router.post("/ads/{ads_id}/request-review", response_model=AdsRead)
+async def request_ads_review(
+    ads_id: UUID,
+    reason: str = Body(..., min_length=1, embed=True),
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.ads.approve"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Send an AdS back for correction without terminal rejection."""
+    result = await db.execute(
+        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
+    )
+    ads = result.scalar_one_or_none()
+    if not ads:
+        raise HTTPException(status_code=404, detail="AdS not found")
+
+    allowed_statuses = {"submitted", "pending_compliance", "pending_validation", "approved", "in_progress"}
+    if ads.status not in allowed_statuses:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Impossible de renvoyer en correction un AdS avec le statut '{ads.status}'.",
+        )
+
+    from_state = ads.status
+    await _try_ads_workflow_transition(
+        db,
+        entity_id_str=str(ads.id),
+        to_state="requires_review",
+        actor_id=current_user.id,
+        entity_id_scope=entity_id,
+        comment=reason,
+    )
+
+    ads.status = "requires_review"
+    # Reuse the existing feedback field until a dedicated review_comment field is modelled.
+    ads.rejection_reason = reason
+
+    db.add(AdsEvent(
+        entity_id=entity_id,
+        ads_id=ads.id,
+        event_type="requires_review",
+        old_status=from_state,
+        new_status="requires_review",
+        actor_id=current_user.id,
+        reason=reason,
+    ))
+
+    await db.commit()
+    await db.refresh(ads)
+
+    await fsm_service.emit_transition_event(
+        entity_type=ADS_ENTITY_TYPE,
+        entity_id=str(ads.id),
+        from_state=from_state,
+        to_state="requires_review",
+        actor_id=current_user.id,
+        workflow_slug=ADS_WORKFLOW_SLUG,
+        extra_payload={"review_reason": reason},
+    )
+
+    from app.core.events import OpsFluxEvent, event_bus as _event_bus
+    await _event_bus.publish(OpsFluxEvent(
+        event_type="ads.requires_review",
+        payload={
+            "ads_id": str(ads.id),
+            "entity_id": str(entity_id),
+            "reference": ads.reference,
+            "requester_id": str(ads.requester_id),
+            "review_reason": reason,
+        },
+    ))
+
+    logger.info("AdS %s sent back for review by %s", ads.reference, current_user.id)
+    return ads
+
+
 @router.post("/ads/{ads_id}/cancel", response_model=AdsRead)
 async def cancel_ads(
     ads_id: UUID,
@@ -1548,7 +2045,7 @@ async def resubmit_ads(
     reason: str = Body(..., min_length=1, embed=True),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("paxlog.ads.update"),
+    _: None = require_permission("paxlog.ads.submit"),
     db: AsyncSession = Depends(get_db),
 ):
     """Resubmit an AdS after requires_review — motif obligatoire."""
@@ -1562,7 +2059,14 @@ async def resubmit_ads(
         raise HTTPException(status_code=400, detail=f"Cannot resubmit AdS with status '{ads.status}'")
 
     old_status = ads.status
-    ads.status = "submitted"
+    pax_entries, has_compliance_issues, target_status = await _run_ads_submission_checks(
+        db,
+        ads=ads,
+        entity_id=entity_id,
+    )
+    ads.status = target_status
+    ads.rejection_reason = None
+    ads.submitted_at = func.now()
 
     # Log event
     db.add(AdsEvent(
@@ -1570,7 +2074,7 @@ async def resubmit_ads(
         ads_id=ads.id,
         event_type="resubmitted",
         old_status=old_status,
-        new_status="submitted",
+        new_status=target_status,
         actor_id=current_user.id,
         reason=reason,
     ))
@@ -1578,12 +2082,38 @@ async def resubmit_ads(
     await _try_ads_workflow_transition(
         db,
         entity_id_str=str(ads.id),
-        to_state="submitted",
+        to_state=target_status,
         actor_id=current_user.id,
         entity_id_scope=entity_id,
     )
     await db.commit()
     await db.refresh(ads)
+
+    await fsm_service.emit_transition_event(
+        entity_type=ADS_ENTITY_TYPE,
+        entity_id=str(ads.id),
+        from_state=old_status,
+        to_state=target_status,
+        actor_id=current_user.id,
+        workflow_slug=ADS_WORKFLOW_SLUG,
+        extra_payload={"reference": ads.reference, "compliance_issues": has_compliance_issues},
+    )
+
+    await record_audit(
+        db,
+        action="paxlog.ads.resubmit",
+        resource_type="ads",
+        resource_id=str(ads.id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={
+            "reference": ads.reference,
+            "pax_count": len(pax_entries),
+            "compliance_issues": has_compliance_issues,
+            "reason": reason,
+        },
+    )
+    await db.commit()
     return ads
 
 
@@ -2092,6 +2622,24 @@ async def list_imputations(
     )
 
 
+@router.get("/ads/{ads_id}/imputation-suggestion", response_model=AdsImputationSuggestionRead)
+async def get_imputation_suggestion(
+    ads_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the default imputation suggestion for an AdS."""
+    ads_result = await db.execute(
+        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
+    )
+    ads = ads_result.scalar_one_or_none()
+    if not ads:
+        raise HTTPException(status_code=404, detail="AdS not found")
+
+    return await _resolve_ads_imputation_suggestion(db, ads=ads, entity_id=entity_id)
+
+
 @router.post("/ads/{ads_id}/imputations", status_code=201)
 async def add_imputation(
     ads_id: UUID,
@@ -2401,6 +2949,78 @@ async def end_rotation_cycle(
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+class ExternalOtpVerifyBody(BaseModel):
+    code: str
+
+
+class ExternalPaxUpsertBody(BaseModel):
+    first_name: str
+    last_name: str
+    birth_date: date | None = None
+    nationality: str | None = None
+    badge_number: str | None = None
+    photo_url: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    position: str | None = None
+
+
+class ExternalCredentialCreateBody(BaseModel):
+    credential_type_id: UUID
+    obtained_date: date
+    expiry_date: date | None = None
+    proof_url: str | None = None
+    notes: str | None = None
+
+
+def _mask_contact_value(value: str | None) -> str | None:
+    if not value:
+        return None
+    if "@" in value:
+        local, _, domain = value.partition("@")
+        if len(local) <= 2:
+            local_masked = "*" * len(local)
+        else:
+            local_masked = local[:2] + "*" * max(len(local) - 2, 1)
+        return f"{local_masked}@{domain}"
+    if len(value) <= 4:
+        return "*" * len(value)
+    return "*" * (len(value) - 4) + value[-4:]
+
+
+async def _send_external_link_otp(db: AsyncSession, *, link: ExternalAccessLink) -> None:
+    if not link.otp_sent_to:
+        raise HTTPException(status_code=400, detail="Aucun destinataire OTP n'est configuré pour ce lien")
+
+    code = f"{secrets.randbelow(1000000):06d}"
+    link.otp_code_hash = _hash_secret(code)
+    link.otp_expires_at = datetime.now(timezone.utc) + timedelta(minutes=EXTERNAL_OTP_TTL_MINUTES)
+    link.otp_attempt_count = 0
+    link.session_token_hash = None
+    link.session_expires_at = None
+
+    destination = link.otp_sent_to.strip()
+    if "@" in destination:
+        from app.core.notifications import send_email
+
+        await send_email(
+            to=destination,
+            subject="OpsFlux - Code de verification",
+            body_html=(
+                "<p>Votre code de verification OpsFlux est :</p>"
+                f"<p><strong style='font-size:18px'>{code}</strong></p>"
+                f"<p>Ce code expire dans {EXTERNAL_OTP_TTL_MINUTES} minutes.</p>"
+            ),
+        )
+        return
+
+    from app.core.sms_service import send_whatsapp_otp
+
+    sent, _channel = await send_whatsapp_otp(db, to=destination, otp_code=code)
+    if not sent:
+        raise HTTPException(status_code=503, detail="Impossible d'envoyer le code OTP")
+
+
 @router.post("/ads/{ads_id}/external-link", status_code=201)
 async def create_external_link(
     ads_id: UUID,
@@ -2415,7 +3035,6 @@ async def create_external_link(
     db: AsyncSession = Depends(get_db),
 ):
     """Generate a one-time external link for a Tiers to fill PAX data."""
-    from sqlalchemy import text as sa_text
     import secrets
 
     # Verify AdS
@@ -2428,40 +3047,28 @@ async def create_external_link(
 
     token = secrets.token_urlsafe(48)
     expires_at = datetime.now(timezone.utc) + timedelta(hours=expires_hours)
-
-    import json
-    result = await db.execute(
-        sa_text(
-            """
-            INSERT INTO pax_external_links (
-                ads_id, entity_id, token, otp_required, otp_sent_to,
-                expires_at, max_uses, uses_count, preconfigured_data, created_by, created_at
-            ) VALUES (
-                :ads_id, :eid, :token, :otp, :otp_to,
-                :expires, :max_uses, 0, :preconf, :created_by, NOW()
-            ) RETURNING id
-            """
-        ),
-        {
-            "ads_id": str(ads_id),
-            "eid": str(entity_id),
-            "token": token,
-            "otp": otp_required,
-            "otp_to": otp_sent_to,
-            "expires": expires_at,
-            "max_uses": max_uses,
-            "preconf": json.dumps(preconfigured_data) if preconfigured_data else None,
-            "created_by": str(current_user.id),
-        },
+    link = ExternalAccessLink(
+        ads_id=ads_id,
+        token=token,
+        created_by=current_user.id,
+        preconfigured_data=preconfigured_data,
+        otp_required=otp_required,
+        otp_sent_to=otp_sent_to,
+        expires_at=expires_at,
+        max_uses=max_uses,
+        use_count=0,
+        revoked=False,
+        access_log=[],
     )
-    link_id = result.scalar()
+    db.add(link)
     await db.commit()
+    await db.refresh(link)
 
     await record_audit(
         db,
         action="paxlog.external_link.create",
-        resource_type="pax_external_link",
-        resource_id=str(link_id),
+        resource_type="external_access_link",
+        resource_id=str(link.id),
         user_id=current_user.id,
         entity_id=entity_id,
         details={"ads_id": str(ads_id), "expires_hours": expires_hours},
@@ -2471,7 +3078,7 @@ async def create_external_link(
     logger.info("External link created for AdS %s by %s", ads_row[1], current_user.id)
 
     return {
-        "id": str(link_id),
+        "id": str(link.id),
         "ads_id": str(ads_id),
         "token": token,
         "url": f"/api/v1/pax/external/{token}",
@@ -2484,56 +3091,405 @@ async def create_external_link(
 @router.get("/external/{token}")
 async def access_external_link(
     token: str,
+    x_external_session: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ):
-    """Public endpoint -- validate token, return preconfigured data.
+    """Public endpoint — returns link metadata without exposing internal dossier fields."""
+    link = await _get_external_link_or_404(db, token)
+    authenticated = False
+    if link.otp_required and x_external_session:
+        try:
+            await _require_external_session(db, token=token, session_token=x_external_session)
+            authenticated = True
+        except HTTPException:
+            authenticated = False
 
-    No authentication required (external Tiers access).
-    """
-    from sqlalchemy import text as sa_text
-    import json
+    return {
+        "ads_id": str(link.ads_id),
+        "authenticated": authenticated or not link.otp_required,
+        "otp_required": link.otp_required,
+        "otp_destination_masked": _mask_contact_value(link.otp_sent_to),
+        "preconfigured_data": link.preconfigured_data if authenticated or not link.otp_required else None,
+        "remaining_uses": max(link.max_uses - link.use_count, 0) if link.max_uses else None,
+        "expires_at": link.expires_at.isoformat(),
+    }
+
+
+@router.post("/external/{token}/otp/send")
+async def send_external_link_otp(
+    token: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    link = await _get_external_link_or_404(db, token)
+    if not link.otp_required:
+        return {"otp_required": False, "message": "OTP non requis pour ce lien"}
+
+    await _send_external_link_otp(db, link=link)
+    _append_external_access_log(link, action="otp_sent", request=request, otp_validated=False)
+    await db.commit()
+    return {
+        "otp_required": True,
+        "destination_masked": _mask_contact_value(link.otp_sent_to),
+        "expires_in_seconds": EXTERNAL_OTP_TTL_MINUTES * 60,
+    }
+
+
+@router.post("/external/{token}/otp/verify")
+async def verify_external_link_otp(
+    token: str,
+    body: ExternalOtpVerifyBody,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    link = await _get_external_link_or_404(db, token)
+    if not link.otp_required:
+        session_token = secrets.token_urlsafe(32)
+        link.session_token_hash = _hash_secret(session_token)
+        link.session_expires_at = datetime.now(timezone.utc) + timedelta(minutes=EXTERNAL_SESSION_TTL_MINUTES)
+        link.last_validated_at = datetime.now(timezone.utc)
+        _append_external_access_log(link, action="session_opened", request=request, otp_validated=True)
+        await db.commit()
+        return {"session_token": session_token, "expires_in_seconds": EXTERNAL_SESSION_TTL_MINUTES * 60}
+
+    if not link.otp_code_hash or not link.otp_expires_at:
+        raise HTTPException(status_code=400, detail="Aucun OTP actif pour ce lien")
+    otp_expires_at = link.otp_expires_at
+    if otp_expires_at.tzinfo is None:
+        otp_expires_at = otp_expires_at.replace(tzinfo=timezone.utc)
+    if otp_expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=410, detail="Le code OTP a expiré")
+    if link.otp_attempt_count >= EXTERNAL_OTP_MAX_ATTEMPTS:
+        raise HTTPException(status_code=429, detail="Nombre maximal de tentatives OTP atteint")
+    if _hash_secret(body.code.strip()) != link.otp_code_hash:
+        link.otp_attempt_count += 1
+        _append_external_access_log(link, action="otp_failed", request=request, otp_validated=False)
+        await db.commit()
+        raise HTTPException(status_code=400, detail="Code OTP invalide")
+
+    session_token = secrets.token_urlsafe(32)
+    link.otp_code_hash = None
+    link.otp_expires_at = None
+    link.otp_attempt_count = 0
+    link.session_token_hash = _hash_secret(session_token)
+    link.session_expires_at = datetime.now(timezone.utc) + timedelta(minutes=EXTERNAL_SESSION_TTL_MINUTES)
+    link.last_validated_at = datetime.now(timezone.utc)
+    link.use_count += 1
+    _append_external_access_log(link, action="otp_validated", request=request, otp_validated=True)
+    await db.commit()
+    return {"session_token": session_token, "expires_in_seconds": EXTERNAL_SESSION_TTL_MINUTES * 60}
+
+
+@router.get("/external/{token}/dossier")
+async def get_external_ads_dossier(
+    token: str,
+    request: Request,
+    x_external_session: str | None = Header(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    link = await _require_external_session(db, token=token, session_token=x_external_session)
+    ads, _entity_id, allowed_company_id = await _get_external_ads_and_context(db, link=link)
+    pax_entries = (
+        await db.execute(
+            select(AdsPax, TierContact)
+            .join(TierContact, TierContact.id == AdsPax.contact_id)
+            .where(AdsPax.ads_id == ads.id)
+            .order_by(TierContact.last_name, TierContact.first_name)
+        )
+    ).all()
+    allowed_pax = []
+    for entry, contact in pax_entries:
+        if allowed_company_id and contact.tier_id != allowed_company_id:
+            continue
+        allowed_pax.append({
+            "entry_id": str(entry.id),
+            "contact_id": str(contact.id),
+            "first_name": contact.first_name,
+            "last_name": contact.last_name,
+            "birth_date": contact.birth_date.isoformat() if contact.birth_date else None,
+            "nationality": contact.nationality,
+            "badge_number": contact.badge_number,
+            "photo_url": contact.photo_url,
+            "email": contact.email,
+            "phone": contact.phone,
+            "position": contact.position,
+            "status": entry.status,
+            "company_id": str(contact.tier_id),
+        })
+    _append_external_access_log(link, action="view_dossier", request=request, otp_validated=True)
+    await db.commit()
+    return {
+        "ads": {
+            "id": str(ads.id),
+            "reference": ads.reference,
+            "status": ads.status,
+            "visit_purpose": ads.visit_purpose,
+            "visit_category": ads.visit_category,
+            "start_date": ads.start_date.isoformat(),
+            "end_date": ads.end_date.isoformat(),
+            "site_entry_asset_id": str(ads.site_entry_asset_id),
+            "project_id": str(ads.project_id) if ads.project_id else None,
+            "rejection_reason": ads.rejection_reason,
+        },
+        "preconfigured_data": link.preconfigured_data or {},
+        "allowed_company_id": str(allowed_company_id) if allowed_company_id else None,
+        "can_submit": ads.status == "draft",
+        "can_resubmit": ads.status == "requires_review",
+        "pax": allowed_pax,
+    }
+
+
+@router.post("/external/{token}/pax", status_code=201)
+async def create_external_ads_pax(
+    token: str,
+    body: ExternalPaxUpsertBody,
+    request: Request,
+    x_external_session: str | None = Header(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    link = await _require_external_session(db, token=token, session_token=x_external_session)
+    ads, entity_id, allowed_company_id = await _get_external_ads_and_context(db, link=link)
+    if ads.status not in {"draft", "requires_review"}:
+        raise HTTPException(status_code=400, detail="Le dossier n'accepte plus de modification externe")
+    if not allowed_company_id:
+        raise HTTPException(status_code=400, detail="Aucune entreprise cible n'est configurée sur ce lien externe")
+
+    contact = TierContact(
+        tier_id=allowed_company_id,
+        first_name=body.first_name,
+        last_name=body.last_name,
+        birth_date=body.birth_date,
+        nationality=body.nationality,
+        badge_number=body.badge_number,
+        photo_url=body.photo_url,
+        email=body.email,
+        phone=body.phone,
+        position=body.position,
+    )
+    db.add(contact)
+    await db.flush()
+    db.add(AdsPax(ads_id=ads.id, contact_id=contact.id, status="pending_check"))
+    _append_external_access_log(link, action="create_pax", request=request, otp_validated=True)
+    await db.commit()
+
+    await record_audit(
+        db,
+        action="paxlog.external.pax.create",
+        resource_type="tier_contact",
+        resource_id=str(contact.id),
+        entity_id=entity_id,
+        details={"ads_id": str(ads.id), "link_id": str(link.id)},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    await db.commit()
+    return {"contact_id": str(contact.id), "ads_id": str(ads.id)}
+
+
+@router.patch("/external/{token}/pax/{contact_id}")
+async def update_external_ads_pax(
+    token: str,
+    contact_id: UUID,
+    body: ExternalPaxUpsertBody,
+    request: Request,
+    x_external_session: str | None = Header(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    link = await _require_external_session(db, token=token, session_token=x_external_session)
+    ads, entity_id, allowed_company_id = await _get_external_ads_and_context(db, link=link)
+    if ads.status not in {"draft", "requires_review"}:
+        raise HTTPException(status_code=400, detail="Le dossier n'accepte plus de modification externe")
 
     result = await db.execute(
-        sa_text(
-            """
-            SELECT id, ads_id, entity_id, otp_required, expires_at,
-                   max_uses, uses_count, preconfigured_data
-            FROM pax_external_links
-            WHERE token = :token
-            """
-        ),
-        {"token": token},
+        select(AdsPax, TierContact)
+        .join(TierContact, TierContact.id == AdsPax.contact_id)
+        .where(AdsPax.ads_id == ads.id, TierContact.id == contact_id)
     )
     row = result.first()
     if not row:
-        raise HTTPException(status_code=404, detail="Lien invalide ou expiré")
+        raise HTTPException(status_code=404, detail="PAX externe introuvable sur cette AdS")
+    _entry, contact = row
+    if allowed_company_id and contact.tier_id != allowed_company_id:
+        raise HTTPException(status_code=403, detail="Ce PAX n'appartient pas à l'entreprise autorisée")
 
-    link_id, ads_id, entity_id, otp_required, expires_at, max_uses, uses_count, preconf = row
-
-    # Check expiry
-    now = datetime.now(timezone.utc)
-    if expires_at and expires_at.replace(tzinfo=timezone.utc) < now:
-        raise HTTPException(status_code=410, detail="Ce lien a expiré")
-
-    # Check uses
-    if max_uses and uses_count >= max_uses:
-        raise HTTPException(status_code=410, detail="Ce lien a atteint le nombre maximum d'utilisations")
-
-    # Increment use count
-    await db.execute(
-        sa_text("UPDATE pax_external_links SET uses_count = uses_count + 1 WHERE id = :lid"),
-        {"lid": str(link_id)},
-    )
+    contact.first_name = body.first_name
+    contact.last_name = body.last_name
+    contact.birth_date = body.birth_date
+    contact.nationality = body.nationality
+    contact.badge_number = body.badge_number
+    contact.photo_url = body.photo_url
+    contact.email = body.email
+    contact.phone = body.phone
+    contact.position = body.position
+    _append_external_access_log(link, action="update_pax", request=request, otp_validated=True)
     await db.commit()
 
-    preconfigured = json.loads(preconf) if preconf else None
+    await record_audit(
+        db,
+        action="paxlog.external.pax.update",
+        resource_type="tier_contact",
+        resource_id=str(contact.id),
+        entity_id=entity_id,
+        details={"ads_id": str(ads.id), "link_id": str(link.id)},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    await db.commit()
+    return {"contact_id": str(contact.id), "ads_id": str(ads.id)}
 
-    return {
-        "ads_id": str(ads_id),
-        "entity_id": str(entity_id),
-        "otp_required": otp_required,
-        "preconfigured_data": preconfigured,
-    }
+
+@router.post("/external/{token}/pax/{contact_id}/credentials", status_code=201)
+async def create_external_ads_pax_credential(
+    token: str,
+    contact_id: UUID,
+    body: ExternalCredentialCreateBody,
+    request: Request,
+    x_external_session: str | None = Header(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    link = await _require_external_session(db, token=token, session_token=x_external_session)
+    ads, entity_id, allowed_company_id = await _get_external_ads_and_context(db, link=link)
+    if ads.status not in {"draft", "requires_review"}:
+        raise HTTPException(status_code=400, detail="Le dossier n'accepte plus de modification externe")
+
+    result = await db.execute(
+        select(AdsPax, TierContact)
+        .join(TierContact, TierContact.id == AdsPax.contact_id)
+        .where(AdsPax.ads_id == ads.id, TierContact.id == contact_id)
+    )
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="PAX externe introuvable sur cette AdS")
+    _entry, contact = row
+    if allowed_company_id and contact.tier_id != allowed_company_id:
+        raise HTTPException(status_code=403, detail="Ce PAX n'appartient pas à l'entreprise autorisée")
+
+    credential = PaxCredential(
+        contact_id=contact.id,
+        credential_type_id=body.credential_type_id,
+        obtained_date=body.obtained_date,
+        expiry_date=body.expiry_date,
+        proof_url=body.proof_url,
+        notes=body.notes,
+        status="pending_validation",
+    )
+    db.add(credential)
+    _append_external_access_log(link, action="create_credential", request=request, otp_validated=True)
+    await db.commit()
+    await db.refresh(credential)
+
+    await record_audit(
+        db,
+        action="paxlog.external.credential.create",
+        resource_type="pax_credential",
+        resource_id=str(credential.id),
+        entity_id=entity_id,
+        details={"ads_id": str(ads.id), "contact_id": str(contact.id), "link_id": str(link.id)},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    await db.commit()
+    return credential
+
+
+async def _finalize_external_ads_submission(
+    *,
+    link: ExternalAccessLink,
+    ads: Ads,
+    entity_id: UUID,
+    reason: str | None,
+    event_type: str,
+    old_status: str,
+    request: Request,
+    db: AsyncSession,
+) -> Ads:
+    pax_entries, has_compliance_issues, target_status = await _run_ads_submission_checks(
+        db,
+        ads=ads,
+        entity_id=entity_id,
+    )
+    ads.status = target_status
+    ads.submitted_at = func.now()
+    ads.rejection_reason = None
+
+    db.add(AdsEvent(
+        entity_id=entity_id,
+        ads_id=ads.id,
+        event_type=event_type,
+        old_status=old_status,
+        new_status=target_status,
+        actor_id=None,
+        reason=reason,
+    ))
+    _append_external_access_log(link, action=event_type, request=request, otp_validated=True)
+    await db.commit()
+    await db.refresh(ads)
+
+    await record_audit(
+        db,
+        action=f"paxlog.external.{event_type}",
+        resource_type="ads",
+        resource_id=str(ads.id),
+        entity_id=entity_id,
+        details={
+            "reference": ads.reference,
+            "pax_count": len(pax_entries),
+            "compliance_issues": has_compliance_issues,
+            "link_id": str(link.id),
+            "reason": reason,
+        },
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    await db.commit()
+    return ads
+
+
+@router.post("/external/{token}/submit", response_model=AdsRead)
+async def submit_external_ads(
+    token: str,
+    request: Request,
+    x_external_session: str | None = Header(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    link = await _require_external_session(db, token=token, session_token=x_external_session)
+    ads, entity_id, _allowed_company_id = await _get_external_ads_and_context(db, link=link)
+    if ads.status != "draft":
+        raise HTTPException(status_code=400, detail=f"Impossible de soumettre ce dossier avec le statut '{ads.status}'")
+    return await _finalize_external_ads_submission(
+        link=link,
+        ads=ads,
+        entity_id=entity_id,
+        reason=None,
+        event_type="external_submitted",
+        old_status="draft",
+        request=request,
+        db=db,
+    )
+
+
+@router.post("/external/{token}/resubmit", response_model=AdsRead)
+async def resubmit_external_ads(
+    token: str,
+    request: Request,
+    reason: str = Body(..., min_length=1, embed=True),
+    x_external_session: str | None = Header(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    link = await _require_external_session(db, token=token, session_token=x_external_session)
+    ads, entity_id, _allowed_company_id = await _get_external_ads_and_context(db, link=link)
+    if ads.status != "requires_review":
+        raise HTTPException(status_code=400, detail=f"Impossible de re-soumettre ce dossier avec le statut '{ads.status}'")
+    return await _finalize_external_ads_submission(
+        link=link,
+        ads=ads,
+        entity_id=entity_id,
+        reason=reason,
+        event_type="external_resubmitted",
+        old_status="requires_review",
+        request=request,
+        db=db,
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -3450,6 +4406,7 @@ async def list_avm(
     search: str | None = None,
     status_filter: str | None = None,
     mission_type: str | None = None,
+    scope: str | None = None,
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
@@ -3465,6 +4422,8 @@ async def list_avm(
         .outerjoin(User, User.id == MissionNotice.created_by)
         .where(MissionNotice.entity_id == entity_id, MissionNotice.archived == False)  # noqa: E712
     )
+    if scope == "my":
+        query = query.where(MissionNotice.created_by == current_user.id)
     if search:
         like = f"%{search}%"
         query = query.where(

@@ -271,6 +271,114 @@ class CostCenterUpdate(BaseModel):
     active: bool | None = None
 
 
+class ImputationOtpTemplateRead(OpsFluxSchema):
+    id: UUID
+    entity_id: UUID
+    code: str
+    name: str
+    description: str | None = None
+    rubrics: list[dict[str, Any]]
+    active: bool
+    created_at: datetime | None = None
+
+
+class ImputationOtpTemplateCreate(BaseModel):
+    code: str = Field(..., max_length=50)
+    name: str = Field(..., max_length=200)
+    description: str | None = None
+    rubrics: list[dict[str, Any]] = Field(default_factory=list)
+    active: bool = True
+
+
+class ImputationOtpTemplateUpdate(BaseModel):
+    code: str | None = None
+    name: str | None = None
+    description: str | None = None
+    rubrics: list[dict[str, Any]] | None = None
+    active: bool | None = None
+
+
+class ImputationReferenceRead(OpsFluxSchema):
+    id: UUID
+    entity_id: UUID
+    code: str
+    name: str
+    description: str | None = None
+    imputation_type: str
+    otp_policy: str
+    otp_template_id: UUID | None = None
+    default_project_id: UUID | None = None
+    default_cost_center_id: UUID | None = None
+    valid_from: date | None = None
+    valid_to: date | None = None
+    active: bool
+    metadata_: dict[str, Any] | None = Field(default=None, alias="metadata")
+    created_at: datetime | None = None
+
+
+class ImputationReferenceCreate(BaseModel):
+    code: str = Field(..., max_length=50)
+    name: str = Field(..., max_length=200)
+    description: str | None = None
+    imputation_type: str = Field(default="OPEX", pattern="^(OPEX|SOPEX|CAPEX|OTHER)$")
+    otp_policy: str = Field(default="forbidden", pattern="^(forbidden|required|optional)$")
+    otp_template_id: UUID | None = None
+    default_project_id: UUID | None = None
+    default_cost_center_id: UUID | None = None
+    valid_from: date | None = None
+    valid_to: date | None = None
+    active: bool = True
+    metadata: dict[str, Any] | None = None
+
+
+class ImputationReferenceUpdate(BaseModel):
+    code: str | None = None
+    name: str | None = None
+    description: str | None = None
+    imputation_type: str | None = Field(default=None, pattern="^(OPEX|SOPEX|CAPEX|OTHER)$")
+    otp_policy: str | None = Field(default=None, pattern="^(forbidden|required|optional)$")
+    otp_template_id: UUID | None = None
+    default_project_id: UUID | None = None
+    default_cost_center_id: UUID | None = None
+    valid_from: date | None = None
+    valid_to: date | None = None
+    active: bool | None = None
+    metadata: dict[str, Any] | None = None
+
+
+class ImputationAssignmentRead(OpsFluxSchema):
+    id: UUID
+    entity_id: UUID
+    imputation_reference_id: UUID
+    target_type: str
+    target_id: UUID
+    priority: int
+    valid_from: date | None = None
+    valid_to: date | None = None
+    active: bool
+    notes: str | None = None
+    created_at: datetime | None = None
+
+
+class ImputationAssignmentCreate(BaseModel):
+    imputation_reference_id: UUID
+    target_type: str = Field(..., pattern="^(user|user_group|business_unit|project)$")
+    target_id: UUID
+    priority: int = 100
+    valid_from: date | None = None
+    valid_to: date | None = None
+    active: bool = True
+    notes: str | None = None
+
+
+class ImputationAssignmentUpdate(BaseModel):
+    priority: int | None = None
+    valid_from: date | None = None
+    valid_to: date | None = None
+    active: bool | None = None
+    notes: str | None = None
+
+
 # ─── Tier schemas ────────────────────────────────────────────────────────────
 
 class TierRead(OpsFluxSchema):
@@ -781,6 +889,7 @@ class AttachmentRead(OpsFluxSchema):
 class CostImputationCreate(BaseModel):
     owner_type: str = Field(..., min_length=1, max_length=50)
     owner_id: UUID
+    imputation_reference_id: UUID | None = None
     project_id: UUID | None = None
     wbs_id: UUID | None = None
     cost_center_id: UUID | None = None
@@ -790,6 +899,7 @@ class CostImputationCreate(BaseModel):
 
 
 class CostImputationUpdate(BaseModel):
+    imputation_reference_id: UUID | None = None
     project_id: UUID | None = None
     wbs_id: UUID | None = None
     cost_center_id: UUID | None = None
@@ -802,6 +912,7 @@ class CostImputationRead(OpsFluxSchema):
     id: UUID
     owner_type: str
     owner_id: UUID
+    imputation_reference_id: UUID | None
     project_id: UUID | None
     wbs_id: UUID | None
     cost_center_id: UUID | None
@@ -812,6 +923,10 @@ class CostImputationRead(OpsFluxSchema):
     created_at: datetime
     updated_at: datetime
     # Enriched (joined)
+    imputation_reference_code: str | None = None
+    imputation_reference_name: str | None = None
+    imputation_type: str | None = None
+    otp_policy: str | None = None
     project_name: str | None = None
     cost_center_name: str | None = None
     author_name: str | None = None

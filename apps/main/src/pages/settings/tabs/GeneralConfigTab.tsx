@@ -9,27 +9,17 @@
  */
 import { useCallback, useRef, useState } from 'react'
 import { Loader2, Crosshair, MapPin, Upload, Image as ImageIcon } from 'lucide-react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
+import type { UseMutationResult } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { useToast, TOAST_POSITIONS } from '@/components/ui/Toast'
 import { TagSelector } from '@/components/layout/DynamicPanel'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
+import { ImputationAdminSection } from '@/components/shared/ImputationAdminSection'
 import { MapPickerModal } from '@/components/shared/MapPicker'
-import type { SettingRead } from '@/types/api'
-
-// ── Helpers ──
-async function fetchSettings(scope: string): Promise<Record<string, unknown>> {
-  const { data } = await api.get<SettingRead[]>('/api/v1/settings', { params: { scope } })
-  const map: Record<string, unknown> = {}
-  for (const s of data) {
-    map[s.key] = s.value?.v ?? s.value
-  }
-  return map
-}
-
-async function saveSetting(key: string, value: unknown, scope: string): Promise<void> {
-  await api.put('/api/v1/settings', { key, value: { v: value } }, { params: { scope } })
-}
+import { DefaultImputationSettingEditor } from '@/components/shared/DefaultImputationSettingEditor'
+import { useSaveScopedSetting, useScopedSettingsMap } from '@/hooks/useSettings'
 
 // ── Setting Row component ──
 function SettingRow({
@@ -53,28 +43,39 @@ function SettingRow({
 }
 
 export function GeneralConfigTab() {
+  const { t } = useTranslation()
   const { toast } = useToast()
-  const qc = useQueryClient()
-  const { data: settings, isLoading } = useQuery({
-    queryKey: ['settings', 'entity'],
-    queryFn: () => fetchSettings('entity'),
-  })
-
-  const mutation = useMutation({
-    mutationFn: ({ key, value }: { key: string; value: unknown }) =>
-      saveSetting(key, value, 'entity'),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['settings', 'entity'] })
-      toast({ title: 'Paramètre enregistré', variant: 'success' })
-    },
-    onError: () => {
-      toast({ title: 'Erreur', description: 'Impossible d\'enregistrer le paramètre.', variant: 'error' })
-    },
-  })
+  const { data: settings, isLoading } = useScopedSettingsMap('entity')
+  const mutation = useSaveScopedSetting('entity')
 
   const save = useCallback((key: string, value: unknown) => {
-    mutation.mutate({ key, value })
-  }, [mutation])
+    mutation.mutate(
+      { key, value },
+      {
+        onSuccess: () => {
+          toast({ title: 'Paramètre enregistré', variant: 'success' })
+        },
+        onError: () => {
+          toast({ title: 'Erreur', description: "Impossible d'enregistrer le paramètre.", variant: 'error' })
+        },
+      },
+    )
+  }, [mutation, toast])
+
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('path', 'branding')
+      const { data } = await api.post('/api/v1/admin/fs/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      return `/static/${data.path || `branding/${file.name}`}`
+    },
+    onSuccess: () => {
+      toast({ title: 'Logo chargé', variant: 'success' })
+    },
+  })
 
   if (isLoading) {
     return (
@@ -247,6 +248,33 @@ export function GeneralConfigTab() {
 
       {/* ── Email ── */}
       <CollapsibleSection
+        id="imputation-default"
+        title={t('settings.default_imputation.entity_section_title')}
+        description={t('settings.default_imputation.entity_section_description')}
+        storageKey="settings.general-config.collapse"
+      >
+        <div className="mt-2">
+          <DefaultImputationSettingEditor
+            scope="entity"
+            title={t('settings.default_imputation.entity_card_title')}
+            description={t('settings.default_imputation.entity_card_description')}
+            hint={t('settings.default_imputation.entity_card_hint')}
+          />
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        id="imputations-admin"
+        title={t('settings.imputations.section_title')}
+        description={t('settings.imputations.section_description')}
+        storageKey="settings.general-config.collapse"
+      >
+        <div className="mt-2">
+          <ImputationAdminSection />
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection
         id="emails-config"
         title="Emails"
         description="Personnalisation de l'apparence des emails envoyés par OpsFlux."
@@ -258,6 +286,7 @@ export function GeneralConfigTab() {
             <EmailLogoUpload
               currentUrl={(s['core.email_header_logo_url'] as string) ?? '/static/logo-opsflux.png'}
               onSave={(url) => save('core.email_header_logo_url', url)}
+              uploadMutation={uploadMutation}
             />
           </SettingRow>
 
@@ -290,9 +319,16 @@ export function GeneralConfigTab() {
 }
 
 // ── Email Logo Upload component ────────────────────────
-function EmailLogoUpload({ currentUrl, onSave }: { currentUrl: string; onSave: (url: string) => void }) {
+function EmailLogoUpload({
+  currentUrl,
+  onSave,
+  uploadMutation,
+}: {
+  currentUrl: string
+  onSave: (url: string) => void
+  uploadMutation: UseMutationResult<string, unknown, File, unknown>
+}) {
   const fileRef = useRef<HTMLInputElement>(null)
-  const [uploading, setUploading] = useState(false)
   const [preview, setPreview] = useState(currentUrl)
   const apiBase = import.meta.env.VITE_API_URL || ''
 
@@ -301,23 +337,14 @@ function EmailLogoUpload({ currentUrl, onSave }: { currentUrl: string; onSave: (
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    setUploading(true)
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('path', 'branding')
-      const { data } = await api.post('/api/v1/admin/fs/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
-      const uploadedPath = `/static/${data.path || `branding/${file.name}`}`
+      const uploadedPath = await uploadMutation.mutateAsync(file)
       setPreview(uploadedPath)
       onSave(uploadedPath)
     } catch {
       // fallback: keep current
-    } finally {
-      setUploading(false)
-      e.target.value = ''
     }
+    e.target.value = ''
   }
 
   return (
@@ -335,9 +362,9 @@ function EmailLogoUpload({ currentUrl, onSave }: { currentUrl: string; onSave: (
       <button
         className="gl-button-sm gl-button-default flex items-center gap-1.5"
         onClick={() => fileRef.current?.click()}
-        disabled={uploading}
+        disabled={uploadMutation.isPending}
       >
-        {uploading ? <Loader2 size={11} className="animate-spin" /> : <Upload size={11} />}
+        {uploadMutation.isPending ? <Loader2 size={11} className="animate-spin" /> : <Upload size={11} />}
         Charger
       </button>
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />

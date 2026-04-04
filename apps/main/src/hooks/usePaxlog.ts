@@ -168,7 +168,7 @@ export function useExpiringCredentials(daysAhead?: number) {
 
 // ── Avis de Sejour (AdS) ──
 
-export function useAdsList(params: { page?: number; page_size?: number; status?: string; visit_category?: string; site_entry_asset_id?: string; search?: string; requester_id?: string; date_from?: string; date_to?: string } = {}) {
+export function useAdsList(params: { page?: number; page_size?: number; status?: string; visit_category?: string; site_entry_asset_id?: string; search?: string; requester_id?: string; scope?: 'my' | 'all'; date_from?: string; date_to?: string } = {}) {
   return useQuery({
     queryKey: ['paxlog', 'ads', params],
     queryFn: () => paxlogService.listAds(params),
@@ -238,6 +238,26 @@ export function useRejectAds() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason?: string }) => paxlogService.rejectAds(id, reason),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['paxlog', 'ads'] })
+    },
+  })
+}
+
+export function useRequestReviewAds() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) => paxlogService.requestReviewAds(id, reason),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['paxlog', 'ads'] })
+    },
+  })
+}
+
+export function useResubmitAds() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) => paxlogService.resubmitAds(id, reason),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['paxlog', 'ads'] })
     },
@@ -317,6 +337,14 @@ export function useAdsImputations(adsId: string) {
   return useQuery({
     queryKey: ['paxlog', 'ads', adsId, 'imputations'],
     queryFn: () => paxlogService.getAdsImputations(adsId),
+    enabled: !!adsId,
+  })
+}
+
+export function useAdsImputationSuggestion(adsId: string) {
+  return useQuery({
+    queryKey: ['paxlog', 'ads', adsId, 'imputation-suggestion'],
+    queryFn: () => paxlogService.getAdsImputationSuggestion(adsId),
     enabled: !!adsId,
   })
 }
@@ -513,7 +541,7 @@ export function useHabilitationMatrix(profileTypeId?: string) {
 
 // ── Avis de Mission (AVM) ──
 
-export function useAvmList(params: { page?: number; page_size?: number; search?: string; status?: string; mission_type?: string } = {}) {
+export function useAvmList(params: { page?: number; page_size?: number; search?: string; status?: string; mission_type?: string; scope?: 'my' | 'all' } = {}) {
   return useQuery({
     queryKey: ['paxlog', 'avm', params],
     queryFn: () => paxlogService.listAvm(params),

@@ -131,6 +131,45 @@ async def _get_smtp_config() -> dict[str, str]:
     return cfg
 
 
+# Docker-internal SMTP aliases to try when the configured host is unreachable
+_SMTP_DOCKER_FALLBACKS = ["mailu-smtp", "mailu-front", "front", "smtp", "mail"]
+
+
+async def _smtp_send_via(
+    host: str, port: int, encryption: str, username: str, password: str,
+    message,
+) -> None:
+    """Connect to a single SMTP host and send the message."""
+    import ssl as _ssl
+    import aiosmtplib
+
+    if port == 465 and encryption != "none":
+        use_tls, start_tls = True, False
+    elif port == 587 or encryption == "tls":
+        use_tls, start_tls = False, True
+    elif encryption == "ssl":
+        use_tls, start_tls = True, False
+    else:
+        use_tls, start_tls = False, False
+
+    tls_context = _ssl.create_default_context()
+    tls_context.check_hostname = False
+    tls_context.verify_mode = _ssl.CERT_NONE
+
+    logger.info("SMTP connecting to %s:%s (tls=%s, starttls=%s)", host, port, use_tls, start_tls)
+    smtp = aiosmtplib.SMTP(
+        hostname=host, port=port, timeout=30,
+        use_tls=use_tls, tls_context=tls_context if use_tls else None,
+    )
+    await smtp.connect()
+    if start_tls:
+        await smtp.starttls(tls_context=tls_context)
+    if username and password:
+        await smtp.login(username, password)
+    await smtp.send_message(message)
+    await smtp.quit()
+
+
 async def send_email(
     *,
     to: str,
@@ -138,9 +177,12 @@ async def send_email(
     body_html: str,
     from_name: str | None = None,
 ) -> None:
-    """Send an email via SMTP. Uses DB integration settings if configured, .env as fallback."""
+    """Send an email via SMTP. Uses DB integration settings if configured, .env as fallback.
+
+    Automatically falls back to Docker-internal SMTP aliases (mailu-smtp, etc.)
+    when the configured host is unreachable (hairpin NAT workaround).
+    """
     try:
-        import aiosmtplib
         from email.mime.text import MIMEText
         from email.mime.multipart import MIMEMultipart
 
@@ -162,27 +204,27 @@ async def send_email(
         message["Subject"] = subject
         message.attach(MIMEText(body_html, "html"))
 
-        use_tls = encryption == "ssl"
-        start_tls = encryption == "tls"
+        # Try the configured host first
+        try:
+            await _smtp_send_via(host, port, encryption, username, password, message)
+            logger.info("Email sent successfully to %s via %s:%s", to, host, port)
+            return
+        except Exception as primary_err:
+            logger.warning("SMTP %s:%s failed (%s) — trying Docker fallbacks", host, port, primary_err)
 
-        # Relaxed TLS context for internal Docker networks
-        import ssl as _ssl
-        tls_context = _ssl.create_default_context()
-        tls_context.check_hostname = False
-        tls_context.verify_mode = _ssl.CERT_NONE
+        # Fallback: try Docker-internal aliases
+        for fallback in _SMTP_DOCKER_FALLBACKS:
+            if fallback == host:
+                continue
+            try:
+                await _smtp_send_via(fallback, port, encryption, username, password, message)
+                logger.info("Email sent to %s via Docker alias '%s:%s'", to, fallback, port)
+                return
+            except Exception:
+                continue
 
-        logger.info("SMTP connecting to %s:%s (tls=%s, starttls=%s) for %s", host, port, use_tls, start_tls, to)
-        smtp = aiosmtplib.SMTP(
-            hostname=host, port=port, timeout=30,
-            use_tls=use_tls, tls_context=tls_context if use_tls else None,
-        )
-        await smtp.connect()
-        if start_tls:
-            await smtp.starttls(tls_context=tls_context)
-        if username and password:
-            await smtp.login(username, password)
-        await smtp.send_message(message)
-        await smtp.quit()
-        logger.info("Email sent successfully to %s — subject: %s", to, subject)
+        # All fallbacks failed — raise the original error
+        raise primary_err  # noqa: F821
+
     except Exception:
         logger.exception("Failed to send email to %s — subject: %s", to, subject)

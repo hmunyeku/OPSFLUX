@@ -160,13 +160,16 @@
     "select_option": "Select...",
     "enabled": "Enabled",
     "disabled": "Disabled",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
     "role": "Role",
     "group": "Group",
     "date": "Date",
     "time": "Time",
     "duration": "Duration",
     "comment": "Comment",
-    "history": "History"
+    "history": "History",
+    "total": "Total"
   },
   "datatable": {
     "search_filter": "Select a filter or search…",
@@ -1164,6 +1167,60 @@
   "paxlog": {
     "title": "PaxLog",
     "subtitle": "Passenger management and visit notices",
+    "tabs": {
+      "dashboard": "Dashboard",
+      "ads": "Visit notices",
+      "profiles": "PAX profiles",
+      "compliance": "Compliance",
+      "signalements": "Incidents",
+      "rotations": "Rotations",
+      "avm": "Missions (AVM)"
+    },
+    "actions": {
+      "new_profile": "New profile",
+      "new_signalement": "New incident",
+      "new_rotation": "New rotation"
+    },
+    "status": {
+      "generic": {
+        "active": "Active",
+        "inactive": "Inactive",
+        "incomplete": "Incomplete",
+        "suspended": "Suspended",
+        "archived": "Archived"
+      },
+      "ads": {
+        "draft": "Draft",
+        "submitted": "Submitted",
+        "pending_compliance": "Compliance",
+        "pending_validation": "Validation",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "cancelled": "Cancelled",
+        "requires_review": "Needs review",
+        "in_progress": "In progress",
+        "completed": "Completed"
+      },
+      "rotation": {
+        "active": "Active",
+        "paused": "Paused",
+        "completed": "Completed"
+      },
+      "avm": {
+        "draft": "Draft",
+        "in_preparation": "In preparation",
+        "active": "Active",
+        "ready": "Ready",
+        "completed": "Completed",
+        "cancelled": "Cancelled"
+      }
+    },
+    "severity": {
+      "info": "Info",
+      "warning": "Warning",
+      "temp_ban": "Temporary ban",
+      "permanent_ban": "Permanent ban"
+    },
     "profiles": "PAX Profiles",
     "ads": "Visit Notices",
     "credentials": "Credentials",
@@ -1208,6 +1265,7 @@
     "no_rotation": "No rotation cycle",
     "no_compliance_entry": "No entry in the matrix",
     "no_certification_expiring_soon": "No certification expiring soon",
+    "profiles_count": "{{count}} profiles",
     "search_profile": "Search by name, badge...",
     "search_ads": "Search by reference, category...",
     "search_certification": "Search by PAX, certification...",
@@ -1219,7 +1277,506 @@
     "cancel_question": "Cancel?",
     "no_passenger": "No passenger",
     "no_cargo": "No cargo",
-    "log_event": "Log event"
+    "log_event": "Log event",
+    "common": {
+      "site_not_specified": "Site not specified"
+    },
+    "dashboard": {
+      "kpis": {
+        "registered_pax": "Registered PAX",
+        "pending_ads": "Pending visit notices",
+        "active_incidents": "Active incidents",
+        "compliance_rate": "Compliance rate",
+        "total_pax": "Total PAX",
+        "compliant": "Compliant",
+        "non_compliant": "Non-compliant",
+        "expiring_soon": "Expiring soon",
+        "expired": "Expired"
+      },
+      "sections": {
+        "ads_by_status": "Visit notices by status",
+        "recent_ads": "Recent visit notices",
+        "expiring_credentials": "Expiring credentials",
+        "compliance_stats": "Compliance statistics"
+      }
+    },
+    "requester": {
+      "eyebrow": "Requester flow",
+      "title": "Request a stay or prepare a mission",
+      "description": "Start with a visit notice if you manage a stay. Use an AVM if you need to structure a mission with several steps or linked visit notices.",
+      "kpis": {
+        "my_ads": "My visit notices",
+        "drafts": "Drafts",
+        "pending": "To review",
+        "active_stays": "Active stays"
+      },
+      "sections": {
+        "my_ads": "My stay requests",
+        "my_avm": "My mission notices",
+        "before_submit": "Before submission"
+      },
+      "guidance": {
+        "add_pax": "Add PAX, then review destination, dates and imputation before submission.",
+        "use_avm": "Use an AVM when you need to prepare a mission with several activities, sites or linked visit notices.",
+        "imputation_rule": "Validators can still adjust the imputation before approval, but the internal requester entry remains the initial source of truth."
+      },
+      "empty": {
+        "my_ads": "No visit notice yet.",
+        "my_avm": "No recent AVM."
+      }
+    },
+    "validator": {
+      "eyebrow": "Validation flow",
+      "title": "Process dossiers, arbitrate gaps, keep departures moving",
+      "description": "This view prioritizes visit notices and mission notices that require validation, compliance review or arbitration before movement.",
+      "kpis": {
+        "ads_to_review": "Visit notices to process",
+        "final_validation": "Final validation",
+        "compliance_review": "Compliance review",
+        "avm_to_arbitrate": "AVM to arbitrate"
+      },
+      "sections": {
+        "ads_priority": "Priority visit notices",
+        "avm_priority": "AVM to arbitrate",
+        "compliance_risks": "Immediate compliance risks",
+        "attention_points": "Attention points"
+      },
+      "empty": {
+        "ads_priority": "No immediate visit notice in queue.",
+        "avm_priority": "No AVM waiting for arbitration.",
+        "compliance_risks": "No critical credential within 7 days."
+      },
+      "requester_label": "Requester: {{name}}",
+      "creator_label": "Creator: {{name}}",
+      "avm_planned_pax": "{{count}} planned PAX",
+      "preparation_progress": "preparation {{progress}}%",
+      "guidance": {
+        "ads_priority": "Handle `pending_validation` visit notices first, then `pending_compliance` dossiers when business arbitration is required.",
+        "ads_imputation": "On a visit notice, imputation can still be adjusted before final validation; what matters is dossier, PAX and destination consistency.",
+        "avm_scope": "On an AVM, the objective is to validate mission framing and the lines that will later trigger visit notices or revisions."
+      }
+    },
+    "ads": {
+      "validator_hint_prefix": "Validation queue: start with dossiers in",
+      "validator_hint_middle": "then handle gaps in",
+      "validator_hint_or": "or",
+      "kpis": {
+        "my_ads": "My visit notices",
+        "queue_ads": "Visit notice queue",
+        "validation": "Validation",
+        "pending": "Pending",
+        "review_gaps": "Gaps to review",
+        "approved": "Approved",
+        "total_pax": "Total PAX"
+      },
+      "count": "{{count}} {{scope}}",
+      "count_scope": {
+        "requester": "my notices",
+        "validator": "dossiers in queue",
+        "default": "notices"
+      },
+      "search": {
+        "validator": "Search by reference, requester, site...",
+        "default": "Search by reference, category..."
+      },
+      "empty": {
+        "validator": "No visit notice in this queue",
+        "default": "No visit notice"
+      }
+    },
+    "avm": {
+      "validator_hint_prefix": "Mission arbitration queue: prioritize AVMs in",
+      "validator_hint_middle": "then missions in",
+      "validator_hint_suffix": "before launch or closure.",
+      "kpis": {
+        "my_avm": "My AVMs",
+        "queue_avm": "AVM queue",
+        "to_arbitrate": "To arbitrate",
+        "in_progress": "In progress",
+        "ready": "Ready",
+        "planned_pax": "Planned PAX"
+      },
+      "count": "{{count}} {{scope}}",
+      "count_scope": {
+        "requester": "my missions",
+        "validator": "missions in queue",
+        "default": "missions"
+      },
+      "search": {
+        "validator": "Search by reference, title, creator...",
+        "default": "Search by reference, title..."
+      },
+      "empty": {
+        "validator": "No AVM in this queue",
+        "default": "No mission notice"
+      }
+    },
+    "avm_table": {
+      "preparation_percent": "Preparation %"
+    },
+    "create_ads": {
+      "title": "New visit notice",
+      "subtitle": "PaxLog",
+      "intro": "Create the visit notice first with destination, period and purpose. You will add PAX, imputation and attachments afterwards in the dossier.",
+      "sections": {
+        "request": "Request",
+        "type_destination": "Type and destination",
+        "visit_details": "Visit details"
+      },
+      "checklist": {
+        "destination": "Destination completed",
+        "category": "Category selected",
+        "period": "Period completed",
+        "purpose": "Visit purpose completed"
+      },
+      "summary": {
+        "undefined": "Undefined",
+        "to_define": "To be defined",
+        "format": "Format",
+        "category": "Category",
+        "project": "Project",
+        "transports": "Transport",
+        "bu_entity_imputation": "BU / entity imputation"
+      },
+      "type": {
+        "individual": "Individual",
+        "team": "Team"
+      },
+      "fields": {
+        "entry_site": "Entry site",
+        "project": "Linked project",
+        "dates": "Dates",
+        "outbound_transport": "Outbound transport",
+        "return_transport": "Return transport"
+      },
+      "select_option": "— Select —",
+      "no_project": "— No project —",
+      "undefined_option": "— Undefined —",
+      "placeholders": {
+        "visit_purpose": "Describe the purpose of the visit..."
+      },
+      "footer_hint": "Passengers and imputations can be added after creation from the detail panel."
+    },
+    "create_avm": {
+      "title": "New mission notice",
+      "subtitle": "PaxLog — Missions (AVM)",
+      "intro": "The AVM is used to frame a mission before generating or linking visit notices. Describe the mission, its timeframe and its program lines.",
+      "sections": {
+        "preparation": "Mission preparation",
+        "mission": "Mission",
+        "planned_dates": "Planned dates",
+        "preparation_indicators": "Preparation indicators",
+        "initial_program": "Initial program"
+      },
+      "checklist": {
+        "title": "Mission title completed",
+        "mission_type": "Mission type selected",
+        "period": "Planned period completed",
+        "program_line": "At least one program line described"
+      },
+      "summary": {
+        "undefined": "Undefined",
+        "mission_type": "Mission type",
+        "planned_pax": "Planned PAX",
+        "described_lines": "Described lines",
+        "sites_projects": "Sites / Projects",
+        "sites_projects_value": "{{sites}} sites • {{projects}} projects"
+      },
+      "fields": {
+        "planned_pax": "Planned PAX",
+        "departure": "Departure",
+        "return": "Return"
+      },
+      "placeholders": {
+        "title": "Ex: E-LINE ESF1 Mission",
+        "description": "Mission description..."
+      },
+      "date_hint": "The mission timeframe is the baseline. Program lines can then refine their own dates.",
+      "program_intro": "Start with the main mission steps. You can later arbitrate, link visit notices and refine lines during validation."
+      ,
+      "program": {
+        "line": "Line {{index}}",
+        "activity": "Activity",
+        "activity_type": "Activity type",
+        "line_dates": "Line dates",
+        "start": "Start",
+        "end": "End",
+        "add_line": "Add program line",
+        "placeholders": {
+          "activity": "Ex: line inspection, project meeting, handover...",
+          "notes": "Constraints, participants, dependencies..."
+        }
+      }
+    },
+    "ads_detail": {
+      "actions": {
+        "external_link": "External link"
+      },
+      "reject": {
+        "reason_title": "Rejection reason",
+        "placeholder": "Provide the rejection reason (optional)..."
+      },
+      "request_review": {
+        "reason_title": "Reason for correction request",
+        "placeholder": "Explain what must be corrected before resubmission...",
+        "confirm": "Send back for correction"
+      },
+      "resubmit": {
+        "reason_title": "Reason for resubmission",
+        "placeholder": "Briefly describe the corrections made...",
+        "confirm": "Resubmit dossier"
+      },
+      "cross_company": "Cross-company",
+      "checklist": {
+        "destination": "Destination completed",
+        "category": "Category completed",
+        "dates": "Dates completed",
+        "purpose": "Visit purpose completed",
+        "passenger": "At least one passenger"
+      },
+      "next_action": {
+        "draft_ready": "The dossier can be submitted. Review PAX and imputation before sending.",
+        "draft_missing": "Complete the missing information and add at least one passenger before submission.",
+        "submitted": "The dossier is waiting for compliance review or validation.",
+        "pending_compliance": "The dossier is under compliance review. Monitor passenger and document gaps.",
+        "pending_validation": "The dossier is under validation. Final adjustments mostly concern imputation and arbitration.",
+        "requires_review": "The dossier was sent back for correction. Apply the requested changes and resubmit it.",
+        "approved": "The stay is approved. Prepare movements and, if needed, share the external link.",
+        "in_progress": "The stay is in progress. Any date or return change must be re-arbitrated.",
+        "completed": "The stay is completed. The dossier now serves as reference and audit trail.",
+        "rejected": "The dossier was rejected. Correct the content or create a new request depending on the reason.",
+        "cancelled": "The dossier is cancelled. No operational action is expected."
+      },
+      "readiness": {
+        "title_draft": "Ready for submission • {{status}}",
+        "title_readonly": "Dossier view",
+        "ready": "Yes",
+        "to_complete": "To complete",
+        "imputation_hint": "Imputation is not blocking at creation time. It still must be reviewed before final dossier approval."
+      },
+      "kpis": {
+        "passengers": "Passengers",
+        "compliant_pax": "Compliant PAX",
+        "compliance_gaps": "Compliance gaps"
+      },
+      "sections": {
+        "visit_transport": "Visit & transport",
+        "passengers": "Passengers ({{count}})",
+        "imputations": "Imputations",
+        "tags_notes_files": "Tags, notes & files"
+      },
+      "fields": {
+        "purpose": "Purpose",
+        "category": "Category",
+        "site": "Site",
+        "dates": "Dates",
+        "requester": "Requester",
+        "project": "Project",
+        "outbound_transport": "Outbound transport",
+        "return_transport": "Return transport",
+        "badge": "Badge: {{value}}"
+      },
+      "search_pax_placeholder": "Search for a user, contact, PAX profile...",
+      "passenger_type": {
+        "internal": "Int.",
+        "external": "Ext."
+      },
+      "pax_candidate": {
+        "user": "User{{email}}",
+        "contact": "Contact{{position}}"
+      },
+      "imputation": {
+        "backend_suggestion": "Backend suggestion",
+        "project": "Project",
+        "cost_center": "Cost center",
+        "sources": "Sources: project={{project}} • cost center={{cost_center}}"
+      },
+      "history": {
+        "created_at": "Created at",
+        "submitted_at": "Submitted at",
+        "approved_at": "Approved on {{date}}",
+        "rejected_at": "Rejected on {{date}}",
+        "requires_review": "Sent back for correction"
+      },
+      "actions": {
+        "external_link": "External link",
+        "add_passenger": "Add passenger",
+        "remove_passenger": "Remove this passenger",
+        "request_review": "Send back for correction",
+        "resubmit": "Resubmit"
+      },
+      "empty": {
+        "pax_search": "No result for “{{search}}”",
+        "passengers": "No passenger. Add PAX before you can submit the visit notice."
+      }
+    },
+    "avm_detail": {
+      "not_found_title": "AVM not found",
+      "not_found_message": "Mission notice not found.",
+      "checklist": {
+        "scope": "Mission title and framing completed",
+        "window": "Mission window defined",
+        "program": "Initial program entered",
+        "sites": "Sites assigned on lines",
+        "detailed_dates": "Detailed dates on lines"
+      },
+      "next_action": {
+        "draft_ready": "The mission can be submitted to start preparation and validations.",
+        "draft_missing": "Complete mission framing and program lines before submission.",
+        "in_preparation": "Follow preparation tasks, then validate linked visit notices before final arbitration.",
+        "active": "The mission is in progress. Monitor lines, generated visit notices and date changes.",
+        "ready": "The mission is ready. Review remaining gaps before operational closure.",
+        "completed": "Mission completed. Use this view as the reference dossier.",
+        "cancelled": "Mission cancelled. Keep the dossier for audit and history."
+      },
+      "readiness": {
+        "title": "Requester view • {{status}}",
+        "ready": "Mission framed",
+        "to_complete": "To complete"
+      },
+      "kpis": {
+        "program_lines": "Program lines",
+        "generated_ads": "Generated visit notices",
+        "planned_pax": "Planned PAX"
+      },
+      "sections": {
+        "information": "Information",
+        "preparation_indicators": "Preparation indicators",
+        "preparation_tasks": "Preparation ({{progress}}%)",
+        "program": "Program ({{count}} lines)",
+        "metadata": "Metadata"
+      },
+      "fields": {
+        "creator": "Creator",
+        "planned_dates": "Planned dates",
+        "cancellation_reason": "Cancellation reason",
+        "created_at": "Created at",
+        "updated_at": "Updated at"
+      },
+      "empty": {
+        "preparation_tasks": "No preparation task. Submit the AVM to generate the checklist.",
+        "program": "No program line defined."
+      },
+      "program": {
+        "site": "Site: {{site}}",
+        "site_missing": "Site to be specified",
+        "dates_missing": "Detailed dates are not defined",
+        "pax_count": "{{count}} PAX",
+        "generated_ads": "Generated visit notice"
+      }
+    },
+    "compliance_tab": {
+      "expiry": "Expiry",
+      "delay": "Delay",
+      "required_credential": "Required credential",
+      "scope": "Scope",
+      "mandatory": "Mandatory",
+      "defined_by": "Defined by",
+      "scope_values": {
+        "all_visitors": "All",
+        "contractors_only": "Contractors",
+        "permanent_staff_only": "Permanent staff"
+      },
+      "defined_by_values": {
+        "hse_central": "Central HSE",
+        "site": "Site"
+      },
+      "kpis": {
+        "rate": "Compliance rate",
+        "compliant": "Compliant",
+        "non_compliant": "Non-compliant",
+        "expiring_soon": "Expiring soon"
+      },
+      "sections": {
+        "expiring": "Credentials expiring within 90d ({{count}})",
+        "matrix": "Compliance matrix ({{count}})"
+      }
+    },
+    "signalements": {
+      "active_only": "Active only",
+      "count": "{{count}} incidents",
+      "status": {
+        "resolved": "Resolved",
+        "active": "Active"
+      }
+    },
+    "rotations_tab": {
+      "cycle": "Cycle",
+      "start": "Start",
+      "next_rotation": "Next rotation",
+      "finish": "Finish",
+      "count": "{{count}} rotations"
+    },
+    "profile_panel": {
+      "create_title": "New PAX profile",
+      "subtitle": "PaxLog",
+      "sections": {
+        "profile_type": "Profile type",
+        "user_account": "User account",
+        "identity": "Identity",
+        "additional_info": "Additional information"
+      },
+      "fields": {
+        "company": "Company (tier)",
+        "user": "Perenco user",
+        "first_name": "First name",
+        "last_name": "Last name",
+        "birth_date": "Birth date",
+        "nationality": "Nationality",
+        "badge_number": "Badge #"
+      },
+      "placeholders": {
+        "nationality": "CM, FR..."
+      },
+      "type_help": {
+        "internal": "Perenco staff — linked to a user account",
+        "external": "Contractor / visitor — linked to a company (tier)"
+      },
+      "archive_confirm": "Archive?",
+      "linked_company": "Linked company",
+      "linked_user": "Linked user account",
+      "internal_user_profile": "Internal user profile",
+      "credentials_title": "Credentials ({{count}})",
+      "credential_obtained": "Obtained: {{date}}",
+      "credential_expires": "Expires: {{date}}"
+    },
+    "incident_panel": {
+      "create_title": "New incident",
+      "subtitle": "PaxLog — Incidents",
+      "sections": {
+        "severity": "Severity",
+        "concerned_pax": "Concerned PAX",
+        "details": "Details",
+        "ban_period": "Ban period"
+      },
+      "fields": {
+        "pax_profile": "PAX profile",
+        "incident_date": "Incident date",
+        "ban_start": "Ban start",
+        "ban_end": "Ban end"
+      },
+      "placeholders": {
+        "search_pax": "Search for a PAX...",
+        "description": "Describe the incident..."
+      }
+    },
+    "rotation_panel": {
+      "create_title": "New rotation cycle",
+      "subtitle": "PaxLog — Rotations",
+      "sections": {
+        "cycle": "Cycle"
+      },
+      "fields": {
+        "pax_profile": "PAX profile",
+        "days_on": "Days on",
+        "days_off": "Days off",
+        "start_date": "Start date"
+      },
+      "placeholders": {
+        "search_pax": "Search for a PAX...",
+        "notes": "Optional notes..."
+      }
+    }
   },
   "planner": {
     "title": "Planner",
@@ -1453,6 +2010,104 @@
       "addresses": "Addresses",
       "emails": "Emails",
       "rbac": "RBAC"
+    },
+    "default_imputation": {
+      "saved": "Default imputation saved",
+      "save_error": "Could not save the default imputation.",
+      "reset": "Reset",
+      "reset_success": "Default imputation reset",
+      "reset_error": "Could not reset the default imputation.",
+      "default_project": "Default project",
+      "no_default_project": "No default project",
+      "default_project_help": "Used first when no project is defined directly on the dossier.",
+      "default_cost_center": "Default cost center",
+      "no_default_cost_center": "No default cost center",
+      "default_cost_center_help": "Used as fallback when the dossier inherits neither a project nor a higher-priority rule.",
+      "user_section_title": "Default imputation",
+      "user_section_description": "Personal preference applied before BU or entity rules on dossiers you initiate.",
+      "user_card_title": "My imputation rule",
+      "user_card_description": "This preference acts as the user-level priority for AdS and other internally created dossiers when no project is set directly.",
+      "user_card_hint": "This rule only applies to dossiers you create. Validators can still adjust the imputation before final approval.",
+      "entity_section_title": "Default imputation",
+      "entity_section_description": "Fallback imputation for dossiers created in this entity when no higher-priority rule applies.",
+      "entity_card_title": "Entity imputation rule",
+      "entity_card_description": "This rule acts as the last fallback for AdS and other dossiers when neither a project, a user preference, nor a BU provides a usable imputation.",
+      "entity_card_hint": "Current AdS resolution order: dossier project -> user default -> requester BU -> entity default -> first active cost center fallback."
+    },
+    "imputation_manager": {
+      "add": "Add imputation",
+      "create_error": "Could not add the imputation.",
+      "update_error": "Could not update the imputation.",
+      "delete_error": "Could not delete the imputation.",
+      "prefilled_project_help": "The dossier project is preselected. Adjust it if another imputation is required.",
+      "no_project_help": "No project is linked to the dossier. Select the applicable imputation before validation.",
+      "reference": "Reference",
+      "reference_placeholder": "— Imputation reference —",
+      "project": "Project",
+      "project_placeholder": "— Project —",
+      "cost_center": "Cost center",
+      "cost_center_placeholder": "— Cost center —",
+      "empty": "No cost imputation.",
+      "total_error": "The total imputation split must equal 100%.",
+      "quick_fill_hint": "No imputation line exists yet. The dossier project can be reused in one click."
+    },
+    "imputations": {
+      "section_title": "Imputation catalog",
+      "section_description": "Manage imputation references, CAPEX OTP templates, and active assignments.",
+      "references_title": "Imputation references",
+      "references_description": "Each reference defines a code, a type, an OTP policy, and default project / cost center values.",
+      "import_references": "Import references",
+      "export_references": "Export references",
+      "reference_code": "Reference code",
+      "reference_name": "Reference name",
+      "reference_type": "Imputation type",
+      "create_reference": "Create reference",
+      "reference_created": "Imputation reference created",
+      "reference_create_error": "Could not create imputation reference.",
+      "templates_title": "OTP templates",
+      "templates_description": "Reuse OTP rubrics for CAPEX imputations that require them.",
+      "import_templates": "Import OTP templates",
+      "export_templates": "Export OTP templates",
+      "template_code": "OTP template code",
+      "template_name": "OTP template name",
+      "template_rubrics": "OTP rubrics separated by commas",
+      "create_template": "Create template",
+      "template_created": "OTP template created",
+      "template_create_error": "Could not create OTP template.",
+      "assignments_title": "Active assignments",
+      "assignments_description": "Quick read-only view of assignments currently available for automatic resolution.",
+      "import_assignments": "Import assignments",
+      "export_assignments": "Export assignments",
+      "assignment_reference": "Reference:",
+      "assignment_reference_placeholder": "— Imputation reference —",
+      "assignment_target_type": "Target type",
+      "assignment_target_id": "Target identifier",
+      "assignment_target_placeholder": "— Target —",
+      "assignment_target_user": "User",
+      "assignment_target_group": "Group",
+      "assignment_target_bu": "Business unit",
+      "assignment_target_project": "Project",
+      "assignment_priority": "Priority:",
+      "assignment_priority_placeholder": "Priority",
+      "assignment_notes": "Assignment notes",
+      "create_assignment": "Create assignment",
+      "update_assignment": "Update assignment",
+      "assignment_created": "Assignment created",
+      "assignment_updated": "Assignment updated",
+      "assignment_save_error": "Could not save the assignment.",
+      "assignment_delete_error": "Could not delete the assignment.",
+      "no_assignments": "No active assignments.",
+      "otp_forbidden": "OTP forbidden",
+      "otp_optional": "OTP optional",
+      "otp_required": "OTP required",
+      "otp_policy": "OTP policy",
+      "no_otp_template": "No OTP template",
+      "no_default_project": "No default project",
+      "no_default_cost_center": "No default cost center",
+      "valid_from": "Valid from",
+      "valid_to": "Valid to",
+      "sync_hint": "Assignments are readable here, but dedicated editing will come after safe BU / group / user pickers are added.",
+      "error_title": "Imputation error"
     },
     "audit": {
       "title": "Audit Log",

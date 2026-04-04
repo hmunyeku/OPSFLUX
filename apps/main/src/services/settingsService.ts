@@ -5,6 +5,8 @@
  * Each method returns typed data matching schemas in types/api.ts.
  */
 import api from '@/lib/api'
+import type { PaginatedResponse } from '@/types/api'
+import type { SettingRead } from '@/types/api'
 
 // ── Social Network types ──────────────────────────────────────────
 export interface SocialNetworkRead {
@@ -83,7 +85,6 @@ import type {
   NotificationPreference,
   NotificationPreferenceUpdate,
   AuditLogEntry,
-  PaginatedResponse,
   RoleRead,
   UserGroupRead,
   PermissionMatrix,
@@ -540,6 +541,7 @@ export interface CostImputation {
   id: string
   owner_type: string
   owner_id: string
+  imputation_reference_id: string | null
   project_id: string | null
   wbs_id: string | null
   cost_center_id: string | null
@@ -549,6 +551,10 @@ export interface CostImputation {
   created_by: string
   created_at: string
   updated_at: string
+  imputation_reference_code: string | null
+  imputation_reference_name: string | null
+  imputation_type: string | null
+  otp_policy: string | null
   project_name: string | null
   cost_center_name: string | null
   author_name: string | null
@@ -557,12 +563,134 @@ export interface CostImputation {
 export interface CostImputationCreate {
   owner_type: string
   owner_id: string
+  imputation_reference_id?: string | null
   project_id?: string | null
   wbs_id?: string | null
   cost_center_id?: string | null
   percentage: number
   cross_imputation?: boolean
   notes?: string | null
+}
+
+export interface CostImputationUpdate {
+  imputation_reference_id?: string | null
+  project_id?: string | null
+  wbs_id?: string | null
+  cost_center_id?: string | null
+  percentage?: number
+  cross_imputation?: boolean
+  notes?: string | null
+}
+
+export interface CostCenterOption {
+  id: string
+  code: string
+  name: string
+  active: boolean
+}
+
+export interface ScopedSettingValue {
+  v?: unknown
+  [key: string]: unknown
+}
+
+export interface DefaultImputationSettingValue {
+  project_id?: string | null
+  cost_center_id?: string | null
+}
+
+export interface ImputationReference {
+  id: string
+  entity_id: string
+  code: string
+  name: string
+  description: string | null
+  imputation_type: 'OPEX' | 'SOPEX' | 'CAPEX' | 'OTHER'
+  otp_policy: 'forbidden' | 'required' | 'optional'
+  otp_template_id: string | null
+  default_project_id: string | null
+  default_cost_center_id: string | null
+  valid_from: string | null
+  valid_to: string | null
+  active: boolean
+  metadata?: Record<string, unknown> | null
+  created_at?: string | null
+}
+
+export interface ImputationReferenceCreate {
+  code: string
+  name: string
+  description?: string | null
+  imputation_type?: 'OPEX' | 'SOPEX' | 'CAPEX' | 'OTHER'
+  otp_policy?: 'forbidden' | 'required' | 'optional'
+  otp_template_id?: string | null
+  default_project_id?: string | null
+  default_cost_center_id?: string | null
+  valid_from?: string | null
+  valid_to?: string | null
+  active?: boolean
+  metadata?: Record<string, unknown> | null
+}
+
+export interface ImputationReferenceUpdate extends Partial<ImputationReferenceCreate> {}
+
+export interface ImputationOtpTemplate {
+  id: string
+  entity_id: string
+  code: string
+  name: string
+  description: string | null
+  rubrics: string[]
+  active: boolean
+}
+
+export interface ImputationOtpTemplateCreate {
+  code: string
+  name: string
+  description?: string | null
+  rubrics: string[]
+  active?: boolean
+}
+
+export interface ImputationOtpTemplateUpdate extends Partial<ImputationOtpTemplateCreate> {}
+
+export interface ImputationAssignment {
+  id: string
+  entity_id: string
+  imputation_reference_id: string
+  target_type: 'user' | 'user_group' | 'business_unit' | 'project'
+  target_id: string
+  priority: number
+  valid_from: string | null
+  valid_to: string | null
+  active: boolean
+  notes: string | null
+  created_at?: string | null
+}
+
+export interface ImputationAssignmentCreate {
+  imputation_reference_id: string
+  target_type: 'user' | 'user_group' | 'business_unit' | 'project'
+  target_id: string
+  priority?: number
+  valid_from?: string | null
+  valid_to?: string | null
+  active?: boolean
+  notes?: string | null
+}
+
+export interface ImputationAssignmentUpdate extends Partial<ImputationAssignmentCreate> {}
+
+export interface BusinessUnitOption {
+  id: string
+  entity_id: string
+  code: string
+  name: string
+  description?: string | null
+  manager_id?: string | null
+  manager_name?: string | null
+  active: boolean
+  created_at?: string | null
 }
 
 export const costImputationsService = {
@@ -576,7 +704,100 @@ export const costImputationsService = {
     const { data } = await api.post('/api/v1/cost-imputations', payload)
     return data
   },
+  update: async (id: string, payload: CostImputationUpdate): Promise<CostImputation> => {
+    const { data } = await api.patch(`/api/v1/cost-imputations/${id}`, payload)
+    return data
+  },
   remove: async (id: string): Promise<void> => {
     await api.delete(`/api/v1/cost-imputations/${id}`)
+  },
+}
+
+export const costCentersService = {
+  list: async (params: { page?: number; page_size?: number; search?: string } = {}): Promise<PaginatedResponse<CostCenterOption>> => {
+    const { data } = await api.get('/api/v1/departments/cost-centers', { params })
+    return data
+  },
+}
+
+export const businessUnitsService = {
+  list: async (params: { page?: number; page_size?: number; search?: string } = {}): Promise<PaginatedResponse<BusinessUnitOption>> => {
+    const { data } = await api.get('/api/v1/business-units', { params })
+    return data
+  },
+}
+
+export const scopedSettingsService = {
+  list: async (scope: string): Promise<SettingRead[]> => {
+    const { data } = await api.get('/api/v1/settings', { params: { scope } })
+    return data
+  },
+
+  map: async (scope: string): Promise<Record<string, unknown>> => {
+    const data = await scopedSettingsService.list(scope)
+    const map: Record<string, unknown> = {}
+    for (const setting of data) {
+      const value = setting.value as ScopedSettingValue | null
+      map[setting.key] = value?.v ?? setting.value
+    }
+    return map
+  },
+
+  put: async (scope: string, key: string, value: unknown): Promise<void> => {
+    await api.put('/api/v1/settings', { key, value: { v: value } }, { params: { scope } })
+  },
+}
+
+export const imputationReferenceService = {
+  list: async (): Promise<ImputationReference[]> => {
+    const { data } = await api.get('/api/v1/imputations/references')
+    return data
+  },
+  create: async (payload: ImputationReferenceCreate): Promise<ImputationReference> => {
+    const { data } = await api.post('/api/v1/imputations/references', payload)
+    return data
+  },
+  update: async (id: string, payload: ImputationReferenceUpdate): Promise<ImputationReference> => {
+    const { data } = await api.patch(`/api/v1/imputations/references/${id}`, payload)
+    return data
+  },
+  remove: async (id: string): Promise<void> => {
+    await api.delete(`/api/v1/imputations/references/${id}`)
+  },
+}
+
+export const imputationOtpTemplateService = {
+  list: async (): Promise<ImputationOtpTemplate[]> => {
+    const { data } = await api.get('/api/v1/imputations/otp-templates')
+    return data
+  },
+  create: async (payload: ImputationOtpTemplateCreate): Promise<ImputationOtpTemplate> => {
+    const { data } = await api.post('/api/v1/imputations/otp-templates', payload)
+    return data
+  },
+  update: async (id: string, payload: ImputationOtpTemplateUpdate): Promise<ImputationOtpTemplate> => {
+    const { data } = await api.patch(`/api/v1/imputations/otp-templates/${id}`, payload)
+    return data
+  },
+  remove: async (id: string): Promise<void> => {
+    await api.delete(`/api/v1/imputations/otp-templates/${id}`)
+  },
+}
+
+export const imputationAssignmentService = {
+  list: async (params: { target_type?: string; target_id?: string } = {}): Promise<ImputationAssignment[]> => {
+    const { data } = await api.get('/api/v1/imputations/assignments', { params })
+    return data
+  },
+  create: async (payload: ImputationAssignmentCreate): Promise<ImputationAssignment> => {
+    const { data } = await api.post('/api/v1/imputations/assignments', payload)
+    return data
+  },
+  update: async (id: string, payload: ImputationAssignmentUpdate): Promise<ImputationAssignment> => {
+    const { data } = await api.patch(`/api/v1/imputations/assignments/${id}`, payload)
+    return data
+  },
+  remove: async (id: string): Promise<void> => {
+    await api.delete(`/api/v1/imputations/assignments/${id}`)
   },
 }

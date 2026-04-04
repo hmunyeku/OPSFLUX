@@ -53,6 +53,9 @@ export function useExecuteImport() {
         pax_profile: 'pax-profiles',
         project: 'projects',
         compliance_record: 'compliance',
+        imputation_reference: 'imputation-references',
+        imputation_otp_template: 'imputation-otp-templates',
+        imputation_assignment: 'imputation-assignments',
       }
       const key = moduleKeys[vars.target_object]
       if (key) qc.invalidateQueries({ queryKey: [key] })

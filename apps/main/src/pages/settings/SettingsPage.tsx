@@ -76,6 +76,7 @@ const SECTION_TAB_MAP: Record<string, string> = {
   'langue-region': 'general-config',
   'cartographie': 'general-config',
   'emails-config': 'general-config',
+  'imputations-admin': 'general-config',
   // IntegrationsTab sections
   'services-connectes': 'integrations',
   'cartographie-integration': 'integrations',

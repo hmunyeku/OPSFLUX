@@ -1,0 +1,450 @@
+# Backlog Technique Alignement Docs / Code
+
+Date: 2026-04-03
+
+Source: `docs/check/14_DOC_CODE_COHERENCE_AUDIT.md`
+
+Objectif: convertir les écarts critiques entre documentation et implémentation en chantiers techniques concrets, priorisés et assignables.
+
+---
+
+## Vue d’ensemble
+
+### Priorité P0
+
+1. sécuriser le démarrage et supprimer le seed implicite hors développement
+2. verrouiller l’API settings
+3. verrouiller les endpoints d’intégrations
+4. stabiliser la résolution tenant/entity
+
+### Priorité P1
+
+5. corriger le refresh frontend
+6. unifier les conventions d’en-têtes et de vocabulaire
+7. remettre la doc Core en phase avec le runtime
+
+### Priorité P2
+
+8. distinguer les docs `implemented` vs `target`
+9. automatiser une partie des docs techniques
+
+---
+
+## Tickets
+
+### T-001 — Bloquer le seed de dev hors `development`
+
+**Priorité**: P0  
+**Type**: Sécurité / Runtime
+
+#### Problème
+
+Le backend exécute `seed_dev_data()` au démarrage sans garde d’environnement forte.
+
+#### Fichiers concernés
+
+- `app/main.py`
+- `app/services/core/seed_service.py`
+- `docs/modules/core/AUTH.md`
+- `docs/08_SETTINGS.md`
+
+#### Travail attendu
+
+1. Exécuter le seed uniquement si `ENVIRONMENT == "development"` ou via un flag explicite.
+2. Retirer tout mot de passe par défaut implicite en dehors du mode dev.
+3. Éviter la création automatique des comptes de test hors dev.
+4. Documenter clairement le comportement réel.
+
+#### Critères d’acceptation
+
+- En `staging` et `production`, aucun compte n’est créé automatiquement.
+- En `development`, le seed reste idempotent.
+- La doc bootstrap ne contredit plus le runtime.
+
+---
+
+### T-002 — Implémenter un vrai bootstrap initial ou déclasser la doc bootstrap
+
+**Priorité**: P0  
+**Type**: Produit / Sécurité
+
+#### Problème
+
+La doc décrit un vrai workflow bootstrap, mais le code ne l’implémente pas.
+
+#### Fichiers concernés
+
+- `docs/modules/core/AUTH.md`
+- `docs/08_SETTINGS.md`
+- potentiellement nouvelles routes/backend bootstrap
+
+#### Travail attendu
+
+Choisir une direction:
+
+1. soit implémenter `/bootstrap` avec `BOOTSTRAP_SECRET`
+2. soit supprimer ce comportement de la doc publique et le marquer comme cible non implémentée
+
+#### Critères d’acceptation
+
+- La doc et le code décrivent le même mécanisme.
+- Le premier compte admin suit un flux unique et auditable.
+
+---
+
+### T-003 — Sécuriser `GET/PUT /api/v1/settings`
+
+**Priorité**: P0  
+**Type**: Sécurité / API
+
+#### Problème
+
+L’API settings permet des lectures/écritures trop larges sans permission dédiée.
+
+#### Fichiers concernés
+
+- `app/api/routes/core/settings.py`
+- `app/api/deps.py`
+- `app/core/rbac.py`
+- `app/models/common.py`
+- `docs/08_SETTINGS.md`
+
+#### Travail attendu
+
+1. Exiger des permissions explicites selon le scope:
+   - `user`: self-service limité
+   - `entity`: admin entité
+   - `tenant`: admin tenant
+   - `platform`: réservé super-admin/platform-admin
+2. Filtrer correctement par `scope_id`.
+3. Empêcher l’édition de clés sensibles sans rôle adapté.
+4. Journaliser les changements critiques.
+
+#### Critères d’acceptation
+
+- Un utilisateur standard ne peut pas lire/écrire les settings tenant globaux.
+- Les settings entity sont isolés.
+- Les settings user ne concernent que l’utilisateur courant.
+
+---
+
+### T-004 — Corriger le chargement des settings d’intégration par entité
+
+**Priorité**: P0  
+**Type**: Sécurité / Isolation des données
+
+#### Problème
+
+Les settings d’intégration sont lus via `scope == "entity"` mais sans filtrage fiable sur `scope_id`.
+
+#### Fichiers concernés
+
+- `app/api/routes/core/integrations.py`
+- modèle/settings associés
+
+#### Travail attendu
+
+1. Associer les settings d’intégration à une entité précise.
+2. Utiliser `entity_id` courant dans les requêtes.
+3. Vérifier qu’aucun test d’intégration ne lit les secrets d’une autre entité.
+
+#### Critères d’acceptation
+
+- Deux entités du même tenant ne voient pas les mêmes credentials si non partagés.
+- Les tests utilisent explicitement le contexte de l’entité active.
+
+---
+
+### T-005 — Restreindre `/api/v1/integrations/test`
+
+**Priorité**: P0  
+**Type**: Sécurité / API
+
+#### Problème
+
+Tout utilisateur authentifié peut tester des intégrations sensibles.
+
+#### Fichiers concernés
+
+- `app/api/routes/core/integrations.py`
+- `docs/02_DESIGN_SYSTEM.md`
+- `docs/modules/v2/CONNECTEURS.md`
+
+#### Travail attendu
+
+1. Ajouter `require_permission(...)` ou équivalent.
+2. Définir une permission stable:
+   - `integration.manage`
+   - ou `connector.manage`
+3. Aligner l’UI et la doc avec la permission choisie.
+
+#### Critères d’acceptation
+
+- Un user standard reçoit `403`.
+- Un admin autorisé peut tester.
+- La doc ne promet pas une permission différente de celle du code.
+
+---
+
+### T-006 — Restreindre `/api/v1/integrations/test-send`
+
+**Priorité**: P0  
+**Type**: Sécurité / API
+
+#### Problème
+
+Un endpoint capable d’envoyer de vrais emails/SMS/WhatsApp est accessible trop largement.
+
+#### Fichiers concernés
+
+- `app/api/routes/core/integrations.py`
+- `app/core/notifications.py`
+- `app/core/sms_service.py`
+
+#### Travail attendu
+
+1. Exiger une permission plus stricte que le simple test de connectivité.
+2. Ajouter audit log sur:
+   - utilisateur
+   - canal
+   - destinataire
+   - entité
+3. Ajouter garde-fous:
+   - rate limit
+   - éventuellement allowlist en non-prod
+
+#### Critères d’acceptation
+
+- Envoi réel interdit aux profils non autorisés.
+- Toute action d’envoi est tracée.
+
+---
+
+### T-007 — Redéfinir la résolution tenant/entity
+
+**Priorité**: P0  
+**Type**: Architecture / Sécurité
+
+#### Problème
+
+Le code mélange tenant, entity et headers de contexte, en décalage avec la doc.
+
+#### Fichiers concernés
+
+- `app/core/middleware/tenant.py`
+- `app/core/database.py`
+- `app/api/deps.py`
+- `apps/main/src/lib/api.ts`
+- docs Core
+
+#### Travail attendu
+
+Décider un modèle unique:
+
+1. tenant dans le JWT
+2. entity via header
+3. ou autre convention formalisée
+
+Puis:
+
+1. supprimer les chemins de contournement non voulus
+2. documenter la convention officielle
+3. mettre les validations correspondantes
+
+#### Critères d’acceptation
+
+- Le backend n’accepte qu’une convention documentée.
+- Le frontend envoie exactement cette convention.
+- La doc n’utilise plus plusieurs termes contradictoires pour le même concept.
+
+---
+
+### T-008 — Corriger le refresh token frontend
+
+**Priorité**: P1  
+**Type**: Frontend / Fiabilité
+
+#### Problème
+
+Le refresh utilise `axios.post(...)` hors de l’instance API configurée.
+
+#### Fichiers concernés
+
+- `apps/main/src/lib/api.ts`
+- `docs/05_DEV_GUIDE.md`
+
+#### Travail attendu
+
+1. Passer le refresh par l’instance `api` ou une instance dédiée cohérente.
+2. Vérifier le comportement en origine séparée.
+3. Mettre à jour la doc frontend.
+
+#### Critères d’acceptation
+
+- Le refresh fonctionne avec frontend et backend sur domaines distincts.
+- La doc reflète le flux réel.
+
+---
+
+### T-009 — Normaliser les headers de contexte
+
+**Priorité**: P1  
+**Type**: API / Documentation
+
+#### Problème
+
+La doc mentionne `X-Tenant-ID`, le frontend envoie `X-Entity-ID`, le backend lit `X-Tenant`.
+
+#### Fichiers concernés
+
+- `apps/main/src/lib/api.ts`
+- `app/core/middleware/tenant.py`
+- `app/api/deps.py`
+- `docs/05_DEV_GUIDE.md`
+- `docs/00_PROJECT.md`
+- `docs/11_FUNCTIONAL_ANALYSIS.md`
+
+#### Travail attendu
+
+1. Choisir les en-têtes officiels.
+2. Déprécier les anciens noms si nécessaire.
+3. Corriger la doc et le code.
+
+#### Critères d’acceptation
+
+- Un développeur externe peut implémenter un client sans ambiguïté.
+
+---
+
+### T-010 — Marquer les docs par statut
+
+**Priorité**: P2  
+**Type**: Documentation / Gouvernance
+
+#### Problème
+
+Les docs mélangent état réel et cible produit.
+
+#### Fichiers concernés
+
+- `docs/*.md`
+- `docs/modules/**/*.md`
+
+#### Travail attendu
+
+Ajouter un en-tête standard:
+
+- `Status: implemented`
+- `Status: partial`
+- `Status: target`
+
+#### Critères d’acceptation
+
+- Chaque doc majeure affiche son statut.
+- Les docs “vision” ne sont plus lues comme spécification exécutable.
+
+---
+
+### T-011 — Séparer clairement “architecture cible” et “runtime actuel”
+
+**Priorité**: P2  
+**Type**: Documentation
+
+#### Problème
+
+Les documents Core servent à la fois de vision cible et de description runtime.
+
+#### Fichiers concernés
+
+- `docs/00_PROJECT.md`
+- `docs/01_CORE.md`
+- `docs/08_SETTINGS.md`
+
+#### Travail attendu
+
+1. Créer une section `Current Implementation`
+2. Créer une section `Target Architecture`
+3. Déplacer les éléments non implémentés dans la cible
+
+#### Critères d’acceptation
+
+- Plus aucun lecteur ne confond architecture projetée et architecture actuelle.
+
+---
+
+### T-012 — Générer automatiquement une partie de la doc technique
+
+**Priorité**: P2  
+**Type**: Outillage
+
+#### Problème
+
+La doc manuelle dérive trop vite du code.
+
+#### Fichiers concernés
+
+- scripts à créer
+- manifests modules
+- routes FastAPI
+- settings catalog
+
+#### Travail attendu
+
+Générer automatiquement:
+
+1. catalogue des routes
+2. catalogue des permissions
+3. catalogue des settings
+4. éventuellement catalogue MCP/tools
+
+#### Critères d’acceptation
+
+- Les sections générées ne sont plus éditées à la main.
+- La dérive doc/code baisse sur les surfaces critiques.
+
+---
+
+## Ordonnancement conseillé
+
+### Lot 1 — Sécurité immédiate
+
+- T-001
+- T-003
+- T-004
+- T-005
+- T-006
+- T-007
+
+### Lot 2 — Stabilisation produit
+
+- T-008
+- T-009
+- T-002
+
+### Lot 3 — Gouvernance documentaire
+
+- T-010
+- T-011
+- T-012
+
+---
+
+## Définition de terminé
+
+Un ticket d’alignement docs/code est considéré terminé seulement si:
+
+1. le code est corrigé ou la divergence est assumée explicitement
+2. la documentation correspondante est mise à jour
+3. les noms de concepts sont unifiés
+4. le comportement réel est testable
+
+---
+
+## Note finale
+
+Le backlog ci-dessus est volontairement centré sur les surfaces où la documentation peut induire de mauvaises décisions d’architecture, de sécurité ou d’intégration.
+
+La règle à instaurer ensuite:
+
+- les docs de vision ne doivent plus être ambiguës
+- les docs techniques critiques doivent être dérivées du code autant que possible

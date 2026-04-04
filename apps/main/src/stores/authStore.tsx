@@ -48,6 +48,9 @@ interface User {
   // Job position (conformité)
   job_position_id: string | null
   job_position_name: string | null
+  // Organization
+  business_unit_id: string | null
+  business_unit_name: string | null
   // Messaging preference
   preferred_messaging_channel: string
 }

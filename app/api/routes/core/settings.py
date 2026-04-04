@@ -1,5 +1,6 @@
 """Settings routes — scoped settings with explicit permissions."""
 
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -8,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, has_user_permission
 from app.core.database import get_db
-from app.models.common import Setting, User
+from app.models.common import CostCenter, Project, Setting, User
 from app.schemas.common import SettingRead, SettingWrite
 
 router = APIRouter(prefix="/api/v1/settings", tags=["settings"])
@@ -23,6 +24,64 @@ def _validate_scope(scope: str) -> str:
 async def _require_settings_manage(current_user: User, entity_id: UUID, db: AsyncSession) -> None:
     if not await has_user_permission(current_user, entity_id, "core.settings.manage", db):
         raise HTTPException(status_code=403, detail="Permission denied: core.settings.manage")
+
+
+def _as_uuid_or_none(value: Any, field_name: str) -> UUID | None:
+    if value in (None, ""):
+        return None
+    if not isinstance(value, str):
+        raise HTTPException(status_code=400, detail=f"Invalid {field_name}: expected UUID string")
+    try:
+        return UUID(value)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid {field_name}: malformed UUID") from exc
+
+
+async def _validate_default_imputation_setting(
+    value: dict[str, Any],
+    *,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> None:
+    payload = value.get("v", value)
+    if payload in (None, ""):
+        return
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Invalid core.default_imputation payload")
+
+    allowed_keys = {"project_id", "cost_center_id"}
+    unknown_keys = set(payload.keys()) - allowed_keys
+    if unknown_keys:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid core.default_imputation keys: {', '.join(sorted(unknown_keys))}",
+        )
+
+    project_id = _as_uuid_or_none(payload.get("project_id"), "project_id")
+    cost_center_id = _as_uuid_or_none(payload.get("cost_center_id"), "cost_center_id")
+
+    if project_id is not None:
+        project = await db.scalar(
+            select(Project).where(
+                Project.id == project_id,
+                Project.entity_id == entity_id,
+                Project.active.is_(True),
+                Project.archived.is_(False),
+            )
+        )
+        if project is None:
+            raise HTTPException(status_code=400, detail="Invalid project_id for core.default_imputation")
+
+    if cost_center_id is not None:
+        cost_center = await db.scalar(
+            select(CostCenter).where(
+                CostCenter.id == cost_center_id,
+                CostCenter.entity_id == entity_id,
+                CostCenter.active.is_(True),
+            )
+        )
+        if cost_center is None:
+            raise HTTPException(status_code=400, detail="Invalid cost_center_id for core.default_imputation")
 
 
 @router.get("", response_model=list[SettingRead])
@@ -58,6 +117,9 @@ async def upsert_setting(
 ):
     """Create or update a setting."""
     scope = _validate_scope(scope)
+
+    if body.key == "core.default_imputation":
+        await _validate_default_imputation_setting(body.value, entity_id=entity_id, db=db)
 
     if scope == "user":
         scope_id = str(current_user.id)

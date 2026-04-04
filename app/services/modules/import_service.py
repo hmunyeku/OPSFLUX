@@ -31,12 +31,18 @@ from app.models.asset_registry import (
     RegistryPipeline,
 )
 from app.models.common import (
+    BusinessUnit,
 
     ComplianceRecord,
     ComplianceType,
+    CostCenter,
+    ImputationOtpTemplate,
+    ImputationAssignment,
+    ImputationReference,
     Project,
     Tier,
     TierContact,
+    UserGroup,
 )
 from app.models.common import User
 from app.schemas.import_assistant import (
@@ -183,6 +189,18 @@ FIELD_SYNONYMS: dict[str, list[str]] = {
     "priority": ["priorite", "urgence", "importance"],
     "budget": ["montant", "amount", "cout", "cost"],
     "progress": ["avancement", "completion", "pct_complete"],
+    "imputation_type": ["type_imputation", "imputation", "nature_imputation", "budget_type"],
+    "otp_policy": ["politique_otp", "otp", "otp_mode"],
+    "otp_template_code": ["modele_otp", "otp_template", "otp_template_ref"],
+    "default_project_code": ["projet_defaut", "default_project", "project_code"],
+    "default_cost_center_code": ["centre_cout_defaut", "default_cost_center", "cost_center_code"],
+    "valid_from": ["valide_depuis", "date_debut_validite", "debut_validite"],
+    "valid_to": ["valide_jusquau", "date_fin_validite", "fin_validite"],
+    "imputation_reference_code": ["reference_imputation", "imputation_reference", "imputation_code"],
+    "target_type": ["type_cible", "assignment_target_type"],
+    "user_email": ["email_utilisateur", "user_mail", "assignee_email"],
+    "group_name": ["nom_groupe", "group", "user_group"],
+    "business_unit_code": ["code_bu", "bu_code", "business_unit"],
     # Compliance
     "compliance_type_code": ["type_conformite", "compliance_type", "type_code", "habilitation"],
     "issued_at": ["date_emission", "issue_date", "delivre_le"],
@@ -1440,6 +1458,440 @@ class ARPipelineHandler(TargetObjectHandler):
                 obj.to_installation_id = found
 
 
+class ImputationReferenceHandler(TargetObjectHandler):
+    key = "imputation_reference"
+    label = "Imputations"
+
+    def get_fields(self) -> list[TargetFieldDef]:
+        return [
+            TargetFieldDef(key="code", label="Code", type="string", required=True, example="IMP-OPEX-GEN"),
+            TargetFieldDef(key="name", label="Nom", type="string", required=True, example="OPEX général"),
+            TargetFieldDef(key="description", label="Description", type="string"),
+            TargetFieldDef(key="imputation_type", label="Type d'imputation", type="string", required=True, example="OPEX"),
+            TargetFieldDef(key="otp_policy", label="Politique OTP", type="string", example="forbidden"),
+            TargetFieldDef(key="otp_template_code", label="Code modèle OTP", type="lookup", lookup_target="imputation_otp_template.code"),
+            TargetFieldDef(key="default_project_code", label="Code projet par défaut", type="lookup", lookup_target="project.code"),
+            TargetFieldDef(key="default_cost_center_code", label="Code centre de coût par défaut", type="lookup", lookup_target="cost_center.code"),
+            TargetFieldDef(key="valid_from", label="Début validité", type="date", example="2026-01-01"),
+            TargetFieldDef(key="valid_to", label="Fin validité", type="date", example="2026-12-31"),
+            TargetFieldDef(key="active", label="Actif", type="boolean", example="oui"),
+        ]
+
+    async def _resolve_project_id(self, code: Any, entity_id: UUID, db: AsyncSession) -> UUID | None:
+        code_str = _safe_str(code)
+        if not code_str:
+            return None
+        return await db.scalar(
+            select(Project.id).where(
+                Project.entity_id == entity_id,
+                Project.code == code_str,
+                Project.active.is_(True),
+                Project.archived.is_(False),
+            )
+        )
+
+    async def _resolve_cost_center_id(self, code: Any, entity_id: UUID, db: AsyncSession) -> UUID | None:
+        code_str = _safe_str(code)
+        if not code_str:
+            return None
+        return await db.scalar(
+            select(CostCenter.id).where(
+                CostCenter.entity_id == entity_id,
+                CostCenter.code == code_str,
+                CostCenter.active.is_(True),
+            )
+        )
+
+    async def _resolve_otp_template_id(self, code: Any, entity_id: UUID, db: AsyncSession) -> UUID | None:
+        code_str = _safe_str(code)
+        if not code_str:
+            return None
+        return await db.scalar(
+            select(ImputationOtpTemplate.id).where(
+                ImputationOtpTemplate.entity_id == entity_id,
+                ImputationOtpTemplate.code == code_str,
+                ImputationOtpTemplate.active.is_(True),
+            )
+        )
+
+    async def validate_row(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> list[RowValidationError]:
+        errors: list[RowValidationError] = []
+        idx = row.get("__row_index", 0)
+
+        code = _safe_str(row.get("code"))
+        name = _safe_str(row.get("name"))
+        imputation_type = (_safe_str(row.get("imputation_type")) or "").upper()
+        otp_policy = (_safe_str(row.get("otp_policy")) or "forbidden").lower()
+        valid_from = _safe_date(row.get("valid_from"))
+        valid_to = _safe_date(row.get("valid_to"))
+
+        if not code:
+            errors.append(RowValidationError(row_index=idx, field="code", message="Code requis"))
+        if not name:
+            errors.append(RowValidationError(row_index=idx, field="name", message="Nom requis"))
+        if imputation_type not in {"OPEX", "SOPEX", "CAPEX", "OTHER"}:
+            errors.append(RowValidationError(row_index=idx, field="imputation_type", message="Type d'imputation invalide"))
+        if otp_policy not in {"forbidden", "optional", "required"}:
+            errors.append(RowValidationError(row_index=idx, field="otp_policy", message="Politique OTP invalide"))
+        if valid_from and valid_to and valid_to < valid_from:
+            errors.append(RowValidationError(row_index=idx, field="valid_to", message="La fin de validité doit être postérieure au début"))
+
+        project_code = _safe_str(row.get("default_project_code"))
+        if project_code and not await self._resolve_project_id(project_code, entity_id, db):
+            errors.append(RowValidationError(row_index=idx, field="default_project_code", message=f"Projet inconnu ou inactif: {project_code}"))
+
+        cost_center_code = _safe_str(row.get("default_cost_center_code"))
+        if cost_center_code and not await self._resolve_cost_center_id(cost_center_code, entity_id, db):
+            errors.append(RowValidationError(row_index=idx, field="default_cost_center_code", message=f"Centre de coût inconnu ou inactif: {cost_center_code}"))
+
+        otp_template_code = _safe_str(row.get("otp_template_code"))
+        if otp_template_code and not await self._resolve_otp_template_id(otp_template_code, entity_id, db):
+            errors.append(RowValidationError(row_index=idx, field="otp_template_code", message=f"Modèle OTP inconnu ou inactif: {otp_template_code}"))
+
+        if imputation_type != "CAPEX":
+            if otp_policy != "forbidden":
+                errors.append(RowValidationError(row_index=idx, field="otp_policy", message="Seules les imputations CAPEX peuvent définir une politique OTP"))
+            if otp_template_code:
+                errors.append(RowValidationError(row_index=idx, field="otp_template_code", message="Seules les imputations CAPEX peuvent référencer un modèle OTP"))
+
+        return errors
+
+    async def find_duplicate(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> UUID | None:
+        code = _safe_str(row.get("code"))
+        if not code:
+            return None
+        return await db.scalar(
+            select(ImputationReference.id).where(
+                ImputationReference.entity_id == entity_id,
+                ImputationReference.code == code,
+            )
+        )
+
+    async def create_record(self, row: dict[str, Any], entity_id: UUID, user_id: UUID, db: AsyncSession) -> UUID:
+        obj = ImputationReference(
+            entity_id=entity_id,
+            code=str(_safe_str(row.get("code"))),
+            name=str(_safe_str(row.get("name"))),
+            description=_safe_str(row.get("description")),
+            imputation_type=(_safe_str(row.get("imputation_type")) or "OPEX").upper(),
+            otp_policy=(_safe_str(row.get("otp_policy")) or "forbidden").lower(),
+            otp_template_id=await self._resolve_otp_template_id(row.get("otp_template_code"), entity_id, db),
+            default_project_id=await self._resolve_project_id(row.get("default_project_code"), entity_id, db),
+            default_cost_center_id=await self._resolve_cost_center_id(row.get("default_cost_center_code"), entity_id, db),
+            valid_from=_safe_date(row.get("valid_from")),
+            valid_to=_safe_date(row.get("valid_to")),
+            active=_safe_bool(row.get("active")) if row.get("active") is not None else True,
+        )
+        db.add(obj)
+        await db.flush()
+        return obj.id
+
+    async def update_record(self, record_id: UUID, row: dict[str, Any], user_id: UUID, db: AsyncSession) -> None:
+        obj = await db.scalar(select(ImputationReference).where(ImputationReference.id == record_id))
+        if obj is None:
+            raise ValueError("Imputation reference not found")
+
+        if row.get("code") is not None:
+            obj.code = str(_safe_str(row.get("code")))
+        if row.get("name") is not None:
+            obj.name = str(_safe_str(row.get("name")))
+        if row.get("description") is not None:
+            obj.description = _safe_str(row.get("description"))
+        if row.get("imputation_type") is not None:
+            obj.imputation_type = (_safe_str(row.get("imputation_type")) or obj.imputation_type).upper()
+        if row.get("otp_policy") is not None:
+            obj.otp_policy = (_safe_str(row.get("otp_policy")) or obj.otp_policy).lower()
+        if row.get("otp_template_code") is not None:
+            obj.otp_template_id = await self._resolve_otp_template_id(row.get("otp_template_code"), obj.entity_id, db)
+        if row.get("default_project_code") is not None:
+            obj.default_project_id = await self._resolve_project_id(row.get("default_project_code"), obj.entity_id, db)
+        if row.get("default_cost_center_code") is not None:
+            obj.default_cost_center_id = await self._resolve_cost_center_id(row.get("default_cost_center_code"), obj.entity_id, db)
+        if row.get("valid_from") is not None:
+            obj.valid_from = _safe_date(row.get("valid_from"))
+        if row.get("valid_to") is not None:
+            obj.valid_to = _safe_date(row.get("valid_to"))
+        if row.get("active") is not None:
+            active = _safe_bool(row.get("active"))
+            if active is not None:
+                obj.active = active
+
+
+class ImputationOtpTemplateHandler(TargetObjectHandler):
+    key = "imputation_otp_template"
+    label = "Modèles OTP"
+
+    def get_fields(self) -> list[TargetFieldDef]:
+        return [
+            TargetFieldDef(key="code", label="Code", type="string", required=True, example="OTP-CAPEX-STD"),
+            TargetFieldDef(key="name", label="Nom", type="string", required=True, example="OTP CAPEX standard"),
+            TargetFieldDef(key="description", label="Description", type="string"),
+            TargetFieldDef(key="rubrics", label="Rubriques OTP", type="string", required=True, example="M01,L03"),
+            TargetFieldDef(key="active", label="Actif", type="boolean", example="oui"),
+        ]
+
+    def _parse_rubrics(self, value: Any) -> list[str]:
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return [str(item).strip() for item in value if str(item).strip()]
+        return [item.strip() for item in str(value).split(",") if item.strip()]
+
+    async def validate_row(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> list[RowValidationError]:
+        errors: list[RowValidationError] = []
+        idx = row.get("__row_index", 0)
+
+        code = _safe_str(row.get("code"))
+        name = _safe_str(row.get("name"))
+        rubrics = self._parse_rubrics(row.get("rubrics"))
+
+        if not code:
+            errors.append(RowValidationError(row_index=idx, field="code", message="Code requis"))
+        if not name:
+            errors.append(RowValidationError(row_index=idx, field="name", message="Nom requis"))
+        if not rubrics:
+            errors.append(RowValidationError(row_index=idx, field="rubrics", message="Au moins une rubrique OTP est requise"))
+
+        return errors
+
+    async def find_duplicate(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> UUID | None:
+        code = _safe_str(row.get("code"))
+        if not code:
+            return None
+        return await db.scalar(
+            select(ImputationOtpTemplate.id).where(
+                ImputationOtpTemplate.entity_id == entity_id,
+                ImputationOtpTemplate.code == code,
+            )
+        )
+
+    async def create_record(self, row: dict[str, Any], entity_id: UUID, user_id: UUID, db: AsyncSession) -> UUID:
+        obj = ImputationOtpTemplate(
+            entity_id=entity_id,
+            code=str(_safe_str(row.get("code"))),
+            name=str(_safe_str(row.get("name"))),
+            description=_safe_str(row.get("description")),
+            rubrics=self._parse_rubrics(row.get("rubrics")),
+            active=_safe_bool(row.get("active")) if row.get("active") is not None else True,
+        )
+        db.add(obj)
+        await db.flush()
+        return obj.id
+
+    async def update_record(self, record_id: UUID, row: dict[str, Any], user_id: UUID, db: AsyncSession) -> None:
+        obj = await db.scalar(select(ImputationOtpTemplate).where(ImputationOtpTemplate.id == record_id))
+        if obj is None:
+            raise ValueError("OTP template not found")
+
+        if row.get("code") is not None:
+            obj.code = str(_safe_str(row.get("code")))
+        if row.get("name") is not None:
+            obj.name = str(_safe_str(row.get("name")))
+        if row.get("description") is not None:
+            obj.description = _safe_str(row.get("description"))
+        if row.get("rubrics") is not None:
+            obj.rubrics = self._parse_rubrics(row.get("rubrics"))
+        if row.get("active") is not None:
+            active = _safe_bool(row.get("active"))
+            if active is not None:
+                obj.active = active
+
+
+class ImputationAssignmentHandler(TargetObjectHandler):
+    key = "imputation_assignment"
+    label = "Affectations d'imputation"
+
+    def get_fields(self) -> list[TargetFieldDef]:
+        return [
+            TargetFieldDef(key="imputation_reference_code", label="Code référence d'imputation", type="lookup", required=True, lookup_target="imputation_reference.code"),
+            TargetFieldDef(key="target_type", label="Type de cible", type="string", required=True, example="business_unit"),
+            TargetFieldDef(key="user_email", label="Email utilisateur", type="lookup", lookup_target="user.email"),
+            TargetFieldDef(key="group_name", label="Nom du groupe", type="lookup", lookup_target="group.name"),
+            TargetFieldDef(key="business_unit_code", label="Code business unit", type="lookup", lookup_target="business_unit.code"),
+            TargetFieldDef(key="project_code", label="Code projet", type="lookup", lookup_target="project.code"),
+            TargetFieldDef(key="priority", label="Priorité", type="integer", example="100"),
+            TargetFieldDef(key="valid_from", label="Début validité", type="date", example="2026-01-01"),
+            TargetFieldDef(key="valid_to", label="Fin validité", type="date", example="2026-12-31"),
+            TargetFieldDef(key="active", label="Actif", type="boolean", example="oui"),
+            TargetFieldDef(key="notes", label="Notes", type="string"),
+        ]
+
+    async def _resolve_reference_id(self, code: Any, entity_id: UUID, db: AsyncSession) -> UUID | None:
+        code_str = _safe_str(code)
+        if not code_str:
+            return None
+        return await db.scalar(
+            select(ImputationReference.id).where(
+                ImputationReference.entity_id == entity_id,
+                ImputationReference.code == code_str,
+                ImputationReference.active.is_(True),
+            )
+        )
+
+    async def _resolve_target(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> tuple[str | None, UUID | None]:
+        target_type = (_safe_str(row.get("target_type")) or "").lower()
+        if target_type == "user":
+            email = _safe_str(row.get("user_email"))
+            if not email:
+                return target_type, None
+            target_id = await db.scalar(
+                select(User.id).where(
+                    User.default_entity_id == entity_id,
+                    User.email == email,
+                    User.active.is_(True),
+                )
+            )
+            return target_type, target_id
+        if target_type == "user_group":
+            name = _safe_str(row.get("group_name"))
+            if not name:
+                return target_type, None
+            target_id = await db.scalar(
+                select(UserGroup.id).where(
+                    UserGroup.entity_id == entity_id,
+                    UserGroup.name == name,
+                    UserGroup.active.is_(True),
+                )
+            )
+            return target_type, target_id
+        if target_type == "business_unit":
+            code = _safe_str(row.get("business_unit_code"))
+            if not code:
+                return target_type, None
+            target_id = await db.scalar(
+                select(BusinessUnit.id).where(
+                    BusinessUnit.entity_id == entity_id,
+                    BusinessUnit.code == code,
+                    BusinessUnit.active.is_(True),
+                )
+            )
+            return target_type, target_id
+        if target_type == "project":
+            code = _safe_str(row.get("project_code"))
+            if not code:
+                return target_type, None
+            target_id = await db.scalar(
+                select(Project.id).where(
+                    Project.entity_id == entity_id,
+                    Project.code == code,
+                    Project.active.is_(True),
+                    Project.archived.is_(False),
+                )
+            )
+            return target_type, target_id
+        return target_type or None, None
+
+    def _validate_target_columns(self, row: dict[str, Any], target_type: str, idx: int) -> list[RowValidationError]:
+        errors: list[RowValidationError] = []
+        expected_field = {
+            "user": "user_email",
+            "user_group": "group_name",
+            "business_unit": "business_unit_code",
+            "project": "project_code",
+        }.get(target_type)
+        if expected_field is None:
+            errors.append(RowValidationError(row_index=idx, field="target_type", message="Type de cible invalide"))
+            return errors
+        if not _safe_str(row.get(expected_field)):
+            errors.append(RowValidationError(row_index=idx, field=expected_field, message="Identifiant de cible requis"))
+        other_fields = {"user_email", "group_name", "business_unit_code", "project_code"} - {expected_field}
+        for field in other_fields:
+            if _safe_str(row.get(field)):
+                errors.append(RowValidationError(row_index=idx, field=field, message="Champ incompatible avec le type de cible sélectionné", severity="warning"))
+        return errors
+
+    async def validate_row(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> list[RowValidationError]:
+        errors: list[RowValidationError] = []
+        idx = row.get("__row_index", 0)
+        target_type = (_safe_str(row.get("target_type")) or "").lower()
+        reference_code = _safe_str(row.get("imputation_reference_code"))
+        valid_from = _safe_date(row.get("valid_from"))
+        valid_to = _safe_date(row.get("valid_to"))
+
+        if not reference_code:
+            errors.append(RowValidationError(row_index=idx, field="imputation_reference_code", message="Référence d'imputation requise"))
+        elif not await self._resolve_reference_id(reference_code, entity_id, db):
+            errors.append(RowValidationError(row_index=idx, field="imputation_reference_code", message=f"Référence d'imputation inconnue ou inactive: {reference_code}"))
+
+        errors.extend(self._validate_target_columns(row, target_type, idx))
+
+        resolved_target_type, resolved_target_id = await self._resolve_target(row, entity_id, db)
+        if resolved_target_type and resolved_target_id is None and target_type in {"user", "user_group", "business_unit", "project"}:
+            target_field = {
+                "user": "user_email",
+                "user_group": "group_name",
+                "business_unit": "business_unit_code",
+                "project": "project_code",
+            }[target_type]
+            provided = _safe_str(row.get(target_field))
+            if provided:
+                errors.append(RowValidationError(row_index=idx, field=target_field, message=f"Cible inconnue ou inactive: {provided}"))
+
+        if valid_from and valid_to and valid_to < valid_from:
+            errors.append(RowValidationError(row_index=idx, field="valid_to", message="La fin de validité doit être postérieure au début"))
+
+        return errors
+
+    async def find_duplicate(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> UUID | None:
+        reference_id = await self._resolve_reference_id(row.get("imputation_reference_code"), entity_id, db)
+        target_type, target_id = await self._resolve_target(row, entity_id, db)
+        if reference_id is None or target_type is None or target_id is None:
+            return None
+        return await db.scalar(
+            select(ImputationAssignment.id).where(
+                ImputationAssignment.entity_id == entity_id,
+                ImputationAssignment.imputation_reference_id == reference_id,
+                ImputationAssignment.target_type == target_type,
+                ImputationAssignment.target_id == target_id,
+            )
+        )
+
+    async def create_record(self, row: dict[str, Any], entity_id: UUID, user_id: UUID, db: AsyncSession) -> UUID:
+        reference_id = await self._resolve_reference_id(row.get("imputation_reference_code"), entity_id, db)
+        target_type, target_id = await self._resolve_target(row, entity_id, db)
+        obj = ImputationAssignment(
+            entity_id=entity_id,
+            imputation_reference_id=reference_id,
+            target_type=str(target_type),
+            target_id=target_id,
+            priority=_safe_int(row.get("priority")) or 100,
+            valid_from=_safe_date(row.get("valid_from")),
+            valid_to=_safe_date(row.get("valid_to")),
+            active=_safe_bool(row.get("active")) if row.get("active") is not None else True,
+            notes=_safe_str(row.get("notes")),
+        )
+        db.add(obj)
+        await db.flush()
+        return obj.id
+
+    async def update_record(self, record_id: UUID, row: dict[str, Any], user_id: UUID, db: AsyncSession) -> None:
+        obj = await db.scalar(select(ImputationAssignment).where(ImputationAssignment.id == record_id))
+        if obj is None:
+            raise ValueError("Imputation assignment not found")
+
+        reference_id = await self._resolve_reference_id(row.get("imputation_reference_code"), obj.entity_id, db)
+        target_type, target_id = await self._resolve_target(row, obj.entity_id, db)
+
+        if row.get("imputation_reference_code") is not None and reference_id is not None:
+            obj.imputation_reference_id = reference_id
+        if row.get("target_type") is not None and target_type is not None:
+            obj.target_type = target_type
+        if any(row.get(field) is not None for field in ("user_email", "group_name", "business_unit_code", "project_code")) and target_id is not None:
+            obj.target_id = target_id
+        if row.get("priority") is not None:
+            obj.priority = _safe_int(row.get("priority")) or obj.priority
+        if row.get("valid_from") is not None:
+            obj.valid_from = _safe_date(row.get("valid_from"))
+        if row.get("valid_to") is not None:
+            obj.valid_to = _safe_date(row.get("valid_to"))
+        if row.get("active") is not None:
+            active = _safe_bool(row.get("active"))
+            if active is not None:
+                obj.active = active
+        if row.get("notes") is not None:
+            obj.notes = _safe_str(row.get("notes"))
+
+
 # ── Handler registry ──────────────────────────────────────────────────────
 
 HANDLERS: dict[str, TargetObjectHandler] = {}
@@ -1453,6 +1905,9 @@ _register_handler(ContactHandler())
 _register_handler(PaxProfileHandler())
 _register_handler(ProjectHandler())
 _register_handler(ComplianceRecordHandler())
+_register_handler(ImputationReferenceHandler())
+_register_handler(ImputationOtpTemplateHandler())
+_register_handler(ImputationAssignmentHandler())
 _register_handler(ARFieldHandler())
 _register_handler(ARSiteHandler())
 _register_handler(ARInstallationHandler())

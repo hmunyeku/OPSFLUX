@@ -274,6 +274,23 @@ class AdsEventRead(OpsFluxSchema):
     recorded_at: datetime
 
 
+class AdsImputationSuggestionRead(BaseModel):
+    owner_type: str = "ads"
+    owner_id: UUID
+    imputation_reference_id: UUID | None = None
+    imputation_reference_code: str | None = None
+    imputation_reference_name: str | None = None
+    imputation_type: str | None = None
+    otp_policy: str | None = None
+    project_id: UUID | None = None
+    project_name: str | None = None
+    project_source: str = "none"
+    cost_center_id: UUID | None = None
+    cost_center_name: str | None = None
+    cost_center_source: str = "none"
+    resolution_notes: list[str] = []
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # PAX INCIDENTS
 # ══════════════════════════════════════════════════════════════════════════════

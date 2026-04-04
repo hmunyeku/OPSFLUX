@@ -2186,7 +2186,13 @@ async def trips_today(
 
     result = await db.execute(
         select(
-            Voyage,
+            Voyage.id.label("id"),
+            Voyage.code.label("code"),
+            Voyage.status.label("status"),
+            Voyage.scheduled_departure.label("scheduled_departure"),
+            Voyage.scheduled_arrival.label("scheduled_arrival"),
+            Voyage.actual_departure.label("actual_departure"),
+            Voyage.actual_arrival.label("actual_arrival"),
             TransportVector.name.label("vector_name"),
             TransportVector.type.label("vector_type"),
             Installation.name.label("departure_base_name"),
@@ -2206,22 +2212,21 @@ async def trips_today(
         .order_by(Voyage.scheduled_departure)
     )
 
-    trips = []
-    for row in result.all():
-        vyg = row[0]
-        trips.append({
-            "id": vyg.id,
-            "code": vyg.code,
-            "status": vyg.status,
-            "vector_name": row[1],
-            "vector_type": row[2],
-            "departure_base_name": row[3],
-            "scheduled_departure": vyg.scheduled_departure,
-            "scheduled_arrival": vyg.scheduled_arrival,
-            "actual_departure": vyg.actual_departure,
-            "actual_arrival": vyg.actual_arrival,
-        })
-    return trips
+    return [
+        {
+            "id": row.id,
+            "code": row.code,
+            "status": row.status,
+            "vector_name": row.vector_name,
+            "vector_type": row.vector_type,
+            "departure_base_name": row.departure_base_name,
+            "scheduled_departure": row.scheduled_departure,
+            "scheduled_arrival": row.scheduled_arrival,
+            "actual_departure": row.actual_departure,
+            "actual_arrival": row.actual_arrival,
+        }
+        for row in result.all()
+    ]
 
 
 @router.get("/dashboard/cargo-pending")

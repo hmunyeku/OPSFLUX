@@ -120,7 +120,49 @@ async def _test_smtp(cfg: dict[str, str]) -> tuple[str, str]:
         await smtp.quit()
         return "ok", f"Connexion SMTP réussie ({host}:{port})"
     except Exception as e:
-        return "error", f"Échec connexion SMTP: {str(e)}"
+        error_msg = f"Échec connexion SMTP ({host}:{port}): {str(e)}"
+
+        # On failure, scan Docker network for reachable SMTP servers
+        try:
+            found = await _discover_smtp_hosts()
+            if found:
+                error_msg += f" — Serveurs SMTP détectés sur le réseau Docker: {found}"
+        except Exception:
+            pass
+
+        return "error", error_msg
+
+
+async def _discover_smtp_hosts() -> str:
+    """Scan common Docker hostnames for reachable SMTP servers."""
+    import asyncio
+    import socket
+
+    candidates = [
+        ("front", 25), ("front", 587), ("front", 465),
+        ("smtp", 25), ("smtp", 587),
+        ("mailu-front", 25), ("mailu-front", 587),
+        ("mailu-smtp", 25),
+        ("mail", 25), ("mail", 587),
+        ("mailserver", 25), ("mailserver", 587),
+    ]
+
+    found = []
+
+    for hostname, port in candidates:
+        try:
+            # Quick TCP connect test (1.5s timeout)
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(hostname, port),
+                timeout=1.5,
+            )
+            writer.close()
+            await writer.wait_closed()
+            found.append(f"{hostname}:{port}")
+        except Exception:
+            continue
+
+    return ", ".join(found) if found else ""
 
 
 async def _test_s3(cfg: dict[str, str]) -> tuple[str, str]:

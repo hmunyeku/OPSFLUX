@@ -118,6 +118,7 @@ async def delete_business_unit(
 # ── Cost Centers ──
 
 @router.get("/cost-centers", response_model=PaginatedResponse[CostCenterRead])
+@router.get("/departments/cost-centers", response_model=PaginatedResponse[CostCenterRead], include_in_schema=False)
 async def list_cost_centers(
     department_id: UUID | None = None,
     search: str | None = None,
@@ -136,6 +137,7 @@ async def list_cost_centers(
 
 
 @router.post("/cost-centers", response_model=CostCenterRead, status_code=201)
+@router.post("/departments/cost-centers", response_model=CostCenterRead, status_code=201, include_in_schema=False)
 async def create_cost_center(
     body: CostCenterCreate,
     entity_id: UUID = Depends(get_current_entity),
@@ -156,6 +158,7 @@ async def create_cost_center(
 
 
 @router.patch("/cost-centers/{cc_id}", response_model=CostCenterRead)
+@router.patch("/departments/cost-centers/{cc_id}", response_model=CostCenterRead, include_in_schema=False)
 async def update_cost_center(
     cc_id: UUID,
     body: CostCenterUpdate,
@@ -177,6 +180,7 @@ async def update_cost_center(
 
 
 @router.delete("/cost-centers/{cc_id}", status_code=204)
+@router.delete("/departments/cost-centers/{cc_id}", status_code=204, include_in_schema=False)
 async def delete_cost_center(
     cc_id: UUID,
     entity_id: UUID = Depends(get_current_entity),

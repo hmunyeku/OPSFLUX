@@ -715,7 +715,7 @@ export const costImputationsService = {
 
 export const costCentersService = {
   list: async (params: { page?: number; page_size?: number; search?: string } = {}): Promise<PaginatedResponse<CostCenterOption>> => {
-    const { data } = await api.get('/api/v1/departments/cost-centers', { params })
+    const { data } = await api.get('/api/v1/cost-centers', { params })
     return data
   },
 }

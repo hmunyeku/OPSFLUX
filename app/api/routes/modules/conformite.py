@@ -1915,7 +1915,7 @@ async def list_verification_history(
             "verified_by": str(rec.verified_by) if rec.verified_by else None,
             "verified_by_name": None,
             "verified_at": rec.verified_at.isoformat() if rec.verified_at else None,
-            "verification_notes": rec.verification_notes,
+            "verification_notes": getattr(rec, "verification_notes", None) or getattr(rec, "notes", None),
             "issued_at": rec.check_date.isoformat() if hasattr(rec, 'check_date') and rec.check_date else None,
             "expires_at": rec.expiry_date.isoformat() if hasattr(rec, 'expiry_date') and rec.expiry_date else None,
             "reference_number": None,

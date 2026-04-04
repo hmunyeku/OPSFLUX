@@ -897,7 +897,6 @@ def register_module_handlers(event_bus: EventBus) -> None:
     """Register all inter-module event handlers."""
     # Module-specific events
     event_bus.subscribe("planner.activity.validated", on_planner_activity_validated)
-    event_bus.subscribe("planner.activity.cancelled", on_planner_activity_cancelled)
     event_bus.subscribe("planner.conflict.detected", on_planner_conflict_detected)
     event_bus.subscribe("ads.approved", on_ads_approved)
     event_bus.subscribe("travelwiz.manifest.closed", on_travelwiz_manifest_closed)

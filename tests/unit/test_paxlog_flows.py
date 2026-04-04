@@ -91,6 +91,14 @@ class FakeAsyncSessionContext:
         return False
 
 
+class FakeEventBusRegistry:
+    def __init__(self):
+        self.subscriptions = []
+
+    def subscribe(self, event_type, handler):
+        self.subscriptions.append((event_type, handler))
+
+
 def _build_ads(**overrides):
     now = datetime.now(timezone.utc)
     data = {
@@ -1383,3 +1391,12 @@ async def test_planner_activity_cancelled_creates_ads_event_and_notifies(monkeyp
     assert planner_events[0].metadata_json["planner_activity_id"] == str(activity_id)
     assert planner_events[0].metadata_json["planner_activity_title"] == "Shutdown window"
     assert notifications and notifications[0]["link"] == f"/paxlog/ads/{ads_id}"
+
+
+def test_register_module_handlers_does_not_duplicate_planner_cancelled_for_paxlog():
+    bus = FakeEventBusRegistry()
+
+    module_handlers.register_module_handlers(bus)
+
+    subscribed_events = [event_type for event_type, _handler in bus.subscriptions]
+    assert "planner.activity.cancelled" not in subscribed_events

@@ -2039,6 +2039,7 @@ function AdsDetailPanel({ id }: { id: string }) {
     const eventLabels: Record<string, string> = {
       stay_change_requested: t('paxlog.ads_detail.history.events.stay_change_requested'),
       avm_modified_requires_review: t('paxlog.ads_detail.history.events.avm_modified_requires_review'),
+      avm_cancelled: t('paxlog.ads_detail.history.events.avm_cancelled'),
       submitted: t('paxlog.ads_detail.history.events.submitted'),
       approved: t('paxlog.ads_detail.history.events.approved'),
       rejected: t('paxlog.ads_detail.history.events.rejected'),

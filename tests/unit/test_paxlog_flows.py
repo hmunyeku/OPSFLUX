@@ -309,6 +309,73 @@ async def test_modify_active_avm_sets_linked_ads_to_review_and_notifies(monkeypa
 
 
 @pytest.mark.asyncio
+async def test_cancel_avm_propagates_to_linked_ads(monkeypatch):
+    avm = _build_avm(status="in_preparation")
+    linked_draft_id = uuid4()
+    linked_approved_id = uuid4()
+    draft_requester_id = uuid4()
+    approved_requester_id = uuid4()
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=avm),
+            FakeResult(all_rows=[
+                (linked_draft_id, "ADS-100", "draft", draft_requester_id),
+                (linked_approved_id, "ADS-200", "approved", approved_requester_id),
+            ]),
+            FakeResult(),
+            FakeResult(),
+            FakeResult(),
+        ]
+    )
+    audits = []
+    notifications = []
+    published_events = []
+
+    async def fake_record_audit(*args, **kwargs):
+        audits.append(kwargs)
+
+    async def fake_send_in_app(*args, **kwargs):
+        notifications.append(kwargs)
+
+    async def fake_build_avm_read(_db, updated_avm):
+        return SimpleNamespace(id=updated_avm.id, status=updated_avm.status, cancellation_reason=updated_avm.cancellation_reason)
+
+    class FakeEventBus:
+        async def publish(self, event):
+            published_events.append(event)
+
+    monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+    monkeypatch.setattr("app.core.notifications.send_in_app", fake_send_in_app)
+    monkeypatch.setattr(paxlog, "_build_avm_read", fake_build_avm_read)
+    monkeypatch.setattr("app.core.events.event_bus", FakeEventBus())
+
+    response = await paxlog.cancel_avm(
+        avm.id,
+        reason="Mission annulée par arbitrage",
+        entity_id=avm.entity_id,
+        current_user=SimpleNamespace(id=uuid4()),
+        _=None,
+        db=db,
+    )
+
+    assert response.status == "cancelled"
+    assert response.cancellation_reason == "Mission annulée par arbitrage"
+    assert len(notifications) == 2
+    assert audits and audits[0]["details"]["linked_ads_cancelled"] == 1
+    assert audits[0]["details"]["linked_ads_reviewed"] == 1
+    assert audits[0]["details"]["linked_ads_references"] == ["ADS-100", "ADS-200"]
+    assert published_events and published_events[0].event_type == "paxlog.mission_notice.cancelled"
+    assert published_events[0].payload["linked_ads_cancelled"] == 1
+    assert published_events[0].payload["linked_ads_reviewed"] == 1
+
+    avm_cancel_events = [obj for obj in db.added if isinstance(obj, AdsEvent) and obj.event_type == "avm_cancelled"]
+    assert len(avm_cancel_events) == 2
+    statuses = {(evt.old_status, evt.new_status) for evt in avm_cancel_events}
+    assert ("draft", "cancelled") in statuses
+    assert ("approved", "requires_review") in statuses
+
+
+@pytest.mark.asyncio
 async def test_resubmit_ads_clears_rejection_and_rechecks_submission(monkeypatch):
     ads = _build_ads(status="requires_review", rejection_reason="Pièces manquantes")
     db = FakeDB([FakeResult(scalar_one_or_none=ads)])

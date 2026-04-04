@@ -4939,6 +4939,71 @@ async def cancel_avm(
             detail=f"Cannot cancel AVM with status '{avm.status}'",
         )
 
+    linked_ads_cancelled = 0
+    linked_ads_reviewed = 0
+    linked_ads_refs: list[str] = []
+    linked_ads_result = await db.execute(
+        select(Ads.id, Ads.reference, Ads.status, Ads.requester_id)
+        .join(MissionProgram, MissionProgram.generated_ads_id == Ads.id)
+        .where(
+            MissionProgram.mission_notice_id == avm.id,
+            Ads.entity_id == entity_id,
+            Ads.status.not_in(("completed", "cancelled", "rejected")),
+        )
+    )
+    linked_ads_rows = linked_ads_result.all()
+    for linked_ads_id, linked_ads_ref, linked_ads_status, linked_ads_requester_id in linked_ads_rows:
+        if linked_ads_status in {"draft", "requires_review", "submitted", "pending_compliance", "pending_validation"}:
+            target_status = "cancelled"
+            values = {
+                "status": "cancelled",
+                "updated_at": func.now(),
+                "rejection_reason": reason or "AVM annulée",
+            }
+            linked_ads_cancelled += 1
+        else:
+            target_status = "requires_review"
+            values = {
+                "status": "requires_review",
+                "updated_at": func.now(),
+                "rejection_reason": reason or "AVM annulée",
+            }
+            linked_ads_reviewed += 1
+
+        await db.execute(
+            Ads.__table__.update()
+            .where(Ads.id == linked_ads_id)
+            .values(**values)
+        )
+        db.add(AdsEvent(
+            entity_id=entity_id,
+            ads_id=linked_ads_id,
+            event_type="avm_cancelled",
+            old_status=linked_ads_status,
+            new_status=target_status,
+            actor_id=current_user.id,
+            reason=reason,
+            metadata_json={
+                "avm_id": str(avm.id),
+                "avm_reference": avm.reference,
+            },
+        ))
+        linked_ads_refs.append(linked_ads_ref)
+        if linked_ads_requester_id:
+            from app.core.notifications import send_in_app
+            await send_in_app(
+                db,
+                user_id=linked_ads_requester_id,
+                entity_id=entity_id,
+                title="AVM annulée — AdS impactée",
+                body=(
+                    f"L'AVM {avm.reference} a été annulée. "
+                    f"L'AdS {linked_ads_ref} passe en {target_status}."
+                ),
+                category="paxlog",
+                link=f"/paxlog/ads/{linked_ads_id}",
+            )
+
     avm.status = "cancelled"
     avm.cancellation_reason = reason
 
@@ -4957,6 +5022,12 @@ async def cancel_avm(
     await record_audit(
         db, action="paxlog.avm.cancel", resource_type="mission_notice",
         resource_id=str(avm.id), user_id=current_user.id, entity_id=entity_id,
+        details={
+            "reason": reason,
+            "linked_ads_cancelled": linked_ads_cancelled,
+            "linked_ads_reviewed": linked_ads_reviewed,
+            "linked_ads_references": linked_ads_refs,
+        },
     )
     await db.commit()
 
@@ -4970,6 +5041,9 @@ async def cancel_avm(
             "reference": avm.reference,
             "cancelled_by": str(current_user.id),
             "reason": reason,
+            "linked_ads_cancelled": linked_ads_cancelled,
+            "linked_ads_reviewed": linked_ads_reviewed,
+            "linked_ads_references": linked_ads_refs,
         },
     ))
 

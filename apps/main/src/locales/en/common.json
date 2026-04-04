@@ -1640,6 +1640,7 @@
         "events": {
           "stay_change_requested": "Stay change request",
           "avm_modified_requires_review": "Review required after AVM change",
+          "avm_cancelled": "Impact after AVM cancellation",
           "submitted": "Submission",
           "approved": "Approval",
           "rejected": "Rejection",

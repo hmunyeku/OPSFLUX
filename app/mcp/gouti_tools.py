@@ -711,7 +711,7 @@ _GOUTI_PREFIX = "integration.gouti"
 
 # Schemas to ignore when scanning for Gouti settings
 _SYSTEM_SCHEMAS = frozenset({
-    "public", "information_schema", "pg_catalog", "pg_toast",
+    "information_schema", "pg_catalog", "pg_toast",
 })
 
 

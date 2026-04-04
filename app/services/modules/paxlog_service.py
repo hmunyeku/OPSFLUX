@@ -949,8 +949,10 @@ async def submit_avm(
     for task in tasks_to_create:
         db.add(task)
 
-    # ── Transition to in_preparation ─────────────────────────────
-    avm.status = "in_preparation"
+    prep_summary = _summarize_preparation_tasks(tasks_to_create)
+
+    # ── Transition to in_preparation / ready ─────────────────────
+    avm.status = "ready" if prep_summary["ready_for_approval"] else "in_preparation"
     await db.commit()
     await db.refresh(avm)
 
@@ -966,7 +968,7 @@ async def submit_avm(
         },
     ))
 
-    logger.info("AVM %s submitted (in_preparation) by %s", avm.reference, user_id)
+    logger.info("AVM %s submitted (%s) by %s", avm.reference, avm.status, user_id)
 
     return {
         "avm_id": avm.id,
@@ -985,7 +987,7 @@ async def approve_avm(
     """Approve an AVM — auto-creates draft AdS for each program line with a site.
 
     Steps:
-    1. Validate AVM is in_preparation or active
+    1. Validate AVM is ready for approval
     2. For each program line with site_asset_id, create a draft AdS
     3. Mark related preparation tasks as completed
     4. Transition status → active
@@ -1000,8 +1002,24 @@ async def approve_avm(
     avm = result.scalar_one_or_none()
     if not avm:
         raise ValueError(f"AVM {avm_id} not found")
-    if avm.status not in ("in_preparation",):
+    if avm.status not in ("in_preparation", "ready"):
         raise ValueError(f"Cannot approve AVM with status '{avm.status}'")
+
+    blocking_tasks_result = await db.execute(
+        select(MissionPreparationTask.title, MissionPreparationTask.status)
+        .where(
+            MissionPreparationTask.mission_notice_id == avm_id,
+            MissionPreparationTask.task_type != "ads_creation",
+            MissionPreparationTask.status.in_(("pending", "in_progress", "blocked")),
+        )
+        .order_by(MissionPreparationTask.created_at)
+    )
+    blocking_tasks = blocking_tasks_result.all()
+    if blocking_tasks:
+        blocking_titles = ", ".join(task[0] for task in blocking_tasks)
+        raise ValueError(
+            f"Cannot approve AVM while preparation tasks remain open: {blocking_titles}"
+        )
 
     # Load programs
     prog_result = await db.execute(
@@ -1010,6 +1028,16 @@ async def approve_avm(
         ).order_by(MissionProgram.order_index)
     )
     programs = prog_result.scalars().all()
+
+    prep_tasks_result = await db.execute(
+        select(MissionPreparationTask).where(
+            MissionPreparationTask.mission_notice_id == avm_id,
+            MissionPreparationTask.task_type == "ads_creation",
+            MissionPreparationTask.status == "pending",
+        ).order_by(MissionPreparationTask.created_at)
+    )
+    ads_creation_tasks = prep_tasks_result.scalars().all()
+    ads_creation_task_index = 0
 
     ads_created_count = 0
     for prog in programs:
@@ -1047,16 +1075,13 @@ async def approve_avm(
                 db.add(AdsPax(ads_id=ads.id, user_id=row_uid, contact_id=row_cid, status="pending_check"))
 
             prog.generated_ads_id = ads.id
+            if ads_creation_task_index < len(ads_creation_tasks):
+                prep_task = ads_creation_tasks[ads_creation_task_index]
+                prep_task.linked_ads_id = ads.id
+                prep_task.status = "completed"
+                prep_task.completed_at = datetime.now(timezone.utc)
+                ads_creation_task_index += 1
             ads_created_count += 1
-
-    # Mark ads_creation prep tasks as completed
-    await db.execute(
-        update(MissionPreparationTask).where(
-            MissionPreparationTask.mission_notice_id == avm_id,
-            MissionPreparationTask.task_type == "ads_creation",
-            MissionPreparationTask.status == "pending",
-        ).values(status="completed", completed_at=func.now())
-    )
 
     avm.status = "active"
     await db.commit()
@@ -1084,6 +1109,100 @@ async def approve_avm(
     }
 
 
+async def complete_avm(
+    db: AsyncSession,
+    avm_id: UUID,
+    entity_id: UUID,
+    user_id: UUID,
+) -> dict:
+    """Complete an active AVM once all generated AdS reached a terminal state."""
+    result = await db.execute(
+        select(MissionNotice).where(
+            MissionNotice.id == avm_id,
+            MissionNotice.entity_id == entity_id,
+        )
+    )
+    avm = result.scalar_one_or_none()
+    if not avm:
+        raise ValueError(f"AVM {avm_id} not found")
+    if avm.status != "active":
+        raise ValueError(f"Cannot complete AVM with status '{avm.status}'")
+
+    programs_result = await db.execute(
+        select(
+            MissionProgram.id,
+            MissionProgram.activity_description,
+            MissionProgram.site_asset_id,
+            MissionProgram.generated_ads_id,
+        )
+        .where(MissionProgram.mission_notice_id == avm_id)
+        .order_by(MissionProgram.order_index)
+    )
+    programs = programs_result.all()
+
+    missing_generated_ads = [
+        program[1]
+        for program in programs
+        if program[2] and not program[3]
+    ]
+    if missing_generated_ads:
+        raise ValueError(
+            "Cannot complete AVM while some program lines have no generated AdS: "
+            + ", ".join(missing_generated_ads)
+        )
+
+    generated_ads_ids = [program[3] for program in programs if program[3]]
+    if generated_ads_ids:
+        linked_ads_result = await db.execute(
+            select(Ads.id, Ads.reference, Ads.status)
+            .where(
+                Ads.entity_id == entity_id,
+                Ads.id.in_(generated_ads_ids),
+            )
+            .order_by(Ads.reference.asc())
+        )
+        linked_ads_rows = linked_ads_result.all()
+        linked_ads_by_id = {row[0]: row for row in linked_ads_rows}
+        if len(linked_ads_by_id) != len(set(generated_ads_ids)):
+            raise ValueError("Cannot complete AVM because some generated AdS are missing in the current entity")
+
+        terminal_statuses = {"completed", "cancelled", "rejected"}
+        non_terminal_ads = [
+            f"{row[1]} ({row[2]})"
+            for row in linked_ads_rows
+            if row[2] not in terminal_statuses
+        ]
+        if non_terminal_ads:
+            raise ValueError(
+                "Cannot complete AVM while generated AdS are still active: "
+                + ", ".join(non_terminal_ads)
+            )
+
+    avm.status = "completed"
+    await db.commit()
+    await db.refresh(avm)
+
+    await event_bus.publish(OpsFluxEvent(
+        event_type="paxlog.mission_notice.completed",
+        payload={
+            "avm_id": str(avm.id),
+            "entity_id": str(entity_id),
+            "reference": avm.reference,
+            "completed_by": str(user_id),
+            "generated_ads_count": len(generated_ads_ids),
+        },
+    ))
+
+    logger.info("AVM %s completed by %s", avm.reference, user_id)
+
+    return {
+        "avm_id": avm.id,
+        "reference": avm.reference,
+        "status": avm.status,
+        "generated_ads_count": len(generated_ads_ids),
+    }
+
+
 async def get_avm_preparation_status(
     db: AsyncSession,
     avm_id: UUID,
@@ -1093,23 +1212,30 @@ async def get_avm_preparation_status(
     Returns percentage of completed tasks and task breakdown.
     """
     result = await db.execute(
-        select(
-            func.count(MissionPreparationTask.id).label("total"),
-            func.count(MissionPreparationTask.id).filter(
-                MissionPreparationTask.status == "completed"
-            ).label("completed"),
-            func.count(MissionPreparationTask.id).filter(
-                MissionPreparationTask.status == "na"
-            ).label("na"),
-        ).where(MissionPreparationTask.mission_notice_id == avm_id)
+        select(MissionPreparationTask).where(MissionPreparationTask.mission_notice_id == avm_id)
     )
-    row = result.first()
-    total = row[0] or 0
-    completed = row[1] or 0
-    na = row[2] or 0
+    tasks = list(result.scalars().all())
+    return _summarize_preparation_tasks(tasks)
 
+
+def _summarize_preparation_tasks(tasks: list[MissionPreparationTask]) -> dict:
+    """Summarize AVM preparation progress and readiness.
+
+    `ads_creation` tasks are operational outputs generated on approval, so they do not
+    block the transition from `in_preparation` to `ready`.
+    """
+    total = len(tasks)
+    completed = sum(1 for task in tasks if task.status == "completed")
+    na = sum(1 for task in tasks if task.status == "na")
     applicable = total - na
     progress = round(completed / applicable * 100) if applicable > 0 else 100
+
+    blocking_statuses = {"pending", "in_progress", "blocked"}
+    open_preparation_tasks = [
+        task for task in tasks
+        if task.task_type != "ads_creation" and task.status in blocking_statuses
+    ]
+    ready_for_approval = len(open_preparation_tasks) == 0
 
     return {
         "total_tasks": total,
@@ -1117,4 +1243,7 @@ async def get_avm_preparation_status(
         "na_tasks": na,
         "applicable_tasks": applicable,
         "progress_percent": progress,
+        "open_preparation_tasks": len(open_preparation_tasks),
+        "blocking_task_titles": [task.title for task in open_preparation_tasks],
+        "ready_for_approval": ready_for_approval,
     }

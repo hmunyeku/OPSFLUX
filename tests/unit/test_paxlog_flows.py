@@ -11,7 +11,8 @@ from fastapi import HTTPException
 
 from app.api.routes.modules import paxlog
 from app.models.paxlog import AdsEvent
-from app.schemas.paxlog import AdsStayChangeRequest, MissionNoticeModifyRequest
+from app.schemas.paxlog import AdsStayChangeRequest, MissionNoticeModifyRequest, MissionPreparationTaskUpdate
+from app.services.modules import paxlog_service
 
 
 class FakeResult:
@@ -51,11 +52,29 @@ class FakeDB:
     def add(self, obj):
         self.added.append(obj)
 
+    async def flush(self):
+        for obj in reversed(self.added):
+            if getattr(obj, "id", None) is None:
+                obj.id = uuid4()
+                break
+        return None
+
     async def commit(self):
         self.commits += 1
 
     async def refresh(self, obj):
         self.refreshed.append(obj)
+
+
+class FakeScalarResult:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def scalars(self):
+        return self
+
+    def all(self):
+        return self._rows
 
 
 def _build_ads(**overrides):
@@ -119,6 +138,70 @@ def _build_avm(**overrides):
 
 
 @pytest.mark.asyncio
+async def test_list_avm_normalizes_in_preparation_to_ready(monkeypatch):
+    avm = _build_avm(status="in_preparation")
+    db = FakeDB(
+        [
+            FakeResult(scalar=1),
+            FakeResult(all_rows=[(avm, "Aline", "Mukeba")]),
+            FakeResult(scalar=3),
+        ]
+    )
+
+    async def fake_get_avm_preparation_status(_db, _avm_id):
+        return {
+            "progress_percent": 100,
+            "open_preparation_tasks": 0,
+            "ready_for_approval": True,
+        }
+
+    monkeypatch.setattr(paxlog_service, "get_avm_preparation_status", fake_get_avm_preparation_status)
+
+    response = await paxlog.list_avm(
+        pagination=SimpleNamespace(page=1, page_size=20),
+        entity_id=avm.entity_id,
+        current_user=SimpleNamespace(id=uuid4()),
+        db=db,
+    )
+
+    assert response["items"][0].status == "ready"
+    assert response["items"][0].ready_for_approval is True
+    assert response["items"][0].open_preparation_tasks == 0
+
+
+@pytest.mark.asyncio
+async def test_list_avm_normalizes_ready_to_in_preparation_when_blocked(monkeypatch):
+    avm = _build_avm(status="ready")
+    db = FakeDB(
+        [
+            FakeResult(scalar=1),
+            FakeResult(all_rows=[(avm, "Aline", "Mukeba")]),
+            FakeResult(scalar=2),
+        ]
+    )
+
+    async def fake_get_avm_preparation_status(_db, _avm_id):
+        return {
+            "progress_percent": 60,
+            "open_preparation_tasks": 2,
+            "ready_for_approval": False,
+        }
+
+    monkeypatch.setattr(paxlog_service, "get_avm_preparation_status", fake_get_avm_preparation_status)
+
+    response = await paxlog.list_avm(
+        pagination=SimpleNamespace(page=1, page_size=20),
+        entity_id=avm.entity_id,
+        current_user=SimpleNamespace(id=uuid4()),
+        db=db,
+    )
+
+    assert response["items"][0].status == "in_preparation"
+    assert response["items"][0].ready_for_approval is False
+    assert response["items"][0].open_preparation_tasks == 2
+
+
+@pytest.mark.asyncio
 async def test_get_ads_includes_avm_origin():
     ads = _build_ads()
     program_id = uuid4()
@@ -127,6 +210,7 @@ async def test_get_ads_includes_avm_origin():
         [
             FakeResult(scalar_one_or_none=ads),
             FakeResult(first=(program_id, "Inspection compresseur", avm_id, "AVM-009", "Campagne compresseur")),
+            FakeResult(first=None),
         ]
     )
 
@@ -142,6 +226,30 @@ async def test_get_ads_includes_avm_origin():
     assert response.origin_mission_notice_id == avm_id
     assert response.origin_mission_notice_reference == "AVM-009"
     assert response.origin_mission_notice_title == "Campagne compresseur"
+
+
+@pytest.mark.asyncio
+async def test_get_ads_includes_planner_context():
+    planner_id = uuid4()
+    ads = _build_ads(planner_activity_id=planner_id)
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=ads),
+            FakeResult(first=None),
+            FakeResult(first=("Inspection ligne 12", "validated")),
+        ]
+    )
+
+    response = await paxlog.get_ads(
+        ads.id,
+        entity_id=ads.entity_id,
+        current_user=SimpleNamespace(id=uuid4()),
+        db=db,
+    )
+
+    assert response.planner_activity_id == planner_id
+    assert response.planner_activity_title == "Inspection ligne 12"
+    assert response.planner_activity_status == "validated"
 
 
 @pytest.mark.asyncio
@@ -291,7 +399,7 @@ async def test_modify_active_avm_sets_linked_ads_to_review_and_notifies(monkeypa
         avm.id,
         body,
         entity_id=avm.entity_id,
-        current_user=SimpleNamespace(id=uuid4()),
+        current_user=SimpleNamespace(id=avm.created_by),
         _=None,
         db=db,
     )
@@ -306,6 +414,179 @@ async def test_modify_active_avm_sets_linked_ads_to_review_and_notifies(monkeypa
     assert ads_event.event_type == "avm_modified_requires_review"
     assert ads_event.old_status == "approved"
     assert ads_event.new_status == "requires_review"
+
+
+@pytest.mark.asyncio
+async def test_modify_active_avm_allows_ready_status(monkeypatch):
+    avm = _build_avm(status="ready")
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=avm),
+            FakeResult(all_rows=[]),
+            FakeResult(),
+        ]
+    )
+    audits = []
+    published_events = []
+
+    async def fake_record_audit(*args, **kwargs):
+        audits.append(kwargs)
+
+    async def fake_build_avm_read(_db, updated_avm):
+        return SimpleNamespace(id=updated_avm.id, status=updated_avm.status, title=updated_avm.title)
+
+    class FakeEventBus:
+        async def publish(self, event):
+            published_events.append(event)
+
+    monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+    monkeypatch.setattr(paxlog, "_build_avm_read", fake_build_avm_read)
+    monkeypatch.setattr("app.core.events.event_bus", FakeEventBus())
+
+    response = await paxlog.modify_active_avm(
+        avm.id,
+        MissionNoticeModifyRequest(reason="Ajustement final", title="Mission offshore ajustee"),
+        entity_id=avm.entity_id,
+        current_user=SimpleNamespace(id=avm.created_by),
+        _=None,
+        db=db,
+    )
+
+    assert response.status == "ready"
+    assert audits and audits[0]["action"] == "paxlog.avm.modify_active"
+    assert published_events and published_events[0].event_type == "paxlog.mission_notice.modified"
+
+
+@pytest.mark.asyncio
+async def test_modify_active_avm_rejects_non_owner_without_arbitration_permission(monkeypatch):
+    avm = _build_avm(status="active")
+    outsider_id = uuid4()
+    db = FakeDB([FakeResult(scalar_one_or_none=avm)])
+
+    async def fake_has_user_permission(*args, **kwargs):
+        return False
+
+    monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
+
+    with pytest.raises(HTTPException) as exc:
+        await paxlog.modify_active_avm(
+            avm.id,
+            MissionNoticeModifyRequest(reason="Tentative", title="Mission offshore ajustee"),
+            entity_id=avm.entity_id,
+            current_user=SimpleNamespace(id=outsider_id),
+            _=None,
+            db=db,
+        )
+
+    assert exc.value.status_code == 403
+    assert "own AVM" in exc.value.detail
+
+
+@pytest.mark.asyncio
+async def test_update_avm_rejects_non_owner_without_arbitration_permission(monkeypatch):
+    avm = _build_avm(status="draft")
+    outsider_id = uuid4()
+    db = FakeDB([FakeResult(scalar_one_or_none=avm)])
+
+    async def fake_has_user_permission(*args, **kwargs):
+        return False
+
+    monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
+
+    with pytest.raises(HTTPException) as exc:
+        await paxlog.update_avm(
+            avm.id,
+            paxlog.MissionNoticeUpdate(title="Mission modifiée"),
+            entity_id=avm.entity_id,
+            current_user=SimpleNamespace(id=outsider_id),
+            _=None,
+            db=db,
+        )
+
+    assert exc.value.status_code == 403
+    assert "own AVM" in exc.value.detail
+
+
+@pytest.mark.asyncio
+async def test_update_avm_allows_arbitrator_override(monkeypatch):
+    avm = _build_avm(status="in_preparation")
+    arbitrator_id = uuid4()
+    db = FakeDB([FakeResult(scalar_one_or_none=avm)])
+    audits = []
+
+    async def fake_has_user_permission(_user, _entity_id, permission_code, _db):
+        return permission_code == "paxlog.avm.approve"
+
+    async def fake_record_audit(*args, **kwargs):
+        audits.append(kwargs)
+
+    async def fake_build_avm_read(_db, updated_avm):
+        return SimpleNamespace(id=updated_avm.id, status=updated_avm.status, title=updated_avm.title)
+
+    monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
+    monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+    monkeypatch.setattr(paxlog, "_build_avm_read", fake_build_avm_read)
+
+    response = await paxlog.update_avm(
+        avm.id,
+        paxlog.MissionNoticeUpdate(title="Mission arbitrée"),
+        entity_id=avm.entity_id,
+        current_user=SimpleNamespace(id=arbitrator_id),
+        _=None,
+        db=db,
+    )
+
+    assert response.title == "Mission arbitrée"
+    assert audits and audits[0]["action"] == "paxlog.avm.update"
+
+
+@pytest.mark.asyncio
+async def test_update_avm_preparation_task_allows_arbitrator_override(monkeypatch):
+    avm = _build_avm(status="ready")
+    arbitrator_id = uuid4()
+    task = SimpleNamespace(
+        id=uuid4(),
+        mission_notice_id=avm.id,
+        title="Demande de visa",
+        task_type="visa",
+        status="pending",
+        assigned_to_user_id=None,
+        linked_ads_id=None,
+        due_date=None,
+        completed_at=None,
+        notes=None,
+        auto_generated=True,
+    )
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=avm),
+            FakeResult(scalar_one_or_none=task),
+            FakeScalarResult([task]),
+        ]
+    )
+    audits = []
+
+    async def fake_record_audit(*args, **kwargs):
+        audits.append(kwargs)
+
+    async def fake_has_user_permission(_user, _entity_id, permission_code, _db):
+        return permission_code == "paxlog.avm.approve"
+
+    monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+    monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
+
+    response = await paxlog.update_avm_preparation_task(
+        avm.id,
+        task.id,
+        MissionPreparationTaskUpdate(status="completed"),
+        entity_id=avm.entity_id,
+        current_user=SimpleNamespace(id=arbitrator_id),
+        _=None,
+        db=db,
+    )
+
+    assert response.status == "completed"
+    assert audits and audits[0]["action"] == "paxlog.avm.preparation_task.update"
 
 
 @pytest.mark.asyncio
@@ -373,6 +654,298 @@ async def test_cancel_avm_propagates_to_linked_ads(monkeypatch):
     statuses = {(evt.old_status, evt.new_status) for evt in avm_cancel_events}
     assert ("draft", "cancelled") in statuses
     assert ("approved", "requires_review") in statuses
+
+
+@pytest.mark.asyncio
+async def test_update_avm_preparation_task_marks_completion_and_audits(monkeypatch):
+    avm = _build_avm(status="in_preparation")
+    task_id = uuid4()
+    assigned_user_id = uuid4()
+    linked_ads_id = uuid4()
+    task = SimpleNamespace(
+        id=task_id,
+        mission_notice_id=avm.id,
+        title="Demande de visa",
+        task_type="visa",
+        status="pending",
+        assigned_to_user_id=None,
+        linked_ads_id=linked_ads_id,
+        due_date=None,
+        completed_at=None,
+        notes=None,
+        auto_generated=True,
+    )
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=avm),
+            FakeResult(scalar_one_or_none=task),
+            FakeResult(scalar_one_or_none=assigned_user_id),
+            FakeScalarResult([task]),
+            FakeResult(first=("Aline", "Mukeba")),
+            FakeResult(scalar_one_or_none="ADS-330"),
+        ]
+    )
+    audits = []
+
+    async def fake_record_audit(*args, **kwargs):
+        audits.append(kwargs)
+
+    monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+
+    response = await paxlog.update_avm_preparation_task(
+        avm.id,
+        task.id,
+        MissionPreparationTaskUpdate(
+            status="completed",
+            assigned_to_user_id=assigned_user_id,
+            due_date=date(2026, 4, 15),
+            notes="Visa reçu",
+        ),
+        entity_id=avm.entity_id,
+        current_user=SimpleNamespace(id=avm.created_by),
+        _=None,
+        db=db,
+    )
+
+    assert response.status == "completed"
+    assert response.assigned_to_user_id == assigned_user_id
+    assert response.assigned_to_user_name == "Aline Mukeba"
+    assert response.linked_ads_reference == "ADS-330"
+    assert response.completed_at is not None
+    assert audits and audits[0]["action"] == "paxlog.avm.preparation_task.update"
+    assert audits[0]["details"]["task_id"] == str(task_id)
+    assert audits[0]["details"]["changes"]["status"] == "completed"
+
+
+@pytest.mark.asyncio
+async def test_update_avm_preparation_task_sets_ready_when_no_blocker_remains(monkeypatch):
+    avm = _build_avm(status="in_preparation")
+    task = SimpleNamespace(
+        id=uuid4(),
+        mission_notice_id=avm.id,
+        title="Demande de visa",
+        task_type="visa",
+        status="in_progress",
+        assigned_to_user_id=None,
+        linked_ads_id=None,
+        due_date=None,
+        completed_at=None,
+        notes=None,
+        auto_generated=True,
+    )
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=avm),
+            FakeResult(scalar_one_or_none=task),
+            FakeScalarResult([task]),
+        ]
+    )
+    audits = []
+
+    async def fake_record_audit(*args, **kwargs):
+        audits.append(kwargs)
+
+    monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+
+    response = await paxlog.update_avm_preparation_task(
+        avm.id,
+        task.id,
+        MissionPreparationTaskUpdate(status="completed"),
+        entity_id=avm.entity_id,
+        current_user=SimpleNamespace(id=avm.created_by),
+        _=None,
+        db=db,
+    )
+
+    assert response.status == "completed"
+    assert avm.status == "ready"
+    assert audits and audits[0]["action"] == "paxlog.avm.preparation_task.update"
+
+
+@pytest.mark.asyncio
+async def test_approve_avm_refuses_open_preparation_tasks():
+    avm = _build_avm(status="in_preparation")
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=avm),
+            FakeResult(all_rows=[("Demande de visa", "pending")]),
+        ]
+    )
+
+    with pytest.raises(ValueError) as exc:
+        await paxlog_service.approve_avm(
+            db,
+            avm.id,
+            avm.entity_id,
+            uuid4(),
+        )
+
+    assert "Cannot approve AVM while preparation tasks remain open" in str(exc.value)
+    assert "Demande de visa" in str(exc.value)
+
+
+@pytest.mark.asyncio
+async def test_submit_avm_sets_ready_when_only_ads_creation_tasks_exist(monkeypatch):
+    avm = _build_avm(status="draft")
+    program = SimpleNamespace(
+        id=uuid4(),
+        mission_notice_id=avm.id,
+        order_index=0,
+        activity_description="Inspection compresseur",
+        activity_type="inspection",
+        site_asset_id=uuid4(),
+        planned_start_date=date(2026, 4, 12),
+        planned_end_date=date(2026, 4, 14),
+        project_id=None,
+    )
+    db = FakeDB([])
+    published_events = []
+
+    async def fake_execute(statement, params=None):
+        db.executed.append((statement, params))
+        call_index = len(db.executed)
+        if call_index == 1:
+            return FakeResult(scalar_one_or_none=avm)
+        if call_index == 2:
+            return FakeScalarResult([program])
+        raise AssertionError("Unexpected execute call")
+
+    class FakeEventBus:
+        async def publish(self, event):
+            published_events.append(event)
+
+    db.execute = fake_execute  # type: ignore[method-assign]
+    monkeypatch.setattr(paxlog_service, "event_bus", FakeEventBus())
+
+    result = await paxlog_service.submit_avm(db, avm.id, avm.entity_id, uuid4())
+
+    assert result["status"] == "ready"
+    assert avm.status == "ready"
+    assert result["preparation_tasks_created"] == 1
+    created_tasks = [obj for obj in db.added if getattr(obj, "task_type", None) == "ads_creation"]
+    assert len(created_tasks) == 1
+    assert published_events and published_events[0].event_type == "paxlog.mission_notice.launched"
+
+
+@pytest.mark.asyncio
+async def test_approve_avm_links_ads_creation_tasks_to_generated_ads(monkeypatch):
+    avm = _build_avm(status="ready")
+    program = SimpleNamespace(
+        id=uuid4(),
+        mission_notice_id=avm.id,
+        order_index=0,
+        activity_description="Inspection compresseur",
+        activity_type="inspection",
+        site_asset_id=uuid4(),
+        planned_start_date=date(2026, 4, 12),
+        planned_end_date=date(2026, 4, 14),
+        project_id=uuid4(),
+        generated_ads_id=None,
+    )
+    prep_task = SimpleNamespace(
+        id=uuid4(),
+        mission_notice_id=avm.id,
+        title="Creation AdS — Inspection compresseur",
+        task_type="ads_creation",
+        status="pending",
+        assigned_to_user_id=None,
+        linked_ads_id=None,
+        due_date=None,
+        completed_at=None,
+        notes=None,
+        auto_generated=True,
+    )
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=avm),
+            FakeResult(all_rows=[]),
+            FakeResult(scalar_one_or_none=[program]),  # placeholder, not used
+        ]
+    )
+
+    published_events = []
+
+    async def fake_generate_ads_reference(_db, _entity_id):
+        return "ADS-777"
+
+    async def fake_execute(statement, params=None):
+        db.executed.append((statement, params))
+        call_index = len(db.executed)
+        if call_index == 1:
+            return FakeResult(scalar_one_or_none=avm)
+        if call_index == 2:
+            return FakeResult(all_rows=[])
+        if call_index == 3:
+            return FakeScalarResult([program])
+        if call_index == 4:
+            return FakeScalarResult([prep_task])
+        if call_index == 5:
+            return FakeResult(all_rows=[(uuid4(), None)])
+        raise AssertionError("Unexpected execute call")
+
+    class FakeEventBus:
+        async def publish(self, event):
+            published_events.append(event)
+
+    db.execute = fake_execute  # type: ignore[method-assign]
+    monkeypatch.setattr(paxlog_service, "generate_ads_reference", fake_generate_ads_reference)
+    monkeypatch.setattr(paxlog_service, "event_bus", FakeEventBus())
+
+    result = await paxlog_service.approve_avm(db, avm.id, avm.entity_id, uuid4())
+
+    assert result["status"] == "active"
+    assert result["ads_created"] == 1
+    assert program.generated_ads_id is not None
+    assert prep_task.linked_ads_id == program.generated_ads_id
+    assert prep_task.status == "completed"
+    assert prep_task.completed_at is not None
+    assert published_events and published_events[0].event_type == "paxlog.mission_notice.approved"
+
+
+@pytest.mark.asyncio
+async def test_complete_avm_refuses_non_terminal_generated_ads():
+    avm = _build_avm(status="active")
+    generated_ads_id = uuid4()
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=avm),
+            FakeResult(all_rows=[(uuid4(), "Inspection compresseur", uuid4(), generated_ads_id)]),
+            FakeResult(all_rows=[(generated_ads_id, "ADS-777", "approved")]),
+        ]
+    )
+
+    with pytest.raises(ValueError) as exc:
+        await paxlog_service.complete_avm(db, avm.id, avm.entity_id, uuid4())
+
+    assert "Cannot complete AVM while generated AdS are still active" in str(exc.value)
+    assert "ADS-777 (approved)" in str(exc.value)
+
+
+@pytest.mark.asyncio
+async def test_complete_avm_succeeds_when_generated_ads_are_terminal(monkeypatch):
+    avm = _build_avm(status="active")
+    generated_ads_id = uuid4()
+    published_events = []
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=avm),
+            FakeResult(all_rows=[(uuid4(), "Inspection compresseur", uuid4(), generated_ads_id)]),
+            FakeResult(all_rows=[(generated_ads_id, "ADS-888", "completed")]),
+        ]
+    )
+
+    class FakeEventBus:
+        async def publish(self, event):
+            published_events.append(event)
+
+    monkeypatch.setattr(paxlog_service, "event_bus", FakeEventBus())
+
+    result = await paxlog_service.complete_avm(db, avm.id, avm.entity_id, uuid4())
+
+    assert result["status"] == "completed"
+    assert result["generated_ads_count"] == 1
+    assert avm.status == "completed"
+    assert published_events and published_events[0].event_type == "paxlog.mission_notice.completed"
 
 
 @pytest.mark.asyncio

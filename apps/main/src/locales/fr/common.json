@@ -1595,6 +1595,8 @@
       "sections": {
         "visit_transport": "Visite & transport",
         "origin_mission": "Origine mission",
+        "origin_planner": "Origine planner",
+        "operational_impact": "Impact opérationnel",
         "passengers": "Passagers ({{count}})",
         "imputations": "Imputations",
         "stay_programs": "Programme de séjour ({{count}})",
@@ -1610,6 +1612,9 @@
         "origin_mission_title": "Titre de mission",
         "origin_program_activity": "Activité d'origine",
         "project": "Projet",
+        "planner_activity": "Activité planner",
+        "planner_activity_title": "Titre activité",
+        "planner_activity_status": "Statut planner",
         "outbound_transport": "Transport aller",
         "return_transport": "Transport retour",
         "badge": "Badge : {{value}}"
@@ -1650,6 +1655,7 @@
         "approved_at": "Approuvé le {{date}}",
         "rejected_at": "Rejeté le {{date}}",
         "requires_review": "Renvoyé en correction",
+        "source_avm": "Source AVM :",
         "events": {
           "stay_change_requested": "Demande de modification de séjour",
           "avm_modified_requires_review": "Revue requise suite à une modification d'AVM",
@@ -1662,6 +1668,11 @@
           "updated": "Mise à jour",
           "requires_review": "Passage en revue"
         }
+      },
+      "operational_impact": {
+        "avm_modified": "Cette AdS est en revue à la suite d'une modification de l'AVM source.",
+        "avm_cancelled": "Cette AdS a été impactée par l'annulation de l'AVM source.",
+        "changed_fields": "Champs impactés"
       },
       "actions": {
         "external_link": "Lien externe",
@@ -1691,7 +1702,7 @@
         "draft_missing": "Complétez le cadrage mission et les lignes de programme avant soumission.",
         "in_preparation": "Suivez les tâches de préparation, puis validez les AdS liées avant arbitrage final.",
         "active": "La mission est en cours. Surveillez les lignes, les AdS générées et les changements de dates.",
-        "ready": "La mission est prête. Vérifiez les derniers écarts avant clôture opérationnelle.",
+        "ready": "La mission est prête pour arbitrage final. Vous pouvez maintenant lancer l'approbation.",
         "completed": "Mission clôturée. Utilisez cette vue comme dossier de référence.",
         "cancelled": "Mission annulée. Conservez le dossier pour audit et historique."
       },
@@ -1703,6 +1714,7 @@
       "kpis": {
         "program_lines": "Lignes programme",
         "generated_ads": "AdS générées",
+        "open_preparation": "Tâches ouvertes",
         "planned_pax": "PAX prévus"
       },
       "sections": {
@@ -1741,6 +1753,10 @@
       },
       "operational_impacts": {
         "generated_ads_review": "{{count}} AdS générée(s) liée(s) à cette mission nécessitent une revue suite à un impact Planner ou métier.",
+        "preparation_blockers": "{{count}} tâche(s) de préparation bloquent encore l'arbitrage final de l'AVM.",
+        "preparation_blockers_list": "Tâches ouvertes : {{tasks}}",
+        "completion_blockers_active_ads": "{{count}} AdS générée(s) sont encore actives et bloquent la clôture de la mission.",
+        "completion_blockers_missing_ads": "{{count}} ligne(s) de programme site n'ont pas encore d'AdS générée, la mission ne peut pas être clôturée.",
         "last_modification_review_count": "La dernière modification de l'AVM a replacé {{count}} AdS en revue.",
         "impacted_ads": "AdS concernées : {{refs}}"
       },

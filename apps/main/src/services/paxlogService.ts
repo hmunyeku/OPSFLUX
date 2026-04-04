@@ -196,6 +196,8 @@ export interface Ads {
   return_transport_mode: string | null
   project_id: string | null
   planner_activity_id: string | null
+  planner_activity_title?: string | null
+  planner_activity_status?: string | null
   cross_company_flag: boolean
   submitted_at: string | null
   approved_at: string | null
@@ -558,11 +560,20 @@ export interface MissionPreparationTaskRead {
   task_type: string
   status: 'pending' | 'in_progress' | 'completed' | 'cancelled' | 'blocked' | 'na'
   assigned_to_user_id: string | null
+  assigned_to_user_name?: string | null
   linked_ads_id: string | null
+  linked_ads_reference?: string | null
   due_date: string | null
   completed_at: string | null
   notes: string | null
   auto_generated: boolean
+}
+
+export interface MissionPreparationTaskUpdate {
+  status?: 'pending' | 'in_progress' | 'completed' | 'cancelled' | 'blocked' | 'na'
+  assigned_to_user_id?: string | null
+  due_date?: string | null
+  notes?: string | null
 }
 
 export interface MissionNoticeCreate {
@@ -624,6 +635,8 @@ export interface MissionNoticeRead {
   programs: MissionProgramRead[]
   preparation_tasks: MissionPreparationTaskRead[]
   preparation_progress: number
+  open_preparation_tasks: number
+  ready_for_approval: boolean
   last_modification_reason?: string | null
   last_modified_at?: string | null
   last_modified_by_name?: string | null
@@ -647,6 +660,8 @@ export interface MissionNoticeSummary {
   creator_name: string | null
   pax_count: number
   preparation_progress: number
+  open_preparation_tasks: number
+  ready_for_approval: boolean
   created_at: string
 }
 
@@ -1035,8 +1050,18 @@ export const paxlogService = {
     return data
   },
 
+  completeAvm: async (id: string): Promise<Record<string, unknown>> => {
+    const { data } = await api.post(`/api/v1/pax/avm/${id}/complete`)
+    return data
+  },
+
   cancelAvm: async (id: string, reason?: string): Promise<MissionNoticeRead> => {
     const { data } = await api.post(`/api/v1/pax/avm/${id}/cancel`, null, { params: reason ? { reason } : {} })
+    return data
+  },
+
+  updateAvmPreparationTask: async (avmId: string, taskId: string, payload: MissionPreparationTaskUpdate): Promise<MissionPreparationTaskRead> => {
+    const { data } = await api.patch(`/api/v1/pax/avm/${avmId}/preparation-tasks/${taskId}`, payload)
     return data
   },
 }

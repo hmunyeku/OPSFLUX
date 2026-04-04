@@ -55,6 +55,7 @@ from app.models.paxlog import (
     PaxGroup,
     PaxIncident,
 )
+from app.models.planner import PlannerActivity
 from app.schemas.paxlog import (
     AdsCreate,
     AdsImputationSuggestionRead,
@@ -75,6 +76,7 @@ from app.schemas.paxlog import (
     MissionNoticeSummary,
     MissionNoticeUpdate,
     MissionPreparationTaskRead,
+    MissionPreparationTaskUpdate,
     MissionProgramRead,
     PaxCredentialCreate,
     PaxCredentialRead,
@@ -529,6 +531,29 @@ async def _run_ads_submission_checks(
 
     target_status = "pending_compliance" if has_compliance_issues else "pending_validation"
     return pax_entries, has_compliance_issues, target_status
+
+
+async def _can_manage_avm(
+    *,
+    db: AsyncSession,
+    avm: MissionNotice,
+    current_user: User,
+    entity_id: UUID,
+) -> bool:
+    """Whether the current user may manage this AVM.
+
+    Owners can manage their own AVM. Arbitrators may override through stronger
+    approval/completion permissions.
+    """
+    if avm.created_by == current_user.id:
+        return True
+
+    can_approve = await has_user_permission(current_user, entity_id, "paxlog.avm.approve", db)
+    if can_approve:
+        return True
+
+    can_complete = await has_user_permission(current_user, entity_id, "paxlog.avm.complete", db)
+    return can_complete
 
 
 def _hash_secret(value: str) -> str:
@@ -1552,6 +1577,19 @@ async def get_ads(
             "origin_mission_notice_reference": avm_origin[3],
             "origin_mission_notice_title": avm_origin[4],
         })
+    if ads.planner_activity_id:
+        planner_result = await db.execute(
+            select(PlannerActivity.title, PlannerActivity.status).where(
+                PlannerActivity.id == ads.planner_activity_id,
+                PlannerActivity.entity_id == entity_id,
+            )
+        )
+        planner_row = planner_result.first()
+        if planner_row:
+            data.update({
+                "planner_activity_title": planner_row[0],
+                "planner_activity_status": planner_row[1],
+            })
     return AdsRead(**data)
 
 
@@ -4672,10 +4710,17 @@ async def list_avm(
         from app.services.modules.paxlog_service import get_avm_preparation_status
         prep_status = await get_avm_preparation_status(db, avm.id)
 
+        effective_status = avm.status
+        if avm.status in ("in_preparation", "ready"):
+            effective_status = "ready" if prep_status["ready_for_approval"] else "in_preparation"
+
         d = MissionNoticeSummary.model_validate(avm)
+        d.status = effective_status
         d.creator_name = f"{creator_first or ''} {creator_last or ''}".strip() or None
         d.pax_count = pax_count
         d.preparation_progress = prep_status["progress_percent"]
+        d.open_preparation_tasks = prep_status["open_preparation_tasks"]
+        d.ready_for_approval = prep_status["ready_for_approval"]
         items.append(d)
 
     return {
@@ -4847,6 +4892,11 @@ async def update_avm(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Cannot update AVM with status '{avm.status}'",
         )
+    if not await _can_manage_avm(db=db, avm=avm, current_user=current_user, entity_id=entity_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You may only update your own AVM unless you can arbitrate it.",
+        )
 
     update_data = body.model_dump(exclude_unset=True)
     for key, value in update_data.items():
@@ -4907,6 +4957,31 @@ async def approve_avm_route(
 
     await record_audit(
         db, action="paxlog.avm.approve", resource_type="mission_notice",
+        resource_id=str(avm_id), user_id=current_user.id, entity_id=entity_id,
+    )
+    await db.commit()
+
+    return result
+
+
+@router.post("/avm/{avm_id}/complete", response_model=dict)
+async def complete_avm_route(
+    avm_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.avm.complete"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Complete AVM once all generated AdS are terminal."""
+    from app.services.modules.paxlog_service import complete_avm as _complete_avm
+
+    try:
+        result = await _complete_avm(db, avm_id, entity_id, current_user.id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    await record_audit(
+        db, action="paxlog.avm.complete", resource_type="mission_notice",
         resource_id=str(avm_id), user_id=current_user.id, entity_id=entity_id,
     )
     await db.commit()
@@ -5073,10 +5148,15 @@ async def modify_active_avm(
     avm = result.scalar_one_or_none()
     if not avm:
         raise HTTPException(status_code=404, detail="AVM not found")
-    if avm.status not in ("active", "in_preparation"):
+    if avm.status not in ("active", "in_preparation", "ready"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Cannot modify AVM with status '{avm.status}'",
+        )
+    if not await _can_manage_avm(db=db, avm=avm, current_user=current_user, entity_id=entity_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You may only modify your own AVM unless you can arbitrate it.",
         )
 
     update_data = body.model_dump(exclude_unset=True, exclude={"reason"})
@@ -5300,11 +5380,38 @@ async def _build_avm_read(db: AsyncSession, avm: MissionNotice) -> MissionNotice
         ).order_by(MissionPreparationTask.created_at)
     )
     tasks = task_result.scalars().all()
-    task_reads = [MissionPreparationTaskRead.model_validate(t) for t in tasks]
+    assigned_user_ids = list({task.assigned_to_user_id for task in tasks if task.assigned_to_user_id})
+    assigned_names: dict[UUID, str] = {}
+    if assigned_user_ids:
+        assigned_users_result = await db.execute(
+            select(User.id, User.first_name, User.last_name).where(User.id.in_(assigned_user_ids))
+        )
+        assigned_names = {
+            row[0]: f"{row[1] or ''} {row[2] or ''}".strip()
+            for row in assigned_users_result.all()
+        }
+
+    linked_ads_ids = list({task.linked_ads_id for task in tasks if task.linked_ads_id})
+    linked_ads_refs: dict[UUID, str] = {}
+    if linked_ads_ids:
+        linked_ads_result = await db.execute(
+            select(Ads.id, Ads.reference).where(Ads.id.in_(linked_ads_ids))
+        )
+        linked_ads_refs = {row[0]: row[1] for row in linked_ads_result.all()}
+
+    task_reads = []
+    for task in tasks:
+        task_payload = MissionPreparationTaskRead.model_validate(task).model_dump()
+        task_payload["assigned_to_user_name"] = assigned_names.get(task.assigned_to_user_id) if task.assigned_to_user_id else None
+        task_payload["linked_ads_reference"] = linked_ads_refs.get(task.linked_ads_id) if task.linked_ads_id else None
+        task_reads.append(MissionPreparationTaskRead(**task_payload))
 
     # Preparation progress
     from app.services.modules.paxlog_service import get_avm_preparation_status
     prep_status = await get_avm_preparation_status(db, avm.id)
+    effective_status = avm.status
+    if avm.status in ("in_preparation", "ready"):
+        effective_status = "ready" if prep_status["ready_for_approval"] else "in_preparation"
 
     return MissionNoticeRead(
         id=avm.id,
@@ -5313,7 +5420,7 @@ async def _build_avm_read(db: AsyncSession, avm: MissionNotice) -> MissionNotice
         title=avm.title,
         description=avm.description,
         created_by=avm.created_by,
-        status=avm.status,
+        status=effective_status,
         planned_start_date=avm.planned_start_date,
         planned_end_date=avm.planned_end_date,
         requires_badge=avm.requires_badge,
@@ -5331,6 +5438,8 @@ async def _build_avm_read(db: AsyncSession, avm: MissionNotice) -> MissionNotice
         programs=program_reads,
         preparation_tasks=task_reads,
         preparation_progress=prep_status["progress_percent"],
+        open_preparation_tasks=prep_status["open_preparation_tasks"],
+        ready_for_approval=prep_status["ready_for_approval"],
         last_modification_reason=last_modification_reason,
         last_modified_at=last_modified_at,
         last_modified_by_name=last_modified_by_name,
@@ -5339,3 +5448,123 @@ async def _build_avm_read(db: AsyncSession, avm: MissionNotice) -> MissionNotice
         last_linked_ads_set_to_review=last_linked_ads_set_to_review,
         last_linked_ads_references=last_linked_ads_references,
     )
+
+
+@router.patch("/avm/{avm_id}/preparation-tasks/{task_id}", response_model=MissionPreparationTaskRead)
+async def update_avm_preparation_task(
+    avm_id: UUID,
+    task_id: UUID,
+    body: MissionPreparationTaskUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.avm.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update an AVM preparation task within the current entity."""
+    avm_result = await db.execute(
+        select(MissionNotice).where(
+            MissionNotice.id == avm_id,
+            MissionNotice.entity_id == entity_id,
+        )
+    )
+    avm = avm_result.scalar_one_or_none()
+    if not avm:
+        raise HTTPException(status_code=404, detail="AVM not found")
+    if avm.status not in ("in_preparation", "ready", "active"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot update preparation tasks for AVM with status '{avm.status}'",
+        )
+    if not await _can_manage_avm(db=db, avm=avm, current_user=current_user, entity_id=entity_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You may only manage preparation for your own AVM unless you can arbitrate it.",
+        )
+
+    task_result = await db.execute(
+        select(MissionPreparationTask).where(
+            MissionPreparationTask.id == task_id,
+            MissionPreparationTask.mission_notice_id == avm_id,
+        )
+    )
+    task = task_result.scalar_one_or_none()
+    if not task:
+        raise HTTPException(status_code=404, detail="Preparation task not found")
+
+    update_data = body.model_dump(exclude_unset=True)
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No preparation task changes provided")
+
+    if "assigned_to_user_id" in update_data and update_data["assigned_to_user_id"]:
+        assigned_user_id = update_data["assigned_to_user_id"]
+        assigned_user_result = await db.execute(
+            select(User.id)
+            .join(UserGroupMember, UserGroupMember.user_id == User.id)
+            .join(UserGroup, UserGroup.id == UserGroupMember.group_id)
+            .where(
+                User.id == assigned_user_id,
+                User.active == True,  # noqa: E712
+                UserGroup.entity_id == entity_id,
+                UserGroup.active == True,  # noqa: E712
+            )
+            .limit(1)
+        )
+        if not assigned_user_result.scalar_one_or_none():
+            raise HTTPException(
+                status_code=400,
+                detail="Assigned user must be active and belong to the current entity",
+            )
+
+    for key, value in update_data.items():
+        setattr(task, key, value)
+
+    if "status" in update_data:
+        task.completed_at = datetime.now(timezone.utc) if task.status == "completed" else None
+
+    if avm.status in ("in_preparation", "ready"):
+        from app.services.modules.paxlog_service import get_avm_preparation_status
+        await db.flush()
+        prep_status = await get_avm_preparation_status(db, avm.id)
+        avm.status = "ready" if prep_status["ready_for_approval"] else "in_preparation"
+
+    await db.commit()
+    await db.refresh(task)
+
+    await record_audit(
+        db,
+        action="paxlog.avm.preparation_task.update",
+        resource_type="mission_notice",
+        resource_id=str(avm.id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={
+            "task_id": str(task.id),
+            "task_type": task.task_type,
+            "changes": {
+                key: _json_safe(value)
+                for key, value in update_data.items()
+            },
+        },
+    )
+    await db.commit()
+
+    assigned_to_user_name = None
+    if task.assigned_to_user_id:
+        assigned_user_result = await db.execute(
+            select(User.first_name, User.last_name).where(User.id == task.assigned_to_user_id)
+        )
+        assigned_user = assigned_user_result.first()
+        if assigned_user:
+            assigned_to_user_name = f"{assigned_user[0] or ''} {assigned_user[1] or ''}".strip() or None
+
+    linked_ads_reference = None
+    if task.linked_ads_id:
+        linked_ads_result = await db.execute(
+            select(Ads.reference).where(Ads.id == task.linked_ads_id)
+        )
+        linked_ads_reference = linked_ads_result.scalar_one_or_none()
+
+    task_payload = MissionPreparationTaskRead.model_validate(task).model_dump()
+    task_payload["assigned_to_user_name"] = assigned_to_user_name
+    task_payload["linked_ads_reference"] = linked_ads_reference
+    return MissionPreparationTaskRead(**task_payload)

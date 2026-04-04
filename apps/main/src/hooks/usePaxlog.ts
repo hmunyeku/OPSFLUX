@@ -23,6 +23,7 @@ import type {
   ProfileTypeCreate,
   MissionNoticeCreate,
   MissionNoticeModifyRequest,
+  MissionPreparationTaskUpdate,
   MissionNoticeUpdate,
   AddPaxBody,
 } from '@/services/paxlogService'
@@ -629,12 +630,34 @@ export function useApproveAvm() {
   })
 }
 
+export function useCompleteAvm() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => paxlogService.completeAvm(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['paxlog', 'avm'] })
+    },
+  })
+}
+
 export function useCancelAvm() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason?: string }) => paxlogService.cancelAvm(id, reason),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['paxlog', 'avm'] })
+    },
+  })
+}
+
+export function useUpdateAvmPreparationTask() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ avmId, taskId, payload }: { avmId: string; taskId: string; payload: MissionPreparationTaskUpdate }) =>
+      paxlogService.updateAvmPreparationTask(avmId, taskId, payload),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['paxlog', 'avm'] })
+      qc.invalidateQueries({ queryKey: ['paxlog', 'avm', vars.avmId] })
     },
   })
 }

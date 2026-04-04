@@ -105,7 +105,9 @@ import {
   useModifyAvm,
   useSubmitAvm,
   useApproveAvm,
+  useCompleteAvm,
   useCancelAvm,
+  useUpdateAvmPreparationTask,
   useAddPaxToAdsV2,
   useRemovePaxFromAds,
   usePaxCandidates,
@@ -135,6 +137,7 @@ import type {
   ComplianceMatrixEntry,
   MissionNoticeSummary,
   MissionNoticeModifyRequest,
+  MissionPreparationTaskUpdate,
   MissionProgramRead,
   PaxCandidate,
 } from '@/services/paxlogService'
@@ -2034,7 +2037,23 @@ function AdsDetailPanel({ id }: { id: string }) {
     if (value === null || value === undefined) return '—'
     return JSON.stringify(value)
   }
+  const getAvmChangeFieldLabel = (field: string) => {
+    const fieldLabels: Record<string, string> = {
+      title: t('common.title'),
+      description: t('common.description'),
+      planned_start_date: t('paxlog.create_avm.window.start'),
+      planned_end_date: t('paxlog.create_avm.window.end'),
+      mission_type: t('paxlog.mission_type'),
+      pax_quota: t('paxlog.avm_detail.fields.planned_pax'),
+      requires_badge: t('paxlog.requires_badge'),
+      requires_epi: t('paxlog.requires_epi'),
+      requires_visa: t('paxlog.requires_visa'),
+      eligible_displacement_allowance: t('paxlog.displacement_allowance'),
+    }
+    return fieldLabels[field] || field
+  }
   const adsTimeline = (adsEvents ?? []).slice(0, 8)
+  const latestOperationalImpact = (adsEvents ?? []).find((event) => ['avm_modified_requires_review', 'avm_cancelled'].includes(event.event_type))
   const getAdsEventLabel = (eventType: string) => {
     const eventLabels: Record<string, string> = {
       stay_change_requested: t('paxlog.ads_detail.history.events.stay_change_requested'),
@@ -2073,6 +2092,11 @@ function AdsDetailPanel({ id }: { id: string }) {
                   : ads.status === 'rejected'
                     ? t('paxlog.ads_detail.next_action.rejected')
                     : t('paxlog.ads_detail.next_action.cancelled')
+  const latestOperationalImpactChanges = (latestOperationalImpact?.metadata_json as {
+    changes?: Record<string, { from?: unknown; to?: unknown; before?: unknown; after?: unknown }>
+    avm_id?: string
+    avm_reference?: string
+  } | null)?.changes
 
   const handleReject = () => {
     rejectAds.mutate({ id, reason: rejectReason || undefined })
@@ -2425,6 +2449,67 @@ function AdsDetailPanel({ id }: { id: string }) {
           </CollapsibleSection>
         )}
 
+        {ads.planner_activity_id && (
+          <CollapsibleSection id="ads-origin-planner" title={t('paxlog.ads_detail.sections.origin_planner')} defaultExpanded>
+            <DetailFieldGrid>
+              <ReadOnlyRow
+                label={t('paxlog.ads_detail.fields.planner_activity')}
+                value={
+                  <CrossModuleLink
+                    module="planner"
+                    id={ads.planner_activity_id}
+                    label={ads.planner_activity_title || ads.planner_activity_id}
+                    mode="navigate"
+                  />
+                }
+              />
+              {ads.planner_activity_title && (
+                <ReadOnlyRow label={t('paxlog.ads_detail.fields.planner_activity_title')} value={ads.planner_activity_title} />
+              )}
+              {ads.planner_activity_status && (
+                <ReadOnlyRow label={t('paxlog.ads_detail.fields.planner_activity_status')} value={ads.planner_activity_status} />
+              )}
+            </DetailFieldGrid>
+          </CollapsibleSection>
+        )}
+
+        {latestOperationalImpact && (
+          <CollapsibleSection id="ads-operational-impact" title={t('paxlog.ads_detail.sections.operational_impact')} defaultExpanded>
+            <div className="space-y-2 rounded-md border border-amber-300/60 bg-amber-50 px-3 py-3 text-xs text-amber-950 dark:border-amber-700/50 dark:bg-amber-950/20 dark:text-amber-50">
+              <p className="font-medium">
+                {latestOperationalImpact.event_type === 'avm_cancelled'
+                  ? t('paxlog.ads_detail.operational_impact.avm_cancelled')
+                  : t('paxlog.ads_detail.operational_impact.avm_modified')}
+              </p>
+              {!!latestOperationalImpact.reason && (
+                <p className="text-amber-900/90 dark:text-amber-100/90">{latestOperationalImpact.reason}</p>
+              )}
+              {!!(latestOperationalImpact.metadata_json as { avm_id?: string; avm_reference?: string } | null)?.avm_id && (
+                <p className="text-amber-900/90 dark:text-amber-100/90">
+                  {t('paxlog.ads_detail.history.source_avm')}{' '}
+                  <CrossModuleLink
+                    module="paxlog"
+                    id={(latestOperationalImpact.metadata_json as { avm_id?: string }).avm_id!}
+                    subtype="avm"
+                    label={(latestOperationalImpact.metadata_json as { avm_reference?: string }).avm_reference || (latestOperationalImpact.metadata_json as { avm_id?: string }).avm_id!}
+                    mode="navigate"
+                  />
+                </p>
+              )}
+              {latestOperationalImpactChanges && (
+                <div className="space-y-1">
+                  <p className="font-medium">{t('paxlog.ads_detail.operational_impact.changed_fields')}</p>
+                  {Object.entries(latestOperationalImpactChanges).map(([field, diff]) => (
+                    <div key={field} className="text-[11px] text-amber-900/90 dark:text-amber-100/90">
+                      <span className="font-medium">{getAvmChangeFieldLabel(field)}</span>: {formatEventValue(diff.from ?? diff.before)} → {formatEventValue(diff.to ?? diff.after)}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </CollapsibleSection>
+        )}
+
         {/* PAX list with compliance status + add/remove */}
         <CollapsibleSection id="ads-pax" title={t('paxlog.ads_detail.sections.passengers', { count: adsPax?.length || 0 })} defaultExpanded>
           {/* PAX Search & Add — only for draft/review status */}
@@ -2739,7 +2824,12 @@ function AdsDetailPanel({ id }: { id: string }) {
               </div>
             )}
             {adsTimeline.map((event) => {
-              const changes = (event.metadata_json as { changes?: Record<string, { from: unknown; to: unknown }> } | null)?.changes
+              const metadata = event.metadata_json as {
+                changes?: Record<string, { from?: unknown; to?: unknown; before?: unknown; after?: unknown }>
+                avm_id?: string
+                avm_reference?: string
+              } | null
+              const changes = metadata?.changes
               return (
                 <div key={event.id} className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 space-y-1.5">
                   <div className="flex items-center justify-between gap-3">
@@ -2747,11 +2837,23 @@ function AdsDetailPanel({ id }: { id: string }) {
                     <span className="text-[11px] text-muted-foreground">{formatDate(event.recorded_at)}</span>
                   </div>
                   {event.reason && <p className="text-xs text-muted-foreground">{event.reason}</p>}
+                  {metadata?.avm_id && (
+                    <div className="text-[11px] text-muted-foreground">
+                      <span className="font-medium text-foreground">{t('paxlog.ads_detail.history.source_avm')}</span>{' '}
+                      <CrossModuleLink
+                        module="paxlog"
+                        id={metadata.avm_id}
+                        subtype="avm"
+                        label={metadata.avm_reference || metadata.avm_id}
+                        mode="navigate"
+                      />
+                    </div>
+                  )}
                   {changes && (
                     <div className="space-y-1">
                       {Object.entries(changes).map(([field, diff]) => (
                         <div key={field} className="text-[11px] text-muted-foreground">
-                          <span className="font-medium text-foreground">{field}</span>: {formatEventValue(diff.from)} → {formatEventValue(diff.to)}
+                          <span className="font-medium text-foreground">{getAvmChangeFieldLabel(field)}</span>: {formatEventValue(diff.from ?? diff.before)} → {formatEventValue(diff.to ?? diff.after)}
                         </div>
                       ))}
                     </div>
@@ -3453,13 +3555,17 @@ function AvmDetailPanel({ id }: { id?: string }) {
   const modifyAvmMut = useModifyAvm()
   const submitAvmMut = useSubmitAvm()
   const approveAvmMut = useApproveAvm()
+  const completeAvmMut = useCompleteAvm()
   const cancelAvmMut = useCancelAvm()
+  const updatePreparationTaskMut = useUpdateAvmPreparationTask()
   const { hasPermission } = usePermission()
   const missionTypeLabels = useDictionaryLabels('mission_type')
   const missionActivityTypeLabels = useDictionaryLabels('mission_activity_type')
 
   const { data: avm, isLoading } = useAvm(id || '')
+  const { data: avmUsers } = useUsers({ page: 1, page_size: 200, active: true })
   const [showModifyForm, setShowModifyForm] = useState(false)
+  const [taskDrafts, setTaskDrafts] = useState<Record<string, MissionPreparationTaskUpdate>>({})
   const [modifyForm, setModifyForm] = useState<MissionNoticeModifyRequest>({
     title: '',
     description: '',
@@ -3469,6 +3575,23 @@ function AvmDetailPanel({ id }: { id?: string }) {
     pax_quota: 0,
     reason: '',
   })
+
+  useEffect(() => {
+    if (!avm) return
+    setTaskDrafts(
+      Object.fromEntries(
+        avm.preparation_tasks.map((task) => [
+          task.id,
+          {
+            status: task.status,
+            assigned_to_user_id: task.assigned_to_user_id,
+            due_date: task.due_date,
+            notes: task.notes || '',
+          },
+        ]),
+      ),
+    )
+  }, [avm])
 
   if (!id || isLoading) {
     return (
@@ -3487,8 +3610,11 @@ function AvmDetailPanel({ id }: { id?: string }) {
 
   const generatedAdsCount = avm.programs.filter((program) => !!program.generated_ads_id).length
   const generatedAdsReviewCount = avm.programs.filter((program) => program.generated_ads_status === 'requires_review').length
+  const generatedAdsActiveCount = avm.programs.filter((program) => program.generated_ads_status && !['completed', 'cancelled', 'rejected'].includes(program.generated_ads_status)).length
   const programsWithSiteCount = avm.programs.filter((program) => !!program.site_asset_id).length
+  const programsMissingGeneratedAdsCount = avm.programs.filter((program) => !!program.site_asset_id && !program.generated_ads_id).length
   const programsWithDatesCount = avm.programs.filter((program) => !!program.planned_start_date && !!program.planned_end_date).length
+  const preparationBlockingTasks = avm.preparation_tasks.filter((task) => task.task_type !== 'ads_creation' && ['pending', 'in_progress', 'blocked'].includes(task.status))
   const avmReadinessChecklist = [
     { label: t('paxlog.avm_detail.checklist.scope'), done: avm.title.trim().length > 0 && !!avm.mission_type },
     { label: t('paxlog.avm_detail.checklist.window'), done: !!avm.planned_start_date && !!avm.planned_end_date },
@@ -3513,9 +3639,12 @@ function AvmDetailPanel({ id }: { id?: string }) {
               : t('paxlog.avm_detail.next_action.cancelled')
 
   const canSubmit = avm.status === 'draft' && hasPermission('paxlog.avm.submit')
-  const canApprove = avm.status === 'in_preparation' && hasPermission('paxlog.avm.approve')
+  const canApprove = avm.status === 'ready' && hasPermission('paxlog.avm.approve') && avm.ready_for_approval
+  const canComplete = avm.status === 'active' && hasPermission('paxlog.avm.complete') && generatedAdsActiveCount === 0 && programsMissingGeneratedAdsCount === 0
   const canCancel = !['completed', 'cancelled'].includes(avm.status) && hasPermission('paxlog.avm.cancel')
-  const canRequestChange = ['active', 'in_preparation'].includes(avm.status) && hasPermission('paxlog.avm.update')
+  const canRequestChange = ['active', 'in_preparation', 'ready'].includes(avm.status) && hasPermission('paxlog.avm.update')
+  const canManagePreparation = ['in_preparation', 'ready', 'active'].includes(avm.status) && hasPermission('paxlog.avm.update')
+  const avmUsersItems = avmUsers?.items ?? []
   const openModifyForm = () => {
     setModifyForm({
       title: avm.title,
@@ -3556,6 +3685,15 @@ function AvmDetailPanel({ id }: { id?: string }) {
               onClick={() => approveAvmMut.mutate(avm.id)}
             >
               {approveAvmMut.isPending ? <Loader2 size={12} className="animate-spin" /> : <><CheckCircle2 size={12} /> {t('common.validate')}</>}
+            </PanelActionButton>
+          )}
+          {canComplete && (
+            <PanelActionButton
+              variant="primary"
+              disabled={completeAvmMut.isPending}
+              onClick={() => completeAvmMut.mutate(avm.id)}
+            >
+              {completeAvmMut.isPending ? <Loader2 size={12} className="animate-spin" /> : <><FileCheck2 size={12} /> {t('common.complete')}</>}
             </PanelActionButton>
           )}
           {canCancel && (
@@ -3681,6 +3819,10 @@ function AvmDetailPanel({ id }: { id?: string }) {
                 <p className="mt-1 text-sm font-semibold text-foreground">{generatedAdsCount}</p>
               </div>
               <div className="rounded-md border border-border bg-card px-3 py-2">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('paxlog.avm_detail.kpis.open_preparation')}</p>
+                <p className="mt-1 text-sm font-semibold text-foreground">{avm.open_preparation_tasks}</p>
+              </div>
+              <div className="rounded-md border border-border bg-card px-3 py-2">
                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('paxlog.avm_detail.kpis.planned_pax')}</p>
                 <p className="mt-1 text-sm font-semibold text-foreground">{avm.pax_quota}</p>
               </div>
@@ -3693,6 +3835,30 @@ function AvmDetailPanel({ id }: { id?: string }) {
           <CollapsibleSection id="avm-impact-warning" title={t('paxlog.avm_detail.sections.operational_impacts')} defaultExpanded>
             <div className="rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/20 dark:text-amber-100">
               {t('paxlog.avm_detail.operational_impacts.generated_ads_review', { count: generatedAdsReviewCount })}
+            </div>
+          </CollapsibleSection>
+        )}
+
+        {avm.status === 'active' && (generatedAdsActiveCount > 0 || programsMissingGeneratedAdsCount > 0) && (
+          <CollapsibleSection id="avm-completion-blockers" title={t('paxlog.avm_detail.sections.operational_impacts')} defaultExpanded>
+            <div className="rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/20 dark:text-amber-100 space-y-1.5">
+              {generatedAdsActiveCount > 0 && (
+                <p>{t('paxlog.avm_detail.operational_impacts.completion_blockers_active_ads', { count: generatedAdsActiveCount })}</p>
+              )}
+              {programsMissingGeneratedAdsCount > 0 && (
+                <p>{t('paxlog.avm_detail.operational_impacts.completion_blockers_missing_ads', { count: programsMissingGeneratedAdsCount })}</p>
+              )}
+            </div>
+          </CollapsibleSection>
+        )}
+
+        {['in_preparation', 'ready'].includes(avm.status) && preparationBlockingTasks.length > 0 && (
+          <CollapsibleSection id="avm-preparation-blockers" title={t('paxlog.avm_detail.sections.operational_impacts')} defaultExpanded>
+            <div className="rounded-md border border-red-300/60 bg-red-50 px-3 py-2 text-xs text-red-900 dark:border-red-700/50 dark:bg-red-950/20 dark:text-red-100 space-y-1.5">
+              <p>{t('paxlog.avm_detail.operational_impacts.preparation_blockers', { count: preparationBlockingTasks.length })}</p>
+              <p className="text-red-800/90 dark:text-red-100/90">
+                {t('paxlog.avm_detail.operational_impacts.preparation_blockers_list', { tasks: preparationBlockingTasks.map((task) => task.title).join(', ') })}
+              </p>
             </div>
           </CollapsibleSection>
         )}
@@ -3777,7 +3943,7 @@ function AvmDetailPanel({ id }: { id?: string }) {
           {avm.preparation_tasks.length === 0 ? (
             <p className="text-xs text-muted-foreground italic">{t('paxlog.avm_detail.empty.preparation_tasks')}</p>
           ) : (
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {avm.preparation_tasks.map((task) => {
                 const taskStatusColors: Record<string, string> = {
                   pending: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700',
@@ -3787,13 +3953,118 @@ function AvmDetailPanel({ id }: { id?: string }) {
                   blocked: 'bg-red-100 dark:bg-red-900/30 text-red-700',
                   na: 'bg-muted text-muted-foreground',
                 }
+                const draft = taskDrafts[task.id] ?? {
+                  status: task.status,
+                  assigned_to_user_id: task.assigned_to_user_id,
+                  due_date: task.due_date,
+                  notes: task.notes || '',
+                }
+                const currentAssignedUser = avmUsersItems.find((user) => user.id === (draft.assigned_to_user_id || ''))
+                const assignedLabel = currentAssignedUser
+                  ? `${currentAssignedUser.first_name} ${currentAssignedUser.last_name}`.trim()
+                  : task.assigned_to_user_name
+                const hasTaskChanges =
+                  draft.status !== task.status ||
+                  (draft.assigned_to_user_id || null) !== (task.assigned_to_user_id || null) ||
+                  (draft.due_date || null) !== (task.due_date || null) ||
+                  (draft.notes || '') !== (task.notes || '')
                 return (
-                  <div key={task.id} className="flex items-center gap-2 text-xs">
-                    <span className={cn('w-2 h-2 rounded-full shrink-0', task.status === 'completed' ? 'bg-green-500' : task.status === 'pending' ? 'bg-amber-500' : task.status === 'in_progress' ? 'bg-blue-500' : 'bg-muted-foreground')} />
-                    <span className={cn('flex-1', task.status === 'cancelled' ? 'line-through text-muted-foreground' : 'text-foreground')}>{task.title}</span>
-                    <span className={cn('px-1.5 py-0.5 rounded text-[10px] font-medium', taskStatusColors[task.status] || 'bg-muted text-muted-foreground')}>
-                      {task.status.replace(/_/g, ' ')}
-                    </span>
+                  <div key={task.id} className="rounded border border-border bg-card p-2.5 space-y-2">
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className={cn('w-2 h-2 rounded-full shrink-0', task.status === 'completed' ? 'bg-green-500' : task.status === 'pending' ? 'bg-amber-500' : task.status === 'in_progress' ? 'bg-blue-500' : 'bg-muted-foreground')} />
+                      <span className={cn('flex-1', task.status === 'cancelled' ? 'line-through text-muted-foreground' : 'text-foreground')}>{task.title}</span>
+                      <span className={cn('px-1.5 py-0.5 rounded text-[10px] font-medium', taskStatusColors[task.status] || 'bg-muted text-muted-foreground')}>
+                        {t(`paxlog.avm_detail.preparation.status.${task.status}`)}
+                      </span>
+                      {task.auto_generated && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">
+                          {t('paxlog.avm_detail.preparation.auto_generated')}
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid gap-1 text-[11px] text-muted-foreground sm:grid-cols-3">
+                      <div>{t('paxlog.avm_detail.preparation.meta.task_type', { type: task.task_type })}</div>
+                      <div>{t('paxlog.avm_detail.preparation.meta.assignee', { assignee: assignedLabel || t('common.unassigned') })}</div>
+                      <div>{t('paxlog.avm_detail.preparation.meta.due_date', { date: formatDateShort(task.due_date) })}</div>
+                    </div>
+                    {!!task.linked_ads_id && (
+                      <div className="text-[11px]">
+                        <button
+                          className="text-primary hover:underline inline-flex items-center gap-1"
+                          onClick={() => openDynamicPanel({ type: 'detail', module: 'paxlog', id: task.linked_ads_id!, meta: { subtype: 'ads' } })}
+                        >
+                          <Link2 size={10} />
+                          {task.linked_ads_reference || t('paxlog.avm_detail.preparation.linked_ads')}
+                        </button>
+                      </div>
+                    )}
+                    {!!task.notes && !canManagePreparation && (
+                      <p className="text-[11px] text-muted-foreground whitespace-pre-wrap">{task.notes}</p>
+                    )}
+                    {canManagePreparation && (
+                      <div className="space-y-2 border-t border-border pt-2">
+                        <FormGrid className="@\[900px\]:grid-cols-2">
+                          <DynamicPanelField label={t('common.status')}>
+                            <select
+                              value={draft.status || task.status}
+                              onChange={(e) => setTaskDrafts((prev) => ({ ...prev, [task.id]: { ...draft, status: e.target.value as MissionPreparationTaskUpdate['status'] } }))}
+                              className={panelInputClass}
+                            >
+                              {(['pending', 'in_progress', 'completed', 'blocked', 'na', 'cancelled'] as const).map((statusOption) => (
+                                <option key={statusOption} value={statusOption}>
+                                  {t(`paxlog.avm_detail.preparation.status.${statusOption}`)}
+                                </option>
+                              ))}
+                            </select>
+                          </DynamicPanelField>
+                          <DynamicPanelField label={t('paxlog.avm_detail.preparation.fields.assignee')}>
+                            <select
+                              value={draft.assigned_to_user_id || ''}
+                              onChange={(e) => setTaskDrafts((prev) => ({ ...prev, [task.id]: { ...draft, assigned_to_user_id: e.target.value || null } }))}
+                              className={panelInputClass}
+                            >
+                              <option value="">{t('common.unassigned')}</option>
+                              {avmUsersItems.map((user) => (
+                                <option key={user.id} value={user.id}>
+                                  {`${user.first_name} ${user.last_name}`.trim() || user.email}
+                                </option>
+                              ))}
+                            </select>
+                          </DynamicPanelField>
+                          <DynamicPanelField label={t('common.due_date')}>
+                            <input
+                              type="date"
+                              value={draft.due_date || ''}
+                              onChange={(e) => setTaskDrafts((prev) => ({ ...prev, [task.id]: { ...draft, due_date: e.target.value || null } }))}
+                              className={panelInputClass}
+                            />
+                          </DynamicPanelField>
+                        </FormGrid>
+                        <DynamicPanelField label={t('common.notes')}>
+                          <textarea
+                            value={draft.notes || ''}
+                            onChange={(e) => setTaskDrafts((prev) => ({ ...prev, [task.id]: { ...draft, notes: e.target.value } }))}
+                            className={cn(panelInputClass, 'min-h-[64px] resize-y')}
+                            placeholder={t('paxlog.avm_detail.preparation.placeholders.notes')}
+                          />
+                        </DynamicPanelField>
+                        <div className="flex items-center gap-2">
+                          <PanelActionButton
+                            variant="primary"
+                            disabled={updatePreparationTaskMut.isPending || !hasTaskChanges}
+                            onClick={() => updatePreparationTaskMut.mutate({ avmId: avm.id, taskId: task.id, payload: draft })}
+                          >
+                            {updatePreparationTaskMut.isPending ? <Loader2 size={12} className="animate-spin" /> : <><CheckCircle2 size={12} /> {t('common.save')}</>}
+                          </PanelActionButton>
+                          <PanelActionButton
+                            onClick={() => setTaskDrafts((prev) => ({ ...prev, [task.id]: { status: task.status, assigned_to_user_id: task.assigned_to_user_id, due_date: task.due_date, notes: task.notes || '' } }))}
+                            disabled={updatePreparationTaskMut.isPending || !hasTaskChanges}
+                          >
+                            <RefreshCw size={12} /> {t('common.reset')}
+                          </PanelActionButton>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )
               })}
@@ -3870,13 +4141,13 @@ export function PaxLogPage() {
   const isFullPanel = panelMode === 'full' && dynamicPanel !== null && dynamicPanel.module === 'paxlog'
   const isRequesterProfile = hasAny(['paxlog.ads.read', 'paxlog.ads.create', 'paxlog.avm.create', 'paxlog.avm.update']) &&
     !hasAny(['paxlog.profile.read', 'paxlog.compliance.read', 'paxlog.rotation.manage', 'paxlog.profile_type.manage', 'paxlog.credtype.manage'])
-  const isValidatorProfile = !isRequesterProfile && hasAny(['paxlog.ads.approve', 'paxlog.compliance.read', 'paxlog.avm.approve'])
+  const isValidatorProfile = !isRequesterProfile && hasAny(['paxlog.ads.approve', 'paxlog.compliance.read', 'paxlog.avm.approve', 'paxlog.avm.complete'])
 
   const visibleTabs = useMemo(() => {
     const tabs = ALL_TABS.filter((tab) => {
       if (tab.id === 'dashboard') return true
       if (tab.id === 'ads') return hasAny(['paxlog.ads.read', 'paxlog.ads.create', 'paxlog.ads.update', 'paxlog.ads.approve'])
-      if (tab.id === 'avm') return hasAny(['paxlog.avm.create', 'paxlog.avm.update', 'paxlog.avm.approve'])
+      if (tab.id === 'avm') return hasAny(['paxlog.avm.create', 'paxlog.avm.update', 'paxlog.avm.approve', 'paxlog.avm.complete'])
       if (tab.id === 'profiles') return hasPermission('paxlog.profile.read')
       if (tab.id === 'compliance') return hasPermission('paxlog.compliance.read')
       if (tab.id === 'signalements') return hasPermission('paxlog.incident.read')

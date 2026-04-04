@@ -1586,6 +1586,8 @@
       "sections": {
         "visit_transport": "Visit & transport",
         "origin_mission": "Mission origin",
+        "origin_planner": "Planner origin",
+        "operational_impact": "Operational impact",
         "passengers": "Passengers ({{count}})",
         "imputations": "Imputations",
         "stay_programs": "Stay program ({{count}})",
@@ -1601,6 +1603,9 @@
         "origin_mission_title": "Mission title",
         "origin_program_activity": "Origin activity",
         "project": "Project",
+        "planner_activity": "Planner activity",
+        "planner_activity_title": "Activity title",
+        "planner_activity_status": "Planner status",
         "outbound_transport": "Outbound transport",
         "return_transport": "Return transport",
         "badge": "Badge: {{value}}"
@@ -1641,6 +1646,7 @@
         "approved_at": "Approved on {{date}}",
         "rejected_at": "Rejected on {{date}}",
         "requires_review": "Sent back for correction",
+        "source_avm": "Source AVM:",
         "events": {
           "stay_change_requested": "Stay change request",
           "avm_modified_requires_review": "Review required after AVM change",
@@ -1653,6 +1659,11 @@
           "updated": "Update",
           "requires_review": "Moved to review"
         }
+      },
+      "operational_impact": {
+        "avm_modified": "This visit notice is under review following a change to the source AVM.",
+        "avm_cancelled": "This visit notice was impacted by the cancellation of the source AVM.",
+        "changed_fields": "Impacted fields"
       },
       "actions": {
         "external_link": "External link",
@@ -1682,7 +1693,7 @@
         "draft_missing": "Complete mission framing and program lines before submission.",
         "in_preparation": "Follow preparation tasks, then validate linked visit notices before final arbitration.",
         "active": "The mission is in progress. Monitor lines, generated visit notices and date changes.",
-        "ready": "The mission is ready. Review remaining gaps before operational closure.",
+        "ready": "The mission is ready for final arbitration. Approval can now be launched.",
         "completed": "Mission completed. Use this view as the reference dossier.",
         "cancelled": "Mission cancelled. Keep the dossier for audit and history."
       },
@@ -1694,6 +1705,7 @@
       "kpis": {
         "program_lines": "Program lines",
         "generated_ads": "Generated visit notices",
+        "open_preparation": "Open tasks",
         "planned_pax": "Planned PAX"
       },
       "sections": {
@@ -1732,6 +1744,10 @@
       },
       "operational_impacts": {
         "generated_ads_review": "{{count}} generated visit notice(s) linked to this mission now require review after a Planner or business impact.",
+        "preparation_blockers": "{{count}} preparation task(s) still block final AVM approval.",
+        "preparation_blockers_list": "Open tasks: {{tasks}}",
+        "completion_blockers_active_ads": "{{count}} generated visit notice(s) are still active and block mission completion.",
+        "completion_blockers_missing_ads": "{{count}} site program line(s) still have no generated visit notice, so the mission cannot be completed.",
         "last_modification_review_count": "The latest AVM change set {{count}} visit notice(s) back to review.",
         "impacted_ads": "Impacted visit notices: {{refs}}"
       },

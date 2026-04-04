@@ -240,6 +240,8 @@ class AdsRead(OpsFluxSchema):
     status: str
     workflow_id: UUID | None
     planner_activity_id: UUID | None = None
+    planner_activity_title: str | None = None
+    planner_activity_status: str | None = None
     project_id: UUID | None = None
     requester_id: UUID
     site_entry_asset_id: UUID
@@ -401,11 +403,23 @@ class MissionPreparationTaskRead(OpsFluxSchema):
     task_type: str
     status: str
     assigned_to_user_id: UUID | None
+    assigned_to_user_name: str | None = None
     linked_ads_id: UUID | None
+    linked_ads_reference: str | None = None
     due_date: date | None
     completed_at: datetime | None
     notes: str | None
     auto_generated: bool
+
+
+class MissionPreparationTaskUpdate(BaseModel):
+    status: str | None = Field(
+        default=None,
+        pattern=r"^(pending|in_progress|completed|cancelled|blocked|na)$",
+    )
+    assigned_to_user_id: UUID | None = None
+    due_date: date | None = None
+    notes: str | None = Field(default=None, max_length=2000)
 
 
 class MissionNoticeCreate(BaseModel):
@@ -473,6 +487,8 @@ class MissionNoticeRead(OpsFluxSchema):
     programs: list[MissionProgramRead] = []
     preparation_tasks: list[MissionPreparationTaskRead] = []
     preparation_progress: int = 0
+    open_preparation_tasks: int = 0
+    ready_for_approval: bool = False
     last_modification_reason: str | None = None
     last_modified_at: datetime | None = None
     last_modified_by_name: str | None = None
@@ -496,4 +512,6 @@ class MissionNoticeSummary(OpsFluxSchema):
     creator_name: str | None = None
     pax_count: int = 0
     preparation_progress: int = 0
+    open_preparation_tasks: int = 0
+    ready_for_approval: bool = False
     created_at: datetime

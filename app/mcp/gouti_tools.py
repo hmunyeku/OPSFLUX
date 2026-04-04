@@ -199,10 +199,10 @@ _SUMMARY_FIELDS = {
 _MAX_LIST_ITEMS = 50
 
 
-def _summarise_list(items: list) -> dict:
+def _summarise_list(items: list, max_items: int = _MAX_LIST_ITEMS) -> dict:
     """Return a compact summary of a list, keeping only key fields."""
     total = len(items)
-    truncated = items[:_MAX_LIST_ITEMS]
+    truncated = items[:max_items]
     compact = []
     for item in truncated:
         if isinstance(item, dict):
@@ -215,8 +215,8 @@ def _summarise_list(items: list) -> dict:
         else:
             compact.append(item)
     result: dict = {"count": total, "items": compact}
-    if total > _MAX_LIST_ITEMS:
-        result["note"] = f"Affichage limité à {_MAX_LIST_ITEMS}/{total} éléments. Utilisez un filtre pour affiner."
+    if total > max_items:
+        result["note"] = f"Affichage limité à {max_items}/{total} éléments. Utilisez limit=0 pour tout récupérer ou affinez votre requête."
     return result
 
 
@@ -524,7 +524,180 @@ async def _api_post(c: GoutiApiClient, a: dict) -> dict:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Tool definitions (name, description, inputSchema, handler)
+# Consolidated tool handlers (12 tools instead of 43)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ── list: unified listing ────────────────────────────────────────────────────
+
+_LIST_ROUTES: dict[str, tuple[str, str]] = {
+    # type → (url_template, items_key)   — {pid} and {uid} are replaced at runtime
+    "projects":             ("projects", "projects"),
+    "archived_projects":    ("projects/archived", "projects"),
+    "tasks":                ("projects/{pid}/tasks", "tasks"),
+    "actions":              ("projects/{pid}/actions", "actions"),
+    "issues":               ("projects/{pid}/issues", "issues"),
+    "deliverables":         ("projects/{pid}/deliverables", "deliverables"),
+    "goals":                ("projects/{pid}/goals", "goals"),
+    "reports":              ("projects/{pid}/reports", "reports"),
+    "organization":         ("projects/{pid}/organization", "organization"),
+    "users":                ("users", "users"),
+    "user_tasks":           ("users/{uid}/tasks", "tasks"),
+    "user_actions":         ("users/{uid}/actions", "actions"),
+    "user_issues":          ("users/{uid}/issues", "issues"),
+    "entity_categories":    ("e-categories", "e-categories"),
+    "activity_labels":      ("activities-labels", "activities-labels"),
+    "notifications":        ("users/{uid}/notifications", "notifications"),
+}
+
+
+async def _handle_list(c: GoutiApiClient, a: dict) -> dict:
+    entity_type = _req(a, "type")
+    route = _LIST_ROUTES.get(entity_type)
+    if not route:
+        return _ok({"error": f"Type inconnu: '{entity_type}'", "types_disponibles": sorted(_LIST_ROUTES)})
+
+    url_tpl, items_key = route
+    url = url_tpl
+    if "{pid}" in url:
+        url = url.replace("{pid}", _pid(a))
+    if "{uid}" in url:
+        url = url.replace("{uid}", _uid(a))
+
+    resp = await c.call(url)
+    if resp.get("ok"):
+        items = _items(resp["data"], items_key)
+        limit = int(a.get("limit", 20) or 0)
+        if limit > 0:
+            return _ok(_summarise_list(items, max_items=limit))
+        # limit=0 → return all items raw (user explicitly wants everything)
+        return _ok({"count": len(items), "items": items})
+    return _ok(resp)
+
+
+# ── get: unified detail ──────────────────────────────────────────────────────
+
+_GET_ROUTES: dict[str, str] = {
+    "project":           "projects/{id}",
+    "task":              "projects/{pid}/tasks/{id}",
+    "action":            "projects/{pid}/actions/{id}",
+    "issue":             "projects/{pid}/issues/{id}",
+    "deliverable":       "projects/{pid}/deliverables/{id}",
+    "goal":              "projects/{pid}/goals/{id}",
+    "organization_unit": "projects/{pid}/organization/{id}",
+    "user":              "users/{id}",
+    "entity_category":   "e-categories/{id}",
+    "activity_label":    "activities-labels/{id}",
+}
+
+
+async def _handle_get(c: GoutiApiClient, a: dict) -> dict:
+    entity_type = _req(a, "type")
+    route = _GET_ROUTES.get(entity_type)
+    if not route:
+        return _ok({"error": f"Type inconnu: '{entity_type}'", "types_disponibles": sorted(_GET_ROUTES)})
+
+    url = route.replace("{id}", _seg(_req(a, "id"), "id"))
+    if "{pid}" in url:
+        url = url.replace("{pid}", _pid(a))
+    return _ok(await c.call(url))
+
+
+# ── update: unified update ───────────────────────────────────────────────────
+
+_UPDATE_ROUTES: dict[str, str] = {
+    "project": "projects/{id}",
+    "task":    "projects/{pid}/tasks/{id}",
+    "action":  "projects/{pid}/actions/{id}",
+    "issue":   "projects/{pid}/issues/{id}",
+}
+
+
+async def _handle_update(c: GoutiApiClient, a: dict) -> dict:
+    entity_type = _req(a, "type")
+    route = _UPDATE_ROUTES.get(entity_type)
+    if not route:
+        return _ok({"error": f"Type inconnu: '{entity_type}'", "types_disponibles": sorted(_UPDATE_ROUTES)})
+
+    payload = a.get("payload")
+    if not isinstance(payload, dict):
+        raise ValueError("payload objet requis.")
+
+    url = route.replace("{id}", _seg(_req(a, "id"), "id"))
+    if "{pid}" in url:
+        url = url.replace("{pid}", _pid(a))
+    return _ok(await c.call(url, "POST", payload))
+
+
+# ── timesheet: unified timesheet ops ─────────────────────────────────────────
+
+async def _handle_timesheet(c: GoutiApiClient, a: dict) -> dict:
+    action = _req(a, "action")
+    uid = _uid(a)
+
+    if action == "control":
+        return _ok(await c.call(f"timesheets/users/{uid}/timesheet-controle"))
+
+    if action == "get":
+        yr = _year(_req(a, "year"), "year")
+        wk = _week(_req(a, "week"), "week")
+        ts_type = _seg(a.get("ts_type", "1") or "1", "ts_type")
+        return _ok(await c.call(
+            f"timesheets/users/{uid}/timesheet/year/{yr}/week/{wk}/type/{ts_type}"))
+
+    if action == "insert":
+        dt = _date(_req(a, "date"), "date")
+        ref = _seg(_req(a, "ref"), "ref")
+        ts_type = _seg(_req(a, "ts_type"), "ts_type")
+        value = _seg(_req(a, "value"), "value")
+        return _ok(await c.call(
+            f"timesheets/users/{uid}/timesheet-insert/date/{dt}/ref/{ref}/type/{ts_type}/value/{value}",
+            "POST"))
+
+    if action == "validate":
+        dt = _date(_req(a, "date"), "date")
+        st = _seg(_req(a, "status"), "status")
+        return _ok(await c.call(
+            f"timesheets/users/{uid}/timesheet-validation/date/{dt}/timesheetStatus/{st}",
+            "POST"))
+
+    return _ok({"error": f"Action inconnue: '{action}'", "actions_disponibles": ["control", "get", "insert", "validate"]})
+
+
+# ── notifications: unified ───────────────────────────────────────────────────
+
+async def _handle_notifications(c: GoutiApiClient, a: dict) -> dict:
+    action = a.get("action", "list")
+    uid = _uid(a)
+
+    if action == "list":
+        return _ok(await c.call(f"users/{uid}/notifications"))
+    if action == "check":
+        nid = _seg(_req(a, "notification_id"), "notification_id")
+        return _ok(await c.call(f"users/{uid}/checked-notifications/{nid}", "POST"))
+    if action == "delete":
+        nid = _seg(_req(a, "notification_id"), "notification_id")
+        return _ok(await c.call(f"users/{uid}/delete-notification/{nid}"))
+
+    return _ok({"error": f"Action inconnue: '{action}'", "actions_disponibles": ["list", "check", "delete"]})
+
+
+# ── user_notes: unified ──────────────────────────────────────────────────────
+
+async def _handle_user_notes(c: GoutiApiClient, a: dict) -> dict:
+    action = a.get("action", "get")
+    uid = _uid(a)
+
+    if action == "get":
+        return _ok(await c.call(f"users/{uid}/personnals-notes"))
+    if action == "save":
+        note = _req(a, "note")
+        return _ok(await c.call(f"users/{uid}/personnals-notes", "POST", {"note_no": note}))
+
+    return _ok({"error": f"Action inconnue: '{action}'", "actions_disponibles": ["get", "save"]})
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Tool definitions — 12 consolidated tools
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def _s(props: dict | None = None, required: list | None = None) -> dict:
@@ -534,206 +707,102 @@ def _s(props: dict | None = None, required: list | None = None) -> dict:
     return schema
 
 
-_P = {"project_id": {"type": "string", "description": "ID du projet Gouti"}}
-_U = {"user_id": {"type": "string", "description": "ID de l'utilisateur Gouti"}}
-
 GOUTI_TOOLS: list[tuple[str, str, dict, Any]] = [
-    # Entity categories
-    ("list_entity_categories",
-     "Liste les catégories d'entités Gouti.",
-     _s(), _list_entity_categories),
-    ("get_entity_category",
-     "Récupère une catégorie d'entité par ID.",
-     _s({"category_id": {"type": "string"}}, ["category_id"]),
-     _get_entity_category),
+    ("list",
+     "Liste des entités Gouti. Types: projects, archived_projects, tasks, actions, issues, "
+     "deliverables, goals, reports, organization, users, user_tasks, user_actions, user_issues, "
+     "entity_categories, activity_labels, notifications. "
+     "Passer project_id pour les types liés à un projet, user_id pour ceux liés à un utilisateur. "
+     "limit=20 par défaut, limit=0 pour tout récupérer.",
+     _s({
+         "type": {"type": "string", "description": "Type d'entité à lister"},
+         "project_id": {"type": "string", "description": "ID projet (si type lié à un projet)"},
+         "user_id": {"type": "string", "description": "ID utilisateur (si type lié à un user)"},
+         "limit": {"type": "integer", "description": "Max items (défaut 20, 0=tous)"},
+     }, ["type"]),
+     _handle_list),
 
-    # Activity labels
-    ("list_activity_labels",
-     "Liste les labels d'activités Gouti.",
-     _s(), _list_activity_labels),
-    ("get_activity_label",
-     "Récupère un label d'activité par ID.",
-     _s({"label_id": {"type": "string"}}, ["label_id"]),
-     _get_activity_label),
+    ("get",
+     "Détail d'une entité Gouti. Types: project, task, action, issue, deliverable, goal, "
+     "organization_unit, user, entity_category, activity_label. "
+     "Passer project_id pour les types liés à un projet.",
+     _s({
+         "type": {"type": "string", "description": "Type d'entité"},
+         "id": {"type": "string", "description": "ID de l'entité"},
+         "project_id": {"type": "string", "description": "ID projet (si applicable)"},
+     }, ["type", "id"]),
+     _handle_get),
 
-    # Projects
-    ("list_projects",
-     "Liste tous les projets Gouti (sauf archivés).",
-     _s(), _list_projects),
-    ("list_archived_projects",
-     "Liste les projets archivés.",
-     _s(), _list_archived_projects),
-    ("get_project",
-     "Récupère les détails d'un projet.",
-     _s(_P, ["project_id"]), _get_project),
-    ("update_project",
-     "Met à jour un projet (POST). Payload: progress_pr, status_pr, etc.",
-     _s({**_P, "payload": {"type": "object", "description": "Champs à modifier"}},
-        ["project_id", "payload"]),
-     _update_project),
+    ("update",
+     "Met à jour une entité Gouti. Types: project, task, action, issue. "
+     "Passer project_id pour task/action/issue.",
+     _s({
+         "type": {"type": "string", "description": "Type: project, task, action, issue"},
+         "id": {"type": "string", "description": "ID de l'entité"},
+         "project_id": {"type": "string", "description": "ID projet (si applicable)"},
+         "payload": {"type": "object", "description": "Champs à modifier"},
+     }, ["type", "id", "payload"]),
+     _handle_update),
 
-    # Tasks
-    ("list_project_tasks",
-     "Liste les tâches d'un projet.",
-     _s(_P, ["project_id"]), _list_project_tasks),
-    ("get_task",
-     "Récupère le détail d'une tâche.",
-     _s({**_P, "task_id": {"type": "string"}}, ["project_id", "task_id"]),
-     _get_task),
-    ("update_task",
-     "Met à jour une tâche. Payload: name_ta, description_ta, status_ta, progress_ta, workload.",
-     _s({**_P, "task_id": {"type": "string"}, "payload": {"type": "object"}},
-        ["project_id", "task_id", "payload"]),
-     _update_task),
-    ("refresh_tasks",
-     "Rafraîchit/recalcule les tâches d'un projet (POST tasks/refresh).",
-     _s(_P, ["project_id"]), _refresh_tasks),
-
-    # Actions
-    ("list_project_actions",
-     "Liste les actions d'un projet.",
-     _s(_P, ["project_id"]), _list_project_actions),
-    ("get_action",
-     "Récupère le détail d'une action.",
-     _s({**_P, "action_id": {"type": "string"}}, ["project_id", "action_id"]),
-     _get_action),
-    ("update_action",
-     "Met à jour une action. Payload: description_ac, status_ac, progress_ac.",
-     _s({**_P, "action_id": {"type": "string"}, "payload": {"type": "object"}},
-        ["project_id", "action_id", "payload"]),
-     _update_action),
-
-    # Issues
-    ("list_project_issues",
-     "Liste les issues d'un projet.",
-     _s(_P, ["project_id"]), _list_project_issues),
-    ("get_issue",
-     "Récupère le détail d'une issue.",
-     _s({**_P, "issue_id": {"type": "string"}}, ["project_id", "issue_id"]),
-     _get_issue),
-    ("update_issue",
-     "Met à jour une issue. Payload: description_is, status_is, progress_is.",
-     _s({**_P, "issue_id": {"type": "string"}, "payload": {"type": "object"}},
-        ["project_id", "issue_id", "payload"]),
-     _update_issue),
-
-    # Deliverables
-    ("list_project_deliverables",
-     "Liste les livrables d'un projet.",
-     _s(_P, ["project_id"]), _list_project_deliverables),
-    ("get_deliverable",
-     "Récupère un livrable par ID.",
-     _s({**_P, "deliverable_id": {"type": "string"}}, ["project_id", "deliverable_id"]),
-     _get_deliverable),
-
-    # Goals
-    ("list_project_goals",
-     "Liste les objectifs d'un projet.",
-     _s(_P, ["project_id"]), _list_project_goals),
-    ("get_goal",
-     "Récupère un objectif par ID.",
-     _s({**_P, "goal_id": {"type": "string"}}, ["project_id", "goal_id"]),
-     _get_goal),
-
-    # Organization
-    ("list_project_organization",
-     "Récupère l'organisation d'un projet.",
-     _s(_P, ["project_id"]), _list_project_organization),
-    ("get_organization_unit",
-     "Récupère une unité d'organisation.",
-     _s({**_P, "orga_id": {"type": "string"}}, ["project_id", "orga_id"]),
-     _get_organization_unit),
-
-    # Reports
-    ("list_project_reports",
-     "Récupère les rapports d'un projet (situation, météo, tendance, avancement).",
-     _s(_P, ["project_id"]), _list_project_reports),
-
-    # Comments
-    ("get_comments",
-     "Récupère les commentaires d'une activité (tâche, action ou issue).",
-     _s({**_P,
-         "activity_type": {"type": "string", "enum": ["tasks", "actions", "issues"]},
-         "activity_id": {"type": "string"}},
-        ["project_id", "activity_type", "activity_id"]),
-     _get_comments),
-
-    # Users
-    ("list_users",
-     "Liste tous les utilisateurs Gouti.",
-     _s(), _list_users),
-    ("get_user",
-     "Récupère un utilisateur par ID.",
-     _s(_U, ["user_id"]), _get_user),
-    ("get_user_by_matricule",
-     "Récupère un utilisateur par numéro de matricule.",
+    ("search_user",
+     "Recherche un utilisateur par matricule.",
      _s({"matricule": {"type": "string"}}, ["matricule"]),
      _get_user_by_matricule),
-    ("list_user_tasks",
-     "Liste les tâches assignées à un utilisateur.",
-     _s(_U, ["user_id"]), _list_user_tasks),
-    ("list_user_actions",
-     "Liste les actions assignées à un utilisateur.",
-     _s(_U, ["user_id"]), _list_user_actions),
-    ("list_user_issues",
-     "Liste les issues assignées à un utilisateur.",
-     _s(_U, ["user_id"]), _list_user_issues),
 
-    # Notifications
-    ("list_user_notifications",
-     "Liste les notifications d'un utilisateur.",
-     _s(_U, ["user_id"]), _list_user_notifications),
-    ("check_notification",
-     "Marque une notification comme lue.",
-     _s({**_U, "notification_id": {"type": "string"}}, ["user_id", "notification_id"]),
-     _check_notification),
-    ("delete_notification",
-     "Supprime une notification.",
-     _s({**_U, "notification_id": {"type": "string"}}, ["user_id", "notification_id"]),
-     _delete_notification),
+    ("get_comments",
+     "Commentaires d'une activité (tâche, action ou issue) dans un projet.",
+     _s({
+         "project_id": {"type": "string"},
+         "activity_type": {"type": "string", "enum": ["tasks", "actions", "issues"]},
+         "activity_id": {"type": "string"},
+     }, ["project_id", "activity_type", "activity_id"]),
+     _get_comments),
 
-    # Personal notes
-    ("get_user_notes",
-     "Récupère les notes personnelles d'un utilisateur.",
-     _s(_U, ["user_id"]), _get_user_notes),
-    ("save_user_notes",
-     "Sauvegarde les notes personnelles d'un utilisateur.",
-     _s({**_U, "note": {"type": "string"}}, ["user_id", "note"]),
-     _save_user_notes),
+    ("refresh_tasks",
+     "Recalcule les tâches d'un projet.",
+     _s({"project_id": {"type": "string"}}, ["project_id"]),
+     _refresh_tasks),
 
-    # Timesheets
-    ("get_timesheet_control",
-     "Récupère le contrôle de feuille de temps d'un utilisateur.",
-     _s(_U, ["user_id"]), _get_timesheet_control),
-    ("get_timesheet",
-     "Récupère la feuille de temps pour une semaine donnée.",
-     _s({**_U, "year": {"type": "string"}, "week": {"type": "string"},
-         "type": {"type": "string", "description": "Type de timesheet (défaut: 1)"}},
-        ["user_id", "year", "week"]),
-     _get_timesheet),
-    ("insert_timesheet",
-     "Insère/met à jour une entrée de feuille de temps.",
-     _s({**_U,
-         "date": {"type": "string", "description": "Format: dd-mm-yyyy"},
-         "ref": {"type": "string", "description": "Référence de l'activité"},
-         "type": {"type": "string", "description": "Type: ta (tâche), ac (action), etc."},
-         "value": {"type": "string", "description": "Nombre d'heures"}},
-        ["user_id", "date", "ref", "type", "value"]),
-     _insert_timesheet),
-    ("validate_timesheet",
-     "Valide une feuille de temps pour une date donnée.",
-     _s({**_U,
-         "date": {"type": "string", "description": "Format: dd-mm-yyyy"},
-         "status": {"type": "string", "description": "Statut de validation (1=validé)"}},
-        ["user_id", "date", "status"]),
-     _validate_timesheet),
+    ("timesheet",
+     "Gestion des feuilles de temps. Actions: control (état), get (semaine), insert (saisie), validate.",
+     _s({
+         "action": {"type": "string", "enum": ["control", "get", "insert", "validate"]},
+         "user_id": {"type": "string"},
+         "year": {"type": "string", "description": "Année 4 chiffres (get)"},
+         "week": {"type": "string", "description": "Numéro de semaine (get)"},
+         "ts_type": {"type": "string", "description": "Type timesheet, défaut 1 (get/insert)"},
+         "date": {"type": "string", "description": "dd-mm-yyyy (insert/validate)"},
+         "ref": {"type": "string", "description": "Réf activité (insert)"},
+         "value": {"type": "string", "description": "Heures (insert)"},
+         "status": {"type": "string", "description": "Statut validation (validate)"},
+     }, ["action", "user_id"]),
+     _handle_timesheet),
 
-    # Generic
+    ("notifications",
+     "Gestion des notifications utilisateur. Actions: list, check (marquer lue), delete.",
+     _s({
+         "action": {"type": "string", "enum": ["list", "check", "delete"]},
+         "user_id": {"type": "string"},
+         "notification_id": {"type": "string", "description": "ID notification (check/delete)"},
+     }, ["user_id"]),
+     _handle_notifications),
+
+    ("user_notes",
+     "Notes personnelles d'un utilisateur. Actions: get, save.",
+     _s({
+         "action": {"type": "string", "enum": ["get", "save"]},
+         "user_id": {"type": "string"},
+         "note": {"type": "string", "description": "Contenu (save)"},
+     }, ["user_id"]),
+     _handle_user_notes),
+
     ("api_get",
-     "Appel GET générique vers un endpoint Gouti relatif à la base URL.",
-     _s({"path": {"type": "string"}}, ["path"]), _api_get),
+     "GET générique vers l'API Gouti (chemin relatif).",
+     _s({"path": {"type": "string"}}, ["path"]),
+     _api_get),
+
     ("api_post",
-     "Appel POST générique vers un endpoint Gouti.",
+     "POST générique vers l'API Gouti.",
      _s({"path": {"type": "string"}, "payload": {"type": "object"}}, ["path"]),
      _api_post),
 ]

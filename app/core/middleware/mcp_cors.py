@@ -1,9 +1,12 @@
-"""Permissive CORS for MCP gateway paths.
+"""Permissive CORS and framing for MCP gateway paths.
 
 Claude.ai (and other remote MCP clients) need unrestricted CORS on the MCP
 gateway endpoints.  The main CORSMiddleware only allows app-specific origins,
 so this middleware intercepts MCP-related paths first and adds open CORS
 headers — including the ``Mcp-Session-Id`` header used by Streamable HTTP.
+
+It also relaxes ``X-Frame-Options`` and CSP ``frame-ancestors`` so that
+Claude.ai can embed the OAuth authorize page in an iframe/popup.
 """
 
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
@@ -45,4 +48,14 @@ class McpCorsMiddleware(BaseHTTPMiddleware):
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Headers"] = _ALLOW_HEADERS
         response.headers["Access-Control-Expose-Headers"] = _EXPOSE_HEADERS
+
+        # Allow Claude.ai (and others) to embed OAuth pages in iframes/popups.
+        # Override the restrictive SecurityHeadersMiddleware defaults.
+        response.headers.pop("X-Frame-Options", None)
+        if "Content-Security-Policy" in response.headers:
+            csp = response.headers["Content-Security-Policy"]
+            response.headers["Content-Security-Policy"] = csp.replace(
+                "frame-ancestors 'none'", "frame-ancestors *"
+            )
+
         return response

@@ -481,7 +481,7 @@ async def oauth_metadata(request: Request):
 
 @proxy_router.post("/oauth/register")
 async def oauth_register(request: Request):
-    """Dynamic Client Registration (RFC 7591) — stub."""
+    """Dynamic Client Registration (RFC 7591) — echo back registered metadata."""
     try:
         body = await request.json()
     except Exception:
@@ -490,7 +490,12 @@ async def oauth_register(request: Request):
     return JSONResponse({
         "client_id": client_id,
         "client_secret": "",
+        "client_id_issued_at": int(_now()),
+        "redirect_uris": body.get("redirect_uris", []),
+        "grant_types": body.get("grant_types", ["authorization_code"]),
+        "response_types": body.get("response_types", ["code"]),
         "token_endpoint_auth_method": "none",
+        "scope": body.get("scope", "mcp"),
     }, status_code=201)
 
 

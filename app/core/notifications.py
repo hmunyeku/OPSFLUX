@@ -165,11 +165,20 @@ async def send_email(
         use_tls = encryption == "ssl"
         start_tls = encryption == "tls"
 
+        # Relaxed TLS context for internal Docker networks
+        import ssl as _ssl
+        tls_context = _ssl.create_default_context()
+        tls_context.check_hostname = False
+        tls_context.verify_mode = _ssl.CERT_NONE
+
         logger.info("SMTP connecting to %s:%s (tls=%s, starttls=%s) for %s", host, port, use_tls, start_tls, to)
-        smtp = aiosmtplib.SMTP(hostname=host, port=port, timeout=30)
-        await smtp.connect(use_tls=use_tls)
+        smtp = aiosmtplib.SMTP(
+            hostname=host, port=port, timeout=30,
+            use_tls=use_tls, tls_context=tls_context if use_tls else None,
+        )
+        await smtp.connect()
         if start_tls:
-            await smtp.starttls()
+            await smtp.starttls(tls_context=tls_context)
         if username and password:
             await smtp.login(username, password)
         await smtp.send_message(message)

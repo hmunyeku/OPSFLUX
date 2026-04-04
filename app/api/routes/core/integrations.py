@@ -83,6 +83,8 @@ async def _save_test_result(
 
 async def _test_smtp(cfg: dict[str, str]) -> tuple[str, str]:
     """Test SMTP connection."""
+    import ssl as _ssl
+
     host = cfg.get("host", "")
     port = int(cfg.get("port", "587") or "587")
 
@@ -91,15 +93,24 @@ async def _test_smtp(cfg: dict[str, str]) -> tuple[str, str]:
 
     try:
         import aiosmtplib
-        smtp = aiosmtplib.SMTP(hostname=host, port=port, timeout=10)
 
         encryption = cfg.get("encryption", "tls")
         use_tls = encryption == "ssl"
         start_tls = encryption == "tls"
 
-        await smtp.connect(use_tls=use_tls)
+        # Relaxed TLS context for internal Docker networks
+        tls_context = _ssl.create_default_context()
+        tls_context.check_hostname = False
+        tls_context.verify_mode = _ssl.CERT_NONE
+
+        smtp = aiosmtplib.SMTP(
+            hostname=host, port=port, timeout=15,
+            use_tls=use_tls, tls_context=tls_context if use_tls else None,
+        )
+
+        await smtp.connect()
         if start_tls:
-            await smtp.starttls()
+            await smtp.starttls(tls_context=tls_context)
 
         username = cfg.get("username", "")
         password = cfg.get("password", "")

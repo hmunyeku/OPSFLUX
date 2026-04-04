@@ -510,6 +510,79 @@ async def on_planner_activity_modified_tw(event: OpsFluxEvent) -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Handler: on_ads_stay_change_requested
+# PaxLog → TravelWiz: when an AdS changes mid-lifecycle, notify impacted manifests
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+async def on_ads_stay_change_requested(event: OpsFluxEvent) -> None:
+    """Notify TravelWiz operators when an AdS stay change impacts manifests."""
+    payload = event.payload
+    ads_id = payload.get("ads_id")
+    entity_id = payload.get("entity_id")
+    reference = payload.get("reference", "")
+    reason = payload.get("reason", "")
+    changes = payload.get("changes") or {}
+
+    if not ads_id or not entity_id:
+        return
+
+    try:
+        from sqlalchemy import select
+        from app.core.notifications import send_in_app
+        from app.event_handlers.core_handlers import _get_admin_user_ids
+        from app.models.travelwiz import ManifestPassenger, VoyageManifest
+        from app.models.paxlog import AdsPax
+
+        eid = UUID(str(entity_id))
+        aid = UUID(str(ads_id))
+
+        async with async_session_factory() as db:
+            manifest_result = await db.execute(
+                select(VoyageManifest.id, VoyageManifest.status)
+                .join(ManifestPassenger, ManifestPassenger.manifest_id == VoyageManifest.id)
+                .join(AdsPax, AdsPax.id == ManifestPassenger.ads_pax_id)
+                .where(
+                    AdsPax.ads_id == aid,
+                    ManifestPassenger.active == True,  # noqa: E712
+                    VoyageManifest.active == True,  # noqa: E712
+                )
+            )
+            manifest_rows = manifest_result.all()
+            manifest_ids = sorted({str(row[0]) for row in manifest_rows})
+            if not manifest_ids:
+                logger.info("ads.stay_change_requested → no linked TravelWiz manifest for AdS %s", ads_id)
+                return
+
+            change_keys = ", ".join(sorted(changes.keys())) if isinstance(changes, dict) and changes else "dates/purpose"
+            admin_ids = await _get_admin_user_ids(entity_id)
+            for admin_id in admin_ids:
+                await send_in_app(
+                    db,
+                    user_id=admin_id,
+                    entity_id=eid,
+                    title="Revue transport requise",
+                    body=(
+                        f"L'AdS {reference or ads_id} a été modifiée en cours de vie. "
+                        f"Manifestes concernés: {', '.join(manifest_ids)}. "
+                        f"Champs modifiés: {change_keys}. "
+                        f"Motif: {reason or 'non renseigné'}."
+                    ),
+                    category="travelwiz",
+                    link="/travelwiz",
+                )
+
+            await db.commit()
+            logger.info(
+                "ads.stay_change_requested → %d TravelWiz manifests impacted for AdS %s",
+                len(manifest_ids),
+                ads_id,
+            )
+    except Exception:
+        logger.exception("Error in on_ads_stay_change_requested for %s", ads_id)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Registration
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -522,6 +595,7 @@ def register_travelwiz_handlers(event_bus: EventBus) -> None:
 
     # PaxLog → TravelWiz (AdS approved → add PAX to manifests)
     event_bus.subscribe("paxlog.ads.approved", on_ads_approved)
+    event_bus.subscribe("ads.stay_change_requested", on_ads_stay_change_requested)
 
     # Planner → TravelWiz (activity changes → manifests requires_review)
     event_bus.subscribe("planner.activity.modified", on_planner_activity_modified_tw)

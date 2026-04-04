@@ -7,8 +7,9 @@
  */
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
 import {
-  MapPin, Plus, Factory, Landmark, Layers, Ship, Wrench, Archive, LayoutDashboard, GitBranch,
+  MapPin, Plus, Factory, Landmark, Layers, Ship, Wrench, Archive, LayoutDashboard, GitBranch, Coins,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -827,8 +828,10 @@ const TAB_MODULE: Record<TabKey, string> = {
 
 export function AssetRegistryPage() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const { hasPermission } = usePermission()
   const canCreate = hasPermission('asset.create')
+  const canReadImputations = hasPermission('imputation.read')
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const panelMode = useUIStore((s) => s.dynamicPanelMode)
@@ -878,9 +881,14 @@ export function AssetRegistryPage() {
             subtitle={t('assets.subtitle')}
             icon={Layers}
           >
-            {showCreateButton && (
-              <ToolbarButton icon={Plus} label={t('common.create')} variant="primary" onClick={handleCreate} />
-            )}
+            <>
+              {canReadImputations && (
+                <ToolbarButton icon={Coins} label={t('nav.imputations')} onClick={() => navigate('/imputations')} />
+              )}
+              {showCreateButton && (
+                <ToolbarButton icon={Plus} label={t('common.create')} variant="primary" onClick={handleCreate} />
+              )}
+            </>
           </PanelHeader>
           <TabBar>
             {TABS.map(({ key, icon, labelKey }) => (

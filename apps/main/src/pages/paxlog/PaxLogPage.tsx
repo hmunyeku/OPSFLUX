@@ -6,7 +6,7 @@
  * Dynamic Panel: create/detail forms with company/user pickers.
  * Each tab manages its own search via DataTable visual query bar.
  */
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Users,
@@ -62,6 +62,7 @@ import { TagManager } from '@/components/shared/TagManager'
 import { NoteManager } from '@/components/shared/NoteManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { useUIStore } from '@/stores/uiStore'
+import { useAuthStore } from '@/stores/authStore'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
 import {
   usePaxProfiles,
@@ -77,8 +78,10 @@ import {
   useCancelAds,
   useApproveAds,
   useRejectAds,
+  useRequestAdsStayChange,
   useRequestReviewAds,
   useResubmitAds,
+  useAdsEvents,
   useAdsPdf,
   useAdsPax,
   useAdsImputationSuggestion,
@@ -116,6 +119,7 @@ import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import type {
   PaxProfileSummary,
   AdsSummary,
+  AdsStayChangeRequest,
   PaxIncident,
   PaxCredential,
   CredentialType,
@@ -1920,11 +1924,13 @@ function AdsDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
   const { data: ads, isLoading } = useAds(id)
   const { data: adsPax } = useAdsPax(id)
+  const { data: adsEvents } = useAdsEvents(id)
   const { data: imputationSuggestion } = useAdsImputationSuggestion(id)
   const submitAds = useSubmitAds()
   const cancelAds = useCancelAds()
   const approveAds = useApproveAds()
   const rejectAds = useRejectAds()
+  const requestAdsStayChange = useRequestAdsStayChange()
   const requestReviewAds = useRequestReviewAds()
   const resubmitAds = useResubmitAds()
   const downloadPdf = useAdsPdf()
@@ -1932,6 +1938,7 @@ function AdsDetailPanel({ id }: { id: string }) {
   const addPaxV2 = useAddPaxToAdsV2()
   const removePax = useRemovePaxFromAds()
   const { hasPermission } = usePermission()
+  const currentUser = useAuthStore((s) => s.user)
   const { data: assetTree = [] } = useAssetTree()
   const visitCategoryLabels = useDictionaryLabels('visit_category')
   const transportModeLabels = useDictionaryLabels('transport_mode')
@@ -1942,6 +1949,11 @@ function AdsDetailPanel({ id }: { id: string }) {
   const [showReviewForm, setShowReviewForm] = useState(false)
   const [resubmitReason, setResubmitReason] = useState('')
   const [showResubmitForm, setShowResubmitForm] = useState(false)
+  const [stayChangeReason, setStayChangeReason] = useState('')
+  const [showStayChangeForm, setShowStayChangeForm] = useState(false)
+  const [proposedStartDate, setProposedStartDate] = useState('')
+  const [proposedEndDate, setProposedEndDate] = useState('')
+  const [proposedVisitPurpose, setProposedVisitPurpose] = useState('')
   const [paxSearch, setPaxSearch] = useState('')
   const [showPaxPicker, setShowPaxPicker] = useState(false)
   const debouncedPaxSearch = useDebounce(paxSearch, 300)
@@ -1962,6 +1974,13 @@ function AdsDetailPanel({ id }: { id: string }) {
     return asset ? `${asset.name} (${asset.code})` : null
   }, [assetTree])
 
+  useEffect(() => {
+    if (!ads) return
+    setProposedStartDate(ads.start_date)
+    setProposedEndDate(ads.end_date)
+    setProposedVisitPurpose(ads.visit_purpose)
+  }, [ads])
+
   if (isLoading || !ads) {
     return (
       <DynamicPanelShell title={t('common.loading')} icon={<ClipboardList size={14} className="text-primary" />}>
@@ -1977,6 +1996,10 @@ function AdsDetailPanel({ id }: { id: string }) {
   const canApprove = ['submitted', 'pending_validation'].includes(ads.status) && hasPermission('paxlog.ads.approve')
   const canReject = ['submitted', 'pending_validation'].includes(ads.status) && hasPermission('paxlog.ads.approve')
   const canRequestReview = ['submitted', 'pending_compliance', 'pending_validation', 'approved', 'in_progress'].includes(ads.status) && hasPermission('paxlog.ads.approve')
+  const canRequestStayChange =
+    ['submitted', 'pending_compliance', 'pending_validation', 'approved', 'in_progress'].includes(ads.status)
+    && hasPermission('paxlog.ads.update')
+    && (ads.requester_id === currentUser?.id || hasPermission('paxlog.ads.approve'))
   const canResubmit = ads.status === 'requires_review' && hasPermission('paxlog.ads.submit')
   const canDownloadPdf = ['approved', 'in_progress', 'completed'].includes(ads.status)
   const canGenerateLink = ['approved', 'in_progress'].includes(ads.status)
@@ -1987,6 +2010,13 @@ function AdsDetailPanel({ id }: { id: string }) {
     { label: t('paxlog.ads_detail.checklist.purpose'), done: !!ads.visit_purpose },
     { label: t('paxlog.ads_detail.checklist.passenger'), done: (adsPax?.length ?? 0) > 0 },
   ]
+  const formatEventValue = (value: unknown) => {
+    if (typeof value === 'string') return value
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+    if (value === null || value === undefined) return '—'
+    return JSON.stringify(value)
+  }
+  const adsTimeline = (adsEvents ?? []).slice(0, 8)
   const adsReadyToSubmit = adsSubmissionChecklist.every((item) => item.done)
   const adsNextAction =
     ads.status === 'draft'
@@ -2043,6 +2073,24 @@ function AdsDetailPanel({ id }: { id: string }) {
     )
   }
 
+  const handleRequestStayChange = () => {
+    if (!stayChangeReason.trim()) return
+    const payload: AdsStayChangeRequest = { reason: stayChangeReason.trim() }
+    if (proposedStartDate && proposedStartDate !== ads.start_date) payload.start_date = proposedStartDate
+    if (proposedEndDate && proposedEndDate !== ads.end_date) payload.end_date = proposedEndDate
+    if (proposedVisitPurpose.trim() && proposedVisitPurpose.trim() !== ads.visit_purpose) payload.visit_purpose = proposedVisitPurpose.trim()
+
+    requestAdsStayChange.mutate(
+      { id, payload },
+      {
+        onSuccess: () => {
+          setShowStayChangeForm(false)
+          setStayChangeReason('')
+        },
+      },
+    )
+  }
+
   const handleGenerateLink = () => {
     createExtLink.mutate({ adsId: id, payload: { expires_hours: 72, max_uses: 5 } })
   }
@@ -2077,6 +2125,11 @@ function AdsDetailPanel({ id }: { id: string }) {
           {canRequestReview && !showReviewForm && (
             <PanelActionButton variant="default" onClick={() => setShowReviewForm(true)}>
               <RefreshCw size={12} /> {t('paxlog.ads_detail.actions.request_review')}
+            </PanelActionButton>
+          )}
+          {canRequestStayChange && !showStayChangeForm && (
+            <PanelActionButton variant="default" onClick={() => setShowStayChangeForm(true)}>
+              <Clock size={12} /> {t('paxlog.ads_detail.actions.request_stay_change')}
             </PanelActionButton>
           )}
           {canSubmit && (
@@ -2137,6 +2190,50 @@ function AdsDetailPanel({ id }: { id: string }) {
                 {t('paxlog.ads_detail.request_review.confirm')}
               </button>
               <button className="gl-button-sm gl-button-default" onClick={() => setShowReviewForm(false)}>{t('common.cancel')}</button>
+            </div>
+          </div>
+        )}
+
+        {showStayChangeForm && (
+          <div className="border border-indigo-300 rounded-lg bg-indigo-50 dark:bg-indigo-900/10 dark:border-indigo-800 p-3 space-y-3">
+            <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-400">{t('paxlog.ads_detail.stay_change.title')}</p>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">{t('paxlog.ads_detail.stay_change.start_date')}</label>
+                <input type="date" className="gl-form-input text-xs" value={proposedStartDate} onChange={(e) => setProposedStartDate(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">{t('paxlog.ads_detail.stay_change.end_date')}</label>
+                <input type="date" className="gl-form-input text-xs" value={proposedEndDate} onChange={(e) => setProposedEndDate(e.target.value)} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">{t('paxlog.ads_detail.stay_change.visit_purpose')}</label>
+              <textarea
+                className="gl-form-input text-xs min-h-[56px]"
+                value={proposedVisitPurpose}
+                onChange={(e) => setProposedVisitPurpose(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">{t('paxlog.ads_detail.stay_change.reason')}</label>
+              <textarea
+                className="gl-form-input text-xs min-h-[60px]"
+                placeholder={t('paxlog.ads_detail.stay_change.reason_placeholder')}
+                value={stayChangeReason}
+                onChange={(e) => setStayChangeReason(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                className="gl-button-sm gl-button-default"
+                disabled={requestAdsStayChange.isPending || !stayChangeReason.trim()}
+                onClick={handleRequestStayChange}
+              >
+                {requestAdsStayChange.isPending ? <Loader2 size={12} className="animate-spin" /> : <Clock size={12} />}
+                {t('paxlog.ads_detail.stay_change.confirm')}
+              </button>
+              <button className="gl-button-sm gl-button-default" onClick={() => setShowStayChangeForm(false)}>{t('common.cancel')}</button>
             </div>
           </div>
         )}
@@ -2409,6 +2506,27 @@ function AdsDetailPanel({ id }: { id: string }) {
                 <p className="text-xs text-muted-foreground pl-5">{ads.rejection_reason}</p>
               </div>
             )}
+            {adsTimeline.map((event) => {
+              const changes = (event.metadata_json as { changes?: Record<string, { from: unknown; to: unknown }> } | null)?.changes
+              return (
+                <div key={event.id} className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 space-y-1.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs font-medium text-foreground">{event.event_type}</span>
+                    <span className="text-[11px] text-muted-foreground">{formatDate(event.recorded_at)}</span>
+                  </div>
+                  {event.reason && <p className="text-xs text-muted-foreground">{event.reason}</p>}
+                  {changes && (
+                    <div className="space-y-1">
+                      {Object.entries(changes).map(([field, diff]) => (
+                        <div key={field} className="text-[11px] text-muted-foreground">
+                          <span className="font-medium text-foreground">{field}</span>: {formatEventValue(diff.from)} → {formatEventValue(diff.to)}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </CollapsibleSection>
 

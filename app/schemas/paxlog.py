@@ -205,6 +205,20 @@ class AdsUpdate(BaseModel):
     return_notes: str | None = None
 
 
+class AdsStayChangeRequest(BaseModel):
+    reason: str = Field(min_length=1)
+    visit_purpose: str | None = None
+    visit_category: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    outbound_transport_mode: str | None = None
+    outbound_departure_base_id: UUID | None = None
+    outbound_notes: str | None = None
+    return_transport_mode: str | None = None
+    return_departure_base_id: UUID | None = None
+    return_notes: str | None = None
+
+
 class AdsPaxRead(OpsFluxSchema):
     id: UUID
     ads_id: UUID

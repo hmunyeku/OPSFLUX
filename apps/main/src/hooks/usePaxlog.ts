@@ -11,6 +11,7 @@ import type {
   CredentialTypeCreate,
   ComplianceMatrixCreate,
   AdsCreate,
+  AdsStayChangeRequest,
   AdsUpdate,
   AdsImputationCreate,
   AdsExternalLinkCreate,
@@ -254,6 +255,17 @@ export function useRequestReviewAds() {
   })
 }
 
+export function useRequestAdsStayChange() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: AdsStayChangeRequest }) =>
+      paxlogService.requestAdsStayChange(id, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['paxlog', 'ads'] })
+    },
+  })
+}
+
 export function useResubmitAds() {
   const qc = useQueryClient()
   return useMutation({
@@ -261,6 +273,14 @@ export function useResubmitAds() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['paxlog', 'ads'] })
     },
+  })
+}
+
+export function useAdsEvents(adsId: string) {
+  return useQuery({
+    queryKey: ['paxlog', 'ads', adsId, 'events'],
+    queryFn: () => paxlogService.listAdsEvents(adsId),
+    enabled: !!adsId,
   })
 }
 

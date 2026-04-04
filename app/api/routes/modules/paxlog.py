@@ -60,6 +60,7 @@ from app.schemas.paxlog import (
     AdsEventRead,
     AdsPaxEntry,
     AdsRead,
+    AdsStayChangeRequest,
     AdsSummary,
     AdsUpdate,
     ComplianceCheckResult,
@@ -94,6 +95,14 @@ ADS_ENTITY_TYPE = "ads"
 EXTERNAL_OTP_TTL_MINUTES = 10
 EXTERNAL_SESSION_TTL_MINUTES = 30
 EXTERNAL_OTP_MAX_ATTEMPTS = 3
+
+
+def _json_safe(value: object | None) -> object | None:
+    if isinstance(value, (date, datetime)):
+        return value.isoformat()
+    if isinstance(value, UUID):
+        return str(value)
+    return value
 
 
 async def _resolve_ads_imputation_suggestion(
@@ -1531,25 +1540,183 @@ async def update_ads(
     _: None = require_permission("paxlog.ads.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Update an AdS (draft only)."""
+    """Update an AdS while it is still editable by the requester."""
     result = await db.execute(
         select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
     )
     ads = result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
-    if ads.status != "draft":
+    if ads.status not in {"draft", "requires_review"}:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Seuls les brouillons peuvent être modifiés.",
+            detail="Seuls les brouillons ou dossiers en correction peuvent être modifiés.",
         )
 
     update_data = body.model_dump(exclude_unset=True)
+    final_start = update_data.get("start_date", ads.start_date)
+    final_end = update_data.get("end_date", ads.end_date)
+    if final_start and final_end and final_end < final_start:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La date de fin doit être postérieure ou égale à la date de début.",
+        )
+
+    changed_fields: dict[str, dict[str, object | None]] = {}
     for field_name, value in update_data.items():
+        previous = getattr(ads, field_name)
+        if previous != value:
+            changed_fields[field_name] = {"from": _json_safe(previous), "to": _json_safe(value)}
         setattr(ads, field_name, value)
+
+    if changed_fields:
+        db.add(AdsEvent(
+            entity_id=entity_id,
+            ads_id=ads.id,
+            event_type="updated",
+            old_status=ads.status,
+            new_status=ads.status,
+            actor_id=current_user.id,
+            metadata_json={"changes": changed_fields},
+        ))
 
     await db.commit()
     await db.refresh(ads)
+    return ads
+
+
+@router.post("/ads/{ads_id}/request-stay-change", response_model=AdsRead)
+async def request_ads_stay_change(
+    ads_id: UUID,
+    body: AdsStayChangeRequest,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.ads.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Request a controlled change on an AdS already engaged in workflow/execution.
+
+    The change is applied on the dossier and the AdS is sent back to
+    `requires_review` with a full change snapshot for validators.
+    """
+    result = await db.execute(
+        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
+    )
+    ads = result.scalar_one_or_none()
+    if not ads:
+        raise HTTPException(status_code=404, detail="AdS not found")
+
+    allowed_statuses = {"submitted", "pending_compliance", "pending_validation", "approved", "in_progress"}
+    if ads.status not in allowed_statuses:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Impossible de demander une modification de séjour pour un AdS avec le statut '{ads.status}'.",
+        )
+
+    can_approve = await has_user_permission(current_user, entity_id, "paxlog.ads.approve", db)
+    if ads.requester_id != current_user.id and not can_approve:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Seul le demandeur ou un valideur peut demander une modification de séjour.",
+        )
+
+    update_data = body.model_dump(exclude={"reason"}, exclude_unset=True)
+    if not update_data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Aucune modification de séjour fournie.",
+        )
+
+    final_start = update_data.get("start_date", ads.start_date)
+    final_end = update_data.get("end_date", ads.end_date)
+    if final_end < final_start:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La date de fin doit être postérieure ou égale à la date de début.",
+        )
+
+    changed_fields: dict[str, dict[str, object | None]] = {}
+    for field_name, value in update_data.items():
+        previous = getattr(ads, field_name)
+        if previous != value:
+            changed_fields[field_name] = {"from": _json_safe(previous), "to": _json_safe(value)}
+            setattr(ads, field_name, value)
+
+    if not changed_fields:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La demande ne contient aucun changement effectif.",
+        )
+
+    from_state = ads.status
+    await _try_ads_workflow_transition(
+        db,
+        entity_id_str=str(ads.id),
+        to_state="requires_review",
+        actor_id=current_user.id,
+        entity_id_scope=entity_id,
+        comment=body.reason,
+    )
+
+    ads.status = "requires_review"
+    ads.rejection_reason = body.reason
+
+    db.add(AdsEvent(
+        entity_id=entity_id,
+        ads_id=ads.id,
+        event_type="stay_change_requested",
+        old_status=from_state,
+        new_status="requires_review",
+        actor_id=current_user.id,
+        reason=body.reason,
+        metadata_json={"changes": changed_fields},
+    ))
+
+    await db.commit()
+    await db.refresh(ads)
+
+    await fsm_service.emit_transition_event(
+        entity_type=ADS_ENTITY_TYPE,
+        entity_id=str(ads.id),
+        from_state=from_state,
+        to_state="requires_review",
+        actor_id=current_user.id,
+        workflow_slug=ADS_WORKFLOW_SLUG,
+        extra_payload={"reason": body.reason, "changes": changed_fields},
+    )
+
+    await record_audit(
+        db,
+        action="paxlog.ads.request_stay_change",
+        resource_type="ads",
+        resource_id=str(ads.id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={
+            "reference": ads.reference,
+            "from_status": from_state,
+            "to_status": "requires_review",
+            "reason": body.reason,
+            "changes": changed_fields,
+        },
+    )
+    await db.commit()
+
+    from app.core.events import OpsFluxEvent, event_bus as _event_bus
+    await _event_bus.publish(OpsFluxEvent(
+        event_type="ads.stay_change_requested",
+        payload={
+            "ads_id": str(ads.id),
+            "entity_id": str(entity_id),
+            "reference": ads.reference,
+            "requester_id": str(ads.requester_id),
+            "actor_id": str(current_user.id),
+            "reason": body.reason,
+            "changes": changed_fields,
+        },
+    ))
+
+    logger.info("AdS %s stay change requested by %s", ads.reference, current_user.id)
     return ads
 
 

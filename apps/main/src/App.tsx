@@ -19,6 +19,7 @@ const WorkflowPage = lazy(() => import('@/pages/workflow/WorkflowPage').then(m =
 const PaxLogPage = lazy(() => import('@/pages/paxlog/PaxLogPage').then(m => ({ default: m.PaxLogPage })))
 const PlannerPage = lazy(() => import('@/pages/planner/PlannerPage').then(m => ({ default: m.PlannerPage })))
 const TravelWizPage = lazy(() => import('@/pages/travelwiz/TravelWizPage').then(m => ({ default: m.TravelWizPage })))
+const ImputationsPage = lazy(() => import('@/pages/imputations/ImputationsPage').then(m => ({ default: m.ImputationsPage })))
 const ReportEditorPage = lazy(() => import('@/pages/report-editor/ReportEditorPage').then(m => ({ default: m.ReportEditorPage })))
 const PidPfdPage = lazy(() => import('@/pages/pid-pfd/PidPfdPage').then(m => ({ default: m.PidPfdPage })))
 const UsersPage = lazy(() => import('@/pages/users/UsersPage').then(m => ({ default: m.UsersPage })))
@@ -79,6 +80,7 @@ export default function App() {
                   <Route path="/paxlog/*" element={<RequireAnyPermission permissions={['paxlog.ads.read', 'paxlog.ads.create', 'paxlog.avm.create', 'paxlog.avm.update', 'paxlog.avm.approve', 'paxlog.profile.read', 'paxlog.compliance.read']}><PaxLogPage /></RequireAnyPermission>} />
                   <Route path="/planner/*" element={<RequirePermission permission="planner.activity.read"><PlannerPage /></RequirePermission>} />
                   <Route path="/travelwiz/*" element={<RequirePermission permission="travelwiz.voyage.read"><TravelWizPage /></RequirePermission>} />
+                  <Route path="/imputations/*" element={<RequirePermission permission="imputation.read"><ImputationsPage /></RequirePermission>} />
                   <Route path="/report-editor/*" element={<RequirePermission permission="document.read"><ReportEditorPage /></RequirePermission>} />
                   <Route path="/pid-pfd/*" element={<RequirePermission permission="pid.read"><PidPfdPage /></RequirePermission>} />
                   <Route path="/files/*" element={<RequirePermission permission="core.settings.manage"><Suspense fallback={<div className="flex items-center justify-center h-full"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}><FileManagerPage /></Suspense></RequirePermission>} />

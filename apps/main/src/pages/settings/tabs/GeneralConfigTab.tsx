@@ -16,7 +16,6 @@ import api from '@/lib/api'
 import { useToast, TOAST_POSITIONS } from '@/components/ui/Toast'
 import { TagSelector } from '@/components/layout/DynamicPanel'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
-import { ImputationAdminSection } from '@/components/shared/ImputationAdminSection'
 import { MapPickerModal } from '@/components/shared/MapPicker'
 import { DefaultImputationSettingEditor } from '@/components/shared/DefaultImputationSettingEditor'
 import { useSaveScopedSetting, useScopedSettingsMap } from '@/hooks/useSettings'
@@ -260,17 +259,6 @@ export function GeneralConfigTab() {
             description={t('settings.default_imputation.entity_card_description')}
             hint={t('settings.default_imputation.entity_card_hint')}
           />
-        </div>
-      </CollapsibleSection>
-
-      <CollapsibleSection
-        id="imputations-admin"
-        title={t('settings.imputations.section_title')}
-        description={t('settings.imputations.section_description')}
-        storageKey="settings.general-config.collapse"
-      >
-        <div className="mt-2">
-          <ImputationAdminSection />
         </div>
       </CollapsibleSection>
 

@@ -295,6 +295,20 @@ export interface AdsUpdate {
   return_notes?: string | null
 }
 
+export interface AdsStayChangeRequest {
+  reason: string
+  visit_purpose?: string
+  visit_category?: string
+  start_date?: string
+  end_date?: string
+  outbound_transport_mode?: string | null
+  outbound_departure_base_id?: string | null
+  outbound_notes?: string | null
+  return_transport_mode?: string | null
+  return_departure_base_id?: string | null
+  return_notes?: string | null
+}
+
 export interface AdsPax {
   id: string
   ads_id: string
@@ -809,6 +823,11 @@ export const paxlogService = {
 
   requestReviewAds: async (id: string, reason: string): Promise<Ads> => {
     const { data } = await api.post(`/api/v1/pax/ads/${id}/request-review`, { reason })
+    return data
+  },
+
+  requestAdsStayChange: async (id: string, payload: AdsStayChangeRequest): Promise<Ads> => {
+    const { data } = await api.post(`/api/v1/pax/ads/${id}/request-stay-change`, payload)
     return data
   },
 

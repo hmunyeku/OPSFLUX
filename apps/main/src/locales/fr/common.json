@@ -27,6 +27,7 @@
     "section_label": "Navigation",
     "files": "Fichiers",
     "support": "Support",
+    "imputations": "Imputations",
     "help": "Aide",
     "collapse": "Réduire",
     "expand": "Étendre"
@@ -1173,6 +1174,16 @@
     "open": "ouvrir",
     "close": "fermer"
   },
+  "imputations": {
+    "page_title": "Référentiel et affectations d'imputation",
+    "page_description": "Gérez les références d’imputation, les modèles OTP CAPEX, les règles d’affectation et le défaut entité depuis un module dédié plutôt qu’un simple écran de configuration.",
+    "asset_link_title": "Lien métier avec les assets",
+    "asset_link_description": "Utilisez ce module comme référentiel transverse, puis rattachez les usages d’imputation aux assets, projets, BU et demandes opérationnelles.",
+    "assignment_priority_title": "Résolution des affectations",
+    "assignment_priority_description": "Les affectations s’appliquent selon le contexte et la priorité avant le fallback entité.",
+    "settings_hint_title": "Pourquoi ce module est séparé",
+    "settings_hint_description": "Les paramètres restent dans Configuration, mais le référentiel d’imputation doit rester visible et pilotable comme un module métier à part entière."
+  },
   "paxlog": {
     "title": "PaxLog",
     "subtitle": "Gestion des passagers et avis de séjour",
@@ -1535,6 +1546,15 @@
         "placeholder": "Décrivez brièvement les corrections apportées...",
         "confirm": "Re-soumettre le dossier"
       },
+      "stay_change": {
+        "title": "Demande de modification de séjour",
+        "start_date": "Nouvelle date de début",
+        "end_date": "Nouvelle date de fin",
+        "visit_purpose": "Objet révisé",
+        "reason": "Motif de la modification",
+        "reason_placeholder": "Expliquez pourquoi les dates ou l'objet doivent être révisés pendant le séjour...",
+        "confirm": "Demander la révision du séjour"
+      },
       "cross_company": "Cross-company",
       "checklist": {
         "destination": "Destination renseignée",
@@ -1612,7 +1632,8 @@
         "add_passenger": "Ajouter un passager",
         "remove_passenger": "Retirer ce passager",
         "request_review": "Renvoyer en correction",
-        "resubmit": "Re-soumettre"
+        "resubmit": "Re-soumettre",
+        "request_stay_change": "Modifier le séjour"
       },
       "empty": {
         "pax_search": "Aucun résultat pour « {{search}} »",

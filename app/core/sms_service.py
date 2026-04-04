@@ -218,7 +218,7 @@ async def send_to_user(
         # Send via email
         from app.core.notifications import send_email
         try:
-            await send_email(db, contact, subject, body)
+            await send_email(to=contact, subject=subject, body_html=body)
             return True, "email"
         except Exception:
             logger.exception("Email send failed to %s", contact)

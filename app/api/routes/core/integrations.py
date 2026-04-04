@@ -599,7 +599,7 @@ async def _send_test_email(
     """
 
     try:
-        await send_email(db, recipient, subject, body_html)
+        await send_email(to=recipient, subject=subject, body_html=body_html)
         return SendTestResult(connector_id="smtp", status="ok", message=f"Email envoyé à {recipient}", channel="email", sent_at=now_iso)
     except Exception as e:
         return SendTestResult(connector_id="smtp", status="error", message=f"Échec envoi email: {str(e)[:300]}", channel="email", sent_at=now_iso)

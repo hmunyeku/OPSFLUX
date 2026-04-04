@@ -552,6 +552,8 @@ export interface MissionProgramRead {
   planned_end_date: string | null
   project_id: string | null
   generated_ads_id: string | null
+  generated_ads_reference?: string | null
+  generated_ads_status?: string | null
   notes: string | null
   pax_entries: Array<{ user_id?: string | null; contact_id?: string | null }>
   site_name: string | null

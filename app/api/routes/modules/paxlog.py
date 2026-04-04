@@ -5085,6 +5085,8 @@ async def _build_avm_read(db: AsyncSession, avm: MissionNotice) -> MissionNotice
 
         # Get site name if available
         site_name = None
+        generated_ads_reference = None
+        generated_ads_status = None
         if prog.site_asset_id:
             from sqlalchemy import text as sql_text
             name_result = await db.execute(
@@ -5093,10 +5095,20 @@ async def _build_avm_read(db: AsyncSession, avm: MissionNotice) -> MissionNotice
             )
             name_row = name_result.first()
             site_name = name_row[0] if name_row else None
+        if prog.generated_ads_id:
+            ads_result = await db.execute(
+                select(Ads.reference, Ads.status).where(Ads.id == prog.generated_ads_id)
+            )
+            ads_row = ads_result.first()
+            if ads_row:
+                generated_ads_reference = ads_row[0]
+                generated_ads_status = ads_row[1]
 
         pr = MissionProgramRead.model_validate(prog)
         pr.pax_entries = pax_entries
         pr.site_name = site_name
+        pr.generated_ads_reference = generated_ads_reference
+        pr.generated_ads_status = generated_ads_status
         program_reads.append(pr)
 
     # Preparation tasks

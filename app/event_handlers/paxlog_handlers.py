@@ -431,6 +431,62 @@ async def on_planner_activity_cancelled(event: OpsFluxEvent) -> None:
         logger.exception("Error in on_planner_activity_cancelled for %s", activity_id)
 
 
+async def on_planner_activity_modified_avm(event: OpsFluxEvent) -> None:
+    """Notify AVM creators when Planner changes impact generated AdS in their mission."""
+    payload = event.payload
+    activity_id = payload.get("activity_id")
+    entity_id = payload.get("entity_id")
+    title = payload.get("title", "")
+    changes = payload.get("changes") or {}
+
+    if not activity_id or not entity_id:
+        return
+
+    try:
+        from sqlalchemy import text
+        from app.core.notifications import send_in_app
+
+        async with async_session_factory() as db:
+            result = await db.execute(
+                text(
+                    "SELECT DISTINCT mn.id, mn.reference, mn.created_by "
+                    "FROM ads a "
+                    "JOIN mission_programs mp ON mp.generated_ads_id = a.id "
+                    "JOIN mission_notices mn ON mn.id = mp.mission_notice_id "
+                    "WHERE a.planner_activity_id = :aid "
+                    "AND mn.entity_id = :eid"
+                ),
+                {"aid": activity_id, "eid": str(entity_id)},
+            )
+            affected = result.all()
+            if not affected:
+                return
+
+            change_keys = ", ".join(sorted(changes.keys())) if isinstance(changes, dict) and changes else "planning"
+            for avm_id, avm_ref, created_by in affected:
+                await send_in_app(
+                    db,
+                    user_id=UUID(str(created_by)),
+                    entity_id=UUID(str(entity_id)),
+                    title="AVM impactée par Planner",
+                    body=(
+                        f"L'activité Planner « {title or activity_id} » a évolué. "
+                        f"L'AVM {avm_ref} contient des AdS générées désormais à revoir. "
+                        f"Champs impactés: {change_keys}."
+                    ),
+                    category="paxlog",
+                    link=f"/paxlog/avm/{avm_id}",
+                )
+
+            await db.commit()
+            logger.info(
+                "planner.activity.modified/cancelled → %d AVM creators notified",
+                len(affected),
+            )
+    except Exception:
+        logger.exception("Error in on_planner_activity_modified_avm for %s", activity_id)
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Handler: on_travelwiz_manifest_closed
 # TravelWiz → PaxLog: update PAX boarding status
@@ -549,6 +605,8 @@ def register_paxlog_handlers(event_bus: EventBus) -> None:
     # Planner → PaxLog (activity changes affect AdS)
     event_bus.subscribe("planner.activity.modified", on_planner_activity_modified)
     event_bus.subscribe("planner.activity.cancelled", on_planner_activity_cancelled)
+    event_bus.subscribe("planner.activity.modified", on_planner_activity_modified_avm)
+    event_bus.subscribe("planner.activity.cancelled", on_planner_activity_modified_avm)
 
     # TravelWiz → PaxLog (manifest closure updates boarding)
     event_bus.subscribe("travelwiz.manifest.closed", on_travelwiz_manifest_closed)

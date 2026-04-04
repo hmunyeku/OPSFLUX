@@ -1666,7 +1666,8 @@
         "preparation_tasks": "Preparation ({{progress}}%)",
         "program": "Program ({{count}} lines)",
         "metadata": "Metadata",
-        "last_changes": "Latest change"
+        "last_changes": "Latest change",
+        "operational_impacts": "Operational impacts"
       },
       "fields": {
         "creator": "Creator",
@@ -1692,6 +1693,9 @@
       "change": {
         "before": "Before",
         "after": "After"
+      },
+      "operational_impacts": {
+        "generated_ads_review": "{{count}} generated visit notice(s) linked to this mission now require review after a Planner or business impact."
       },
       "empty": {
         "preparation_tasks": "No preparation task. Submit the AVM to generate the checklist.",

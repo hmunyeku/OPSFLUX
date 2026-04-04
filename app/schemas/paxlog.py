@@ -382,6 +382,8 @@ class MissionProgramRead(OpsFluxSchema):
     planned_end_date: date | None
     project_id: UUID | None
     generated_ads_id: UUID | None
+    generated_ads_reference: str | None = None
+    generated_ads_status: str | None = None
     notes: str | None
     pax_entries: list[AdsPaxEntry] = []
     site_name: str | None = None

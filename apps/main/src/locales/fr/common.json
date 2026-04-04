@@ -1675,7 +1675,8 @@
         "preparation_tasks": "Préparation ({{progress}}%)",
         "program": "Programme ({{count}} lignes)",
         "metadata": "Métadonnées",
-        "last_changes": "Dernière modification"
+        "last_changes": "Dernière modification",
+        "operational_impacts": "Impacts opérationnels"
       },
       "fields": {
         "creator": "Créateur",
@@ -1701,6 +1702,9 @@
       "change": {
         "before": "Avant",
         "after": "Après"
+      },
+      "operational_impacts": {
+        "generated_ads_review": "{{count}} AdS générée(s) liée(s) à cette mission nécessitent une revue suite à un impact Planner ou métier."
       },
       "empty": {
         "preparation_tasks": "Aucune tâche de préparation. Soumettez l'AVM pour générer la checklist.",

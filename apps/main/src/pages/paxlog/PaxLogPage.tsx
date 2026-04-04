@@ -3256,6 +3256,7 @@ function AvmDetailPanel({ id }: { id?: string }) {
   }
 
   const generatedAdsCount = avm.programs.filter((program) => !!program.generated_ads_id).length
+  const generatedAdsReviewCount = avm.programs.filter((program) => program.generated_ads_status === 'requires_review').length
   const programsWithSiteCount = avm.programs.filter((program) => !!program.site_asset_id).length
   const programsWithDatesCount = avm.programs.filter((program) => !!program.planned_start_date && !!program.planned_end_date).length
   const avmReadinessChecklist = [
@@ -3458,6 +3459,14 @@ function AvmDetailPanel({ id }: { id?: string }) {
           </div>
         </CollapsibleSection>
 
+        {generatedAdsReviewCount > 0 && (
+          <CollapsibleSection id="avm-impact-warning" title={t('paxlog.avm_detail.sections.operational_impacts')} defaultExpanded>
+            <div className="rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/20 dark:text-amber-100">
+              {t('paxlog.avm_detail.operational_impacts.generated_ads_review', { count: generatedAdsReviewCount })}
+            </div>
+          </CollapsibleSection>
+        )}
+
         {/* Info section */}
         <CollapsibleSection id="avm-info" title={t('paxlog.avm_detail.sections.information')} defaultExpanded>
           <div className="space-y-2">
@@ -3570,12 +3579,17 @@ function AvmDetailPanel({ id }: { id?: string }) {
                   )}
                   {(prog.pax_entries?.length || 0) > 0 && <div className="text-[11px] text-muted-foreground">{t('paxlog.avm_detail.program.pax_count', { count: prog.pax_entries.length })}</div>}
                   {prog.generated_ads_id && (
-                    <button
-                      className="text-[11px] text-primary hover:underline flex items-center gap-1"
-                      onClick={() => openDynamicPanel({ type: 'detail', module: 'paxlog', id: prog.generated_ads_id!, meta: { subtype: 'ads' } })}
-                    >
-                      <Link2 size={10} /> {t('paxlog.avm_detail.program.generated_ads')}
-                    </button>
+                    <div className="flex items-center justify-between gap-2">
+                      <button
+                        className="text-[11px] text-primary hover:underline flex items-center gap-1"
+                        onClick={() => openDynamicPanel({ type: 'detail', module: 'paxlog', id: prog.generated_ads_id!, meta: { subtype: 'ads' } })}
+                      >
+                        <Link2 size={10} /> {prog.generated_ads_reference || t('paxlog.avm_detail.program.generated_ads')}
+                      </button>
+                      {prog.generated_ads_status && (
+                        <StatusBadge status={prog.generated_ads_status} map={ADS_STATUS_MAP} />
+                      )}
+                    </div>
                   )}
                 </div>
               ))}

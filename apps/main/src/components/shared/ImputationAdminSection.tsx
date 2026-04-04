@@ -1,8 +1,11 @@
 import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Download, Loader2, Plus, Trash2, Upload } from 'lucide-react'
+import { Download, Edit2, Loader2, Plus, Trash2, Upload, X } from 'lucide-react'
+import type { ColumnDef } from '@tanstack/react-table'
 import { useToast } from '@/components/ui/Toast'
+import { DataTable } from '@/components/ui/DataTable/DataTable'
+import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 import { ExportWizard } from '@/components/shared/ExportWizard'
 import { ImportWizard } from '@/components/shared/ImportWizard'
 import { useProjects } from '@/hooks/useProjets'
@@ -81,6 +84,9 @@ export function ImputationAdminSection() {
   const [referenceExportOpen, setReferenceExportOpen] = useState(false)
   const [templateExportOpen, setTemplateExportOpen] = useState(false)
   const [assignmentExportOpen, setAssignmentExportOpen] = useState(false)
+  const [showReferenceForm, setShowReferenceForm] = useState(false)
+  const [showTemplateForm, setShowTemplateForm] = useState(false)
+  const [showAssignmentForm, setShowAssignmentForm] = useState(false)
 
   const projectOptions = useMemo(
     () => (projectsData?.items ?? []).map((p) => ({ value: p.id, label: `${p.code} — ${p.name}` })),
@@ -202,6 +208,7 @@ export function ImputationAdminSection() {
             default_project_id: '',
             default_cost_center_id: '',
           })
+          setShowReferenceForm(false)
           toast({ title: t('settings.imputations.reference_created'), variant: 'success' })
         },
         onError: (error: unknown) => {
@@ -229,6 +236,7 @@ export function ImputationAdminSection() {
       {
         onSuccess: () => {
           setTemplateForm({ code: '', name: '', rubrics: '' })
+          setShowTemplateForm(false)
           toast({ title: t('settings.imputations.template_created'), variant: 'success' })
         },
         onError: (error: unknown) => {
@@ -264,6 +272,7 @@ export function ImputationAdminSection() {
       active: true,
     })
     setEditingAssignmentId(null)
+    setShowAssignmentForm(false)
   }
 
   const handleSaveAssignment = () => {
@@ -316,6 +325,7 @@ export function ImputationAdminSection() {
       notes: assignment.notes ?? '',
       active: assignment.active,
     })
+    setShowAssignmentForm(true)
   }
 
   const handleDeleteAssignment = (assignmentId: string) => {
@@ -331,6 +341,19 @@ export function ImputationAdminSection() {
     })
   }
 
+  const resolveTargetLabel = (targetType: string, targetId: string) => {
+    switch (targetType) {
+      case 'user':
+        return userLabelById[targetId] ?? targetId
+      case 'user_group':
+        return groupLabelById[targetId] ?? targetId
+      case 'business_unit':
+        return businessUnitLabelById[targetId] ?? targetId
+      default:
+        return projectLabelById[targetId] ?? targetId
+    }
+  }
+
   const isBusy =
     referencesLoading ||
     templatesLoading ||
@@ -341,14 +364,244 @@ export function ImputationAdminSection() {
     updateAssignment.isPending ||
     deleteAssignment.isPending
 
+  // ── Column definitions ──────────────────────────────────────
+
+  type ReferenceRow = NonNullable<typeof references>[number]
+  type TemplateRow = NonNullable<typeof templates>[number]
+  type AssignmentRow = NonNullable<typeof assignments>[number]
+
+  const referenceColumns = useMemo<ColumnDef<ReferenceRow, unknown>[]>(
+    () => [
+      {
+        accessorKey: 'code',
+        header: t('settings.imputations.reference_code'),
+        cell: ({ getValue }) => <span className="font-mono text-xs">{getValue<string>()}</span>,
+        size: 120,
+      },
+      {
+        accessorKey: 'name',
+        header: t('settings.imputations.reference_name'),
+        size: 200,
+      },
+      {
+        accessorKey: 'imputation_type',
+        header: t('settings.imputations.reference_type'),
+        cell: ({ getValue }) => {
+          const type = getValue<string>()
+          const variant =
+            type === 'CAPEX' ? 'gl-badge gl-badge-success' :
+            type === 'OPEX' ? 'gl-badge gl-badge-neutral' :
+            'gl-badge gl-badge-neutral'
+          return <span className={variant}>{type}</span>
+        },
+        size: 100,
+      },
+      {
+        accessorKey: 'otp_policy',
+        header: t('settings.imputations.otp_policy'),
+        cell: ({ getValue }) => <span className="text-xs">{getValue<string>()}</span>,
+        size: 100,
+      },
+      {
+        accessorKey: 'active',
+        header: t('common.status'),
+        cell: ({ getValue }) => {
+          const active = getValue<boolean>()
+          return (
+            <span className={active ? 'gl-badge gl-badge-success' : 'gl-badge gl-badge-neutral'}>
+              {active ? t('common.active') : t('common.inactive')}
+            </span>
+          )
+        },
+        size: 100,
+      },
+      {
+        id: 'actions',
+        header: '',
+        cell: ({ row }) => (
+          <div className="flex items-center gap-1 justify-end">
+            <button
+              type="button"
+              className="gl-button gl-button-sm gl-button-secondary"
+              onClick={() => updateReference.mutate({ id: row.original.id, payload: { active: !row.original.active } })}
+            >
+              {row.original.active ? t('common.deactivate') : t('common.activate')}
+            </button>
+            <button
+              type="button"
+              className="gl-button gl-button-sm gl-button-danger"
+              onClick={() => deleteReference.mutate(row.original.id)}
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+        ),
+        size: 160,
+      },
+    ],
+    [t, updateReference, deleteReference],
+  )
+
+  const templateColumns = useMemo<ColumnDef<TemplateRow, unknown>[]>(
+    () => [
+      {
+        accessorKey: 'code',
+        header: t('settings.imputations.template_code'),
+        cell: ({ getValue }) => <span className="font-mono text-xs">{getValue<string>()}</span>,
+        size: 120,
+      },
+      {
+        accessorKey: 'name',
+        header: t('settings.imputations.template_name'),
+        size: 200,
+      },
+      {
+        accessorKey: 'rubrics',
+        header: t('settings.imputations.template_rubrics'),
+        cell: ({ getValue }) => {
+          const rubrics = getValue<string[]>()
+          const text = rubrics.join(', ')
+          return <span className="text-xs truncate max-w-[200px] block" title={text}>{text || '—'}</span>
+        },
+        size: 200,
+      },
+      {
+        accessorKey: 'active',
+        header: t('common.status'),
+        cell: ({ getValue }) => {
+          const active = getValue<boolean>()
+          return (
+            <span className={active ? 'gl-badge gl-badge-success' : 'gl-badge gl-badge-neutral'}>
+              {active ? t('common.active') : t('common.inactive')}
+            </span>
+          )
+        },
+        size: 100,
+      },
+      {
+        id: 'actions',
+        header: '',
+        cell: ({ row }) => (
+          <div className="flex items-center gap-1 justify-end">
+            <button
+              type="button"
+              className="gl-button gl-button-sm gl-button-secondary"
+              onClick={() => updateTemplate.mutate({ id: row.original.id, payload: { active: !row.original.active } })}
+            >
+              {row.original.active ? t('common.deactivate') : t('common.activate')}
+            </button>
+            <button
+              type="button"
+              className="gl-button gl-button-sm gl-button-danger"
+              onClick={() => deleteTemplate.mutate(row.original.id)}
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+        ),
+        size: 160,
+      },
+    ],
+    [t, updateTemplate, deleteTemplate],
+  )
+
+  const assignmentColumns = useMemo<ColumnDef<AssignmentRow, unknown>[]>(
+    () => [
+      {
+        id: 'target',
+        header: t('settings.imputations.assignment_target_id'),
+        cell: ({ row }) => (
+          <span className="text-sm">{resolveTargetLabel(row.original.target_type, row.original.target_id)}</span>
+        ),
+        size: 220,
+      },
+      {
+        accessorKey: 'target_type',
+        header: t('settings.imputations.assignment_target_type'),
+        cell: ({ getValue }) => {
+          const type = getValue<string>()
+          return <span className="gl-badge gl-badge-neutral">{type}</span>
+        },
+        size: 120,
+      },
+      {
+        accessorKey: 'imputation_reference_id',
+        header: t('settings.imputations.assignment_reference'),
+        cell: ({ getValue }) => {
+          const refId = getValue<string>()
+          return <span className="text-xs">{referenceLabelById[refId] ?? refId}</span>
+        },
+        size: 200,
+      },
+      {
+        accessorKey: 'priority',
+        header: t('settings.imputations.assignment_priority'),
+        size: 80,
+      },
+      {
+        id: 'period',
+        header: t('settings.imputations.valid_from'),
+        cell: ({ row }) => (
+          <span className="text-xs">
+            {row.original.valid_from || '—'} → {row.original.valid_to || '—'}
+          </span>
+        ),
+        size: 180,
+      },
+      {
+        accessorKey: 'active',
+        header: t('common.status'),
+        cell: ({ getValue }) => {
+          const active = getValue<boolean>()
+          return (
+            <span className={active ? 'gl-badge gl-badge-success' : 'gl-badge gl-badge-neutral'}>
+              {active ? t('common.active') : t('common.inactive')}
+            </span>
+          )
+        },
+        size: 100,
+      },
+      {
+        id: 'actions',
+        header: '',
+        cell: ({ row }) => (
+          <div className="flex items-center gap-1 justify-end">
+            <button
+              type="button"
+              className="gl-button gl-button-sm gl-button-secondary"
+              onClick={() => handleEditAssignment(row.original)}
+            >
+              <Edit2 size={14} />
+            </button>
+            <button
+              type="button"
+              className="gl-button gl-button-sm gl-button-danger"
+              onClick={() => handleDeleteAssignment(row.original.id)}
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+        ),
+        size: 120,
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [t, referenceLabelById, userLabelById, groupLabelById, businessUnitLabelById, projectLabelById],
+  )
+
+  // ── Render ──────────────────────────────────────────────────
+
   return (
     <div className="space-y-6">
-      <section className="rounded-lg border border-border/60 p-4 space-y-4">
-        <div>
-          <h4 className="text-sm font-semibold text-foreground">{t('settings.imputations.references_title')}</h4>
-          <p className="text-xs text-muted-foreground mt-1">{t('settings.imputations.references_description')}</p>
-        </div>
-        <div className="flex flex-wrap justify-end gap-2">
+      {/* ── References Section ──────────────────────────────── */}
+      <CollapsibleSection
+        id="imputation-references"
+        title={t('settings.imputations.references_title')}
+        description={t('settings.imputations.references_description')}
+        defaultExpanded
+      >
+        {/* Toolbar */}
+        <div className="flex justify-end gap-2 mb-4">
           <button
             type="button"
             className="gl-button gl-button-secondary"
@@ -366,133 +619,150 @@ export function ImputationAdminSection() {
             <Download size={14} className="mr-1" />
             {t('settings.imputations.export_references')}
           </button>
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          <input
-            className={panelInputClass}
-            value={referenceForm.code}
-            onChange={(e) => setReferenceForm((s) => ({ ...s, code: e.target.value }))}
-            placeholder={t('settings.imputations.reference_code')}
-          />
-          <input
-            className={panelInputClass}
-            value={referenceForm.name}
-            onChange={(e) => setReferenceForm((s) => ({ ...s, name: e.target.value }))}
-            placeholder={t('settings.imputations.reference_name')}
-          />
-          <select
-            className={panelSelectClass}
-            value={referenceForm.imputation_type}
-            onChange={(e) => setReferenceForm((s) => ({
-              ...s,
-              imputation_type: e.target.value,
-              otp_policy: e.target.value === 'CAPEX' ? s.otp_policy : 'forbidden',
-              otp_template_id: e.target.value === 'CAPEX' ? s.otp_template_id : '',
-            }))}
-          >
-            {['OPEX', 'SOPEX', 'CAPEX', 'OTHER'].map((type) => (
-              <option key={type} value={type}>{type}</option>
-            ))}
-          </select>
-          <select
-            className={panelSelectClass}
-            value={referenceForm.otp_policy}
-            onChange={(e) => setReferenceForm((s) => ({ ...s, otp_policy: e.target.value }))}
-            disabled={referenceForm.imputation_type !== 'CAPEX'}
-          >
-            <option value="forbidden">{t('settings.imputations.otp_forbidden')}</option>
-            <option value="optional">{t('settings.imputations.otp_optional')}</option>
-            <option value="required">{t('settings.imputations.otp_required')}</option>
-          </select>
-          <select
-            className={panelSelectClass}
-            value={referenceForm.otp_template_id}
-            onChange={(e) => setReferenceForm((s) => ({ ...s, otp_template_id: e.target.value }))}
-            disabled={referenceForm.imputation_type !== 'CAPEX'}
-          >
-            <option value="">{t('settings.imputations.no_otp_template')}</option>
-            {(templates ?? []).map((template) => (
-              <option key={template.id} value={template.id}>{template.code} — {template.name}</option>
-            ))}
-          </select>
-          <select
-            className={panelSelectClass}
-            value={referenceForm.default_project_id}
-            onChange={(e) => setReferenceForm((s) => ({ ...s, default_project_id: e.target.value }))}
-          >
-            <option value="">{t('settings.imputations.no_default_project')}</option>
-            {projectOptions.map((project) => (
-              <option key={project.value} value={project.value}>{project.label}</option>
-            ))}
-          </select>
-          <select
-            className={panelSelectClass}
-            value={referenceForm.default_cost_center_id}
-            onChange={(e) => setReferenceForm((s) => ({ ...s, default_cost_center_id: e.target.value }))}
-          >
-            <option value="">{t('settings.imputations.no_default_cost_center')}</option>
-            {costCenterOptions.map((costCenter) => (
-              <option key={costCenter.value} value={costCenter.value}>{costCenter.label}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex justify-end gap-2">
           <button
             type="button"
-            className="gl-button gl-button-primary"
-            onClick={handleCreateReference}
-            disabled={!referenceForm.code.trim() || !referenceForm.name.trim() || createReference.isPending}
+            className="gl-button gl-button-confirm"
+            onClick={() => setShowReferenceForm((v) => !v)}
           >
-            <Plus size={14} className="mr-1" />
-            {t('settings.imputations.create_reference')}
+            {showReferenceForm ? <X size={14} className="mr-1" /> : <Plus size={14} className="mr-1" />}
+            {showReferenceForm ? t('common.cancel') : t('settings.imputations.create_reference')}
           </button>
         </div>
 
-        {referencesLoading ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 size={16} className="animate-spin" />
-            {t('common.loading')}
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {(references ?? []).map((reference) => (
-              <div key={reference.id} className="rounded-md border border-border/50 px-3 py-2 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-sm font-medium truncate">{reference.code} — {reference.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {reference.imputation_type} · OTP {reference.otp_policy} · {reference.active ? t('common.active') : t('common.inactive')}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="gl-button gl-button-secondary !px-2 !py-1"
-                    onClick={() => updateReference.mutate({ id: reference.id, payload: { active: !reference.active } })}
-                  >
-                    {reference.active ? t('common.deactivate') : t('common.activate')}
-                  </button>
-                  <button
-                    type="button"
-                    className="gl-button gl-button-danger !px-2 !py-1"
-                    onClick={() => deleteReference.mutate(reference.id)}
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
+        {/* Collapsible create form */}
+        {showReferenceForm && (
+          <div className="p-4 rounded-lg border border-primary/30 bg-primary/5 mb-4 space-y-3">
+            <h4 className="text-sm font-semibold">{t('settings.imputations.create_reference')}</h4>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('settings.imputations.reference_code')}</label>
+                <input
+                  className={panelInputClass}
+                  value={referenceForm.code}
+                  onChange={(e) => setReferenceForm((s) => ({ ...s, code: e.target.value }))}
+                />
               </div>
-            ))}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('settings.imputations.reference_name')}</label>
+                <input
+                  className={panelInputClass}
+                  value={referenceForm.name}
+                  onChange={(e) => setReferenceForm((s) => ({ ...s, name: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('settings.imputations.reference_type')}</label>
+                <select
+                  className={panelSelectClass}
+                  value={referenceForm.imputation_type}
+                  onChange={(e) => setReferenceForm((s) => ({
+                    ...s,
+                    imputation_type: e.target.value,
+                    otp_policy: e.target.value === 'CAPEX' ? s.otp_policy : 'forbidden',
+                    otp_template_id: e.target.value === 'CAPEX' ? s.otp_template_id : '',
+                  }))}
+                >
+                  {['OPEX', 'SOPEX', 'CAPEX', 'OTHER'].map((type) => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('settings.imputations.otp_policy')}</label>
+                <select
+                  className={panelSelectClass}
+                  value={referenceForm.otp_policy}
+                  onChange={(e) => setReferenceForm((s) => ({ ...s, otp_policy: e.target.value }))}
+                  disabled={referenceForm.imputation_type !== 'CAPEX'}
+                >
+                  <option value="forbidden">{t('settings.imputations.otp_forbidden')}</option>
+                  <option value="optional">{t('settings.imputations.otp_optional')}</option>
+                  <option value="required">{t('settings.imputations.otp_required')}</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('settings.imputations.template_code')}</label>
+                <select
+                  className={panelSelectClass}
+                  value={referenceForm.otp_template_id}
+                  onChange={(e) => setReferenceForm((s) => ({ ...s, otp_template_id: e.target.value }))}
+                  disabled={referenceForm.imputation_type !== 'CAPEX'}
+                >
+                  <option value="">{t('settings.imputations.no_otp_template')}</option>
+                  {(templates ?? []).map((template) => (
+                    <option key={template.id} value={template.id}>{template.code} — {template.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('settings.imputations.default_project')}</label>
+                <select
+                  className={panelSelectClass}
+                  value={referenceForm.default_project_id}
+                  onChange={(e) => setReferenceForm((s) => ({ ...s, default_project_id: e.target.value }))}
+                >
+                  <option value="">{t('settings.imputations.no_default_project')}</option>
+                  {projectOptions.map((project) => (
+                    <option key={project.value} value={project.value}>{project.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('settings.imputations.default_cost_center')}</label>
+                <select
+                  className={panelSelectClass}
+                  value={referenceForm.default_cost_center_id}
+                  onChange={(e) => setReferenceForm((s) => ({ ...s, default_cost_center_id: e.target.value }))}
+                >
+                  <option value="">{t('settings.imputations.no_default_cost_center')}</option>
+                  {costCenterOptions.map((costCenter) => (
+                    <option key={costCenter.value} value={costCenter.value}>{costCenter.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="gl-button gl-button-confirm"
+                onClick={handleCreateReference}
+                disabled={!referenceForm.code.trim() || !referenceForm.name.trim() || createReference.isPending}
+              >
+                {createReference.isPending && <Loader2 size={14} className="mr-1 animate-spin" />}
+                <Plus size={14} className="mr-1" />
+                {t('settings.imputations.create_reference')}
+              </button>
+              <button
+                type="button"
+                className="gl-button gl-button-secondary"
+                onClick={() => setShowReferenceForm(false)}
+              >
+                {t('common.cancel')}
+              </button>
+            </div>
           </div>
         )}
-      </section>
 
-      <section className="rounded-lg border border-border/60 p-4 space-y-4">
-        <div>
-          <h4 className="text-sm font-semibold text-foreground">{t('settings.imputations.templates_title')}</h4>
-          <p className="text-xs text-muted-foreground mt-1">{t('settings.imputations.templates_description')}</p>
-        </div>
-        <div className="flex flex-wrap justify-end gap-2">
+        {/* DataTable */}
+        <DataTable
+          columns={referenceColumns}
+          data={references ?? []}
+          isLoading={referencesLoading}
+          storageKey="imputation-references-table"
+          emptyTitle={t('settings.imputations.no_references')}
+          compact
+        />
+      </CollapsibleSection>
+
+      {/* ── Templates Section ──────────────────────────────── */}
+      <CollapsibleSection
+        id="imputation-templates"
+        title={t('settings.imputations.templates_title')}
+        description={t('settings.imputations.templates_description')}
+        defaultExpanded
+      >
+        {/* Toolbar */}
+        <div className="flex justify-end gap-2 mb-4">
           <button
             type="button"
             className="gl-button gl-button-secondary"
@@ -510,82 +780,89 @@ export function ImputationAdminSection() {
             <Download size={14} className="mr-1" />
             {t('settings.imputations.export_templates')}
           </button>
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-3">
-          <input
-            className={panelInputClass}
-            value={templateForm.code}
-            onChange={(e) => setTemplateForm((s) => ({ ...s, code: e.target.value }))}
-            placeholder={t('settings.imputations.template_code')}
-          />
-          <input
-            className={panelInputClass}
-            value={templateForm.name}
-            onChange={(e) => setTemplateForm((s) => ({ ...s, name: e.target.value }))}
-            placeholder={t('settings.imputations.template_name')}
-          />
-          <input
-            className={panelInputClass}
-            value={templateForm.rubrics}
-            onChange={(e) => setTemplateForm((s) => ({ ...s, rubrics: e.target.value }))}
-            placeholder={t('settings.imputations.template_rubrics')}
-          />
-        </div>
-
-        <div className="flex justify-end">
           <button
             type="button"
-            className="gl-button gl-button-primary"
-            onClick={handleCreateTemplate}
-            disabled={!templateForm.code.trim() || !templateForm.name.trim() || createTemplate.isPending}
+            className="gl-button gl-button-confirm"
+            onClick={() => setShowTemplateForm((v) => !v)}
           >
-            <Plus size={14} className="mr-1" />
-            {t('settings.imputations.create_template')}
+            {showTemplateForm ? <X size={14} className="mr-1" /> : <Plus size={14} className="mr-1" />}
+            {showTemplateForm ? t('common.cancel') : t('settings.imputations.create_template')}
           </button>
         </div>
 
-        {templatesLoading ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 size={16} className="animate-spin" />
-            {t('common.loading')}
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {(templates ?? []).map((template) => (
-              <div key={template.id} className="rounded-md border border-border/50 px-3 py-2 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-sm font-medium truncate">{template.code} — {template.name}</div>
-                  <div className="text-xs text-muted-foreground truncate">{template.rubrics.join(', ') || '—'}</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="gl-button gl-button-secondary !px-2 !py-1"
-                    onClick={() => updateTemplate.mutate({ id: template.id, payload: { active: !template.active } })}
-                  >
-                    {template.active ? t('common.deactivate') : t('common.activate')}
-                  </button>
-                  <button
-                    type="button"
-                    className="gl-button gl-button-danger !px-2 !py-1"
-                    onClick={() => deleteTemplate.mutate(template.id)}
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
+        {/* Collapsible create form */}
+        {showTemplateForm && (
+          <div className="p-4 rounded-lg border border-primary/30 bg-primary/5 mb-4 space-y-3">
+            <h4 className="text-sm font-semibold">{t('settings.imputations.create_template')}</h4>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('settings.imputations.template_code')}</label>
+                <input
+                  className={panelInputClass}
+                  value={templateForm.code}
+                  onChange={(e) => setTemplateForm((s) => ({ ...s, code: e.target.value }))}
+                />
               </div>
-            ))}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('settings.imputations.template_name')}</label>
+                <input
+                  className={panelInputClass}
+                  value={templateForm.name}
+                  onChange={(e) => setTemplateForm((s) => ({ ...s, name: e.target.value }))}
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('settings.imputations.template_rubrics')}</label>
+                <input
+                  className={panelInputClass}
+                  value={templateForm.rubrics}
+                  onChange={(e) => setTemplateForm((s) => ({ ...s, rubrics: e.target.value }))}
+                  placeholder={t('settings.imputations.template_rubrics')}
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="gl-button gl-button-confirm"
+                onClick={handleCreateTemplate}
+                disabled={!templateForm.code.trim() || !templateForm.name.trim() || createTemplate.isPending}
+              >
+                {createTemplate.isPending && <Loader2 size={14} className="mr-1 animate-spin" />}
+                <Plus size={14} className="mr-1" />
+                {t('settings.imputations.create_template')}
+              </button>
+              <button
+                type="button"
+                className="gl-button gl-button-secondary"
+                onClick={() => setShowTemplateForm(false)}
+              >
+                {t('common.cancel')}
+              </button>
+            </div>
           </div>
         )}
-      </section>
 
-      <section className="rounded-lg border border-border/60 p-4 space-y-4">
-        <div>
-          <h4 className="text-sm font-semibold text-foreground">{t('settings.imputations.assignments_title')}</h4>
-          <p className="text-xs text-muted-foreground mt-1">{t('settings.imputations.assignments_description')}</p>
-        </div>
-        <div className="flex justify-end">
+        {/* DataTable */}
+        <DataTable
+          columns={templateColumns}
+          data={templates ?? []}
+          isLoading={templatesLoading}
+          storageKey="imputation-templates-table"
+          emptyTitle={t('settings.imputations.no_templates')}
+          compact
+        />
+      </CollapsibleSection>
+
+      {/* ── Assignments Section ─────────────────────────────── */}
+      <CollapsibleSection
+        id="imputation-assignments"
+        title={t('settings.imputations.assignments_title')}
+        description={t('settings.imputations.assignments_description')}
+        defaultExpanded
+      >
+        {/* Toolbar */}
+        <div className="flex justify-end gap-2 mb-4">
           <button
             type="button"
             className="gl-button gl-button-secondary"
@@ -603,155 +880,159 @@ export function ImputationAdminSection() {
             <Download size={14} className="mr-1" />
             {t('settings.imputations.export_assignments')}
           </button>
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <select
-            className={panelSelectClass}
-            value={assignmentForm.imputation_reference_id}
-            onChange={(e) => setAssignmentForm((s) => ({ ...s, imputation_reference_id: e.target.value }))}
-          >
-            <option value="">{t('settings.imputations.assignment_reference_placeholder')}</option>
-            {(references ?? []).map((reference) => (
-              <option key={reference.id} value={reference.id}>{reference.code} — {reference.name}</option>
-            ))}
-          </select>
-          <select
-            className={panelSelectClass}
-            value={assignmentForm.target_type}
-            onChange={(e) => setAssignmentForm((s) => ({ ...s, target_type: e.target.value, target_id: '' }))}
-          >
-            <option value="user">{t('settings.imputations.assignment_target_user')}</option>
-            <option value="user_group">{t('settings.imputations.assignment_target_group')}</option>
-            <option value="business_unit">{t('settings.imputations.assignment_target_bu')}</option>
-            <option value="project">{t('settings.imputations.assignment_target_project')}</option>
-          </select>
-          <select
-            className={panelSelectClass}
-            value={assignmentForm.target_id}
-            onChange={(e) => setAssignmentForm((s) => ({ ...s, target_id: e.target.value }))}
-          >
-            <option value="">{t('settings.imputations.assignment_target_placeholder')}</option>
-            {assignmentTargetOptions.map((target) => (
-              <option key={target.value} value={target.value}>{target.label}</option>
-            ))}
-          </select>
-          <input
-            className={panelInputClass}
-            type="number"
-            min="0"
-            step="1"
-            value={assignmentForm.priority}
-            onChange={(e) => setAssignmentForm((s) => ({ ...s, priority: e.target.value }))}
-            placeholder={t('settings.imputations.assignment_priority_placeholder')}
-          />
-          <input
-            className={panelInputClass}
-            type="date"
-            value={assignmentForm.valid_from}
-            onChange={(e) => setAssignmentForm((s) => ({ ...s, valid_from: e.target.value }))}
-          />
-          <input
-            className={panelInputClass}
-            type="date"
-            value={assignmentForm.valid_to}
-            onChange={(e) => setAssignmentForm((s) => ({ ...s, valid_to: e.target.value }))}
-          />
-          <input
-            className={panelInputClass}
-            value={assignmentForm.notes}
-            onChange={(e) => setAssignmentForm((s) => ({ ...s, notes: e.target.value }))}
-            placeholder={t('settings.imputations.assignment_notes')}
-          />
-          <select
-            className={panelSelectClass}
-            value={assignmentForm.active ? 'active' : 'inactive'}
-            onChange={(e) => setAssignmentForm((s) => ({ ...s, active: e.target.value === 'active' }))}
-          >
-            <option value="active">{t('common.active')}</option>
-            <option value="inactive">{t('common.inactive')}</option>
-          </select>
-        </div>
-
-        <div className="flex justify-end gap-2">
-          {editingAssignmentId && (
-            <button
-              type="button"
-              className="gl-button gl-button-secondary"
-              onClick={resetAssignmentForm}
-            >
-              {t('common.cancel')}
-            </button>
-          )}
           <button
             type="button"
-            className="gl-button gl-button-primary"
-            onClick={handleSaveAssignment}
-            disabled={
-              !assignmentForm.imputation_reference_id ||
-              !assignmentForm.target_id ||
-              createAssignment.isPending ||
-              updateAssignment.isPending
-            }
+            className="gl-button gl-button-confirm"
+            onClick={() => {
+              if (showAssignmentForm && !editingAssignmentId) {
+                setShowAssignmentForm(false)
+              } else {
+                resetAssignmentForm()
+                setShowAssignmentForm(true)
+              }
+            }}
           >
-            <Plus size={14} className="mr-1" />
-            {editingAssignmentId
-              ? t('settings.imputations.update_assignment')
-              : t('settings.imputations.create_assignment')}
+            {showAssignmentForm && !editingAssignmentId ? <X size={14} className="mr-1" /> : <Plus size={14} className="mr-1" />}
+            {showAssignmentForm && !editingAssignmentId ? t('common.cancel') : t('settings.imputations.create_assignment')}
           </button>
         </div>
 
-        {assignmentsLoading ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 size={16} className="animate-spin" />
-            {t('common.loading')}
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {(assignments ?? []).length === 0 ? (
-              <p className="text-xs text-muted-foreground italic">{t('settings.imputations.no_assignments')}</p>
-            ) : (
-              assignments?.map((assignment) => (
-                <div key={assignment.id} className="rounded-md border border-border/50 px-3 py-2 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium">
-                      {assignment.target_type === 'user'
-                        ? (userLabelById[assignment.target_id] ?? assignment.target_id)
-                        : assignment.target_type === 'user_group'
-                          ? (groupLabelById[assignment.target_id] ?? assignment.target_id)
-                          : assignment.target_type === 'business_unit'
-                            ? (businessUnitLabelById[assignment.target_id] ?? assignment.target_id)
-                            : (projectLabelById[assignment.target_id] ?? assignment.target_id)}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {t('settings.imputations.assignment_reference')} {referenceLabelById[assignment.imputation_reference_id] ?? assignment.imputation_reference_id} · {t('settings.imputations.assignment_priority')} {assignment.priority}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {assignment.valid_from || '—'} → {assignment.valid_to || '—'} · {assignment.active ? t('common.active') : t('common.inactive')}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      className="gl-button gl-button-secondary !px-2 !py-1"
-                      onClick={() => handleEditAssignment(assignment)}
-                    >
-                      {t('common.edit')}
-                    </button>
-                    <button
-                      type="button"
-                      className="gl-button gl-button-danger !px-2 !py-1"
-                      onClick={() => handleDeleteAssignment(assignment.id)}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
+        {/* Collapsible create/edit form */}
+        {showAssignmentForm && (
+          <div className="p-4 rounded-lg border border-primary/30 bg-primary/5 mb-4 space-y-3">
+            <h4 className="text-sm font-semibold">
+              {editingAssignmentId
+                ? t('settings.imputations.update_assignment')
+                : t('settings.imputations.create_assignment')}
+            </h4>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('settings.imputations.assignment_reference')}</label>
+                <select
+                  className={panelSelectClass}
+                  value={assignmentForm.imputation_reference_id}
+                  onChange={(e) => setAssignmentForm((s) => ({ ...s, imputation_reference_id: e.target.value }))}
+                >
+                  <option value="">{t('settings.imputations.assignment_reference_placeholder')}</option>
+                  {(references ?? []).map((reference) => (
+                    <option key={reference.id} value={reference.id}>{reference.code} — {reference.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('settings.imputations.assignment_target_type')}</label>
+                <select
+                  className={panelSelectClass}
+                  value={assignmentForm.target_type}
+                  onChange={(e) => setAssignmentForm((s) => ({ ...s, target_type: e.target.value, target_id: '' }))}
+                >
+                  <option value="user">{t('settings.imputations.assignment_target_user')}</option>
+                  <option value="user_group">{t('settings.imputations.assignment_target_group')}</option>
+                  <option value="business_unit">{t('settings.imputations.assignment_target_bu')}</option>
+                  <option value="project">{t('settings.imputations.assignment_target_project')}</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('settings.imputations.assignment_target_id')}</label>
+                <select
+                  className={panelSelectClass}
+                  value={assignmentForm.target_id}
+                  onChange={(e) => setAssignmentForm((s) => ({ ...s, target_id: e.target.value }))}
+                >
+                  <option value="">{t('settings.imputations.assignment_target_placeholder')}</option>
+                  {assignmentTargetOptions.map((target) => (
+                    <option key={target.value} value={target.value}>{target.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('settings.imputations.assignment_priority')}</label>
+                <input
+                  className={panelInputClass}
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={assignmentForm.priority}
+                  onChange={(e) => setAssignmentForm((s) => ({ ...s, priority: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('settings.imputations.valid_from')}</label>
+                <input
+                  className={panelInputClass}
+                  type="date"
+                  value={assignmentForm.valid_from}
+                  onChange={(e) => setAssignmentForm((s) => ({ ...s, valid_from: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('settings.imputations.valid_to')}</label>
+                <input
+                  className={panelInputClass}
+                  type="date"
+                  value={assignmentForm.valid_to}
+                  onChange={(e) => setAssignmentForm((s) => ({ ...s, valid_to: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('common.notes')}</label>
+                <input
+                  className={panelInputClass}
+                  value={assignmentForm.notes}
+                  onChange={(e) => setAssignmentForm((s) => ({ ...s, notes: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('common.status')}</label>
+                <select
+                  className={panelSelectClass}
+                  value={assignmentForm.active ? 'active' : 'inactive'}
+                  onChange={(e) => setAssignmentForm((s) => ({ ...s, active: e.target.value === 'active' }))}
+                >
+                  <option value="active">{t('common.active')}</option>
+                  <option value="inactive">{t('common.inactive')}</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="gl-button gl-button-confirm"
+                onClick={handleSaveAssignment}
+                disabled={
+                  !assignmentForm.imputation_reference_id ||
+                  !assignmentForm.target_id ||
+                  createAssignment.isPending ||
+                  updateAssignment.isPending
+                }
+              >
+                {(createAssignment.isPending || updateAssignment.isPending) && <Loader2 size={14} className="mr-1 animate-spin" />}
+                <Plus size={14} className="mr-1" />
+                {editingAssignmentId
+                  ? t('settings.imputations.update_assignment')
+                  : t('settings.imputations.create_assignment')}
+              </button>
+              <button
+                type="button"
+                className="gl-button gl-button-secondary"
+                onClick={resetAssignmentForm}
+              >
+                {t('common.cancel')}
+              </button>
+            </div>
           </div>
         )}
-      </section>
+
+        {/* DataTable */}
+        <DataTable
+          columns={assignmentColumns}
+          data={assignments ?? []}
+          isLoading={assignmentsLoading}
+          storageKey="imputation-assignments-table"
+          emptyTitle={t('settings.imputations.no_assignments')}
+          compact
+        />
+      </CollapsibleSection>
 
       {isBusy && <div className="text-xs text-muted-foreground">{t('settings.imputations.sync_hint')}</div>}
 

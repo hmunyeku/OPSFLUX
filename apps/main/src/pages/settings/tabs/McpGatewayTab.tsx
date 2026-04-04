@@ -9,7 +9,7 @@ import { useState, useCallback, useMemo } from 'react'
 import {
   Key, Plus, Trash2, Ban, Copy, Check,
   Loader2, Shield, AlertTriangle, Globe,
-  Activity, ExternalLink, RefreshCw,
+  Activity, ExternalLink, RefreshCw, X, Wrench,
 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
@@ -117,6 +117,7 @@ function StatsCard({ label, count, icon: Icon }: { label: string; count: number;
 // ── Main component ──
 
 export function McpGatewayTab() {
+  const [selectedBackend, setSelectedBackend] = useState<Backend | null>(null)
   const { data: backends = [], isLoading: loadingBackends } = useQuery({
     queryKey: ['mcp-gw-backends'],
     queryFn: fetchBackends,
@@ -150,7 +151,7 @@ export function McpGatewayTab() {
       <CollapsibleSection
         id="mcp-backends"
         title="Backends disponibles"
-        description="Serveurs MCP accessibles via la passerelle. Chaque backend expose des outils IA."
+        description="Serveurs MCP accessibles via la passerelle. Cliquez sur un backend pour voir ses outils."
         storageKey="settings.mcp.backends.collapse"
         showSeparator={false}
       >
@@ -164,13 +165,27 @@ export function McpGatewayTab() {
             <p className="text-sm text-muted-foreground">Aucun backend configuré.</p>
           </div>
         ) : (
-          <div className="grid gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
             {backends.map(b => (
-              <BackendCard key={b.id} backend={b} mcpBaseUrl={mcpBaseUrl} />
+              <BackendCard
+                key={b.id}
+                backend={b}
+                mcpBaseUrl={mcpBaseUrl}
+                onSelect={() => setSelectedBackend(b)}
+              />
             ))}
           </div>
         )}
       </CollapsibleSection>
+
+      {/* Backend tools modal */}
+      {selectedBackend && (
+        <BackendToolsModal
+          backend={selectedBackend}
+          mcpBaseUrl={mcpBaseUrl}
+          onClose={() => setSelectedBackend(null)}
+        />
+      )}
 
       {/* ── Tokens section ── */}
       <CollapsibleSection
@@ -187,67 +202,254 @@ export function McpGatewayTab() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Backend card
+// Backend card (grid layout, like ConnectorCard)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function BackendCard({ backend: b, mcpBaseUrl }: { backend: Backend; mcpBaseUrl: string }) {
+function BackendCard({
+  backend: b,
+  mcpBaseUrl,
+  onSelect,
+}: {
+  backend: Backend
+  mcpBaseUrl: string
+  onSelect: () => void
+}) {
   const [copied, setCopied] = useState(false)
   const endpointUrl = `${mcpBaseUrl}/${b.slug}/mcp`
   const isNative = b.upstream_url.startsWith('internal://')
 
-  const copy = () => {
+  const borderClass = b.active
+    ? 'border-emerald-300 dark:border-emerald-700 bg-emerald-50/50 dark:bg-emerald-900/10'
+    : 'border-border/60 bg-card'
+
+  const copy = (e: React.MouseEvent) => {
+    e.stopPropagation()
     navigator.clipboard.writeText(endpointUrl)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
 
   return (
-    <div className="rounded-lg border border-border bg-card overflow-hidden">
-      <div className="flex items-start gap-4 p-4">
-        {/* Status indicator */}
-        <div className={`mt-1 w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-          b.active
-            ? 'bg-green-50 dark:bg-green-950/30 text-green-600 dark:text-green-400'
-            : 'bg-neutral-100 dark:bg-neutral-800 text-muted-foreground'
-        }`}>
-          <Activity size={16} />
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-medium text-foreground">{b.name}</span>
-            {isNative && (
-              <span className="gl-badge gl-badge-info">Natif</span>
-            )}
-            <span className={`gl-badge ${b.active ? 'gl-badge-success' : 'gl-badge-neutral'}`}>
-              {b.active ? 'Actif' : 'Inactif'}
-            </span>
+    <div className={`border rounded-lg transition-colors flex flex-col self-start ${borderClass}`}>
+      {/* Card header — clickable */}
+      <button
+        type="button"
+        onClick={onSelect}
+        className="w-full flex flex-col gap-2 px-4 py-3 text-left hover:bg-accent/30 transition-colors rounded-t-lg"
+      >
+        <div className="flex items-center gap-2.5 w-full">
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+            b.active
+              ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
+              : 'bg-neutral-100 dark:bg-neutral-800 text-muted-foreground'
+          }`}>
+            <Activity size={16} />
           </div>
+          <span className="text-sm font-semibold text-foreground truncate flex-1">{b.name}</span>
+        </div>
+        {b.description && (
+          <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{b.description}</p>
+        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`gl-badge ${b.active ? 'gl-badge-success' : 'gl-badge-neutral'}`}>
+            {b.active ? 'Actif' : 'Inactif'}
+          </span>
+          {isNative && <span className="gl-badge gl-badge-info">Natif</span>}
+        </div>
+      </button>
 
-          {b.description && (
-            <p className="text-sm text-muted-foreground mt-1">{b.description}</p>
-          )}
+      {/* Endpoint URL footer */}
+      <div className="px-4 pb-3 pt-2 border-t border-border/50">
+        <div className="flex items-center gap-1.5">
+          <ExternalLink size={11} className="text-muted-foreground shrink-0" />
+          <code className="text-[10px] font-mono text-muted-foreground truncate flex-1">{endpointUrl}</code>
+          <button
+            onClick={copy}
+            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors shrink-0"
+            title="Copier l'URL"
+          >
+            {copied ? <Check size={12} className="text-green-600" /> : <Copy size={12} />}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
-          {/* Endpoint URL */}
-          <div className="flex items-center gap-2 mt-3">
-            <div className="flex items-center gap-1.5 bg-accent/50 rounded-md px-3 py-1.5 min-w-0 flex-1">
-              <ExternalLink size={12} className="text-muted-foreground shrink-0" />
-              <code className="text-xs font-mono text-muted-foreground truncate">
-                {endpointUrl}
-              </code>
+// ═══════════════════════════════════════════════════════════════════════════════
+// Backend tools modal
+// ═══════════════════════════════════════════════════════════════════════════════
+
+interface McpTool {
+  name: string
+  description: string
+  inputSchema?: Record<string, unknown>
+}
+
+function BackendToolsModal({
+  backend,
+  mcpBaseUrl,
+  onClose,
+}: {
+  backend: Backend
+  mcpBaseUrl: string
+  onClose: () => void
+}) {
+  const [search, setSearch] = useState('')
+  const endpointUrl = `${mcpBaseUrl}/${backend.slug}/mcp`
+  const [copiedUrl, setCopiedUrl] = useState(false)
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['mcp-gw-tools', backend.slug],
+    queryFn: () => api.get<{ backend: string; tools: McpTool[] }>(
+      `/api/v1/mcp-gateway/backends/${backend.slug}/tools`
+    ).then(r => r.data),
+  })
+
+  const tools = data?.tools ?? []
+  const filtered = useMemo(() => {
+    if (!search) return tools
+    const q = search.toLowerCase()
+    return tools.filter(t =>
+      t.name.toLowerCase().includes(q) || t.description?.toLowerCase().includes(q)
+    )
+  }, [tools, search])
+
+  const copyUrl = () => {
+    navigator.clipboard.writeText(endpointUrl)
+    setCopiedUrl(true)
+    setTimeout(() => setCopiedUrl(false), 2000)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col mx-4"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-border shrink-0">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Activity size={20} className="text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-base font-semibold text-foreground">{backend.name}</h2>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <code className="text-[11px] font-mono text-muted-foreground truncate">{endpointUrl}</code>
+              <button onClick={copyUrl} className="p-0.5 hover:text-foreground text-muted-foreground">
+                {copiedUrl ? <Check size={11} className="text-green-600" /> : <Copy size={11} />}
+              </button>
             </div>
-            <button
-              onClick={copy}
-              className="gl-button-sm gl-button-default shrink-0"
-              title="Copier l'URL"
-            >
-              {copied ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
-              {copied ? 'Copié' : 'Copier'}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={`gl-badge ${backend.active ? 'gl-badge-success' : 'gl-badge-neutral'}`}>
+              {backend.active ? 'Actif' : 'Inactif'}
+            </span>
+            <button onClick={onClose} className="p-1.5 rounded-md hover:bg-accent text-muted-foreground">
+              <X size={18} />
             </button>
           </div>
         </div>
+
+        {/* Tools section */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <Wrench size={14} />
+              Outils MCP
+              {!isLoading && <span className="text-muted-foreground font-normal">({tools.length})</span>}
+            </h3>
+            {tools.length > 5 && (
+              <input
+                className="gl-form-input text-xs w-48"
+                placeholder="Filtrer les outils…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            )}
+          </div>
+
+          {isLoading ? (
+            <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+              <Loader2 size={16} className="animate-spin" /> Chargement des outils…
+            </div>
+          ) : error ? (
+            <div className="text-center py-8">
+              <AlertTriangle size={24} className="mx-auto text-amber-500 mb-2" />
+              <p className="text-sm text-muted-foreground">
+                Impossible de charger les outils. Le backend est peut-être indisponible.
+              </p>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center py-8">
+              <Wrench size={24} className="mx-auto text-muted-foreground/40 mb-2" />
+              <p className="text-sm text-muted-foreground">
+                {search ? 'Aucun outil correspondant.' : 'Aucun outil disponible.'}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filtered.map(tool => (
+                <ToolRow key={tool.name} tool={tool} />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+    </div>
+  )
+}
+
+function ToolRow({ tool }: { tool: McpTool }) {
+  const [expanded, setExpanded] = useState(false)
+  const params = tool.inputSchema?.properties as Record<string, { type?: string; description?: string }> | undefined
+  const required = (tool.inputSchema?.required as string[]) ?? []
+
+  return (
+    <div className="border border-border/60 rounded-lg bg-card">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-start gap-3 px-3 py-2.5 text-left hover:bg-accent/30 transition-colors rounded-lg"
+      >
+        <Wrench size={13} className="text-primary shrink-0 mt-0.5" />
+        <div className="flex-1 min-w-0">
+          <code className="text-xs font-semibold font-mono text-foreground">{tool.name}</code>
+          {tool.description && (
+            <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">{tool.description}</p>
+          )}
+        </div>
+        {params && Object.keys(params).length > 0 && (
+          <span className="text-[10px] text-muted-foreground shrink-0 mt-0.5">
+            {Object.keys(params).length} param{Object.keys(params).length > 1 ? 's' : ''}
+          </span>
+        )}
+      </button>
+      {expanded && params && Object.keys(params).length > 0 && (
+        <div className="px-3 pb-3 border-t border-border/50">
+          <table className="w-full text-[11px] mt-2">
+            <thead>
+              <tr className="text-muted-foreground">
+                <th className="text-left font-medium pb-1 pr-3">Paramètre</th>
+                <th className="text-left font-medium pb-1 pr-3">Type</th>
+                <th className="text-left font-medium pb-1">Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(params).map(([name, schema]) => (
+                <tr key={name} className="border-t border-border/30">
+                  <td className="py-1.5 pr-3 font-mono text-foreground">
+                    {name}
+                    {required.includes(name) && <span className="text-red-500 ml-0.5">*</span>}
+                  </td>
+                  <td className="py-1.5 pr-3 text-muted-foreground">{schema?.type ?? '—'}</td>
+                  <td className="py-1.5 text-muted-foreground">{schema?.description ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }
@@ -534,39 +736,38 @@ function TokensSection({
               <p className="text-[10px] text-muted-foreground mt-1">Laissez vide pour un token sans expiration</p>
             </div>
           </div>
-          {backends.length > 1 && (
-            <div>
-              <label className="text-xs font-medium text-foreground mb-1.5 block">Backends autorisés</label>
-              <div className="flex flex-wrap gap-2">
-                <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+          <div>
+            <label className="text-xs font-medium text-foreground mb-1.5 block">Backends autorisés</label>
+            <div className="flex flex-wrap gap-3">
+              <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+                <input
+                  type="radio"
+                  checked={form.scopes === '*'}
+                  onChange={() => setForm(f => ({ ...f, scopes: '*' }))}
+                />
+                Tous les backends
+              </label>
+              {backends.map(b => (
+                <label key={b.slug} className="flex items-center gap-1.5 text-sm cursor-pointer">
                   <input
-                    type="radio"
-                    checked={form.scopes === '*'}
-                    onChange={() => setForm(f => ({ ...f, scopes: '*' }))}
+                    type="checkbox"
+                    checked={form.scopes !== '*' && form.scopes.split(',').includes(b.slug)}
+                    onChange={(e) => {
+                      setForm(f => {
+                        if (f.scopes === '*') return { ...f, scopes: b.slug }
+                        const current = new Set(f.scopes.split(',').filter(Boolean))
+                        if (e.target.checked) current.add(b.slug)
+                        else current.delete(b.slug)
+                        return { ...f, scopes: current.size === 0 ? '*' : [...current].join(',') }
+                      })
+                    }}
                   />
-                  Tous
+                  {b.name}
                 </label>
-                {backends.map(b => (
-                  <label key={b.slug} className="flex items-center gap-1.5 text-sm cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={form.scopes !== '*' && form.scopes.split(',').includes(b.slug)}
-                      onChange={(e) => {
-                        setForm(f => {
-                          if (f.scopes === '*') return { ...f, scopes: b.slug }
-                          const current = new Set(f.scopes.split(',').filter(Boolean))
-                          if (e.target.checked) current.add(b.slug)
-                          else current.delete(b.slug)
-                          return { ...f, scopes: current.size === 0 ? '*' : [...current].join(',') }
-                        })
-                      }}
-                    />
-                    {b.name}
-                  </label>
-                ))}
-              </div>
+              ))}
             </div>
-          )}
+            <p className="text-[10px] text-muted-foreground mt-1">Restreignez l'accès à des backends spécifiques ou autorisez tous</p>
+          </div>
           <div className="flex gap-2 pt-1">
             <button
               className="gl-button gl-button-confirm"

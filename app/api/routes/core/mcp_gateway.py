@@ -290,6 +290,55 @@ async def delete_backend(
     invalidate_backend(slug)
 
 
+# ── Backend tools ─────────────────────────────────────────────────────────────
+
+@admin_router.get("/backends/{backend_slug}/tools")
+async def list_backend_tools(
+    backend_slug: str,
+    _: None = require_permission("admin.system"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the list of MCP tools exposed by a backend."""
+    async with async_session_factory() as pub_session:
+        await pub_session.execute(text("SET search_path TO public"))
+        result = await pub_session.execute(
+            select(McpGatewayBackend).where(
+                McpGatewayBackend.slug == backend_slug,
+                McpGatewayBackend.active == True,  # noqa: E712
+            )
+        )
+        backend = result.scalar_one_or_none()
+
+    if backend is None:
+        raise HTTPException(404, f"Backend '{backend_slug}' not found or inactive")
+
+    # Native backend — read tools from in-process registry
+    if backend.upstream_url.startswith("internal://"):
+        from app.mcp.mcp_native import get_or_create_backend
+        try:
+            native = await get_or_create_backend(backend.slug, backend.config or {})
+        except Exception as exc:
+            raise HTTPException(503, f"Backend init failed: {str(exc)[:300]}")
+        if native is None:
+            raise HTTPException(503, f"Backend '{backend_slug}' not configured")
+        return {"backend": backend_slug, "tools": native.tools_list}
+
+    # External backend — proxy tools/list via MCP protocol
+    client = _get_http_client()
+    try:
+        resp = await client.post(
+            f"{backend.upstream_url}/mcp",
+            json={"jsonrpc": "2.0", "method": "tools/list", "params": {}, "id": 1},
+            headers={"Content-Type": "application/json"},
+            timeout=10,
+        )
+        data = resp.json()
+        tools = data.get("result", {}).get("tools", [])
+        return {"backend": backend_slug, "tools": tools}
+    except Exception as exc:
+        raise HTTPException(502, f"Cannot reach backend: {str(exc)[:200]}")
+
+
 # ── Tokens CRUD ───────────────────────────────────────────────────────────────
 
 @admin_router.get("/tokens", response_model=list[TokenOut])

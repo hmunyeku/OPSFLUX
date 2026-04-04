@@ -77,6 +77,7 @@ class UserRead(OpsFluxSchema):
     last_name: str
     active: bool
     default_entity_id: UUID | None
+    tier_contact_id: UUID | None = None
     intranet_id: str | None = None
     language: str
     avatar_url: str | None
@@ -451,10 +452,16 @@ class TierContactRead(OpsFluxSchema):
     civility: str | None = None
     first_name: str
     last_name: str
+    email: str | None = None
+    phone: str | None = None
     position: str | None
     department: str | None = None
+    job_position_id: UUID | None = None
     is_primary: bool
     active: bool
+    linked_user_id: UUID | None = None
+    linked_user_email: str | None = None
+    linked_user_active: bool | None = None
     created_at: datetime
 
 
@@ -481,6 +488,12 @@ class TierContactUpdate(BaseModel):
     department: str | None = None
     is_primary: bool | None = None
     active: bool | None = None
+
+
+class TierContactPromoteUserRequest(BaseModel):
+    role: str = Field(default="viewer", min_length=1, max_length=50)
+    language: str = Field(default="fr", min_length=2, max_length=5)
+    send_invitation: bool = True
 
 
 # ─── LegalIdentifier schemas (polymorphic) ─────────────────────────────────

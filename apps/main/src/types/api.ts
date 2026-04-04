@@ -87,17 +87,22 @@ export interface TierCreate {
 }
 
 // ── Tier Contacts (Employees) ────────────────────────────────
-// NO direct phone/email — all managed via polymorphic Phone/ContactEmail
 export interface TierContact {
   id: string
   tier_id: string
   civility: string | null
   first_name: string
   last_name: string
+  email: string | null
+  phone: string | null
   position: string | null
   department: string | null
+  job_position_id: string | null
   is_primary: boolean
   active: boolean
+  linked_user_id: string | null
+  linked_user_email: string | null
+  linked_user_active: boolean | null
   created_at: string
 }
 
@@ -124,6 +129,12 @@ export interface TierContactUpdate {
   department?: string | null
   is_primary?: boolean
   active?: boolean
+}
+
+export interface TierContactPromoteUserRequest {
+  role?: string
+  language?: string
+  send_invitation?: boolean
 }
 
 // ── Legal Identifiers (polymorphic) ──────────────────────────

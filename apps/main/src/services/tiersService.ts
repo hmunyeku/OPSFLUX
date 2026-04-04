@@ -4,11 +4,11 @@
 import api from '@/lib/api'
 import type {
   Tier, TierCreate,
-  TierContact, TierContactCreate, TierContactUpdate, TierContactWithTier,
+  TierContact, TierContactCreate, TierContactPromoteUserRequest, TierContactUpdate, TierContactWithTier,
   TierBlock, TierBlockCreate,
   ExternalReference, ExternalReferenceCreate,
   SapImportResult,
-  PaginatedResponse, PaginationParams,
+  PaginatedResponse, PaginationParams, UserRead,
 } from '@/types/api'
 
 interface TierListParams extends PaginationParams {
@@ -66,6 +66,15 @@ export const tiersService = {
 
   updateContact: async (tierId: string, contactId: string, payload: TierContactUpdate): Promise<TierContact> => {
     const { data } = await api.patch(`/api/v1/tiers/${tierId}/contacts/${contactId}`, payload)
+    return data
+  },
+
+  promoteContactToUser: async (
+    tierId: string,
+    contactId: string,
+    payload: TierContactPromoteUserRequest = {},
+  ): Promise<UserRead> => {
+    const { data } = await api.post(`/api/v1/tiers/${tierId}/contacts/${contactId}/promote-user`, payload)
     return data
   },
 

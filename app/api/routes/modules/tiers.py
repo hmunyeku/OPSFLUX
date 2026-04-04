@@ -8,13 +8,17 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import select, func as sqla_func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_entity, get_current_user, require_permission
+from app.core.config import settings as app_settings
 from app.core.database import get_db
+from app.core.security import create_password_reset_token
+from app.core.email_templates import render_and_send_email
 from app.services.core.delete_service import delete_entity
 from app.core.pagination import PaginationParams, paginate
 from app.models.common import (
-    Address, ExternalReference, Tag, Tier, TierBlock, TierContact, User,
+    Address, Entity, ExternalReference, Tag, Tier, TierBlock, TierContact, User, UserTierLink,
 )
 from app.schemas.common import (
     PaginatedResponse,
@@ -22,6 +26,8 @@ from app.schemas.common import (
     TierContactCreate, TierContactRead, TierContactUpdate, TierContactWithTier,
     TierBlockCreate, TierBlockRead,
     ExternalReferenceCreate, ExternalReferenceRead,
+    TierContactPromoteUserRequest,
+    UserRead,
 )
 
 logger = logging.getLogger(__name__)
@@ -44,6 +50,7 @@ async def list_tiers(
     db: AsyncSession = Depends(get_db),
 ):
     """List companies/organizations with contact count."""
+    linked_tier_ids = await _get_external_user_tier_ids(db, current_user, entity_id)
     contact_count_sq = (
         select(
             TierContact.tier_id,
@@ -62,6 +69,8 @@ async def list_tiers(
         .outerjoin(contact_count_sq, Tier.id == contact_count_sq.c.tier_id)
         .where(Tier.entity_id == entity_id, Tier.archived == False)
     )
+    if linked_tier_ids is not None:
+        query = query.where(Tier.id.in_(linked_tier_ids))
     if type:
         query = query.where(Tier.type == type)
     if active is not None:
@@ -86,9 +95,11 @@ def _tier_with_count(row) -> dict:
 async def create_tier(
     body: TierCreate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("tier.create"),
     db: AsyncSession = Depends(get_db),
 ):
+    _forbid_external_company_creation(current_user)
     # ── Duplicate detection: same name (case-insensitive) in same entity ──
     dup_result = await db.execute(
         select(Tier.id, Tier.code).where(
@@ -126,7 +137,7 @@ async def get_tier(
     _: None = require_permission("tier.read"),
     db: AsyncSession = Depends(get_db),
 ):
-    tier = await _get_tier_or_404(db, tier_id, entity_id)
+    tier = await _get_tier_or_404(db, tier_id, entity_id, current_user=current_user)
     count_result = await db.execute(
         select(sqla_func.count()).select_from(TierContact)
         .where(TierContact.tier_id == tier_id, TierContact.active == True)
@@ -140,10 +151,11 @@ async def get_tier(
 async def update_tier(
     tier_id: UUID, body: TierUpdate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("tier.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    tier = await _get_tier_or_404(db, tier_id, entity_id)
+    tier = await _get_tier_or_404(db, tier_id, entity_id, current_user=current_user)
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(tier, field, value)
     await db.commit()
@@ -159,7 +171,7 @@ async def archive_tier(
     _: None = require_permission("tier.delete"),
     db: AsyncSession = Depends(get_db),
 ):
-    tier = await _get_tier_or_404(db, tier_id, entity_id)
+    tier = await _get_tier_or_404(db, tier_id, entity_id, current_user=current_user)
     await delete_entity(tier, db, "tier", entity_id=tier.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Tier archived"}
@@ -181,11 +193,15 @@ async def list_all_contacts(
     db: AsyncSession = Depends(get_db),
 ):
     """List all contacts across all companies, with search and filters."""
+    linked_tier_ids = await _get_external_user_tier_ids(db, current_user, entity_id)
     query = (
         select(TierContact, Tier.name.label("tier_name"), Tier.code.label("tier_code"))
+        .options(selectinload(TierContact.promoted_user))
         .join(Tier, TierContact.tier_id == Tier.id)
         .where(Tier.entity_id == entity_id, Tier.archived == False, TierContact.active == True)
     )
+    if linked_tier_ids is not None:
+        query = query.where(Tier.id.in_(linked_tier_ids))
     if tier_id:
         query = query.where(TierContact.tier_id == tier_id)
     if department:
@@ -226,9 +242,10 @@ async def list_tier_contacts(
     _: None = require_permission("tier.read"),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_tier_or_404(db, tier_id, entity_id)
+    await _get_tier_or_404(db, tier_id, entity_id, current_user=current_user)
     result = await db.execute(
         select(TierContact)
+        .options(selectinload(TierContact.promoted_user))
         .where(TierContact.tier_id == tier_id, TierContact.active == True)
         .order_by(TierContact.is_primary.desc(), TierContact.last_name)
     )
@@ -242,7 +259,7 @@ async def count_tier_contacts(
     _: None = require_permission("tier.read"),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_tier_or_404(db, tier_id, entity_id)
+    await _get_tier_or_404(db, tier_id, entity_id, current_user=current_user)
     result = await db.execute(
         select(sqla_func.count()).select_from(TierContact)
         .where(TierContact.tier_id == tier_id, TierContact.active == True)
@@ -258,8 +275,8 @@ async def get_tier_contact(
     _: None = require_permission("tier.read"),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_tier_or_404(db, tier_id, entity_id)
-    return await _get_contact_or_404(db, contact_id, tier_id)
+    await _get_tier_or_404(db, tier_id, entity_id, current_user=current_user)
+    return await _get_contact_or_404(db, contact_id, tier_id, include_promoted_user=True)
 
 
 @router.post("/{tier_id}/contacts", response_model=TierContactRead, status_code=201)
@@ -269,7 +286,7 @@ async def create_tier_contact(
     _: None = require_permission("tier.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    tier = await _get_tier_or_404(db, tier_id, entity_id)
+    tier = await _get_tier_or_404(db, tier_id, entity_id, current_user=current_user)
 
     # ── Duplicate detection: same email or same (first+last name) at same tier ──
     if body.email:
@@ -323,7 +340,7 @@ async def update_tier_contact(
     _: None = require_permission("tier.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_tier_or_404(db, tier_id, entity_id)
+    await _get_tier_or_404(db, tier_id, entity_id, current_user=current_user)
     contact = await _get_contact_or_404(db, contact_id, tier_id)
     update_data = body.model_dump(exclude_unset=True)
     if update_data.get("is_primary"):
@@ -343,11 +360,72 @@ async def delete_tier_contact(
     _: None = require_permission("tier.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_tier_or_404(db, tier_id, entity_id)
+    await _get_tier_or_404(db, tier_id, entity_id, current_user=current_user)
     contact = await _get_contact_or_404(db, contact_id, tier_id)
     await delete_entity(contact, db, "tier_contact", entity_id=contact.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Contact deleted"}
+
+
+@router.post("/{tier_id}/contacts/{contact_id}/promote-user", response_model=UserRead, status_code=201)
+async def promote_tier_contact_to_user(
+    tier_id: UUID,
+    contact_id: UUID,
+    body: TierContactPromoteUserRequest,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("user.create"),
+    db: AsyncSession = Depends(get_db),
+):
+    tier = await _get_tier_or_404(db, tier_id, entity_id, current_user=current_user)
+    contact = await _get_contact_or_404(db, contact_id, tier_id, include_promoted_user=True)
+
+    if not contact.active:
+        raise HTTPException(status_code=409, detail="Inactive contacts cannot be promoted")
+    if not contact.email or not contact.email.strip():
+        raise HTTPException(status_code=400, detail="Contact email is required for promotion")
+    if contact.promoted_user is not None:
+        raise HTTPException(status_code=409, detail="Contact is already linked to a user")
+
+    existing_email = await db.execute(
+        select(User).where(sqla_func.lower(User.email) == contact.email.strip().lower())
+    )
+    if existing_email.scalar_one_or_none():
+        raise HTTPException(
+            status_code=409,
+            detail="Another user already exists with this email. Use an explicit reconciliation flow.",
+        )
+
+    user = User(
+        email=contact.email.strip(),
+        first_name=contact.first_name,
+        last_name=contact.last_name,
+        active=contact.active,
+        default_entity_id=entity_id,
+        language=body.language,
+        user_type="external",
+        tier_contact_id=contact.id,
+        job_position_id=contact.job_position_id,
+        nationality=contact.nationality,
+        birth_date=contact.birth_date,
+        badge_number=contact.badge_number,
+    )
+    db.add(user)
+    await db.flush()
+
+    db.add(UserTierLink(user_id=user.id, tier_id=tier.id, role=body.role))
+    await db.commit()
+    await db.refresh(user)
+
+    if body.send_invitation:
+        await _send_promoted_user_invitation(
+            db=db,
+            user=user,
+            current_user=current_user,
+            entity_id=entity_id,
+        )
+
+    return user
 
 
 # ── Tier Identifiers — now served by /api/v1/legal-identifiers/{owner_type}/{owner_id}
@@ -366,7 +444,7 @@ async def list_tier_blocks(
     db: AsyncSession = Depends(get_db),
 ):
     """List the blocking/unblocking history for a tier."""
-    await _get_tier_or_404(db, tier_id, entity_id)
+    await _get_tier_or_404(db, tier_id, entity_id, current_user=current_user)
     result = await db.execute(
         select(TierBlock, (User.first_name + " " + User.last_name).label("performer_name"))
         .outerjoin(User, TierBlock.performed_by == User.id)
@@ -393,7 +471,7 @@ async def block_tier(
     db: AsyncSession = Depends(get_db),
 ):
     """Block a tier — creates a TierBlock record and sets tier.is_blocked=True."""
-    tier = await _get_tier_or_404(db, tier_id, entity_id)
+    tier = await _get_tier_or_404(db, tier_id, entity_id, current_user=current_user)
     block = TierBlock(
         entity_id=entity_id,
         tier_id=tier.id,
@@ -424,7 +502,7 @@ async def unblock_tier(
     db: AsyncSession = Depends(get_db),
 ):
     """Unblock a tier — creates a TierBlock record with action='unblock' and sets tier.is_blocked=False."""
-    tier = await _get_tier_or_404(db, tier_id, entity_id)
+    tier = await _get_tier_or_404(db, tier_id, entity_id, current_user=current_user)
     # Deactivate previous active blocks
     prev_blocks = await db.execute(
         select(TierBlock).where(
@@ -468,7 +546,7 @@ async def list_external_refs(
     db: AsyncSession = Depends(get_db),
 ):
     """List external references (SAP, Gouti, etc.) for a tier."""
-    await _get_tier_or_404(db, tier_id, entity_id)
+    await _get_tier_or_404(db, tier_id, entity_id, current_user=current_user)
     result = await db.execute(
         select(ExternalReference)
         .where(ExternalReference.owner_type == "tier", ExternalReference.owner_id == tier_id)
@@ -487,7 +565,7 @@ async def create_external_ref(
     db: AsyncSession = Depends(get_db),
 ):
     """Create an external reference for a tier."""
-    await _get_tier_or_404(db, tier_id, entity_id)
+    await _get_tier_or_404(db, tier_id, entity_id, current_user=current_user)
     ref = ExternalReference(
         owner_type="tier",
         owner_id=tier_id,
@@ -514,7 +592,7 @@ async def delete_external_ref(
     db: AsyncSession = Depends(get_db),
 ):
     """Delete an external reference for a tier."""
-    await _get_tier_or_404(db, tier_id, entity_id)
+    await _get_tier_or_404(db, tier_id, entity_id, current_user=current_user)
     result = await db.execute(
         select(ExternalReference).where(
             ExternalReference.id == ref_id,
@@ -532,7 +610,15 @@ async def delete_external_ref(
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
-async def _get_tier_or_404(db: AsyncSession, tier_id: UUID, entity_id: UUID) -> Tier:
+async def _get_tier_or_404(
+    db: AsyncSession,
+    tier_id: UUID,
+    entity_id: UUID,
+    *,
+    current_user: User | None = None,
+) -> Tier:
+    if current_user is not None:
+        await _assert_external_user_has_tier_access(db, current_user, entity_id, tier_id)
     result = await db.execute(
         select(Tier).where(Tier.id == tier_id, Tier.entity_id == entity_id)
     )
@@ -542,14 +628,94 @@ async def _get_tier_or_404(db: AsyncSession, tier_id: UUID, entity_id: UUID) -> 
     return tier
 
 
-async def _get_contact_or_404(db: AsyncSession, contact_id: UUID, tier_id: UUID) -> TierContact:
+async def _get_external_user_tier_ids(
+    db: AsyncSession,
+    current_user: User,
+    entity_id: UUID,
+) -> set[UUID] | None:
+    if current_user.user_type != "external":
+        return None
+
     result = await db.execute(
-        select(TierContact).where(TierContact.id == contact_id, TierContact.tier_id == tier_id)
+        select(UserTierLink.tier_id)
+        .join(Tier, Tier.id == UserTierLink.tier_id)
+        .where(
+            UserTierLink.user_id == current_user.id,
+            Tier.entity_id == entity_id,
+            Tier.archived == False,
+        )
     )
+    return {row[0] for row in result.all()}
+
+
+def _forbid_external_company_creation(current_user: User) -> None:
+    if current_user.user_type == "external":
+        raise HTTPException(
+            status_code=403,
+            detail="External users cannot create companies",
+        )
+
+
+async def _assert_external_user_has_tier_access(
+    db: AsyncSession,
+    current_user: User,
+    entity_id: UUID,
+    tier_id: UUID,
+) -> None:
+    linked_tier_ids = await _get_external_user_tier_ids(db, current_user, entity_id)
+    if linked_tier_ids is None:
+        return
+    if tier_id not in linked_tier_ids:
+        raise HTTPException(status_code=404, detail="Tier not found")
+
+
+async def _get_contact_or_404(
+    db: AsyncSession,
+    contact_id: UUID,
+    tier_id: UUID,
+    *,
+    include_promoted_user: bool = False,
+) -> TierContact:
+    stmt = select(TierContact).where(TierContact.id == contact_id, TierContact.tier_id == tier_id)
+    if include_promoted_user:
+        stmt = stmt.options(selectinload(TierContact.promoted_user))
+    result = await db.execute(stmt)
     contact = result.scalar_one_or_none()
     if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")
     return contact
+
+
+async def _send_promoted_user_invitation(
+    *,
+    db: AsyncSession,
+    user: User,
+    current_user: User,
+    entity_id: UUID,
+) -> None:
+    try:
+        reset_token = create_password_reset_token(user_id=user.id, email=user.email)
+        invitation_url = f"{app_settings.FRONTEND_URL}/reset-password?token={reset_token}"
+        entity = await db.get(Entity, entity_id)
+        entity_name = entity.name if entity else "OpsFlux"
+
+        sent = await render_and_send_email(
+            db=db,
+            slug="user_invitation",
+            entity_id=entity_id,
+            language=user.language or "fr",
+            to=user.email,
+            variables={
+                "invitation_url": invitation_url,
+                "user": {"first_name": user.first_name, "last_name": user.last_name, "email": user.email},
+                "inviter": {"first_name": current_user.first_name, "last_name": current_user.last_name},
+                "entity": {"name": entity_name},
+            },
+        )
+        if not sent:
+            logger.warning("Template 'user_invitation' not found/disabled for promoted contact %s", user.email)
+    except Exception:
+        logger.warning("Failed to send promoted-user invitation to %s", user.email, exc_info=True)
 
 
 async def _unset_primary_contacts(db: AsyncSession, tier_id: UUID) -> None:

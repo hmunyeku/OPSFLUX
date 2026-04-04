@@ -223,6 +223,9 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     default_entity_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("entities.id")
     )
+    tier_contact_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tier_contacts.id"), unique=True, index=True
+    )
     intranet_id: Mapped[str | None] = mapped_column(String(100), unique=True, index=True)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     language: Mapped[str] = mapped_column(String(5), default="fr", nullable=False)
@@ -303,6 +306,10 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     group_memberships: Mapped[list["UserGroupMember"]] = relationship(back_populates="user")
     tier_links: Mapped[list["UserTierLink"]] = relationship(back_populates="user")
+    tier_contact: Mapped["TierContact | None"] = relationship(
+        back_populates="promoted_user",
+        foreign_keys=[tier_contact_id],
+    )
     access_tokens: Mapped[list["PersonalAccessToken"]] = relationship(back_populates="user")
     sessions: Mapped[list["UserSession"]] = relationship(back_populates="user")
     emails: Mapped[list["UserEmail"]] = relationship(back_populates="user")
@@ -669,6 +676,11 @@ class TierContact(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     tier: Mapped["Tier"] = relationship(back_populates="contacts")
     job_position: Mapped["JobPosition | None"] = relationship(foreign_keys=[job_position_id])
+    promoted_user: Mapped["User | None"] = relationship(
+        back_populates="tier_contact",
+        foreign_keys="User.tier_contact_id",
+        uselist=False,
+    )
 
     @property
     def pax_type(self) -> str:
@@ -678,6 +690,33 @@ class TierContact(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     @property
     def full_name(self) -> str:
         return f"{self.first_name} {self.last_name}"
+
+    @property
+    def linked_user_id(self) -> PyUUID | None:
+        from sqlalchemy.orm import InstanceState
+        state: InstanceState = self.__dict__.get("_sa_instance_state")  # type: ignore[assignment]
+        if state and "promoted_user" not in state.dict:
+            return None
+        user = self.__dict__.get("promoted_user")
+        return user.id if user else None
+
+    @property
+    def linked_user_email(self) -> str | None:
+        from sqlalchemy.orm import InstanceState
+        state: InstanceState = self.__dict__.get("_sa_instance_state")  # type: ignore[assignment]
+        if state and "promoted_user" not in state.dict:
+            return None
+        user = self.__dict__.get("promoted_user")
+        return user.email if user else None
+
+    @property
+    def linked_user_active(self) -> bool | None:
+        from sqlalchemy.orm import InstanceState
+        state: InstanceState = self.__dict__.get("_sa_instance_state")  # type: ignore[assignment]
+        if state and "promoted_user" not in state.dict:
+            return None
+        user = self.__dict__.get("promoted_user")
+        return user.active if user else None
 
 
 class LegalIdentifier(UUIDPrimaryKeyMixin, TimestampMixin, Base):

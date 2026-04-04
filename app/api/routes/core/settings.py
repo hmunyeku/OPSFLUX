@@ -14,6 +14,50 @@ from app.schemas.common import SettingRead, SettingWrite
 
 router = APIRouter(prefix="/api/v1/settings", tags=["settings"])
 
+_SENSITIVE_SETTING_SUFFIXES = {
+    "token",
+    "access_token",
+    "refresh_token",
+    "password",
+    "secret",
+    "client_secret",
+    "secret_key",
+    "access_key",
+    "auth_token",
+    "consumer_key",
+    "application_key",
+    "application_secret",
+    "api_key",
+    "api_secret",
+    "private_key",
+}
+_SENSITIVE_SETTING_KEYS = {
+    "integration.gouti.token",
+}
+
+
+def _is_sensitive_setting_key(key: str) -> bool:
+    normalized = key.strip().lower()
+    if normalized in _SENSITIVE_SETTING_KEYS:
+        return True
+    last_segment = normalized.rsplit(".", 1)[-1]
+    return last_segment in _SENSITIVE_SETTING_SUFFIXES
+
+
+def _redact_setting_value(key: str, value: dict[str, Any]) -> dict[str, Any]:
+    if not _is_sensitive_setting_key(key):
+        return value
+
+    secret_value = value.get("v")
+    if secret_value in (None, ""):
+        return value
+
+    redacted = dict(value)
+    redacted["v"] = "********"
+    redacted["masked"] = True
+    redacted["has_value"] = True
+    return redacted
+
 
 def _validate_scope(scope: str) -> str:
     if scope not in {"tenant", "entity", "user"}:
@@ -104,7 +148,16 @@ async def list_settings(
         await _require_settings_manage(current_user, entity_id, db)
 
     result = await db.execute(query)
-    return result.scalars().all()
+    settings = result.scalars().all()
+    return [
+        SettingRead(
+            key=setting.key,
+            value=_redact_setting_value(setting.key, setting.value),
+            scope=setting.scope,
+            scope_id=setting.scope_id,
+        )
+        for setting in settings
+    ]
 
 
 @router.put("")

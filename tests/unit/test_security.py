@@ -2,6 +2,7 @@
 
 from uuid import uuid4
 
+from app.api.routes.core.settings import _is_sensitive_setting_key, _redact_setting_value
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -39,3 +40,17 @@ def test_refresh_token():
     payload = decode_token(token)
     assert payload["sub"] == str(user_id)
     assert payload["type"] == "refresh"
+
+
+def test_sensitive_setting_values_are_redacted():
+    assert _is_sensitive_setting_key("integration.smtp.password")
+    assert _is_sensitive_setting_key("integration.sms_ovh.consumer_key")
+    assert not _is_sensitive_setting_key("integration.smtp.host")
+
+    redacted = _redact_setting_value("integration.smtp.password", {"v": "super-secret"})
+    assert redacted["v"] == "********"
+    assert redacted["masked"] is True
+    assert redacted["has_value"] is True
+
+    clear = _redact_setting_value("integration.smtp.host", {"v": "mail.opsflux.io"})
+    assert clear == {"v": "mail.opsflux.io"}

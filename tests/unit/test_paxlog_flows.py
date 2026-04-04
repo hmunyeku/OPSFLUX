@@ -10,10 +10,12 @@ import pytest
 from fastapi import HTTPException
 
 from app.api.routes.modules import paxlog
+from app.api.routes.modules import planner
 from app.core.events import OpsFluxEvent
 from app.event_handlers import module_handlers
 from app.event_handlers import paxlog_handlers
 from app.models.paxlog import AdsEvent
+from app.schemas.planner import ActivityUpdate
 from app.schemas.paxlog import AdsStayChangeRequest, MissionNoticeModifyRequest, MissionPreparationTaskUpdate
 from app.services.modules import paxlog_service
 
@@ -1400,3 +1402,103 @@ def test_register_module_handlers_does_not_duplicate_planner_cancelled_for_paxlo
 
     subscribed_events = [event_type for event_type, _handler in bus.subscriptions]
     assert "planner.activity.cancelled" not in subscribed_events
+
+
+@pytest.mark.asyncio
+async def test_update_activity_counts_impacted_ads_without_updating_them(monkeypatch):
+    entity_id = uuid4()
+    activity = SimpleNamespace(
+        id=uuid4(),
+        entity_id=entity_id,
+        asset_id=uuid4(),
+        title="Inspection line A",
+        type="maintenance",
+        status="validated",
+        pax_quota=12,
+        start_date=datetime(2026, 4, 10, tzinfo=timezone.utc),
+        end_date=datetime(2026, 4, 12, tzinfo=timezone.utc),
+    )
+    db = FakeDB([FakeResult(scalar=2)])
+    published_events = []
+
+    async def fake_get_activity_or_404(_db, _activity_id, _entity_id):
+        return activity
+
+    async def fake_enrich_activity(_db, enriched_activity):
+        return enriched_activity
+
+    class FakeEventBus:
+        async def publish(self, event):
+            published_events.append(event)
+
+    monkeypatch.setattr(planner, "_get_activity_or_404", fake_get_activity_or_404)
+    monkeypatch.setattr(planner, "_enrich_activity", fake_enrich_activity)
+    monkeypatch.setattr(planner, "event_bus", FakeEventBus())
+
+    response = await planner.update_activity(
+        activity.id,
+        ActivityUpdate(start_date=datetime(2026, 4, 11, tzinfo=timezone.utc)),
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=uuid4()),
+        _=None,
+        db=db,
+    )
+
+    assert response.start_date == datetime(2026, 4, 11, tzinfo=timezone.utc)
+    sql_text = str(db.executed[0][0])
+    assert "SELECT COUNT(*)" in sql_text
+    assert "UPDATE ads SET status = 'requires_review'" not in sql_text
+    assert published_events and published_events[0].payload["ads_flagged_for_review"] == 2
+
+
+@pytest.mark.asyncio
+async def test_cancel_activity_counts_impacted_ads_without_updating_them(monkeypatch):
+    entity_id = uuid4()
+    activity = SimpleNamespace(
+        id=uuid4(),
+        entity_id=entity_id,
+        asset_id=uuid4(),
+        title="Shutdown slot",
+        status="validated",
+    )
+    db = FakeDB([FakeResult(scalar=3)])
+    transition_calls = []
+    transition_events = []
+    published_events = []
+
+    async def fake_get_activity_or_404(_db, _activity_id, _entity_id):
+        return activity
+
+    async def fake_enrich_activity(_db, enriched_activity):
+        return enriched_activity
+
+    async def fake_try_transition(*args, **kwargs):
+        transition_calls.append(kwargs)
+
+    async def fake_emit_transition_event(**kwargs):
+        transition_events.append(kwargs)
+
+    class FakeEventBus:
+        async def publish(self, event):
+            published_events.append(event)
+
+    monkeypatch.setattr(planner, "_get_activity_or_404", fake_get_activity_or_404)
+    monkeypatch.setattr(planner, "_enrich_activity", fake_enrich_activity)
+    monkeypatch.setattr(planner, "_try_workflow_transition", fake_try_transition)
+    monkeypatch.setattr(planner.fsm_service, "emit_transition_event", fake_emit_transition_event)
+    monkeypatch.setattr(planner, "event_bus", FakeEventBus())
+
+    response = await planner.cancel_activity(
+        activity.id,
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=uuid4()),
+        _=None,
+        db=db,
+    )
+
+    assert response.status == "cancelled"
+    sql_text = str(db.executed[0][0])
+    assert "SELECT COUNT(*)" in sql_text
+    assert "UPDATE ads SET status = 'requires_review'" not in sql_text
+    assert transition_calls and transition_events
+    assert published_events and published_events[0].payload["ads_flagged_for_review"] == 3

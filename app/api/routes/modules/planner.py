@@ -438,7 +438,7 @@ async def update_activity(
     for field, value in changes.items():
         setattr(activity, field, value)
 
-    # ── Planner → PaxLog cascade: flag linked AdS as requires_review ──
+    # ── Planner → PaxLog cascade: count linked AdS for handler-driven review ──
     ads_updated_count = 0
     if was_approved and changes:
         date_or_quota_changed = any(
@@ -447,14 +447,15 @@ async def update_activity(
         if date_or_quota_changed:
             result = await db.execute(
                 sa_text(
-                    "UPDATE ads SET status = 'requires_review' "
+                    "SELECT COUNT(*) "
+                    "FROM ads "
                     "WHERE planner_activity_id = :aid "
+                    "AND entity_id = :eid "
                     "AND status IN ('approved', 'in_progress') "
-                    "RETURNING id"
                 ),
-                {"aid": str(activity_id)},
+                {"aid": str(activity_id), "eid": str(entity_id)},
             )
-            ads_updated_count = len(result.all())
+            ads_updated_count = int(result.scalar() or 0)
 
     await db.commit()
     await db.refresh(activity)
@@ -724,19 +725,20 @@ async def cancel_activity(
 
     activity.status = "cancelled"
 
-    # ── Planner → PaxLog cascade: flag linked AdS as requires_review ──
+    # ── Planner → PaxLog cascade: count linked AdS for handler-driven review ──
     ads_updated_count = 0
     if was_approved:
         result = await db.execute(
             sa_text(
-                "UPDATE ads SET status = 'requires_review' "
+                "SELECT COUNT(*) "
+                "FROM ads "
                 "WHERE planner_activity_id = :aid "
+                "AND entity_id = :eid "
                 "AND status IN ('approved', 'in_progress') "
-                "RETURNING id"
             ),
-            {"aid": str(activity_id)},
+            {"aid": str(activity_id), "eid": str(entity_id)},
         )
-        ads_updated_count = len(result.all())
+        ads_updated_count = int(result.scalar() or 0)
 
     await db.commit()
     await db.refresh(activity)

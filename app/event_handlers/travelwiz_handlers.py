@@ -476,12 +476,16 @@ async def on_planner_activity_modified_tw(event: OpsFluxEvent) -> None:
     payload = event.payload
     activity_id = payload.get("activity_id")
     entity_id = payload.get("entity_id")
+    title = payload.get("title", "")
+    changes = payload.get("changes") or {}
 
     if not activity_id or not entity_id:
         return
 
     try:
         from sqlalchemy import text
+        from app.core.notifications import send_in_app
+        from app.event_handlers.core_handlers import _get_admin_user_ids
 
         async with async_session_factory() as db:
             # Find manifests linked to this activity via AdS → manifest entries
@@ -500,6 +504,26 @@ async def on_planner_activity_modified_tw(event: OpsFluxEvent) -> None:
                 {"aid": activity_id},
             )
             affected = result.all()
+            manifest_ids = [str(row[0]) for row in affected]
+
+            if manifest_ids:
+                change_keys = ", ".join(sorted(changes.keys())) if isinstance(changes, dict) and changes else "planning"
+                admin_ids = await _get_admin_user_ids(entity_id)
+                for admin_id in admin_ids:
+                    await send_in_app(
+                        db,
+                        user_id=admin_id,
+                        entity_id=UUID(str(entity_id)),
+                        title="Manifestes à revoir",
+                        body=(
+                            f"L'activité Planner {title or activity_id} a été modifiée. "
+                            f"Manifestes concernés: {', '.join(manifest_ids)}. "
+                            f"Champs modifiés: {change_keys}."
+                        ),
+                        category="travelwiz",
+                        link="/travelwiz",
+                    )
+
             await db.commit()
             logger.info(
                 "planner.activity.modified → %d TravelWiz manifests → requires_review",

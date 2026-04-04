@@ -14,6 +14,7 @@ from app.api.routes.modules import planner
 from app.core.events import OpsFluxEvent
 from app.event_handlers import module_handlers
 from app.event_handlers import paxlog_handlers
+from app.event_handlers import travelwiz_handlers
 from app.models.paxlog import AdsEvent
 from app.schemas.planner import ActivityUpdate
 from app.schemas.paxlog import AdsStayChangeRequest, MissionNoticeModifyRequest, MissionPreparationTaskUpdate
@@ -1502,3 +1503,74 @@ async def test_cancel_activity_counts_impacted_ads_without_updating_them(monkeyp
     assert "UPDATE ads SET status = 'requires_review'" not in sql_text
     assert transition_calls and transition_events
     assert published_events and published_events[0].payload["ads_flagged_for_review"] == 3
+
+
+@pytest.mark.asyncio
+async def test_travelwiz_planner_change_notifies_admins_for_impacted_manifests(monkeypatch):
+    entity_id = uuid4()
+    db = FakeDB([FakeResult(all_rows=[(uuid4(),), (uuid4(),)])])
+    notifications = []
+
+    async def fake_send_in_app(*args, **kwargs):
+        notifications.append(kwargs)
+
+    async def fake_get_admin_user_ids(_entity_id):
+        return [uuid4(), uuid4()]
+
+    monkeypatch.setattr("app.core.notifications.send_in_app", fake_send_in_app)
+    monkeypatch.setattr("app.event_handlers.core_handlers._get_admin_user_ids", fake_get_admin_user_ids)
+    monkeypatch.setattr(travelwiz_handlers, "async_session_factory", lambda: FakeAsyncSessionContext(db))
+
+    await travelwiz_handlers.on_planner_activity_modified_tw(
+        OpsFluxEvent(
+            event_type="planner.activity.modified",
+            payload={
+                "activity_id": str(uuid4()),
+                "entity_id": str(entity_id),
+                "title": "Inspection compressor",
+                "changes": {
+                    "start_date": {"old": "2026-04-10 00:00:00+00:00", "new": "2026-04-12 00:00:00+00:00"},
+                    "pax_quota": {"old": "8", "new": "12"},
+                },
+            },
+        )
+    )
+
+    sql_text = str(db.executed[0][0])
+    assert "UPDATE pax_manifests pm SET status = 'requires_review'" in sql_text
+    assert len(notifications) == 2
+    assert all(item["category"] == "travelwiz" for item in notifications)
+    assert all(item["link"] == "/travelwiz" for item in notifications)
+    assert "Inspection compressor" in notifications[0]["body"]
+    assert "pax_quota" in notifications[0]["body"]
+    assert "start_date" in notifications[0]["body"]
+
+
+@pytest.mark.asyncio
+async def test_travelwiz_planner_change_skips_notifications_when_no_manifest_impacted(monkeypatch):
+    entity_id = uuid4()
+    db = FakeDB([FakeResult(all_rows=[])])
+    notifications = []
+
+    async def fake_send_in_app(*args, **kwargs):
+        notifications.append(kwargs)
+
+    async def fake_get_admin_user_ids(_entity_id):
+        return [uuid4()]
+
+    monkeypatch.setattr("app.core.notifications.send_in_app", fake_send_in_app)
+    monkeypatch.setattr("app.event_handlers.core_handlers._get_admin_user_ids", fake_get_admin_user_ids)
+    monkeypatch.setattr(travelwiz_handlers, "async_session_factory", lambda: FakeAsyncSessionContext(db))
+
+    await travelwiz_handlers.on_planner_activity_modified_tw(
+        OpsFluxEvent(
+            event_type="planner.activity.modified",
+            payload={
+                "activity_id": str(uuid4()),
+                "entity_id": str(entity_id),
+                "title": "No manifest case",
+            },
+        )
+    )
+
+    assert notifications == []

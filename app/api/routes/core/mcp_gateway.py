@@ -737,10 +737,15 @@ async def oauth_token(request: Request):
 # ── Proxy route ──────────────────────────────────────────────────────────────
 
 @proxy_router.api_route(
+    "/{backend_slug}",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+    include_in_schema=False,
+)
+@proxy_router.api_route(
     "/{backend_slug}/{path:path}",
     methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
 )
-async def proxy_to_backend(backend_slug: str, path: str, request: Request):
+async def proxy_to_backend(backend_slug: str, request: Request, path: str = ""):
     """Authenticate via MCP Bearer token, then proxy to the upstream backend."""
 
     # Skip OAuth well-known / token paths that matched the catch-all

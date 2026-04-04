@@ -621,11 +621,11 @@ async def _send_test_sms(
 
     try:
         if connector_id == "sms_twilio":
-            ok = await _send_twilio(recipient, message, cfg)
+            ok = await _send_twilio(cfg, recipient, message)
         elif connector_id == "sms_vonage":
-            ok = await _send_vonage(recipient, message, cfg)
+            ok = await _send_vonage(cfg, recipient, message)
         elif connector_id == "sms_ovh":
-            ok = await _send_ovh(recipient, message, cfg)
+            ok = await _send_ovh(cfg, recipient, message)
         else:
             return SendTestResult(connector_id=connector_id, status="error", message="Provider SMS inconnu", channel="sms", sent_at=now_iso)
 

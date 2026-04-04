@@ -600,6 +600,10 @@ export interface MissionNoticeUpdate {
   epi_measurements?: Record<string, unknown> | null
 }
 
+export interface MissionNoticeModifyRequest extends MissionNoticeUpdate {
+  reason: string
+}
+
 export interface MissionNoticeRead {
   id: string
   entity_id: string
@@ -626,6 +630,11 @@ export interface MissionNoticeRead {
   programs: MissionProgramRead[]
   preparation_tasks: MissionPreparationTaskRead[]
   preparation_progress: number
+  last_modification_reason?: string | null
+  last_modified_at?: string | null
+  last_modified_by_name?: string | null
+  last_modified_fields?: string[]
+  last_modification_changes?: Record<string, { before: unknown; after: unknown }> | null
 }
 
 export interface MissionNoticeSummary {
@@ -1012,6 +1021,11 @@ export const paxlogService = {
 
   updateAvm: async (id: string, payload: MissionNoticeUpdate): Promise<MissionNoticeRead> => {
     const { data } = await api.put(`/api/v1/pax/avm/${id}`, payload)
+    return data
+  },
+
+  modifyAvm: async (id: string, payload: MissionNoticeModifyRequest): Promise<MissionNoticeRead> => {
+    const { data } = await api.post(`/api/v1/pax/avm/${id}/modify`, payload)
     return data
   },
 

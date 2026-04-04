@@ -1674,14 +1674,33 @@
         "preparation_indicators": "Indicateurs de préparation",
         "preparation_tasks": "Préparation ({{progress}}%)",
         "program": "Programme ({{count}} lignes)",
-        "metadata": "Métadonnées"
+        "metadata": "Métadonnées",
+        "last_changes": "Dernière modification"
       },
       "fields": {
         "creator": "Créateur",
         "planned_dates": "Dates prévues",
         "cancellation_reason": "Motif annulation",
         "created_at": "Créé le",
-        "updated_at": "Mis à jour le"
+        "updated_at": "Mis à jour le",
+        "last_modification_reason": "Motif de modification",
+        "last_modified_by": "Modifié par",
+        "last_modified_at": "Modifié le",
+        "planned_pax": "PAX prévus"
+      },
+      "actions": {
+        "modify": "Modifier l'AVM"
+      },
+      "modify": {
+        "title": "Demander une modification",
+        "help": "Utilisez ce formulaire pour tracer une modification d'AVM déjà engagée et notifier les équipes concernées.",
+        "reason": "Motif de modification",
+        "reason_placeholder": "Expliquez ce qui change et pourquoi.",
+        "submit": "Enregistrer la modification"
+      },
+      "change": {
+        "before": "Avant",
+        "after": "Après"
       },
       "empty": {
         "preparation_tasks": "Aucune tâche de préparation. Soumettez l'AVM pour générer la checklist.",

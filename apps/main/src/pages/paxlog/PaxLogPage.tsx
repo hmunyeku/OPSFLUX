@@ -98,6 +98,7 @@ import {
   useAvmList,
   useAvm,
   useCreateAvm,
+  useModifyAvm,
   useSubmitAvm,
   useApproveAvm,
   useCancelAvm,
@@ -128,6 +129,7 @@ import type {
   AdsPax,
   ComplianceMatrixEntry,
   MissionNoticeSummary,
+  MissionNoticeModifyRequest,
   MissionProgramRead,
   PaxCandidate,
 } from '@/services/paxlogService'
@@ -3218,6 +3220,7 @@ function CreateAvmPanel() {
 function AvmDetailPanel({ id }: { id?: string }) {
   const { t } = useTranslation()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const modifyAvmMut = useModifyAvm()
   const submitAvmMut = useSubmitAvm()
   const approveAvmMut = useApproveAvm()
   const cancelAvmMut = useCancelAvm()
@@ -3226,6 +3229,16 @@ function AvmDetailPanel({ id }: { id?: string }) {
   const missionActivityTypeLabels = useDictionaryLabels('mission_activity_type')
 
   const { data: avm, isLoading } = useAvm(id || '')
+  const [showModifyForm, setShowModifyForm] = useState(false)
+  const [modifyForm, setModifyForm] = useState<MissionNoticeModifyRequest>({
+    title: '',
+    description: '',
+    planned_start_date: '',
+    planned_end_date: '',
+    mission_type: undefined,
+    pax_quota: 0,
+    reason: '',
+  })
 
   if (!id || isLoading) {
     return (
@@ -3271,6 +3284,23 @@ function AvmDetailPanel({ id }: { id?: string }) {
   const canSubmit = avm.status === 'draft' && hasPermission('paxlog.avm.submit')
   const canApprove = avm.status === 'in_preparation' && hasPermission('paxlog.avm.approve')
   const canCancel = !['completed', 'cancelled'].includes(avm.status) && hasPermission('paxlog.avm.cancel')
+  const canRequestChange = ['active', 'in_preparation'].includes(avm.status) && hasPermission('paxlog.avm.update')
+  const openModifyForm = () => {
+    setModifyForm({
+      title: avm.title,
+      description: avm.description || '',
+      planned_start_date: avm.planned_start_date || '',
+      planned_end_date: avm.planned_end_date || '',
+      mission_type: avm.mission_type,
+      pax_quota: avm.pax_quota,
+      requires_badge: avm.requires_badge,
+      requires_epi: avm.requires_epi,
+      requires_visa: avm.requires_visa,
+      eligible_displacement_allowance: avm.eligible_displacement_allowance,
+      reason: '',
+    })
+    setShowModifyForm(true)
+  }
 
   return (
     <DynamicPanelShell
@@ -3305,10 +3335,99 @@ function AvmDetailPanel({ id }: { id?: string }) {
               {cancelAvmMut.isPending ? <Loader2 size={12} className="animate-spin" /> : <><XCircle size={12} /> {t('common.cancel')}</>}
             </PanelActionButton>
           )}
+          {canRequestChange && (
+            <PanelActionButton onClick={openModifyForm}>
+              <RefreshCw size={12} /> {t('paxlog.avm_detail.actions.modify')}
+            </PanelActionButton>
+          )}
         </>
       }
     >
       <div className="p-4 space-y-5">
+        {showModifyForm && (
+          <CollapsibleSection id="avm-modify" title={t('paxlog.avm_detail.modify.title')} defaultExpanded>
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">{t('paxlog.avm_detail.modify.help')}</p>
+              <FormGrid className="@\[900px\]:grid-cols-2">
+                <DynamicPanelField label={t('common.title')}>
+                  <input
+                    value={modifyForm.title || ''}
+                    onChange={(e) => setModifyForm((prev) => ({ ...prev, title: e.target.value }))}
+                    className={panelInputClass}
+                  />
+                </DynamicPanelField>
+                <DynamicPanelField label={t('paxlog.mission_type')}>
+                  <select
+                    value={modifyForm.mission_type || ''}
+                    onChange={(e) => setModifyForm((prev) => ({ ...prev, mission_type: e.target.value as MissionNoticeModifyRequest['mission_type'] }))}
+                    className={panelInputClass}
+                  >
+                    <option value="">{t('common.select')}</option>
+                    {Object.entries(missionTypeLabels).map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                </DynamicPanelField>
+                <DynamicPanelField label={t('paxlog.avm_detail.fields.planned_dates')}>
+                  <DateRangePicker
+                    startDate={modifyForm.planned_start_date || null}
+                    endDate={modifyForm.planned_end_date || null}
+                    onStartChange={(v) => setModifyForm((prev) => ({ ...prev, planned_start_date: v || '' }))}
+                    onEndChange={(v) => setModifyForm((prev) => ({ ...prev, planned_end_date: v || '' }))}
+                    startLabel={t('paxlog.create_avm.window.start')}
+                    endLabel={t('paxlog.create_avm.window.end')}
+                  />
+                </DynamicPanelField>
+                <DynamicPanelField label={t('paxlog.avm_detail.fields.planned_pax')}>
+                  <input
+                    type="number"
+                    min={0}
+                    value={modifyForm.pax_quota ?? 0}
+                    onChange={(e) => setModifyForm((prev) => ({ ...prev, pax_quota: Number(e.target.value || 0) }))}
+                    className={panelInputClass}
+                  />
+                </DynamicPanelField>
+              </FormGrid>
+              <DynamicPanelField label={t('common.description')}>
+                <textarea
+                  value={modifyForm.description || ''}
+                  onChange={(e) => setModifyForm((prev) => ({ ...prev, description: e.target.value }))}
+                  className={cn(panelInputClass, 'min-h-[72px] resize-y')}
+                />
+              </DynamicPanelField>
+              <DynamicPanelField label={t('paxlog.avm_detail.modify.reason')}>
+                <textarea
+                  value={modifyForm.reason}
+                  onChange={(e) => setModifyForm((prev) => ({ ...prev, reason: e.target.value }))}
+                  className={cn(panelInputClass, 'min-h-[72px] resize-y')}
+                  placeholder={t('paxlog.avm_detail.modify.reason_placeholder')}
+                />
+              </DynamicPanelField>
+              {modifyAvmMut.error && (
+                <p className="text-xs text-danger">
+                  {((modifyAvmMut.error as { response?: { data?: { detail?: string } } })?.response?.data?.detail) || t('common.error')}
+                </p>
+              )}
+              <div className="flex items-center gap-2">
+                <PanelActionButton
+                  variant="primary"
+                  disabled={modifyAvmMut.isPending || !modifyForm.reason.trim()}
+                  onClick={() =>
+                    modifyAvmMut.mutate(
+                      { id: avm.id, payload: modifyForm },
+                      { onSuccess: () => setShowModifyForm(false) },
+                    )
+                  }
+                >
+                  {modifyAvmMut.isPending ? <Loader2 size={12} className="animate-spin" /> : <><RefreshCw size={12} /> {t('paxlog.avm_detail.modify.submit')}</>}
+                </PanelActionButton>
+                <PanelActionButton onClick={() => setShowModifyForm(false)}>
+                  <X size={12} /> {t('common.close')}
+                </PanelActionButton>
+              </div>
+            </div>
+          </CollapsibleSection>
+        )}
         <CollapsibleSection id="avm-requester-readiness" title={t('paxlog.avm_detail.readiness.title', { status: avmReadyToSubmit ? t('paxlog.avm_detail.readiness.ready') : t('paxlog.avm_detail.readiness.to_complete') })} defaultExpanded>
           <div className="space-y-3">
             <div className="grid gap-2 sm:grid-cols-2">
@@ -3350,8 +3469,32 @@ function AvmDetailPanel({ id }: { id?: string }) {
             <ReadOnlyRow label={t('paxlog.avm_detail.fields.planned_dates')} value={`${formatDateShort(avm.planned_start_date)} — ${formatDateShort(avm.planned_end_date)}`} />
             {avm.description && <ReadOnlyRow label={t('common.description')} value={avm.description} />}
             {avm.cancellation_reason && <ReadOnlyRow label={t('paxlog.avm_detail.fields.cancellation_reason')} value={avm.cancellation_reason} />}
+            {avm.last_modification_reason && <ReadOnlyRow label={t('paxlog.avm_detail.fields.last_modification_reason')} value={avm.last_modification_reason} />}
+            {avm.last_modified_by_name && <ReadOnlyRow label={t('paxlog.avm_detail.fields.last_modified_by')} value={avm.last_modified_by_name} />}
+            {avm.last_modified_at && <ReadOnlyRow label={t('paxlog.avm_detail.fields.last_modified_at')} value={formatDate(avm.last_modified_at)} />}
           </div>
         </CollapsibleSection>
+
+        {!!avm.last_modification_changes && Object.keys(avm.last_modification_changes).length > 0 && (
+          <CollapsibleSection id="avm-last-changes" title={t('paxlog.avm_detail.sections.last_changes')} defaultExpanded>
+            <div className="space-y-2">
+              {(avm.last_modified_fields || []).map((field) => {
+                const change = avm.last_modification_changes?.[field]
+                return (
+                  <div key={field} className="rounded-md border border-border bg-card px-3 py-2 text-xs">
+                    <p className="font-medium text-foreground">{field}</p>
+                    <p className="mt-1 text-muted-foreground">
+                      {t('paxlog.avm_detail.change.before')}: {String(change?.before ?? '—')}
+                    </p>
+                    <p className="text-muted-foreground">
+                      {t('paxlog.avm_detail.change.after')}: {String(change?.after ?? '—')}
+                    </p>
+                  </div>
+                )
+              })}
+            </div>
+          </CollapsibleSection>
+        )}
 
         {/* Indicators */}
         <CollapsibleSection id="avm-indicators" title={t('paxlog.avm_detail.sections.preparation_indicators')} defaultExpanded>

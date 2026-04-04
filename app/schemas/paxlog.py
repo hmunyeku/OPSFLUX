@@ -436,6 +436,10 @@ class MissionNoticeUpdate(BaseModel):
     pax_quota: int | None = None
 
 
+class MissionNoticeModifyRequest(MissionNoticeUpdate):
+    reason: str = Field(min_length=3, max_length=1000)
+
+
 class MissionNoticeRead(OpsFluxSchema):
     id: UUID
     entity_id: UUID
@@ -462,6 +466,11 @@ class MissionNoticeRead(OpsFluxSchema):
     programs: list[MissionProgramRead] = []
     preparation_tasks: list[MissionPreparationTaskRead] = []
     preparation_progress: int = 0
+    last_modification_reason: str | None = None
+    last_modified_at: datetime | None = None
+    last_modified_by_name: str | None = None
+    last_modified_fields: list[str] = []
+    last_modification_changes: dict | None = None
 
 
 class MissionNoticeSummary(OpsFluxSchema):

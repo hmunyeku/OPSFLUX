@@ -26,6 +26,7 @@ from app.core.database import get_db
 from app.core.pagination import PaginationParams, paginate
 from app.core.references import generate_reference
 from app.models.common import (
+    AuditLog,
     CostCenter,
     CostImputation,
     ImputationAssignment,
@@ -69,6 +70,7 @@ from app.schemas.paxlog import (
     CredentialTypeCreate,
     CredentialTypeRead,
     MissionNoticeCreate,
+    MissionNoticeModifyRequest,
     MissionNoticeRead,
     MissionNoticeSummary,
     MissionNoticeUpdate,
@@ -4933,7 +4935,7 @@ async def cancel_avm(
 @router.post("/avm/{avm_id}/modify", response_model=MissionNoticeRead)
 async def modify_active_avm(
     avm_id: UUID,
-    body: MissionNoticeUpdate,
+    body: MissionNoticeModifyRequest,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("paxlog.avm.update"),
@@ -4959,9 +4961,33 @@ async def modify_active_avm(
             detail=f"Cannot modify AVM with status '{avm.status}'",
         )
 
-    update_data = body.model_dump(exclude_unset=True)
+    update_data = body.model_dump(exclude_unset=True, exclude={"reason"})
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No AVM changes provided")
+
+    before_values = {key: getattr(avm, key, None) for key in update_data}
+    if "planned_start_date" in update_data or "planned_end_date" in update_data:
+        start_value = update_data.get("planned_start_date", avm.planned_start_date)
+        end_value = update_data.get("planned_end_date", avm.planned_end_date)
+        if start_value and end_value and start_value > end_value:
+            raise HTTPException(
+                status_code=400,
+                detail="planned_end_date must be greater than or equal to planned_start_date",
+            )
+
     for key, value in update_data.items():
         setattr(avm, key, value)
+
+    changes = {}
+    for key, old_value in before_values.items():
+        new_value = getattr(avm, key, None)
+        if old_value != new_value:
+            changes[key] = {
+                "before": _json_safe(old_value),
+                "after": _json_safe(new_value),
+            }
+    if not changes:
+        raise HTTPException(status_code=400, detail="No AVM changes detected")
 
     await db.commit()
     await db.refresh(avm)
@@ -4969,7 +4995,11 @@ async def modify_active_avm(
     await record_audit(
         db, action="paxlog.avm.modify_active", resource_type="mission_notice",
         resource_id=str(avm.id), user_id=current_user.id, entity_id=entity_id,
-        details={"modified_fields": list(update_data.keys())},
+        details={
+            "reason": body.reason,
+            "modified_fields": list(changes.keys()),
+            "changes": changes,
+        },
     )
     await db.commit()
 
@@ -4981,7 +5011,9 @@ async def modify_active_avm(
             "entity_id": str(entity_id),
             "reference": avm.reference,
             "modified_by": str(current_user.id),
-            "modified_fields": list(update_data.keys()),
+            "modified_fields": list(changes.keys()),
+            "reason": body.reason,
+            "changes": changes,
         },
     ))
 
@@ -4998,6 +5030,38 @@ async def _build_avm_read(db: AsyncSession, avm: MissionNotice) -> MissionNotice
     )
     cr = creator_result.first()
     creator_name = f"{cr[0] or ''} {cr[1] or ''}".strip() if cr else None
+
+    latest_modification_result = await db.execute(
+        select(
+            AuditLog.created_at,
+            AuditLog.details,
+            User.first_name,
+            User.last_name,
+        )
+        .outerjoin(User, User.id == AuditLog.user_id)
+        .where(
+            AuditLog.entity_id == avm.entity_id,
+            AuditLog.resource_type == "mission_notice",
+            AuditLog.resource_id == str(avm.id),
+            AuditLog.action == "paxlog.avm.modify_active",
+        )
+        .order_by(AuditLog.created_at.desc())
+        .limit(1)
+    )
+    latest_modification = latest_modification_result.first()
+    last_modification_reason = None
+    last_modified_at = None
+    last_modified_by_name = None
+    last_modified_fields: list[str] = []
+    last_modification_changes = None
+    if latest_modification:
+        last_modified_at = latest_modification[0]
+        details = latest_modification[1] or {}
+        last_modification_reason = details.get("reason")
+        last_modification_changes = details.get("changes")
+        last_modified_fields = details.get("modified_fields") or []
+        modifier_name = f"{latest_modification[2] or ''} {latest_modification[3] or ''}".strip()
+        last_modified_by_name = modifier_name or None
 
     # Programs with PAX IDs
     prog_result = await db.execute(
@@ -5073,4 +5137,9 @@ async def _build_avm_read(db: AsyncSession, avm: MissionNotice) -> MissionNotice
         programs=program_reads,
         preparation_tasks=task_reads,
         preparation_progress=prep_status["progress_percent"],
+        last_modification_reason=last_modification_reason,
+        last_modified_at=last_modified_at,
+        last_modified_by_name=last_modified_by_name,
+        last_modified_fields=last_modified_fields,
+        last_modification_changes=last_modification_changes,
     )

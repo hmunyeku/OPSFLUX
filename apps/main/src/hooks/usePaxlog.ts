@@ -22,6 +22,7 @@ import type {
   StayProgramCreate,
   ProfileTypeCreate,
   MissionNoticeCreate,
+  MissionNoticeModifyRequest,
   MissionNoticeUpdate,
   AddPaxBody,
 } from '@/services/paxlogService'
@@ -591,6 +592,17 @@ export function useUpdateAvm() {
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: MissionNoticeUpdate }) =>
       paxlogService.updateAvm(id, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['paxlog', 'avm'] })
+    },
+  })
+}
+
+export function useModifyAvm() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: MissionNoticeModifyRequest }) =>
+      paxlogService.modifyAvm(id, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['paxlog', 'avm'] })
     },

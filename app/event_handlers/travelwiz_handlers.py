@@ -582,6 +582,68 @@ async def on_ads_stay_change_requested(event: OpsFluxEvent) -> None:
         logger.exception("Error in on_ads_stay_change_requested for %s", ads_id)
 
 
+async def on_avm_modified(event: OpsFluxEvent) -> None:
+    """Notify TravelWiz operators when an AVM with generated AdS changes."""
+    payload = event.payload
+    avm_id = payload.get("avm_id")
+    entity_id = payload.get("entity_id")
+    reference = payload.get("reference", "")
+    reason = payload.get("reason", "")
+    changes = payload.get("changes") or {}
+
+    if not avm_id or not entity_id:
+        return
+
+    try:
+        from sqlalchemy import select
+        from app.core.notifications import send_in_app
+        from app.event_handlers.core_handlers import _get_admin_user_ids
+        from app.models.paxlog import MissionProgram
+
+        eid = UUID(str(entity_id))
+        aid = UUID(str(avm_id))
+
+        async with async_session_factory() as db:
+            program_result = await db.execute(
+                select(MissionProgram.generated_ads_id)
+                .where(
+                    MissionProgram.mission_notice_id == aid,
+                    MissionProgram.generated_ads_id.is_not(None),
+                )
+            )
+            generated_ads_ids = sorted({str(row[0]) for row in program_result.all() if row[0]})
+            if not generated_ads_ids:
+                logger.info("paxlog.mission_notice.modified → no generated AdS for AVM %s", avm_id)
+                return
+
+            change_keys = ", ".join(sorted(changes.keys())) if isinstance(changes, dict) and changes else "planning"
+            admin_ids = await _get_admin_user_ids(entity_id)
+            for admin_id in admin_ids:
+                await send_in_app(
+                    db,
+                    user_id=admin_id,
+                    entity_id=eid,
+                    title="Revue transport AVM requise",
+                    body=(
+                        f"L'AVM {reference or avm_id} a été modifiée. "
+                        f"AdS générées concernées: {', '.join(generated_ads_ids)}. "
+                        f"Champs modifiés: {change_keys}. "
+                        f"Motif: {reason or 'non renseigné'}."
+                    ),
+                    category="travelwiz",
+                    link="/travelwiz",
+                )
+
+            await db.commit()
+            logger.info(
+                "paxlog.mission_notice.modified → %d generated AdS impacted for AVM %s",
+                len(generated_ads_ids),
+                avm_id,
+            )
+    except Exception:
+        logger.exception("Error in on_avm_modified for %s", avm_id)
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Registration
 # ═══════════════════════════════════════════════════════════════════════════
@@ -596,6 +658,7 @@ def register_travelwiz_handlers(event_bus: EventBus) -> None:
     # PaxLog → TravelWiz (AdS approved → add PAX to manifests)
     event_bus.subscribe("paxlog.ads.approved", on_ads_approved)
     event_bus.subscribe("ads.stay_change_requested", on_ads_stay_change_requested)
+    event_bus.subscribe("paxlog.mission_notice.modified", on_avm_modified)
 
     # Planner → TravelWiz (activity changes → manifests requires_review)
     event_bus.subscribe("planner.activity.modified", on_planner_activity_modified_tw)

@@ -1665,14 +1665,33 @@
         "preparation_indicators": "Preparation indicators",
         "preparation_tasks": "Preparation ({{progress}}%)",
         "program": "Program ({{count}} lines)",
-        "metadata": "Metadata"
+        "metadata": "Metadata",
+        "last_changes": "Latest change"
       },
       "fields": {
         "creator": "Creator",
         "planned_dates": "Planned dates",
         "cancellation_reason": "Cancellation reason",
         "created_at": "Created at",
-        "updated_at": "Updated at"
+        "updated_at": "Updated at",
+        "last_modification_reason": "Change reason",
+        "last_modified_by": "Modified by",
+        "last_modified_at": "Modified at",
+        "planned_pax": "Planned PAX"
+      },
+      "actions": {
+        "modify": "Modify AVM"
+      },
+      "modify": {
+        "title": "Request a change",
+        "help": "Use this form to track a change on an in-flight mission notice and notify impacted teams.",
+        "reason": "Change reason",
+        "reason_placeholder": "Explain what changes and why.",
+        "submit": "Save change"
+      },
+      "change": {
+        "before": "Before",
+        "after": "After"
       },
       "empty": {
         "preparation_tasks": "No preparation task. Submit the AVM to generate the checklist.",

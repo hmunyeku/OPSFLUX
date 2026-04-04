@@ -17,6 +17,7 @@ from app.core.middleware.tenant import TenantSchemaMiddleware
 from app.core.middleware.entity_scope import EntityScopeMiddleware
 from app.core.middleware.security_headers import SecurityHeadersMiddleware
 from app.core.middleware.rate_limit import RateLimitMiddleware
+from app.core.middleware.mcp_cors import McpCorsMiddleware
 from app.core.module_registry import ModuleRegistry
 from app.event_handlers import register_all_handlers
 from app.tasks.scheduler import start_scheduler, stop_scheduler
@@ -200,6 +201,7 @@ app.add_middleware(
     allow_headers=settings.cors_headers_list,
     expose_headers=["X-Request-Id"],
 )
+app.add_middleware(McpCorsMiddleware)
 
 if settings.ALLOWED_HOSTS != "*":
     app.add_middleware(

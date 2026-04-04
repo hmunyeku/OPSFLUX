@@ -85,7 +85,7 @@ async def _get_vector_or_404(db: AsyncSession, vector_id: UUID, entity_id: UUID)
         select(TransportVector).where(
             TransportVector.id == vector_id,
             TransportVector.entity_id == entity_id,
-            TransportVector.archived == False,
+            TransportVector.active == True,  # noqa: E712
         )
     )
     vector = result.scalars().first()
@@ -99,7 +99,7 @@ async def _get_voyage_or_404(db: AsyncSession, voyage_id: UUID, entity_id: UUID)
         select(Voyage).where(
             Voyage.id == voyage_id,
             Voyage.entity_id == entity_id,
-            Voyage.archived == False,
+            Voyage.active == True,  # noqa: E712
         )
     )
     voyage = result.scalars().first()
@@ -113,7 +113,7 @@ async def _get_cargo_or_404(db: AsyncSession, cargo_id: UUID, entity_id: UUID) -
         select(CargoItem).where(
             CargoItem.id == cargo_id,
             CargoItem.entity_id == entity_id,
-            CargoItem.archived == False,
+            CargoItem.active == True,  # noqa: E712
         )
     )
     cargo = result.scalars().first()
@@ -189,7 +189,7 @@ async def list_vectors(
         .outerjoin(zone_count_sq, TransportVector.id == zone_count_sq.c.vector_id)
         .outerjoin(voyage_count_sq, TransportVector.id == voyage_count_sq.c.vector_id)
         .outerjoin(Installation, TransportVector.home_base_id == Installation.id)
-        .where(TransportVector.entity_id == entity_id, TransportVector.archived == False)
+        .where(TransportVector.entity_id == entity_id, TransportVector.active == True)  # noqa: E712
     )
 
     if type:
@@ -529,7 +529,7 @@ async def list_voyages(
         .outerjoin(stop_count_sq, Voyage.id == stop_count_sq.c.voyage_id)
         .outerjoin(pax_count_sq, Voyage.id == pax_count_sq.c.voyage_id)
         .outerjoin(cargo_count_sq, Voyage.id == cargo_count_sq.c.voyage_id)
-        .where(Voyage.entity_id == entity_id, Voyage.archived == False)
+        .where(Voyage.entity_id == entity_id, Voyage.active == True)  # noqa: E712
     )
 
     # ── User-scoped data visibility ──
@@ -1221,7 +1221,7 @@ async def list_cargo(
         )
         .outerjoin(Tier, CargoItem.sender_tier_id == Tier.id)
         .outerjoin(Installation, CargoItem.destination_asset_id == Installation.id)
-        .where(CargoItem.entity_id == entity_id, CargoItem.archived == False)
+        .where(CargoItem.entity_id == entity_id, CargoItem.active == True)  # noqa: E712
     )
 
     # ── User-scoped data visibility ──
@@ -1289,7 +1289,6 @@ async def create_cargo(
                             VoyageManifest.voyage_id == voyage.id,
                             VoyageManifest.manifest_type == "cargo",
                             CargoItem.active == True,
-                            CargoItem.archived == False,
                         )
                     )
                     current_weight = float(weight_result.scalar() or 0)
@@ -2196,7 +2195,7 @@ async def trips_today(
         .outerjoin(Installation, Voyage.departure_base_id == Installation.id)
         .where(
             Voyage.entity_id == entity_id,
-            Voyage.archived == False,  # noqa: E712
+            Voyage.active == True,  # noqa: E712
             Voyage.status.in_(["planned", "confirmed", "boarding", "departed", "arrived"]),
             (
                 (Voyage.scheduled_departure >= today_start) & (Voyage.scheduled_departure <= today_end)
@@ -2240,7 +2239,7 @@ async def cargo_pending(
         .outerjoin(Installation, CargoItem.destination_asset_id == Installation.id)
         .where(
             CargoItem.entity_id == entity_id,
-            CargoItem.archived == False,  # noqa: E712
+            CargoItem.active == True,  # noqa: E712
             CargoItem.status.in_(["registered", "ready_for_loading"]),
         )
         .order_by(CargoItem.created_at.desc())
@@ -2286,7 +2285,7 @@ async def fleet_kpis(
     voyages_today = await db.execute(
         select(sqla_func.count()).select_from(Voyage).where(
             Voyage.entity_id == entity_id,
-            Voyage.archived == False,  # noqa: E712
+            Voyage.active == True,  # noqa: E712
             Voyage.scheduled_departure >= today_start,
             Voyage.scheduled_departure <= today_end,
         )
@@ -2296,7 +2295,7 @@ async def fleet_kpis(
     active_voyages = await db.execute(
         select(sqla_func.count()).select_from(Voyage).where(
             Voyage.entity_id == entity_id,
-            Voyage.archived == False,  # noqa: E712
+            Voyage.active == True,  # noqa: E712
             Voyage.status.in_(["planned", "confirmed", "boarding", "departed", "arrived"]),
         )
     )
@@ -2305,7 +2304,7 @@ async def fleet_kpis(
     pending_cargo = await db.execute(
         select(sqla_func.count()).select_from(CargoItem).where(
             CargoItem.entity_id == entity_id,
-            CargoItem.archived == False,  # noqa: E712
+            CargoItem.active == True,  # noqa: E712
             CargoItem.status.in_(["registered", "ready_for_loading"]),
         )
     )
@@ -2314,7 +2313,7 @@ async def fleet_kpis(
     transit_cargo = await db.execute(
         select(sqla_func.count()).select_from(CargoItem).where(
             CargoItem.entity_id == entity_id,
-            CargoItem.archived == False,  # noqa: E712
+            CargoItem.active == True,  # noqa: E712
             CargoItem.status == "in_transit",
         )
     )

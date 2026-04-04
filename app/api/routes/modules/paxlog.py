@@ -4881,10 +4881,29 @@ async def _build_avm_read(db: AsyncSession, avm: MissionNotice) -> MissionNotice
     from app.services.modules.paxlog_service import get_avm_preparation_status
     prep_status = await get_avm_preparation_status(db, avm.id)
 
-    read = MissionNoticeRead.model_validate(avm)
-    read.creator_name = creator_name
-    read.programs = program_reads
-    read.preparation_tasks = task_reads
-    read.preparation_progress = prep_status["progress_percent"]
-
-    return read
+    return MissionNoticeRead(
+        id=avm.id,
+        entity_id=avm.entity_id,
+        reference=avm.reference,
+        title=avm.title,
+        description=avm.description,
+        created_by=avm.created_by,
+        status=avm.status,
+        planned_start_date=avm.planned_start_date,
+        planned_end_date=avm.planned_end_date,
+        requires_badge=avm.requires_badge,
+        requires_epi=avm.requires_epi,
+        requires_visa=avm.requires_visa,
+        eligible_displacement_allowance=avm.eligible_displacement_allowance,
+        epi_measurements=avm.epi_measurements,
+        mission_type=avm.mission_type,
+        pax_quota=avm.pax_quota,
+        archived=avm.archived,
+        cancellation_reason=avm.cancellation_reason,
+        created_at=avm.created_at,
+        updated_at=avm.updated_at,
+        creator_name=creator_name,
+        programs=program_reads,
+        preparation_tasks=task_reads,
+        preparation_progress=prep_status["progress_percent"],
+    )

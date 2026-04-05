@@ -166,7 +166,7 @@ async def _resolve_entity_id(session: AsyncSession, entity_code: str | None) -> 
         return entity.id
 
     result = await session.execute(
-        select(Entity).where(Entity.archived == False).limit(1)  # noqa: E712
+        select(Entity).where(Entity.active == True).limit(1)  # noqa: E712
     )
     entity = result.scalar_one_or_none()
     if entity is None:

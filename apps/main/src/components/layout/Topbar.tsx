@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useUIStore } from '@/stores/uiStore'
+import { resolveApiBaseUrl } from '@/lib/runtimeUrls'
 import {
   Search,
   Menu,
@@ -118,8 +119,12 @@ function useOnlineStatus(): HealthDetail {
   // Ping /api/health every 30s to detect backend / DB / Redis down
   useEffect(() => {
     let mounted = true
-    const baseUrl = import.meta.env.VITE_API_URL || ''
+    const baseUrl = resolveApiBaseUrl()
     const check = async () => {
+      if (!navigator.onLine) {
+        if (mounted) setApiHealth({ ok: false })
+        return
+      }
       try {
         const ctrl = new AbortController()
         const timer = setTimeout(() => ctrl.abort(), 5000)

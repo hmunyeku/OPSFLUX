@@ -11,6 +11,7 @@
  * to avoid 401-refresh loops and noisy console errors).
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { resolveApiBaseUrl } from '@/lib/runtimeUrls'
 
 export interface NetworkStatus {
   /** Browser reports network connectivity */
@@ -24,9 +25,9 @@ export interface NetworkStatus {
 /** Resolve the API base URL the same way the axios instance does. */
 function getBaseUrl(): string {
   try {
-    return import.meta.env.VITE_API_URL || ''
+    return resolveApiBaseUrl()
   } catch {
-    return ''
+    return window.location.origin
   }
 }
 

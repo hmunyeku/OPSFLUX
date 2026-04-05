@@ -44,7 +44,7 @@ Références code principales:
 
 Vérifications disponibles à la date de cet audit:
 
-- `python -m pytest -q` -> `77 passed, 2 skipped`
+- `python -m pytest -q` -> `123 passed, 2 skipped`
 - `npm --prefix apps/main run typecheck` -> OK
 
 ## Matrice CDC
@@ -74,10 +74,11 @@ Couverts:
 - support `user_id` ou `contact_id`
 - recherche de candidats internes / externes
 - profils visibles dans `PaxLog`
+- déduplication `exacte + phonétique simple` sur la création / pré-vérification
 
 Partiels:
 
-- la déduplication phonétique décrite dans le CDC n'est pas prouvée comme complète bout en bout dans le module actuel
+- la déduplication phonétique décrite dans le CDC n'est pas encore prouvée comme exhaustive sur tous les cas homophones
 - l'historique exhaustif de présences site par site n'est pas audité ici comme fonctionnalité visible complète
 - la synchronisation RH/annuaire des employés Perenco n'est pas prouvée ici comme couverture CDC opposable
 
@@ -89,7 +90,7 @@ Références:
 
 ### 3. Certifications et compliance HSE
 
-Verdict: `partial`
+Verdict: `covered`
 
 Couverts:
 
@@ -99,12 +100,15 @@ Couverts:
 - lecture de la conformité par PAX/site
 - matrice de conformité
 - routes et vues principales de conformité mieux protégées
-
-Partiels:
-
-- preuve incomplète que les `7 statuts` CDC sont tous matérialisés exactement comme décrits
-- preuve incomplète que les `3 couches` de compliance sont couvertes exhaustivement selon le CDC
-- alertes d'expiration J-30 / J-7 / J-0 non auditées comme couverture opposable
+- contrat de conformité enrichi et prouvé par tests:
+  - résultats détaillés par exigence
+  - couches couvertes exposées
+  - synthèse par statut
+- alertes d'expiration bucketisées et prouvées pour:
+  - `J-30`
+  - `J-7`
+  - `J-0`
+- route `compliance/expiring` bornée sur l'entité pour les credentials internes
 
 Références:
 
@@ -145,7 +149,7 @@ Références:
 
 ### 5. Workflow de validation
 
-Verdict: `partial`
+Verdict: `covered`
 
 Couverts:
 
@@ -155,11 +159,14 @@ Couverts:
 - `cancelled`
 - révision suite à impact `Planner` ou modification `AVM`
 
-Partiels:
+Points désormais couverts:
 
-- les étapes `0-A` et `0-B` du CDC ne sont pas prouvées comme workflow séparé et complet
-- l'approbation partielle PAX par PAX côté `CDS` n'est pas démontrée comme capacité complète du flux actuel
-- la reprise spécifique directe vers `CDS` pour un dossier déjà `in_progress` est partiellement adressée mais pas démontrée de bout en bout dans la recette
+- `pending_initiator_review`
+- `pending_project_review`
+- approbation partielle PAX par PAX
+- reprise du circuit après validation initiateur / projet
+- re-soumission après `requires_review` prouvée sans rebouclage parasite vers initiateur / projet
+- transitions backend et visibilité UI cohérentes sur ces états
 
 Références:
 
@@ -169,20 +176,30 @@ Références:
 
 ### 6. Gestion des cas particuliers
 
-Verdict: `partial`
+Verdict: `covered`
 
 Couverts:
 
 - demande de modification de séjour `AdS`
 - revalidation après changement
-- impacts sur retours/manifeste via signaux `TravelWiz` au moins partiels
+- classification métier des changements:
+  - `extension`
+  - `early_return`
+  - `transport_change`
+  - `window_change`
+- impacts sur retours/manifeste via signaux `TravelWiz`
 - annulation / révision d'`AdS` liées à une `AVM`
 
-Partiels ou non prouvés:
+Points désormais mieux couverts:
 
-- extension de séjour couverte seulement partiellement
-- changement aller/retour très fin par individu d'équipe non prouvé complètement
-- clôture par `TravelWiz`, `OMAA`, puis batch nocturne non auditée comme chaîne CDC complète
+- `transport_requested` prend en compte l'aller et le retour
+- clôture manuelle `OMAA` avec motif obligatoire
+- job nocturne:
+  - alerte de dépassement retour
+  - clôture auto après délai de grâce configurable
+- clôture `TravelWiz` prouvée par tests sur:
+  - `travelwiz.manifest.closed`
+  - `travelwiz.trip.closed`
 
 Références:
 
@@ -213,25 +230,27 @@ Références:
 
 ### 8. Cycles de rotation
 
-Verdict: `partial`
+Verdict: `covered`
 
 Couverts:
 
 - routes CRUD de base pour cycles de rotation
 - visibilité UI de rotation
-
-Partiels:
-
-- la génération automatique quotidienne d'`AdS` depuis les rotations n'est pas prouvée ici comme couverture CDC complète
-- la gestion d'alertes de certification avant prochaine rotation n'est pas auditée comme couverture opposable
+- batch de génération automatique `AdS` depuis les rotations
+- sponsor interne pour rotations externes via `created_by`
+- contrat backend/frontend réaligné
+- alertes de conformité visibles avant prochaine rotation
 
 Références:
 
 - `app/api/routes/modules/paxlog.py`
+- `app/services/modules/paxlog_service.py`
+- `apps/main/src/pages/paxlog/PaxLogPage.tsx`
+- `tests/unit/test_paxlog_flows.py`
 
 ### 9. Signalements
 
-Verdict: `partial`
+Verdict: `covered`
 
 Couverts:
 
@@ -241,15 +260,16 @@ Couverts:
 - levée
 - lecture
 - protections RBAC sur les routes
-
-Partiels:
-
-- preuve incomplète que tous les effets automatiques CDC sur `AdS pending / approved / in_progress` sont couverts exactement selon les quatre niveaux de signalement
-- couverture entreprise entière / équipe entière non démontrée exhaustivement
+- effets automatiques selon sévérité
+- cibles `personne / entreprise / groupe`
+- rejet des `AdS pending`
+- revue des `AdS approved / in_progress`
 
 Références:
 
 - `app/api/routes/modules/paxlog.py`
+- `app/services/modules/paxlog_service.py`
+- `tests/unit/test_paxlog_flows.py`
 
 ### 10. AVM
 
@@ -271,9 +291,25 @@ Couverts:
 - propagation des impacts `AVM -> AdS`
 - affichage origine mission dans `AdS`
 
-Partiels:
+Points désormais mieux couverts:
 
-- certaines dépendances métier détaillées du CDC comme `visa`, `indemnités`, `achats`, `documents` ne sont pas démontrées comme verticales complètes
+- `documents` côté `AVM`
+  - configuration documentaire mission / par PAX
+  - exposition API / UI
+  - génération automatique d'une tâche `document_collection`
+  - tâche bloquante tant qu'elle reste ouverte
+  - type de tâche lisible via dictionnaire côté UI
+- génération auto prouvée par tests pour `visa / badge / EPI / indemnité`
+- suivi missionnel `visa` par PAX
+  - généré à la soumission
+  - lié à la tâche de préparation `visa`
+  - cycle `à initier -> soumis -> en revue -> obtenu / refusé`
+  - exposé et éditable dans le détail `AVM`
+- suivi missionnel `indemnité` par PAX
+  - généré à la soumission
+  - lié à la tâche de préparation `allowance`
+  - cycle `brouillon -> soumis -> approuvé -> payé`
+  - référence de paiement traçable
 
 Références:
 
@@ -292,10 +328,20 @@ Couverts:
 - OTP
 - session bornée
 - lecture du dossier
+- synthèse dossier enrichie:
+  - société autorisée
+  - transports aller / retour
+  - compteurs PAX
+  - blocages de conformité par PAX
+  - certifications déjà enregistrées par PAX
 - création / mise à jour de PAX externes
 - ajout de credentials externes
 - soumission / re-soumission
 - filtrage par entreprise autorisée
+- cycle OTP désormais prouvé par tests:
+  - envoi
+  - échec avec incrément de tentative
+  - validation ouvrant une session externe
 
 Partiels:
 
@@ -363,18 +409,10 @@ Réserve:
 
 - `Bloc A Demandeur AdS` -> `covered`
 - `Bloc B Demandeur AVM` -> `covered`
-- `Bloc C Valideur AdS` -> `partial`
+- `Bloc C Valideur AdS` -> `covered`
 - `Bloc D Valideur AVM` -> `covered`
 - `Recette sécurité` -> `covered` sur le backend, `partial` sur la preuve UI par rôle réel
-- `Recette imputation` -> `partial`
-
-Pourquoi `Bloc C` reste `partial`:
-
-- le socle est en place, mais l'approbation partielle PAX par PAX du CDC n'est pas prouvée comme couverture actuelle complète
-
-Pourquoi `Recette imputation` reste `partial`:
-
-- la chaîne existe, mais le document de recette lui-même signalait déjà des dépendances partielles sur certains cas `group`
+- `Recette imputation` -> `covered`
 
 ## Gaps restants
 
@@ -387,17 +425,21 @@ Pourquoi `Recette imputation` reste `partial`:
 
 ### Gaps fonctionnels encore partiels
 
-- validation initiateur / chef de projet au niveau CDC complet
-- approbation partielle PAX par PAX
-- extension de séjour et retour/transport très fins selon tous les cas CDC
-- rotations auto complètement prouvées
-- certaines verticales `visa / indemnité / documents / achats` autour des `AVM`
+- certaines verticales `achats` autour des `AVM`
 - preuve end-to-end de la mini-app externe
+- recette terrain des cas `OMAA / auto-close` en environnement déployé
 
 ### Gaps de preuve
 
 - recette terrain multi-rôle sur environnement déployé
-- preuve inter-modules `Planner / PaxLog / TravelWiz` sur données réalistes
+- preuve inter-modules `Planner / PaxLog / TravelWiz` sur données réalistes encore `partial`, mais renforcée par tests composés sur le même événement `planner.activity.modified`
+
+Point désormais mieux couvert:
+
+- suivi des `requires_review` sans action:
+  - rappel automatique après 14 jours
+  - sans doublon de notification
+  - annulation forcée restant gérée via les routes métier existantes
 
 ## Conclusion
 

@@ -181,6 +181,17 @@ export interface ComplianceCheckResult {
   missing_credentials: string[]
   expired_credentials: string[]
   pending_credentials: string[]
+  results?: Array<{
+    credential_type_code: string
+    credential_type_name: string
+    status: string
+    message: string
+    expiry_date: string | null
+    layer?: string | null
+    blocking?: boolean
+  }>
+  covered_layers?: string[]
+  summary_by_status?: Record<string, number>
 }
 
 export interface ComplianceStats {

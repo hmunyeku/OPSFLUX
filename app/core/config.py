@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 from typing import Literal, Self
+from urllib.parse import urlparse
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -126,7 +127,53 @@ class Settings(BaseSettings):
 
     @property
     def allowed_origins_list(self) -> list[str]:
-        return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]
+        origins: list[str] = []
+
+        def _add(origin: str | None) -> None:
+            if not origin:
+                return
+            normalized = origin.strip().rstrip("/")
+            if normalized and normalized not in origins:
+                origins.append(normalized)
+
+        for raw_origin in self.ALLOWED_ORIGINS.split(","):
+            _add(raw_origin)
+
+        def _add_related(url_value: str | None) -> None:
+            if not url_value:
+                return
+            parsed = urlparse(url_value)
+            scheme = parsed.scheme or "https"
+            hostname = parsed.hostname
+            if not hostname:
+                return
+            port = f":{parsed.port}" if parsed.port else ""
+
+            def _origin(host: str) -> str:
+                return f"{scheme}://{host}{port}"
+
+            _add(_origin(hostname))
+
+            related_hosts = {hostname}
+            for prefix in ("app.", "ext.", "api.", "web."):
+                if hostname.startswith(prefix):
+                    suffix = hostname[len(prefix):]
+                    related_hosts.update({
+                        f"app.{suffix}",
+                        f"ext.{suffix}",
+                        f"api.{suffix}",
+                        f"web.{suffix}",
+                        suffix,
+                    })
+                    break
+
+            for host in sorted(related_hosts):
+                _add(_origin(host))
+
+        for url_value in (self.APP_URL, self.FRONTEND_URL, self.WEB_URL, self.API_BASE_URL, self.API_URL):
+            _add_related(url_value)
+
+        return origins
 
     @property
     def cors_methods_list(self) -> list[str]:
@@ -147,6 +194,26 @@ class Settings(BaseSettings):
     @property
     def is_prod(self) -> bool:
         return self.ENVIRONMENT == "production"
+
+    @property
+    def external_paxlog_url(self) -> str:
+        parsed = urlparse(self.APP_URL)
+        scheme = parsed.scheme or "https"
+        hostname = parsed.hostname or "localhost"
+        port = f":{parsed.port}" if parsed.port else ""
+
+        if hostname.startswith("ext."):
+            target_host = hostname
+        elif hostname.startswith("app."):
+            target_host = f"ext.{hostname[4:]}"
+        elif hostname.startswith("web."):
+            target_host = f"ext.{hostname[4:]}"
+        elif hostname.startswith("api."):
+            target_host = f"ext.{hostname[4:]}"
+        else:
+            target_host = hostname
+
+        return f"{scheme}://{target_host}{port}"
 
 
 @lru_cache

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -16,9 +16,12 @@ from app.core.events import OpsFluxEvent
 from app.event_handlers import module_handlers
 from app.event_handlers import paxlog_handlers
 from app.event_handlers import travelwiz_handlers
-from app.models.paxlog import AdsEvent
+from app.tasks.jobs import paxlog_ads_autoclose
+from app.tasks.jobs import paxlog_requires_review_followup
+from app.models.common import CostImputation
+from app.models.paxlog import AdsEvent, MissionAllowanceRequest, MissionVisaFollowup
 from app.schemas.planner import ActivityUpdate
-from app.schemas.paxlog import AdsStayChangeRequest, MissionNoticeModifyRequest, MissionPreparationTaskUpdate
+from app.schemas.paxlog import AdsManualDepartureRequest, AdsStayChangeRequest, MissionNoticeModifyRequest, MissionPreparationTaskUpdate
 from app.services.modules import paxlog_service
 
 
@@ -40,6 +43,11 @@ class FakeResult:
 
     def scalar(self):
         return self._scalar
+
+    def scalars(self):
+        if self._scalar is not None:
+            return self._scalar
+        return FakeScalarResult(self._all_rows)
 
 
 class FakeDB:
@@ -71,6 +79,15 @@ class FakeDB:
 
     async def refresh(self, obj):
         self.refreshed.append(obj)
+
+
+class FakeDBWithGet(FakeDB):
+    def __init__(self, results, *, get_map=None):
+        super().__init__(results)
+        self._get_map = get_map or {}
+
+    async def get(self, model, key):
+        return self._get_map.get((model, key))
 
 
 class FakeScalarResult:
@@ -189,6 +206,8 @@ def _build_avm(**overrides):
         "requires_epi": False,
         "requires_visa": False,
         "eligible_displacement_allowance": False,
+        "global_attachments_config": [],
+        "per_pax_attachments_config": [],
         "epi_measurements": None,
         "mission_type": "campaign",
         "pax_quota": 12,
@@ -782,6 +801,33 @@ async def test_create_external_link_denies_non_owner_without_approve(monkeypatch
 
 
 @pytest.mark.asyncio
+async def test_create_external_link_returns_external_portal_url(monkeypatch):
+    ads = _build_ads(status="approved")
+    current_user = SimpleNamespace(id=ads.requester_id)
+    db = FakeDB([FakeResult(scalar_one_or_none=ads)])
+
+    audit_calls = []
+
+    async def fake_record_audit(*args, **kwargs):
+        audit_calls.append((args, kwargs))
+
+    monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+    monkeypatch.setattr(paxlog.settings, "APP_URL", "https://app.opsflux.io")
+
+    response = await paxlog.create_external_link(
+        ads.id,
+        entity_id=ads.entity_id,
+        current_user=current_user,
+        _=None,
+        db=db,
+    )
+
+    assert response["token"]
+    assert response["url"] == f"https://ext.opsflux.io/?token={response['token']}"
+    assert audit_calls
+
+
+@pytest.mark.asyncio
 async def test_list_ads_events_denies_non_owner_without_read_all(monkeypatch):
     ads = _build_ads()
     outsider_id = uuid4()
@@ -876,6 +922,50 @@ async def test_request_ads_stay_change_sets_requires_review_and_logs_diff(monkey
         "from": "boat",
         "to": "helicopter",
     }
+    assert ads_event.metadata_json["change_kinds"] == ["extension", "transport_change"]
+    assert ads_event.metadata_json["primary_change_kind"] == "extension"
+    assert published_events[0].payload["change_kinds"] == ["extension", "transport_change"]
+    assert published_events[0].payload["primary_change_kind"] == "extension"
+
+
+@pytest.mark.asyncio
+async def test_request_ads_stay_change_classifies_early_return(monkeypatch):
+    ads = _build_ads(status="in_progress")
+    db = FakeDB([FakeResult(scalar_one_or_none=ads)])
+
+    async def fake_has_user_permission(*args, **kwargs):
+        return False
+
+    async def fake_transition(*args, **kwargs):
+        return None
+
+    async def fake_emit_transition_event(**kwargs):
+        return None
+
+    async def fake_record_audit(*args, **kwargs):
+        return None
+
+    class FakeEventBus:
+        async def publish(self, event):
+            return None
+
+    monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
+    monkeypatch.setattr(paxlog, "_try_ads_workflow_transition", fake_transition)
+    monkeypatch.setattr(paxlog.fsm_service, "emit_transition_event", fake_emit_transition_event)
+    monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+    monkeypatch.setattr("app.core.events.event_bus", FakeEventBus())
+
+    await paxlog.request_ads_stay_change(
+        ads.id,
+        AdsStayChangeRequest(reason="Retour anticipé", end_date=date(2026, 4, 10)),
+        entity_id=ads.entity_id,
+        current_user=SimpleNamespace(id=ads.requester_id),
+        _=None,
+        db=db,
+    )
+
+    ads_event = next(obj for obj in db.added if isinstance(obj, AdsEvent))
+    assert ads_event.metadata_json["change_kinds"] == ["early_return"]
 
 
 @pytest.mark.asyncio
@@ -904,21 +994,32 @@ async def test_request_ads_stay_change_rejects_no_effective_change(monkeypatch):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("outbound_transport_mode", "expected_transport_requested"),
+    (
+        "outbound_transport_mode",
+        "return_transport_mode",
+        "expected_outbound_requested",
+        "expected_return_requested",
+        "expected_transport_requested",
+    ),
     [
-        ("helicopter", True),
-        ("walking", False),
-        (None, False),
+        ("helicopter", "walking", True, False, True),
+        ("walking", "boat", False, True, True),
+        ("walking", "walking", False, False, False),
+        (None, None, False, False, False),
     ],
 )
 async def test_approve_ads_emits_transport_requested_flag(
     monkeypatch,
     outbound_transport_mode,
+    return_transport_mode,
+    expected_outbound_requested,
+    expected_return_requested,
     expected_transport_requested,
 ):
     ads = _build_ads(
         status="submitted",
         outbound_transport_mode=outbound_transport_mode,
+        return_transport_mode=return_transport_mode,
     )
     pax_entry = SimpleNamespace(status="compliant")
     db = FakeDB(
@@ -967,8 +1068,17 @@ async def test_approve_ads_emits_transport_requested_flag(
     assert emitted_events and emitted_events[0]["to_state"] == "approved"
     assert audits and audits[0]["action"] == "paxlog.ads.approve"
     assert published_events and published_events[0].event_type == "ads.approved"
+    assert (
+        published_events[0].payload["outbound_transport_requested"]
+        is expected_outbound_requested
+    )
+    assert (
+        published_events[0].payload["return_transport_requested"]
+        is expected_return_requested
+    )
     assert published_events[0].payload["transport_requested"] is expected_transport_requested
     assert published_events[0].payload["outbound_transport_mode"] == outbound_transport_mode
+    assert published_events[0].payload["return_transport_mode"] == return_transport_mode
 
 
 @pytest.mark.asyncio
@@ -1391,6 +1501,58 @@ async def test_submit_avm_route_denies_non_owner_without_arbitration(monkeypatch
     assert exc.value.detail == "You may only submit your own AVM unless you can arbitrate it."
 
 
+def test_manual_departure_route_requires_ads_approve_permission():
+    assert _route_requires_permission("/ads/{ads_id}/manual-departure", "POST", "paxlog.ads.approve")
+
+
+@pytest.mark.asyncio
+async def test_manual_departure_completes_ads_with_omaa_source(monkeypatch):
+    entity_id = uuid4()
+    requester_id = uuid4()
+    actor_id = uuid4()
+    ads = _build_ads(entity_id=entity_id, requester_id=requester_id, status="in_progress")
+    db = FakeDB([FakeResult(scalar_one_or_none=ads)])
+    transition_events = []
+    published_events = []
+    audits = []
+
+    async def fake_emit_transition_event(**kwargs):
+        transition_events.append(kwargs)
+
+    class FakeEventBus:
+        async def publish(self, event):
+            published_events.append(event)
+
+    async def fake_record_audit(*args, **kwargs):
+        audits.append(kwargs)
+
+    async def fake_build_ads_read_data(_db, *, ads, entity_id):
+        return _ads_read_payload(ads, entity_id)
+
+    monkeypatch.setattr(paxlog_service.fsm_service, "emit_transition_event", fake_emit_transition_event)
+    monkeypatch.setattr(paxlog_service, "event_bus", FakeEventBus())
+    monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+    monkeypatch.setattr(paxlog, "_build_ads_read_data", fake_build_ads_read_data)
+
+    response = await paxlog.complete_ads_manual_departure(
+        ads.id,
+        AdsManualDepartureRequest(reason="Evacuation medicale"),
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=actor_id),
+        _=None,
+        db=db,
+    )
+
+    assert response.status == "completed"
+    ads_event = next(obj for obj in db.added if isinstance(obj, AdsEvent))
+    assert ads_event.metadata_json["source"] == "omaa.manual_departure"
+    assert ads_event.reason == "Evacuation medicale"
+    assert transition_events and transition_events[0]["to_state"] == "completed"
+    assert published_events and published_events[0].event_type == "ads.completed"
+    assert published_events[0].payload["source"] == "omaa.manual_departure"
+    assert audits and audits[0]["action"] == "paxlog.ads.manual_departure"
+
+
 @pytest.mark.asyncio
 async def test_cancel_avm_denies_non_owner_without_arbitration(monkeypatch):
     avm = _build_avm(status="active")
@@ -1568,6 +1730,8 @@ async def test_submit_avm_sets_ready_when_only_ads_creation_tasks_exist(monkeypa
             return FakeResult(scalar_one_or_none=avm)
         if call_index == 2:
             return FakeScalarResult([program])
+        if call_index == 3:
+            return FakeResult(all_rows=[])
         raise AssertionError("Unexpected execute call")
 
     class FakeEventBus:
@@ -1585,6 +1749,120 @@ async def test_submit_avm_sets_ready_when_only_ads_creation_tasks_exist(monkeypa
     created_tasks = [obj for obj in db.added if getattr(obj, "task_type", None) == "ads_creation"]
     assert len(created_tasks) == 1
     assert published_events and published_events[0].event_type == "paxlog.mission_notice.launched"
+
+
+@pytest.mark.asyncio
+async def test_submit_avm_creates_document_collection_task_and_stays_in_preparation(monkeypatch):
+    avm = _build_avm(
+        status="draft",
+        global_attachments_config=["Ordre de mission", "Passeport"],
+        per_pax_attachments_config=["Piece d'identite"],
+    )
+    program = SimpleNamespace(
+        id=uuid4(),
+        mission_notice_id=avm.id,
+        order_index=0,
+        activity_description="Inspection compresseur",
+        activity_type="inspection",
+        site_asset_id=uuid4(),
+        planned_start_date=date(2026, 4, 12),
+        planned_end_date=date(2026, 4, 14),
+        project_id=None,
+    )
+    db = FakeDB([])
+    published_events = []
+
+    async def fake_execute(statement, params=None):
+        db.executed.append((statement, params))
+        call_index = len(db.executed)
+        if call_index == 1:
+            return FakeResult(scalar_one_or_none=avm)
+        if call_index == 2:
+            return FakeScalarResult([program])
+        if call_index == 3:
+            return FakeResult(all_rows=[(uuid4(), None), (None, uuid4())])
+        raise AssertionError("Unexpected execute call")
+
+    class FakeEventBus:
+        async def publish(self, event):
+            published_events.append(event)
+
+    db.execute = fake_execute  # type: ignore[method-assign]
+    monkeypatch.setattr(paxlog_service, "event_bus", FakeEventBus())
+
+    result = await paxlog_service.submit_avm(db, avm.id, avm.entity_id, uuid4())
+
+    assert result["status"] == "in_preparation"
+    assert avm.status == "in_preparation"
+    assert result["preparation_tasks_created"] == 2
+    created_ads_tasks = [obj for obj in db.added if getattr(obj, "task_type", None) == "ads_creation"]
+    created_document_tasks = [obj for obj in db.added if getattr(obj, "task_type", None) == "document_collection"]
+    assert len(created_ads_tasks) == 1
+    assert len(created_document_tasks) == 1
+    assert "Ordre de mission" in (created_document_tasks[0].notes or "")
+    assert "Piece d'identite" in (created_document_tasks[0].notes or "")
+    assert published_events and published_events[0].event_type == "paxlog.mission_notice.launched"
+
+
+@pytest.mark.asyncio
+async def test_submit_avm_creates_indicator_tasks_for_visa_badge_epi_and_allowance(monkeypatch):
+    avm = _build_avm(
+        status="draft",
+        requires_visa=True,
+        requires_badge=True,
+        requires_epi=True,
+        eligible_displacement_allowance=True,
+    )
+    program = SimpleNamespace(
+        id=uuid4(),
+        mission_notice_id=avm.id,
+        order_index=0,
+        activity_description="Inspection compresseur",
+        activity_type="inspection",
+        site_asset_id=uuid4(),
+        planned_start_date=date(2026, 4, 12),
+        planned_end_date=date(2026, 4, 14),
+        project_id=None,
+    )
+    db = FakeDB([])
+
+    async def fake_execute(statement, params=None):
+        db.executed.append((statement, params))
+        call_index = len(db.executed)
+        if call_index == 1:
+            return FakeResult(scalar_one_or_none=avm)
+        if call_index == 2:
+            return FakeScalarResult([program])
+        if call_index == 3:
+            return FakeResult(all_rows=[(uuid4(), None), (None, uuid4())])
+        raise AssertionError("Unexpected execute call")
+
+    class FakeEventBus:
+        async def publish(self, event):
+            return None
+
+    db.execute = fake_execute  # type: ignore[method-assign]
+    monkeypatch.setattr(paxlog_service, "event_bus", FakeEventBus())
+
+    result = await paxlog_service.submit_avm(db, avm.id, avm.entity_id, uuid4())
+
+    assert result["status"] == "in_preparation"
+    assert avm.status == "in_preparation"
+    task_types = [getattr(obj, "task_type", None) for obj in db.added]
+    assert task_types.count("ads_creation") == 1
+    assert "visa" in task_types
+    assert "badge" in task_types
+    assert "epi_order" in task_types
+    assert "allowance" in task_types
+    created_titles = {getattr(obj, "task_type", None): getattr(obj, "title", "") for obj in db.added}
+    assert created_titles["visa"] == "Demande de visa"
+    assert created_titles["badge"] == "Demande de badge site"
+    assert created_titles["epi_order"] == "Commande EPI"
+    assert created_titles["allowance"] == "Indemnites de deplacement"
+    created_visa_followups = [obj for obj in db.added if isinstance(obj, MissionVisaFollowup)]
+    created_allowance_requests = [obj for obj in db.added if isinstance(obj, MissionAllowanceRequest)]
+    assert len(created_visa_followups) == 2
+    assert len(created_allowance_requests) == 2
 
 
 @pytest.mark.asyncio
@@ -1802,6 +2080,224 @@ async def test_create_signalement_emits_company_scope_and_ads_effect_counts(monk
 
 
 @pytest.mark.asyncio
+async def test_create_incident_delegates_group_scope_to_signalement_service(monkeypatch):
+    entity_id = uuid4()
+    pax_group_id = uuid4()
+    current_user_id = uuid4()
+    recorded = []
+
+    async def fake_create_signalement(_db, *, entity_id, data):
+        recorded.append((entity_id, data))
+        return {"id": uuid4()}
+
+    async def fake_record_audit(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr("app.services.modules.paxlog_service.create_signalement", fake_create_signalement)
+    monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+
+    incident_row = (
+        SimpleNamespace(
+            id=uuid4(),
+            entity_id=entity_id,
+            user_id=None,
+            contact_id=None,
+            company_id=None,
+            pax_group_id=pax_group_id,
+            asset_id=None,
+            severity="warning",
+            description="Groupe suspendu",
+            incident_date=date(2026, 4, 5),
+            ban_start_date=None,
+            ban_end_date=None,
+            recorded_by=current_user_id,
+            resolved_at=None,
+            resolved_by=None,
+            resolution_notes=None,
+            created_at=datetime.now(timezone.utc),
+            reference=None,
+            category=None,
+            decision=None,
+            decision_duration_days=None,
+            decision_end_date=None,
+            evidence_urls=None,
+        ),
+        None,
+        None,
+        None,
+        None,
+        None,
+        "Equipe Alpha",
+        None,
+    )
+    db = FakeDB([FakeResult(first=incident_row)])
+
+    response = await paxlog.create_incident(
+        paxlog.PaxIncidentCreate(
+            pax_group_id=pax_group_id,
+            severity="warning",
+            description="Groupe suspendu",
+            incident_date=date(2026, 4, 5),
+        ),
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=current_user_id),
+        _=None,
+        db=db,
+    )
+
+    assert recorded and recorded[0][0] == entity_id
+    assert recorded[0][1]["pax_group_id"] == pax_group_id
+    assert response.group_name == "Equipe Alpha"
+    assert response.pax_group_id == pax_group_id
+
+
+@pytest.mark.asyncio
+async def test_apply_signalement_ads_effects_supports_group_scope():
+    entity_id = uuid4()
+    pax_group_id = uuid4()
+    incident = SimpleNamespace(
+        id=uuid4(),
+        severity="temp_ban",
+        asset_id=None,
+        company_id=None,
+        pax_group_id=pax_group_id,
+        user_id=None,
+        contact_id=None,
+        recorded_by=uuid4(),
+        description="Groupe suspendu temporairement",
+    )
+    active_ads = _build_ads(
+        entity_id=entity_id,
+        status="approved",
+        rejected_at=None,
+        rejection_reason=None,
+    )
+    db = FakeDB([FakeScalarResult([active_ads])])
+
+    result = await paxlog_service._apply_signalement_ads_effects(
+        db,
+        entity_id=entity_id,
+        incident=incident,
+    )
+
+    assert result == {"rejected": 0, "requires_review": 1}
+    assert active_ads.status == "requires_review"
+    event = next(obj for obj in db.added if isinstance(obj, AdsEvent))
+    assert event.event_type == "signalement_requires_review"
+    assert event.metadata_json["pax_group_id"] == str(pax_group_id)
+
+
+@pytest.mark.asyncio
+async def test_apply_signalement_ads_effects_ignores_warning_severity():
+    entity_id = uuid4()
+    incident = SimpleNamespace(
+        id=uuid4(),
+        severity="warning",
+        asset_id=None,
+        company_id=None,
+        pax_group_id=None,
+        user_id=uuid4(),
+        contact_id=None,
+        recorded_by=uuid4(),
+        description="Avertissement simple",
+    )
+    db = FakeDB([])
+
+    result = await paxlog_service._apply_signalement_ads_effects(
+        db,
+        entity_id=entity_id,
+        incident=incident,
+    )
+
+    assert result == {"rejected": 0, "requires_review": 0}
+    assert db.added == []
+
+
+@pytest.mark.asyncio
+async def test_apply_signalement_ads_effects_company_scope_rejects_pending_and_reviews_in_progress():
+    entity_id = uuid4()
+    company_id = uuid4()
+    incident = SimpleNamespace(
+        id=uuid4(),
+        severity="temp_ban",
+        asset_id=None,
+        company_id=company_id,
+        pax_group_id=None,
+        user_id=None,
+        contact_id=None,
+        recorded_by=uuid4(),
+        description="Entreprise suspendue temporairement",
+    )
+    pending_ads = _build_ads(
+        entity_id=entity_id,
+        status="pending_validation",
+        rejected_at=None,
+        rejection_reason=None,
+    )
+    in_progress_ads = _build_ads(
+        entity_id=entity_id,
+        status="in_progress",
+        rejected_at=None,
+        rejection_reason=None,
+    )
+    db = FakeDB([FakeScalarResult([pending_ads, in_progress_ads])])
+
+    result = await paxlog_service._apply_signalement_ads_effects(
+        db,
+        entity_id=entity_id,
+        incident=incident,
+    )
+
+    executed_sql = str(db.executed[0][0])
+    assert "tier_contacts" in executed_sql.lower()
+    assert result == {"rejected": 1, "requires_review": 1}
+    assert pending_ads.status == "rejected"
+    assert in_progress_ads.status == "requires_review"
+    events = [obj for obj in db.added if isinstance(obj, AdsEvent)]
+    assert {event.event_type for event in events} == {"signalement_rejected", "signalement_requires_review"}
+    assert all(event.metadata_json["company_id"] == str(company_id) for event in events)
+
+
+@pytest.mark.asyncio
+async def test_apply_signalement_ads_effects_site_ban_filters_to_target_site_only():
+    entity_id = uuid4()
+    asset_id = uuid4()
+    other_asset_id = uuid4()
+    incident = SimpleNamespace(
+        id=uuid4(),
+        severity="site_ban",
+        asset_id=asset_id,
+        company_id=None,
+        pax_group_id=None,
+        user_id=uuid4(),
+        contact_id=None,
+        recorded_by=uuid4(),
+        description="Interdiction sur site ciblé",
+    )
+    impacted_ads = _build_ads(
+        entity_id=entity_id,
+        status="approved",
+        site_entry_asset_id=asset_id,
+        rejected_at=None,
+        rejection_reason=None,
+    )
+    db = FakeDB([FakeScalarResult([impacted_ads])])
+
+    result = await paxlog_service._apply_signalement_ads_effects(
+        db,
+        entity_id=entity_id,
+        incident=incident,
+    )
+
+    executed_sql = str(db.executed[0][0])
+    assert "site_entry_asset_id" in executed_sql
+    assert result == {"rejected": 0, "requires_review": 1}
+    assert impacted_ads.status == "requires_review"
+    event = next(obj for obj in db.added if isinstance(obj, AdsEvent))
+    assert event.metadata_json["asset_id"] == str(asset_id)
+    assert event.metadata_json["severity"] == "site_ban"
+
+@pytest.mark.asyncio
 async def test_resubmit_ads_clears_rejection_and_rechecks_submission(monkeypatch):
     ads = _build_ads(status="requires_review", rejection_reason="Pièces manquantes")
     db = FakeDB([FakeResult(scalar_one_or_none=ads)])
@@ -1846,6 +2342,53 @@ async def test_resubmit_ads_clears_rejection_and_rechecks_submission(monkeypatch
     assert ads_event.old_status == "requires_review"
     assert ads_event.new_status == "pending_validation"
     assert ads_event.reason == "Pièces complétées"
+
+
+@pytest.mark.asyncio
+async def test_resubmit_ads_from_requires_review_does_not_reenter_initiator_or_project_review(monkeypatch):
+    requester_id = uuid4()
+    creator_id = uuid4()
+    ads = _build_ads(
+        status="requires_review",
+        requester_id=requester_id,
+        created_by=creator_id,
+        rejection_reason="Retour OMAA à clarifier",
+    )
+    db = FakeDB([FakeResult(scalar_one_or_none=ads)])
+    transition_calls = []
+    emitted_events = []
+
+    async def fake_run_submission_checks(*args, **kwargs):
+        return ([{"id": "p1"}], False, "pending_validation")
+
+    async def fake_transition(*args, **kwargs):
+        transition_calls.append(kwargs)
+
+    async def fake_emit_transition_event(**kwargs):
+        emitted_events.append(kwargs)
+
+    async def fake_record_audit(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(paxlog, "_run_ads_submission_checks", fake_run_submission_checks)
+    monkeypatch.setattr(paxlog, "_try_ads_workflow_transition", fake_transition)
+    monkeypatch.setattr(paxlog.fsm_service, "emit_transition_event", fake_emit_transition_event)
+    monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+
+    response = await paxlog.resubmit_ads(
+        ads.id,
+        reason="Retour clarifié et pièces mises à jour",
+        entity_id=ads.entity_id,
+        current_user=SimpleNamespace(id=requester_id),
+        _=None,
+        db=db,
+    )
+
+    assert response.status == "pending_validation"
+    assert transition_calls and transition_calls[0]["to_state"] == "pending_validation"
+    assert all(call["to_state"] not in {"pending_initiator_review", "pending_project_review"} for call in transition_calls)
+    assert emitted_events and emitted_events[0]["to_state"] == "pending_validation"
+    assert all(event["to_state"] not in {"pending_initiator_review", "pending_project_review"} for event in emitted_events)
 
 
 @pytest.mark.asyncio
@@ -2005,6 +2548,240 @@ async def test_submit_and_approve_stay_program_require_active_ads_context():
     assert exc_approve.value.detail == "Le PAX cible doit deja appartenir a cette AdS."
 
 
+@pytest.mark.asyncio
+async def test_resolve_ads_imputation_suggestion_supports_group_assignment():
+    entity_id = uuid4()
+    requester_id = uuid4()
+    group_id = uuid4()
+    project_id = uuid4()
+    cost_center_id = uuid4()
+    ads = _build_ads(entity_id=entity_id, requester_id=requester_id, project_id=None)
+    requester = SimpleNamespace(id=requester_id, business_unit_id=None)
+    project = SimpleNamespace(id=project_id, entity_id=entity_id, code="PRJ-001", name="Project Work")
+    cost_center = SimpleNamespace(id=cost_center_id, entity_id=entity_id, code="CC-001", name="Offshore Ops", active=True)
+    reference = SimpleNamespace(
+        id=uuid4(),
+        code="REF-GRP",
+        name="Reference Group",
+        imputation_type="OPEX",
+        otp_policy="forbidden",
+        default_project_id=project_id,
+        default_cost_center_id=cost_center_id,
+        default_project=project,
+        default_cost_center=cost_center,
+        valid_from=None,
+        valid_to=None,
+        active=True,
+    )
+    assignment = SimpleNamespace(valid_from=None, valid_to=None)
+    db = FakeDBWithGet(
+        [
+            FakeResult(all_rows=[]),
+            FakeResult(scalar_one_or_none=None),
+            FakeResult(scalar=FakeScalarResult([group_id])),
+            FakeResult(all_rows=[(assignment, reference)]),
+        ],
+        get_map={
+            (paxlog.User, requester_id): requester,
+        },
+    )
+
+    suggestion = await paxlog._resolve_ads_imputation_suggestion(db, ads=ads, entity_id=entity_id)
+
+    assert suggestion.imputation_reference_id == reference.id
+    assert suggestion.imputation_reference_code == "REF-GRP"
+    assert suggestion.project_id == project_id
+    assert suggestion.project_source == "group_assignment"
+    assert suggestion.cost_center_id == cost_center_id
+    assert suggestion.cost_center_source == "group_assignment"
+    assert "Référence d'imputation appliquée via une affectation de groupe." in suggestion.resolution_notes
+
+
+@pytest.mark.asyncio
+async def test_ensure_ads_default_imputation_creates_line_from_resolved_suggestion(monkeypatch):
+    ads = _build_ads()
+    entity_id = ads.entity_id
+    author_id = uuid4()
+    suggestion = SimpleNamespace(
+        project_id=uuid4(),
+        cost_center_id=uuid4(),
+        imputation_reference_id=uuid4(),
+        imputation_type="OPEX",
+        otp_policy="forbidden",
+        project_source="group_assignment",
+        cost_center_source="group_assignment",
+    )
+    db = FakeDB([FakeResult(scalar_one_or_none=None)])
+
+    async def fake_resolve(_db, *, ads, entity_id):
+        return suggestion
+
+    monkeypatch.setattr(paxlog, "_resolve_ads_imputation_suggestion", fake_resolve)
+
+    await paxlog._ensure_ads_default_imputation(
+        db,
+        ads=ads,
+        entity_id=entity_id,
+        author_id=author_id,
+    )
+
+    imputation = next(obj for obj in db.added if isinstance(obj, CostImputation))
+    assert imputation.owner_type == "ads"
+    assert imputation.owner_id == ads.id
+    assert imputation.project_id == suggestion.project_id
+    assert imputation.cost_center_id == suggestion.cost_center_id
+    assert imputation.imputation_reference_id == suggestion.imputation_reference_id
+    assert imputation.percentage == 100.0
+    assert imputation.created_by == author_id
+    assert imputation.notes == "Default imputation applied from group_assignment/group_assignment"
+
+
+@pytest.mark.asyncio
+async def test_ensure_ads_default_imputation_skips_capex_and_otp_required(monkeypatch):
+    ads = _build_ads()
+    entity_id = ads.entity_id
+    author_id = uuid4()
+    db = FakeDB([FakeResult(scalar_one_or_none=None), FakeResult(scalar_one_or_none=None)])
+    suggestions = iter(
+        [
+            SimpleNamespace(
+                project_id=uuid4(),
+                cost_center_id=uuid4(),
+                imputation_reference_id=uuid4(),
+                imputation_type="CAPEX",
+                otp_policy="forbidden",
+                project_source="project_assignment",
+                cost_center_source="project_assignment",
+            ),
+            SimpleNamespace(
+                project_id=uuid4(),
+                cost_center_id=uuid4(),
+                imputation_reference_id=uuid4(),
+                imputation_type="OPEX",
+                otp_policy="required",
+                project_source="user_assignment",
+                cost_center_source="user_assignment",
+            ),
+        ]
+    )
+
+    async def fake_resolve(_db, *, ads, entity_id):
+        return next(suggestions)
+
+    monkeypatch.setattr(paxlog, "_resolve_ads_imputation_suggestion", fake_resolve)
+
+    await paxlog._ensure_ads_default_imputation(
+        db,
+        ads=ads,
+        entity_id=entity_id,
+        author_id=author_id,
+    )
+    await paxlog._ensure_ads_default_imputation(
+        db,
+        ads=ads,
+        entity_id=entity_id,
+        author_id=author_id,
+    )
+
+    assert not any(isinstance(obj, CostImputation) for obj in db.added)
+
+
+@pytest.mark.asyncio
+async def test_start_ads_progress_transitions_approved_ads(monkeypatch):
+    ads = _build_ads(status="approved")
+    db = FakeDB([FakeResult(scalar_one_or_none=ads)])
+    transition_calls = []
+    emitted_events = []
+    audits = []
+    published_events = []
+
+    async def fake_transition(*args, **kwargs):
+        transition_calls.append(kwargs)
+
+    async def fake_emit_transition_event(**kwargs):
+        emitted_events.append(kwargs)
+
+    async def fake_record_audit(*args, **kwargs):
+        audits.append(kwargs)
+
+    async def fake_build_ads_read_data(_db, *, ads, entity_id):
+        return _ads_read_payload(ads, entity_id)
+
+    class FakeEventBus:
+        async def publish(self, event):
+            published_events.append(event)
+
+    monkeypatch.setattr(paxlog, "_try_ads_workflow_transition", fake_transition)
+    monkeypatch.setattr(paxlog.fsm_service, "emit_transition_event", fake_emit_transition_event)
+    monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+    monkeypatch.setattr(paxlog, "_build_ads_read_data", fake_build_ads_read_data)
+    monkeypatch.setattr("app.core.events.event_bus", FakeEventBus())
+
+    response = await paxlog.start_ads_progress(
+        ads.id,
+        entity_id=ads.entity_id,
+        current_user=SimpleNamespace(id=uuid4()),
+        _=None,
+        db=db,
+    )
+
+    assert response.status == "in_progress"
+    assert transition_calls and transition_calls[0]["to_state"] == "in_progress"
+    assert emitted_events and emitted_events[0]["to_state"] == "in_progress"
+    assert audits and audits[0]["action"] == "paxlog.ads.start_progress"
+    assert published_events and published_events[0].event_type == "ads.in_progress"
+    ads_event = next(obj for obj in db.added if isinstance(obj, AdsEvent))
+    assert ads_event.event_type == "in_progress"
+    assert ads_event.new_status == "in_progress"
+
+
+@pytest.mark.asyncio
+async def test_complete_ads_transitions_in_progress_ads(monkeypatch):
+    ads = _build_ads(status="in_progress")
+    db = FakeDB([FakeResult(scalar_one_or_none=ads)])
+    transition_calls = []
+    emitted_events = []
+    audits = []
+    published_events = []
+
+    async def fake_transition(*args, **kwargs):
+        transition_calls.append(kwargs)
+
+    async def fake_emit_transition_event(**kwargs):
+        emitted_events.append(kwargs)
+
+    async def fake_record_audit(*args, **kwargs):
+        audits.append(kwargs)
+
+    async def fake_build_ads_read_data(_db, *, ads, entity_id):
+        return _ads_read_payload(ads, entity_id)
+
+    class FakeEventBus:
+        async def publish(self, event):
+            published_events.append(event)
+
+    monkeypatch.setattr(paxlog.fsm_service, "emit_transition_event", fake_emit_transition_event)
+    monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+    monkeypatch.setattr(paxlog, "_build_ads_read_data", fake_build_ads_read_data)
+    monkeypatch.setattr(paxlog_service, "event_bus", FakeEventBus())
+
+    response = await paxlog.complete_ads(
+        ads.id,
+        entity_id=ads.entity_id,
+        current_user=SimpleNamespace(id=uuid4()),
+        _=None,
+        db=db,
+    )
+
+    assert response.status == "completed"
+    assert emitted_events and emitted_events[0]["to_state"] == "completed"
+    assert audits and audits[0]["action"] == "paxlog.ads.complete"
+    assert published_events and published_events[0].event_type == "ads.completed"
+    ads_event = next(obj for obj in db.added if isinstance(obj, AdsEvent))
+    assert ads_event.event_type == "completed"
+    assert ads_event.new_status == "completed"
+
+
 def test_ads_routes_use_expected_permissions():
     assert _route_requires_permission("/ads", "GET", "paxlog.ads.read")
     assert _route_requires_permission("/ads/{ads_id}", "GET", "paxlog.ads.read")
@@ -2013,6 +2790,8 @@ def test_ads_routes_use_expected_permissions():
     assert _route_requires_permission("/ads/{ads_id}/submit", "POST", "paxlog.ads.submit")
     assert _route_requires_permission("/ads/{ads_id}/approve", "POST", "paxlog.ads.approve")
     assert _route_requires_permission("/ads/{ads_id}/approve", "POST", "project.update")
+    assert _route_requires_permission("/ads/{ads_id}/start-progress", "POST", "paxlog.ads.approve")
+    assert _route_requires_permission("/ads/{ads_id}/complete", "POST", "paxlog.ads.approve")
     assert _route_requires_permission("/ads/{ads_id}/reject", "POST", "paxlog.ads.approve")
     assert _route_requires_permission("/ads/{ads_id}/reject", "POST", "project.update")
     assert _route_requires_permission("/ads/{ads_id}/cancel", "POST", "paxlog.ads.cancel")
@@ -2026,8 +2805,10 @@ def test_avm_routes_use_expected_permissions():
 
 def test_profile_and_compliance_routes_use_expected_permissions():
     assert _route_requires_permission("/profiles", "GET", "paxlog.profile.read")
+    assert _route_requires_permission("/pax-groups", "GET", "paxlog.profile.read")
     assert _route_requires_permission("/profiles/check-duplicates", "POST", "paxlog.profile.read")
     assert _route_requires_permission("/profiles/{profile_id}", "GET", "paxlog.profile.read")
+    assert _route_requires_permission("/profiles/{profile_id}/site-presence-history", "GET", "paxlog.profile.read")
     assert _route_requires_permission("/credential-types", "GET", "paxlog.credential_type.read")
     assert _route_requires_permission("/profiles/{profile_id}/credentials", "GET", "paxlog.credential.read")
     assert _route_requires_permission("/profiles/{profile_id}/compliance/{asset_id}", "GET", "paxlog.compliance.read")
@@ -2048,6 +2829,249 @@ def test_secondary_paxlog_routes_use_expected_permissions():
     assert _route_requires_permission("/profile-types", "GET", "paxlog.profile_type.manage")
     assert _route_requires_permission("/pax/{pax_id}/profile-types", "GET", "paxlog.profile.read")
     assert _route_requires_permission("/habilitation-matrix", "GET", "paxlog.profile_type.manage")
+
+
+@pytest.mark.asyncio
+async def test_create_profile_rejects_phonetic_duplicate_contact():
+    entity_id = uuid4()
+    company_id = uuid4()
+    existing = SimpleNamespace(
+        id=uuid4(),
+        first_name="Moussa",
+        last_name="Diallo",
+        badge_number="X-01",
+    )
+    db = FakeDB([FakeResult(all_rows=[existing])])
+
+    with pytest.raises(HTTPException) as exc:
+        await paxlog.create_profile(
+            paxlog._ExternalPaxCreate(
+                first_name="Mussa",
+                last_name="Diallo",
+                company_id=company_id,
+            ),
+            entity_id=entity_id,
+            current_user=SimpleNamespace(id=uuid4(), user_type="internal"),
+            _=None,
+            db=db,
+        )
+
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "DUPLICATE_PAX_PROFILE"
+
+
+@pytest.mark.asyncio
+async def test_check_profile_duplicates_detects_phonetic_match():
+    entity_id = uuid4()
+    user_row = SimpleNamespace(
+        id=uuid4(),
+        first_name="Moussa",
+        last_name="Diallo",
+        birth_date=None,
+        badge_number="X-01",
+    )
+    db = FakeDB([
+        FakeResult(all_rows=[user_row]),
+        FakeResult(all_rows=[]),
+    ])
+
+    response = await paxlog.check_profile_duplicates(
+        first_name="Mussa",
+        last_name="Diallo",
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=uuid4(), user_type="internal"),
+        _=None,
+        db=db,
+    )
+
+    assert response["has_duplicates"] is True
+    assert response["matches"][0]["match_type"] == "name_phonetic"
+
+
+@pytest.mark.asyncio
+async def test_get_profile_site_presence_history_returns_ads_and_boarding_context(monkeypatch):
+    entity_id = uuid4()
+    profile_id = uuid4()
+    site_asset_id = uuid4()
+    ads_id = uuid4()
+    row = (
+        ads_id,
+        "ADS-330",
+        "completed",
+        "approved",
+        site_asset_id,
+        "Onshore A",
+        date(2026, 4, 10),
+        date(2026, 4, 12),
+        "Inspection",
+        "mission",
+        "boarded",
+        datetime(2026, 4, 10, 8, 0, tzinfo=timezone.utc),
+        datetime(2026, 4, 8, 9, 0, tzinfo=timezone.utc),
+        datetime(2026, 4, 12, 18, 0, tzinfo=timezone.utc),
+    )
+    db = FakeDB([FakeResult(all_rows=[row])])
+
+    async def fake_resolve(*_args, **_kwargs):
+        return SimpleNamespace(id=profile_id), None
+
+    monkeypatch.setattr(paxlog, "_resolve_pax_identity", fake_resolve)
+
+    response = await paxlog.get_profile_site_presence_history(
+        profile_id,
+        pax_source="user",
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=uuid4(), user_type="internal"),
+        _=None,
+        db=db,
+    )
+
+    sql = str(db.executed[0][0])
+    assert "manifest_passengers" in sql
+    assert "ar_installations" in sql
+    assert response[0].ads_reference == "ADS-330"
+    assert response[0].site_name == "Onshore A"
+    assert response[0].boarding_status == "boarded"
+
+
+@pytest.mark.asyncio
+async def test_check_pax_compliance_exposes_layers_and_status_summary():
+    entity_id = uuid4()
+    asset_id = uuid4()
+    user_id = uuid4()
+    site_requirement_id = uuid4()
+    job_requirement_id = uuid4()
+    db = FakeDB([
+        FakeResult(all_rows=[(asset_id,)]),
+        FakeResult(all_rows=[
+            SimpleNamespace(
+                credential_type_id=site_requirement_id,
+                scope="all_visitors",
+            ),
+        ]),
+        FakeResult(all_rows=[(job_requirement_id, True)]),
+        FakeResult(all_rows=[
+            SimpleNamespace(
+                credential_type_id=job_requirement_id,
+                status="pending_validation",
+                expiry_date=date(2026, 4, 20),
+            ),
+        ]),
+        FakeResult(all_rows=[
+            SimpleNamespace(id=site_requirement_id, code="H2S", name="H2S Awareness"),
+            SimpleNamespace(id=job_requirement_id, code="ELEC", name="Habilitation electrique"),
+        ]),
+    ])
+
+    response = await paxlog_service.check_pax_compliance(
+        db,
+        asset_id=asset_id,
+        entity_id=entity_id,
+        user_id=user_id,
+    )
+
+    assert response["compliant"] is False
+    assert response["covered_layers"] == ["site_requirements", "job_profile", "self_declaration"]
+    assert response["summary_by_status"]["pending_validation"] == 1
+    assert response["summary_by_status"]["missing"] == 1
+    by_code = {item["credential_type_code"]: item for item in response["results"]}
+    assert by_code["ELEC"]["status"] == "pending_validation"
+    assert by_code["ELEC"]["layer"] == "job_profile"
+    assert by_code["ELEC"]["blocking"] is False
+    assert by_code["H2S"]["status"] == "missing"
+    assert by_code["H2S"]["layer"] == "site_requirements"
+
+
+@pytest.mark.asyncio
+async def test_check_compliance_route_returns_enriched_compliance_contract(monkeypatch):
+    entity_id = uuid4()
+    profile_id = uuid4()
+    asset_id = uuid4()
+
+    async def fake_resolve_identity(*_args, **_kwargs):
+        return SimpleNamespace(id=profile_id), None
+
+    async def fake_check(*_args, **_kwargs):
+        return {
+            "compliant": False,
+            "results": [
+                {
+                    "credential_type_code": "H2S",
+                    "credential_type_name": "H2S Awareness",
+                    "status": "pending_validation",
+                    "message": "En attente de validation : H2S Awareness",
+                    "expiry_date": date(2026, 4, 20),
+                    "layer": "self_declaration",
+                    "blocking": False,
+                },
+                {
+                    "credential_type_code": "BOSIET",
+                    "credential_type_name": "BOSIET",
+                    "status": "missing",
+                    "message": "Habilitation manquante : BOSIET",
+                    "expiry_date": None,
+                    "layer": "site_requirements",
+                    "blocking": True,
+                },
+            ],
+            "covered_layers": ["site_requirements", "self_declaration"],
+            "summary_by_status": {"pending_validation": 1, "missing": 1},
+        }
+
+    monkeypatch.setattr(paxlog, "_resolve_pax_identity", fake_resolve_identity)
+    monkeypatch.setattr(paxlog_service, "check_pax_compliance", fake_check)
+
+    response = await paxlog.check_compliance(
+        profile_id,
+        asset_id,
+        pax_source="user",
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=uuid4(), user_type="internal"),
+        _=None,
+        db=FakeDB([]),
+    )
+
+    assert response.user_id == profile_id
+    assert response.asset_id == asset_id
+    assert response.compliant is False
+    assert response.missing_credentials == ["BOSIET"]
+    assert response.pending_credentials == ["H2S Awareness"]
+    assert response.covered_layers == ["site_requirements", "self_declaration"]
+    assert response.summary_by_status["missing"] == 1
+    assert response.results[0].status == "pending_validation"
+
+
+@pytest.mark.asyncio
+async def test_get_expiring_credentials_exposes_alert_buckets_and_entity_scope():
+    entity_id = uuid4()
+    today = date.today()
+    db = FakeDB(
+        [
+            FakeResult(
+                all_rows=[
+                    (uuid4(), uuid4(), uuid4(), today, "valid", "Aline", "Mukeba", "B-01", "MED", "Medical"),
+                    (uuid4(), uuid4(), uuid4(), today + timedelta(days=7), "valid", "Boris", "Maki", "B-02", "SAFE", "Safety"),
+                ]
+            ),
+            FakeResult(
+                all_rows=[
+                    (uuid4(), uuid4(), uuid4(), today + timedelta(days=30), "valid", "Chris", "Mvula", "C-01", "H2S", "H2S"),
+                ]
+            ),
+        ]
+    )
+
+    response = await paxlog.get_expiring_credentials(
+        days_ahead=45,
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=uuid4()),
+        _=None,
+        db=db,
+    )
+
+    user_sql = str(db.executed[0][0])
+    assert "default_entity_id" in user_sql
+    assert [item["alert_bucket"] for item in response] == ["j0", "j7", "j30"]
 
 
 @pytest.mark.asyncio
@@ -2108,6 +3132,116 @@ async def test_access_external_link_exposes_preconfigured_data_with_valid_sessio
     assert response["authenticated"] is True
     assert response["preconfigured_data"] == {"company_name": "Vendor X"}
     assert response["remaining_uses"] is None
+
+
+@pytest.mark.asyncio
+async def test_send_external_link_otp_sets_code_and_masks_destination(monkeypatch):
+    link = SimpleNamespace(
+        otp_required=True,
+        otp_sent_to="contractor@example.com",
+        otp_code_hash=None,
+        otp_expires_at=None,
+        otp_attempt_count=2,
+        session_token_hash="old-session",
+        session_expires_at=datetime(2026, 4, 1, tzinfo=timezone.utc),
+        access_log=[],
+    )
+    sent_messages = []
+
+    async def fake_get_link(_db, _token):
+        return link
+
+    async def fake_send_email(*, to, subject, body_html):
+        sent_messages.append({"to": to, "subject": subject, "body_html": body_html})
+
+    monkeypatch.setattr(paxlog, "_get_external_link_or_404", fake_get_link)
+    monkeypatch.setattr("app.core.notifications.send_email", fake_send_email)
+    monkeypatch.setattr(paxlog.secrets, "randbelow", lambda _max: 123456)
+
+    response = await paxlog.send_external_link_otp(
+        "token-otp",
+        request=SimpleNamespace(client=SimpleNamespace(host="127.0.0.1"), headers={"user-agent": "pytest"}),
+        db=FakeDB([]),
+    )
+
+    assert response["otp_required"] is True
+    assert response["destination_masked"] == "co********@example.com"
+    assert response["expires_in_seconds"] == paxlog.EXTERNAL_OTP_TTL_MINUTES * 60
+    assert sent_messages and "123456" in sent_messages[0]["body_html"]
+    assert link.otp_code_hash == paxlog._hash_secret("123456")
+    assert link.otp_attempt_count == 0
+    assert link.session_token_hash is None
+    assert link.session_expires_at is None
+    assert link.access_log[-1]["action"] == "otp_sent"
+
+
+@pytest.mark.asyncio
+async def test_verify_external_link_otp_rejects_invalid_code_and_tracks_attempt(monkeypatch):
+    link = SimpleNamespace(
+        otp_required=True,
+        otp_code_hash=paxlog._hash_secret("123456"),
+        otp_expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
+        otp_attempt_count=0,
+        session_token_hash=None,
+        session_expires_at=None,
+        access_log=[],
+    )
+
+    async def fake_get_link(_db, _token):
+        return link
+
+    monkeypatch.setattr(paxlog, "_get_external_link_or_404", fake_get_link)
+
+    with pytest.raises(HTTPException) as exc:
+        await paxlog.verify_external_link_otp(
+            "token-otp",
+            paxlog.ExternalOtpVerifyBody(code="000000"),
+            request=SimpleNamespace(client=SimpleNamespace(host="127.0.0.1"), headers={"user-agent": "pytest"}),
+            db=FakeDB([]),
+        )
+
+    assert exc.value.status_code == 400
+    assert link.otp_attempt_count == 1
+    assert link.access_log[-1]["action"] == "otp_failed"
+    assert link.session_token_hash is None
+
+
+@pytest.mark.asyncio
+async def test_verify_external_link_otp_opens_session_and_consumes_use(monkeypatch):
+    link = SimpleNamespace(
+        otp_required=True,
+        otp_code_hash=paxlog._hash_secret("123456"),
+        otp_expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
+        otp_attempt_count=1,
+        session_token_hash=None,
+        session_expires_at=None,
+        last_validated_at=None,
+        use_count=0,
+        access_log=[],
+    )
+
+    async def fake_get_link(_db, _token):
+        return link
+
+    monkeypatch.setattr(paxlog, "_get_external_link_or_404", fake_get_link)
+    monkeypatch.setattr(paxlog.secrets, "token_urlsafe", lambda _n: "session-token-123")
+
+    response = await paxlog.verify_external_link_otp(
+        "token-otp",
+        paxlog.ExternalOtpVerifyBody(code="123456"),
+        request=SimpleNamespace(client=SimpleNamespace(host="127.0.0.1"), headers={"user-agent": "pytest"}),
+        db=FakeDB([]),
+    )
+
+    assert response["session_token"] == "session-token-123"
+    assert response["expires_in_seconds"] == paxlog.EXTERNAL_SESSION_TTL_MINUTES * 60
+    assert link.otp_code_hash is None
+    assert link.otp_expires_at is None
+    assert link.otp_attempt_count == 0
+    assert link.session_token_hash == paxlog._hash_secret("session-token-123")
+    assert link.last_validated_at is not None
+    assert link.use_count == 1
+    assert link.access_log[-1]["action"] == "otp_validated"
 
 
 @pytest.mark.asyncio
@@ -2172,7 +3306,7 @@ async def test_resubmit_external_ads_uses_finalize_flow(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_external_ads_dossier_filters_pax_to_allowed_company(monkeypatch):
-    link = SimpleNamespace(id=uuid4(), preconfigured_data={}, access_log=[])
+    link = SimpleNamespace(id=uuid4(), preconfigured_data={"company_name": "Vendor X"}, access_log=[])
     allowed_company_id = uuid4()
     ads = _build_ads(status="draft")
     visible_contact = SimpleNamespace(
@@ -2205,10 +3339,50 @@ async def test_get_external_ads_dossier_filters_pax_to_allowed_company(monkeypat
         [
             FakeResult(
                 all_rows=[
-                    (SimpleNamespace(id=uuid4(), status="pending_check"), visible_contact),
+                    (
+                        SimpleNamespace(
+                            id=uuid4(),
+                            status="pending_check",
+                            compliance_summary={
+                                "compliant": False,
+                                "results": [
+                                    {
+                                        "credential_type_code": "MED",
+                                        "credential_type_name": "Medical",
+                                        "status": "missing",
+                                        "message": "Medical certificate missing",
+                                        "expiry_date": None,
+                                    },
+                                    {
+                                        "credential_type_code": "SAFE",
+                                        "credential_type_name": "Safety",
+                                        "status": "valid",
+                                        "message": None,
+                                        "expiry_date": None,
+                                    },
+                                ],
+                            },
+                        ),
+                        visible_contact,
+                    ),
                     (SimpleNamespace(id=uuid4(), status="pending_check"), hidden_contact),
                 ]
-            )
+            ),
+            FakeResult(
+                all_rows=[
+                    (
+                        SimpleNamespace(
+                            id=uuid4(),
+                            contact_id=visible_contact.id,
+                            obtained_date=date(2026, 4, 1),
+                            expiry_date=date(2026, 10, 1),
+                            proof_url="https://files.example/medical.pdf",
+                            status="pending_validation",
+                        ),
+                        SimpleNamespace(code="MED", name="Medical"),
+                    ),
+                ]
+            ),
         ]
     )
 
@@ -2231,8 +3405,18 @@ async def test_get_external_ads_dossier_filters_pax_to_allowed_company(monkeypat
     )
 
     assert response["allowed_company_id"] == str(allowed_company_id)
+    assert response["allowed_company_name"] == "Vendor X"
     assert len(response["pax"]) == 1
     assert response["pax"][0]["contact_id"] == str(visible_contact.id)
+    assert response["pax"][0]["compliance_ok"] is False
+    assert response["pax"][0]["compliance_blocker_count"] == 1
+    assert response["pax"][0]["compliance_blockers"][0]["credential_type_code"] == "MED"
+    assert response["pax"][0]["credentials"][0]["credential_type_code"] == "MED"
+    assert response["pax"][0]["credentials"][0]["status"] == "pending_validation"
+    assert response["pax_summary"]["total"] == 1
+    assert response["pax_summary"]["pending_check"] == 1
+    assert response["ads"]["outbound_transport_mode"] == ads.outbound_transport_mode
+    assert response["ads"]["return_transport_mode"] == ads.return_transport_mode
 
 
 @pytest.mark.asyncio
@@ -2623,3 +3807,504 @@ async def test_travelwiz_planner_change_skips_notifications_when_no_manifest_imp
     )
 
     assert notifications == []
+
+
+@pytest.mark.asyncio
+async def test_planner_modified_event_propagates_to_paxlog_and_travelwiz(monkeypatch):
+    entity_id = uuid4()
+    activity_id = uuid4()
+    ads_id = uuid4()
+    requester_id = uuid4()
+    paxlog_db = FakeDB([FakeResult(all_rows=[(ads_id, "ADS-777", requester_id)])])
+    travelwiz_db = FakeDB([FakeResult(all_rows=[(uuid4(),), (uuid4(),)])])
+    paxlog_notifications = []
+    travelwiz_notifications = []
+
+    async def fake_send_in_app(*args, **kwargs):
+        if kwargs.get("category") == "paxlog":
+            paxlog_notifications.append(kwargs)
+        elif kwargs.get("category") == "travelwiz":
+            travelwiz_notifications.append(kwargs)
+
+    async def fake_get_admin_user_ids(_entity_id):
+        return [uuid4(), uuid4()]
+
+    monkeypatch.setattr("app.core.notifications.send_in_app", fake_send_in_app)
+    monkeypatch.setattr("app.event_handlers.core_handlers._get_admin_user_ids", fake_get_admin_user_ids)
+    monkeypatch.setattr(paxlog_handlers, "async_session_factory", lambda: FakeAsyncSessionContext(paxlog_db))
+    monkeypatch.setattr(travelwiz_handlers, "async_session_factory", lambda: FakeAsyncSessionContext(travelwiz_db))
+
+    event = OpsFluxEvent(
+        event_type="planner.activity.modified",
+        payload={
+            "activity_id": str(activity_id),
+            "entity_id": str(entity_id),
+            "title": "Inspection compressor",
+            "changes": {
+                "start_date": {"old": "2026-04-10", "new": "2026-04-12"},
+                "pax_quota": {"old": "8", "new": "12"},
+            },
+        },
+    )
+
+    await paxlog_handlers.on_planner_activity_modified(event)
+    await travelwiz_handlers.on_planner_activity_modified_tw(event)
+
+    planner_events = [obj for obj in paxlog_db.added if isinstance(obj, AdsEvent)]
+    assert len(planner_events) == 1
+    assert planner_events[0].event_type == "planner_activity_modified_requires_review"
+    assert planner_events[0].metadata_json["planner_activity_id"] == str(activity_id)
+    assert planner_events[0].metadata_json["changes"]["pax_quota"]["new"] == "12"
+    assert paxlog_notifications and paxlog_notifications[0]["link"] == f"/paxlog/ads/{ads_id}"
+
+    travelwiz_sql = str(travelwiz_db.executed[0][0])
+    assert "UPDATE pax_manifests pm SET status = 'requires_review'" in travelwiz_sql
+    assert len(travelwiz_notifications) == 2
+    assert all(item["category"] == "travelwiz" for item in travelwiz_notifications)
+    assert "Inspection compressor" in travelwiz_notifications[0]["body"]
+    assert "pax_quota" in travelwiz_notifications[0]["body"]
+
+
+@pytest.mark.asyncio
+async def test_module_handler_manifest_closed_completes_linked_ads_with_traceability(monkeypatch):
+    entity_id = uuid4()
+    manifest_id = uuid4()
+    voyage_id = uuid4()
+    ads_id = uuid4()
+    ads_pax_id = uuid4()
+    requester_id = uuid4()
+    passenger = SimpleNamespace(manifest_id=manifest_id, ads_pax_id=ads_pax_id, boarding_status="boarded")
+    ads = _build_ads(id=ads_id, entity_id=entity_id, requester_id=requester_id, status="in_progress")
+    db = FakeDB(
+        [
+            FakeScalarResult([passenger]),
+            FakeResult(scalar_one_or_none=ads_id),
+            FakeResult(scalar_one_or_none=ads),
+        ]
+    )
+    transition_events = []
+    published_events = []
+
+    async def fake_emit_transition_event(**kwargs):
+        transition_events.append(kwargs)
+
+    class FakeEventBus:
+        async def publish(self, event):
+            published_events.append(event)
+
+    monkeypatch.setattr(module_handlers, "async_session_factory", lambda: FakeAsyncSessionContext(db))
+    monkeypatch.setattr(module_handlers.fsm_service, "emit_transition_event", fake_emit_transition_event)
+    monkeypatch.setattr(module_handlers, "event_bus", FakeEventBus())
+
+    await module_handlers.on_travelwiz_manifest_closed(
+        OpsFluxEvent(
+            event_type="travelwiz.manifest.closed",
+            payload={
+                "manifest_id": str(manifest_id),
+                "voyage_id": str(voyage_id),
+                "entity_id": str(entity_id),
+                "is_return": True,
+            },
+        )
+    )
+
+    assert ads.status == "completed"
+    ads_event = next(obj for obj in db.added if isinstance(obj, AdsEvent))
+    assert ads_event.event_type == "completed"
+    assert ads_event.metadata_json["source"] == "travelwiz.manifest.closed"
+    assert ads_event.metadata_json["manifest_id"] == str(manifest_id)
+    assert transition_events and transition_events[0]["to_state"] == "completed"
+    assert published_events and published_events[0].event_type == "ads.completed"
+    assert published_events[0].payload["source"] == "travelwiz.manifest.closed"
+
+
+@pytest.mark.asyncio
+async def test_module_handler_trip_closed_completes_linked_ads_with_traceability(monkeypatch):
+    entity_id = uuid4()
+    manifest_id = uuid4()
+    voyage_id = uuid4()
+    ads_id = uuid4()
+    ads_pax_id = uuid4()
+    requester_id = uuid4()
+    passenger = SimpleNamespace(manifest_id=manifest_id, ads_pax_id=ads_pax_id, boarding_status="boarded")
+    ads = _build_ads(id=ads_id, entity_id=entity_id, requester_id=requester_id, status="in_progress")
+    db = FakeDB(
+        [
+            FakeScalarResult([manifest_id]),
+            FakeScalarResult([passenger]),
+            FakeResult(scalar_one_or_none=ads_id),
+            FakeResult(scalar_one_or_none=ads),
+        ]
+    )
+    transition_events = []
+    published_events = []
+
+    async def fake_emit_transition_event(**kwargs):
+        transition_events.append(kwargs)
+
+    class FakeEventBus:
+        async def publish(self, event):
+            published_events.append(event)
+
+    monkeypatch.setattr(module_handlers, "async_session_factory", lambda: FakeAsyncSessionContext(db))
+    monkeypatch.setattr(module_handlers.fsm_service, "emit_transition_event", fake_emit_transition_event)
+    monkeypatch.setattr(module_handlers, "event_bus", FakeEventBus())
+
+    await module_handlers.on_travelwiz_trip_closed(
+        OpsFluxEvent(
+            event_type="travelwiz.trip.closed",
+            payload={
+                "voyage_id": str(voyage_id),
+                "entity_id": str(entity_id),
+            },
+        )
+    )
+
+    assert ads.status == "completed"
+    ads_event = next(obj for obj in db.added if isinstance(obj, AdsEvent))
+    assert ads_event.event_type == "completed"
+    assert ads_event.metadata_json["source"] == "travelwiz.trip.closed"
+    assert ads_event.metadata_json["voyage_id"] == str(voyage_id)
+    assert ads_event.metadata_json["manifest_id"] is None
+    assert transition_events and transition_events[0]["to_state"] == "completed"
+    assert published_events and published_events[0].event_type == "ads.completed"
+    assert published_events[0].payload["source"] == "travelwiz.trip.closed"
+
+
+@pytest.mark.asyncio
+async def test_overdue_ads_job_sends_single_alert_before_autoclose(monkeypatch):
+    entity_id = uuid4()
+    requester_id = uuid4()
+    ads = _build_ads(entity_id=entity_id, requester_id=requester_id, status="in_progress", end_date=date(2026, 4, 1))
+    db = FakeDB(
+        [
+            FakeScalarResult([]),
+            FakeScalarResult([ads]),
+            FakeResult(scalar_one_or_none=None),
+        ]
+    )
+    notifications = []
+
+    class FakeDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 4, 2, 1, 30, tzinfo=timezone.utc)
+
+    async def fake_send_in_app(*args, **kwargs):
+        notifications.append(kwargs)
+
+    monkeypatch.setattr(paxlog_ads_autoclose, "async_session_factory", lambda: FakeAsyncSessionContext(db))
+    monkeypatch.setattr(paxlog_ads_autoclose, "send_in_app", fake_send_in_app)
+    monkeypatch.setattr(paxlog_ads_autoclose, "datetime", FakeDateTime)
+
+    result = await paxlog_ads_autoclose.process_overdue_ads_closure()
+
+    assert result == {"alerts_sent": 1, "auto_closed": 0}
+    alert_event = next(obj for obj in db.added if isinstance(obj, AdsEvent))
+    assert alert_event.event_type == "overdue_return_alert"
+    assert alert_event.metadata_json["source"] == "paxlog.nightly_autoclose"
+    assert notifications and "dépass" in notifications[0]["body"]
+
+
+@pytest.mark.asyncio
+async def test_overdue_ads_job_autocloses_after_grace(monkeypatch):
+    entity_id = uuid4()
+    requester_id = uuid4()
+    ads = _build_ads(entity_id=entity_id, requester_id=requester_id, status="in_progress", end_date=date(2026, 4, 1))
+    db = FakeDB(
+        [
+            FakeScalarResult([]),
+            FakeScalarResult([ads]),
+        ]
+    )
+    notifications = []
+    transition_events = []
+    published_events = []
+
+    class FakeDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 4, 4, 1, 30, tzinfo=timezone.utc)
+
+    async def fake_send_in_app(*args, **kwargs):
+        notifications.append(kwargs)
+
+    async def fake_emit_transition_event(**kwargs):
+        transition_events.append(kwargs)
+
+    class FakeEventBus:
+        async def publish(self, event):
+            published_events.append(event)
+
+    monkeypatch.setattr(paxlog_ads_autoclose, "async_session_factory", lambda: FakeAsyncSessionContext(db))
+    monkeypatch.setattr(paxlog_ads_autoclose, "send_in_app", fake_send_in_app)
+    monkeypatch.setattr(paxlog_ads_autoclose, "datetime", FakeDateTime)
+    monkeypatch.setattr(paxlog_service.fsm_service, "emit_transition_event", fake_emit_transition_event)
+    monkeypatch.setattr(paxlog_service, "event_bus", FakeEventBus())
+
+    result = await paxlog_ads_autoclose.process_overdue_ads_closure()
+
+    assert result == {"alerts_sent": 0, "auto_closed": 1}
+    assert ads.status == "completed"
+    ads_event = next(obj for obj in db.added if isinstance(obj, AdsEvent))
+    assert ads_event.metadata_json["source"] == "paxlog.nightly_autoclose"
+    assert ads_event.metadata_json["grace_days"] == paxlog_ads_autoclose.DEFAULT_GRACE_DAYS
+    assert transition_events and transition_events[0]["to_state"] == "completed"
+    assert published_events and published_events[0].payload["source"] == "paxlog.nightly_autoclose"
+    assert notifications and "clôturée automatiquement" in notifications[0]["body"]
+
+
+@pytest.mark.asyncio
+async def test_requires_review_followup_sends_single_reminder(monkeypatch):
+    entity_id = uuid4()
+    requester_id = uuid4()
+    ads = _build_ads(
+        entity_id=entity_id,
+        requester_id=requester_id,
+        status="requires_review",
+        updated_at=datetime(2026, 3, 1, tzinfo=timezone.utc),
+    )
+    notifications = []
+
+    class FakeDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 3, 20, tzinfo=timezone.utc)
+
+    db = FakeDB([
+        FakeScalarResult([ads]),
+        FakeResult(scalar_one_or_none=None),
+    ])
+
+    async def fake_send_in_app(*args, **kwargs):
+        notifications.append(kwargs)
+
+    monkeypatch.setattr(paxlog_requires_review_followup, "async_session_factory", lambda: FakeAsyncSessionContext(db))
+    monkeypatch.setattr(paxlog_requires_review_followup, "send_in_app", fake_send_in_app)
+    monkeypatch.setattr(paxlog_requires_review_followup, "datetime", FakeDateTime)
+
+    result = await paxlog_requires_review_followup.process_requires_review_followup()
+
+    assert result == {"reminders_sent": 1}
+    reminder_event = next(obj for obj in db.added if isinstance(obj, AdsEvent))
+    assert reminder_event.event_type == "requires_review_reminder"
+    assert reminder_event.metadata_json["source"] == "paxlog.requires_review_followup"
+    assert reminder_event.metadata_json["days_in_requires_review"] == 14
+    assert notifications and notifications[0]["link"] == f"/paxlog/ads/{ads.id}"
+
+
+@pytest.mark.asyncio
+async def test_requires_review_followup_skips_when_reminder_already_sent(monkeypatch):
+    entity_id = uuid4()
+    requester_id = uuid4()
+    ads = _build_ads(
+        entity_id=entity_id,
+        requester_id=requester_id,
+        status="requires_review",
+        updated_at=datetime(2026, 3, 1, tzinfo=timezone.utc),
+    )
+    notifications = []
+
+    class FakeDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 3, 20, tzinfo=timezone.utc)
+
+    db = FakeDB([
+        FakeScalarResult([ads]),
+        FakeResult(scalar_one_or_none=uuid4()),
+    ])
+
+    async def fake_send_in_app(*args, **kwargs):
+        notifications.append(kwargs)
+
+    monkeypatch.setattr(paxlog_requires_review_followup, "async_session_factory", lambda: FakeAsyncSessionContext(db))
+    monkeypatch.setattr(paxlog_requires_review_followup, "send_in_app", fake_send_in_app)
+    monkeypatch.setattr(paxlog_requires_review_followup, "datetime", FakeDateTime)
+
+    result = await paxlog_requires_review_followup.process_requires_review_followup()
+
+    assert result == {"reminders_sent": 0}
+    assert notifications == []
+
+
+@pytest.mark.asyncio
+async def test_process_rotation_cycles_uses_rotation_columns_and_creates_ads_for_internal_user(monkeypatch):
+    entity_id = uuid4()
+    cycle_id = uuid4()
+    user_id = uuid4()
+    site_asset_id = uuid4()
+    project_id = uuid4()
+    created_by = uuid4()
+    db = FakeDB(
+        [
+            FakeResult(all_rows=[(cycle_id, user_id, None, site_asset_id, 14, 14, date(2026, 4, 12), 7, project_id, None, created_by)]),
+            FakeResult(scalar=uuid4()),
+            FakeResult(),
+            FakeResult(),
+        ]
+    )
+
+    async def fake_generate_ads_reference(_db, _entity_id):
+        return "ADS-ROT-001"
+
+    monkeypatch.setattr(paxlog_service, "generate_ads_reference", fake_generate_ads_reference)
+
+    created = await paxlog_service.process_rotation_cycles(db, entity_id)
+
+    assert created == 1
+    select_sql = str(db.executed[0][0])
+    insert_sql = str(db.executed[1][0])
+    update_sql = str(db.executed[3][0])
+    assert "rotation_days_on" in select_sql
+    assert "rotation_days_off" in select_sql
+    assert "days_on" not in select_sql.replace("rotation_days_on", "").replace("rotation_days_off", "")
+    assert "INSERT INTO ads" in insert_sql
+    assert "created_by" in insert_sql
+    assert "requester_id" in insert_sql
+    assert "UPDATE pax_rotation_cycles SET next_on_date" in update_sql
+    assert db.commits == 1
+
+
+@pytest.mark.asyncio
+async def test_process_rotation_cycles_uses_cycle_creator_as_sponsor_for_external_contact(monkeypatch):
+    entity_id = uuid4()
+    cycle_id = uuid4()
+    contact_id = uuid4()
+    site_asset_id = uuid4()
+    sponsor_user_id = uuid4()
+    new_ads_id = uuid4()
+    db = FakeDB(
+        [
+            FakeResult(all_rows=[(cycle_id, None, contact_id, site_asset_id, 14, 14, date(2026, 4, 12), 7, None, None, sponsor_user_id)]),
+            FakeResult(scalar=new_ads_id),
+            FakeResult(),
+            FakeResult(),
+        ]
+    )
+
+    async def fake_generate_ads_reference(_db, _entity_id):
+        return "ADS-ROT-002"
+
+    monkeypatch.setattr(paxlog_service, "generate_ads_reference", fake_generate_ads_reference)
+
+    created = await paxlog_service.process_rotation_cycles(db, entity_id)
+
+    assert created == 1
+    insert_ads_sql = str(db.executed[1][0])
+    insert_pax_sql = str(db.executed[2][0])
+    insert_ads_params = db.executed[1][1]
+    insert_pax_params = db.executed[2][1]
+    assert "created_by" in insert_ads_sql
+    assert "requester_id" in insert_ads_sql
+    assert "contact_id" in insert_pax_sql
+    assert insert_ads_params["created_by"] == str(sponsor_user_id)
+    assert insert_ads_params["requester_id"] == str(sponsor_user_id)
+    assert insert_pax_params["pax_fk"] == str(contact_id)
+    assert db.commits == 1
+
+
+@pytest.mark.asyncio
+async def test_create_rotation_cycle_uses_rotation_columns_and_created_by(monkeypatch):
+    entity_id = uuid4()
+    current_user_id = uuid4()
+    cycle_id = uuid4()
+    user_id = uuid4()
+    site_asset_id = uuid4()
+    audits = []
+    db = FakeDB([FakeResult(scalar=cycle_id)])
+
+    async def fake_record_audit(*args, **kwargs):
+        audits.append(kwargs)
+
+    monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+
+    response = await paxlog.create_rotation_cycle(
+        site_asset_id=site_asset_id,
+        days_on=21,
+        days_off=21,
+        cycle_start_date=date(2026, 4, 20),
+        user_id=user_id,
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=current_user_id),
+        _=None,
+        db=db,
+    )
+
+    insert_sql = str(db.executed[0][0])
+    assert "rotation_days_on" in insert_sql
+    assert "rotation_days_off" in insert_sql
+    assert "created_by" in insert_sql
+    assert response["id"] == str(cycle_id)
+    assert audits and audits[0]["action"] == "paxlog.rotation.create"
+
+
+@pytest.mark.asyncio
+async def test_list_rotation_cycles_returns_paginated_enriched_rows_and_status_alias(monkeypatch):
+    entity_id = uuid4()
+    user_id = uuid4()
+    site_asset_id = uuid4()
+    rows = [
+        (
+            uuid4(),
+            entity_id,
+            user_id,
+            None,
+            site_asset_id,
+            14,
+            14,
+            date(2026, 4, 1),
+            date(2026, 4, 15),
+            "active",
+            True,
+            7,
+            None,
+            None,
+            "Cycle test",
+            datetime(2026, 4, 1, tzinfo=timezone.utc),
+            datetime(2026, 4, 2, tzinfo=timezone.utc),
+            None,
+            "Aline",
+            "Mukeba",
+            "Onshore A",
+            None,
+        )
+    ]
+    db = FakeDB([
+        FakeResult(scalar=1),
+        FakeResult(all_rows=rows),
+    ])
+
+    async def fake_check_pax_compliance(*_args, **_kwargs):
+        return {
+            "compliant": False,
+            "results": [
+                {"status": "missing", "message": "Badge expired"},
+                {"status": "pending_validation", "message": "Medical pending"},
+            ],
+        }
+
+    monkeypatch.setattr(paxlog_service, "check_pax_compliance", fake_check_pax_compliance)
+
+    response = await paxlog.list_rotation_cycles(
+        status_filter="active",
+        pagination=SimpleNamespace(page=1, page_size=20),
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=uuid4()),
+        _=None,
+        db=db,
+    )
+
+    count_sql = str(db.executed[0][0])
+    list_sql = str(db.executed[1][0])
+    assert "COUNT(*)" in count_sql
+    assert "status = :status" in count_sql
+    assert "LIMIT :limit OFFSET :offset" in list_sql
+    assert response.total == 1
+    assert response.page == 1
+    assert response.page_size == 20
+    assert response.items[0].pax_first_name == "Aline"
+    assert response.items[0].site_name == "Onshore A"
+    assert response.items[0].next_rotation_date == date(2026, 4, 15)
+    assert response.items[0].compliance_risk_level == "blocked"
+    assert response.items[0].compliance_issue_count == 2

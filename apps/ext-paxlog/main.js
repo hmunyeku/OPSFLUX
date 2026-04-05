@@ -20,13 +20,25 @@ const translations = {
     dates: "Dates",
     site: "Site",
     project: "Projet",
+    company: "Entreprise",
     status: "Statut",
+    outbound_transport: "Transport aller",
+    return_transport: "Transport retour",
+    pax_count: "Nombre de PAX",
+    pending_check: "À vérifier",
+    approved: "Approuvés",
+    blocked: "Bloqués",
+    compliance: "Conformité",
+    compliance_ok: "Conforme",
+    compliance_blockers: "Blocages",
+    compliance_issues: "Points à lever",
     correction_reason: "Motif de correction",
     preconfigured: "Éléments préconfigurés",
     pax: "Équipe externe",
     add_pax: "Ajouter un PAX",
     save_changes: "Enregistrer les changements",
     credentials: "Certifications",
+    current_credentials: "Certifications existantes",
     add_credential: "Ajouter une certification",
     credential_type: "Type de certification",
     obtained_date: "Date d'obtention",
@@ -46,6 +58,7 @@ const translations = {
     phone: "Téléphone",
     position: "Fonction",
     no_pax: "Aucun PAX externe n'est encore rattaché à ce dossier.",
+    no_credentials: "Aucune certification enregistrée.",
     session_needed: "Ouvrez d'abord la session OTP pour accéder au dossier.",
     loading: "Chargement…",
     public_token_missing: "Aucun token externe n'a été détecté dans l'URL.",
@@ -74,13 +87,25 @@ const translations = {
     dates: "Dates",
     site: "Site",
     project: "Project",
+    company: "Company",
     status: "Status",
+    outbound_transport: "Outbound transport",
+    return_transport: "Return transport",
+    pax_count: "PAX count",
+    pending_check: "Pending check",
+    approved: "Approved",
+    blocked: "Blocked",
+    compliance: "Compliance",
+    compliance_ok: "Compliant",
+    compliance_blockers: "Blockers",
+    compliance_issues: "Issues to clear",
     correction_reason: "Correction reason",
     preconfigured: "Preconfigured items",
     pax: "External crew",
     add_pax: "Add PAX",
     save_changes: "Save changes",
     credentials: "Credentials",
+    current_credentials: "Existing credentials",
     add_credential: "Add credential",
     credential_type: "Credential type",
     obtained_date: "Obtained date",
@@ -100,6 +125,7 @@ const translations = {
     phone: "Phone",
     position: "Position",
     no_pax: "No external PAX is linked to this dossier yet.",
+    no_credentials: "No credentials recorded yet.",
     session_needed: "Open the OTP session first to access the dossier.",
     loading: "Loading…",
     public_token_missing: "No external token was found in the URL.",
@@ -168,9 +194,10 @@ function sessionStorageKey(token) {
 }
 
 async function api(path, options = {}) {
-  const headers = {
-    "Content-Type": "application/json",
-    ...(options.headers || {}),
+  const method = (options.method || "GET").toUpperCase()
+  const headers = { ...(options.headers || {}) }
+  if (options.body != null && method !== "GET" && method !== "HEAD" && !("Content-Type" in headers)) {
+    headers["Content-Type"] = "application/json"
   }
   if (state.sessionToken) {
     headers["X-External-Session"] = state.sessionToken
@@ -423,6 +450,10 @@ function renderDossierSummary(dossier) {
       <div class="card"><div class="card-label">${t("category")}</div><div class="card-value" style="font-size:16px">${escapeHtml(ads.visit_category || "—")}</div></div>
       <div class="card"><div class="card-label">${t("dates")}</div><div class="card-value" style="font-size:16px">${escapeHtml(`${ads.start_date} → ${ads.end_date}`)}</div></div>
       <div class="card"><div class="card-label">${t("project")}</div><div class="card-value" style="font-size:16px">${escapeHtml(ads.project_id || "—")}</div></div>
+      <div class="card"><div class="card-label">${t("outbound_transport")}</div><div class="card-value" style="font-size:16px">${escapeHtml(ads.outbound_transport_mode || "—")}</div></div>
+      <div class="card"><div class="card-label">${t("return_transport")}</div><div class="card-value" style="font-size:16px">${escapeHtml(ads.return_transport_mode || "—")}</div></div>
+      <div class="card"><div class="card-label">${t("company")}</div><div class="card-value" style="font-size:16px">${escapeHtml(dossier.allowed_company_name || dossier.allowed_company_id || "—")}</div></div>
+      <div class="card"><div class="card-label">${t("pax_count")}</div><div class="card-value" style="font-size:16px">${escapeHtml(String(dossier?.pax_summary?.total ?? 0))}</div></div>
     </div>
     ${ads.rejection_reason ? `<div class="message warn" style="margin-top:14px"><strong>${t("correction_reason")}</strong><br/>${escapeHtml(ads.rejection_reason)}</div>` : ""}
     <div class="divider"></div>
@@ -443,11 +474,17 @@ function renderPaxArea(dossier, authenticated) {
       <div class="button-row" style="justify-content:space-between; align-items:center">
         <div>
           <h2 class="section-title" style="margin-bottom:4px">${t("pax")}</h2>
-          <p class="section-subtitle">${dossier.allowed_company_id || t("scope")}</p>
+          <p class="section-subtitle">${dossier.allowed_company_name || dossier.allowed_company_id || t("scope")}</p>
         </div>
         <div class="button-row">
           ${dossier.can_submit ? `<button class="primary" id="submit-dossier" ${state.loading ? "disabled" : ""}>${t("submit")}</button>` : ""}
         </div>
+      </div>
+
+      <div class="meta-list">
+        <div class="meta-item"><strong>${t("pending_check")}</strong>${dossier?.pax_summary?.pending_check ?? 0}</div>
+        <div class="meta-item"><strong>${t("approved")}</strong>${dossier?.pax_summary?.approved ?? 0}</div>
+        <div class="meta-item"><strong>${t("blocked")}</strong>${dossier?.pax_summary?.blocked ?? 0}</div>
       </div>
 
       ${dossier.can_resubmit ? `
@@ -511,6 +548,23 @@ function renderPaxCard(pax) {
         <div class="meta-item"><strong>${t("email")}</strong>${escapeHtml(pax.email || "—")}</div>
         <div class="meta-item"><strong>${t("phone")}</strong>${escapeHtml(pax.phone || "—")}</div>
         <div class="meta-item"><strong>${t("photo_url")}</strong>${escapeHtml(pax.photo_url || "—")}</div>
+        <div class="meta-item"><strong>${t("compliance")}</strong>${pax.compliance_ok ? t("compliance_ok") : `${t("compliance_blockers")}: ${escapeHtml(String(pax.compliance_blocker_count || 0))}`}</div>
+      </div>
+      ${(pax.compliance_blockers || []).length > 0 ? `
+        <div class="message warn">
+          <strong>${t("compliance_issues")}</strong>
+          <ul>
+            ${pax.compliance_blockers.map((item) => `<li>${escapeHtml(item.credential_type_name || item.credential_type_code || "—")} · ${escapeHtml(item.status || "—")}${item.message ? ` · ${escapeHtml(item.message)}` : ""}</li>`).join("")}
+          </ul>
+        </div>
+      ` : ""}
+      <div class="message">
+        <strong>${t("current_credentials")}</strong>
+        ${(pax.credentials || []).length > 0 ? `
+          <ul>
+            ${pax.credentials.map((item) => `<li>${escapeHtml(item.credential_type_name || item.credential_type_code || "—")} · ${escapeHtml(item.status || "—")}${item.expiry_date ? ` · ${escapeHtml(item.expiry_date)}` : ""}</li>`).join("")}
+          </ul>
+        ` : `<div>${t("no_credentials")}</div>`}
       </div>
       <div class="divider"></div>
       <form class="stack pax-update-form" data-contact-id="${pax.contact_id}">

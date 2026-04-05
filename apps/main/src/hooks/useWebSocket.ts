@@ -9,6 +9,7 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/stores/authStore'
 import { useToast } from '@/components/ui/Toast'
+import { resolveWebSocketBaseUrl } from '@/lib/runtimeUrls'
 
 type WSStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
 
@@ -27,6 +28,8 @@ interface WSNotification {
 
 const MAX_RECONNECT_DELAY = 30_000
 const PING_INTERVAL = 25_000
+const MAX_CONSECUTIVE_FAILURES = 3
+const RECONNECT_SUSPEND_MS = 120_000
 
 export function useWebSocket() {
   const { isAuthenticated } = useAuthStore()
@@ -37,17 +40,28 @@ export function useWebSocket() {
   const reconnectTimer = useRef<ReturnType<typeof setTimeout>>()
   const pingTimer = useRef<ReturnType<typeof setInterval>>()
   const reconnectDelay = useRef(1000)
+  const consecutiveFailures = useRef(0)
+  const suspendedUntil = useRef<number>(0)
   const [status, setStatus] = useState<WSStatus>('disconnected')
 
   const connect = useCallback(() => {
     if (!accessToken || !isAuthenticated) return
+    if (!navigator.onLine) return
+    if (Date.now() < suspendedUntil.current) return
     if (wsRef.current?.readyState === WebSocket.OPEN) return
 
-    setStatus('connecting')
+    let wsBase: string | null = null
+    try {
+      wsBase = resolveWebSocketBaseUrl()
+    } catch {
+      wsBase = null
+    }
+    if (!wsBase) {
+      setStatus('error')
+      return
+    }
 
-    // Use API URL for WebSocket (backend may be on a different host in production)
-    const apiBase = import.meta.env.VITE_API_URL || window.location.origin
-    const wsBase = apiBase.replace(/^http/, 'ws')
+    setStatus('connecting')
     const url = `${wsBase}/ws/notifications?token=${encodeURIComponent(accessToken)}`
 
     const ws = new WebSocket(url)
@@ -56,6 +70,7 @@ export function useWebSocket() {
     ws.onopen = () => {
       setStatus('connected')
       reconnectDelay.current = 1000 // Reset backoff
+      consecutiveFailures.current = 0
 
       // Start ping interval
       pingTimer.current = setInterval(() => {
@@ -106,7 +121,13 @@ export function useWebSocket() {
       wsRef.current = null
 
       // Reconnect with exponential backoff (unless intentional close)
-      if (event.code !== 1000 && isAuthenticated) {
+      if (event.code !== 1000 && isAuthenticated && navigator.onLine) {
+        consecutiveFailures.current += 1
+        if (consecutiveFailures.current >= MAX_CONSECUTIVE_FAILURES) {
+          suspendedUntil.current = Date.now() + RECONNECT_SUSPEND_MS
+          reconnectDelay.current = 1000
+          return
+        }
         reconnectTimer.current = setTimeout(() => {
           reconnectDelay.current = Math.min(reconnectDelay.current * 2, MAX_RECONNECT_DELAY)
           connect()
@@ -144,6 +165,16 @@ export function useWebSocket() {
     }
     return () => disconnect()
   }, [isAuthenticated, accessToken, connect, disconnect])
+
+  useEffect(() => {
+    const handleOnline = () => {
+      suspendedUntil.current = 0
+      consecutiveFailures.current = 0
+      connect()
+    }
+    window.addEventListener('online', handleOnline)
+    return () => window.removeEventListener('online', handleOnline)
+  }, [connect])
 
   return { status, markRead, disconnect, reconnect: connect }
 }

@@ -5,9 +5,10 @@
  * when multiple parallel requests receive 401 simultaneously.
  */
 import axios, { type AxiosRequestConfig } from 'axios'
+import { resolveApiBaseUrl } from '@/lib/runtimeUrls'
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '',
+  baseURL: resolveApiBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
   },

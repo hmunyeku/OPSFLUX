@@ -55,14 +55,28 @@ export function NotificationCenter() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
 
   // Unread count (lightweight, polled every 60s)
   const { data: countData } = useQuery({
     queryKey: ['notifications', 'unread-count'],
     queryFn: () => api.get('/api/v1/notifications/unread-count').then((r) => r.data),
-    refetchInterval: 60_000,
+    enabled: isOnline,
+    refetchInterval: isOnline ? 60_000 : false,
     staleTime: 30_000,
+    retry: 1,
   })
   const unreadCount: number = countData?.unread_count ?? 0
 
@@ -70,8 +84,9 @@ export function NotificationCenter() {
   const { data: notifData, isLoading } = useQuery<NotificationsResponse>({
     queryKey: ['notifications', 'list'],
     queryFn: () => api.get('/api/v1/notifications', { params: { page_size: 20 } }).then((r) => r.data),
-    enabled: open,
+    enabled: open && isOnline,
     staleTime: 15_000,
+    retry: 1,
   })
   const notifications = notifData?.items ?? []
 

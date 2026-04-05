@@ -13,16 +13,35 @@ from datetime import datetime
 class GoutiConnector:
     """Client for the Gouti project management API."""
 
-    def __init__(self, base_url: str, client_id: str, client_secret: str, entity_code: str):
+    def __init__(
+        self,
+        base_url: str,
+        client_id: str,
+        client_secret: str,
+        entity_code: str,
+        token: str | None = None,
+    ):
         self.base_url = base_url.rstrip("/")
         self.client_id = client_id
         self.client_secret = client_secret
         self.entity_code = entity_code
-        self._token: str | None = None
+        self._token: str | None = token or None
         self._token_expires: datetime | None = None
 
     async def _authenticate(self) -> str:
-        """Two-step OAuth: request code → exchange for token."""
+        """Two-step OAuth: request code → exchange for token.
+
+        Skipped when an initial token was supplied to __init__ — callers
+        using token-based auth don't have a client_secret and should not
+        attempt the OAuth code exchange.
+        """
+        if self._token:
+            return self._token
+        if not self.client_secret:
+            raise ValueError(
+                "Gouti auth failed: no cached token and no client_secret "
+                "to perform the OAuth code exchange."
+            )
         async with httpx.AsyncClient(timeout=30) as client:
             # Step 1: Request authorization code
             code_resp = await client.post(
@@ -116,4 +135,5 @@ def create_gouti_connector(settings: dict[str, Any]) -> GoutiConnector:
         client_id=settings.get("client_id", ""),
         client_secret=settings.get("client_secret", ""),
         entity_code=settings.get("entity_code", ""),
+        token=settings.get("token") or None,
     )

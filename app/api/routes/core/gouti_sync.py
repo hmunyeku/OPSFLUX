@@ -67,16 +67,28 @@ async def _get_gouti_settings(db: AsyncSession, entity_id: UUID) -> dict[str, st
 
 
 def _build_connector(settings: dict[str, str]) -> GoutiConnector:
-    """Create a GoutiConnector from settings, validating required fields."""
+    """Create a GoutiConnector from settings, validating required fields.
+
+    Accepts either (client_id + client_secret) for full OAuth flow or
+    (client_id + cached token) for token-based auth — matching the logic
+    in core.integrations._test_gouti.
+    """
     client_id = settings.get("client_id", "")
     client_secret = settings.get("client_secret", "")
+    token = settings.get("token", "")
     entity_code = settings.get("entity_code", "")
 
-    if not client_id or not client_secret:
+    if not client_id:
         raise HTTPException(
             status_code=400,
-            detail="Gouti non configuré : client_id et client_secret requis. "
-                   "Configurez-les dans Paramètres > Intégrations > Gouti.",
+            detail="Gouti non configuré : client_id requis. "
+                   "Configurez-le dans Paramètres > Intégrations > Gouti.",
+        )
+    if not client_secret and not token:
+        raise HTTPException(
+            status_code=400,
+            detail="Gouti non configuré : client_secret ou token requis. "
+                   "Configurez les credentials dans Paramètres > Intégrations > Gouti.",
         )
     if not entity_code:
         raise HTTPException(

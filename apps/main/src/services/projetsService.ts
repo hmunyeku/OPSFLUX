@@ -12,6 +12,8 @@ import type {
   TaskAction, TaskActionCreate, TaskActionUpdate,
   TaskChangeLog,
   TaskDependency, TaskDependencyCreate,
+  ProjectWBSNode, ProjectWBSNodeCreate, ProjectWBSNodeUpdate,
+  CPMResult,
   PaginatedResponse, PaginationParams,
 } from '@/types/api'
 
@@ -244,6 +246,32 @@ export const projetsService = {
 
   goutiSyncOne: async (goutiProjectId: string): Promise<GoutiSingleSyncResult> => {
     const { data } = await api.post(`/api/v1/gouti/sync/${goutiProjectId}`)
+    return data
+  },
+
+  // ── WBS nodes ──
+  listWbsNodes: async (projectId: string): Promise<ProjectWBSNode[]> => {
+    const { data } = await api.get(`/api/v1/projects/${projectId}/wbs`)
+    return data
+  },
+
+  createWbsNode: async (projectId: string, payload: ProjectWBSNodeCreate): Promise<ProjectWBSNode> => {
+    const { data } = await api.post(`/api/v1/projects/${projectId}/wbs`, payload)
+    return data
+  },
+
+  updateWbsNode: async (projectId: string, nodeId: string, payload: ProjectWBSNodeUpdate): Promise<ProjectWBSNode> => {
+    const { data } = await api.patch(`/api/v1/projects/${projectId}/wbs/${nodeId}`, payload)
+    return data
+  },
+
+  deleteWbsNode: async (projectId: string, nodeId: string): Promise<void> => {
+    await api.delete(`/api/v1/projects/${projectId}/wbs/${nodeId}`)
+  },
+
+  // ── CPM ──
+  getCpm: async (projectId: string): Promise<CPMResult> => {
+    const { data } = await api.get(`/api/v1/projects/${projectId}/cpm`)
     return data
   },
 }

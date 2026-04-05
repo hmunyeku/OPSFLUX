@@ -15,6 +15,7 @@ import {
   Sheet, CalendarRange, ChevronRight, Layers, RefreshCw, Download,
   Link2, Package, CheckSquare, History, ArrowRight,
   Camera, Play, FlaskConical, Star,
+  Zap, GitBranch,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -64,6 +65,8 @@ import {
   useTaskActions, useCreateAction, useUpdateAction, useDeleteAction,
   useTaskChangelog,
   usePlanningRevisions, useCreateRevision, useApplyRevision, useDeleteRevision,
+  useWbsNodes, useCreateWbsNode, useDeleteWbsNode,
+  useProjectCpm,
 } from '@/hooks/useProjets'
 import { projetsService, isGoutiProject, goutiProjectId } from '@/services/projetsService'
 import type {
@@ -73,6 +76,8 @@ import type {
   TaskDependency, DependencyType,
   TaskDeliverable, TaskAction, TaskChangeLog,
   PlanningRevision,
+  ProjectWBSNode,
+  CPMTaskInfo,
 } from '@/types/api'
 
 // -- Constants ----------------------------------------------------------------
@@ -1348,6 +1353,12 @@ function ProjectDetailPanel({ id }: { id: string }) {
           </div>
         </SectionColumns>
 
+        {/* WBS — Work Breakdown Structure */}
+        <WbsSection projectId={id} />
+
+        {/* CPM — Critical Path Method analysis */}
+        <CpmSection projectId={id} />
+
         {/* Planning Revisions — baselines + what-if simulations */}
         <PlanningRevisionsSection projectId={id} />
 
@@ -1368,6 +1379,262 @@ function ProjectDetailPanel({ id }: { id: string }) {
         </FormSection>
       </PanelContentLayout>
     </DynamicPanelShell>
+  )
+}
+
+// -- WBS Section (Work Breakdown Structure) ----------------------------------
+
+function WbsSection({ projectId }: { projectId: string }) {
+  const { data: nodes = [] } = useWbsNodes(projectId)
+  const createNode = useCreateWbsNode()
+  const deleteNode = useDeleteWbsNode()
+  const { toast } = useToast()
+  const [showAdd, setShowAdd] = useState(false)
+  const [form, setForm] = useState<{ parent_id: string; code: string; name: string; budget: string }>({
+    parent_id: '', code: '', name: '', budget: '',
+  })
+
+  // Build a tree structure for rendering
+  const tree = useMemo(() => {
+    const byParent = new Map<string | null, ProjectWBSNode[]>()
+    for (const n of nodes) {
+      const key = n.parent_id
+      if (!byParent.has(key)) byParent.set(key, [])
+      byParent.get(key)!.push(n)
+    }
+    for (const arr of byParent.values()) arr.sort((a, b) => a.order - b.order || a.code.localeCompare(b.code))
+    return byParent
+  }, [nodes])
+
+  const handleCreate = async () => {
+    if (!form.code.trim() || !form.name.trim()) return
+    try {
+      await createNode.mutateAsync({
+        projectId,
+        payload: {
+          parent_id: form.parent_id || null,
+          code: form.code.trim(),
+          name: form.name.trim(),
+          budget: form.budget ? Number(form.budget) : null,
+        },
+      })
+      toast({ title: 'Nœud WBS créé', variant: 'success' })
+      setForm({ parent_id: '', code: '', name: '', budget: '' })
+      setShowAdd(false)
+    } catch (err) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Erreur'
+      toast({ title: 'Impossible de créer', description: String(msg), variant: 'error' })
+    }
+  }
+
+  const renderNode = (node: ProjectWBSNode, depth: number): React.ReactNode => {
+    const children = tree.get(node.id) ?? []
+    return (
+      <div key={node.id}>
+        <div
+          className="group flex items-center gap-1.5 text-[11px] py-1 px-1.5 rounded hover:bg-muted/40"
+          style={{ paddingLeft: `${depth * 12 + 6}px` }}
+        >
+          <GitBranch size={10} className="text-primary shrink-0" />
+          <span className="font-mono text-[10px] text-muted-foreground">{node.code}</span>
+          <span className="flex-1 truncate">{node.name}</span>
+          {node.task_count! > 0 && (
+            <span className="text-[9px] text-muted-foreground">{node.task_count} t.</span>
+          )}
+          {node.budget != null && (
+            <span className="text-[9px] text-muted-foreground tabular-nums">
+              {node.budget.toLocaleString('fr-FR')} XAF
+            </span>
+          )}
+          {node.cost_center_name && (
+            <span className="text-[9px] px-1 rounded bg-muted text-muted-foreground">{node.cost_center_name}</span>
+          )}
+          <button
+            onClick={() => deleteNode.mutate({ projectId, nodeId: node.id })}
+            className="p-0.5 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100"
+            title="Archiver le nœud"
+          >
+            <X size={10} />
+          </button>
+        </div>
+        {children.map(c => renderNode(c, depth + 1))}
+      </div>
+    )
+  }
+
+  const roots = tree.get(null) ?? []
+
+  return (
+    <FormSection
+      title={`WBS — Structure de découpage (${nodes.length})`}
+      collapsible
+      defaultExpanded={false}
+      storageKey="project-detail-wbs"
+    >
+      {roots.length === 0 && !showAdd && (
+        <div className="text-[11px] text-muted-foreground italic mb-2">
+          Aucun nœud WBS. Créez une structure hiérarchique pour organiser les tâches
+          par lots de travail et centres de coûts.
+        </div>
+      )}
+      {roots.length > 0 && (
+        <div className="border border-border rounded mb-2">
+          {roots.map(r => renderNode(r, 0))}
+        </div>
+      )}
+
+      {showAdd ? (
+        <div className="border border-primary/30 rounded p-2 bg-primary/5 space-y-1.5">
+          <select
+            value={form.parent_id}
+            onChange={e => setForm(f => ({ ...f, parent_id: e.target.value }))}
+            className={`${panelInputClass} w-full text-xs`}
+          >
+            <option value="">(nœud racine)</option>
+            {nodes.map(n => <option key={n.id} value={n.id}>{n.code} — {n.name}</option>)}
+          </select>
+          <div className="grid grid-cols-[90px_1fr] gap-1.5">
+            <input
+              type="text"
+              value={form.code}
+              onChange={e => setForm(f => ({ ...f, code: e.target.value }))}
+              className={`${panelInputClass} text-xs`}
+              placeholder="Code (1.2.3) *"
+              autoFocus
+            />
+            <input
+              type="text"
+              value={form.name}
+              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+              className={`${panelInputClass} text-xs`}
+              placeholder="Nom du lot *"
+            />
+          </div>
+          <input
+            type="number"
+            value={form.budget}
+            onChange={e => setForm(f => ({ ...f, budget: e.target.value }))}
+            className={`${panelInputClass} w-full text-xs`}
+            placeholder="Budget (XAF)"
+            step="any"
+          />
+          <div className="flex justify-end gap-1">
+            <button onClick={() => setShowAdd(false)} className="px-2 py-0.5 text-[10px] rounded hover:bg-muted text-muted-foreground">
+              Annuler
+            </button>
+            <button
+              onClick={handleCreate}
+              disabled={!form.code.trim() || !form.name.trim() || createNode.isPending}
+              className="px-2 py-0.5 text-[10px] rounded bg-primary text-primary-foreground disabled:opacity-40"
+            >
+              {createNode.isPending ? <Loader2 size={9} className="animate-spin inline" /> : 'Créer'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setShowAdd(true)}
+          className="flex items-center gap-1 text-[10px] text-primary hover:text-primary/80"
+        >
+          <Plus size={10} /> Ajouter un nœud
+        </button>
+      )}
+    </FormSection>
+  )
+}
+
+// -- CPM Section (Critical Path Method) --------------------------------------
+
+function CpmSection({ projectId }: { projectId: string }) {
+  const { data: cpm, isLoading } = useProjectCpm(projectId)
+
+  return (
+    <FormSection
+      title="Chemin critique (CPM)"
+      collapsible
+      defaultExpanded={false}
+      storageKey="project-detail-cpm"
+    >
+      {isLoading && (
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground py-2">
+          <Loader2 size={12} className="animate-spin" /> Calcul en cours…
+        </div>
+      )}
+      {cpm && cpm.tasks.length === 0 && (
+        <div className="text-[11px] text-muted-foreground italic">
+          Aucune tâche à analyser. Créez des tâches et leurs dépendances pour voir le chemin critique.
+        </div>
+      )}
+      {cpm && cpm.tasks.length > 0 && (
+        <div className="space-y-2">
+          <div className="grid grid-cols-3 gap-2 text-[11px]">
+            <div className="border border-primary/30 bg-primary/5 rounded p-2">
+              <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Durée totale</div>
+              <div className="text-lg font-semibold tabular-nums text-primary">{cpm.project_duration_days} j</div>
+            </div>
+            <div className="border border-red-500/30 bg-red-500/5 rounded p-2">
+              <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Tâches critiques</div>
+              <div className="text-lg font-semibold tabular-nums text-red-600">{cpm.critical_path_task_ids.length}</div>
+            </div>
+            <div className="border border-border rounded p-2">
+              <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Tâches totales</div>
+              <div className="text-lg font-semibold tabular-nums">{cpm.tasks.length}</div>
+            </div>
+          </div>
+          {cpm.has_cycles && (
+            <div className="flex items-start gap-1.5 text-[10px] p-1.5 rounded bg-red-500/10 border border-red-500/30 text-red-700">
+              <Zap size={10} className="mt-0.5 shrink-0" />
+              <span>Cycle détecté dans les dépendances — CPM partiel. Vérifiez les liens.</span>
+            </div>
+          )}
+          {cpm.warnings.length > 0 && !cpm.has_cycles && (
+            <div className="text-[10px] text-orange-600">
+              {cpm.warnings.map((w, i) => <div key={i}>⚠ {w}</div>)}
+            </div>
+          )}
+          <div className="border border-border rounded overflow-hidden">
+            <div className="grid grid-cols-[1fr_40px_40px_40px_40px] gap-1 px-2 py-1 bg-muted/50 text-[9px] font-semibold uppercase text-muted-foreground">
+              <span>Tâche</span>
+              <span className="text-right">ES</span>
+              <span className="text-right">EF</span>
+              <span className="text-right">Slack</span>
+              <span className="text-right">Dur.</span>
+            </div>
+            <div className="max-h-[240px] overflow-y-auto">
+              {cpm.tasks
+                .slice()
+                .sort((a, b) => {
+                  if (a.is_critical !== b.is_critical) return a.is_critical ? -1 : 1
+                  return a.early_start - b.early_start
+                })
+                .map((t: CPMTaskInfo) => (
+                  <div
+                    key={t.id}
+                    className={cn(
+                      'grid grid-cols-[1fr_40px_40px_40px_40px] gap-1 px-2 py-1 text-[10px] border-t border-border/30',
+                      t.is_critical && 'bg-red-500/5',
+                    )}
+                  >
+                    <span className="truncate flex items-center gap-1">
+                      {t.is_critical && <Zap size={9} className="text-red-500 shrink-0" />}
+                      {t.title}
+                    </span>
+                    <span className="text-right tabular-nums text-muted-foreground">J{t.early_start}</span>
+                    <span className="text-right tabular-nums text-muted-foreground">J{t.early_finish}</span>
+                    <span className={cn('text-right tabular-nums', t.slack === 0 ? 'text-red-500 font-semibold' : 'text-muted-foreground')}>
+                      {t.slack}j
+                    </span>
+                    <span className="text-right tabular-nums text-muted-foreground">{t.duration_days}j</span>
+                  </div>
+                ))}
+            </div>
+          </div>
+          <div className="text-[9px] text-muted-foreground italic">
+            ES = début au plus tôt · EF = fin au plus tôt · Slack = marge totale (0 = critique)
+          </div>
+        </div>
+      )}
+    </FormSection>
   )
 }
 

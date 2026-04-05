@@ -17,7 +17,7 @@ from app.core.pagination import PaginationParams, paginate
 from app.models.common import (
     Project, ProjectMember, ProjectTask, ProjectMilestone,
     PlanningRevision, TaskDeliverable, TaskAction, TaskChangeLog,
-    ProjectTaskDependency,
+    ProjectTaskDependency, ProjectWBSNode, CostCenter,
     User, Tier,
 )
 from app.schemas.common import (
@@ -31,7 +31,10 @@ from app.schemas.common import (
     TaskActionCreate, TaskActionRead, TaskActionUpdate,
     TaskChangeLogRead,
     TaskDependencyCreate, TaskDependencyRead,
+    ProjectWBSNodeCreate, ProjectWBSNodeRead, ProjectWBSNodeUpdate,
+    CPMResult,
 )
+from app.services.cpm_service import compute_cpm
 
 router = APIRouter(prefix="/api/v1/projects", tags=["projects"])
 
@@ -1179,3 +1182,158 @@ async def delete_task_dependency(
         raise HTTPException(status_code=404, detail="Dependency not found")
     await delete_entity(dep, db, "project_task_dependency", entity_id=dep.id, user_id=current_user.id)
     await db.commit()
+
+
+# ── Project WBS (Work Breakdown Structure) ────────────────────────────────
+
+
+def _wbs_node_to_dict(node: ProjectWBSNode, cost_center_name: str | None = None,
+                      children_count: int = 0, task_count: int = 0) -> dict:
+    d = {c.key: getattr(node, c.key) for c in node.__table__.columns}
+    d["cost_center_name"] = cost_center_name
+    d["children_count"] = children_count
+    d["task_count"] = task_count
+    return d
+
+
+@router.get("/{project_id}/wbs", response_model=list[ProjectWBSNodeRead])
+async def list_wbs_nodes(
+    project_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the full WBS tree of a project as a flat ordered list."""
+    await _get_project_or_404(db, project_id, entity_id)
+    rows = (await db.execute(
+        select(
+            ProjectWBSNode,
+            CostCenter.name.label("cc_name"),
+        )
+        .outerjoin(CostCenter, ProjectWBSNode.cost_center_id == CostCenter.id)
+        .where(ProjectWBSNode.project_id == project_id, ProjectWBSNode.active == True)  # noqa: E712
+        .order_by(ProjectWBSNode.order, ProjectWBSNode.code)
+    )).all()
+
+    # Compute children/task counts in batch
+    nodes = [r[0] for r in rows]
+    node_ids = [n.id for n in nodes]
+    child_counts: dict[UUID, int] = {}
+    task_counts: dict[UUID, int] = {}
+    if node_ids:
+        cc_rows = (await db.execute(
+            select(ProjectWBSNode.parent_id, sqla_func.count(ProjectWBSNode.id))
+            .where(ProjectWBSNode.parent_id.in_(node_ids), ProjectWBSNode.active == True)  # noqa: E712
+            .group_by(ProjectWBSNode.parent_id)
+        )).all()
+        child_counts = {r[0]: r[1] for r in cc_rows}
+        tc_rows = (await db.execute(
+            select(ProjectTask.wbs_node_id, sqla_func.count(ProjectTask.id))
+            .where(ProjectTask.wbs_node_id.in_(node_ids), ProjectTask.active == True)  # noqa: E712
+            .group_by(ProjectTask.wbs_node_id)
+        )).all()
+        task_counts = {r[0]: r[1] for r in tc_rows}
+
+    return [
+        _wbs_node_to_dict(
+            r[0],
+            cost_center_name=r[1],
+            children_count=child_counts.get(r[0].id, 0),
+            task_count=task_counts.get(r[0].id, 0),
+        )
+        for r in rows
+    ]
+
+
+@router.post("/{project_id}/wbs", response_model=ProjectWBSNodeRead, status_code=201)
+async def create_wbs_node(
+    project_id: UUID,
+    body: ProjectWBSNodeCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    # Validate parent if given
+    if body.parent_id:
+        parent = (await db.execute(
+            select(ProjectWBSNode).where(
+                ProjectWBSNode.id == body.parent_id,
+                ProjectWBSNode.project_id == project_id,
+            )
+        )).scalar_one_or_none()
+        if parent is None:
+            raise HTTPException(400, "parent_id must belong to the same project")
+    node = ProjectWBSNode(project_id=project_id, **body.model_dump())
+    db.add(node)
+    await db.commit()
+    await db.refresh(node)
+    return _wbs_node_to_dict(node)
+
+
+@router.patch("/{project_id}/wbs/{node_id}", response_model=ProjectWBSNodeRead)
+async def update_wbs_node(
+    project_id: UUID,
+    node_id: UUID,
+    body: ProjectWBSNodeUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    result = await db.execute(
+        select(ProjectWBSNode).where(
+            ProjectWBSNode.id == node_id, ProjectWBSNode.project_id == project_id
+        )
+    )
+    node = result.scalar_one_or_none()
+    if not node:
+        raise HTTPException(404, "WBS node not found")
+    # Prevent setting its own parent to itself or a descendant (simple check: no self)
+    payload = body.model_dump(exclude_unset=True)
+    if payload.get("parent_id") == node.id:
+        raise HTTPException(400, "A WBS node cannot be its own parent")
+    for k, v in payload.items():
+        setattr(node, k, v)
+    await db.commit()
+    await db.refresh(node)
+    return _wbs_node_to_dict(node)
+
+
+@router.delete("/{project_id}/wbs/{node_id}", status_code=204)
+async def delete_wbs_node(
+    project_id: UUID,
+    node_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    result = await db.execute(
+        select(ProjectWBSNode).where(
+            ProjectWBSNode.id == node_id, ProjectWBSNode.project_id == project_id
+        )
+    )
+    node = result.scalar_one_or_none()
+    if not node:
+        raise HTTPException(404, "WBS node not found")
+    # Soft-archive: set active=False so cascades don't wipe linked tasks
+    node.active = False
+    await db.commit()
+
+
+# ── CPM (Critical Path Method) ────────────────────────────────────────────
+
+
+@router.get("/{project_id}/cpm", response_model=CPMResult)
+async def get_project_cpm(
+    project_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Run Critical Path Method on the project and return schedule analysis."""
+    await _get_project_or_404(db, project_id, entity_id)
+    return await compute_cpm(db, project_id)

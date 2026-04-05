@@ -1462,6 +1462,67 @@ export interface TaskActionUpdate {
   order?: number
 }
 
+// ── Project WBS (Work Breakdown Structure) ─────────────────
+
+export interface ProjectWBSNode {
+  id: string
+  project_id: string
+  parent_id: string | null
+  code: string
+  name: string
+  description: string | null
+  cost_center_id: string | null
+  budget: number | null
+  order: number
+  active: boolean
+  // enriched
+  cost_center_name?: string | null
+  children_count?: number
+  task_count?: number
+}
+
+export interface ProjectWBSNodeCreate {
+  parent_id?: string | null
+  code: string
+  name: string
+  description?: string | null
+  cost_center_id?: string | null
+  budget?: number | null
+  order?: number
+}
+
+export interface ProjectWBSNodeUpdate {
+  parent_id?: string | null
+  code?: string
+  name?: string
+  description?: string | null
+  cost_center_id?: string | null
+  budget?: number | null
+  order?: number
+}
+
+// ── CPM (Critical Path Method) ──────────────────────────────
+
+export interface CPMTaskInfo {
+  id: string
+  title: string
+  early_start: number
+  early_finish: number
+  late_start: number
+  late_finish: number
+  slack: number
+  is_critical: boolean
+  duration_days: number
+}
+
+export interface CPMResult {
+  project_duration_days: number
+  critical_path_task_ids: string[]
+  tasks: CPMTaskInfo[]
+  has_cycles: boolean
+  warnings: string[]
+}
+
 // ── Task Dependencies ───────────────────────────────────────
 
 export type DependencyType = 'finish_to_start' | 'start_to_start' | 'finish_to_finish' | 'start_to_finish'

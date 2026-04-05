@@ -687,6 +687,9 @@ class TierContact(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     nationality: Mapped[str | None] = mapped_column(String(100))
     badge_number: Mapped[str | None] = mapped_column(String(100))
     photo_url: Mapped[str | None] = mapped_column(Text)
+    contractual_airport: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    nearest_airport: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    nearest_station: Mapped[str | None] = mapped_column(String(200), nullable=True)
     pax_group_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("pax_groups.id", ondelete="SET NULL")
     )
@@ -1625,6 +1628,9 @@ class ProjectTask(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     project_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False)
     parent_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("project_tasks.id", ondelete="SET NULL"))
+    wbs_node_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("project_wbs_nodes.id", ondelete="SET NULL")
+    )
     code: Mapped[str | None] = mapped_column(String(50))
     title: Mapped[str] = mapped_column(String(300), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
@@ -1742,6 +1748,39 @@ class TaskChangeLog(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     task: Mapped["ProjectTask"] = relationship(foreign_keys=[task_id])
     author: Mapped["User"] = relationship(foreign_keys=[changed_by])
+
+
+# ─── Project WBS (Work Breakdown Structure) ──────────────────────────────────
+class ProjectWBSNode(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Hierarchical WBS decomposition for a project.
+
+    A WBS node groups tasks under a cost-centered package and can be nested
+    arbitrarily deep via parent_id. Total planned effort and budget flow
+    bottom-up via the application layer (computed, not stored on the node
+    itself for parent rows).
+    """
+    __tablename__ = "project_wbs_nodes"
+    __table_args__ = (
+        Index("idx_wbs_project", "project_id"),
+        Index("idx_wbs_parent", "parent_id"),
+        UniqueConstraint("project_id", "code", name="uq_wbs_project_code"),
+    )
+
+    project_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
+    )
+    parent_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("project_wbs_nodes.id", ondelete="CASCADE")
+    )
+    code: Mapped[str] = mapped_column(String(50), nullable=False)  # e.g. "1.2.3"
+    name: Mapped[str] = mapped_column(String(300), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    cost_center_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("cost_centers.id", ondelete="SET NULL")
+    )
+    budget: Mapped[float | None] = mapped_column(Float)
+    order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
 
 # ─── Task Dependencies ───────────────────────────────────────────────────────

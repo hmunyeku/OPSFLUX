@@ -1657,6 +1657,7 @@ class ProjectTaskRead(OpsFluxSchema):
     id: UUID
     project_id: UUID
     parent_id: UUID | None = None
+    wbs_node_id: UUID | None = None
     code: str | None = None
     title: str
     description: str | None = None
@@ -1684,6 +1685,7 @@ class ProjectTaskEnriched(ProjectTaskRead):
 
 class ProjectTaskCreate(BaseModel):
     parent_id: UUID | None = None
+    wbs_node_id: UUID | None = None
     code: str | None = None
     title: str = Field(..., min_length=1, max_length=300)
     description: str | None = None
@@ -1697,6 +1699,7 @@ class ProjectTaskCreate(BaseModel):
 
 class ProjectTaskUpdate(BaseModel):
     parent_id: UUID | None = None
+    wbs_node_id: UUID | None = None
     code: str | None = None
     title: str | None = None
     description: str | None = None
@@ -1859,6 +1862,69 @@ class TaskDependencyCreate(BaseModel):
     to_task_id: UUID
     dependency_type: str = "finish_to_start"
     lag_days: int = 0
+
+
+# ─── Project WBS Nodes ──────────────────────────────────────────────────────
+
+
+class ProjectWBSNodeRead(OpsFluxSchema):
+    id: UUID
+    project_id: UUID
+    parent_id: UUID | None = None
+    code: str
+    name: str
+    description: str | None = None
+    cost_center_id: UUID | None = None
+    budget: float | None = None
+    order: int
+    active: bool
+    # Enriched
+    cost_center_name: str | None = None
+    children_count: int = 0
+    task_count: int = 0
+
+
+class ProjectWBSNodeCreate(BaseModel):
+    parent_id: UUID | None = None
+    code: str = Field(..., min_length=1, max_length=50)
+    name: str = Field(..., min_length=1, max_length=300)
+    description: str | None = None
+    cost_center_id: UUID | None = None
+    budget: float | None = None
+    order: int = 0
+
+
+class ProjectWBSNodeUpdate(BaseModel):
+    parent_id: UUID | None = None
+    code: str | None = Field(None, min_length=1, max_length=50)
+    name: str | None = Field(None, min_length=1, max_length=300)
+    description: str | None = None
+    cost_center_id: UUID | None = None
+    budget: float | None = None
+    order: int | None = None
+
+
+# ─── CPM (Critical Path Method) ─────────────────────────────────────────────
+
+
+class CPMTaskInfo(OpsFluxSchema):
+    id: UUID
+    title: str
+    early_start: int  # days from project start
+    early_finish: int
+    late_start: int
+    late_finish: int
+    slack: int  # total float = late_start - early_start
+    is_critical: bool
+    duration_days: int
+
+
+class CPMResult(OpsFluxSchema):
+    project_duration_days: int
+    critical_path_task_ids: list[UUID]
+    tasks: list[CPMTaskInfo]
+    has_cycles: bool = False
+    warnings: list[str] = []
 
 
 # ─── PDF Templates ──────────────────────────────────────────────────────────

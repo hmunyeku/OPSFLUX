@@ -12,6 +12,7 @@ import type {
   TaskDeliverableCreate, TaskDeliverableUpdate,
   TaskActionCreate, TaskActionUpdate,
   TaskDependencyCreate,
+  ProjectWBSNodeCreate, ProjectWBSNodeUpdate,
   PaginationParams,
 } from '@/types/api'
 
@@ -429,5 +430,58 @@ export function useGoutiSyncOne() {
       qc.invalidateQueries({ queryKey: ['projects'] })
       qc.invalidateQueries({ queryKey: ['gouti-sync-status'] })
     },
+  })
+}
+
+// ── WBS (Work Breakdown Structure) ──
+
+export function useWbsNodes(projectId: string | undefined) {
+  return useQuery({
+    queryKey: ['wbs-nodes', projectId],
+    queryFn: () => projetsService.listWbsNodes(projectId!),
+    enabled: !!projectId,
+  })
+}
+
+export function useCreateWbsNode() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, payload }: { projectId: string; payload: ProjectWBSNodeCreate }) =>
+      projetsService.createWbsNode(projectId, payload),
+    onSuccess: (_, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ['wbs-nodes', projectId] })
+    },
+  })
+}
+
+export function useUpdateWbsNode() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, nodeId, payload }: { projectId: string; nodeId: string; payload: ProjectWBSNodeUpdate }) =>
+      projetsService.updateWbsNode(projectId, nodeId, payload),
+    onSuccess: (_, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ['wbs-nodes', projectId] })
+    },
+  })
+}
+
+export function useDeleteWbsNode() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, nodeId }: { projectId: string; nodeId: string }) =>
+      projetsService.deleteWbsNode(projectId, nodeId),
+    onSuccess: (_, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ['wbs-nodes', projectId] })
+    },
+  })
+}
+
+// ── CPM ──
+
+export function useProjectCpm(projectId: string | undefined) {
+  return useQuery({
+    queryKey: ['project-cpm', projectId],
+    queryFn: () => projetsService.getCpm(projectId!),
+    enabled: !!projectId,
   })
 }

@@ -430,6 +430,133 @@ async def test_update_ads_denies_non_owner_without_approve(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_submit_ads_denies_non_owner_without_approve(monkeypatch):
+    ads = _build_ads(status="draft")
+    outsider_id = uuid4()
+    db = FakeDB([FakeResult(scalar_one_or_none=ads)])
+
+    async def fake_has_user_permission(_user, _entity_id, permission_code, _db):
+        assert permission_code == "paxlog.ads.approve"
+        return False
+
+    monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
+
+    with pytest.raises(HTTPException) as exc:
+        await paxlog.submit_ads(
+            ads.id,
+            entity_id=ads.entity_id,
+            current_user=SimpleNamespace(id=outsider_id),
+            _=None,
+            db=db,
+        )
+
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "Vous ne pouvez pas soumettre cette AdS."
+
+
+@pytest.mark.asyncio
+async def test_cancel_ads_denies_non_owner_without_approve(monkeypatch):
+    ads = _build_ads(status="approved")
+    outsider_id = uuid4()
+    db = FakeDB([FakeResult(scalar_one_or_none=ads)])
+
+    async def fake_has_user_permission(_user, _entity_id, permission_code, _db):
+        assert permission_code == "paxlog.ads.approve"
+        return False
+
+    monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
+
+    with pytest.raises(HTTPException) as exc:
+        await paxlog.cancel_ads(
+            ads.id,
+            entity_id=ads.entity_id,
+            current_user=SimpleNamespace(id=outsider_id),
+            _=None,
+            db=db,
+        )
+
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "Vous ne pouvez pas annuler cette AdS."
+
+
+@pytest.mark.asyncio
+async def test_resubmit_ads_denies_non_owner_without_approve(monkeypatch):
+    ads = _build_ads(status="requires_review")
+    outsider_id = uuid4()
+    db = FakeDB([FakeResult(scalar_one_or_none=ads)])
+
+    async def fake_has_user_permission(_user, _entity_id, permission_code, _db):
+        assert permission_code == "paxlog.ads.approve"
+        return False
+
+    monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
+
+    with pytest.raises(HTTPException) as exc:
+        await paxlog.resubmit_ads(
+            ads.id,
+            reason="updated",
+            entity_id=ads.entity_id,
+            current_user=SimpleNamespace(id=outsider_id),
+            _=None,
+            db=db,
+        )
+
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "Vous ne pouvez pas re-soumettre cette AdS."
+
+
+@pytest.mark.asyncio
+async def test_add_pax_to_ads_denies_non_owner_without_approve(monkeypatch):
+    ads = _build_ads(status="draft")
+    outsider_id = uuid4()
+    db = FakeDB([FakeResult(scalar_one_or_none=ads)])
+
+    async def fake_has_user_permission(_user, _entity_id, permission_code, _db):
+        assert permission_code == "paxlog.ads.approve"
+        return False
+
+    monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
+
+    with pytest.raises(HTTPException) as exc:
+        await paxlog.add_pax_to_ads(
+            ads.id,
+            body=paxlog.AddPaxBody(user_id=uuid4()),
+            entity_id=ads.entity_id,
+            current_user=SimpleNamespace(id=outsider_id, user_type="internal"),
+            _=None,
+            db=db,
+        )
+
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "Vous ne pouvez pas modifier les PAX de cette AdS."
+
+
+@pytest.mark.asyncio
+async def test_create_external_link_denies_non_owner_without_approve(monkeypatch):
+    ads = _build_ads(status="draft")
+    outsider_id = uuid4()
+    db = FakeDB([FakeResult(scalar_one_or_none=ads)])
+
+    async def fake_has_user_permission(_user, _entity_id, permission_code, _db):
+        assert permission_code == "paxlog.ads.approve"
+        return False
+
+    monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
+
+    with pytest.raises(HTTPException) as exc:
+        await paxlog.create_external_link(
+            ads.id,
+            entity_id=ads.entity_id,
+            current_user=SimpleNamespace(id=outsider_id),
+            _=None,
+            db=db,
+        )
+
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "Vous ne pouvez pas créer de lien externe pour cette AdS."
+
+
+@pytest.mark.asyncio
 async def test_list_ads_events_denies_non_owner_without_read_all(monkeypatch):
     ads = _build_ads()
     outsider_id = uuid4()
@@ -1632,6 +1759,163 @@ async def test_resubmit_external_ads_uses_finalize_flow(monkeypatch):
     assert finalized_calls and finalized_calls[0]["event_type"] == "external_resubmitted"
     assert finalized_calls[0]["old_status"] == "requires_review"
     assert finalized_calls[0]["reason"] == "Dossier corrigé"
+
+
+@pytest.mark.asyncio
+async def test_get_external_ads_dossier_filters_pax_to_allowed_company(monkeypatch):
+    link = SimpleNamespace(id=uuid4(), preconfigured_data={}, access_log=[])
+    allowed_company_id = uuid4()
+    ads = _build_ads(status="draft")
+    visible_contact = SimpleNamespace(
+        id=uuid4(),
+        tier_id=allowed_company_id,
+        first_name="Aline",
+        last_name="Mukeba",
+        birth_date=date(1990, 5, 1),
+        nationality="CD",
+        badge_number="BG-01",
+        photo_url=None,
+        email="aline@example.com",
+        phone="+243000001",
+        position="Technician",
+    )
+    hidden_contact = SimpleNamespace(
+        id=uuid4(),
+        tier_id=uuid4(),
+        first_name="John",
+        last_name="Doe",
+        birth_date=None,
+        nationality=None,
+        badge_number=None,
+        photo_url=None,
+        email=None,
+        phone=None,
+        position=None,
+    )
+    db = FakeDB(
+        [
+            FakeResult(
+                all_rows=[
+                    (SimpleNamespace(id=uuid4(), status="pending_check"), visible_contact),
+                    (SimpleNamespace(id=uuid4(), status="pending_check"), hidden_contact),
+                ]
+            )
+        ]
+    )
+
+    async def fake_require_session(_db, token, session_token):
+        assert token == "token-dossier"
+        assert session_token == "session-ok"
+        return link
+
+    async def fake_get_ads_and_context(_db, link):
+        return ads, ads.entity_id, allowed_company_id
+
+    monkeypatch.setattr(paxlog, "_require_external_session", fake_require_session)
+    monkeypatch.setattr(paxlog, "_get_external_ads_and_context", fake_get_ads_and_context)
+
+    response = await paxlog.get_external_ads_dossier(
+        "token-dossier",
+        request=SimpleNamespace(client=None, headers={}),
+        x_external_session="session-ok",
+        db=db,
+    )
+
+    assert response["allowed_company_id"] == str(allowed_company_id)
+    assert len(response["pax"]) == 1
+    assert response["pax"][0]["contact_id"] == str(visible_contact.id)
+
+
+@pytest.mark.asyncio
+async def test_create_external_ads_pax_requires_allowed_company(monkeypatch):
+    link = SimpleNamespace(id=uuid4())
+    ads = _build_ads(status="draft")
+
+    async def fake_require_session(_db, token, session_token):
+        return link
+
+    async def fake_get_ads_and_context(_db, link):
+        return ads, ads.entity_id, None
+
+    monkeypatch.setattr(paxlog, "_require_external_session", fake_require_session)
+    monkeypatch.setattr(paxlog, "_get_external_ads_and_context", fake_get_ads_and_context)
+
+    with pytest.raises(HTTPException) as exc:
+        await paxlog.create_external_ads_pax(
+            "token-create",
+            body=paxlog.ExternalPaxUpsertBody(first_name="Aline", last_name="Mukeba"),
+            request=SimpleNamespace(client=None, headers={}),
+            x_external_session="session-ok",
+            db=FakeDB([]),
+        )
+
+    assert exc.value.status_code == 400
+    assert "entreprise cible" in exc.value.detail
+
+
+@pytest.mark.asyncio
+async def test_update_external_ads_pax_rejects_foreign_company_contact(monkeypatch):
+    link = SimpleNamespace(id=uuid4())
+    ads = _build_ads(status="draft")
+    allowed_company_id = uuid4()
+    foreign_contact = SimpleNamespace(id=uuid4(), tier_id=uuid4())
+    db = FakeDB([FakeResult(first=(SimpleNamespace(id=uuid4()), foreign_contact))])
+
+    async def fake_require_session(_db, token, session_token):
+        return link
+
+    async def fake_get_ads_and_context(_db, link):
+        return ads, ads.entity_id, allowed_company_id
+
+    monkeypatch.setattr(paxlog, "_require_external_session", fake_require_session)
+    monkeypatch.setattr(paxlog, "_get_external_ads_and_context", fake_get_ads_and_context)
+
+    with pytest.raises(HTTPException) as exc:
+        await paxlog.update_external_ads_pax(
+            "token-update",
+            contact_id=foreign_contact.id,
+            body=paxlog.ExternalPaxUpsertBody(first_name="Aline", last_name="Mukeba"),
+            request=SimpleNamespace(client=None, headers={}),
+            x_external_session="session-ok",
+            db=db,
+        )
+
+    assert exc.value.status_code == 403
+    assert "entreprise autorisée" in exc.value.detail
+
+
+@pytest.mark.asyncio
+async def test_create_external_ads_pax_credential_rejects_foreign_company_contact(monkeypatch):
+    link = SimpleNamespace(id=uuid4())
+    ads = _build_ads(status="draft")
+    allowed_company_id = uuid4()
+    foreign_contact = SimpleNamespace(id=uuid4(), tier_id=uuid4())
+    db = FakeDB([FakeResult(first=(SimpleNamespace(id=uuid4()), foreign_contact))])
+
+    async def fake_require_session(_db, token, session_token):
+        return link
+
+    async def fake_get_ads_and_context(_db, link):
+        return ads, ads.entity_id, allowed_company_id
+
+    monkeypatch.setattr(paxlog, "_require_external_session", fake_require_session)
+    monkeypatch.setattr(paxlog, "_get_external_ads_and_context", fake_get_ads_and_context)
+
+    with pytest.raises(HTTPException) as exc:
+        await paxlog.create_external_ads_pax_credential(
+            "token-credential",
+            contact_id=foreign_contact.id,
+            body=paxlog.ExternalCredentialCreateBody(
+                credential_type_id=uuid4(),
+                obtained_date=date(2026, 4, 1),
+            ),
+            request=SimpleNamespace(client=None, headers={}),
+            x_external_session="session-ok",
+            db=db,
+        )
+
+    assert exc.value.status_code == 403
+    assert "entreprise autorisée" in exc.value.detail
 
 
 @pytest.mark.asyncio

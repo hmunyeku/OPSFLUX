@@ -1890,6 +1890,11 @@ async def submit_ads(
     ads = result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
+    if not await _can_manage_ads(ads, current_user=current_user, entity_id=entity_id, db=db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Vous ne pouvez pas soumettre cette AdS.",
+        )
 
     if ads.status != "draft":
         raise HTTPException(
@@ -2287,6 +2292,11 @@ async def cancel_ads(
     ads = result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
+    if not await _can_manage_ads(ads, current_user=current_user, entity_id=entity_id, db=db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Vous ne pouvez pas annuler cette AdS.",
+        )
 
     if ads.status in ("cancelled", "completed"):
         raise HTTPException(
@@ -2386,6 +2396,8 @@ async def resubmit_ads(
     ads = result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
+    if not await _can_manage_ads(ads, current_user=current_user, entity_id=entity_id, db=db):
+        raise HTTPException(status_code=403, detail="Vous ne pouvez pas re-soumettre cette AdS.")
     if ads.status != "requires_review":
         raise HTTPException(status_code=400, detail=f"Cannot resubmit AdS with status '{ads.status}'")
 
@@ -2618,6 +2630,8 @@ async def add_pax_to_ads(
     ads = ads_result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
+    if not await _can_manage_ads(ads, current_user=current_user, entity_id=entity_id, db=db):
+        raise HTTPException(status_code=403, detail="Vous ne pouvez pas modifier les PAX de cette AdS.")
     if ads.status not in ("draft", "requires_review"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -2681,6 +2695,14 @@ async def remove_pax_from_ads(
     db: AsyncSession = Depends(get_db),
 ):
     """Remove a PAX entry from an AdS by AdsPax id."""
+    ads_result = await db.execute(
+        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
+    )
+    ads = ads_result.scalar_one_or_none()
+    if not ads:
+        raise HTTPException(status_code=404, detail="AdS not found")
+    if not await _can_manage_ads(ads, current_user=current_user, entity_id=entity_id, db=db):
+        raise HTTPException(status_code=403, detail="Vous ne pouvez pas modifier les PAX de cette AdS.")
     result = await db.execute(
         select(AdsPax).where(
             AdsPax.id == entry_id,
@@ -3036,10 +3058,13 @@ async def add_imputation(
 
     # Verify AdS
     ads_result = await db.execute(
-        select(Ads.id).where(Ads.id == ads_id, Ads.entity_id == entity_id)
+        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
     )
-    if not ads_result.scalar_one_or_none():
+    ads = ads_result.scalar_one_or_none()
+    if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
+    if not await _can_manage_ads(ads, current_user=current_user, entity_id=entity_id, db=db):
+        raise HTTPException(status_code=403, detail="Vous ne pouvez pas modifier les imputations de cette AdS.")
 
     body = CostImputationCreate(
         owner_type="ads",
@@ -3066,10 +3091,13 @@ async def delete_imputation(
 
     # Verify AdS belongs to entity
     ads_result = await db.execute(
-        select(Ads.id).where(Ads.id == ads_id, Ads.entity_id == entity_id)
+        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
     )
-    if not ads_result.scalar_one_or_none():
+    ads = ads_result.scalar_one_or_none()
+    if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
+    if not await _can_manage_ads(ads, current_user=current_user, entity_id=entity_id, db=db):
+        raise HTTPException(status_code=403, detail="Vous ne pouvez pas modifier les imputations de cette AdS.")
 
     return await delete_cost_imputation(
         imputation_id=imputation_id, current_user=current_user, db=db
@@ -3418,11 +3446,13 @@ async def create_external_link(
 
     # Verify AdS
     ads_result = await db.execute(
-        select(Ads.id, Ads.reference).where(Ads.id == ads_id, Ads.entity_id == entity_id)
+        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
     )
-    ads_row = ads_result.first()
-    if not ads_row:
+    ads = ads_result.scalar_one_or_none()
+    if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
+    if not await _can_manage_ads(ads, current_user=current_user, entity_id=entity_id, db=db):
+        raise HTTPException(status_code=403, detail="Vous ne pouvez pas créer de lien externe pour cette AdS.")
 
     token = secrets.token_urlsafe(48)
     expires_at = datetime.now(timezone.utc) + timedelta(hours=expires_hours)
@@ -3454,7 +3484,7 @@ async def create_external_link(
     )
     await db.commit()
 
-    logger.info("External link created for AdS %s by %s", ads_row[1], current_user.id)
+    logger.info("External link created for AdS %s by %s", ads.reference, current_user.id)
 
     return {
         "id": str(link.id),
@@ -3944,6 +3974,18 @@ async def _assert_ads_read_access(
 ) -> None:
     if not await _can_read_ads(ads, current_user=current_user, entity_id=entity_id, db=db):
         raise HTTPException(status_code=404, detail="AdS not found")
+
+
+async def _can_manage_ads(
+    ads: Ads,
+    *,
+    current_user: User,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> bool:
+    if ads.requester_id == current_user.id:
+        return True
+    return await has_user_permission(current_user, entity_id, "paxlog.ads.approve", db)
 
 
 async def _can_read_avm(

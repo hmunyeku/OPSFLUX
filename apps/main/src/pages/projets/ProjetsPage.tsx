@@ -746,6 +746,19 @@ function GoutiSyncToolbar() {
   const { toast } = useToast()
   const [modalOpen, setModalOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const wrapperRef = useRef<HTMLDivElement>(null)
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!dropdownOpen) return
+    const handler = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [dropdownOpen])
 
   if (!status?.connector_configured) return null
 
@@ -776,12 +789,15 @@ function GoutiSyncToolbar() {
 
   return (
     <>
-      <div className="relative inline-flex rounded border border-orange-500/30 bg-orange-500/5 text-orange-700 hover:bg-orange-500/10 text-xs overflow-hidden">
+      {/* NOTE: no `overflow-hidden` here — it would clip the absolutely
+          positioned dropdown. Rounded corners are applied per-button via
+          rounded-l/rounded-r so the split-button still looks unified. */}
+      <div ref={wrapperRef} className="relative inline-flex text-xs">
         <button
           type="button"
           onClick={handleMainClick}
           disabled={syncSelected.isPending}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-l border border-orange-500/30 bg-orange-500/5 text-orange-700 hover:bg-orange-500/10 disabled:opacity-50"
           title={hasSelection
             ? `Forcer la synchronisation (${status.project_count} importés · dernière : ${lastSyncLabel})`
             : 'Ouvrir l\'assistant d\'import Gouti'}
@@ -797,25 +813,34 @@ function GoutiSyncToolbar() {
         <button
           type="button"
           onClick={() => setDropdownOpen(v => !v)}
-          className="px-1.5 border-l border-orange-500/30 hover:bg-orange-500/10"
+          className={cn(
+            'px-1.5 rounded-r border border-l-0 border-orange-500/30 bg-orange-500/5 text-orange-700 hover:bg-orange-500/10 flex items-center',
+            dropdownOpen && 'bg-orange-500/20',
+          )}
           title="Options"
           aria-haspopup="menu"
           aria-expanded={dropdownOpen}
         >
-          <ChevronDown size={11} />
+          <ChevronDown size={11} className={cn('transition-transform', dropdownOpen && 'rotate-180')} />
         </button>
         {dropdownOpen && (
-          <div className="absolute top-full right-0 mt-1 w-[220px] bg-background border border-border rounded-md shadow-lg z-50 py-1">
+          <div
+            className="absolute top-full right-0 mt-1 min-w-[240px] bg-popover border border-border rounded-md shadow-lg py-1"
+            style={{ zIndex: 'var(--z-popover, 60)' }}
+            role="menu"
+          >
             <button
               onClick={() => { setDropdownOpen(false); setModalOpen(true) }}
-              className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2"
+              role="menuitem"
+              className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2 text-foreground"
             >
               <Filter size={11} /> Re-sélectionner les projets…
             </button>
             {hasSelection && (
               <button
                 onClick={() => { setDropdownOpen(false); handleMainClick() }}
-                className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2"
+                role="menuitem"
+                className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2 text-foreground"
               >
                 <RefreshCw size={11} /> Forcer la synchronisation
               </button>

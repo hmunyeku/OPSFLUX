@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { tiersService } from '@/services/tiersService'
 import type {
   TierCreate, TierContactCreate, TierContactUpdate,
-  TierBlockCreate, ExternalReferenceCreate,
+  TierBlockCreate, ExternalReferenceCreate, TierContactPromoteUserRequest,
 } from '@/types/api'
 
 // ── Tiers ──
@@ -66,6 +66,14 @@ export function useTierContact(tierId: string | undefined, contactId: string | u
   })
 }
 
+export function useGlobalTierContact(contactId: string | undefined) {
+  return useQuery({
+    queryKey: ['global-tier-contact', contactId],
+    queryFn: () => tiersService.getGlobalContact(contactId!),
+    enabled: !!contactId,
+  })
+}
+
 export function useTierContacts(tierId: string | undefined) {
   return useQuery({
     queryKey: ['tier-contacts', tierId],
@@ -111,6 +119,20 @@ export function useDeleteTierContact() {
       tiersService.deleteContact(tierId, contactId),
     onSuccess: (_, { tierId }) => {
       qc.invalidateQueries({ queryKey: ['tier-contacts', tierId] })
+    },
+  })
+}
+
+export function usePromoteTierContactToUser() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ tierId, contactId, payload }: { tierId: string; contactId: string; payload?: TierContactPromoteUserRequest }) =>
+      tiersService.promoteContactToUser(tierId, contactId, payload),
+    onSuccess: (_, { tierId, contactId }) => {
+      qc.invalidateQueries({ queryKey: ['tier-contacts', tierId] })
+      qc.invalidateQueries({ queryKey: ['tier-contacts', tierId, contactId] })
+      qc.invalidateQueries({ queryKey: ['all-tier-contacts'] })
+      qc.invalidateQueries({ queryKey: ['users'] })
     },
   })
 }

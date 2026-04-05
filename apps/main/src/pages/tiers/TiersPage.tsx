@@ -18,7 +18,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Building2, Plus, Loader2, Trash2, MapPin, Paperclip, MessageSquare,
-  Phone, Mail, Users, ArrowLeft, Star, Pencil, Globe,
+  Phone, Mail, Users, ArrowLeft, Star, Pencil, Globe, Clock,
   ChevronDown, FileText, Search, ShieldBan, ShieldCheck, Link2, X,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
@@ -30,6 +30,7 @@ import { normalizeNames } from '@/lib/normalize'
 import { useDebounce } from '@/hooks/useDebounce'
 import { usePageSize } from '@/hooks/usePageSize'
 import { usePermission } from '@/hooks/usePermission'
+import { useDictionaryOptions, useDictionaryLabels } from '@/hooks/useDictionary'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
 import {
   DynamicPanelShell,
@@ -56,55 +57,25 @@ import { ContactEmailManager } from '@/components/shared/ContactEmailManager'
 import { LegalIdentifierManager } from '@/components/shared/LegalIdentifierManager'
 import { ReferentielManager } from '@/components/shared/ReferentielManager'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
+import { SocialNetworkManager } from '@/components/shared/SocialNetworkManager'
+import { OpeningHoursManager } from '@/components/shared/OpeningHoursManager'
 import { useUIStore } from '@/stores/uiStore'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
 import { EmptyState } from '@/components/ui/EmptyState'
 import {
   useTiers, useCreateTier, useUpdateTier, useArchiveTier,
   useTierContacts, useCreateTierContact, useUpdateTierContact,
-  useDeleteTierContact, useAllTierContacts,
+  useDeleteTierContact, useAllTierContacts, usePromoteTierContactToUser,
   useTierBlocks, useBlockTier, useUnblockTier,
   useTierExternalRefs, useCreateTierExternalRef, useDeleteTierExternalRef,
 } from '@/hooks/useTiers'
-import { useAddresses, useNotes, useAttachments, usePhones, useContactEmails } from '@/hooks/useSettings'
+import { useAddresses, useNotes, useAttachments, usePhones, useContactEmails, useSocialNetworks, useOpeningHours } from '@/hooks/useSettings'
 import { useLegalIdentifiers } from '@/hooks/useUserSubModels'
 import { useProjects } from '@/hooks/useProjets'
 import { useToast } from '@/components/ui/Toast'
 import type { Tier, TierCreate, TierContact, TierContactCreate, TierContactUpdate, TierContactWithTier } from '@/types/api'
 
 // -- Constants ----------------------------------------------------------------
-
-const TIER_TYPE_OPTIONS = [
-  { value: 'client', label: 'Client' },
-  { value: 'supplier', label: 'Fournisseur' },
-  { value: 'subcontractor', label: 'Sous-traitant' },
-  { value: 'partner', label: 'Partenaire' },
-]
-
-const LEGAL_FORM_OPTIONS = [
-  { value: 'SARL', label: 'SARL' },
-  { value: 'SA', label: 'SA' },
-  { value: 'SAS', label: 'SAS' },
-  { value: 'GIE', label: 'GIE' },
-  { value: 'SNC', label: 'SNC' },
-  { value: 'EI', label: 'Entreprise Individuelle' },
-  { value: 'OTHER', label: 'Autre' },
-]
-
-const CIVILITY_OPTIONS = [
-  { value: 'M.', label: 'M.' },
-  { value: 'Mme', label: 'Mme' },
-  { value: 'Dr', label: 'Dr' },
-  { value: 'Pr', label: 'Pr' },
-]
-
-const CURRENCY_OPTIONS = [
-  { value: 'XAF', label: 'XAF - Franc CFA CEMAC' },
-  { value: 'XOF', label: 'XOF - Franc CFA UEMOA' },
-  { value: 'EUR', label: 'EUR - Euro' },
-  { value: 'USD', label: 'USD - Dollar US' },
-  { value: 'GBP', label: 'GBP - Livre Sterling' },
-]
 
 const EMPTY_CONTACT_FORM: TierContactCreate = {
   civility: null,
@@ -121,17 +92,40 @@ function CreateTierPanel() {
   const { t } = useTranslation()
   const createTier = useCreateTier()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const tierTypeOptions = useDictionaryOptions('tier_type')
+  const legalFormOptions = useDictionaryOptions('legal_form')
+  const currencyOptions = useDictionaryOptions('currency')
+  const languageOptions = useDictionaryOptions('language')
+  const countryOptions = useDictionaryOptions('country')
   const [form, setForm] = useState<TierCreate>({
     name: '',
     type: 'client',
     alias: null,
+    trade_name: null,
     website: null,
+    phone: null,
+    fax: null,
+    email: null,
     legal_form: null,
+    registration_number: null,
+    tax_id: null,
+    vat_number: null,
     capital: null,
     currency: 'XAF',
+    fiscal_year_start: 1,
     industry: null,
+    founded_date: null,
     payment_terms: null,
     description: null,
+    address_line1: null,
+    address_line2: null,
+    city: null,
+    state: null,
+    zip_code: null,
+    country: null,
+    timezone: 'Africa/Kinshasa',
+    language: 'fr',
+    notes: null,
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -165,7 +159,7 @@ function CreateTierPanel() {
           {/* Type — full width */}
           <FormSection title={t('common.type')}>
             <TagSelector
-              options={TIER_TYPE_OPTIONS}
+              options={tierTypeOptions}
               value={form.type || 'client'}
               onChange={(v) => setForm({ ...form, type: v })}
             />
@@ -175,76 +169,130 @@ function CreateTierPanel() {
           <SectionColumns>
             {/* Column 1: Identification + Coordonnees */}
             <div className="@container space-y-5">
-              <FormSection title="Identification">
+              <FormSection title={t('tiers.ui.sections.identity')}>
                 <FormGrid>
                   <DynamicPanelField label={t('common.code')}>
-                    <span className="text-sm font-mono text-muted-foreground italic">Auto-généré à la création</span>
+                    <span className="text-sm font-mono text-muted-foreground italic">{t('tiers.ui.auto_generated')}</span>
                   </DynamicPanelField>
                   <DynamicPanelField label={t('common.name')} required>
-                    <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={panelInputClass} placeholder="Nom de l'entreprise" />
+                    <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={panelInputClass} placeholder={t('tiers.ui.placeholders.company_name')} />
                   </DynamicPanelField>
-                  <DynamicPanelField label="Nom commercial">
-                    <input type="text" value={form.alias ?? ''} onChange={(e) => setForm({ ...form, alias: e.target.value || null })} className={panelInputClass} placeholder="DBA / Trade name" />
+                  <DynamicPanelField label={t('tiers.ui.trade_name')}>
+                    <input type="text" value={form.trade_name ?? ''} onChange={(e) => setForm({ ...form, trade_name: e.target.value || null })} className={panelInputClass} placeholder={t('tiers.ui.placeholders.trade_name')} />
+                  </DynamicPanelField>
+                  <DynamicPanelField label={t('tiers.ui.alias')}>
+                    <input type="text" value={form.alias ?? ''} onChange={(e) => setForm({ ...form, alias: e.target.value || null })} className={panelInputClass} placeholder={t('tiers.ui.placeholders.alias')} />
                   </DynamicPanelField>
                 </FormGrid>
               </FormSection>
 
-              <FormSection title="Coordonnees">
+              <FormSection title={t('tiers.ui.sections.contact')}>
                 <FormGrid>
-                  <DynamicPanelField label="Site web">
+                  <DynamicPanelField label={t('tiers.ui.website')}>
                     <input type="url" value={form.website ?? ''} onChange={(e) => setForm({ ...form, website: e.target.value || null })} className={panelInputClass} placeholder="https://..." />
+                  </DynamicPanelField>
+                  <DynamicPanelField label={t('common.email')}>
+                    <input type="email" value={form.email ?? ''} onChange={(e) => setForm({ ...form, email: e.target.value || null })} className={panelInputClass} placeholder={t('tiers.ui.placeholders.email')} />
+                  </DynamicPanelField>
+                  <DynamicPanelField label={t('common.phone')}>
+                    <input type="text" value={form.phone ?? ''} onChange={(e) => setForm({ ...form, phone: e.target.value || null })} className={panelInputClass} placeholder={t('tiers.ui.placeholders.phone')} />
+                  </DynamicPanelField>
+                  <DynamicPanelField label={t('tiers.ui.fax')}>
+                    <input type="text" value={form.fax ?? ''} onChange={(e) => setForm({ ...form, fax: e.target.value || null })} className={panelInputClass} placeholder={t('tiers.ui.placeholders.fax')} />
                   </DynamicPanelField>
                 </FormGrid>
                 <p className="text-[10px] text-muted-foreground mt-1.5">
-                  Telephones, emails et adresses seront geres dans la fiche apres creation.
+                  {t('tiers.ui.contact_hint')}
                 </p>
+              </FormSection>
+
+              <FormSection title={t('tiers.ui.sections.address')}>
+                <FormGrid>
+                  <DynamicPanelField label={t('tiers.ui.address_line1')}>
+                    <input type="text" value={form.address_line1 ?? ''} onChange={(e) => setForm({ ...form, address_line1: e.target.value || null })} className={panelInputClass} placeholder={t('tiers.ui.placeholders.address_line1')} />
+                  </DynamicPanelField>
+                  <DynamicPanelField label={t('tiers.ui.address_line2')}>
+                    <input type="text" value={form.address_line2 ?? ''} onChange={(e) => setForm({ ...form, address_line2: e.target.value || null })} className={panelInputClass} placeholder={t('tiers.ui.placeholders.address_line2')} />
+                  </DynamicPanelField>
+                  <DynamicPanelField label={t('tiers.ui.city')}>
+                    <input type="text" value={form.city ?? ''} onChange={(e) => setForm({ ...form, city: e.target.value || null })} className={panelInputClass} />
+                  </DynamicPanelField>
+                  <DynamicPanelField label={t('tiers.ui.state')}>
+                    <input type="text" value={form.state ?? ''} onChange={(e) => setForm({ ...form, state: e.target.value || null })} className={panelInputClass} />
+                  </DynamicPanelField>
+                  <DynamicPanelField label={t('tiers.ui.zip_code')}>
+                    <input type="text" value={form.zip_code ?? ''} onChange={(e) => setForm({ ...form, zip_code: e.target.value || null })} className={panelInputClass} />
+                  </DynamicPanelField>
+                  <DynamicPanelField label={t('tiers.ui.country')}>
+                    {countryOptions.length > 0 ? (
+                      <TagSelector options={countryOptions} value={form.country || ''} onChange={(v) => setForm({ ...form, country: v || null })} />
+                    ) : (
+                      <input type="text" value={form.country ?? ''} onChange={(e) => setForm({ ...form, country: e.target.value || null })} className={panelInputClass} />
+                    )}
+                  </DynamicPanelField>
+                </FormGrid>
               </FormSection>
             </div>
 
             {/* Column 2: Informations legales + Description */}
             <div className="@container space-y-5">
-              <FormSection title="Informations legales">
+              <FormSection title={t('tiers.ui.sections.legal')}>
                 <FormGrid>
-                  <DynamicPanelField label="Forme juridique">
+                  <DynamicPanelField label={t('tiers.ui.legal_form')}>
                     <select
                       value={form.legal_form ?? ''}
                       onChange={(e) => setForm({ ...form, legal_form: e.target.value || null })}
                       className={panelInputClass}
                     >
                       <option value="">--</option>
-                      {LEGAL_FORM_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      {legalFormOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   </DynamicPanelField>
-                  <DynamicPanelField label="Capital social">
+                  <DynamicPanelField label={t('tiers.ui.capital')}>
                     <input type="number" step="any" value={form.capital ?? ''} onChange={(e) => setForm({ ...form, capital: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} placeholder="0" />
                   </DynamicPanelField>
-                  <DynamicPanelField label="Devise">
+                  <DynamicPanelField label={t('tiers.ui.currency')}>
                     <select
                       value={form.currency ?? 'XAF'}
                       onChange={(e) => setForm({ ...form, currency: e.target.value })}
                       className={panelInputClass}
                     >
-                      {CURRENCY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      {currencyOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   </DynamicPanelField>
-                  <DynamicPanelField label="Secteur d'activite">
-                    <input type="text" value={form.industry ?? ''} onChange={(e) => setForm({ ...form, industry: e.target.value || null })} className={panelInputClass} placeholder="Petrole & Gaz" />
+                  <DynamicPanelField label={t('tiers.ui.industry')}>
+                    <input type="text" value={form.industry ?? ''} onChange={(e) => setForm({ ...form, industry: e.target.value || null })} className={panelInputClass} placeholder={t('tiers.ui.placeholders.industry')} />
                   </DynamicPanelField>
-                  <DynamicPanelField label="Conditions de paiement">
-                    <input type="text" value={form.payment_terms ?? ''} onChange={(e) => setForm({ ...form, payment_terms: e.target.value || null })} className={panelInputClass} placeholder="30 jours net" />
+                  <DynamicPanelField label={t('tiers.ui.payment_terms')}>
+                    <input type="text" value={form.payment_terms ?? ''} onChange={(e) => setForm({ ...form, payment_terms: e.target.value || null })} className={panelInputClass} placeholder={t('tiers.ui.placeholders.payment_terms')} />
                   </DynamicPanelField>
                 </FormGrid>
                 <p className="text-[10px] text-muted-foreground mt-1.5">
-                  Les identifiants legaux (SIRET, RCCM, NIU, TVA, NIF...) seront geres dans la fiche.
+                  {t('tiers.ui.legal_hint')}
                 </p>
               </FormSection>
 
-              <FormSection title="Description" collapsible defaultExpanded={false}>
+              <FormSection title={t('tiers.ui.sections.configuration')}>
+                <FormGrid>
+                  <DynamicPanelField label={t('tiers.ui.language')}>
+                    {languageOptions.length > 0 ? (
+                      <TagSelector options={languageOptions} value={form.language || 'fr'} onChange={(v) => setForm({ ...form, language: v || 'fr' })} />
+                    ) : (
+                      <input type="text" value={form.language ?? 'fr'} onChange={(e) => setForm({ ...form, language: e.target.value || 'fr' })} className={panelInputClass} />
+                    )}
+                  </DynamicPanelField>
+                  <DynamicPanelField label={t('tiers.ui.timezone')}>
+                    <input type="text" value={form.timezone ?? 'Africa/Kinshasa'} onChange={(e) => setForm({ ...form, timezone: e.target.value || 'Africa/Kinshasa' })} className={panelInputClass} placeholder="Africa/Kinshasa" />
+                  </DynamicPanelField>
+                </FormGrid>
+              </FormSection>
+
+              <FormSection title={t('common.description')} collapsible defaultExpanded={false}>
                 <textarea
                   value={form.description ?? ''}
                   onChange={(e) => setForm({ ...form, description: e.target.value || null })}
                   className={`${panelInputClass} min-h-[60px] resize-y`}
-                  placeholder="Description libre..."
+                  placeholder={t('tiers.ui.placeholders.description')}
                   rows={3}
                 />
               </FormSection>
@@ -267,12 +315,14 @@ function TierDetailPanel({ id }: { id: string }) {
   const updateTier = useUpdateTier()
   const { hasPermission } = usePermission()
   const canEdit = hasPermission('tier.update')
+  const tierTypeOptions = useDictionaryOptions('tier_type')
+  const legalFormOptions = useDictionaryOptions('legal_form')
 
   // Drill-down state: null = company view, string = contact detail view
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null)
 
-  const handleInlineSave = useCallback((field: string, value: string) => {
-    updateTier.mutate({ id, payload: normalizeNames({ [field]: value }) })
+  const handleInlineSave = useCallback((field: keyof TierCreate, value: string | number | null) => {
+    updateTier.mutate({ id, payload: normalizeNames({ [field]: value } as Partial<TierCreate>) })
   }, [id, updateTier])
 
   // Fetch counts for company-level data
@@ -281,6 +331,8 @@ function TierDetailPanel({ id }: { id: string }) {
   const { data: addresses } = useAddresses('tier', tier?.id)
   const { data: notes } = useNotes('tier', tier?.id)
   const { data: attachments } = useAttachments('tier', tier?.id)
+  const { data: socialNetworks } = useSocialNetworks('tier', tier?.id)
+  const { data: openingHours } = useOpeningHours('tier', tier?.id)
   const { data: identifiers } = useLegalIdentifiers('tier', tier?.id)
 
   // Contacts (employees)
@@ -338,7 +390,7 @@ function TierDetailPanel({ id }: { id: string }) {
         <DangerConfirmButton
           icon={<Trash2 size={12} />}
           onConfirm={() => { archiveTier.mutate(id); closeDynamicPanel() }}
-          confirmLabel="Supprimer ?"
+          confirmLabel={t('common.confirm_delete')}
         >
           {t('common.delete')}
         </DangerConfirmButton>
@@ -352,24 +404,23 @@ function TierDetailPanel({ id }: { id: string }) {
         <SectionColumns>
           {/* ── Left column: Fiche entreprise + Coordonnees ── */}
           <div className="@container space-y-5">
-            <FormSection title="Fiche entreprise" collapsible defaultExpanded storageKey="tier-detail-sections">
+            <FormSection title={t('tiers.ui.sections.identity')} collapsible defaultExpanded storageKey="tier-detail-sections">
               <DetailFieldGrid>
                 <InlineEditableRow label={t('common.name')} value={tier.name} onSave={(v) => handleInlineSave('name', v)} />
                 <ReadOnlyRow label={t('common.code')} value={<span className="text-sm font-mono font-medium text-foreground">{tier.code || '—'}</span>} />
               </DetailFieldGrid>
-              {tier.alias !== null && (
-                <InlineEditableRow label="Nom commercial" value={tier.alias || ''} onSave={(v) => handleInlineSave('alias', v)} />
-              )}
-              {!tier.alias && canEdit && (
-                <button onClick={() => handleInlineSave('alias', ' ')} className="text-[10px] text-primary hover:underline">+ Ajouter nom commercial</button>
-              )}
+              <DetailFieldGrid>
+                <InlineEditableRow label={t('tiers.ui.trade_name')} value={tier.trade_name || ''} onSave={(v) => handleInlineSave('trade_name', v)} />
+                <InlineEditableRow label={t('tiers.ui.alias')} value={tier.alias || ''} onSave={(v) => handleInlineSave('alias', v)} />
+              </DetailFieldGrid>
               <DetailFieldGrid>
                 <InlineEditableTags
                   label={t('common.type')}
                   value={tier.type || ''}
-                  options={TIER_TYPE_OPTIONS}
+                  options={tierTypeOptions}
                   onSave={(v) => handleInlineSave('type', v)}
                 />
+                <InlineEditableRow label={t('tiers.ui.country')} value={tier.country || ''} onSave={(v) => handleInlineSave('country', v)} />
                 <ReadOnlyRow
                   label={t('common.status')}
                   value={
@@ -379,25 +430,44 @@ function TierDetailPanel({ id }: { id: string }) {
                   }
                 />
               </DetailFieldGrid>
+              <DetailFieldGrid>
+                <InlineEditableRow label={t('tiers.ui.language')} value={tier.language || 'fr'} onSave={(v) => handleInlineSave('language', v)} />
+                <InlineEditableRow label={t('tiers.ui.timezone')} value={tier.timezone || 'Africa/Kinshasa'} onSave={(v) => handleInlineSave('timezone', v)} />
+                <InlineEditableRow label={t('tiers.ui.fiscal_year_start')} value={String(tier.fiscal_year_start || 1)} onSave={(v) => handleInlineSave('fiscal_year_start', Number(v) || 1)} />
+              </DetailFieldGrid>
             </FormSection>
 
-            <FormSection title="Coordonnees entreprise" collapsible defaultExpanded storageKey="tier-detail-sections">
+            <FormSection title={t('tiers.ui.sections.contact')} collapsible defaultExpanded storageKey="tier-detail-sections">
               {tier.website && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
                   <Globe size={11} className="shrink-0" />
                   <a href={tier.website} target="_blank" rel="noopener noreferrer" className="hover:text-primary truncate">{tier.website}</a>
                 </div>
               )}
-              <InlineEditableRow label="Site web" value={tier.website || ''} onSave={(v) => handleInlineSave('website', v)} />
+              <DetailFieldGrid>
+                <InlineEditableRow label={t('tiers.ui.website')} value={tier.website || ''} onSave={(v) => handleInlineSave('website', v)} />
+                <InlineEditableRow label={t('common.email')} value={tier.email || ''} onSave={(v) => handleInlineSave('email', v)} />
+                <InlineEditableRow label={t('common.phone')} value={tier.phone || ''} onSave={(v) => handleInlineSave('phone', v)} />
+                <InlineEditableRow label={t('tiers.ui.fax')} value={tier.fax || ''} onSave={(v) => handleInlineSave('fax', v)} />
+              </DetailFieldGrid>
+              <div className="border-t border-border/40 pt-3 mt-3">
+                <DetailFieldGrid>
+                  <InlineEditableRow label={t('tiers.ui.address_line1')} value={tier.address_line1 || ''} onSave={(v) => handleInlineSave('address_line1', v)} />
+                  <InlineEditableRow label={t('tiers.ui.address_line2')} value={tier.address_line2 || ''} onSave={(v) => handleInlineSave('address_line2', v)} />
+                  <InlineEditableRow label={t('tiers.ui.city')} value={tier.city || ''} onSave={(v) => handleInlineSave('city', v)} />
+                  <InlineEditableRow label={t('tiers.ui.state')} value={tier.state || ''} onSave={(v) => handleInlineSave('state', v)} />
+                  <InlineEditableRow label={t('tiers.ui.zip_code')} value={tier.zip_code || ''} onSave={(v) => handleInlineSave('zip_code', v)} />
+                </DetailFieldGrid>
+              </div>
 
               <div className="space-y-3 border-t border-border/40 pt-3 mt-2">
-                <SubSectionLabel icon={Phone} label="Telephones" count={phones?.length ?? 0} />
+                <SubSectionLabel icon={Phone} label={t('shared.phones.title')} count={phones?.length ?? 0} />
                 <PhoneManager ownerType="tier" ownerId={tier.id} compact />
 
-                <SubSectionLabel icon={Mail} label="Emails" count={contactEmails?.length ?? 0} />
+                <SubSectionLabel icon={Mail} label={t('shared.emails.title')} count={contactEmails?.length ?? 0} />
                 <ContactEmailManager ownerType="tier" ownerId={tier.id} compact />
 
-                <SubSectionLabel icon={MapPin} label="Adresses" count={addresses?.length ?? 0} />
+                <SubSectionLabel icon={MapPin} label={t('shared.addresses.title')} count={addresses?.length ?? 0} />
                 <AddressManager ownerType="tier" ownerId={tier.id} compact />
               </div>
             </FormSection>
@@ -405,27 +475,32 @@ function TierDetailPanel({ id }: { id: string }) {
 
           {/* ── Right column: Infos legales + Contacts ── */}
           <div className="@container space-y-5">
-            <FormSection title={`Informations legales (${identifiers?.length ?? 0})`} collapsible defaultExpanded storageKey="tier-detail-sections">
+            <FormSection title={`${t('tiers.ui.sections.legal')} (${identifiers?.length ?? 0})`} collapsible defaultExpanded storageKey="tier-detail-sections">
               <DetailFieldGrid>
                 <InlineEditableTags
-                  label="Forme juridique"
+                  label={t('tiers.ui.legal_form')}
                   value={tier.legal_form || ''}
-                  options={LEGAL_FORM_OPTIONS}
+                  options={legalFormOptions}
                   onSave={(v) => handleInlineSave('legal_form', v)}
                 />
-                <InlineEditableRow label="Capital" value={tier.capital ? String(tier.capital) : ''} onSave={(v) => handleInlineSave('capital', v)} />
-                <ReadOnlyRow label="Devise" value={<span className="text-sm">{tier.currency || 'XAF'}</span>} />
-                <InlineEditableRow label="Secteur" value={tier.industry || ''} onSave={(v) => handleInlineSave('industry', v)} />
-                <InlineEditableRow label="Paiement" value={tier.payment_terms || ''} onSave={(v) => handleInlineSave('payment_terms', v)} />
+                <InlineEditableRow label={t('tiers.ui.registration_number')} value={tier.registration_number || ''} onSave={(v) => handleInlineSave('registration_number', v)} />
+                <InlineEditableRow label={t('tiers.ui.tax_id')} value={tier.tax_id || ''} onSave={(v) => handleInlineSave('tax_id', v)} />
+                <InlineEditableRow label={t('tiers.ui.vat_number')} value={tier.vat_number || ''} onSave={(v) => handleInlineSave('vat_number', v)} />
+                <InlineEditableRow label={t('tiers.ui.capital')} value={tier.capital ? String(tier.capital) : ''} onSave={(v) => handleInlineSave('capital', v)} />
+                <ReadOnlyRow label={t('tiers.ui.currency')} value={<span className="text-sm">{tier.currency || 'XAF'}</span>} />
+                <InlineEditableRow label={t('tiers.ui.industry')} value={tier.industry || ''} onSave={(v) => handleInlineSave('industry', v)} />
+                <InlineEditableRow label={t('tiers.ui.payment_terms')} value={tier.payment_terms || ''} onSave={(v) => handleInlineSave('payment_terms', v)} />
+                <InlineEditableRow label={t('tiers.ui.founded_date')} value={tier.founded_date || ''} onSave={(v) => handleInlineSave('founded_date', v)} />
+                <InlineEditableRow label={t('tiers.ui.logo_url')} value={tier.logo_url || ''} onSave={(v) => handleInlineSave('logo_url', v)} />
               </DetailFieldGrid>
 
               <div className="border-t border-border/40 pt-3 mt-3">
-                <SubSectionLabel icon={FileText} label="Identifiants légaux" count={identifiers?.length ?? 0} />
+                <SubSectionLabel icon={FileText} label={t('shared.identifiers.title')} count={identifiers?.length ?? 0} />
                 <LegalIdentifierManager ownerType="tier" ownerId={tier.id} compact />
               </div>
             </FormSection>
 
-            <FormSection title={`Employes (${contactList.length})`} collapsible defaultExpanded storageKey="tier-detail-sections">
+            <FormSection title={`${t('tiers.tab_contacts')} (${contactList.length})`} collapsible defaultExpanded storageKey="tier-detail-sections">
               <ContactListSection
                 tierId={tier.id}
                 contacts={contactList}
@@ -441,15 +516,15 @@ function TierDetailPanel({ id }: { id: string }) {
         <FormSection
           title={
             <span className="flex items-center gap-2">
-              Blocage
+              {t('tiers.ui.block')}
               {tier.is_blocked && (
                 <span className="gl-badge gl-badge-danger text-[10px]">
-                  <ShieldBan size={10} className="mr-0.5" />Bloque
+                  <ShieldBan size={10} className="mr-0.5" />{t('tiers.ui.blocked')}
                 </span>
               )}
             </span>
           }
-          id="Blocage"
+          id={t('tiers.ui.block')}
           collapsible
           defaultExpanded={tier.is_blocked}
           storageKey="tier-detail-blocage"
@@ -462,14 +537,14 @@ function TierDetailPanel({ id }: { id: string }) {
                   onClick={() => setShowBlockForm(!showBlockForm)}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 transition-colors"
                 >
-                  <ShieldCheck size={12} />Debloquer
+                  <ShieldCheck size={12} />{t('tiers.ui.unblock')}
                 </button>
               ) : (
                 <button
                   onClick={() => setShowBlockForm(!showBlockForm)}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-300 transition-colors"
                 >
-                  <ShieldBan size={12} />Bloquer
+                  <ShieldBan size={12} />{t('tiers.ui.block')}
                 </button>
               )}
             </div>
@@ -479,26 +554,26 @@ function TierDetailPanel({ id }: { id: string }) {
             <div className="border border-border rounded-md p-3 mb-3 space-y-2 bg-muted/30">
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[10px] font-medium text-muted-foreground">Type de blocage</label>
+                  <label className="text-[10px] font-medium text-muted-foreground">{t('tiers.ui.block_type')}</label>
                   <select value={blockType} onChange={(e) => setBlockType(e.target.value)} className={panelInputClass}>
-                    <option value="purchasing">Achats</option>
-                    <option value="payment">Paiements</option>
-                    <option value="all">Complet</option>
+                    <option value="purchasing">{t('tiers.ui.block_purchasing')}</option>
+                    <option value="payment">{t('tiers.ui.block_payment')}</option>
+                    <option value="all">{t('tiers.ui.block_full')}</option>
                   </select>
                 </div>
               </div>
               <div>
-                <label className="text-[10px] font-medium text-muted-foreground">Motif *</label>
+                <label className="text-[10px] font-medium text-muted-foreground">{t('tiers.ui.block_reason')}</label>
                 <textarea
                   value={blockReason}
                   onChange={(e) => setBlockReason(e.target.value)}
                   className={`${panelInputClass} min-h-[50px] resize-y`}
-                  placeholder="Raison du blocage / deblocage..."
+                  placeholder={t('tiers.ui.block_reason_placeholder')}
                   rows={2}
                 />
               </div>
               <div className="flex justify-end gap-2">
-                <button onClick={() => { setShowBlockForm(false); setBlockReason('') }} className="text-xs text-muted-foreground hover:text-foreground">Annuler</button>
+                <button onClick={() => { setShowBlockForm(false); setBlockReason('') }} className="text-xs text-muted-foreground hover:text-foreground">{t('common.cancel')}</button>
                 <button
                   disabled={!blockReason.trim()}
                   onClick={() => {
@@ -510,7 +585,7 @@ function TierDetailPanel({ id }: { id: string }) {
                   }}
                   className="inline-flex items-center gap-1 px-3 py-1 rounded text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                 >
-                  {tier.is_blocked ? 'Debloquer' : 'Bloquer'}
+                  {tier.is_blocked ? t('tiers.ui.unblock') : t('tiers.ui.block')}
                 </button>
               </div>
             </div>
@@ -529,7 +604,7 @@ function TierDetailPanel({ id }: { id: string }) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className={cn('font-medium', b.action === 'block' ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400')}>
-                        {b.action === 'block' ? 'Bloque' : 'Debloque'}
+                        {b.action === 'block' ? t('tiers.ui.blocked') : t('tiers.ui.unblocked')}
                       </span>
                       <span className="gl-badge gl-badge-neutral text-[9px]">{b.block_type}</span>
                     </div>
@@ -543,12 +618,12 @@ function TierDetailPanel({ id }: { id: string }) {
             </div>
           )}
           {(!blocks || blocks.length === 0) && !tier.is_blocked && (
-            <p className="text-xs text-muted-foreground/60 italic">Aucun historique de blocage.</p>
+            <p className="text-xs text-muted-foreground/60 italic">{t('tiers.ui.no_block_history')}</p>
           )}
         </FormSection>
 
         {/* Identifiants externes */}
-        <FormSection title={`Identifiants externes (${externalRefs?.length ?? 0})`} collapsible defaultExpanded={false} storageKey="tier-detail-ext-refs">
+        <FormSection title={`${t('tiers.ui.external_refs')} (${externalRefs?.length ?? 0})`} collapsible defaultExpanded={false} storageKey="tier-detail-ext-refs">
           {canEdit && (
             <div className="mb-2">
               {!showRefForm ? (
@@ -556,23 +631,23 @@ function TierDetailPanel({ id }: { id: string }) {
                   onClick={() => setShowRefForm(true)}
                   className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80"
                 >
-                  <Plus size={11} /> Ajouter un identifiant
+                  <Plus size={11} /> {t('tiers.ui.add_external_ref')}
                 </button>
               ) : (
                 <div className="border border-border rounded-md p-3 space-y-2 bg-muted/30">
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="text-[10px] font-medium text-muted-foreground">Systeme *</label>
+                      <label className="text-[10px] font-medium text-muted-foreground">{t('tiers.ui.system')}</label>
                       <select value={refSystem} onChange={(e) => setRefSystem(e.target.value)} className={panelInputClass}>
                         <option value="SAP">SAP</option>
                         <option value="Gouti">Gouti</option>
                         <option value="Intranet">Intranet</option>
                         <option value="Legacy">Legacy</option>
-                        <option value="Other">Autre</option>
+                        <option value="Other">{t('common.other')}</option>
                       </select>
                     </div>
                     <div>
-                      <label className="text-[10px] font-medium text-muted-foreground">Code *</label>
+                      <label className="text-[10px] font-medium text-muted-foreground">{t('common.code')} *</label>
                       <input
                         type="text"
                         value={refCode}
@@ -583,7 +658,7 @@ function TierDetailPanel({ id }: { id: string }) {
                     </div>
                   </div>
                   <div className="flex justify-end gap-2">
-                    <button onClick={() => { setShowRefForm(false); setRefCode('') }} className="text-xs text-muted-foreground hover:text-foreground">Annuler</button>
+                    <button onClick={() => { setShowRefForm(false); setRefCode('') }} className="text-xs text-muted-foreground hover:text-foreground">{t('common.cancel')}</button>
                     <button
                       disabled={!refCode.trim() || createExternalRef.isPending}
                       onClick={() => {
@@ -595,7 +670,7 @@ function TierDetailPanel({ id }: { id: string }) {
                       className="inline-flex items-center gap-1 px-3 py-1 rounded text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                     >
                       {createExternalRef.isPending ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}
-                      Ajouter
+                      {t('common.add')}
                     </button>
                   </div>
                 </div>
@@ -617,7 +692,7 @@ function TierDetailPanel({ id }: { id: string }) {
                     <button
                       onClick={() => deleteExternalRef.mutate({ tierId: tier.id, refId: ref.id })}
                       className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity"
-                      title="Supprimer"
+                      title={t('common.delete')}
                     >
                       <X size={12} />
                     </button>
@@ -626,18 +701,18 @@ function TierDetailPanel({ id }: { id: string }) {
               ))}
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground/60 italic">Aucun identifiant externe.</p>
+            <p className="text-xs text-muted-foreground/60 italic">{t('tiers.ui.no_external_refs')}</p>
           )}
         </FormSection>
 
         {/* Conformite */}
-        <FormSection title="Conformite" collapsible defaultExpanded={false} storageKey="tier-detail-conformite">
+        <FormSection title={t('nav.conformite')} collapsible defaultExpanded={false} storageKey="tier-detail-conformite">
           <ReferentielManager ownerType="tier" ownerId={tier.id} compact />
         </FormSection>
 
         {/* Projets liés */}
         {relatedProjects && relatedProjects.items.length > 0 && (
-          <FormSection title={`Projets lies (${relatedProjects.total})`} collapsible defaultExpanded={false} storageKey="tier-detail-projets">
+          <FormSection title={`${t('tiers.ui.related_projects')} (${relatedProjects.total})`} collapsible defaultExpanded={false} storageKey="tier-detail-projets">
             <div className="space-y-1.5">
               {relatedProjects.items.map((p) => (
                 <div key={p.id} className="flex items-center justify-between gap-2 px-2 py-1.5 rounded hover:bg-accent/50 transition-colors">
@@ -652,22 +727,35 @@ function TierDetailPanel({ id }: { id: string }) {
         )}
 
         {/* Full-width sections below the columns */}
-        <FormSection title="Notes & Documents" collapsible defaultExpanded={false} storageKey="tier-detail-sections">
+        <FormSection title={t('tiers.ui.sections.notes_documents')} collapsible defaultExpanded={false} storageKey="tier-detail-sections">
           <DetailFieldGrid>
             <div>
-              <SubSectionLabel icon={MessageSquare} label="Notes" count={notes?.length ?? 0} />
+              <SubSectionLabel icon={MessageSquare} label={t('common.notes')} count={notes?.length ?? 0} />
               <NoteManager ownerType="tier" ownerId={tier.id} compact />
             </div>
             <div>
-              <SubSectionLabel icon={Paperclip} label="Fichiers" count={attachments?.length ?? 0} />
+              <SubSectionLabel icon={Paperclip} label={t('common.files')} count={attachments?.length ?? 0} />
               <AttachmentManager ownerType="tier" ownerId={tier.id} compact />
             </div>
           </DetailFieldGrid>
         </FormSection>
 
-        <FormSection title="Description" collapsible defaultExpanded={false} storageKey="tier-detail-sections">
+        <FormSection title={t('tiers.ui.sections.configuration')} collapsible defaultExpanded={false} storageKey="tier-detail-configuration">
+          <DetailFieldGrid>
+            <div>
+              <SubSectionLabel icon={Globe} label={t('tiers.ui.social_networks')} count={socialNetworks?.length ?? 0} />
+              <SocialNetworkManager ownerType="tier" ownerId={tier.id} compact />
+            </div>
+            <div>
+              <SubSectionLabel icon={Clock} label={t('tiers.ui.opening_hours')} count={openingHours?.length ?? 0} />
+              <OpeningHoursManager ownerType="tier" ownerId={tier.id} compact />
+            </div>
+          </DetailFieldGrid>
+        </FormSection>
+
+        <FormSection title={t('common.description')} collapsible defaultExpanded={false} storageKey="tier-detail-sections">
           <InlineEditableRow
-            label="Description"
+            label={t('common.description')}
             value={tier.description || ''}
             onSave={(v) => handleInlineSave('description', v)}
           />
@@ -708,8 +796,10 @@ function ContactListSection({
   onSelectContact: (id: string) => void
   canEdit: boolean
 }) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const createContact = useCreateTierContact()
+  const civilityOptions = useDictionaryOptions('civility')
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState<TierContactCreate>(EMPTY_CONTACT_FORM)
   const [contactSearch, setContactSearch] = useState('')
@@ -739,11 +829,11 @@ function ContactListSection({
       await createContact.mutateAsync({ tierId, payload: normalizeNames(form) })
       setForm(EMPTY_CONTACT_FORM)
       setShowForm(false)
-      toast({ title: 'Employe ajoute', variant: 'success' })
+      toast({ title: t('tiers.ui.contact_created'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur lors de la creation', variant: 'error' })
+      toast({ title: t('common.error_create'), variant: 'error' })
     }
-  }, [tierId, form, createContact, toast])
+  }, [tierId, form, createContact, toast, t])
 
   if (isLoading) {
     return <div className="flex justify-center py-4"><Loader2 size={14} className="animate-spin text-muted-foreground" /></div>
@@ -760,7 +850,7 @@ function ContactListSection({
               type="text"
               value={contactSearch}
               onChange={(e) => setContactSearch(e.target.value)}
-              placeholder="Rechercher un employe..."
+              placeholder={t('tiers.ui.search_contact')}
               className={cn(panelInputClass, 'pl-7 h-7 text-[11px]')}
             />
           </div>
@@ -771,7 +861,7 @@ function ContactListSection({
             className="inline-flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 font-medium shrink-0"
           >
             <Plus size={12} />
-            Ajouter
+            {t('common.add')}
           </button>
         )}
       </div>
@@ -780,31 +870,31 @@ function ContactListSection({
       {showForm && (
         <div className="border border-border rounded-md p-3 space-y-2 bg-accent/20">
           <FormGrid>
-            <DynamicPanelField label="Civilite">
+            <DynamicPanelField label={t('tiers.ui.civility')}>
               <select value={form.civility ?? ''} onChange={(e) => setForm({ ...form, civility: e.target.value || null })} className={panelInputClass}>
                 <option value="">--</option>
-                {CIVILITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {civilityOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </DynamicPanelField>
-            <DynamicPanelField label="Prenom" required>
+            <DynamicPanelField label={t('tiers.ui.first_name')} required>
               <input type="text" value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
-            <DynamicPanelField label="Nom" required>
+            <DynamicPanelField label={t('tiers.ui.last_name')} required>
               <input type="text" value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} className={panelInputClass} />
             </DynamicPanelField>
-            <DynamicPanelField label="Poste / Fonction">
+            <DynamicPanelField label={t('tiers.ui.position')}>
               <input type="text" value={form.position ?? ''} onChange={(e) => setForm({ ...form, position: e.target.value || null })} className={panelInputClass} />
             </DynamicPanelField>
-            <DynamicPanelField label="Departement">
+            <DynamicPanelField label={t('tiers.ui.department')}>
               <input type="text" value={form.department ?? ''} onChange={(e) => setForm({ ...form, department: e.target.value || null })} className={panelInputClass} />
             </DynamicPanelField>
           </FormGrid>
           <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
             <input type="checkbox" checked={form.is_primary} onChange={(e) => setForm({ ...form, is_primary: e.target.checked })} className="rounded border-border" />
-            Employe principal
+            {t('tiers.ui.primary_contact')}
           </label>
           <p className="text-[9px] text-muted-foreground">
-            Telephones, emails et adresses du contact seront geres dans sa fiche.
+            {t('tiers.ui.contact_detail_hint')}
           </p>
           <div className="flex items-center gap-1.5 pt-1">
             <button
@@ -812,10 +902,10 @@ function ContactListSection({
               disabled={!form.first_name.trim() || !form.last_name.trim() || createContact.isPending}
               className="px-2 py-1 rounded text-[11px] font-medium bg-primary text-white hover:bg-primary/90 disabled:opacity-50"
             >
-              {createContact.isPending ? <Loader2 size={11} className="animate-spin" /> : 'Creer'}
+              {createContact.isPending ? <Loader2 size={11} className="animate-spin" /> : t('common.create')}
             </button>
             <button onClick={() => setShowForm(false)} className="px-2 py-1 rounded text-[11px] text-muted-foreground hover:text-foreground hover:bg-accent">
-              Annuler
+              {t('common.cancel')}
             </button>
           </div>
         </div>
@@ -825,11 +915,11 @@ function ContactListSection({
       {contacts.length === 0 && !showForm && (
         <EmptyState
           icon={Users}
-          title="Aucun employe"
-          description="Ajoutez les employes de cette entreprise"
+          title={t('tiers.ui.no_contacts')}
+          description={t('tiers.ui.no_contacts_description')}
           variant="search"
           size="compact"
-          action={canEdit ? { label: 'Ajouter un employe', onClick: () => setShowForm(true) } : undefined}
+          action={canEdit ? { label: t('tiers.ui.add_contact'), onClick: () => setShowForm(true) } : undefined}
         />
       )}
 
@@ -842,7 +932,7 @@ function ContactListSection({
 
       {/* No results after search */}
       {contactSearch && filtered.length === 0 && contacts.length > 0 && (
-        <p className="text-[11px] text-muted-foreground text-center py-3">Aucun resultat pour "{contactSearch}"</p>
+        <p className="text-[11px] text-muted-foreground text-center py-3">{t('tiers.ui.no_contact_results', { search: contactSearch })}</p>
       )}
 
       {/* Contact cards -- paginated */}
@@ -888,7 +978,7 @@ function ContactListSection({
           onClick={() => setVisibleCount((v) => v + CONTACTS_PAGE_SIZE)}
           className="w-full text-center text-[11px] text-primary hover:text-primary/80 font-medium py-1.5"
         >
-          Afficher plus ({filtered.length - visibleCount} restant{filtered.length - visibleCount > 1 ? 's' : ''})
+          {t('tiers.ui.show_more_contacts', { count: filtered.length - visibleCount })}
         </button>
       )}
     </div>
@@ -908,9 +998,12 @@ function ContactDetailPanel({
   contactId: string
   onBack: () => void
 }) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { hasPermission } = usePermission()
   const canEdit = hasPermission('tier.update')
+  const canPromote = hasPermission('user.create')
+  const civilityOptions = useDictionaryOptions('civility')
   const { data: contacts } = useTierContacts(tierId)
   const contact = contacts?.find((c) => c.id === contactId)
 
@@ -920,6 +1013,7 @@ function ContactDetailPanel({
 
   const updateContact = useUpdateTierContact()
   const deleteContact = useDeleteTierContact()
+  const promoteContact = usePromoteTierContactToUser()
   const [editMode, setEditMode] = useState(false)
   const [editForm, setEditForm] = useState<TierContactUpdate>({})
 
@@ -940,34 +1034,47 @@ function ContactDetailPanel({
     try {
       await updateContact.mutateAsync({ tierId, contactId, payload: normalizeNames(editForm) })
       setEditMode(false)
-      toast({ title: 'Employe mis a jour', variant: 'success' })
+      toast({ title: t('tiers.ui.contact_updated'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('common.error'), variant: 'error' })
     }
-  }, [tierId, contactId, editForm, updateContact, toast])
+  }, [tierId, contactId, editForm, updateContact, toast, t])
 
   const handleDelete = useCallback(async () => {
     try {
       await deleteContact.mutateAsync({ tierId, contactId })
       onBack()
-      toast({ title: 'Employe supprime', variant: 'success' })
+      toast({ title: t('tiers.ui.contact_deleted'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('common.error'), variant: 'error' })
     }
-  }, [tierId, contactId, deleteContact, onBack, toast])
+  }, [tierId, contactId, deleteContact, onBack, toast, t])
 
   const handleSetPrimary = useCallback(async () => {
     try {
       await updateContact.mutateAsync({ tierId, contactId, payload: { is_primary: true } })
-      toast({ title: 'Employe principal defini', variant: 'success' })
+      toast({ title: t('tiers.ui.primary_contact_set'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('common.error'), variant: 'error' })
     }
-  }, [tierId, contactId, updateContact, toast])
+  }, [tierId, contactId, updateContact, toast, t])
+
+  const handlePromote = useCallback(async () => {
+    try {
+      await promoteContact.mutateAsync({
+        tierId,
+        contactId,
+        payload: { language: 'fr', send_invitation: true },
+      })
+      toast({ title: t('tiers.ui.contact_promoted'), variant: 'success' })
+    } catch {
+      toast({ title: t('tiers.ui.contact_promote_error'), variant: 'error' })
+    }
+  }, [tierId, contactId, promoteContact, toast, t])
 
   if (!contact) {
     return (
-      <DynamicPanelShell title="Chargement..." icon={<Users size={14} className="text-primary" />}>
+      <DynamicPanelShell title={t('common.loading')} icon={<Users size={14} className="text-primary" />}>
         <div className="flex items-center justify-center py-16">
           <Loader2 size={16} className="animate-spin text-muted-foreground" />
         </div>
@@ -988,15 +1095,15 @@ function ContactDetailPanel({
             <>
               {!editMode && (
                 <PanelActionButton onClick={startEdit} icon={<Pencil size={11} />}>
-                  Modifier
+                  {t('common.edit')}
                 </PanelActionButton>
               )}
               <DangerConfirmButton
                 icon={<Trash2 size={12} />}
                 onConfirm={handleDelete}
-                confirmLabel="Supprimer ?"
+                confirmLabel={t('common.confirm_delete')}
               >
-                Supprimer
+                {t('common.delete')}
               </DangerConfirmButton>
             </>
           )}
@@ -1018,7 +1125,7 @@ function ContactDetailPanel({
         {contact.is_primary && (
           <div className="flex items-center gap-1.5 text-[11px] text-primary font-medium">
             <Star size={11} className="fill-primary" />
-            Employe principal
+            {t('tiers.ui.primary_contact')}
           </div>
         )}
 
@@ -1026,26 +1133,26 @@ function ContactDetailPanel({
         <SectionColumns>
           {/* ── Left column: Fiche employe + Actions ── */}
           <div className="@container space-y-5">
-            <FormSection title="Fiche employe" collapsible defaultExpanded storageKey="contact-detail-sections">
+            <FormSection title={t('tiers.ui.sections.contact_identity')} collapsible defaultExpanded storageKey="contact-detail-sections">
               {editMode ? (
                 <div className="space-y-2">
                   <FormGrid>
-                    <DynamicPanelField label="Civilite">
+                    <DynamicPanelField label={t('tiers.ui.civility')}>
                       <select value={editForm.civility ?? ''} onChange={(e) => setEditForm({ ...editForm, civility: e.target.value || null })} className={panelInputClass}>
                         <option value="">--</option>
-                        {CIVILITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        {civilityOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                       </select>
                     </DynamicPanelField>
-                    <DynamicPanelField label="Prenom" required>
+                    <DynamicPanelField label={t('tiers.ui.first_name')} required>
                       <input type="text" value={editForm.first_name ?? ''} onChange={(e) => setEditForm({ ...editForm, first_name: e.target.value })} className={panelInputClass} />
                     </DynamicPanelField>
-                    <DynamicPanelField label="Nom" required>
+                    <DynamicPanelField label={t('tiers.ui.last_name')} required>
                       <input type="text" value={editForm.last_name ?? ''} onChange={(e) => setEditForm({ ...editForm, last_name: e.target.value })} className={panelInputClass} />
                     </DynamicPanelField>
-                    <DynamicPanelField label="Poste / Fonction">
+                    <DynamicPanelField label={t('tiers.ui.position')}>
                       <input type="text" value={editForm.position ?? ''} onChange={(e) => setEditForm({ ...editForm, position: e.target.value || null })} className={panelInputClass} />
                     </DynamicPanelField>
-                    <DynamicPanelField label="Departement">
+                    <DynamicPanelField label={t('tiers.ui.department')}>
                       <input type="text" value={editForm.department ?? ''} onChange={(e) => setEditForm({ ...editForm, department: e.target.value || null })} className={panelInputClass} />
                     </DynamicPanelField>
                   </FormGrid>
@@ -1055,21 +1162,48 @@ function ContactDetailPanel({
                       disabled={!editForm.first_name?.trim() || !editForm.last_name?.trim() || updateContact.isPending}
                       className="px-2.5 py-1 rounded text-[11px] font-medium bg-primary text-white hover:bg-primary/90 disabled:opacity-50"
                     >
-                      {updateContact.isPending ? <Loader2 size={11} className="animate-spin" /> : 'Enregistrer'}
+                      {updateContact.isPending ? <Loader2 size={11} className="animate-spin" /> : t('common.save')}
                     </button>
                     <button onClick={() => setEditMode(false)} className="px-2 py-1 rounded text-[11px] text-muted-foreground hover:text-foreground hover:bg-accent">
-                      Annuler
+                      {t('common.cancel')}
                     </button>
                   </div>
                 </div>
               ) : (
                 <DetailFieldGrid>
-                  <ReadOnlyRow label="Civilite" value={contact.civility || '--'} />
-                  <ReadOnlyRow label="Prenom" value={contact.first_name} />
-                  <ReadOnlyRow label="Nom" value={contact.last_name} />
-                  <ReadOnlyRow label="Poste" value={contact.position || '--'} />
-                  <ReadOnlyRow label="Departement" value={contact.department || '--'} />
+                  <ReadOnlyRow label={t('tiers.ui.civility')} value={contact.civility || '--'} />
+                  <ReadOnlyRow label={t('tiers.ui.first_name')} value={contact.first_name} />
+                  <ReadOnlyRow label={t('tiers.ui.last_name')} value={contact.last_name} />
+                  <ReadOnlyRow label={t('tiers.ui.position')} value={contact.position || '--'} />
+                  <ReadOnlyRow label={t('tiers.ui.department')} value={contact.department || '--'} />
                 </DetailFieldGrid>
+              )}
+            </FormSection>
+
+            <FormSection title={t('tiers.ui.sections.access')} collapsible defaultExpanded storageKey="contact-detail-sections">
+              <DetailFieldGrid>
+                <ReadOnlyRow
+                  label={t('tiers.ui.linked_user')}
+                  value={contact.linked_user_id
+                    ? <CrossModuleLink module="users" id={contact.linked_user_id} label={contact.linked_user_email || t('tiers.ui.external_user')} showIcon={false} className="text-xs" />
+                    : t('tiers.ui.no_linked_user')}
+                />
+                <ReadOnlyRow label={t('common.email')} value={contact.email || '--'} />
+              </DetailFieldGrid>
+              {canPromote && !contact.linked_user_id && (
+                <div className="mt-3 space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    {contact.email ? t('tiers.ui.promote_hint') : t('tiers.ui.promote_missing_email')}
+                  </p>
+                  <button
+                    onClick={handlePromote}
+                    disabled={!contact.email || promoteContact.isPending}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {promoteContact.isPending ? <Loader2 size={12} className="animate-spin" /> : <Users size={12} />}
+                    {t('tiers.ui.promote_to_external_user')}
+                  </button>
+                </div>
               )}
             </FormSection>
 
@@ -1081,7 +1215,7 @@ function ContactDetailPanel({
                     onClick={handleSetPrimary}
                     className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10"
                   >
-                    <Star size={10} /> Definir comme employe principal
+                    <Star size={10} /> {t('tiers.ui.set_primary_contact')}
                   </button>
                 )}
               </div>
@@ -1090,33 +1224,33 @@ function ContactDetailPanel({
 
           {/* ── Right column: Coordonnees ── */}
           <div className="@container space-y-5">
-            <FormSection title="Coordonnees de l'employe" collapsible defaultExpanded storageKey="contact-detail-sections">
-              <SubSectionLabel icon={Phone} label="Telephones" count={contactPhones?.length ?? 0} />
+            <FormSection title={t('tiers.ui.sections.contact_details')} collapsible defaultExpanded storageKey="contact-detail-sections">
+              <SubSectionLabel icon={Phone} label={t('shared.phones.title')} count={contactPhones?.length ?? 0} />
               <PhoneManager ownerType="tier_contact" ownerId={contact.id} compact />
 
-              <SubSectionLabel icon={Mail} label="Emails" count={contactCEmails?.length ?? 0} />
+              <SubSectionLabel icon={Mail} label={t('shared.emails.title')} count={contactCEmails?.length ?? 0} />
               <ContactEmailManager ownerType="tier_contact" ownerId={contact.id} compact />
 
-              <SubSectionLabel icon={MapPin} label="Adresses" count={0} />
+              <SubSectionLabel icon={MapPin} label={t('shared.addresses.title')} count={0} />
               <AddressManager ownerType="tier_contact" ownerId={contact.id} compact />
             </FormSection>
           </div>
         </SectionColumns>
 
         {/* Référentiels & Conformité — HSE compliance per employee */}
-        <FormSection title="Référentiels & Conformité" collapsible defaultExpanded={false} storageKey="contact-detail-conformite">
+        <FormSection title={t('tiers.ui.sections.compliance')} collapsible defaultExpanded={false} storageKey="contact-detail-conformite">
           <ReferentielManager ownerType="tier_contact" ownerId={contact.id} compact />
         </FormSection>
 
         {/* Full-width: Notes & Documents */}
-        <FormSection title="Notes & Documents" collapsible defaultExpanded={false} storageKey="contact-detail-sections">
+        <FormSection title={t('tiers.ui.sections.notes_documents')} collapsible defaultExpanded={false} storageKey="contact-detail-sections">
           <DetailFieldGrid>
             <div>
-              <SubSectionLabel icon={MessageSquare} label="Notes" count={0} />
+              <SubSectionLabel icon={MessageSquare} label={t('common.notes')} count={0} />
               <NoteManager ownerType="tier_contact" ownerId={contact.id} compact />
             </div>
             <div>
-              <SubSectionLabel icon={Paperclip} label="Fichiers" count={0} />
+              <SubSectionLabel icon={Paperclip} label={t('common.files')} count={0} />
               <AttachmentManager ownerType="tier_contact" ownerId={contact.id} compact />
             </div>
           </DetailFieldGrid>
@@ -1131,8 +1265,8 @@ function ContactDetailPanel({
 type TiersTab = 'entreprises' | 'contacts'
 
 const TABS: { id: TiersTab; label: string; icon: typeof Building2 }[] = [
-  { id: 'entreprises', label: 'Entreprises', icon: Building2 },
-  { id: 'contacts', label: 'Employes', icon: Users },
+  { id: 'entreprises', label: 'tiers.tab_companies', icon: Building2 },
+  { id: 'contacts', label: 'tiers.tab_contacts', icon: Users },
 ]
 
 // ── Contacts columns (for the global contacts DataTable) ──
@@ -1141,7 +1275,7 @@ function useContactColumns() {
   return useMemo<ColumnDef<TierContactWithTier, unknown>[]>(() => [
     {
       accessorKey: 'last_name',
-      header: 'Nom',
+      header: t('tiers.ui.last_name'),
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <div className={cn(
@@ -1161,7 +1295,7 @@ function useContactColumns() {
     },
     {
       accessorKey: 'tier_name',
-      header: 'Entreprise',
+      header: t('tiers.tab_companies'),
       size: 160,
       cell: ({ row }) => (
         <div className="flex flex-col">
@@ -1172,27 +1306,27 @@ function useContactColumns() {
     },
     {
       accessorKey: 'position',
-      header: 'Poste',
+      header: t('tiers.ui.position'),
       size: 140,
       cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.position || '--'}</span>,
     },
     {
       accessorKey: 'department',
-      header: 'Departement',
+      header: t('tiers.ui.department'),
       size: 120,
       cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.department || '--'}</span>,
     },
     {
       accessorKey: 'is_primary',
-      header: 'Principal',
+      header: t('tiers.ui.primary_contact'),
       size: 80,
       cell: ({ row }) => row.original.is_primary
-        ? <span className="gl-badge gl-badge-info">Oui</span>
+        ? <span className="gl-badge gl-badge-info">{t('common.yes')}</span>
         : <span className="text-muted-foreground/40">--</span>,
     },
     {
       accessorKey: 'created_at',
-      header: 'Cree le',
+      header: t('common.created_at'),
       cell: ({ row }) => (
         <span className="text-muted-foreground text-xs">
           {new Date(row.original.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
@@ -1205,6 +1339,9 @@ function useContactColumns() {
 export function TiersPage() {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<TiersTab>('entreprises')
+  const tierTypeOptions = useDictionaryOptions('tier_type')
+  const tierTypeLabels = useDictionaryLabels('tier_type')
+  const legalFormLabels = useDictionaryLabels('legal_form')
 
   // ── Shared state ──
   const [page, setPage] = useState(1)
@@ -1268,7 +1405,7 @@ export function TiersPage() {
       label: t('common.type'),
       type: 'multi-select',
       operators: ['is', 'is_not'],
-      options: TIER_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+      options: tierTypeOptions,
     },
     {
       id: 'status',
@@ -1279,20 +1416,20 @@ export function TiersPage() {
         { value: 'inactive', label: t('common.archived') },
       ],
     },
-  ], [t])
+  ], [t, tierTypeOptions])
 
   // ── Contacts filters ──
   const contactFilters = useMemo<DataTableFilterDef[]>(() => [
     {
       id: 'is_primary',
-      label: 'Employe principal',
+      label: t('tiers.ui.primary_contact'),
       type: 'select',
       options: [
-        { value: 'true', label: 'Oui' },
-        { value: 'false', label: 'Non' },
+        { value: 'true', label: t('common.yes') },
+        { value: 'false', label: t('common.no') },
       ],
     },
-  ], [])
+  ], [t])
 
   const handleFilterChange = useCallback((filterId: string, value: unknown) => {
     setActiveFilters((prev) => {
@@ -1329,13 +1466,13 @@ export function TiersPage() {
       size: 110,
       cell: ({ row }) => row.original.type ? (
         <span className="gl-badge gl-badge-neutral">
-          {TIER_TYPE_OPTIONS.find(o => o.value === row.original.type)?.label ?? row.original.type}
+          {tierTypeLabels[row.original.type] ?? row.original.type}
         </span>
       ) : <span className="text-muted-foreground">--</span>,
     },
     {
       accessorKey: 'industry',
-      header: 'Secteur',
+      header: t('tiers.ui.industry'),
       size: 120,
       cell: ({ row }) => (
         <span className="text-muted-foreground text-xs">{row.original.industry || '--'}</span>
@@ -1343,7 +1480,7 @@ export function TiersPage() {
     },
     {
       accessorKey: 'contact_count',
-      header: 'Employes',
+      header: t('tiers.tab_contacts'),
       size: 80,
       cell: ({ row }) => {
         const count = row.original.contact_count
@@ -1367,11 +1504,11 @@ export function TiersPage() {
     },
     {
       accessorKey: 'legal_form',
-      header: 'Forme juridique',
+      header: t('tiers.ui.legal_form'),
       size: 110,
       cell: ({ row }) => (
         <span className="text-muted-foreground text-xs">
-          {row.original.legal_form ? LEGAL_FORM_OPTIONS.find(o => o.value === row.original.legal_form)?.label ?? row.original.legal_form : '--'}
+          {row.original.legal_form ? legalFormLabels[row.original.legal_form] ?? row.original.legal_form : '--'}
         </span>
       ),
     },
@@ -1386,7 +1523,7 @@ export function TiersPage() {
           </span>
           {row.original.is_blocked && (
             <span className="gl-badge gl-badge-danger text-[9px]">
-              <ShieldBan size={9} className="mr-0.5" />Bloque
+              <ShieldBan size={9} className="mr-0.5" />{t('tiers.ui.blocked')}
             </span>
           )}
         </div>
@@ -1394,14 +1531,14 @@ export function TiersPage() {
     },
     {
       accessorKey: 'created_at',
-      header: 'Cree le',
+      header: t('common.created_at'),
       cell: ({ row }) => (
         <span className="text-muted-foreground">
           {new Date(row.original.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
         </span>
       ),
     },
-  ], [t])
+  ], [t, tierTypeLabels, legalFormLabels])
 
   const contactColumns = useContactColumns()
 
@@ -1426,15 +1563,15 @@ export function TiersPage() {
       importWizardTarget: canImport ? (activeTab === 'contacts' ? 'contact' : 'tier') as import('@/types/api').ImportTargetObject : undefined,
       filenamePrefix: activeTab === 'contacts' ? 'contacts' : 'tiers',
       exportHeaders: (activeTab === 'contacts' ? {
-        first_name: 'Prenom', last_name: 'Nom', tier_name: 'Entreprise',
-        position: 'Poste', department: 'Departement', is_primary: 'Principal',
+        first_name: t('tiers.ui.first_name'), last_name: t('tiers.ui.last_name'), tier_name: t('tiers.tab_companies'),
+        position: t('tiers.ui.position'), department: t('tiers.ui.department'), is_primary: t('tiers.ui.primary_contact'),
       } : {
-        code: 'Code', name: 'Nom', alias: 'Nom commercial', type: 'Type',
-        website: 'Site web', industry: 'Secteur', legal_form: 'Forme juridique',
-        currency: 'Devise', active: 'Actif', created_at: 'Date de creation',
+        code: t('common.code'), name: t('common.name'), alias: t('tiers.ui.alias'), type: t('common.type'),
+        website: t('tiers.ui.website'), industry: t('tiers.ui.industry'), legal_form: t('tiers.ui.legal_form'),
+        currency: t('tiers.ui.currency'), active: t('common.active'), created_at: t('common.created_at'),
       }) as Record<string, string>,
     }
-  }, [canExport, canImport, activeTab])
+  }, [canExport, canImport, activeTab, t])
 
   const isFullPanel = panelMode === 'full' && dynamicPanel !== null && dynamicPanel.module === 'tiers'
 
@@ -1452,6 +1589,7 @@ export function TiersPage() {
         <TabBar
           items={TABS.map((tab) => ({
             ...tab,
+            label: t(tab.label),
             badge: tab.id === 'contacts' ? contactsData?.total : undefined,
           }))}
           activeId={activeTab}
@@ -1498,13 +1636,13 @@ export function TiersPage() {
               }}
               searchValue={search}
               onSearchChange={setSearch}
-              searchPlaceholder="Rechercher par nom, poste, departement..."
+              searchPlaceholder={t('tiers.ui.search_contact')}
               filters={contactFilters}
               activeFilters={activeFilters}
               onFilterChange={handleFilterChange}
               onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'tiers', id: row.tier_id })}
               emptyIcon={Users}
-              emptyTitle="Aucun employe trouve"
+              emptyTitle={t('tiers.ui.no_contacts')}
               columnResizing
               columnVisibility
               defaultHiddenColumns={['created_at']}

@@ -51,7 +51,7 @@ import { useRoles, useGroups, useAddGroupMembers } from '@/hooks/useRbac'
 import { usePermission } from '@/hooks/usePermission'
 import { usePhones, useContactEmails, useAddresses, useNotes, useAttachments } from '@/hooks/useSettings'
 import { useSSOProviders, useDeleteSSOProvider, useUserIPLocation } from '@/hooks/useUserSubModels'
-import { useTiers } from '@/hooks/useTiers'
+import { useTierContact, useTiers } from '@/hooks/useTiers'
 import { AddressManager } from '@/components/shared/AddressManager'
 import { PhoneManager } from '@/components/shared/PhoneManager'
 import { ContactEmailManager } from '@/components/shared/ContactEmailManager'
@@ -84,11 +84,6 @@ import {
 } from '@/components/ui/DataTable'
 import { relativeTime, getAvatarColor } from '@/components/ui/DataTable/utils'
 import { TabBar, TabButton } from '@/components/ui/Tabs'
-
-const FALLBACK_LANGUAGE_OPTIONS = [
-  { value: 'fr', label: 'Français' },
-  { value: 'en', label: 'English' },
-]
 
 // ── Auth type labels ─────────────────────────────────────
 const AUTH_TYPE_LABELS: Record<string, string> = {
@@ -449,8 +444,8 @@ function CreateUserPanel() {
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const dictLanguageOptions = useDictionaryOptions('language')
   const dictUserTypeOptions = useDictionaryOptions('user_type')
-  const languageOptions = dictLanguageOptions.length > 0 ? dictLanguageOptions : FALLBACK_LANGUAGE_OPTIONS
-  const userTypeOptions = dictUserTypeOptions.length > 0 ? dictUserTypeOptions : [{ value: 'internal', label: 'Interne' }, { value: 'external', label: 'Externe' }]
+  const languageOptions = dictLanguageOptions
+  const userTypeOptions = dictUserTypeOptions
   const [form, setForm] = useState<UserCreate & { account_expires_at?: string }>({
     email: '', first_name: '', last_name: '', password: '', language: 'fr',
   })
@@ -1050,6 +1045,7 @@ function UserDetailPanel({ id }: { id: string }) {
   const [showUrlInput, setShowUrlInput] = useState(false)
   const [avatarUrl, setAvatarUrl] = useState('')
   const { data: userEntities } = useUserEntities(id)
+  const { data: userTierLinks } = useUserTierLinks(id)
 
   // Derive this user's groups/roles from their entity memberships (not the logged-in user's /me data)
   const userGroups = useMemo(() => {
@@ -1075,9 +1071,9 @@ function UserDetailPanel({ id }: { id: string }) {
   const countryOptions = useDictionaryColumnOptions('nationality', 'country')
   const airportOptions = useDictionaryOptions('airport')
   const dictLanguageOptions = useDictionaryOptions('language')
-  const detailLanguageOptions = dictLanguageOptions.length > 0 ? dictLanguageOptions : FALLBACK_LANGUAGE_OPTIONS
+  const detailLanguageOptions = dictLanguageOptions
   const dictUserTypeOptions = useDictionaryOptions('user_type')
-  const detailUserTypeOptions = dictUserTypeOptions.length > 0 ? dictUserTypeOptions : [{ value: 'internal', label: 'Interne' }, { value: 'external', label: 'Externe' }]
+  const detailUserTypeOptions = dictUserTypeOptions
   const clothingSizeOptions = useDictionaryOptions('clothing_size')
   const shoeSizeOptions = useDictionaryOptions('shoe_size')
   const { data: jobPositionsData } = useJobPositions({ page_size: 200 })
@@ -1085,6 +1081,16 @@ function UserDetailPanel({ id }: { id: string }) {
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const [detailTab, setDetailTab] = useState<UserDetailTab>('fiche')
   const avatarInputRef = useRef<HTMLInputElement>(null)
+  const primaryTierLink = useMemo(
+    () => (userTierLinks && userTierLinks.length > 0 ? userTierLinks[0] : null),
+    [userTierLinks],
+  )
+  const { data: linkedTierContact } = useTierContact(primaryTierLink?.tier_id, user?.tier_contact_id || undefined)
+  const externalIdentitySummary = useMemo(() => {
+    if (!user?.tier_contact_id) return null
+    if (linkedTierContact) return `${linkedTierContact.first_name} ${linkedTierContact.last_name}`
+    return t('users.external_contact_unavailable')
+  }, [linkedTierContact, t, user?.tier_contact_id])
 
   const handleInlineSave = useCallback((field: string, value: string) => {
     updateUser.mutate({ id, payload: normalizeNames({ [field]: value }) })
@@ -1298,12 +1304,16 @@ function UserDetailPanel({ id }: { id: string }) {
           <SectionColumns>
             {/* Column 1: Identity + Coordonnées */}
             <div className="@container space-y-5">
-              <FormSection title="Identité">
-                <InlineEditableRow label={t('users.last_name')} value={user.last_name} onSave={(v) => handleInlineSave('last_name', v)} />
-                <InlineEditableRow label={t('users.first_name')} value={user.first_name} onSave={(v) => handleInlineSave('first_name', v)} />
-                <InlineEditableRow label="Nom passeport" value={user.passport_name || ''} onSave={(v) => updateUser.mutate({ id, payload: { passport_name: v || null } })} />
-                <InlineEditableRow label="Email" value={user.email} onSave={(v) => handleInlineSave('email', v)} type="email" />
-                <InlineEditableTags label="Genre" value={user.gender || ''} options={genderOptions.length > 0 ? genderOptions : [{ value: 'M', label: 'Masculin' }, { value: 'F', label: 'Féminin' }, { value: 'X', label: 'Autre' }]} onSave={(v) => updateUser.mutate({ id, payload: { gender: v || null } })} />
+                <FormSection title="Identité">
+                  <InlineEditableRow label={t('users.last_name')} value={user.last_name} onSave={(v) => handleInlineSave('last_name', v)} />
+                  <InlineEditableRow label={t('users.first_name')} value={user.first_name} onSave={(v) => handleInlineSave('first_name', v)} />
+                  <InlineEditableRow label="Nom passeport" value={user.passport_name || ''} onSave={(v) => updateUser.mutate({ id, payload: { passport_name: v || null } })} />
+                  <InlineEditableRow label="Email" value={user.email} onSave={(v) => handleInlineSave('email', v)} type="email" />
+                  {genderOptions.length > 0 ? (
+                    <InlineEditableTags label="Genre" value={user.gender || ''} options={genderOptions} onSave={(v) => updateUser.mutate({ id, payload: { gender: v || null } })} />
+                  ) : (
+                    <InlineEditableRow label="Genre" value={user.gender || ''} onSave={(v) => updateUser.mutate({ id, payload: { gender: v || null } })} />
+                  )}
                 {nationalityOptions.length > 0 ? (
                   <InlineEditableCombobox label="Nationalité" value={user.nationality || ''} options={nationalityOptions} onSave={(v) => updateUser.mutate({ id, payload: { nationality: v || null } })} placeholder="Rechercher une nationalité..." />
                 ) : (
@@ -1317,17 +1327,79 @@ function UserDetailPanel({ id }: { id: string }) {
                 <InlineEditableRow label="Ville de naissance" value={user.birth_city || ''} onSave={(v) => updateUser.mutate({ id, payload: { birth_city: v || null } })} />
                 <InlineEditableRow label="Date de naissance" value={user.birth_date || ''} onSave={(v) => updateUser.mutate({ id, payload: { birth_date: v || null } })} type="date" />
                 <InlineEditableRow label="ID Intranet" value={user.intranet_id || ''} onSave={(v) => updateUser.mutate({ id, payload: { intranet_id: v || undefined } })} />
-                <InlineEditableTags label={t('settings.language')} value={user.language} options={detailLanguageOptions} onSave={(v) => handleInlineSave('language', v)} />
-                <InlineEditableTags label="Type" value={user.user_type || 'internal'} options={detailUserTypeOptions} onSave={(v) => updateUser.mutate({ id, payload: { user_type: v } })} />
+                  {detailLanguageOptions.length > 0 ? (
+                    <InlineEditableTags label={t('settings.language')} value={user.language} options={detailLanguageOptions} onSave={(v) => handleInlineSave('language', v)} />
+                  ) : (
+                    <InlineEditableRow label={t('settings.language')} value={user.language || ''} onSave={(v) => handleInlineSave('language', v)} />
+                  )}
+                  {detailUserTypeOptions.length > 0 ? (
+                    <InlineEditableTags label="Type" value={user.user_type || 'internal'} options={detailUserTypeOptions} onSave={(v) => updateUser.mutate({ id, payload: { user_type: v } })} />
+                  ) : (
+                    <InlineEditableRow label="Type" value={user.user_type || 'internal'} onSave={(v) => updateUser.mutate({ id, payload: { user_type: v || 'internal' } })} />
+                  )}
                 {jobPositionOptions.length > 0 ? (
                   <InlineEditableCombobox label="Poste / Fonction" value={user.job_position_id || ''} options={jobPositionOptions} onSave={(v) => updateUser.mutate({ id, payload: { job_position_id: v || null } })} placeholder="Sélectionner un poste..." />
-                ) : (
-                  <ReadOnlyRow label="Poste / Fonction" value={<span className="text-xs text-muted-foreground">Aucun poste défini</span>} />
-                )}
-              </FormSection>
+                  ) : (
+                    <ReadOnlyRow label="Poste / Fonction" value={<span className="text-xs text-muted-foreground">Aucun poste défini</span>} />
+                  )}
+                </FormSection>
 
-              {/* Coordonnées: phones, emails, addresses */}
-              <FormSection title="Coordonnées" collapsible defaultExpanded storageKey="panel.user.sections" id="user-contact">
+                {(user.user_type === 'external' || !!user.tier_contact_id || !!primaryTierLink) && (
+                  <FormSection title={t('users.external_identity_title')}>
+                    <ReadOnlyRow
+                      label={t('users.external_identity_type')}
+                      value={
+                        <span className="gl-badge gl-badge-info text-[10px]">
+                          {t('users.external_identity_external_user')}
+                        </span>
+                      }
+                    />
+                    <ReadOnlyRow
+                      label={t('users.external_identity_contact_origin')}
+                      value={
+                        externalIdentitySummary ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-foreground">{externalIdentitySummary}</span>
+                            {primaryTierLink && (
+                              <button
+                                type="button"
+                                className="text-xs text-primary hover:underline"
+                                onClick={() => openDynamicPanel({ type: 'detail', module: 'tiers', id: primaryTierLink.tier_id })}
+                              >
+                                {t('users.external_identity_open_company')}
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">{t('users.external_identity_no_contact')}</span>
+                        )
+                      }
+                    />
+                    <ReadOnlyRow
+                      label={t('users.external_identity_company')}
+                      value={
+                        primaryTierLink ? (
+                          <CrossModuleLink
+                            module="tiers"
+                            id={primaryTierLink.tier_id}
+                            label={primaryTierLink.tier_name}
+                            showIcon={false}
+                            className="text-sm font-medium"
+                          />
+                        ) : (
+                          <span className="text-xs text-muted-foreground">{t('users.external_identity_no_company')}</span>
+                        )
+                      }
+                    />
+                    <ReadOnlyRow
+                      label={t('users.external_identity_scope')}
+                      value={<span className="text-xs text-muted-foreground">{t('users.external_identity_scope_hint')}</span>}
+                    />
+                  </FormSection>
+                )}
+
+                {/* Coordonnées: phones, emails, addresses */}
+                <FormSection title="Coordonnées" collapsible defaultExpanded storageKey="panel.user.sections" id="user-contact">
                 <div className="space-y-3 border-t border-border/40 pt-3 mt-2">
                   <SubSectionLabel icon={Phone} label="Téléphones" count={phones?.length ?? 0} />
                   <PhoneManager ownerType="user" ownerId={id} compact />

@@ -23,6 +23,9 @@ class FakeResult:
     def all(self):
         return self._all_rows
 
+    def first(self):
+        return self._all_rows[0] if self._all_rows else None
+
 
 class FakeDB:
     def __init__(self, results):
@@ -260,6 +263,100 @@ async def test_get_tier_or_404_denies_external_user_outside_linked_tier():
             requested_tier_id,
             entity_id,
             current_user=current_user,
+        )
+
+    assert exc.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_get_global_contact_returns_contact_with_tier_context():
+    entity_id = uuid4()
+    tier_id = uuid4()
+    contact_id = uuid4()
+    current_user = SimpleNamespace(id=uuid4(), user_type="internal")
+    promoted_user = SimpleNamespace(id=uuid4(), email="external@example.com", active=True)
+    contact = SimpleNamespace(
+        id=contact_id,
+        tier_id=tier_id,
+        civility="mr",
+        first_name="John",
+        last_name="Doe",
+        email="john@example.com",
+        phone=None,
+        position=None,
+        department=None,
+        job_position_id=None,
+        is_primary=True,
+        active=True,
+        linked_user_id=promoted_user.id,
+        linked_user=promoted_user,
+        created_at=None,
+        birth_date=None,
+        nationality=None,
+        badge_number=None,
+        photo_url=None,
+        pax_group_id=None,
+    )
+    contact.__table__ = SimpleNamespace(
+        columns=[
+            SimpleNamespace(key="id"),
+            SimpleNamespace(key="tier_id"),
+            SimpleNamespace(key="civility"),
+            SimpleNamespace(key="first_name"),
+            SimpleNamespace(key="last_name"),
+            SimpleNamespace(key="email"),
+            SimpleNamespace(key="phone"),
+            SimpleNamespace(key="position"),
+            SimpleNamespace(key="department"),
+            SimpleNamespace(key="job_position_id"),
+            SimpleNamespace(key="is_primary"),
+            SimpleNamespace(key="active"),
+            SimpleNamespace(key="linked_user_id"),
+            SimpleNamespace(key="created_at"),
+            SimpleNamespace(key="birth_date"),
+            SimpleNamespace(key="nationality"),
+            SimpleNamespace(key="badge_number"),
+            SimpleNamespace(key="photo_url"),
+            SimpleNamespace(key="pax_group_id"),
+        ]
+    )
+    db = FakeDB([FakeResult(all_rows=[(contact, "Acme", "ACM")])])
+
+    result = await tiers.get_global_contact(
+        contact_id=contact_id,
+        entity_id=entity_id,
+        current_user=current_user,
+        _=None,
+        db=db,
+    )
+
+    assert result["id"] == contact_id
+    assert result["tier_id"] == tier_id
+    assert result["tier_name"] == "Acme"
+    assert result["tier_code"] == "ACM"
+    assert result["linked_user_id"] == promoted_user.id
+
+
+@pytest.mark.asyncio
+async def test_get_global_contact_respects_external_company_scope():
+    entity_id = uuid4()
+    allowed_tier_id = uuid4()
+    requested_contact_id = uuid4()
+    current_user = SimpleNamespace(id=uuid4(), user_type="external")
+    db = FakeDB(
+        [
+            FakeResult(all_rows=[(allowed_tier_id,)]),
+            FakeResult(all_rows=[]),
+        ]
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await tiers.get_global_contact(
+            contact_id=requested_contact_id,
+            entity_id=entity_id,
+            current_user=current_user,
+            _=None,
+            db=db,
         )
 
     assert exc.value.status_code == 404

@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
+from fastapi.routing import APIRoute
 from fastapi import HTTPException
 
 from app.api.routes.modules import paxlog
@@ -81,6 +82,25 @@ class FakeScalarResult:
 
     def all(self):
         return self._rows
+
+
+def _get_route(path: str, method: str) -> APIRoute:
+    for route in paxlog.router.routes:
+        if isinstance(route, APIRoute) and route.path.endswith(path) and method.upper() in route.methods:
+            return route
+    raise AssertionError(f"Route not found: {method} {path}")
+
+
+def _route_requires_permission(path: str, method: str, permission_code: str) -> bool:
+    route = _get_route(path, method)
+    for dependency in route.dependant.dependencies:
+        call = dependency.call
+        if not call:
+            continue
+        closure = getattr(call, "__closure__", None) or ()
+        if any(cell.cell_contents == permission_code for cell in closure):
+            return True
+    return False
 
 
 class FakeAsyncSessionContext:
@@ -182,18 +202,53 @@ async def test_list_avm_normalizes_in_preparation_to_ready(monkeypatch):
             "ready_for_approval": True,
         }
 
+    async def fake_has_user_permission(*_args, **_kwargs):
+        return True
+
     monkeypatch.setattr(paxlog_service, "get_avm_preparation_status", fake_get_avm_preparation_status)
+    monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
 
     response = await paxlog.list_avm(
         pagination=SimpleNamespace(page=1, page_size=20),
         entity_id=avm.entity_id,
         current_user=SimpleNamespace(id=uuid4()),
+        _=None,
         db=db,
     )
 
     assert response["items"][0].status == "ready"
     assert response["items"][0].ready_for_approval is True
     assert response["items"][0].open_preparation_tasks == 0
+
+
+@pytest.mark.asyncio
+async def test_list_avm_scope_all_falls_back_to_creator_without_read_all(monkeypatch):
+    avm = _build_avm(status="draft")
+    db = FakeDB(
+        [
+            FakeResult(scalar=0),
+            FakeResult(all_rows=[]),
+        ]
+    )
+
+    async def fake_has_user_permission(_user, _entity_id, permission_code, _db):
+        assert permission_code == "paxlog.avm.read_all"
+        return False
+
+    monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
+
+    response = await paxlog.list_avm(
+        scope="all",
+        pagination=SimpleNamespace(page=1, page_size=20),
+        entity_id=avm.entity_id,
+        current_user=SimpleNamespace(id=uuid4()),
+        _=None,
+        db=db,
+    )
+
+    assert response["items"] == []
+    compiled = str(db.executed[0][0])
+    assert "mission_notices.created_by" in compiled
 
 
 @pytest.mark.asyncio
@@ -214,12 +269,17 @@ async def test_list_avm_normalizes_ready_to_in_preparation_when_blocked(monkeypa
             "ready_for_approval": False,
         }
 
+    async def fake_has_user_permission(*_args, **_kwargs):
+        return True
+
     monkeypatch.setattr(paxlog_service, "get_avm_preparation_status", fake_get_avm_preparation_status)
+    monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
 
     response = await paxlog.list_avm(
         pagination=SimpleNamespace(page=1, page_size=20),
         entity_id=avm.entity_id,
         current_user=SimpleNamespace(id=uuid4()),
+        _=None,
         db=db,
     )
 
@@ -229,7 +289,32 @@ async def test_list_avm_normalizes_ready_to_in_preparation_when_blocked(monkeypa
 
 
 @pytest.mark.asyncio
-async def test_get_ads_includes_avm_origin():
+async def test_get_avm_denies_non_owner_without_read_all(monkeypatch):
+    avm = _build_avm(status="draft")
+    outsider_id = uuid4()
+    db = FakeDB([FakeResult(scalar_one_or_none=avm)])
+
+    async def fake_has_user_permission(_user, _entity_id, permission_code, _db):
+        assert permission_code == "paxlog.avm.read_all"
+        return False
+
+    monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
+
+    with pytest.raises(HTTPException) as exc:
+        await paxlog.get_avm(
+            avm.id,
+            entity_id=avm.entity_id,
+            current_user=SimpleNamespace(id=outsider_id),
+            _=None,
+            db=db,
+        )
+
+    assert exc.value.status_code == 404
+    assert exc.value.detail == "AVM not found"
+
+
+@pytest.mark.asyncio
+async def test_get_ads_includes_avm_origin(monkeypatch):
     ads = _build_ads()
     program_id = uuid4()
     avm_id = uuid4()
@@ -241,10 +326,17 @@ async def test_get_ads_includes_avm_origin():
         ]
     )
 
+    async def fake_has_user_permission(_user, _entity_id, permission_code, _db):
+        assert permission_code == "paxlog.ads.read_all"
+        return True
+
+    monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
+
     response = await paxlog.get_ads(
         ads.id,
         entity_id=ads.entity_id,
         current_user=SimpleNamespace(id=uuid4()),
+        _=None,
         db=db,
     )
 
@@ -256,7 +348,7 @@ async def test_get_ads_includes_avm_origin():
 
 
 @pytest.mark.asyncio
-async def test_get_ads_includes_planner_context():
+async def test_get_ads_includes_planner_context(monkeypatch):
     planner_id = uuid4()
     ads = _build_ads(planner_activity_id=planner_id)
     db = FakeDB(
@@ -267,16 +359,99 @@ async def test_get_ads_includes_planner_context():
         ]
     )
 
+    async def fake_has_user_permission(_user, _entity_id, permission_code, _db):
+        assert permission_code == "paxlog.ads.read_all"
+        return True
+
+    monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
+
     response = await paxlog.get_ads(
         ads.id,
         entity_id=ads.entity_id,
         current_user=SimpleNamespace(id=uuid4()),
+        _=None,
         db=db,
     )
 
     assert response.planner_activity_id == planner_id
     assert response.planner_activity_title == "Inspection ligne 12"
     assert response.planner_activity_status == "validated"
+
+
+@pytest.mark.asyncio
+async def test_get_ads_denies_non_owner_without_read_all(monkeypatch):
+    ads = _build_ads()
+    outsider_id = uuid4()
+    db = FakeDB([FakeResult(scalar_one_or_none=ads)])
+
+    async def fake_has_user_permission(_user, _entity_id, permission_code, _db):
+        assert permission_code == "paxlog.ads.read_all"
+        return False
+
+    monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
+
+    with pytest.raises(HTTPException) as exc:
+        await paxlog.get_ads(
+            ads.id,
+            entity_id=ads.entity_id,
+            current_user=SimpleNamespace(id=outsider_id),
+            _=None,
+            db=db,
+        )
+
+    assert exc.value.status_code == 404
+    assert exc.value.detail == "AdS not found"
+
+
+@pytest.mark.asyncio
+async def test_update_ads_denies_non_owner_without_approve(monkeypatch):
+    ads = _build_ads(status="draft")
+    outsider_id = uuid4()
+    db = FakeDB([FakeResult(scalar_one_or_none=ads)])
+
+    async def fake_has_user_permission(_user, _entity_id, permission_code, _db):
+        assert permission_code == "paxlog.ads.approve"
+        return False
+
+    monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
+
+    with pytest.raises(HTTPException) as exc:
+        await paxlog.update_ads(
+            ads.id,
+            paxlog.AdsUpdate(visit_purpose="Updated by outsider"),
+            entity_id=ads.entity_id,
+            current_user=SimpleNamespace(id=outsider_id),
+            _=None,
+            db=db,
+        )
+
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "Vous ne pouvez pas modifier cette AdS."
+
+
+@pytest.mark.asyncio
+async def test_list_ads_events_denies_non_owner_without_read_all(monkeypatch):
+    ads = _build_ads()
+    outsider_id = uuid4()
+    db = FakeDB([FakeResult(scalar_one_or_none=ads)])
+
+    async def fake_has_user_permission(_user, _entity_id, permission_code, _db):
+        assert permission_code == "paxlog.ads.read_all"
+        return False
+
+    monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
+
+    with pytest.raises(HTTPException) as exc:
+        await paxlog.list_ads_events(
+            ads.id,
+            entity_id=ads.entity_id,
+            current_user=SimpleNamespace(id=outsider_id),
+            _=None,
+            db=db,
+        )
+
+    assert exc.value.status_code == 404
+    assert exc.value.detail == "AdS not found"
 
 
 @pytest.mark.asyncio
@@ -717,7 +892,11 @@ async def test_cancel_avm_propagates_to_linked_ads(monkeypatch):
         async def publish(self, event):
             published_events.append(event)
 
+    async def fake_has_user_permission(*_args, **_kwargs):
+        return True
+
     monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+    monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
     monkeypatch.setattr("app.core.notifications.send_in_app", fake_send_in_app)
     monkeypatch.setattr(paxlog, "_build_avm_read", fake_build_avm_read)
     monkeypatch.setattr("app.core.events.event_bus", FakeEventBus())
@@ -746,6 +925,56 @@ async def test_cancel_avm_propagates_to_linked_ads(monkeypatch):
     statuses = {(evt.old_status, evt.new_status) for evt in avm_cancel_events}
     assert ("draft", "cancelled") in statuses
     assert ("approved", "requires_review") in statuses
+
+
+@pytest.mark.asyncio
+async def test_submit_avm_route_denies_non_owner_without_arbitration(monkeypatch):
+    avm = _build_avm(status="draft")
+    outsider_id = uuid4()
+    db = FakeDB([FakeResult(scalar_one_or_none=avm)])
+
+    async def fake_has_user_permission(_user, _entity_id, permission_code, _db):
+        assert permission_code in {"paxlog.avm.approve", "paxlog.avm.complete"}
+        return False
+
+    monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
+
+    with pytest.raises(HTTPException) as exc:
+        await paxlog.submit_avm_route(
+            avm.id,
+            entity_id=avm.entity_id,
+            current_user=SimpleNamespace(id=outsider_id),
+            _=None,
+            db=db,
+        )
+
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "You may only submit your own AVM unless you can arbitrate it."
+
+
+@pytest.mark.asyncio
+async def test_cancel_avm_denies_non_owner_without_arbitration(monkeypatch):
+    avm = _build_avm(status="active")
+    outsider_id = uuid4()
+    db = FakeDB([FakeResult(scalar_one_or_none=avm)])
+
+    async def fake_has_user_permission(_user, _entity_id, permission_code, _db):
+        assert permission_code in {"paxlog.avm.approve", "paxlog.avm.complete"}
+        return False
+
+    monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
+
+    with pytest.raises(HTTPException) as exc:
+        await paxlog.cancel_avm(
+            avm.id,
+            entity_id=avm.entity_id,
+            current_user=SimpleNamespace(id=outsider_id),
+            _=None,
+            db=db,
+        )
+
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "You may only cancel your own AVM unless you can arbitrate it."
 
 
 @pytest.mark.asyncio
@@ -1090,7 +1319,7 @@ async def test_resubmit_ads_clears_rejection_and_rechecks_submission(monkeypatch
 @pytest.mark.asyncio
 async def test_create_stay_program_requires_target_pax():
     ads = _build_ads()
-    db = FakeDB([FakeResult(scalar_one_or_none=ads.id)])
+    db = FakeDB([])
 
     with pytest.raises(HTTPException) as exc:
         await paxlog.create_stay_program(
@@ -1108,15 +1337,20 @@ async def test_create_stay_program_requires_target_pax():
 
 @pytest.mark.asyncio
 async def test_create_submit_and_approve_stay_program():
-    ads = _build_ads()
+    ads = _build_ads(status="approved")
     program_id = uuid4()
     pax_user_id = uuid4()
     approver_id = uuid4()
     db = FakeDB(
         [
-            FakeResult(scalar_one_or_none=ads.id),
+            FakeResult(scalar_one_or_none=ads),
+            FakeResult(scalar_one_or_none=uuid4()),
             FakeResult(scalar=program_id),
+            FakeResult(first=(program_id, "draft", ads.id, pax_user_id, None, ads.status)),
+            FakeResult(scalar_one_or_none=uuid4()),
             FakeResult(scalar=program_id),
+            FakeResult(first=(program_id, "submitted", ads.id, pax_user_id, None, ads.status)),
+            FakeResult(scalar_one_or_none=uuid4()),
             FakeResult(scalar=program_id),
         ]
     )
@@ -1156,6 +1390,128 @@ async def test_create_submit_and_approve_stay_program():
         db=db,
     )
     assert approved == {"id": str(program_id), "status": "approved"}
+
+
+@pytest.mark.asyncio
+async def test_create_stay_program_requires_ads_membership_and_operational_status():
+    ads = _build_ads(status="draft")
+    pax_user_id = uuid4()
+
+    db_wrong_status = FakeDB([FakeResult(scalar_one_or_none=ads)])
+    with pytest.raises(HTTPException) as exc_status:
+        await paxlog.create_stay_program(
+            ads_id=ads.id,
+            movements=[{"effective_date": "2026-04-11", "from_location": "Base", "to_location": "Munja"}],
+            user_id=pax_user_id,
+            entity_id=ads.entity_id,
+            current_user=SimpleNamespace(id=uuid4()),
+            _=None,
+            db=db_wrong_status,
+        )
+    assert exc_status.value.status_code == 400
+    assert exc_status.value.detail == "Le programme de sejour n'est autorise que pour une AdS approuvee ou en cours."
+
+    ads.status = "approved"
+    db_missing_pax = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=ads),
+            FakeResult(scalar_one_or_none=None),
+        ]
+    )
+    with pytest.raises(HTTPException) as exc_pax:
+        await paxlog.create_stay_program(
+            ads_id=ads.id,
+            movements=[{"effective_date": "2026-04-11", "from_location": "Base", "to_location": "Munja"}],
+            user_id=pax_user_id,
+            entity_id=ads.entity_id,
+            current_user=SimpleNamespace(id=uuid4()),
+            _=None,
+            db=db_missing_pax,
+        )
+    assert exc_pax.value.status_code == 400
+    assert exc_pax.value.detail == "Le PAX cible doit deja appartenir a cette AdS."
+
+
+@pytest.mark.asyncio
+async def test_submit_and_approve_stay_program_require_active_ads_context():
+    ads = _build_ads(status="completed")
+    program_id = uuid4()
+    pax_user_id = uuid4()
+
+    submit_db = FakeDB(
+        [
+            FakeResult(first=(program_id, "draft", ads.id, pax_user_id, None, ads.status)),
+        ]
+    )
+    with pytest.raises(HTTPException) as exc_submit:
+        await paxlog.submit_stay_program(
+            program_id=program_id,
+            entity_id=ads.entity_id,
+            current_user=SimpleNamespace(id=uuid4()),
+            _=None,
+            db=submit_db,
+        )
+    assert exc_submit.value.status_code == 400
+    assert exc_submit.value.detail == "Le programme de sejour n'est autorise que pour une AdS approuvee ou en cours."
+
+    ads.status = "in_progress"
+    approve_db = FakeDB(
+        [
+            FakeResult(first=(program_id, "submitted", ads.id, pax_user_id, None, ads.status)),
+            FakeResult(scalar_one_or_none=None),
+        ]
+    )
+    with pytest.raises(HTTPException) as exc_approve:
+        await paxlog.approve_stay_program(
+            program_id=program_id,
+            entity_id=ads.entity_id,
+            current_user=SimpleNamespace(id=uuid4()),
+            _=None,
+            db=approve_db,
+        )
+    assert exc_approve.value.status_code == 400
+    assert exc_approve.value.detail == "Le PAX cible doit deja appartenir a cette AdS."
+
+
+def test_ads_routes_use_expected_permissions():
+    assert _route_requires_permission("/ads", "GET", "paxlog.ads.read")
+    assert _route_requires_permission("/ads/{ads_id}", "GET", "paxlog.ads.read")
+    assert _route_requires_permission("/ads/{ads_id}/events", "GET", "paxlog.ads.read")
+    assert _route_requires_permission("/ads/{ads_id}/pax", "GET", "paxlog.ads.read")
+    assert _route_requires_permission("/ads/{ads_id}/approve", "POST", "paxlog.ads.approve")
+    assert _route_requires_permission("/ads/{ads_id}/reject", "POST", "paxlog.ads.approve")
+    assert _route_requires_permission("/ads/{ads_id}/cancel", "POST", "paxlog.ads.cancel")
+    assert _route_requires_permission("/stay-programs", "GET", "paxlog.ads.read")
+
+
+def test_avm_routes_use_expected_permissions():
+    assert _route_requires_permission("/avm", "GET", "paxlog.avm.read")
+    assert _route_requires_permission("/avm/{avm_id}", "GET", "paxlog.avm.read")
+
+
+def test_profile_and_compliance_routes_use_expected_permissions():
+    assert _route_requires_permission("/profiles", "GET", "paxlog.profile.read")
+    assert _route_requires_permission("/profiles/check-duplicates", "POST", "paxlog.profile.read")
+    assert _route_requires_permission("/profiles/{profile_id}", "GET", "paxlog.profile.read")
+    assert _route_requires_permission("/credential-types", "GET", "paxlog.credential_type.read")
+    assert _route_requires_permission("/profiles/{profile_id}/credentials", "GET", "paxlog.credential.read")
+    assert _route_requires_permission("/profiles/{profile_id}/compliance/{asset_id}", "GET", "paxlog.compliance.read")
+
+
+def test_secondary_paxlog_routes_use_expected_permissions():
+    assert _route_requires_permission("/compliance-matrix", "GET", "paxlog.compliance.read")
+    assert _route_requires_permission("/ads/by-reference/{reference}", "GET", "paxlog.ads.read")
+    assert _route_requires_permission("/ads/{ads_id}/pdf", "GET", "paxlog.ads.read")
+    assert _route_requires_permission("/incidents", "GET", "paxlog.incident.read")
+    assert _route_requires_permission("/ads/{ads_id}/imputations", "GET", "paxlog.ads.read")
+    assert _route_requires_permission("/ads/{ads_id}/imputation-suggestion", "GET", "paxlog.ads.read")
+    assert _route_requires_permission("/rotation-cycles", "GET", "paxlog.rotation.manage")
+    assert _route_requires_permission("/compliance/expiring", "GET", "paxlog.compliance.read")
+    assert _route_requires_permission("/compliance/stats", "GET", "paxlog.compliance.read")
+    assert _route_requires_permission("/signalements", "GET", "paxlog.incident.read")
+    assert _route_requires_permission("/profile-types", "GET", "paxlog.profile_type.manage")
+    assert _route_requires_permission("/pax/{pax_id}/profile-types", "GET", "paxlog.profile.read")
+    assert _route_requires_permission("/habilitation-matrix", "GET", "paxlog.profile_type.manage")
 
 
 @pytest.mark.asyncio

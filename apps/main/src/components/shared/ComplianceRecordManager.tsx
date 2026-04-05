@@ -17,6 +17,8 @@ import {
   useComplianceRecords, useCreateComplianceRecord, useDeleteComplianceRecord,
   useComplianceCheck, useComplianceTypes,
 } from '@/hooks/useConformite'
+import { useGlobalTierContact } from '@/hooks/useTiers'
+import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { cn } from '@/lib/utils'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 
@@ -39,6 +41,7 @@ export function ComplianceRecordManager({ ownerType, ownerId, compact }: Complia
   const { data: records, isLoading: recordsLoading } = useComplianceRecords({ owner_type: ownerType, owner_id: ownerId, page_size: 100 })
   const { data: checkResult, isLoading: checkLoading } = useComplianceCheck(ownerType, ownerId)
   const { data: typesData } = useComplianceTypes({})
+  const { data: linkedContact } = useGlobalTierContact(ownerType === 'tier_contact' ? ownerId : undefined)
   const createRecord = useCreateComplianceRecord()
   const deleteRecord = useDeleteComplianceRecord()
 
@@ -78,10 +81,30 @@ export function ComplianceRecordManager({ ownerType, ownerId, compact }: Complia
 
   if (!ownerId) return null
 
-  return (
-    <div className={cn('space-y-2', compact && 'text-xs')}>
-      {/* Compliance summary badge */}
-      {checkResult && !checkLoading && (
+    return (
+      <div className={cn('space-y-2', compact && 'text-xs')}>
+        {ownerType === 'tier_contact' && linkedContact && (
+          <div className="flex flex-wrap items-center gap-2 px-2.5 py-1.5 rounded-md border bg-muted/30 text-xs">
+            <CrossModuleLink
+              module="tiers"
+              id={linkedContact.tier_id}
+              label={linkedContact.tier_name || linkedContact.tier_code || linkedContact.tier_id}
+              showIcon={false}
+              className="font-medium"
+            />
+            {linkedContact.linked_user_id && (
+              <CrossModuleLink
+                module="users"
+                id={linkedContact.linked_user_id}
+                label={linkedContact.linked_user_email || linkedContact.linked_user_id}
+                showIcon={false}
+                className="text-muted-foreground"
+              />
+            )}
+          </div>
+        )}
+        {/* Compliance summary badge */}
+        {checkResult && !checkLoading && (
         <div className={cn(
           'flex items-center gap-2 px-2.5 py-1.5 rounded-md border text-xs',
           checkResult.is_compliant

@@ -31,6 +31,8 @@ MANIFEST = ModuleManifest(
         "paxlog.ads.cancel",
         "paxlog.ads.approve",
         "paxlog.ads.pax.manage",
+        "paxlog.avm.read",
+        "paxlog.avm.read_all",
         "paxlog.avm.create",
         "paxlog.avm.update",
         "paxlog.avm.submit",

@@ -1677,7 +1677,11 @@ function ProfileDetailPanel({ id }: { id: string }) {
           <div className="flex items-center gap-2 px-2.5 py-2 rounded-md bg-muted/40 border border-border">
             <Building2 size={13} className="text-muted-foreground shrink-0" />
             <div className="min-w-0">
-              <p className="text-xs font-medium text-foreground truncate">{profile.company_name}</p>
+              {profile.company_id ? (
+                <CrossModuleLink module="tiers" id={profile.company_id} label={profile.company_name} showIcon={false} className="text-xs font-medium text-foreground truncate block" />
+              ) : (
+                <p className="text-xs font-medium text-foreground truncate">{profile.company_name}</p>
+              )}
               <p className="text-[10px] text-muted-foreground">{t('paxlog.profile_panel.linked_company')}</p>
             </div>
           </div>
@@ -1688,6 +1692,25 @@ function ProfileDetailPanel({ id }: { id: string }) {
             <div className="min-w-0">
               <p className="text-xs font-medium text-foreground truncate">{profile.email}</p>
               <p className="text-[10px] text-muted-foreground">{t('paxlog.profile_panel.linked_user')}</p>
+            </div>
+          </div>
+        )}
+        {profile.pax_source === 'contact' && profile.linked_user_id && (
+          <div className="flex items-center gap-2 px-2.5 py-2 rounded-md bg-muted/40 border border-border">
+            <User size={13} className="text-muted-foreground shrink-0" />
+            <div className="min-w-0">
+              <CrossModuleLink
+                module="users"
+                id={profile.linked_user_id}
+                label={profile.linked_user_email || t('paxlog.profile_panel.external_user')}
+                showIcon={false}
+                className="text-xs font-medium text-foreground truncate block"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                {profile.linked_user_active === false
+                  ? t('paxlog.profile_panel.promoted_external_user_inactive')
+                  : t('paxlog.profile_panel.promoted_external_user')}
+              </p>
             </div>
           </div>
         )}
@@ -1705,6 +1728,14 @@ function ProfileDetailPanel({ id }: { id: string }) {
             {profile.pax_source === 'user' && (
               <div className="flex items-center gap-1.5 px-2 py-1.5 rounded bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 text-xs">
                 <Info size={12} /> {t('paxlog.profile_panel.internal_user_profile')}
+              </div>
+            )}
+            {profile.pax_source === 'contact' && (
+              <div className="flex items-center gap-1.5 px-2 py-1.5 rounded bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 text-xs">
+                <Info size={12} />
+                {profile.linked_user_id
+                  ? t('paxlog.profile_panel.external_contact_promoted')
+                  : t('paxlog.profile_panel.external_contact_profile')}
               </div>
             )}
           </div>
@@ -2022,8 +2053,9 @@ function AdsDetailPanel({ id }: { id: string }) {
   const canResubmit = ads.status === 'requires_review' && hasPermission('paxlog.ads.submit')
   const canDownloadPdf = ['approved', 'in_progress', 'completed'].includes(ads.status)
   const canGenerateLink = ['approved', 'in_progress'].includes(ads.status)
-  const canManageStayPrograms = hasPermission('paxlog.stay.create')
-  const canApproveStayPrograms = hasPermission('paxlog.stay.approve')
+  const stayProgramsEnabled = ['approved', 'in_progress'].includes(ads.status)
+  const canManageStayPrograms = stayProgramsEnabled && hasPermission('paxlog.stay.create')
+  const canApproveStayPrograms = stayProgramsEnabled && hasPermission('paxlog.stay.approve')
   const adsSubmissionChecklist = [
     { label: t('paxlog.ads_detail.checklist.destination'), done: !!ads.site_entry_asset_id },
     { label: t('paxlog.ads_detail.checklist.category'), done: !!ads.visit_category },
@@ -2197,7 +2229,7 @@ function AdsDetailPanel({ id }: { id: string }) {
   return (
     <DynamicPanelShell
       title={ads.reference}
-      subtitle={`${t('paxlog.ads')} — ${visitCategoryLabels[ads.visit_category] || ads.visit_category}`}
+      subtitle={`${t('paxlog.ads_label')} — ${visitCategoryLabels[ads.visit_category] || ads.visit_category}`}
       icon={<ClipboardList size={14} className="text-primary" />}
       actions={
         <div className="flex items-center gap-1">

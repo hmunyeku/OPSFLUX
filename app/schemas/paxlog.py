@@ -32,6 +32,9 @@ class PaxProfileRead(OpsFluxSchema):
     badge_number: str | None = None
     photo_url: str | None = None
     email: str | None = None
+    linked_user_id: UUID | None = None
+    linked_user_email: str | None = None
+    linked_user_active: bool | None = None
     active: bool = True
     created_at: datetime | None = None
     updated_at: datetime | None = None

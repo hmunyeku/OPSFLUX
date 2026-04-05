@@ -59,6 +59,11 @@ export const tiersService = {
     return data
   },
 
+  getGlobalContact: async (contactId: string): Promise<TierContactWithTier> => {
+    const { data } = await api.get(`/api/v1/tiers/contacts/all/${contactId}`)
+    return data
+  },
+
   createContact: async (tierId: string, payload: TierContactCreate): Promise<TierContact> => {
     const { data } = await api.post(`/api/v1/tiers/${tierId}/contacts`, payload)
     return data

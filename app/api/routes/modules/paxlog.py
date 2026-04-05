@@ -55,6 +55,7 @@ from app.models.paxlog import (
     PaxCredential,
     PaxGroup,
     PaxIncident,
+    StayProgram,
 )
 from app.models.planner import PlannerActivity
 from app.schemas.paxlog import (
@@ -760,6 +761,9 @@ def _user_to_pax_read(u: User, company_name: str | None = None) -> PaxProfileRea
         badge_number=u.badge_number,
         photo_url=u.avatar_url,
         email=u.email,
+        linked_user_id=None,
+        linked_user_email=None,
+        linked_user_active=None,
         active=u.active,
         created_at=u.created_at,
         updated_at=u.updated_at,
@@ -783,6 +787,9 @@ def _contact_to_pax_read(c: TierContact, company_name: str | None = None) -> Pax
         badge_number=c.badge_number,
         photo_url=c.photo_url,
         email=c.email,
+        linked_user_id=c.linked_user_id,
+        linked_user_email=c.linked_user.email if c.linked_user else None,
+        linked_user_active=c.linked_user.active if c.linked_user else None,
         active=c.active,
         created_at=c.created_at,
         updated_at=c.updated_at,
@@ -838,6 +845,7 @@ async def list_profiles(
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.profile.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """List PAX profiles — virtual UNION of Users + TierContacts."""
@@ -1002,6 +1010,7 @@ async def check_profile_duplicates(
     badge_number: str | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.profile.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Check for potential duplicate PAX (Users + TierContacts) before creation.
@@ -1102,6 +1111,7 @@ async def get_profile(
     pax_source: str = Query("user", pattern=r"^(user|contact)$"),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.profile.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get a PAX profile by ID. Use pax_source=user or pax_source=contact."""
@@ -1166,6 +1176,7 @@ async def update_profile(
 async def list_credential_types(
     category: str | None = None,
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.credential_type.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """List all credential types (global reference)."""
@@ -1230,6 +1241,7 @@ async def list_credentials(
     pax_source: str = Query("user", pattern=r"^(user|contact)$"),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.credential.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """List credentials for a PAX (user or contact)."""
@@ -1320,6 +1332,7 @@ async def list_compliance_matrix(
     asset_id: UUID | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.compliance.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """List compliance matrix entries for an entity."""
@@ -1397,6 +1410,7 @@ async def check_compliance(
     pax_source: str = Query("user", pattern=r"^(user|contact)$"),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.compliance.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Check a PAX's compliance against a specific asset's requirements."""
@@ -1492,6 +1506,7 @@ async def list_ads(
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.ads.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """List Avis de Séjour for the current entity.
@@ -1614,6 +1629,7 @@ async def get_ads(
     ads_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.ads.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get an AdS by ID."""
@@ -1623,6 +1639,7 @@ async def get_ads(
     ads = result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
+    await _assert_ads_read_access(ads, current_user=current_user, entity_id=entity_id, db=db)
     avm_origin_result = await db.execute(
         select(
             MissionProgram.id,
@@ -1677,6 +1694,9 @@ async def update_ads(
     ads = result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
+    can_approve = await has_user_permission(current_user, entity_id, "paxlog.ads.approve", db)
+    if ads.requester_id != current_user.id and not can_approve:
+        raise HTTPException(status_code=403, detail="Vous ne pouvez pas modifier cette AdS.")
     if ads.status not in {"draft", "requires_review"}:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1986,7 +2006,7 @@ async def approve_ads(
     ads_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("paxlog.ads.submit"),
+    _: None = require_permission("paxlog.ads.approve"),
     db: AsyncSession = Depends(get_db),
 ):
     """Approve an AdS (pending_validation → approved).
@@ -2095,7 +2115,7 @@ async def reject_ads(
     reason: str | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("paxlog.ads.submit"),
+    _: None = require_permission("paxlog.ads.approve"),
     db: AsyncSession = Depends(get_db),
 ):
     """Reject an AdS."""
@@ -2257,6 +2277,7 @@ async def cancel_ads(
     ads_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.ads.cancel"),
     db: AsyncSession = Depends(get_db),
 ):
     """Cancel an AdS."""
@@ -2328,9 +2349,18 @@ async def cancel_ads(
 async def list_ads_events(
     ads_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("paxlog.ads.read"),
     db: AsyncSession = Depends(get_db),
 ):
+    ads_result = await db.execute(
+        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
+    )
+    ads = ads_result.scalar_one_or_none()
+    if not ads:
+        raise HTTPException(status_code=404, detail="AdS not found")
+    await _assert_ads_read_access(ads, current_user=current_user, entity_id=entity_id, db=db)
+
     result = await db.execute(
         select(AdsEvent).where(
             AdsEvent.ads_id == ads_id,
@@ -2428,15 +2458,18 @@ async def list_ads_pax(
     ads_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.ads.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """List PAX entries for an AdS with profile details (User + TierContact)."""
     # Verify AdS
     ads_result = await db.execute(
-        select(Ads.id).where(Ads.id == ads_id, Ads.entity_id == entity_id)
+        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
     )
-    if not ads_result.scalar_one_or_none():
+    ads = ads_result.scalar_one_or_none()
+    if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
+    await _assert_ads_read_access(ads, current_user=current_user, entity_id=entity_id, db=db)
 
     pax_result = await db.execute(
         select(AdsPax).where(AdsPax.ads_id == ads_id)
@@ -2673,6 +2706,7 @@ async def get_ads_by_reference(
     reference: str,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.ads.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Lookup an AdS by its unique reference number (e.g. ADS-2026-0001)."""
@@ -2685,6 +2719,7 @@ async def get_ads_by_reference(
     ads = result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail=f"AdS «{reference}» introuvable")
+    await _assert_ads_read_access(ads, current_user=current_user, entity_id=entity_id, db=db)
     avm_origin_result = await db.execute(
         select(
             MissionProgram.id,
@@ -2716,6 +2751,7 @@ async def download_ads_pdf(
     language: str = "fr",
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.ads.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Generate and download the AdS as a PDF ticket (boarding pass style).
@@ -2733,6 +2769,7 @@ async def download_ads_pdf(
     ads = result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS introuvable")
+    await _assert_ads_read_access(ads, current_user=current_user, entity_id=entity_id, db=db)
 
     # Load PAX entries with profile details (User + TierContact)
     pax_result = await db.execute(
@@ -2838,6 +2875,7 @@ async def list_incidents(
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.incident.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """List PAX incidents."""
@@ -2940,6 +2978,7 @@ async def list_imputations(
     ads_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.ads.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """List cost imputations for an AdS — delegates to core cost_imputations."""
@@ -2947,10 +2986,12 @@ async def list_imputations(
 
     # Verify AdS
     ads_result = await db.execute(
-        select(Ads.id).where(Ads.id == ads_id, Ads.entity_id == entity_id)
+        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
     )
-    if not ads_result.scalar_one_or_none():
+    ads = ads_result.scalar_one_or_none()
+    if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
+    await _assert_ads_read_access(ads, current_user=current_user, entity_id=entity_id, db=db)
 
     return await list_cost_imputations(
         owner_type="ads", owner_id=ads_id, current_user=current_user, db=db
@@ -2962,6 +3003,7 @@ async def get_imputation_suggestion(
     ads_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.ads.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Return the default imputation suggestion for an AdS."""
@@ -2971,6 +3013,7 @@ async def get_imputation_suggestion(
     ads = ads_result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
+    await _assert_ads_read_access(ads, current_user=current_user, entity_id=entity_id, db=db)
 
     return await _resolve_ads_imputation_suggestion(db, ads=ads, entity_id=entity_id)
 
@@ -3046,6 +3089,7 @@ async def list_rotation_cycles(
     status_filter: str | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.rotation.manage"),
     db: AsyncSession = Depends(get_db),
 ):
     """List rotation cycles for the entity."""
@@ -3831,6 +3875,126 @@ async def resubmit_external_ads(
 # STAY PROGRAMS (deplacements intra-champ)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+STAY_PROGRAM_ACTIVE_ADS_STATUSES = {"approved", "in_progress"}
+
+
+def _ensure_stay_program_ads_status(ads_status: str) -> None:
+    if ads_status not in STAY_PROGRAM_ACTIVE_ADS_STATUSES:
+        raise HTTPException(
+            status_code=400,
+            detail="Le programme de sejour n'est autorise que pour une AdS approuvee ou en cours.",
+        )
+
+
+async def _get_stay_program_ads_or_404(
+    ads_id: UUID,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> Ads:
+    result = await db.execute(
+        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
+    )
+    ads = result.scalar_one_or_none()
+    if not ads:
+        raise HTTPException(status_code=404, detail="AdS not found")
+    return ads
+
+
+async def _ensure_stay_program_target_belongs_to_ads(
+    ads_id: UUID,
+    db: AsyncSession,
+    *,
+    user_id: UUID | None = None,
+    contact_id: UUID | None = None,
+) -> None:
+    conditions = [AdsPax.ads_id == ads_id]
+    if user_id:
+        conditions.append(AdsPax.user_id == user_id)
+    elif contact_id:
+        conditions.append(AdsPax.contact_id == contact_id)
+    else:
+        raise HTTPException(status_code=400, detail="Provide user_id or contact_id")
+
+    pax_result = await db.execute(select(AdsPax.id).where(*conditions))
+    if not pax_result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=400,
+            detail="Le PAX cible doit deja appartenir a cette AdS.",
+        )
+
+
+async def _can_read_ads(
+    ads: Ads,
+    *,
+    current_user: User,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> bool:
+    if ads.requester_id == current_user.id:
+        return True
+    return await has_user_permission(current_user, entity_id, "paxlog.ads.read_all", db)
+
+
+async def _assert_ads_read_access(
+    ads: Ads,
+    *,
+    current_user: User,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> None:
+    if not await _can_read_ads(ads, current_user=current_user, entity_id=entity_id, db=db):
+        raise HTTPException(status_code=404, detail="AdS not found")
+
+
+async def _can_read_avm(
+    avm: MissionNotice,
+    *,
+    current_user: User,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> bool:
+    if avm.created_by == current_user.id:
+        return True
+    return await has_user_permission(current_user, entity_id, "paxlog.avm.read_all", db)
+
+
+async def _assert_avm_read_access(
+    avm: MissionNotice,
+    *,
+    current_user: User,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> None:
+    if not await _can_read_avm(avm, current_user=current_user, entity_id=entity_id, db=db):
+        raise HTTPException(status_code=404, detail="AVM not found")
+
+
+async def _get_stay_program_context_or_404(
+    program_id: UUID,
+    entity_id: UUID,
+    db: AsyncSession,
+):
+    result = await db.execute(
+        select(
+            StayProgram.id,
+            StayProgram.status,
+            StayProgram.ads_id,
+            StayProgram.user_id,
+            StayProgram.contact_id,
+            Ads.status,
+        )
+        .join(Ads, Ads.id == StayProgram.ads_id)
+        .where(
+            StayProgram.id == program_id,
+            StayProgram.entity_id == entity_id,
+            Ads.entity_id == entity_id,
+        )
+    )
+    context = result.first()
+    if not context:
+        raise HTTPException(status_code=404, detail="Programme de sejour introuvable")
+    return context
+
 
 @router.get("/stay-programs")
 async def list_stay_programs(
@@ -3840,6 +4004,7 @@ async def list_stay_programs(
     status_filter: str | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.ads.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """List stay programs (intra-field movement plans)."""
@@ -3847,6 +4012,12 @@ async def list_stay_programs(
 
     conditions = ["sp.entity_id = :eid"]
     params: dict = {"eid": str(entity_id)}
+    can_read_all = await has_user_permission(
+        current_user, entity_id, "paxlog.ads.read_all", db
+    )
+    if not can_read_all:
+        conditions.append("ads.requester_id = :requester_id")
+        params["requester_id"] = str(current_user.id)
 
     if ads_id:
         conditions.append("sp.ads_id = :ads_id")
@@ -3867,6 +4038,7 @@ async def list_stay_programs(
             f"""
             SELECT sp.id, sp.ads_id, sp.user_id, sp.contact_id, sp.status, sp.movements, sp.created_at
             FROM stay_programs sp
+            JOIN ads ON ads.id = sp.ads_id
             WHERE {where_clause}
             ORDER BY sp.created_at DESC
             """
@@ -3906,12 +4078,14 @@ async def create_stay_program(
     if not user_id and not contact_id:
         raise HTTPException(status_code=400, detail="Provide user_id or contact_id")
 
-    # Verify AdS
-    ads_result = await db.execute(
-        select(Ads.id).where(Ads.id == ads_id, Ads.entity_id == entity_id)
+    ads = await _get_stay_program_ads_or_404(ads_id, entity_id, db)
+    _ensure_stay_program_ads_status(ads.status)
+    await _ensure_stay_program_target_belongs_to_ads(
+        ads_id,
+        db,
+        user_id=user_id,
+        contact_id=contact_id,
     )
-    if not ads_result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="AdS not found")
 
     result = await db.execute(
         sa_text(
@@ -3953,9 +4127,24 @@ async def submit_stay_program(
     """Submit a stay program for approval."""
     from sqlalchemy import text as sa_text
 
+    context = await _get_stay_program_context_or_404(program_id, entity_id, db)
+    _, current_status, ads_id, user_id, contact_id, ads_status = context
+    if current_status != "draft":
+        raise HTTPException(
+            status_code=400,
+            detail="Programme introuvable ou non-soumettable (doit etre en brouillon).",
+        )
+    _ensure_stay_program_ads_status(ads_status)
+    await _ensure_stay_program_target_belongs_to_ads(
+        ads_id,
+        db,
+        user_id=user_id,
+        contact_id=contact_id,
+    )
+
     result = await db.execute(
         sa_text(
-            "UPDATE stay_programs SET status = 'submitted' "
+            "UPDATE stay_programs SET status = 'submitted', submitted_at = NOW() "
             "WHERE id = :pid AND entity_id = :eid AND status = 'draft' "
             "RETURNING id"
         ),
@@ -3980,6 +4169,21 @@ async def approve_stay_program(
 ):
     """Approve a submitted stay program."""
     from sqlalchemy import text as sa_text
+
+    context = await _get_stay_program_context_or_404(program_id, entity_id, db)
+    _, current_status, ads_id, user_id, contact_id, ads_status = context
+    if current_status != "submitted":
+        raise HTTPException(
+            status_code=400,
+            detail="Programme introuvable ou non-approvable (doit etre soumis).",
+        )
+    _ensure_stay_program_ads_status(ads_status)
+    await _ensure_stay_program_target_belongs_to_ads(
+        ads_id,
+        db,
+        user_id=user_id,
+        contact_id=contact_id,
+    )
 
     result = await db.execute(
         sa_text(
@@ -4007,6 +4211,7 @@ async def approve_stay_program(
 async def list_profile_types(
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.profile_type.manage"),
     db: AsyncSession = Depends(get_db),
 ):
     """List all PAX profile types (job roles/categories)."""
@@ -4084,6 +4289,7 @@ async def list_pax_profile_types(
     pax_source: str = Query("user", pattern=r"^(user|contact)$"),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.profile.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """List profile types assigned to a PAX (user or contact)."""
@@ -4160,6 +4366,7 @@ async def list_habilitation_matrix(
     profile_type_id: UUID | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.profile_type.manage"),
     db: AsyncSession = Depends(get_db),
 ):
     """List habilitation matrix entries (credentials required per profile type)."""
@@ -4268,6 +4475,7 @@ async def get_expiring_credentials(
     days_ahead: int = 30,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.compliance.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get PAX credentials expiring within N days. Used by dashboard widget."""
@@ -4371,6 +4579,7 @@ async def get_expiring_credentials(
 async def get_compliance_stats(
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.compliance.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get compliance statistics per site. Used by dashboard widget."""
@@ -4468,6 +4677,7 @@ async def list_signalements(
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.incident.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """List formal signalements (incidents, HSE violations, bans)."""
@@ -4745,6 +4955,7 @@ async def list_avm(
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.avm.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """List Avis de Mission (AVM) for the current entity."""
@@ -4759,6 +4970,18 @@ async def list_avm(
     )
     if scope == "my":
         query = query.where(MissionNotice.created_by == current_user.id)
+    elif scope == "all":
+        can_read_all = await has_user_permission(
+            current_user, entity_id, "paxlog.avm.read_all", db
+        )
+        if not can_read_all:
+            query = query.where(MissionNotice.created_by == current_user.id)
+    else:
+        can_read_all = await has_user_permission(
+            current_user, entity_id, "paxlog.avm.read_all", db
+        )
+        if not can_read_all:
+            query = query.where(MissionNotice.created_by == current_user.id)
     if search:
         like = f"%{search}%"
         query = query.where(
@@ -4937,6 +5160,7 @@ async def get_avm(
     avm_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.avm.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get AVM detail with programs, preparation tasks, and progress."""
@@ -4949,6 +5173,7 @@ async def get_avm(
     avm = result.scalar_one_or_none()
     if not avm:
         raise HTTPException(status_code=404, detail="AVM not found")
+    await _assert_avm_read_access(avm, current_user=current_user, entity_id=entity_id, db=db)
     return await _build_avm_read(db, avm)
 
 
@@ -5010,6 +5235,20 @@ async def submit_avm_route(
     from app.services.modules.paxlog_service import submit_avm as _submit_avm
 
     try:
+        result_check = await db.execute(
+            select(MissionNotice).where(
+                MissionNotice.id == avm_id,
+                MissionNotice.entity_id == entity_id,
+            )
+        )
+        avm = result_check.scalar_one_or_none()
+        if not avm:
+            raise HTTPException(status_code=404, detail="AVM not found")
+        if not await _can_manage_avm(db=db, avm=avm, current_user=current_user, entity_id=entity_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You may only submit your own AVM unless you can arbitrate it.",
+            )
         result = await _submit_avm(db, avm_id, entity_id, current_user.id)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -5092,6 +5331,11 @@ async def cancel_avm(
     avm = result.scalar_one_or_none()
     if not avm:
         raise HTTPException(status_code=404, detail="AVM not found")
+    if not await _can_manage_avm(db=db, avm=avm, current_user=current_user, entity_id=entity_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You may only cancel your own AVM unless you can arbitrate it.",
+        )
     if avm.status in ("completed", "cancelled"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

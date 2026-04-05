@@ -40,12 +40,13 @@ import {
 } from '@/components/layout/DynamicPanel'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { ComplianceDashboard } from './ComplianceDashboard'
-import { useDictionaryOptions } from '@/hooks/useDictionary'
+import { useDictionaryLabels, useDictionaryOptions } from '@/hooks/useDictionary'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { useUIStore } from '@/stores/uiStore'
 import { usePermission } from '@/hooks/usePermission'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
 import { useToast } from '@/components/ui/Toast'
+import { useGlobalTierContact } from '@/hooks/useTiers'
 import {
   useComplianceTypes, useCreateComplianceType, useUpdateComplianceType, useDeleteComplianceType,
   useComplianceRecords,
@@ -67,49 +68,92 @@ import type {
 
 // -- Constants ----------------------------------------------------------------
 
-const FALLBACK_CATEGORY_OPTIONS = [
-  { value: 'formation', label: 'Formation' },
-  { value: 'certification', label: 'Certification' },
-  { value: 'habilitation', label: 'Habilitation' },
-  { value: 'audit', label: 'Audit' },
-  { value: 'medical', label: 'Médical' },
-  { value: 'epi', label: 'EPI' },
-]
-
-const STATUS_OPTIONS = [
-  { value: 'valid', label: 'Valide' },
-  { value: 'expired', label: 'Expire' },
-  { value: 'pending', label: 'En attente' },
-  { value: 'rejected', label: 'Rejete' },
-]
-
-const EXEMPTION_STATUS_OPTIONS = [
-  { value: 'pending', label: 'En attente' },
-  { value: 'approved', label: 'Approuve' },
-  { value: 'rejected', label: 'Rejete' },
-  { value: 'expired', label: 'Expire' },
-]
-
-const RULE_TARGET_OPTIONS = [
-  { value: 'all', label: 'Tous' },
-  { value: 'tier_type', label: 'Type de tiers' },
-  { value: 'asset', label: 'Asset' },
-  { value: 'department', label: 'Departement' },
-  { value: 'job_position', label: 'Fiche de poste' },
-]
-
 type ConformiteTab = 'dashboard' | 'referentiel' | 'enregistrements' | 'verifications' | 'exemptions' | 'fiches' | 'regles' | 'transferts'
 
-const TABS: { id: ConformiteTab; label: string; icon: typeof ShieldCheck }[] = [
-  { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
-  { id: 'fiches', label: 'Fiches de poste', icon: Briefcase },
-  { id: 'referentiel', label: 'Référentiel', icon: ClipboardList },
-  { id: 'regles', label: 'Règles', icon: Scale },
-  { id: 'exemptions', label: 'Exemptions', icon: ShieldOff },
-  { id: 'enregistrements', label: 'Enregistrements', icon: FileCheck },
-  { id: 'verifications', label: 'Vérifications', icon: ClipboardCheck },
-  { id: 'transferts', label: 'Transferts', icon: GitBranch },
-]
+function useConformiteTabs() {
+  const { t } = useTranslation()
+  return useMemo<{ id: ConformiteTab; label: string; icon: typeof ShieldCheck }[]>(() => [
+    { id: 'dashboard', label: t('conformite.tabs.dashboard'), icon: LayoutDashboard },
+    { id: 'fiches', label: t('conformite.tabs.fiches_poste'), icon: Briefcase },
+    { id: 'referentiel', label: t('conformite.tabs.referentiel'), icon: ClipboardList },
+    { id: 'regles', label: t('conformite.tabs.regles'), icon: Scale },
+    { id: 'exemptions', label: t('conformite.tabs.exemptions'), icon: ShieldOff },
+    { id: 'enregistrements', label: t('conformite.tabs.enregistrements'), icon: FileCheck },
+    { id: 'verifications', label: t('conformite.tabs.verifications'), icon: ClipboardCheck },
+    { id: 'transferts', label: t('conformite.tabs.transferts'), icon: GitBranch },
+  ], [t])
+}
+
+function useConformiteDictionaryState() {
+  const { t } = useTranslation()
+
+  const categoryOptions = useDictionaryOptions('compliance_category')
+  const statusOptions = useDictionaryOptions('compliance_status')
+  const exemptionStatusOptions = useDictionaryOptions('compliance_exemption_status')
+  const ruleTargetOptions = useDictionaryOptions('compliance_rule_target')
+  const verificationStatusOptions = useDictionaryOptions('compliance_verification_status')
+  const rulePriorityOptions = useDictionaryOptions('compliance_rule_priority')
+  const ruleApplicabilityOptions = useDictionaryOptions('compliance_rule_applicability')
+
+  const categoryLabels = useDictionaryLabels('compliance_category', {
+    formation: t('conformite.types.formation'),
+    certification: t('conformite.types.certification'),
+    habilitation: t('conformite.types.habilitation'),
+    audit: t('conformite.types.audit'),
+    medical: t('conformite.types.medical'),
+    epi: t('conformite.types.epi'),
+  })
+  const statusLabels = useDictionaryLabels('compliance_status', {
+    valid: t('conformite.records.valid'),
+    expired: t('conformite.records.expired'),
+    pending: t('conformite.records.pending'),
+    rejected: t('conformite.records.rejected'),
+  })
+  const exemptionStatusLabels = useDictionaryLabels('compliance_exemption_status', {
+    pending: t('conformite.exemptions.pending'),
+    approved: t('conformite.exemptions.approved'),
+    rejected: t('conformite.exemptions.rejected'),
+    expired: t('conformite.exemptions.expired'),
+  })
+  const ruleTargetLabels = useDictionaryLabels('compliance_rule_target', {
+    all: t('conformite.rules.targets.all'),
+    tier_type: t('conformite.rules.targets.tier_type'),
+    asset: t('conformite.rules.targets.asset'),
+    department: t('conformite.rules.targets.department'),
+    job_position: t('conformite.rules.targets.job_position'),
+  })
+  const verificationStatusLabels = useDictionaryLabels('compliance_verification_status', {
+    pending: t('conformite.verifications.pending'),
+    verified: t('conformite.verifications.verified'),
+    rejected: t('conformite.verifications.rejected'),
+  })
+  const rulePriorityLabels = useDictionaryLabels('compliance_rule_priority', {
+    high: t('conformite.rules.priority.high'),
+    normal: t('conformite.rules.priority.normal'),
+    low: t('conformite.rules.priority.low'),
+  })
+  const ruleApplicabilityLabels = useDictionaryLabels('compliance_rule_applicability', {
+    permanent: t('conformite.rules.applicability.permanent'),
+    contextual: t('conformite.rules.applicability.contextual'),
+  })
+
+  return {
+    categoryOptions,
+    categoryLabels,
+    statusOptions,
+    statusLabels,
+    exemptionStatusOptions,
+    exemptionStatusLabels,
+    ruleTargetOptions,
+    ruleTargetLabels,
+    verificationStatusOptions,
+    verificationStatusLabels,
+    rulePriorityOptions,
+    rulePriorityLabels,
+    ruleApplicabilityOptions,
+    ruleApplicabilityLabels,
+  }
+}
 
 // -- Create Type Panel --------------------------------------------------------
 
@@ -118,8 +162,7 @@ function CreateTypePanel() {
   const createType = useCreateComplianceType()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { toast } = useToast()
-  const dictCats = useDictionaryOptions('compliance_category')
-  const CATEGORY_OPTIONS = dictCats.length > 0 ? dictCats : FALLBACK_CATEGORY_OPTIONS
+  const { categoryOptions } = useConformiteDictionaryState()
   const [form, setForm] = useState<ComplianceTypeCreate>({
     category: 'formation',
     name: '',
@@ -161,7 +204,7 @@ function CreateTypePanel() {
         <PanelContentLayout>
           <FormSection title="Categorie">
             <TagSelector
-              options={CATEGORY_OPTIONS}
+              options={categoryOptions}
               value={form.category}
               onChange={(v) => setForm({ ...form, category: v })}
             />
@@ -219,8 +262,7 @@ function TypeDetailPanel({ id }: { id: string }) {
   const updateType = useUpdateComplianceType()
   const deleteType = useDeleteComplianceType()
   const { toast } = useToast()
-  const dictCats = useDictionaryOptions('compliance_category')
-  const CATEGORY_OPTIONS = dictCats.length > 0 ? dictCats : FALLBACK_CATEGORY_OPTIONS
+  const { categoryLabels } = useConformiteDictionaryState()
 
   const handleSave = useCallback((field: string, value: string) => {
     updateType.mutate({ id, payload: normalizeNames({ [field]: value }) })
@@ -254,7 +296,7 @@ function TypeDetailPanel({ id }: { id: string }) {
       <PanelContentLayout>
         <FormSection title="Informations" collapsible defaultExpanded>
           <DetailFieldGrid>
-            <ReadOnlyRow label="Categorie" value={<span className="gl-badge gl-badge-info">{CATEGORY_OPTIONS.find(o => o.value === ct.category)?.label ?? ct.category}</span>} />
+            <ReadOnlyRow label="Categorie" value={<span className="gl-badge gl-badge-info">{categoryLabels[ct.category] ?? ct.category}</span>} />
             <ReadOnlyRow label="Code" value={<span className="text-sm font-mono font-medium text-foreground">{ct.code || '—'}</span>} />
             <InlineEditableRow label="Nom" value={ct.name} onSave={(v) => handleSave('name', v)} />
             <ReadOnlyRow label="Validite" value={ct.validity_days ? `${ct.validity_days} jours` : 'Permanent'} />
@@ -426,6 +468,7 @@ function ExemptionDetailPanel({ id }: { id: string }) {
     closeDynamicPanel()
     toast({ title: 'Exemption archivee', variant: 'success' })
   }, [id, deleteExemption, closeDynamicPanel, toast])
+  const { exemptionStatusLabels } = useConformiteDictionaryState()
 
   if (!exemption) {
     return (
@@ -438,7 +481,7 @@ function ExemptionDetailPanel({ id }: { id: string }) {
   const statusBadge = (() => {
     const s = exemption.status
     const cls = s === 'approved' ? 'gl-badge-success' : s === 'rejected' ? 'gl-badge-danger' : s === 'pending' ? 'gl-badge-warning' : 'gl-badge-neutral'
-    const label = EXEMPTION_STATUS_OPTIONS.find(o => o.value === s)?.label ?? s
+    const label = exemptionStatusLabels[s] ?? s
     return <span className={cn('gl-badge', cls)}>{label}</span>
   })()
 
@@ -605,7 +648,6 @@ function CreateJobPositionPanel() {
 
 // -- Job Position Detail Panel ------------------------------------------------
 
-const PRIORITY_LABELS: Record<string, string> = { high: 'Haute', normal: 'Normale', low: 'Basse' }
 const PRIORITY_COLORS: Record<string, string> = { high: 'bg-red-600', normal: 'bg-zinc-500', low: 'bg-sky-500' }
 
 function JobPositionDetailPanel({ id }: { id: string }) {
@@ -619,6 +661,7 @@ function JobPositionDetailPanel({ id }: { id: string }) {
   const updateJP = useUpdateJobPosition()
   const deleteJP = useDeleteJobPosition()
   const { toast } = useToast()
+  const { categoryLabels, rulePriorityLabels } = useConformiteDictionaryState()
 
   // Rules linked to this job position + global rules
   const { data: allRules } = useComplianceRules(undefined)
@@ -705,14 +748,14 @@ function JobPositionDetailPanel({ id }: { id: string }) {
                     </span>
                     {ct && (
                       <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold text-white shrink-0 ${CATEGORY_COLORS_MAP[ct.category] ?? 'bg-zinc-500'}`}>
-                        {CATEGORY_FULL_LABELS[ct.category] ?? ct.category}
+                        {categoryLabels[ct.category] ?? ct.category}
                       </span>
                     )}
                     {validityDays != null && (
                       <span className="text-[10px] text-muted-foreground shrink-0 whitespace-nowrap">{validityDays}j</span>
                     )}
                     <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold text-white shrink-0 ${PRIORITY_COLORS[r.priority] ?? 'bg-zinc-500'}`}>
-                      {PRIORITY_LABELS[r.priority] ?? r.priority}
+                      {rulePriorityLabels[r.priority] ?? r.priority}
                     </span>
                     {r.target_type === 'all' && (
                       <span className="text-[10px] text-muted-foreground italic shrink-0">(global)</span>
@@ -737,7 +780,8 @@ function JobPositionDetailPanel({ id }: { id: string }) {
 // -- Main Page ----------------------------------------------------------------
 
 export function ConformitePage() {
-  useTranslation() // loaded for future i18n
+  const { t } = useTranslation()
+  const tabs = useConformiteTabs()
   const [activeTab, setActiveTab] = useState<ConformiteTab>('dashboard')
   const [page, setPage] = useState(1)
   const { pageSize, setPageSize } = usePageSize()
@@ -745,9 +789,15 @@ export function ConformitePage() {
   const debouncedSearch = useDebounce(search, 300)
   const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>({})
 
-  // Dictionary-driven category options (with fallback)
-  const dictCategoryOptions = useDictionaryOptions('compliance_category')
-  const CATEGORY_OPTIONS = dictCategoryOptions.length > 0 ? dictCategoryOptions : FALLBACK_CATEGORY_OPTIONS
+  const {
+    categoryOptions,
+    categoryLabels,
+    statusOptions,
+    statusLabels,
+    exemptionStatusOptions,
+    exemptionStatusLabels,
+    ruleTargetLabels,
+  } = useConformiteDictionaryState()
 
   const { hasPermission } = usePermission()
   const canImport = hasPermission('conformite.import')
@@ -830,17 +880,17 @@ export function ConformitePage() {
 
   // Filters
   const typeFilters = useMemo<DataTableFilterDef[]>(() => [
-    { id: 'category', label: 'Categorie', type: 'select', options: CATEGORY_OPTIONS.map(o => ({ value: o.value, label: o.label })) },
-  ], [])
+    { id: 'category', label: 'Categorie', type: 'select', options: categoryOptions.map(o => ({ value: o.value, label: o.label })) },
+  ], [categoryOptions])
 
   const recordFilters = useMemo<DataTableFilterDef[]>(() => [
-    { id: 'category', label: 'Categorie', type: 'select', options: CATEGORY_OPTIONS.map(o => ({ value: o.value, label: o.label })) },
-    { id: 'status', label: 'Statut', type: 'select', options: STATUS_OPTIONS.map(o => ({ value: o.value, label: o.label })) },
-  ], [])
+    { id: 'category', label: 'Categorie', type: 'select', options: categoryOptions.map(o => ({ value: o.value, label: o.label })) },
+    { id: 'status', label: 'Statut', type: 'select', options: statusOptions.map(o => ({ value: o.value, label: o.label })) },
+  ], [categoryOptions, statusOptions])
 
   const exemptionFilters = useMemo<DataTableFilterDef[]>(() => [
-    { id: 'status', label: 'Statut', type: 'select', options: EXEMPTION_STATUS_OPTIONS.map(o => ({ value: o.value, label: o.label })) },
-  ], [])
+    { id: 'status', label: 'Statut', type: 'select', options: exemptionStatusOptions.map(o => ({ value: o.value, label: o.label })) },
+  ], [exemptionStatusOptions])
 
   const handleFilterChange = useCallback((filterId: string, value: unknown) => {
     setActiveFilters(prev => {
@@ -855,10 +905,10 @@ export function ConformitePage() {
   const typeColumns = useMemo<ColumnDef<ComplianceType, unknown>[]>(() => [
     { accessorKey: 'code', header: 'Code', size: 100, cell: ({ row }) => <span className="font-medium">{row.original.code}</span> },
     { accessorKey: 'name', header: 'Nom', cell: ({ row }) => <span className="text-foreground">{row.original.name}</span> },
-    { accessorKey: 'category', header: 'Categorie', size: 120, cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{CATEGORY_OPTIONS.find(o => o.value === row.original.category)?.label ?? row.original.category}</span> },
+    { accessorKey: 'category', header: 'Categorie', size: 120, cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{categoryLabels[row.original.category] ?? row.original.category}</span> },
     { accessorKey: 'validity_days', header: 'Validite', size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.validity_days ? `${row.original.validity_days}j` : 'Permanent'}</span> },
     { accessorKey: 'is_mandatory', header: 'Obligatoire', size: 90, cell: ({ row }) => row.original.is_mandatory ? <span className="gl-badge gl-badge-warning">Oui</span> : <span className="text-muted-foreground/40">--</span> },
-  ], [])
+  ], [categoryLabels])
 
   const recordColumns = useMemo<ColumnDef<ComplianceRecord, unknown>[]>(() => [
     { accessorKey: 'type_name', header: 'Type', cell: ({ row }) => <span className="text-foreground font-medium">{row.original.type_name || '--'}</span> },
@@ -867,11 +917,11 @@ export function ConformitePage() {
     { accessorKey: 'status', header: 'Statut', size: 90, cell: ({ row }) => {
       const s = row.original.status
       const cls = s === 'valid' ? 'gl-badge-success' : s === 'expired' ? 'gl-badge-danger' : s === 'pending' ? 'gl-badge-warning' : 'gl-badge-neutral'
-      return <span className={cn('gl-badge', cls)}>{STATUS_OPTIONS.find(o => o.value === s)?.label ?? s}</span>
+      return <span className={cn('gl-badge', cls)}>{statusLabels[s] ?? s}</span>
     }},
     { accessorKey: 'expires_at', header: 'Expiration', size: 110, cell: ({ row }) => row.original.expires_at ? <span className="text-muted-foreground text-xs">{new Date(row.original.expires_at).toLocaleDateString('fr-FR')}</span> : <span className="text-muted-foreground/40">--</span> },
     { accessorKey: 'issuer', header: 'Emetteur', size: 120, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.issuer || '--'}</span> },
-  ], [])
+  ], [statusLabels])
 
   // Exemption columns
   const exemptionColumns = useMemo<ColumnDef<ComplianceExemption, unknown>[]>(() => [
@@ -880,14 +930,14 @@ export function ConformitePage() {
     { accessorKey: 'status', header: 'Statut', size: 100, cell: ({ row }) => {
       const s = row.original.status
       const cls = s === 'approved' ? 'gl-badge-success' : s === 'rejected' ? 'gl-badge-danger' : s === 'pending' ? 'gl-badge-warning' : 'gl-badge-neutral'
-      return <span className={cn('gl-badge', cls)}>{EXEMPTION_STATUS_OPTIONS.find(o => o.value === s)?.label ?? s}</span>
+      return <span className={cn('gl-badge', cls)}>{exemptionStatusLabels[s] ?? s}</span>
     }},
     { accessorKey: 'reason', header: 'Motif', cell: ({ row }) => <span className="text-muted-foreground text-xs truncate max-w-[200px] block">{row.original.reason}</span> },
     { accessorKey: 'start_date', header: 'Debut', size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{new Date(row.original.start_date).toLocaleDateString('fr-FR')}</span> },
     { accessorKey: 'end_date', header: 'Fin', size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{new Date(row.original.end_date).toLocaleDateString('fr-FR')}</span> },
     { accessorKey: 'approver_name', header: 'Approuve par', size: 130, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.approver_name || '--'}</span> },
     { accessorKey: 'created_at', header: 'Cree le', size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{new Date(row.original.created_at).toLocaleDateString('fr-FR')}</span> },
-  ], [])
+  ], [exemptionStatusLabels])
 
   // Job Position columns
   const jpColumns = useMemo<ColumnDef<JobPosition, unknown>[]>(() => [
@@ -904,7 +954,7 @@ export function ConformitePage() {
       const ct = typesData?.items.find(t => t.id === row.original.compliance_type_id)
       return <span className="text-foreground font-medium">{ct ? `${ct.code} — ${ct.name}` : row.original.compliance_type_id.slice(0, 8)}</span>
     }},
-    { accessorKey: 'target_type', header: 'Cible', size: 130, cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{RULE_TARGET_OPTIONS.find(o => o.value === row.original.target_type)?.label ?? row.original.target_type}</span> },
+    { accessorKey: 'target_type', header: 'Cible', size: 130, cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{ruleTargetLabels[row.original.target_type] ?? row.original.target_type}</span> },
     { accessorKey: 'target_value', header: 'Valeur', size: 200, cell: ({ row }) => {
       const val = row.original.target_value
       if (!val) return <span className="text-muted-foreground text-xs">N/A</span>
@@ -935,7 +985,7 @@ export function ConformitePage() {
     },
     { accessorKey: 'transfer_date', header: 'Date', size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{new Date(row.original.transfer_date).toLocaleDateString('fr-FR')}</span> },
     { accessorKey: 'reason', header: 'Motif', cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.reason || '--'}</span> },
-  ], [])
+  ], [ruleTargetLabels])
 
   const typesPagination: DataTablePagination | undefined = typesData ? { page: typesData.page, pageSize, total: typesData.total, pages: typesData.pages } : undefined
   const recordsPagination: DataTablePagination | undefined = recordsData ? { page: recordsData.page, pageSize, total: recordsData.total, pages: recordsData.pages } : undefined
@@ -947,12 +997,12 @@ export function ConformitePage() {
 
   // Toolbar action button per tab (permission-gated)
   const toolbarAction = useMemo(() => {
-    if (activeTab === 'referentiel' && canCreateType) return <ToolbarButton icon={Plus} label="Nouveau type" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite' })} />
-    if (activeTab === 'fiches' && canCreateJP) return <ToolbarButton icon={Plus} label="Nouvelle fiche" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite', meta: { subtype: 'job-position' } })} />
-    if (activeTab === 'exemptions' && canCreateExemption) return <ToolbarButton icon={Plus} label="Nouvelle exemption" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite', meta: { subtype: 'exemption' } })} />
-    if (activeTab === 'regles' && canCreateRule) return <ToolbarButton icon={Plus} label="Nouvelle règle" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite', meta: { subtype: 'rule' } })} />
+    if (activeTab === 'referentiel' && canCreateType) return <ToolbarButton icon={Plus} label={t('conformite.types.create')} variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite' })} />
+    if (activeTab === 'fiches' && canCreateJP) return <ToolbarButton icon={Plus} label={t('conformite.job_positions.create')} variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite', meta: { subtype: 'job-position' } })} />
+    if (activeTab === 'exemptions' && canCreateExemption) return <ToolbarButton icon={Plus} label={t('conformite.exemptions.create')} variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite', meta: { subtype: 'exemption' } })} />
+    if (activeTab === 'regles' && canCreateRule) return <ToolbarButton icon={Plus} label={t('conformite.rules.create')} variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite', meta: { subtype: 'rule' } })} />
     return null
-  }, [activeTab, openDynamicPanel, canCreateType, canCreateJP, canCreateExemption, canCreateRule])
+  }, [activeTab, openDynamicPanel, canCreateType, canCreateJP, canCreateExemption, canCreateRule, t])
 
   // Render active tab content
   const renderTabContent = () => {
@@ -969,13 +1019,13 @@ export function ConformitePage() {
             onPaginationChange={(p, size) => { if (size !== pageSize) { setPageSize(size); setPage(1) } else setPage(p) }}
             searchValue={search}
             onSearchChange={setSearch}
-            searchPlaceholder="Rechercher par code ou nom..."
+            searchPlaceholder={t('conformite.search_type')}
             filters={typeFilters}
             activeFilters={activeFilters}
             onFilterChange={handleFilterChange}
             onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'conformite', id: row.id })}
             emptyIcon={ShieldCheck}
-            emptyTitle="Aucun type de conformite"
+            emptyTitle={t('conformite.no_type')}
             columnResizing
             columnVisibility
             storageKey="conformite-types"
@@ -991,7 +1041,7 @@ export function ConformitePage() {
             onPaginationChange={(p, size) => { if (size !== pageSize) { setPageSize(size); setPage(1) } else setPage(p) }}
             searchValue={search}
             onSearchChange={setSearch}
-            searchPlaceholder="Rechercher par type, emetteur..."
+            searchPlaceholder={t('conformite.search_record')}
             filters={recordFilters}
             activeFilters={activeFilters}
             onFilterChange={handleFilterChange}
@@ -1002,7 +1052,7 @@ export function ConformitePage() {
               filenamePrefix: 'conformite',
             } : undefined}
             emptyIcon={FileCheck}
-            emptyTitle="Aucun enregistrement"
+            emptyTitle={t('conformite.no_record')}
             columnResizing
             columnVisibility
             storageKey="conformite-records"
@@ -1020,13 +1070,13 @@ export function ConformitePage() {
             onPaginationChange={(p, size) => { if (size !== pageSize) { setPageSize(size); setPage(1) } else setPage(p) }}
             searchValue={search}
             onSearchChange={setSearch}
-            searchPlaceholder="Rechercher par motif..."
+            searchPlaceholder={t('conformite.search_exemption')}
             filters={exemptionFilters}
             activeFilters={activeFilters}
             onFilterChange={handleFilterChange}
             onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'conformite', id: row.id, meta: { subtype: 'exemption' } })}
             emptyIcon={ShieldOff}
-            emptyTitle="Aucune exemption"
+            emptyTitle={t('conformite.exemptions.empty')}
             columnResizing
             columnVisibility
             storageKey="conformite-exemptions"
@@ -1042,10 +1092,10 @@ export function ConformitePage() {
             onPaginationChange={(p, size) => { if (size !== pageSize) { setPageSize(size); setPage(1) } else setPage(p) }}
             searchValue={search}
             onSearchChange={setSearch}
-            searchPlaceholder="Rechercher par code ou intitule..."
+            searchPlaceholder={t('conformite.search_job_position')}
             onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'conformite', id: row.id, meta: { subtype: 'job-position' } })}
             emptyIcon={Briefcase}
-            emptyTitle="Aucune fiche de poste"
+            emptyTitle={t('conformite.no_job_position')}
             columnResizing
             columnVisibility
             storageKey="conformite-fiches"
@@ -1073,7 +1123,7 @@ export function ConformitePage() {
             pagination={transfersPagination}
             onPaginationChange={(p, size) => { if (size !== pageSize) { setPageSize(size); setPage(1) } else setPage(p) }}
             emptyIcon={GitBranch}
-            emptyTitle="Aucun transfert d'employe"
+            emptyTitle={t('conformite.no_transfer')}
             columnResizing
             storageKey="conformite-transferts"
           />
@@ -1089,7 +1139,7 @@ export function ConformitePage() {
         </PanelHeader>
 
         <TabBar
-          items={TABS.filter((tab) => {
+          items={tabs.filter((tab) => {
             if (tab.id === 'dashboard') return hasPermission('conformite.record.read')
             if (tab.id === 'verifications') return canVerify
             if (tab.id === 'exemptions') return canCreateExemption || canApproveExemption || hasPermission('conformite.exemption.read')
@@ -1133,25 +1183,9 @@ const CATEGORY_COLORS_MAP: Record<string, string> = {
   epi: 'bg-cyan-600',
 }
 
-const CATEGORY_FULL_LABELS: Record<string, string> = {
-  formation: 'Formations',
-  certification: 'Certifications',
-  habilitation: 'Habilitations',
-  audit: 'Audits',
-  medical: 'Médical',
-  epi: 'EPI',
-}
-
 const CATEGORY_ORDER: string[] = ['formation', 'certification', 'habilitation', 'medical', 'epi', 'audit']
 
 type TargetTab = 'job_position' | 'department' | 'asset' | 'all'
-
-const TARGET_TABS: { id: TargetTab; label: string }[] = [
-  { id: 'job_position', label: 'Par poste' },
-  { id: 'all', label: 'Globales' },
-  { id: 'department', label: 'Par département' },
-  { id: 'asset', label: 'Par asset' },
-]
 
 function RulesMatrixView({
   rules,
@@ -1172,6 +1206,7 @@ function RulesMatrixView({
   onEditRule?: (rule: ComplianceRule) => void
   onCreateRulePanel?: (prefill: { type_id: string; target_type: string; target_value?: string }) => void
 }) {
+  const { t } = useTranslation()
   const [searchFilter, setSearchFilter] = useState('')
   const [activeRuleFilters, setActiveRuleFilters] = useState<Record<string, unknown>>({})
   const selectedCategory = (activeRuleFilters.category as string) || 'all'
@@ -1182,6 +1217,35 @@ function RulesMatrixView({
   const [hoveredRow, setHoveredRow] = useState<string | null>(null)
   const [listGroupBy, setListGroupBy] = useState<'target_type' | 'category' | 'applicability' | 'none'>('target_type')
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  const {
+    categoryLabels,
+    ruleTargetOptions,
+    ruleTargetLabels,
+    rulePriorityOptions,
+    rulePriorityLabels,
+    ruleApplicabilityOptions,
+    ruleApplicabilityLabels,
+  } = useConformiteDictionaryState()
+  const targetTabs = useMemo<{ id: TargetTab; label: string }[]>(() => [
+    { id: 'job_position', label: t('conformite.rules.target_tabs.job_position') },
+    { id: 'all', label: t('conformite.rules.target_tabs.all') },
+    { id: 'department', label: t('conformite.rules.target_tabs.department') },
+    { id: 'asset', label: t('conformite.rules.target_tabs.asset') },
+  ], [t])
+  const groupByOptions = useMemo(() => ([
+    ['target_type', t('conformite.rules.group_by.target_type')],
+    ['category', t('conformite.rules.group_by.category')],
+    ['applicability', t('conformite.rules.group_by.applicability')],
+    ['none', t('conformite.rules.group_by.none')],
+  ] as const), [t])
+  const categoryGroupLabels: Record<string, string> = {
+    formation: categoryLabels.formation ?? t('conformite.types.formation'),
+    certification: categoryLabels.certification ?? t('conformite.types.certification'),
+    habilitation: categoryLabels.habilitation ?? t('conformite.types.habilitation'),
+    audit: categoryLabels.audit ?? t('conformite.types.audit'),
+    medical: categoryLabels.medical ?? t('conformite.types.medical'),
+    epi: categoryLabels.epi ?? t('conformite.types.epi'),
+  }
 
   const handleRuleFilterChange = useCallback((filterId: string, value: unknown) => {
     setActiveRuleFilters(prev => {
@@ -1200,11 +1264,11 @@ function RulesMatrixView({
 
   // Visual query search filter definitions
   const ruleFilterDefs = useMemo<DataTableFilterDef[]>(() => [
-    { id: 'category', label: 'Catégorie', type: 'select', options: availableCategories.map(cat => ({ value: cat, label: CATEGORY_FULL_LABELS[cat] ?? cat })) },
-    { id: 'target_type', label: 'Cible', type: 'select', options: RULE_TARGET_OPTIONS.map(o => ({ value: o.value, label: o.label })) },
-    { id: 'applicability', label: 'Applicabilité', type: 'select', options: [{ value: 'permanent', label: 'Permanente' }, { value: 'contextual', label: 'Contextuelle' }] },
-    { id: 'priority', label: 'Priorité', type: 'select', options: [{ value: 'normal', label: 'Normale' }, { value: 'high', label: 'Haute' }, { value: 'low', label: 'Basse' }] },
-  ], [availableCategories])
+    { id: 'category', label: 'Catégorie', type: 'select', options: availableCategories.map(cat => ({ value: cat, label: categoryGroupLabels[cat] ?? cat })) },
+    { id: 'target_type', label: 'Cible', type: 'select', options: ruleTargetOptions.map(o => ({ value: o.value, label: o.label })) },
+    { id: 'applicability', label: 'Applicabilité', type: 'select', options: ruleApplicabilityOptions.map(o => ({ value: o.value, label: o.label })) },
+    { id: 'priority', label: 'Priorité', type: 'select', options: rulePriorityOptions.map(o => ({ value: o.value, label: o.label })) },
+  ], [availableCategories, categoryGroupLabels, ruleApplicabilityOptions, rulePriorityOptions, ruleTargetOptions])
 
   // Filtered types by selected category
   const filteredTypes = useMemo(() => {
@@ -1332,7 +1396,7 @@ function RulesMatrixView({
       <DataTableToolbar
         searchValue={searchFilter}
         onSearchChange={setSearchFilter}
-        searchPlaceholder="Rechercher par type, poste, description..."
+        searchPlaceholder={t('conformite.rules.search')}
         filters={ruleFilterDefs}
         activeFilters={activeRuleFilters}
         onFilterChange={handleRuleFilterChange}
@@ -1345,14 +1409,14 @@ function RulesMatrixView({
               <button
                 onClick={() => setViewMode('matrix')}
                 className={cn('p-1.5 rounded-md transition-colors', viewMode === 'matrix' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground')}
-                title="Vue matrice"
+                title={t('conformite.rules.view.matrix')}
               >
                 <Grid3X3 size={14} />
               </button>
               <button
                 onClick={() => setViewMode('list')}
                 className={cn('p-1.5 rounded-md transition-colors', viewMode === 'list' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground')}
-                title="Vue liste"
+                title={t('conformite.rules.view.list')}
               >
                 <List size={14} />
               </button>
@@ -1360,7 +1424,7 @@ function RulesMatrixView({
             <button
               onClick={() => setExportOpen(true)}
               className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-              title="Exporter les règles"
+              title={t('conformite.rules.export')}
             >
               <Download size={14} />
             </button>
@@ -1376,8 +1440,8 @@ function RulesMatrixView({
         <div className="space-y-2">
           {/* Grouping selector */}
           <div className="flex items-center gap-1.5 sm:gap-2 text-xs overflow-x-auto scrollbar-none">
-            <span className="text-muted-foreground shrink-0">Grouper par :</span>
-            {([['target_type', 'Cible'], ['category', 'Catégorie'], ['applicability', 'Applicabilité'], ['none', 'Aucun']] as const).map(([val, label]) => (
+            <span className="text-muted-foreground shrink-0">{t('conformite.rules.group_by.label')}</span>
+            {groupByOptions.map(([val, label]) => (
               <button
                 key={val}
                 onClick={() => { setListGroupBy(val); setCollapsedGroups(new Set()) }}
@@ -1396,11 +1460,11 @@ function RulesMatrixView({
               const ct = types.find(t => t.id === rule.compliance_type_id)
               let groupKey: string
               if (listGroupBy === 'target_type') {
-                groupKey = RULE_TARGET_OPTIONS.find(o => o.value === rule.target_type)?.label ?? rule.target_type
+                groupKey = ruleTargetLabels[rule.target_type] ?? rule.target_type
               } else if (listGroupBy === 'category') {
-                groupKey = CATEGORY_FULL_LABELS[ct?.category ?? ''] ?? ct?.category ?? 'Autre'
+                groupKey = categoryGroupLabels[ct?.category ?? ''] ?? ct?.category ?? t('common.other')
               } else if (listGroupBy === 'applicability') {
-                groupKey = rule.applicability === 'contextual' ? 'Contextuelle' : 'Permanente'
+                groupKey = ruleApplicabilityLabels[rule.applicability] ?? rule.applicability
               } else {
                 groupKey = '__all__'
               }
@@ -1437,11 +1501,11 @@ function RulesMatrixView({
                       <thead>
                         <tr className="bg-muted/30 border-b border-border/50">
                           <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Type</th>
-                          <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Catégorie</th>
-                          <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Cible</th>
+                          <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">{t('conformite.types.category')}</th>
+                          <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">{t('conformite.rules.target_type')}</th>
                           <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Valeur</th>
-                          <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Priorité</th>
-                          <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Applic.</th>
+                          <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">{t('common.priority')}</th>
+                          <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">{t('conformite.rules.applicability_label')}</th>
                           <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Description</th>
                         </tr>
                       </thead>
@@ -1460,23 +1524,23 @@ function RulesMatrixView({
                               <td className="px-3 py-2 font-medium text-foreground">{ct ? `${ct.code} — ${ct.name}` : '?'}</td>
                               <td className="px-3 py-2">
                                 <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold text-white ${CATEGORY_COLORS_MAP[ct?.category ?? ''] ?? 'bg-zinc-500'}`}>
-                                  {CATEGORY_FULL_LABELS[ct?.category ?? ''] ?? ct?.category}
+                                  {categoryGroupLabels[ct?.category ?? ''] ?? ct?.category}
                                 </span>
                               </td>
                               <td className="px-3 py-2 text-muted-foreground">
-                                {RULE_TARGET_OPTIONS.find(o => o.value === rule.target_type)?.label ?? rule.target_type}
+                                {ruleTargetLabels[rule.target_type] ?? rule.target_type}
                               </td>
                               <td className="px-3 py-2 text-foreground">
                                 {rule.target_type === 'all' ? '—' : jpNames.length > 0 ? jpNames.join(', ') : rule.target_value ?? '—'}
                               </td>
                               <td className="px-3 py-2">
                                 <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold text-white ${PRIORITY_COLORS[rule.priority] ?? 'bg-zinc-500'}`}>
-                                  {PRIORITY_LABELS[rule.priority] ?? rule.priority}
+                                  {rulePriorityLabels[rule.priority] ?? rule.priority}
                                 </span>
                               </td>
                               <td className="px-3 py-2">
                                 <span className={cn('text-[10px] font-medium', rule.applicability === 'contextual' ? 'text-blue-500' : 'text-emerald-600')}>
-                                  {rule.applicability === 'contextual' ? 'Contextuelle' : 'Permanente'}
+                                  {ruleApplicabilityLabels[rule.applicability] ?? rule.applicability}
                                 </span>
                               </td>
                               <td className="px-3 py-2 text-muted-foreground truncate max-w-[200px]">{rule.description || '—'}</td>
@@ -1503,21 +1567,21 @@ function RulesMatrixView({
                                 {ct ? `${ct.code} — ${ct.name}` : '?'}
                               </span>
                               <span className={`shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold text-white ${PRIORITY_COLORS[rule.priority] ?? 'bg-zinc-500'}`}>
-                                {PRIORITY_LABELS[rule.priority] ?? rule.priority}
+                                {rulePriorityLabels[rule.priority] ?? rule.priority}
                               </span>
                             </div>
                             <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
                               <span className={`inline-block px-1.5 py-0.5 rounded font-semibold text-white ${CATEGORY_COLORS_MAP[ct?.category ?? ''] ?? 'bg-zinc-500'}`}>
-                                {CATEGORY_FULL_LABELS[ct?.category ?? ''] ?? ct?.category}
+                                {categoryGroupLabels[ct?.category ?? ''] ?? ct?.category}
                               </span>
                               <span className="text-muted-foreground">
-                                {RULE_TARGET_OPTIONS.find(o => o.value === rule.target_type)?.label ?? rule.target_type}
+                                {ruleTargetLabels[rule.target_type] ?? rule.target_type}
                                 {rule.target_type !== 'all' && (
                                   <> : <span className="text-foreground">{jpNames.length > 0 ? jpNames.join(', ') : rule.target_value ?? '—'}</span></>
                                 )}
                               </span>
                               <span className={cn('font-medium', rule.applicability === 'contextual' ? 'text-blue-500' : 'text-emerald-600')}>
-                                {rule.applicability === 'contextual' ? 'Contextuelle' : 'Permanente'}
+                                {ruleApplicabilityLabels[rule.applicability] ?? rule.applicability}
                               </span>
                             </div>
                             {rule.description && (
@@ -1533,7 +1597,7 @@ function RulesMatrixView({
             ))
           })()}
           {filteredRulesForList.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground text-xs border border-border rounded-lg">Aucune règle trouvée.</div>
+            <div className="text-center py-8 text-muted-foreground text-xs border border-border rounded-lg">{t('conformite.no_rule')}</div>
           )}
         </div>
       ) : (
@@ -1541,7 +1605,7 @@ function RulesMatrixView({
         <>
           {/* Target type tabs */}
           <SubTabBar
-            items={TARGET_TABS.map(t => ({ ...t, icon: Scale }))}
+            items={targetTabs.map((tab) => ({ ...tab, icon: Scale }))}
             activeId={activeTargetTab}
             onTabChange={setActiveTargetTab}
             counts={tabCounts}
@@ -1550,7 +1614,7 @@ function RulesMatrixView({
           {/* Matrix table */}
           {filteredTypes.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-xs">
-              Aucun référentiel dans cette catégorie.
+              {t('conformite.rules.no_reference_for_category')}
             </div>
           ) : (
             <div className="border border-border rounded-lg overflow-auto max-h-[calc(100vh-340px)] -mx-2 sm:mx-0 touch-pan-x touch-pan-y">
@@ -1558,22 +1622,22 @@ function RulesMatrixView({
                 <thead className="sticky top-0 z-20">
                   <tr className="bg-chrome">
                     <th className="sticky left-0 z-30 bg-chrome border-b border-r border-border px-2 sm:px-3 py-2 text-left font-semibold text-muted-foreground min-w-[120px] sm:min-w-[200px]">
-                      {activeTargetTab === 'all' ? 'Portée' : activeTargetTab === 'job_position' ? 'Fiche de poste' : activeTargetTab === 'department' ? 'Département' : 'Asset'}
+                      {activeTargetTab === 'all' ? t('conformite.rules.matrix.scope') : activeTargetTab === 'job_position' ? t('conformite.rules.targets.job_position') : activeTargetTab === 'department' ? t('conformite.rules.targets.department') : t('conformite.rules.targets.asset')}
                     </th>
-                    {filteredTypes.map(t => (
+                    {filteredTypes.map((type) => (
                       <th
-                        key={t.id}
+                        key={type.id}
                         className={cn(
                           'border-b border-r border-border px-1 py-2 text-center font-medium min-w-[50px] max-w-[70px] cursor-help transition-colors',
-                          hoveredCol === t.id ? 'bg-primary/10 text-primary' : 'text-foreground',
+                          hoveredCol === type.id ? 'bg-primary/10 text-primary' : 'text-foreground',
                         )}
-                        title={`${t.name}\n${CATEGORY_FULL_LABELS[t.category]} · ${t.validity_days ? `${t.validity_days}j` : 'Permanent'}${t.is_mandatory ? ' · Obligatoire' : ''}`}
+                        title={`${type.name}\n${categoryGroupLabels[type.category] ?? type.category} · ${type.validity_days ? `${type.validity_days}j` : 'Permanent'}${type.is_mandatory ? ' · Obligatoire' : ''}`}
                       >
                         <div className="flex flex-col items-center gap-0.5">
                           {selectedCategory === 'all' && (
-                            <span className={`w-2 h-2 rounded-full ${CATEGORY_COLORS_MAP[t.category] ?? 'bg-zinc-500'}`} title={CATEGORY_FULL_LABELS[t.category]} />
+                            <span className={`w-2 h-2 rounded-full ${CATEGORY_COLORS_MAP[type.category] ?? 'bg-zinc-500'}`} title={categoryGroupLabels[type.category] ?? type.category} />
                           )}
-                          <span className="text-[9px] leading-tight block truncate px-0.5">{t.code}</span>
+                          <span className="text-[9px] leading-tight block truncate px-0.5">{type.code}</span>
                         </div>
                       </th>
                     ))}
@@ -1589,25 +1653,25 @@ function RulesMatrixView({
                         <span className={cn('font-medium text-[11px] sm:text-xs', hoveredRow === row.id ? 'text-primary' : 'text-foreground')}>{row.label}</span>
                         {row.sub && <span className="text-muted-foreground ml-1 sm:ml-1.5 text-[9px] sm:text-[10px] hidden sm:inline">{row.sub}</span>}
                       </td>
-                      {filteredTypes.map(t => {
+                      {filteredTypes.map((type) => {
                         const key = activeTargetTab === 'all'
-                          ? `${t.id}::all::__all__`
-                          : `${t.id}::${activeTargetTab}::${row.id}`
+                          ? `${type.id}::all::__all__`
+                          : `${type.id}::${activeTargetTab}::${row.id}`
                         const rule = ruleMap.get(key)
                         return (
                           <td
-                            key={t.id}
+                            key={type.id}
                             className={cn(
                               'border-r border-border/30 text-center cursor-pointer transition-colors min-w-[40px] sm:min-w-[50px] py-1 sm:py-0',
-                              (hoveredCol === t.id || hoveredRow === row.id) ? 'bg-primary/5' : '',
+                              (hoveredCol === type.id || hoveredRow === row.id) ? 'bg-primary/5' : '',
                               'hover:bg-primary/10 active:bg-primary/15',
                             )}
-                            onMouseEnter={() => { setHoveredCol(t.id); setHoveredRow(row.id) }}
+                            onMouseEnter={() => { setHoveredCol(type.id); setHoveredRow(row.id) }}
                             onMouseLeave={() => { setHoveredCol(null); setHoveredRow(null) }}
-                            onClick={() => handleCellClick(t.id, row.id === '__all__' ? '__all__' : row.id)}
+                            onClick={() => handleCellClick(type.id, row.id === '__all__' ? '__all__' : row.id)}
                             title={rule
-                              ? `${t.name} (${t.category})\nValidité: ${rule.override_validity_days ?? t.validity_days ?? '∞'}j${rule.grace_period_days ? ` · Grâce: ${rule.grace_period_days}j` : ''}${rule.renewal_reminder_days ? ` · Rappel: ${rule.renewal_reminder_days}j` : ''}\nPriorité: ${rule.priority === 'high' ? 'Haute' : rule.priority === 'low' ? 'Basse' : 'Normale'}${rule.effective_from ? `\nDepuis: ${new Date(rule.effective_from).toLocaleDateString('fr-FR')}` : ''}\nCliquer pour modifier`
-                              : `Cliquer pour ajouter une règle ${t.name}`
+                              ? `${type.name} (${type.category})\n${t('conformite.rules.matrix.validity_days')}: ${rule.override_validity_days ?? type.validity_days ?? '∞'}j${rule.grace_period_days ? ` · ${t('conformite.rules.matrix.grace')}: ${rule.grace_period_days}j` : ''}${rule.renewal_reminder_days ? ` · ${t('conformite.rules.matrix.reminder')}: ${rule.renewal_reminder_days}j` : ''}\n${t('common.priority')}: ${rulePriorityLabels[rule.priority] ?? rule.priority}${rule.effective_from ? `\n${t('conformite.rules.matrix.effective_from')}: ${new Date(rule.effective_from).toLocaleDateString('fr-FR')}` : ''}\n${t('conformite.rules.matrix.edit_rule')}`
+                              : `${t('conformite.rules.matrix.create_rule')} ${type.name}`
                             }
                           >
                             {rule ? (
@@ -1621,7 +1685,7 @@ function RulesMatrixView({
                   {rows.length === 0 && (
                     <tr>
                       <td colSpan={filteredTypes.length + 1} className="text-center py-8 text-muted-foreground text-xs">
-                        {searchFilter ? 'Aucun résultat.' : activeTargetTab === 'job_position' ? 'Aucune fiche de poste.' : 'Aucune entrée. Ajoutez des règles via le bouton "+ Nouvelle règle".'}
+                        {searchFilter ? t('common.no_results') : activeTargetTab === 'job_position' ? `${t('conformite.no_job_position')}.` : t('conformite.rules.empty_matrix')}
                       </td>
                     </tr>
                   )}
@@ -1644,11 +1708,11 @@ function RulesMatrixView({
           return {
             type_code: ct?.code ?? '',
             type_name: ct?.name ?? '',
-            category: CATEGORY_FULL_LABELS[ct?.category ?? ''] ?? ct?.category ?? '',
-            target_type: RULE_TARGET_OPTIONS.find(o => o.value === rule.target_type)?.label ?? rule.target_type,
-            target_value_display: rule.target_type === 'all' ? 'Tous' : jpVals.length > 0 ? jpVals.map((p: any) => `${p.code} - ${p.name}`).join(', ') : rule.target_value ?? '',
-            priority: PRIORITY_LABELS[rule.priority] ?? rule.priority,
-            applicability: rule.applicability === 'contextual' ? 'Contextuelle' : 'Permanente',
+            category: categoryGroupLabels[ct?.category ?? ''] ?? ct?.category ?? '',
+            target_type: ruleTargetLabels[rule.target_type] ?? rule.target_type,
+            target_value_display: rule.target_type === 'all' ? (ruleTargetLabels.all ?? 'Tous') : jpVals.length > 0 ? jpVals.map((p: any) => `${p.code} - ${p.name}`).join(', ') : rule.target_value ?? '',
+            priority: rulePriorityLabels[rule.priority] ?? rule.priority,
+            applicability: ruleApplicabilityLabels[rule.applicability] ?? rule.applicability,
             description: rule.description ?? '',
             effective_from: rule.effective_from ?? '',
             effective_to: rule.effective_to ?? '',
@@ -1815,6 +1879,7 @@ function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly }: {
   jpData: any
   typeReadOnly?: boolean
 }) {
+  const { ruleTargetOptions, rulePriorityOptions, ruleApplicabilityOptions } = useConformiteDictionaryState()
   const typeOptions = useMemo(() =>
     (typesData?.items ?? []).map((t: any) => ({ value: t.id, label: `${t.code} — ${t.name}`, group: t.category })),
   [typesData])
@@ -1845,7 +1910,7 @@ function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly }: {
           </DynamicPanelField>
           <DynamicPanelField label="Cible" required>
             <TagSelector
-              options={RULE_TARGET_OPTIONS}
+              options={ruleTargetOptions}
               value={form.target_type}
               onChange={(v: string) => setForm({ ...form, target_type: v, target_value: '' })}
             />
@@ -1870,14 +1935,14 @@ function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly }: {
           </DynamicPanelField>
           <DynamicPanelField label="Priorité">
             <TagSelector
-              options={[{ value: 'normal', label: 'Normale' }, { value: 'high', label: 'Haute' }, { value: 'low', label: 'Basse' }]}
+              options={rulePriorityOptions}
               value={form.priority}
               onChange={(v: string) => setForm({ ...form, priority: v })}
             />
           </DynamicPanelField>
           <DynamicPanelField label="Applicabilité">
             <TagSelector
-              options={[{ value: 'permanent', label: 'Permanente' }, { value: 'contextual', label: 'Contextuelle' }]}
+              options={ruleApplicabilityOptions}
               value={form.applicability ?? 'permanent'}
               onChange={(v: string) => setForm({ ...form, applicability: v })}
             />
@@ -2139,23 +2204,70 @@ function CreateRulePanel() {
 
 // ── Verifications Tab ────────────────────────────────────────────────────
 
-const VERIFICATION_STATUS_OPTIONS = [
-  { value: 'pending', label: 'En attente' },
-  { value: 'verified', label: 'Vérifié' },
-  { value: 'rejected', label: 'Rejeté' },
-]
+function useVerificationRecordTypeLabels() {
+  const { t } = useTranslation()
+  return useMemo<Record<string, string>>(() => ({
+    compliance_record: t('conformite.verifications.record_types.compliance_record'),
+    passport: t('conformite.verifications.record_types.passport'),
+    visa: t('conformite.verifications.record_types.visa'),
+    social_security: t('conformite.verifications.record_types.social_security'),
+    vaccine: t('conformite.verifications.record_types.vaccine'),
+    driving_license: t('conformite.verifications.record_types.driving_license'),
+    medical_check: t('conformite.verifications.record_types.medical_check'),
+  }), [t])
+}
 
-const RECORD_TYPE_LABELS: Record<string, string> = {
-  compliance_record: 'Référentiel',
-  passport: 'Passeport',
-  visa: 'Visa',
-  social_security: 'Sécu sociale',
-  vaccine: 'Vaccin',
-  driving_license: 'Permis',
-  medical_check: 'Visite médicale',
+function VerificationOwnerSummary({
+  ownerType,
+  ownerId,
+  ownerName,
+  compact = false,
+}: {
+  ownerType: string | null | undefined
+  ownerId: string | null | undefined
+  ownerName: string | null | undefined
+  compact?: boolean
+}) {
+  const { data: linkedContact } = useGlobalTierContact(ownerType === 'tier_contact' ? ownerId || undefined : undefined)
+  const name = ownerName || 'Inconnu'
+  const initials = name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
+
+  return (
+    <div className="flex items-start gap-2 min-w-0">
+      <div className="h-6 w-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-bold shrink-0">
+        {initials}
+      </div>
+      <div className="min-w-0">
+        <div className="text-foreground truncate">{name}</div>
+        {linkedContact && (
+          <div className={cn('flex flex-wrap items-center gap-2 text-muted-foreground', compact ? 'text-[10px]' : 'text-[11px] mt-0.5')}>
+            <CrossModuleLink
+              module="tiers"
+              id={linkedContact.tier_id}
+              label={linkedContact.tier_name || linkedContact.tier_code || linkedContact.tier_id}
+              showIcon={false}
+              className="truncate"
+            />
+            {linkedContact.linked_user_id && (
+              <CrossModuleLink
+                module="users"
+                id={linkedContact.linked_user_id}
+                label={linkedContact.linked_user_email || linkedContact.linked_user_id}
+                showIcon={false}
+                className="truncate"
+              />
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }
 
 function VerificationsTab() {
+  const { t } = useTranslation()
+  const { verificationStatusOptions, verificationStatusLabels } = useConformiteDictionaryState()
+  const recordTypeLabels = useVerificationRecordTypeLabels()
   const { data: pendingData, isLoading: pendingLoading } = usePendingVerifications()
   const { data: historyData, isLoading: historyLoading } = useVerificationHistory(1, 200)
   const verifyRecord = useVerifyRecord()
@@ -2219,8 +2331,8 @@ function VerificationsTab() {
   }
 
   const verFilters: DataTableFilterDef[] = useMemo(() => [
-    { id: 'verification_status', label: 'Statut', type: 'select', options: VERIFICATION_STATUS_OPTIONS },
-  ], [])
+    { id: 'verification_status', label: 'Statut', type: 'select', options: verificationStatusOptions },
+  ], [verificationStatusOptions])
 
   const verColumns: ColumnDef<Record<string, any>>[] = useMemo(() => [
     {
@@ -2228,13 +2340,13 @@ function VerificationsTab() {
       header: 'Personne',
       size: 160,
       cell: ({ row }) => {
-        const name = row.original.owner_name || 'Inconnu'
-        const initials = name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
         return (
-          <div className="flex items-center gap-2">
-            <div className="h-6 w-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-bold shrink-0">{initials}</div>
-            <span className="truncate">{name}</span>
-          </div>
+          <VerificationOwnerSummary
+            ownerType={row.original.owner_type}
+            ownerId={row.original.owner_id}
+            ownerName={row.original.owner_name}
+            compact
+          />
         )
       },
     },
@@ -2243,7 +2355,7 @@ function VerificationsTab() {
       header: 'Type',
       size: 120,
       cell: ({ row }) => (
-        <span className="gl-badge gl-badge-neutral text-[9px]">{RECORD_TYPE_LABELS[row.original.record_type] || row.original.record_type}</span>
+        <span className="gl-badge gl-badge-neutral text-[9px]">{recordTypeLabels[row.original.record_type] || row.original.record_type}</span>
       ),
     },
     { accessorKey: 'description', header: 'Description', size: 220 },
@@ -2254,7 +2366,7 @@ function VerificationsTab() {
       cell: ({ row }) => {
         const s = row.original.verification_status
         const cls = s === 'pending' ? 'gl-badge-warning' : s === 'verified' ? 'gl-badge-success' : 'gl-badge-danger'
-        const label = s === 'pending' ? 'En attente' : s === 'verified' ? 'Vérifié' : 'Rejeté'
+        const label = verificationStatusLabels[s] ?? s
         return <span className={cn('gl-badge text-[9px]', cls)}>{label}</span>
       },
     },
@@ -2319,7 +2431,7 @@ function VerificationsTab() {
         )
       },
     },
-  ], [rejectingId, rejectReason])
+  ], [recordTypeLabels, rejectingId, rejectReason, verificationStatusLabels])
 
   const verPagination: DataTablePagination = {
     page: 1,
@@ -2336,7 +2448,7 @@ function VerificationsTab() {
       pagination={verPagination}
       searchValue={verSearch}
       onSearchChange={setVerSearch}
-      searchPlaceholder="Rechercher par personne, type, description..."
+            searchPlaceholder={t('conformite.verifications.search')}
       filters={verFilters}
       activeFilters={{ verification_status: statusFilter || undefined } as Record<string, unknown>}
       onFilterChange={(id, value) => { if (id === 'verification_status') setStatusFilter(value as string || '') }}
@@ -2391,6 +2503,7 @@ function VerificationHistorySection({ ownerId, recordType, currentId }: { ownerI
 }
 
 function VerificationDetailPanel({ id, recordType: _recordType }: { id: string; recordType: string }) {
+  const recordTypeLabels = useVerificationRecordTypeLabels()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { data } = usePendingVerifications()
   const verifyRecord = useVerifyRecord()
@@ -2452,7 +2565,7 @@ function VerificationDetailPanel({ id, recordType: _recordType }: { id: string; 
 
   return (
     <DynamicPanelShell
-      title={`${RECORD_TYPE_LABELS[item.record_type] || item.record_type}`}
+      title={`${recordTypeLabels[item.record_type] || item.record_type}`}
       subtitle={item.owner_name || 'Inconnu'}
       onClose={closeDynamicPanel}
       headerRight={
@@ -2476,11 +2589,15 @@ function VerificationDetailPanel({ id, recordType: _recordType }: { id: string; 
         </div>
       }
     >
-      <PanelContentLayout>
-        {/* ── Record info ── */}
-        <DetailFieldGrid>
-          <ReadOnlyRow label="Personne" value={item.owner_name || 'Inconnu'} />
-          <ReadOnlyRow label="Type" value={RECORD_TYPE_LABELS[item.record_type] || item.record_type} />
+        <PanelContentLayout>
+          {/* ── Record info ── */}
+          <FormSection title="Propriétaire" collapsible defaultExpanded>
+            <VerificationOwnerSummary ownerType={item.owner_type} ownerId={item.owner_id} ownerName={item.owner_name} />
+          </FormSection>
+
+          <DetailFieldGrid>
+            <ReadOnlyRow label="Personne" value={item.owner_name || 'Inconnu'} />
+          <ReadOnlyRow label="Type" value={recordTypeLabels[item.record_type] || item.record_type} />
           <ReadOnlyRow label="Description" value={item.description} />
           <ReadOnlyRow label="Emetteur" value={(item as any).issuer || '—'} />
           <ReadOnlyRow label="Reference" value={(item as any).reference_number || '—'} />

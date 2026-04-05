@@ -23,6 +23,9 @@ export interface PaxProfile {
   badge_number: string | null
   photo_url: string | null
   email: string | null
+  linked_user_id: string | null
+  linked_user_email: string | null
+  linked_user_active: boolean | null
   active: boolean
   created_at: string | null
   updated_at: string | null

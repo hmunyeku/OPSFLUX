@@ -34,10 +34,19 @@ export interface GoutiSyncResult {
   errors: string[]
 }
 
+export interface GoutiCapabilities {
+  probed_at: string | null
+  reads: Record<string, boolean | null>
+  writes: Record<string, string[]>
+}
+
 export interface GoutiSyncStatus {
   last_sync_at: string | null
   project_count: number
   connector_configured: boolean
+  capabilities?: GoutiCapabilities | null
+  auto_sync_enabled?: boolean
+  auto_sync_interval_minutes?: number
 }
 
 export interface GoutiSingleSyncResult {
@@ -284,4 +293,24 @@ export function isGoutiProject(p: { external_ref?: string | null }): boolean {
 export function goutiProjectId(p: { external_ref?: string | null }): string | null {
   if (!p.external_ref || !p.external_ref.startsWith('gouti:')) return null
   return p.external_ref.slice('gouti:'.length)
+}
+
+// Fields Gouti owns on an imported project — these are always read-only
+// locally and can only change via a Gouti sync. Kept in sync with the
+// backend GOUTI_OWNED set in update_project.
+export const GOUTI_OWNED_PROJECT_FIELDS = new Set<string>([
+  'name', 'code', 'description', 'status', 'priority',
+  'progress', 'start_date', 'end_date', 'actual_end_date', 'budget',
+])
+
+export function isProjectFieldEditable(
+  project: { external_ref?: string | null },
+  field: string,
+  capabilities?: GoutiCapabilities | null,
+): boolean {
+  if (!isGoutiProject(project)) return true
+  if (!GOUTI_OWNED_PROJECT_FIELDS.has(field)) return true  // locally-owned field
+  // Gouti-owned field: only editable if the capability matrix says so.
+  const allowed = capabilities?.writes?.project || []
+  return allowed.includes(field)
 }

@@ -68,7 +68,7 @@ import {
   useWbsNodes, useCreateWbsNode, useDeleteWbsNode,
   useProjectCpm,
 } from '@/hooks/useProjets'
-import { projetsService, isGoutiProject, goutiProjectId } from '@/services/projetsService'
+import { projetsService, isGoutiProject, goutiProjectId, isProjectFieldEditable } from '@/services/projetsService'
 import type {
   Project, ProjectCreate, ProjectTask, ProjectTaskEnriched,
   ProjectMilestone as ProjectMilestoneType,
@@ -1174,7 +1174,9 @@ function ProjectDetailPanel({ id }: { id: string }) {
   const { data: milestones } = useProjectMilestones(id)
   const { data: linkedAsset } = useAsset(project?.asset_id ?? '')
   const goutiSyncOne = useGoutiSyncOne()
+  const { data: goutiStatus } = useGoutiStatus()
   const { toast } = useToast()
+  const capabilities = goutiStatus?.capabilities ?? null
 
   const handleSave = useCallback((field: string, value: string) => {
     updateProject.mutate({ id, payload: normalizeNames({ [field]: value }) })
@@ -1269,10 +1271,16 @@ function ProjectDetailPanel({ id }: { id: string }) {
           <div className="@container space-y-5">
             <FormSection title="Fiche projet" collapsible defaultExpanded storageKey="project-detail-fiche">
               <DetailFieldGrid>
-                <InlineEditableRow label="Nom" value={project.name} onSave={(v) => handleSave('name', v)} />
+                {isProjectFieldEditable(project, 'name', capabilities)
+                  ? <InlineEditableRow label="Nom" value={project.name} onSave={(v) => handleSave('name', v)} />
+                  : <ReadOnlyRow label="Nom" value={<span className="text-sm text-foreground">{project.name}</span>} />}
                 <ReadOnlyRow label="Code" value={<span className="text-sm font-mono font-medium text-foreground">{project.code || '—'}</span>} />
-                <InlineEditableTags label="Statut" value={project.status} options={STATUS_OPTIONS} onSave={(v) => handleSave('status', v)} />
-                <InlineEditableTags label="Priorité" value={project.priority} options={PRIORITY_OPTIONS} onSave={(v) => handleSave('priority', v)} />
+                {isProjectFieldEditable(project, 'status', capabilities)
+                  ? <InlineEditableTags label="Statut" value={project.status} options={STATUS_OPTIONS} onSave={(v) => handleSave('status', v)} />
+                  : <ReadOnlyRow label="Statut" value={<span className="text-sm">{STATUS_OPTIONS.find(s => s.value === project.status)?.label || project.status}</span>} />}
+                {isProjectFieldEditable(project, 'priority', capabilities)
+                  ? <InlineEditableTags label="Priorité" value={project.priority} options={PRIORITY_OPTIONS} onSave={(v) => handleSave('priority', v)} />
+                  : <ReadOnlyRow label="Priorité" value={<span className="text-sm">{PRIORITY_OPTIONS.find(p => p.value === project.priority)?.label || project.priority}</span>} />}
                 <InlineEditableTags label="Météo" value={project.weather} options={WEATHER_OPTIONS.map(w => ({ value: w.value, label: w.label }))} onSave={(v) => handleSave('weather', v)} />
               </DetailFieldGrid>
               <DetailFieldGrid>
@@ -1375,7 +1383,9 @@ function ProjectDetailPanel({ id }: { id: string }) {
         </FormSection>
 
         <FormSection title="Description" collapsible defaultExpanded={false} storageKey="project-detail-desc">
-          <InlineEditableRow label="Description" value={project.description || ''} onSave={(v) => handleSave('description', v)} />
+          {isProjectFieldEditable(project, 'description', capabilities)
+            ? <InlineEditableRow label="Description" value={project.description || ''} onSave={(v) => handleSave('description', v)} />
+            : <ReadOnlyRow label="Description" value={<span className="text-sm whitespace-pre-wrap">{project.description || '—'}</span>} />}
         </FormSection>
       </PanelContentLayout>
     </DynamicPanelShell>

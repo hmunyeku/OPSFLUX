@@ -143,6 +143,19 @@ def _register_jobs() -> None:
     from app.tasks.jobs.paxlog_requires_review_followup import process_requires_review_followup
     scheduler.add_job(process_requires_review_followup, trigger=CronTrigger(hour=1, minute=45), id="paxlog_requires_review_followup", name="Rappeler les AdS bloquées en nécessite révision", replace_existing=True, max_instances=1)
 
+    # Gouti auto-sync — runs every 15 min and per-entity throttles via
+    # integration.gouti.auto_sync_interval_minutes (default 60). Entities
+    # that have not opted in (auto_sync_enabled != truthy) are skipped.
+    from app.tasks.jobs.gouti_auto_sync import run_gouti_auto_sync
+    scheduler.add_job(
+        run_gouti_auto_sync,
+        trigger=IntervalTrigger(minutes=15),
+        id="gouti_auto_sync",
+        name="Auto-sync des projets Gouti importés",
+        replace_existing=True,
+        max_instances=1,
+    )
+
     logger.info("APScheduler: %d jobs registered", len(scheduler.get_jobs()))
 
 

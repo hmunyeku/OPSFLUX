@@ -307,6 +307,41 @@ async def update_project(
 ):
     project = await _get_project_or_404(db, project_id, entity_id)
     update_data = body.model_dump(exclude_unset=True)
+
+    # ── Read-only lock for Gouti-imported projects ─────────────────────
+    # Per the capability matrix probed at connector test time, Gouti does
+    # NOT accept PATCH on projects. To stay consistent with the remote
+    # source of truth, OpsFlux rejects writes to Gouti-owned fields on
+    # any project whose external_ref starts with "gouti:". Locally-owned
+    # metadata (tags via TagManager, notes, attachments, tier_id,
+    # asset_id, manager_id, parent_id, weather) remains writable.
+    if project.external_ref and project.external_ref.startswith("gouti:"):
+        from app.services.connectors.gouti_capabilities import load_capabilities, is_field_writable
+        capabilities = await load_capabilities(db, entity_id)
+        # Map ProjectUpdate fields to the "project" resource in the matrix.
+        # Fields Gouti owns on a project (synced at each sync) — never writable:
+        GOUTI_OWNED = {"name", "code", "description", "status", "priority",
+                       "progress", "start_date", "end_date", "actual_end_date",
+                       "budget"}
+        blocked = []
+        for field in list(update_data.keys()):
+            if field in GOUTI_OWNED and not is_field_writable(capabilities, "project", field):
+                blocked.append(field)
+                update_data.pop(field)
+        if blocked:
+            # If every requested change was blocked, refuse with 403.
+            # Otherwise silently drop blocked fields and persist the rest
+            # (locally-owned metadata).
+            if not update_data:
+                raise HTTPException(
+                    status_code=403,
+                    detail=(
+                        "Projet importé de Gouti : les champs "
+                        f"{', '.join(blocked)} sont en lecture seule. "
+                        "Modifiez-les dans Gouti puis relancez la synchronisation."
+                    ),
+                )
+
     old_status = project.status
     for field, value in update_data.items():
         setattr(project, field, value)

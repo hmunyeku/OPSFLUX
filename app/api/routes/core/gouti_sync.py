@@ -35,6 +35,13 @@ class SyncStatus(BaseModel):
     last_sync_at: str | None
     project_count: int
     connector_configured: bool
+    # Capability matrix probed at connector test time. The frontend uses
+    # ``writes`` to decide which fields are read-only on Gouti-imported
+    # projects, and ``reads`` to badge endpoints that can be fetched.
+    capabilities: dict | None = None
+    # Auto-sync settings surfaced so the UI can show "next run in N min".
+    auto_sync_enabled: bool = False
+    auto_sync_interval_minutes: int = 60
 
 
 class SingleProjectSyncResult(BaseModel):
@@ -169,8 +176,15 @@ async def _upsert_project_from_gouti(
     gouti_data: dict,
 ) -> tuple[Project, str]:
     """Upsert a single project from Gouti data. Returns (project, action) where action is 'created' or 'updated'."""
+    # Gouti identifiers can live in any of these keys depending on endpoint
+    # and list-shape. ``_id`` is the key we synthesise when _extract_items
+    # flattens a dict-keyed-by-id response, so it must be checked first.
     gouti_id = str(
-        gouti_data.get("id")
+        gouti_data.get("_id")
+        or gouti_data.get("id")
+        or gouti_data.get("Id")
+        or gouti_data.get("ID")
+        or gouti_data.get("ref_pr")
         or gouti_data.get("project_id")
         or gouti_data.get("projectId")
         or ""
@@ -189,31 +203,42 @@ async def _upsert_project_from_gouti(
     )
     existing = result.scalars().first()
 
-    # Extract fields from Gouti payload (defensive — keys vary by Gouti version)
+    # Extract fields from Gouti payload (defensive — keys vary by Gouti version
+    # and the Gouti domain-specific suffix _pr = project).
     name = (
-        gouti_data.get("name")
+        gouti_data.get("name_pr")
+        or gouti_data.get("name")
         or gouti_data.get("title")
         or gouti_data.get("nom")
         or f"Gouti Project {gouti_id}"
     )
     code = (
-        gouti_data.get("code")
+        gouti_data.get("ref_pr")
+        or gouti_data.get("code")
         or gouti_data.get("reference")
         or gouti_data.get("ref")
         or f"GOU-{gouti_id[:8]}"
     )
     description = (
-        gouti_data.get("description")
+        gouti_data.get("description_pr")
+        or gouti_data.get("description")
         or gouti_data.get("desc")
         or gouti_data.get("summary")
     )
     status = _map_gouti_status(
-        gouti_data.get("status") or gouti_data.get("statut")
+        gouti_data.get("status_pr")
+        or gouti_data.get("status")
+        or gouti_data.get("statut")
     )
     priority = _map_gouti_priority(
         gouti_data.get("priority") or gouti_data.get("priorité") or gouti_data.get("priorite")
     )
-    progress = gouti_data.get("progress") or gouti_data.get("avancement") or 0
+    progress = (
+        gouti_data.get("progress_pr")
+        or gouti_data.get("progress")
+        or gouti_data.get("avancement")
+        or 0
+    )
     if isinstance(progress, str):
         try:
             progress = int(float(progress))
@@ -386,10 +411,24 @@ async def get_sync_status(
     )
     connector_configured = bool(gouti_settings.get("client_id")) and has_credentials
 
+    # Load probed capabilities (fallback to static defaults if never tested)
+    from app.services.connectors.gouti_capabilities import load_capabilities
+    capabilities = await load_capabilities(db, entity_id)
+
+    # Auto-sync settings
+    auto_sync_enabled = (gouti_settings.get("auto_sync_enabled") or "").lower() in ("1", "true", "on", "yes")
+    try:
+        auto_sync_interval = int(gouti_settings.get("auto_sync_interval_minutes") or 60)
+    except (TypeError, ValueError):
+        auto_sync_interval = 60
+
     return SyncStatus(
         last_sync_at=last_sync_at,
         project_count=project_count,
         connector_configured=connector_configured,
+        capabilities=capabilities,
+        auto_sync_enabled=auto_sync_enabled,
+        auto_sync_interval_minutes=auto_sync_interval,
     )
 
 

@@ -2,12 +2,47 @@
 Gouti Connector — Syncs project data from Gouti project management API.
 
 API: https://apiprd.gouti.net/v1/client
-Auth: OAuth2 code → token flow
+Auth: OAuth2 code → token flow, or cached long-lived token.
 Data: Projects, Reports, Status updates
 """
 import httpx
 from typing import Any
 from datetime import datetime
+
+
+def _extract_items(data: Any, key: str) -> list[dict[str, Any]]:
+    """Extract list items from Gouti's various response shapes.
+
+    Gouti returns list endpoints in at least 5 different shapes:
+    - ``[...]`` : plain list
+    - ``{"projects": [...]}`` : explicit key wrapper
+    - ``{"data": [...]}`` / ``{"items": [...]}`` / ``{"results": [...]}``: generic
+    - ``{"28364": {...}, "28365": {...}}`` : **dict keyed by entity ID —
+      the most common shape for projects, users, tasks, etc.**
+
+    The last shape is the reason older code paths silently returned []. When
+    the container is dict-keyed-by-id, we inject the key as ``_id`` on each
+    item so downstream code (the upsert) can still read a stable identifier.
+    """
+    if data is None:
+        return []
+    if isinstance(data, list):
+        return [it for it in data if isinstance(it, dict)]
+    if isinstance(data, dict):
+        # 1. Explicit list wrappers
+        for candidate_key in (key, "data", "items", "results"):
+            val = data.get(candidate_key)
+            if isinstance(val, list):
+                return [it for it in val if isinstance(it, dict)]
+            if isinstance(val, dict):
+                nested = list(val.values())
+                if nested and all(isinstance(v, dict) for v in nested):
+                    return [{"_id": str(k), **v} for k, v in val.items()]
+        # 2. Top-level dict keyed by ID (most common Gouti pattern)
+        values = list(data.values())
+        if values and all(isinstance(v, dict) for v in values):
+            return [{"_id": str(k), **v} for k, v in data.items()]
+    return []
 
 
 class GoutiConnector:
@@ -90,13 +125,16 @@ class GoutiConnector:
         }
 
     async def get_projects(self) -> list[dict[str, Any]]:
-        """Fetch all projects from Gouti."""
+        """Fetch all projects from Gouti.
+
+        Handles all response shapes via ``_extract_items`` — notably the
+        dict-keyed-by-id shape which is Gouti's default for list endpoints.
+        """
         headers = await self._get_headers()
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.get(f"{self.base_url}/projects", headers=headers)
             resp.raise_for_status()
-            data = resp.json()
-            return data if isinstance(data, list) else data.get("projects", data.get("data", []))
+            return _extract_items(resp.json(), "projects")
 
     async def get_project(self, project_id: str) -> dict[str, Any]:
         """Fetch a single project by ID."""
@@ -112,8 +150,28 @@ class GoutiConnector:
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.get(f"{self.base_url}/projects/{project_id}/reports", headers=headers)
             resp.raise_for_status()
-            data = resp.json()
-            return data if isinstance(data, list) else data.get("reports", data.get("data", []))
+            return _extract_items(resp.json(), "reports")
+
+    async def get_raw_projects_response(self) -> dict[str, Any]:
+        """Diagnostic: returns the untransformed Gouti /projects response
+        plus metadata (status, shape). Used by the /gouti/debug endpoint."""
+        headers = await self._get_headers()
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(f"{self.base_url}/projects", headers=headers)
+            try:
+                body = resp.json()
+            except Exception:
+                body = resp.text
+            return {
+                "http_status": resp.status_code,
+                "shape": type(body).__name__,
+                "top_level_keys": list(body.keys()) if isinstance(body, dict) else None,
+                "sample_body_preview": (
+                    {k: (list(v.keys())[:3] if isinstance(v, dict) else v) for k, v in list(body.items())[:3]}
+                    if isinstance(body, dict) else
+                    body[:3] if isinstance(body, list) else str(body)[:300]
+                ),
+            }
 
     async def test_connection(self) -> tuple[str, str]:
         """Test the connection to Gouti API."""

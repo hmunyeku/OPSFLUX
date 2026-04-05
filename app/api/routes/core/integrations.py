@@ -428,8 +428,18 @@ async def _test_ai(cfg: dict[str, str]) -> tuple[str, str]:
         return "error", f"Échec connexion IA: {str(e)[:300]}"
 
 
-async def _test_gouti(settings: dict[str, Any]) -> tuple[str, str]:
-    """Test Gouti API connection — uses token directly if available, otherwise OAuth2 flow."""
+async def _test_gouti(
+    settings: dict[str, Any],
+    db: AsyncSession | None = None,
+    entity_id: UUID | None = None,
+) -> tuple[str, str]:
+    """Test Gouti API connection — uses token directly if available, otherwise OAuth2 flow.
+
+    Side effect on success: probes read capabilities and stores the full
+    capability matrix under ``integration.gouti.capabilities`` so that
+    write-locks applied to imported projects reflect what Gouti actually
+    supports. Failures in the probe never mask a successful test.
+    """
     base_url = str(settings.get("base_url", "https://apiprd.gouti.net/v1/client")).strip()
     client_id = str(settings.get("client_id", "")).strip()
     client_secret = str(settings.get("client_secret", "")).strip()
@@ -440,6 +450,28 @@ async def _test_gouti(settings: dict[str, Any]) -> tuple[str, str]:
         return "error", "Code entreprise (Client ID) non configuré pour Gouti"
     if not token and not client_secret:
         return "error", "Token ou Secret client requis pour Gouti"
+
+    async def _probe_and_persist(active_token: str) -> None:
+        """Fire-and-forget capability probe. Swallows errors."""
+        if db is None or entity_id is None:
+            return
+        try:
+            from app.services.connectors.gouti_capabilities import (
+                probe_read_capabilities, build_capabilities, save_capabilities,
+            )
+            probe_headers = {
+                "Authorization": f"Bearer {active_token}",
+                "Client-Id": client_id,
+                "Accept": "application/json",
+            }
+            if entity_code:
+                probe_headers["Entity-Code"] = entity_code
+            reads = await probe_read_capabilities(base_url, probe_headers)
+            caps = build_capabilities(reads)
+            await save_capabilities(db, entity_id, caps)
+            logger.info("Gouti capabilities probed: %s", reads)
+        except Exception as exc:
+            logger.warning("Gouti capability probe failed: %s", exc)
 
     try:
         import httpx
@@ -458,6 +490,7 @@ async def _test_gouti(settings: dict[str, Any]) -> tuple[str, str]:
                     headers=headers,
                 )
                 if 200 <= resp.status_code < 300:
+                    await _probe_and_persist(token)
                     return "ok", "Connexion Gouti réussie (token direct)"
                 if resp.status_code == 401 and client_secret:
                     pass  # Fall through to OAuth2
@@ -494,6 +527,7 @@ async def _test_gouti(settings: dict[str, Any]) -> tuple[str, str]:
             if not new_token:
                 return "error", "Aucun token retourné par l'API Gouti"
 
+            await _probe_and_persist(new_token)
             return "ok", "Connexion Gouti réussie (OAuth2)"
     except ImportError:
         return "error", "httpx non installé"
@@ -555,7 +589,11 @@ async def test_connector(
     prefix, tester = CONNECTOR_TESTERS[connector_id]
     cfg = await _get_connector_settings(db, entity_id, prefix)
 
-    status, message = await tester(cfg)
+    # Gouti tester opts into db/entity so it can probe & persist capabilities.
+    if connector_id == "gouti":
+        status, message = await tester(cfg, db=db, entity_id=entity_id)
+    else:
+        status, message = await tester(cfg)
 
     # Persist the test result
     await _save_test_result(db, entity_id, connector_id, status, message)

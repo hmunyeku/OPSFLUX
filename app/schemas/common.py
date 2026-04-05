@@ -1596,7 +1596,8 @@ class ProjectRead(OpsFluxSchema):
 
 
 class ProjectCreate(BaseModel):
-    code: str = Field(..., min_length=1, max_length=50)
+    # Auto-generated server-side via the PRJ numbering pattern when absent.
+    code: str | None = Field(None, min_length=1, max_length=50)
     name: str = Field(..., min_length=1, max_length=300)
     description: str | None = None
     status: str = "draft"

@@ -442,6 +442,33 @@ export interface AdsExternalLink {
   created_at: string
 }
 
+export interface AdsExternalLinkSecurityEvent {
+  timestamp: string | null
+  action: string
+  otp_validated: boolean | null
+  metadata: Record<string, unknown> | null
+}
+
+export interface AdsExternalLinkSecurity {
+  id: string
+  ads_id: string
+  created_by: string
+  otp_required: boolean
+  otp_destination_masked: string | null
+  expires_at: string
+  max_uses: number
+  use_count: number
+  remaining_uses: number | null
+  revoked: boolean
+  active: boolean
+  created_at: string
+  session_expires_at: string | null
+  last_validated_at: string | null
+  anomaly_count: number
+  anomaly_actions: Record<string, number>
+  recent_events: AdsExternalLinkSecurityEvent[]
+}
+
 export interface AdsExternalLinkCreate {
   otp_required?: boolean
   otp_sent_to?: string | null
@@ -1097,6 +1124,11 @@ export const paxlogService = {
 
   createExternalLink: async (adsId: string, payload: AdsExternalLinkCreate): Promise<AdsExternalLink> => {
     const { data } = await api.post(`/api/v1/pax/ads/${adsId}/external-link`, payload)
+    return data
+  },
+
+  listExternalLinks: async (adsId: string): Promise<AdsExternalLinkSecurity[]> => {
+    const { data } = await api.get(`/api/v1/pax/ads/${adsId}/external-links`)
     return data
   },
 

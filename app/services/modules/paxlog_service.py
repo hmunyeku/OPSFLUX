@@ -12,6 +12,8 @@ Implements:
 """
 
 import logging
+import re
+import unicodedata
 from datetime import date, datetime, timedelta, timezone
 from uuid import UUID
 
@@ -72,6 +74,364 @@ ADS_ACTIVE_SIGNALLEMENT_REVIEW_STATUSES = {
     "in_progress",
 }
 DEFAULT_COMPLIANCE_SEQUENCE = compliance_service.DEFAULT_COMPLIANCE_SEQUENCE
+
+
+def build_external_compliance_blockers(compliance_summary: dict | None) -> list[dict[str, object | None]]:
+    compliance_results = [
+        item for item in ((compliance_summary or {}).get("results") or [])
+        if isinstance(item, dict)
+    ]
+    return [
+        {
+            "credential_type_code": item.get("credential_type_code"),
+            "credential_type_name": item.get("credential_type_name"),
+            "status": item.get("status"),
+            "message": item.get("message"),
+            "expiry_date": item.get("expiry_date"),
+            "layer_label": item.get("layer_label") or item.get("layer"),
+        }
+        for item in compliance_results
+        if item.get("status") in {"missing", "expired", "pending", "error", "pending_validation"}
+    ]
+
+
+def build_external_required_actions(
+    *,
+    missing_identity_fields: list[str],
+    compliance_blockers: list[dict[str, object | None]],
+) -> list[dict[str, object | None]]:
+    required_actions: list[dict[str, object | None]] = []
+    for field_name in missing_identity_fields:
+        required_actions.append({
+            "code": f"identity_missing:{field_name}",
+            "kind": "identity",
+            "field": field_name,
+            "credential_type_code": None,
+            "status": "missing",
+            "label": field_name,
+            "message": f"Compléter le champ {field_name}",
+        })
+    for blocker in compliance_blockers:
+        blocker_status = str(blocker.get("status") or "")
+        action_kind = "credential"
+        if blocker_status == "pending_validation":
+            action_kind = "followup"
+        required_actions.append({
+            "code": f"compliance:{blocker.get('credential_type_code') or blocker.get('credential_type_name') or 'unknown'}:{blocker_status}",
+            "kind": action_kind,
+            "field": blocker.get("credential_type_code"),
+            "credential_type_code": blocker.get("credential_type_code"),
+            "status": blocker_status,
+            "label": blocker.get("credential_type_name") or blocker.get("credential_type_code"),
+            "message": blocker.get("message"),
+            "layer_label": blocker.get("layer_label"),
+            "expiry_date": blocker.get("expiry_date"),
+        })
+    return required_actions
+
+
+def build_external_pax_summary(allowed_pax: list[dict[str, object | None]]) -> dict[str, int]:
+    return {
+        "total": len(allowed_pax),
+        "pending_check": sum(1 for item in allowed_pax if item.get("status") == "pending_check"),
+        "compliant": sum(1 for item in allowed_pax if item.get("status") == "compliant"),
+        "blocked": sum(1 for item in allowed_pax if item.get("status") == "blocked"),
+        "approved": sum(1 for item in allowed_pax if item.get("status") == "approved"),
+    }
+
+
+def normalize_pax_name(name: str) -> str:
+    nfkd = unicodedata.normalize("NFKD", name)
+    ascii_str = nfkd.encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^a-z0-9 ]", "", ascii_str.lower()).strip()
+
+
+def phonetic_pax_name_key(name: str) -> str:
+    normalized = normalize_pax_name(name).replace(" ", "")
+    if not normalized:
+        return ""
+    normalized = (
+        normalized.replace("ph", "f")
+        .replace("ck", "k")
+        .replace("qu", "k")
+        .replace("ou", "u")
+        .replace("x", "s")
+    )
+    first = normalized[0]
+    tail = re.sub(r"[aeiouyhw]", "", normalized[1:])
+    tail = re.sub(r"(.)\1+", r"\1", tail)
+    return f"{first}{tail}"
+
+
+def compare_pax_names(
+    first_name: str,
+    last_name: str,
+    candidate_first_name: str,
+    candidate_last_name: str,
+) -> str | None:
+    first_norm = normalize_pax_name(first_name)
+    last_norm = normalize_pax_name(last_name)
+    candidate_first_norm = normalize_pax_name(candidate_first_name)
+    candidate_last_norm = normalize_pax_name(candidate_last_name)
+    if first_norm == candidate_first_norm and last_norm == candidate_last_norm:
+        return "name_exact"
+    if (
+        phonetic_pax_name_key(first_name) == phonetic_pax_name_key(candidate_first_name)
+        and phonetic_pax_name_key(last_name) == phonetic_pax_name_key(candidate_last_name)
+    ):
+        return "name_phonetic"
+    return None
+
+
+def normalize_external_phone(value: str | None) -> str:
+    if not value:
+        return ""
+    return re.sub(r"[^0-9+]", "", value)
+
+
+def score_external_contact_match(
+    *,
+    first_name: str,
+    last_name: str,
+    birth_date: date | None,
+    nationality: str | None,
+    badge_number: str | None,
+    email: str | None,
+    phone: str | None,
+    candidate: TierContact,
+) -> tuple[int, list[str]]:
+    score = 0
+    reasons: list[str] = []
+
+    name_match = compare_pax_names(first_name, last_name, candidate.first_name, candidate.last_name)
+    if name_match == "name_exact":
+        score += 60
+        reasons.append("name_exact")
+    elif name_match == "name_phonetic":
+        score += 35
+        reasons.append("name_phonetic")
+
+    if birth_date and candidate.birth_date and birth_date == candidate.birth_date:
+        score += 25
+        reasons.append("birth_date")
+
+    if badge_number and candidate.badge_number and badge_number.strip().lower() == candidate.badge_number.strip().lower():
+        score += 35
+        reasons.append("badge_number")
+
+    if email and candidate.email and email.strip().lower() == candidate.email.strip().lower():
+        score += 20
+        reasons.append("email")
+
+    if phone and candidate.phone and normalize_external_phone(phone) == normalize_external_phone(candidate.phone):
+        score += 20
+        reasons.append("phone")
+
+    if nationality and candidate.nationality and nationality.strip().lower() == candidate.nationality.strip().lower():
+        score += 10
+        reasons.append("nationality")
+
+    return score, reasons
+
+
+def is_external_contact_match_strong(*, score: int, reasons: list[str]) -> bool:
+    return score >= 50 or any(reason in {"badge_number", "email", "phone"} for reason in reasons)
+
+
+async def find_external_contact_matches(
+    db: AsyncSession,
+    *,
+    ads_id: UUID,
+    allowed_company_id: UUID,
+    first_name: str,
+    last_name: str,
+    birth_date: date | None,
+    nationality: str | None,
+    badge_number: str | None,
+    email: str | None,
+    phone: str | None,
+) -> list[dict[str, object | None]]:
+    candidates = (
+        await db.execute(
+            select(TierContact)
+            .where(
+                TierContact.tier_id == allowed_company_id,
+                TierContact.active == True,  # noqa: E712
+            )
+            .order_by(TierContact.last_name.asc(), TierContact.first_name.asc())
+        )
+    ).scalars().all()
+    linked_contact_ids = set(
+        (
+            await db.execute(
+                select(AdsPax.contact_id).where(
+                    AdsPax.ads_id == ads_id,
+                    AdsPax.contact_id.is_not(None),
+                )
+            )
+        ).scalars().all()
+    )
+
+    matches: list[dict[str, object | None]] = []
+    for contact in candidates:
+        score, reasons = score_external_contact_match(
+            first_name=first_name,
+            last_name=last_name,
+            birth_date=birth_date,
+            nationality=nationality,
+            badge_number=badge_number,
+            email=email,
+            phone=phone,
+            candidate=contact,
+        )
+        if not is_external_contact_match_strong(score=score, reasons=reasons):
+            continue
+        matches.append({
+            "contact_id": contact.id,
+            "first_name": contact.first_name,
+            "last_name": contact.last_name,
+            "birth_date": contact.birth_date,
+            "nationality": contact.nationality,
+            "badge_number": contact.badge_number,
+            "email": contact.email,
+            "phone": contact.phone,
+            "position": contact.position,
+            "match_score": score,
+            "match_reasons": reasons,
+            "already_linked_to_ads": contact.id in linked_contact_ids,
+        })
+    matches.sort(key=lambda item: (-int(item["match_score"]), str(item["last_name"]).lower(), str(item["first_name"]).lower()))
+    return matches[:5]
+
+
+async def build_external_dossier_pax_data(
+    db: AsyncSession,
+    *,
+    ads_id: UUID,
+    allowed_company_id: UUID | None,
+) -> tuple[list[dict[str, object | None]], dict[str, int]]:
+    pax_entries = (
+        await db.execute(
+            select(AdsPax, TierContact)
+            .join(TierContact, TierContact.id == AdsPax.contact_id)
+            .where(AdsPax.ads_id == ads_id)
+            .order_by(TierContact.last_name, TierContact.first_name)
+        )
+    ).all()
+
+    allowed_pax: list[dict[str, object | None]] = []
+    for entry, contact in pax_entries:
+        if allowed_company_id and contact.tier_id != allowed_company_id:
+            continue
+
+        compliance_summary = entry.compliance_summary or {}
+        compliance_blockers = build_external_compliance_blockers(compliance_summary)
+        missing_identity_fields = [
+            field_name
+            for field_name, field_value in (
+                ("birth_date", contact.birth_date),
+                ("nationality", contact.nationality),
+                ("badge_number", contact.badge_number),
+            )
+            if not field_value
+        ]
+        required_actions = build_external_required_actions(
+            missing_identity_fields=missing_identity_fields,
+            compliance_blockers=compliance_blockers,
+        )
+        allowed_pax.append({
+            "entry_id": str(entry.id),
+            "contact_id": str(contact.id),
+            "first_name": contact.first_name,
+            "last_name": contact.last_name,
+            "birth_date": contact.birth_date.isoformat() if contact.birth_date else None,
+            "nationality": contact.nationality,
+            "badge_number": contact.badge_number,
+            "photo_url": contact.photo_url,
+            "email": contact.email,
+            "phone": contact.phone,
+            "position": contact.position,
+            "status": entry.status,
+            "company_id": str(contact.tier_id),
+            "compliance_ok": bool(compliance_summary.get("compliant")),
+            "compliance_blocker_count": len(compliance_blockers),
+            "compliance_blockers": compliance_blockers[:5],
+            "missing_identity_fields": missing_identity_fields,
+            "required_actions": required_actions[:8],
+            "credentials": [],
+        })
+
+    visible_contact_ids = [UUID(str(item["contact_id"])) for item in allowed_pax]
+    credentials_by_contact: dict[UUID, list[dict[str, object | None]]] = {}
+    if visible_contact_ids:
+        credential_rows = (
+            await db.execute(
+                select(PaxCredential, CredentialType)
+                .join(CredentialType, CredentialType.id == PaxCredential.credential_type_id)
+                .where(PaxCredential.contact_id.in_(visible_contact_ids))
+                .order_by(CredentialType.name.asc(), PaxCredential.obtained_date.desc())
+            )
+        ).all()
+        for credential, credential_type in credential_rows:
+            if not credential.contact_id:
+                continue
+            credentials_by_contact.setdefault(credential.contact_id, []).append(
+                {
+                    "id": str(credential.id),
+                    "credential_type_code": credential_type.code,
+                    "credential_type_name": credential_type.name,
+                    "status": credential.status,
+                    "obtained_date": credential.obtained_date.isoformat() if credential.obtained_date else None,
+                    "expiry_date": credential.expiry_date.isoformat() if credential.expiry_date else None,
+                    "proof_url": credential.proof_url,
+                }
+            )
+
+    for item in allowed_pax:
+        item["credentials"] = credentials_by_contact.get(UUID(str(item["contact_id"])), [])[:8]
+
+    return allowed_pax, build_external_pax_summary(allowed_pax)
+
+
+def mask_contact_value(value: str | None) -> str | None:
+    if not value:
+        return None
+    value = value.strip()
+    if "@" in value:
+        local, domain = value.split("@", 1)
+        if len(local) <= 2:
+            masked_local = local[0] + "*" * max(len(local) - 1, 0)
+        else:
+            masked_local = local[:2] + "*" * max(len(local) - 2, 0)
+        return f"{masked_local}@{domain}"
+    if len(value) <= 4:
+        return "*" * len(value)
+    return "*" * (len(value) - 4) + value[-4:]
+
+
+def build_external_session_open_payload(*, session_token: str, ttl_minutes: int) -> dict[str, object]:
+    return {"session_token": session_token, "expires_in_seconds": ttl_minutes * 60}
+
+
+def verify_external_otp_code(
+    *,
+    expected_hash: str | None,
+    provided_hash: str,
+    otp_expires_at: datetime | None,
+    otp_attempt_count: int,
+    max_attempts: int,
+    now: datetime,
+) -> tuple[bool, str | None]:
+    if not expected_hash or not otp_expires_at:
+        return False, "missing_otp"
+    normalized_expiry = otp_expires_at if otp_expires_at.tzinfo else otp_expires_at.replace(tzinfo=timezone.utc)
+    if normalized_expiry < now:
+        return False, "expired"
+    if otp_attempt_count >= max_attempts:
+        return False, "locked"
+    if provided_hash != expected_hash:
+        return False, "invalid"
+    return True, None
 
 
 def ads_requires_travelwiz_transport(

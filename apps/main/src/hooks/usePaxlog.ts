@@ -464,7 +464,16 @@ export function useCreateExternalLink() {
       paxlogService.createExternalLink(adsId, payload),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['paxlog', 'ads', vars.adsId] })
+      qc.invalidateQueries({ queryKey: ['paxlog', 'ads', vars.adsId, 'external-links'] })
     },
+  })
+}
+
+export function useAdsExternalLinks(adsId: string) {
+  return useQuery({
+    queryKey: ['paxlog', 'ads', adsId, 'external-links'],
+    queryFn: () => paxlogService.listExternalLinks(adsId),
+    enabled: !!adsId,
   })
 }
 

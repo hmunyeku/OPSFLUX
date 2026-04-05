@@ -1,142 +1,20 @@
-const translations = {
-  fr: {
-    app_title: "Portail externe PaxLog",
-    app_intro: "Complétez les informations de séjour demandées par OpsFlux, ajoutez votre équipe et soumettez le dossier sans naviguer dans des menus complexes.",
-    access_state: "État d'accès",
-    authenticated: "Session ouverte",
-    otp_required: "OTP requis",
-    otp_not_required: "OTP non requis",
-    remaining_uses: "Utilisations restantes",
-    expires_at: "Expire le",
-    security: "Sécurité",
-    send_code: "Envoyer le code OTP",
-    verify_code: "Valider le code",
-    otp_code: "Code OTP",
-    otp_destination: "Code envoyé vers",
-    dossier: "Dossier",
-    scope: "Périmètre",
-    purpose: "Objet",
-    category: "Catégorie",
-    dates: "Dates",
-    site: "Site",
-    project: "Projet",
-    company: "Entreprise",
-    status: "Statut",
-    outbound_transport: "Transport aller",
-    return_transport: "Transport retour",
-    pax_count: "Nombre de PAX",
-    pending_check: "À vérifier",
-    approved: "Approuvés",
-    blocked: "Bloqués",
-    compliance: "Conformité",
-    compliance_ok: "Conforme",
-    compliance_blockers: "Blocages",
-    compliance_issues: "Points à lever",
-    correction_reason: "Motif de correction",
-    preconfigured: "Éléments préconfigurés",
-    pax: "Équipe externe",
-    add_pax: "Ajouter un PAX",
-    save_changes: "Enregistrer les changements",
-    credentials: "Certifications",
-    current_credentials: "Certifications existantes",
-    add_credential: "Ajouter une certification",
-    credential_type: "Type de certification",
-    obtained_date: "Date d'obtention",
-    expiry_date: "Date d'expiration",
-    proof_url: "URL du justificatif",
-    notes: "Notes",
-    submit: "Soumettre le dossier",
-    resubmit: "Re-soumettre le dossier",
-    resubmit_reason: "Corrections apportées",
-    first_name: "Prénom",
-    last_name: "Nom",
-    birth_date: "Date de naissance",
-    nationality: "Nationalité",
-    badge_number: "Badge",
-    photo_url: "URL photo",
-    email: "Email",
-    phone: "Téléphone",
-    position: "Fonction",
-    no_pax: "Aucun PAX externe n'est encore rattaché à ce dossier.",
-    no_credentials: "Aucune certification enregistrée.",
-    session_needed: "Ouvrez d'abord la session OTP pour accéder au dossier.",
-    loading: "Chargement…",
-    public_token_missing: "Aucun token externe n'a été détecté dans l'URL.",
-    generic_error: "Une erreur est survenue.",
-    token_info: "Jeton",
-    action_done: "Action effectuée.",
-  },
-  en: {
-    app_title: "PaxLog external portal",
-    app_intro: "Complete the required stay information, add your crew, and submit the dossier without digging through tabs.",
-    access_state: "Access state",
-    authenticated: "Session open",
-    otp_required: "OTP required",
-    otp_not_required: "OTP not required",
-    remaining_uses: "Remaining uses",
-    expires_at: "Expires at",
-    security: "Security",
-    send_code: "Send OTP code",
-    verify_code: "Verify code",
-    otp_code: "OTP code",
-    otp_destination: "Code sent to",
-    dossier: "Dossier",
-    scope: "Scope",
-    purpose: "Purpose",
-    category: "Category",
-    dates: "Dates",
-    site: "Site",
-    project: "Project",
-    company: "Company",
-    status: "Status",
-    outbound_transport: "Outbound transport",
-    return_transport: "Return transport",
-    pax_count: "PAX count",
-    pending_check: "Pending check",
-    approved: "Approved",
-    blocked: "Blocked",
-    compliance: "Compliance",
-    compliance_ok: "Compliant",
-    compliance_blockers: "Blockers",
-    compliance_issues: "Issues to clear",
-    correction_reason: "Correction reason",
-    preconfigured: "Preconfigured items",
-    pax: "External crew",
-    add_pax: "Add PAX",
-    save_changes: "Save changes",
-    credentials: "Credentials",
-    current_credentials: "Existing credentials",
-    add_credential: "Add credential",
-    credential_type: "Credential type",
-    obtained_date: "Obtained date",
-    expiry_date: "Expiry date",
-    proof_url: "Proof URL",
-    notes: "Notes",
-    submit: "Submit dossier",
-    resubmit: "Resubmit dossier",
-    resubmit_reason: "Corrections made",
-    first_name: "First name",
-    last_name: "Last name",
-    birth_date: "Birth date",
-    nationality: "Nationality",
-    badge_number: "Badge",
-    photo_url: "Photo URL",
-    email: "Email",
-    phone: "Phone",
-    position: "Position",
-    no_pax: "No external PAX is linked to this dossier yet.",
-    no_credentials: "No credentials recorded yet.",
-    session_needed: "Open the OTP session first to access the dossier.",
-    loading: "Loading…",
-    public_token_missing: "No external token was found in the URL.",
-    generic_error: "Something went wrong.",
-    token_info: "Token",
-    action_done: "Action completed.",
-  },
-}
+import { createTranslator } from "./i18n.js"
+import {
+  addCredentialAction,
+  attachExistingPaxAction,
+  createPaxAction,
+  parseApiErrorDetail,
+  resubmitExternalAction,
+  sendOtpAction,
+  submitExternalAction,
+  updatePaxAction,
+  verifyOtpAction,
+  wrapExternalAction,
+} from "./actions.js"
+import { loadExternalCredentialTypes, loadExternalDossier, loadExternalLinkInfo } from "./dataService.js"
+import { apiRequest, getApiBase, getTokenFromUrl, sessionStorageKey } from "./runtime.js"
 
-const lang = navigator.language?.toLowerCase().startsWith("en") ? "en" : "fr"
-const t = (key) => translations[lang][key] || key
+const { lang, t } = createTranslator(navigator.language)
 
 const state = {
   token: getTokenFromUrl(),
@@ -145,9 +23,13 @@ const state = {
   linkInfo: null,
   dossier: null,
   credentialTypes: [],
+  createPaxDraft: {},
+  createPaxMatches: [],
   loading: false,
   message: null,
 }
+
+let createPaxMatchTimer = null
 
 const app = document.getElementById("app")
 
@@ -166,67 +48,24 @@ async function bootstrap() {
   render()
 }
 
-function getTokenFromUrl() {
-  const queryToken = new URLSearchParams(window.location.search).get("token")
-  if (queryToken) return queryToken
-  const parts = window.location.pathname.split("/").filter(Boolean)
-  return parts.at(-1) || ""
-}
-
-function getApiBase() {
-  const envBase = import.meta.env.VITE_API_URL
-  if (envBase) return envBase.replace(/\/$/, "")
-  const { protocol, hostname, port } = window.location
-  if (hostname.startsWith("ext.")) {
-    return `${protocol}//api.${hostname.slice(4)}`
-  }
-  if (hostname.startsWith("web.") || hostname.startsWith("app.")) {
-    return `${protocol}//api.${hostname.split(".").slice(1).join(".")}`
-  }
-  if (hostname === "localhost" || hostname === "127.0.0.1") {
-    return `${protocol}//${hostname}:${port === "5175" ? "8000" : port || "8000"}`
-  }
-  return `${protocol}//${hostname}`
-}
-
-function sessionStorageKey(token) {
-  return `opsflux-ext-paxlog-session:${token}`
-}
-
 async function api(path, options = {}) {
-  const method = (options.method || "GET").toUpperCase()
-  const headers = { ...(options.headers || {}) }
-  if (options.body != null && method !== "GET" && method !== "HEAD" && !("Content-Type" in headers)) {
-    headers["Content-Type"] = "application/json"
-  }
-  if (state.sessionToken) {
-    headers["X-External-Session"] = state.sessionToken
-  }
-  const response = await fetch(`${state.apiBase}${path}`, {
-    ...options,
-    headers,
-  })
-  const contentType = response.headers.get("content-type") || ""
-  const payload = contentType.includes("application/json") ? await response.json() : await response.text()
-  if (!response.ok) {
-    const detail = typeof payload === "object" && payload?.detail ? payload.detail : payload
-    throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail))
-  }
-  return payload
+  return apiRequest(
+    { apiBase: state.apiBase, sessionToken: state.sessionToken },
+    path,
+    options,
+  )
 }
 
 async function loadLinkInfo() {
-  if (!state.token) return
-  state.linkInfo = await api(`/api/v1/pax/external/${state.token}`)
+  state.linkInfo = await loadExternalLinkInfo(api, state.token)
 }
 
 async function loadDossier() {
-  if (!state.token) return
-  state.dossier = await api(`/api/v1/pax/external/${state.token}/dossier`)
+  state.dossier = await loadExternalDossier(api, state.token)
 }
 
 async function loadCredentialTypes() {
-  state.credentialTypes = await api(`/api/v1/pax/credential-types`)
+  state.credentialTypes = await loadExternalCredentialTypes(api, state.token, state.sessionToken)
 }
 
 function setMessage(text, tone = "success") {
@@ -238,17 +77,21 @@ function clearMessage() {
   state.message = null
 }
 
+function setLoading(value) {
+  state.loading = value
+}
+
 async function handleSendOtp() {
   clearMessage()
-  state.loading = true
+  setLoading(true)
   render()
   try {
-    const result = await api(`/api/v1/pax/external/${state.token}/otp/send`, { method: "POST" })
+    const result = await sendOtpAction(api, state.token)
     setMessage(`${t("otp_destination")}: ${result.destination_masked}`, "success")
   } catch (error) {
     setMessage(error.message || t("generic_error"), "error")
   } finally {
-    state.loading = false
+    setLoading(false)
     render()
   }
 }
@@ -258,13 +101,10 @@ async function handleVerifyOtp(event) {
   const code = new FormData(event.currentTarget).get("code")?.toString().trim()
   if (!code) return
   clearMessage()
-  state.loading = true
+  setLoading(true)
   render()
   try {
-    const result = await api(`/api/v1/pax/external/${state.token}/otp/verify`, {
-      method: "POST",
-      body: JSON.stringify({ code }),
-    })
+    const result = await verifyOtpAction(api, state.token, code)
     state.sessionToken = result.session_token
     localStorage.setItem(sessionStorageKey(state.token), result.session_token)
     await Promise.all([loadLinkInfo(), loadDossier(), loadCredentialTypes()])
@@ -272,7 +112,7 @@ async function handleVerifyOtp(event) {
   } catch (error) {
     setMessage(error.message || t("generic_error"), "error")
   } finally {
-    state.loading = false
+    setLoading(false)
     render()
   }
 }
@@ -282,11 +122,15 @@ async function handleCreatePax(event) {
   const formData = new FormData(event.currentTarget)
   const payload = objectFromFormData(formData)
   await wrapAction(async () => {
-    await api(`/api/v1/pax/external/${state.token}/pax`, {
-      method: "POST",
-      body: JSON.stringify(payload),
-    })
+    await createPaxAction(api, state.token, payload)
+    state.createPaxDraft = {}
+    state.createPaxMatches = []
     await loadDossier()
+  }, async (error) => {
+    const detail = parseApiErrorDetail(error)
+    if (detail?.code === "EXTERNAL_PAX_DUPLICATE_MATCH" && Array.isArray(detail.matches)) {
+      state.createPaxMatches = detail.matches
+    }
   })
 }
 
@@ -294,10 +138,16 @@ async function handleUpdatePax(event, contactId) {
   event.preventDefault()
   const payload = objectFromFormData(new FormData(event.currentTarget))
   await wrapAction(async () => {
-    await api(`/api/v1/pax/external/${state.token}/pax/${contactId}`, {
-      method: "PATCH",
-      body: JSON.stringify(payload),
-    })
+    await updatePaxAction(api, state.token, contactId, payload)
+    await loadDossier()
+  })
+}
+
+async function handleAttachExistingPax(contactId) {
+  await wrapAction(async () => {
+    await attachExistingPaxAction(api, state.token, contactId, state.createPaxDraft || {})
+    state.createPaxDraft = {}
+    state.createPaxMatches = []
     await loadDossier()
   })
 }
@@ -307,17 +157,18 @@ async function handleAddCredential(event, contactId) {
   const formData = new FormData(event.currentTarget)
   const payload = objectFromFormData(formData)
   await wrapAction(async () => {
-    await api(`/api/v1/pax/external/${state.token}/pax/${contactId}/credentials`, {
-      method: "POST",
-      body: JSON.stringify(payload),
-    })
-    setMessage(t("action_done"), "success")
+    await addCredentialAction(api, state.token, contactId, payload)
+    await loadDossier()
   })
 }
 
 async function handleSubmitExternal() {
+  if ((state.dossier?.pax_summary?.total ?? 0) <= 0) {
+    setMessage(t("no_submit_without_pax"), "warn")
+    return
+  }
   await wrapAction(async () => {
-    await api(`/api/v1/pax/external/${state.token}/submit`, { method: "POST" })
+    await submitExternalAction(api, state.token)
     await loadLinkInfo()
     await loadDossier()
   })
@@ -328,28 +179,56 @@ async function handleResubmitExternal(event) {
   const reason = new FormData(event.currentTarget).get("reason")?.toString().trim()
   if (!reason) return
   await wrapAction(async () => {
-    await api(`/api/v1/pax/external/${state.token}/resubmit`, {
-      method: "POST",
-      body: JSON.stringify({ reason }),
-    })
+    await resubmitExternalAction(api, state.token, reason)
     await loadLinkInfo()
     await loadDossier()
   })
 }
 
-async function wrapAction(fn) {
-  clearMessage()
-  state.loading = true
-  render()
-  try {
-    await fn()
-    setMessage(t("action_done"), "success")
-  } catch (error) {
-    setMessage(error.message || t("generic_error"), "error")
-  } finally {
-    state.loading = false
+async function wrapAction(fn, onError = null) {
+  return wrapExternalAction(
+    {
+      clearMessage,
+      setLoading,
+      render,
+      setMessage,
+      successMessage: t("action_done"),
+    },
+    fn,
+    onError,
+  )
+}
+
+async function lookupCreatePaxMatches() {
+  if (!state.token || !state.sessionToken) return
+  const draft = state.createPaxDraft || {}
+  const firstName = draft.first_name?.trim()
+  const lastName = draft.last_name?.trim()
+  const badge = draft.badge_number?.trim()
+  const email = draft.email?.trim()
+  const phone = draft.phone?.trim()
+  const hasEnoughSignals = (firstName && lastName) || badge || email || phone
+  if (!hasEnoughSignals) {
+    state.createPaxMatches = []
     render()
+    return
   }
+  try {
+    state.createPaxMatches = await api(`/api/v1/pax/external/${state.token}/pax/matches`, {
+      method: "POST",
+      body: JSON.stringify(draft),
+    })
+  } catch {
+    state.createPaxMatches = []
+  }
+  render()
+}
+
+function scheduleCreatePaxMatchLookup() {
+  if (createPaxMatchTimer) window.clearTimeout(createPaxMatchTimer)
+  createPaxMatchTimer = window.setTimeout(() => {
+    lookupCreatePaxMatches().catch(() => {})
+  }, 350)
 }
 
 function objectFromFormData(formData) {
@@ -378,19 +257,36 @@ function render() {
           <div class="eyebrow">OpsFlux External Flow</div>
           <h1>${t("app_title")}</h1>
           <p>${t("app_intro")}</p>
-        </article>
-        <aside class="panel pad stack">
-          <div>
-            <div class="card-label">${t("access_state")}</div>
-            <div style="margin-top:10px" class="status-chip ${authenticated ? "success" : "warn"}">
-              ${authenticated ? t("authenticated") : (link?.otp_required ? t("otp_required") : t("otp_not_required"))}
+          <div class="hero-stats">
+            <div class="hero-stat">
+              <div class="hero-stat-label">${t("pax_count")}</div>
+              <div class="hero-stat-value">${escapeHtml(String(dossier?.pax_summary?.total ?? 0))}</div>
+            </div>
+            <div class="hero-stat">
+              <div class="hero-stat-label">${t("pending_check")}</div>
+              <div class="hero-stat-value">${escapeHtml(String(dossier?.pax_summary?.pending_check ?? 0))}</div>
+            </div>
+            <div class="hero-stat">
+              <div class="hero-stat-label">${t("blocked")}</div>
+              <div class="hero-stat-value">${escapeHtml(String(dossier?.pax_summary?.blocked ?? 0))}</div>
             </div>
           </div>
-          <div class="meta-list">
-            <div class="meta-item"><strong>${t("token_info")}</strong><span class="mono">${state.token}</span></div>
-            <div class="meta-item"><strong>${t("remaining_uses")}</strong>${link?.remaining_uses ?? "—"}</div>
-            <div class="meta-item"><strong>${t("expires_at")}</strong>${formatDateTime(link?.expires_at)}</div>
-          </div>
+        </article>
+        <aside class="panel pad top-panel">
+          <section class="top-section">
+            <div class="top-section-title">${t("access_state")}</div>
+            <div class="status-chip ${authenticated ? "success" : "warn"}">
+              ${authenticated ? t("authenticated") : (link?.otp_required ? t("otp_required") : t("otp_not_required"))}
+            </div>
+          </section>
+          <section class="top-section">
+            <div class="top-section-title">${t("security")}</div>
+            <div class="meta-list">
+              <div class="meta-item"><strong>${t("token_info")}</strong><span class="mono">${state.token}</span></div>
+              <div class="meta-item"><strong>${t("remaining_uses")}</strong>${link?.remaining_uses ?? "—"}</div>
+              <div class="meta-item"><strong>${t("expires_at")}</strong>${formatDateTime(link?.expires_at)}</div>
+            </div>
+          </section>
         </aside>
       </section>
 
@@ -445,20 +341,36 @@ function renderDossierSummary(dossier) {
   return `
     <h2 class="section-title">${t("dossier")}</h2>
     <p class="section-subtitle">${escapeHtml(ads.reference)} · ${escapeHtml(ads.status)}</p>
+    <div class="summary-strip">
+      <div class="summary-pill">
+        <strong>${t("company")}</strong>
+        <span>${escapeHtml(dossier.allowed_company_name || "—")}</span>
+      </div>
+      <div class="summary-pill">
+        <strong>${t("site")}</strong>
+        <span>${escapeHtml(ads.site_name || "—")}</span>
+      </div>
+      <div class="summary-pill">
+        <strong>${t("project")}</strong>
+        <span>${escapeHtml(ads.project_name || "—")}</span>
+      </div>
+    </div>
     <div class="grid cards">
-      <div class="card"><div class="card-label">${t("purpose")}</div><div class="card-value" style="font-size:16px">${escapeHtml(ads.visit_purpose || "—")}</div></div>
-      <div class="card"><div class="card-label">${t("category")}</div><div class="card-value" style="font-size:16px">${escapeHtml(ads.visit_category || "—")}</div></div>
-      <div class="card"><div class="card-label">${t("dates")}</div><div class="card-value" style="font-size:16px">${escapeHtml(`${ads.start_date} → ${ads.end_date}`)}</div></div>
-      <div class="card"><div class="card-label">${t("project")}</div><div class="card-value" style="font-size:16px">${escapeHtml(ads.project_id || "—")}</div></div>
-      <div class="card"><div class="card-label">${t("outbound_transport")}</div><div class="card-value" style="font-size:16px">${escapeHtml(ads.outbound_transport_mode || "—")}</div></div>
-      <div class="card"><div class="card-label">${t("return_transport")}</div><div class="card-value" style="font-size:16px">${escapeHtml(ads.return_transport_mode || "—")}</div></div>
-      <div class="card"><div class="card-label">${t("company")}</div><div class="card-value" style="font-size:16px">${escapeHtml(dossier.allowed_company_name || dossier.allowed_company_id || "—")}</div></div>
-      <div class="card"><div class="card-label">${t("pax_count")}</div><div class="card-value" style="font-size:16px">${escapeHtml(String(dossier?.pax_summary?.total ?? 0))}</div></div>
+      <div class="card clean"><div class="card-label">${t("purpose")}</div><div class="card-value" style="font-size:16px">${escapeHtml(ads.visit_purpose || "—")}</div></div>
+      <div class="card clean"><div class="card-label">${t("category")}</div><div class="card-value" style="font-size:16px">${escapeHtml(ads.visit_category || "—")}</div></div>
+      <div class="card clean"><div class="card-label">${t("dates")}</div><div class="card-value" style="font-size:16px">${escapeHtml(`${ads.start_date} → ${ads.end_date}`)}</div></div>
+      <div class="card clean"><div class="card-label">${t("outbound_transport")}</div><div class="card-value" style="font-size:16px">${escapeHtml(ads.outbound_transport_mode || "—")}</div></div>
+      <div class="card clean"><div class="card-label">${t("return_transport")}</div><div class="card-value" style="font-size:16px">${escapeHtml(ads.return_transport_mode || "—")}</div></div>
+      <div class="card clean"><div class="card-label">${t("pax_count")}</div><div class="card-value" style="font-size:16px">${escapeHtml(String(dossier?.pax_summary?.total ?? 0))}</div></div>
+    </div>
+    <div class="review-banner ${(dossier?.pax_summary?.blocked ?? 0) > 0 || (dossier?.pax_summary?.pending_check ?? 0) > 0 ? "warn" : "success"}" style="margin-top:14px">
+      <strong>${t("review_summary")}</strong><br/>
+      ${((dossier?.pax_summary?.blocked ?? 0) > 0 || (dossier?.pax_summary?.pending_check ?? 0) > 0) ? t("dossier_needs_review") : t("dossier_ready")}
     </div>
     ${ads.rejection_reason ? `<div class="message warn" style="margin-top:14px"><strong>${t("correction_reason")}</strong><br/>${escapeHtml(ads.rejection_reason)}</div>` : ""}
     <div class="divider"></div>
     <h3 class="section-title">${t("preconfigured")}</h3>
-    <pre class="message">${escapeHtml(JSON.stringify(dossier.preconfigured_data || {}, null, 2))}</pre>
+    <pre class="code-block">${escapeHtml(JSON.stringify(dossier.preconfigured_data || {}, null, 2))}</pre>
   `
 }
 
@@ -481,7 +393,7 @@ function renderPaxArea(dossier, authenticated) {
         </div>
       </div>
 
-      <div class="meta-list">
+      <div class="summary-strip">
         <div class="meta-item"><strong>${t("pending_check")}</strong>${dossier?.pax_summary?.pending_check ?? 0}</div>
         <div class="meta-item"><strong>${t("approved")}</strong>${dossier?.pax_summary?.approved ?? 0}</div>
         <div class="meta-item"><strong>${t("blocked")}</strong>${dossier?.pax_summary?.blocked ?? 0}</div>
@@ -499,12 +411,14 @@ function renderPaxArea(dossier, authenticated) {
       <form id="create-pax-form" class="panel pad" style="background:var(--panel-strong)">
         <h3 class="section-title">${t("add_pax")}</h3>
         <div class="field-grid">
-          ${renderPaxFields()}
+          ${renderPaxFields("", state.createPaxDraft || {})}
         </div>
         <div class="button-row" style="margin-top:12px">
           <button class="primary" ${state.loading ? "disabled" : ""}>${t("add_pax")}</button>
         </div>
       </form>
+
+      ${renderCreatePaxMatches()}
 
       ${(dossier.pax || []).length === 0 ? `<div class="message">${t("no_pax")}</div>` : dossier.pax.map(renderPaxCard).join("")}
     </div>
@@ -512,12 +426,12 @@ function renderPaxArea(dossier, authenticated) {
 }
 
 function renderPaxFields(prefix = "", values = {}) {
-  const field = (name, label, type = "text") => `
-    <label>${label}<input type="${type}" name="${prefix}${name}" value="${escapeHtml(values[name] || "")}" /></label>
+  const field = (name, label, type = "text", required = false) => `
+    <label>${label}<input type="${type}" name="${prefix}${name}" value="${escapeHtml(values[name] || "")}" ${required ? "required" : ""} /></label>
   `
   return [
-    field("first_name", t("first_name")),
-    field("last_name", t("last_name")),
+    field("first_name", t("first_name"), "text", true),
+    field("last_name", t("last_name"), "text", true),
     field("birth_date", t("birth_date"), "date"),
     field("nationality", t("nationality")),
     field("badge_number", t("badge_number")),
@@ -529,17 +443,30 @@ function renderPaxFields(prefix = "", values = {}) {
 }
 
 function renderPaxCard(pax) {
+  const missingIdentityFields = [
+    !pax.birth_date ? t("birth_date") : null,
+    !pax.nationality ? t("nationality") : null,
+    !pax.badge_number ? t("badge_number") : null,
+  ].filter(Boolean)
   const credentialOptions = state.credentialTypes
     .map((item) => `<option value="${item.id}">${escapeHtml(item.name)} (${escapeHtml(item.code)})</option>`)
     .join("")
+  const paxStatus = pax.status || "pending_check"
+  const paxStatusTone =
+    paxStatus === "blocked" ? "danger" :
+    paxStatus === "pending_check" ? "warn" :
+    "success"
   return `
     <article class="pax-item">
+      <div class="pax-stack">
       <div class="pax-head">
         <div>
           <div class="pax-name">${escapeHtml(`${pax.first_name} ${pax.last_name}`)}</div>
-          <div class="muted">${escapeHtml(pax.position || "—")} · ${escapeHtml(pax.status || "pending_check")}</div>
+          <div class="pax-subhead">
+            <div class="pax-role">${escapeHtml(pax.position || "—")}</div>
+            <div class="status-chip ${paxStatusTone}">${escapeHtml(t(paxStatus))}</div>
+          </div>
         </div>
-        <div class="status-chip ${pax.status === "blocked" ? "danger" : "success"}">${escapeHtml(pax.status || "pending_check")}</div>
       </div>
       <div class="meta-list">
         <div class="meta-item"><strong>${t("birth_date")}</strong>${escapeHtml(pax.birth_date || "—")}</div>
@@ -554,37 +481,50 @@ function renderPaxCard(pax) {
         <div class="message warn">
           <strong>${t("compliance_issues")}</strong>
           <ul>
-            ${pax.compliance_blockers.map((item) => `<li>${escapeHtml(item.credential_type_name || item.credential_type_code || "—")} · ${escapeHtml(item.status || "—")}${item.message ? ` · ${escapeHtml(item.message)}` : ""}</li>`).join("")}
+            ${pax.compliance_blockers.map((item) => `<li>${escapeHtml(item.credential_type_name || item.credential_type_code || "—")} · ${escapeHtml(t(item.status || "—"))}${item.message ? ` · ${escapeHtml(item.message)}` : ""}</li>`).join("")}
           </ul>
         </div>
       ` : ""}
-      <div class="message">
+      ${(pax.required_actions || []).length > 0 ? `
+        <div class="message warn">
+          <strong>${t("required_actions")}</strong>
+          <ul>
+            ${(pax.required_actions || []).map((item) => `<li>${renderRequiredAction(item, pax.contact_id)}</li>`).join("")}
+          </ul>
+        </div>
+      ` : ""}
+      ${missingIdentityFields.length > 0 ? `
+        <div class="message warn">
+          <strong>${t("identity_missing")}</strong>
+          <div>${escapeHtml(missingIdentityFields.join(", "))}</div>
+        </div>
+      ` : ""}
+      <div class="info-panel">
+        <h4>${t("current_credentials")}</h4>
         <strong>${t("current_credentials")}</strong>
         ${(pax.credentials || []).length > 0 ? `
           <ul>
-            ${pax.credentials.map((item) => `<li>${escapeHtml(item.credential_type_name || item.credential_type_code || "—")} · ${escapeHtml(item.status || "—")}${item.expiry_date ? ` · ${escapeHtml(item.expiry_date)}` : ""}</li>`).join("")}
+            ${pax.credentials.map((item) => `<li>${escapeHtml(item.credential_type_name || item.credential_type_code || "—")} · ${escapeHtml(t(item.status || "—"))}${item.expiry_date ? ` · ${escapeHtml(item.expiry_date)}` : ""}</li>`).join("")}
           </ul>
         ` : `<div>${t("no_credentials")}</div>`}
       </div>
-      <div class="divider"></div>
-      <form class="stack pax-update-form" data-contact-id="${pax.contact_id}">
+      <form class="stack pax-update-form form-panel" data-contact-id="${pax.contact_id}">
         <h3 class="section-title">${t("save_changes")}</h3>
         <div class="field-grid">${renderPaxFields("", pax)}</div>
         <div class="button-row">
           <button class="secondary" ${state.loading ? "disabled" : ""}>${t("save_changes")}</button>
         </div>
       </form>
-      <div class="divider"></div>
-      <form class="stack credential-form" data-contact-id="${pax.contact_id}">
+      <form class="stack credential-form form-panel" data-contact-id="${pax.contact_id}">
         <h3 class="section-title">${t("credentials")}</h3>
         <div class="field-grid">
           <label>${t("credential_type")}
-            <select name="credential_type_id">
+            <select name="credential_type_id" required>
               <option value=""></option>
               ${credentialOptions}
             </select>
           </label>
-          <label>${t("obtained_date")}<input type="date" name="obtained_date" /></label>
+          <label>${t("obtained_date")}<input type="date" name="obtained_date" required /></label>
           <label>${t("expiry_date")}<input type="date" name="expiry_date" /></label>
           <label>${t("proof_url")}<input type="url" name="proof_url" /></label>
           <label>${t("notes")}<textarea name="notes"></textarea></label>
@@ -593,7 +533,110 @@ function renderPaxCard(pax) {
           <button class="secondary" ${state.loading ? "disabled" : ""}>${t("add_credential")}</button>
         </div>
       </form>
+      </div>
     </article>
+  `
+}
+
+function renderRequiredAction(item, contactId) {
+  const label = item?.label || item?.field || "—"
+  const status = item?.status ? ` · ${t(item.status)}` : ""
+  const layer = item?.layer_label ? ` · ${item.layer_label}` : ""
+  let guidance = ""
+  let actionButton = ""
+  if (item?.kind === "identity") guidance = t("update_identity_action")
+  else if (item?.status === "pending_validation") guidance = t("wait_validation_action")
+  else guidance = t("add_credential_action")
+
+  if (item?.kind === "identity") {
+    actionButton = `
+      <div style="margin-top:8px">
+        <button
+          type="button"
+          class="secondary required-action-btn"
+          data-contact-id="${escapeHtml(contactId)}"
+          data-action-kind="identity"
+          data-field="${escapeHtml(item?.field || "")}"
+        >${t("complete_now")}</button>
+      </div>
+    `
+  } else if (item?.kind === "credential" && item?.status !== "pending_validation") {
+    actionButton = `
+      <div style="margin-top:8px">
+        <button
+          type="button"
+          class="secondary required-action-btn"
+          data-contact-id="${escapeHtml(contactId)}"
+          data-action-kind="credential"
+          data-credential-code="${escapeHtml(item?.credential_type_code || item?.field || "")}"
+        >${t("add_credential_now")}</button>
+      </div>
+    `
+  }
+  const message = item?.message ? ` · ${item.message}` : ""
+  return `${escapeHtml(label)}${escapeHtml(status)}${escapeHtml(layer)}${message ? ` · ${escapeHtml(item.message)}` : ""}<br/><span class="muted">${escapeHtml(guidance)}</span>${actionButton}`
+}
+
+function focusRequiredAction(button) {
+  const contactId = button?.dataset?.contactId
+  const actionKind = button?.dataset?.actionKind
+  if (!contactId || !actionKind) return
+
+  if (actionKind === "identity") {
+    const form = document.querySelector(`.pax-update-form[data-contact-id="${contactId}"]`)
+    if (!form) return
+    form.scrollIntoView({ behavior: "smooth", block: "center" })
+    const fieldName = button.dataset.field
+    const targetField = fieldName ? form.querySelector(`[name="${fieldName}"]`) : form.querySelector("input, textarea, select")
+    targetField?.focus()
+    return
+  }
+
+  if (actionKind === "credential") {
+    const form = document.querySelector(`.credential-form[data-contact-id="${contactId}"]`)
+    if (!form) return
+    form.scrollIntoView({ behavior: "smooth", block: "center" })
+    const select = form.querySelector('select[name="credential_type_id"]')
+    const code = button.dataset.credentialCode
+    if (select && code) {
+      const option = Array.from(select.options).find((item) => item.textContent?.includes(`(${code})`))
+      if (option) select.value = option.value
+    }
+    select?.focus()
+  }
+}
+
+function renderCreatePaxMatches() {
+  if (!Array.isArray(state.createPaxMatches) || state.createPaxMatches.length === 0) return ""
+  return `
+    <div class="message warn">
+      <strong>${t("duplicate_candidates")}</strong><br/>
+      ${t("duplicate_candidates_hint")}
+      <div class="stack" style="margin-top:12px">
+        ${state.createPaxMatches.map((match) => `
+          <div class="panel pad" style="background:var(--panel-strong)">
+            <div class="button-row" style="justify-content:space-between; align-items:flex-start">
+              <div>
+                <div class="pax-name">${escapeHtml(`${match.first_name} ${match.last_name}`)}</div>
+                <div class="muted">${escapeHtml(match.position || "—")}</div>
+              </div>
+              <button class="secondary attach-existing-pax" data-contact-id="${match.contact_id}" ${state.loading ? "disabled" : ""}>
+                ${t("confirm_existing_candidate")}
+              </button>
+            </div>
+            <div class="meta-list" style="margin-top:10px">
+              <div class="meta-item"><strong>${t("match_score")}</strong>${escapeHtml(String(match.match_score))}</div>
+              <div class="meta-item"><strong>${t("match_reasons")}</strong>${escapeHtml((match.match_reasons || []).join(", ") || "—")}</div>
+              <div class="meta-item"><strong>${t("birth_date")}</strong>${escapeHtml(match.birth_date || "—")}</div>
+              <div class="meta-item"><strong>${t("badge_number")}</strong>${escapeHtml(match.badge_number || "—")}</div>
+              <div class="meta-item"><strong>${t("email")}</strong>${escapeHtml(match.email || "—")}</div>
+              <div class="meta-item"><strong>${t("phone")}</strong>${escapeHtml(match.phone || "—")}</div>
+            </div>
+            ${match.already_linked_to_ads ? `<div class="message">${t("already_linked")}</div>` : ""}
+          </div>
+        `).join("")}
+      </div>
+    </div>
   `
 }
 
@@ -606,6 +649,16 @@ function bindEvents() {
 
   const createPaxForm = document.getElementById("create-pax-form")
   if (createPaxForm) createPaxForm.addEventListener("submit", handleCreatePax)
+  if (createPaxForm) {
+    createPaxForm.querySelectorAll("input, textarea, select").forEach((field) => {
+      field.addEventListener("input", (event) => {
+        const target = event.target
+        if (!target?.name) return
+        state.createPaxDraft = { ...(state.createPaxDraft || {}), [target.name]: target.value }
+        scheduleCreatePaxMatchLookup()
+      })
+    })
+  }
 
   const submitBtn = document.getElementById("submit-dossier")
   if (submitBtn) submitBtn.addEventListener("click", handleSubmitExternal)
@@ -619,6 +672,14 @@ function bindEvents() {
 
   document.querySelectorAll(".credential-form").forEach((form) => {
     form.addEventListener("submit", (event) => handleAddCredential(event, form.dataset.contactId))
+  })
+
+  document.querySelectorAll(".attach-existing-pax").forEach((button) => {
+    button.addEventListener("click", () => handleAttachExistingPax(button.dataset.contactId))
+  })
+
+  document.querySelectorAll(".required-action-btn").forEach((button) => {
+    button.addEventListener("click", () => focusRequiredAction(button))
   })
 }
 

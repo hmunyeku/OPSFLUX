@@ -2,6 +2,7 @@
   --bg: #f3f0e8;
   --panel: #fffdf8;
   --panel-strong: #f7f2e7;
+  --panel-soft: #faf6ee;
   --text: #1f2a22;
   --muted: #68756d;
   --line: #d9d0c1;
@@ -20,7 +21,7 @@
 body {
   margin: 0;
   background:
-    radial-gradient(circle at top right, rgba(199, 125, 43, 0.14), transparent 24%),
+    radial-gradient(circle at top right, rgba(199, 125, 43, 0.1), transparent 24%),
     linear-gradient(180deg, #f8f4ec 0%, var(--bg) 100%);
   color: var(--text);
 }
@@ -63,11 +64,11 @@ body {
 .hero-main::after {
   content: "";
   position: absolute;
-  inset: auto -40px -60px auto;
-  width: 220px;
-  height: 220px;
+  inset: auto -24px -32px auto;
+  width: 160px;
+  height: 160px;
   border-radius: 999px;
-  background: rgba(247, 242, 231, 0.09);
+  background: rgba(247, 242, 231, 0.08);
 }
 
 .eyebrow {
@@ -87,6 +88,56 @@ body {
   margin: 0;
   color: rgba(248, 250, 247, 0.86);
   max-width: 720px;
+}
+
+.hero-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 20px;
+  position: relative;
+  z-index: 1;
+}
+
+.hero-stat {
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(248, 250, 247, 0.12);
+  background: rgba(248, 250, 247, 0.08);
+}
+
+.hero-stat-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(248, 250, 247, 0.7);
+}
+
+.hero-stat-value {
+  margin-top: 6px;
+  font-size: 22px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.top-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.top-section {
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--panel-soft);
+}
+
+.top-section-title {
+  margin: 0 0 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
 }
 
 .status-chip {
@@ -137,6 +188,10 @@ body {
   background: var(--panel-strong);
 }
 
+.card.clean {
+  background: var(--panel-soft);
+}
+
 .card-label {
   color: var(--muted);
   font-size: 12px;
@@ -148,6 +203,34 @@ body {
   margin-top: 8px;
   font-size: 22px;
   font-weight: 700;
+}
+
+.summary-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0 18px;
+}
+
+.summary-pill {
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--panel-soft);
+}
+
+.summary-pill strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.summary-pill span {
+  font-size: 24px;
+  font-weight: 800;
 }
 
 .section-title {
@@ -261,11 +344,20 @@ button:disabled {
   border-color: #9fd0bb;
 }
 
+.message.subtle {
+  background: var(--panel-soft);
+}
+
 .pax-item {
   border: 1px solid var(--line);
   border-radius: 18px;
   background: #fff;
-  padding: 16px;
+  padding: 18px;
+}
+
+.pax-stack {
+  display: grid;
+  gap: 14px;
 }
 
 .pax-head {
@@ -279,6 +371,69 @@ button:disabled {
 .pax-name {
   font-size: 18px;
   font-weight: 700;
+}
+
+.pax-subhead {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.pax-role {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.info-panel {
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--panel-soft);
+}
+
+.info-panel h4 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.form-panel {
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: var(--panel-soft);
+}
+
+.code-block {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--panel-soft);
+  font-family: Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  overflow: auto;
+}
+
+.review-banner {
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+}
+
+.review-banner.success {
+  background: #eef8f4;
+  border-color: #9fd0bb;
+}
+
+.review-banner.warn {
+  background: #fff7e8;
+  border-color: #efc888;
 }
 
 .meta-list {
@@ -320,6 +475,11 @@ button:disabled {
 @media (max-width: 920px) {
   .hero,
   .grid.two {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-stats,
+  .summary-strip {
     grid-template-columns: 1fr;
   }
 

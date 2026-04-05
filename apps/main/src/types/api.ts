@@ -1461,6 +1461,27 @@ export interface TaskActionUpdate {
   order?: number
 }
 
+// ── Task Dependencies ───────────────────────────────────────
+
+export type DependencyType = 'finish_to_start' | 'start_to_start' | 'finish_to_finish' | 'start_to_finish'
+
+export interface TaskDependency {
+  id: string
+  from_task_id: string
+  to_task_id: string
+  dependency_type: DependencyType
+  lag_days: number
+  from_task_title?: string | null
+  to_task_title?: string | null
+}
+
+export interface TaskDependencyCreate {
+  from_task_id: string
+  to_task_id: string
+  dependency_type?: DependencyType
+  lag_days?: number
+}
+
 // ── Task Change Log ─────────────────────────────────────────
 
 export interface TaskChangeLog {

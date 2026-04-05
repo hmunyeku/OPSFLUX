@@ -3330,6 +3330,7 @@ async def test_access_external_link_hides_preconfigured_data_without_session(mon
         max_uses=3,
         use_count=1,
         expires_at=datetime(2026, 4, 30, tzinfo=timezone.utc),
+        access_log=[],
     )
 
     async def fake_get_link(_db, _token):
@@ -3349,6 +3350,7 @@ async def test_access_external_link_hides_preconfigured_data_without_session(mon
     assert response["otp_required"] is True
     assert response["preconfigured_data"] is None
     assert response["remaining_uses"] == 2
+    assert link.access_log[-1]["action"] == "public_access"
 
 
 @pytest.mark.asyncio
@@ -3361,6 +3363,7 @@ async def test_access_external_link_exposes_preconfigured_data_with_valid_sessio
         max_uses=None,
         use_count=0,
         expires_at=datetime(2026, 4, 30, tzinfo=timezone.utc),
+        access_log=[],
     )
 
     async def fake_get_link(_db, _token):
@@ -3385,6 +3388,41 @@ async def test_access_external_link_exposes_preconfigured_data_with_valid_sessio
     assert response["authenticated"] is True
     assert response["preconfigured_data"] == {"company_name": "Vendor X"}
     assert response["remaining_uses"] is None
+    assert link.access_log[-1]["action"] == "authenticated_access"
+
+
+@pytest.mark.asyncio
+async def test_access_external_link_rate_limits_public_consultation(monkeypatch):
+    now = datetime.now(timezone.utc)
+    link = SimpleNamespace(
+        ads_id=uuid4(),
+        otp_required=True,
+        otp_sent_to="contractor@example.com",
+        preconfigured_data={"company_name": "Vendor X"},
+        max_uses=None,
+        use_count=0,
+        expires_at=datetime(2026, 4, 30, tzinfo=timezone.utc),
+        access_log=[
+            {"action": "public_access", "timestamp": (now - timedelta(minutes=1)).isoformat()}
+            for _ in range(paxlog.EXTERNAL_PUBLIC_ACCESS_MAX_PER_WINDOW)
+        ],
+    )
+
+    async def fake_get_link(_db, _token):
+        return link
+
+    monkeypatch.setattr(paxlog, "_get_external_link_or_404", fake_get_link)
+
+    with pytest.raises(HTTPException) as exc:
+        await paxlog.access_external_link(
+            "token-1",
+            request=SimpleNamespace(client=SimpleNamespace(host="127.0.0.1"), headers={"user-agent": "pytest"}),
+            x_external_session=None,
+            db=FakeDB([]),
+        )
+
+    assert exc.value.status_code == 429
+    assert link.access_log[-1]["action"] == "public_access_rate_limited"
 
 
 @pytest.mark.asyncio
@@ -3475,6 +3513,42 @@ async def test_verify_external_link_otp_rejects_invalid_code_and_tracks_attempt(
     assert link.otp_attempt_count == 1
     assert link.access_log[-1]["action"] == "otp_failed"
     assert link.session_token_hash is None
+
+
+@pytest.mark.asyncio
+async def test_verify_external_link_otp_rate_limits_recent_failures(monkeypatch):
+    now = datetime.now(timezone.utc)
+    link = SimpleNamespace(
+        otp_required=True,
+        otp_code_hash=paxlog._hash_secret("123456"),
+        otp_expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
+        otp_attempt_count=0,
+        session_token_hash=None,
+        session_expires_at=None,
+        access_log=[
+            {"action": "otp_failed", "timestamp": (now - timedelta(minutes=5)).isoformat()},
+            {"action": "otp_failed", "timestamp": (now - timedelta(minutes=4)).isoformat()},
+            {"action": "otp_failed", "timestamp": (now - timedelta(minutes=3)).isoformat()},
+            {"action": "otp_failed", "timestamp": (now - timedelta(minutes=2)).isoformat()},
+            {"action": "otp_failed", "timestamp": (now - timedelta(minutes=1)).isoformat()},
+        ],
+    )
+
+    async def fake_get_link(_db, _token):
+        return link
+
+    monkeypatch.setattr(paxlog, "_get_external_link_or_404", fake_get_link)
+
+    with pytest.raises(HTTPException) as exc:
+        await paxlog.verify_external_link_otp(
+            "token-otp",
+            paxlog.ExternalOtpVerifyBody(code="000000"),
+            request=SimpleNamespace(client=SimpleNamespace(host="127.0.0.1"), headers={"user-agent": "pytest"}),
+            db=FakeDB([]),
+        )
+
+    assert exc.value.status_code == 429
+    assert link.access_log[-1]["action"] == "otp_verify_rate_limited"
 
 
 @pytest.mark.asyncio
@@ -3580,6 +3654,38 @@ async def test_require_external_session_rejects_browser_context_change(monkeypat
     assert exc.value.status_code == 401
     assert link.access_log[-1]["action"] == "session_context_mismatch"
     assert link.session_token_hash is None
+
+
+@pytest.mark.asyncio
+async def test_require_external_session_logs_invalid_token_attempt(monkeypatch):
+    valid_session_token = "session-token-123"
+    link = SimpleNamespace(
+        otp_required=True,
+        token="token-ctx",
+        session_token_hash=paxlog._hash_secret(valid_session_token),
+        session_expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
+        access_log=[],
+    )
+    db = FakeDB([])
+
+    async def fake_get_link(_db, _token):
+        return link
+
+    monkeypatch.setattr(paxlog, "_get_external_link_or_404", fake_get_link)
+
+    with pytest.raises(HTTPException) as exc:
+        await paxlog._require_external_session(
+            db,
+            token="token-ctx",
+            session_token="wrong-token",
+            request=SimpleNamespace(
+                client=SimpleNamespace(host="127.0.0.1"),
+                headers={"user-agent": "Browser A"},
+            ),
+        )
+
+    assert exc.value.status_code == 401
+    assert link.access_log[-1]["action"] == "session_invalid"
 
 
 @pytest.mark.asyncio
@@ -3787,8 +3893,11 @@ async def test_get_external_ads_dossier_filters_pax_to_allowed_company(monkeypat
     assert response["pax"][0]["compliance_ok"] is False
     assert response["pax"][0]["compliance_blocker_count"] == 1
     assert response["pax"][0]["compliance_blockers"][0]["credential_type_code"] == "MED"
+    assert response["pax"][0]["compliance_blockers"][0]["layer_label"] is None
     assert response["pax"][0]["credentials"][0]["credential_type_code"] == "MED"
     assert response["pax"][0]["credentials"][0]["status"] == "pending_validation"
+    assert response["pax"][0]["missing_identity_fields"] == []
+    assert any(item["kind"] == "credential" for item in response["pax"][0]["required_actions"])
     assert response["pax_summary"]["total"] == 1
     assert response["pax_summary"]["pending_check"] == 1
     assert response["ads"]["outbound_transport_mode"] == ads.outbound_transport_mode
@@ -3822,6 +3931,207 @@ async def test_list_external_credential_types_requires_external_session(monkeypa
     )
 
     assert [item.code for item in response] == ["BOSIET", "H2S"]
+
+
+@pytest.mark.asyncio
+async def test_find_external_ads_pax_matches_uses_allowed_company_scope(monkeypatch):
+    link = SimpleNamespace(id=uuid4())
+    ads = _build_ads(status="draft")
+    expected_allowed_company_id = uuid4()
+    expected_match = paxlog.ExternalPaxMatchRead(
+        contact_id=uuid4(),
+        first_name="Aline",
+        last_name="Mukeba",
+        match_score=80,
+        match_reasons=["name_exact", "badge_number"],
+        already_linked_to_ads=False,
+    )
+
+    async def fake_require_session(_db, token, session_token, request=None):
+        return link
+
+    async def fake_get_ads_and_context(_db, link):
+        return ads, ads.entity_id, expected_allowed_company_id
+
+    async def fake_find_matches(_db, *, ads_id, allowed_company_id: object, body):
+        assert ads_id == ads.id
+        assert allowed_company_id == expected_allowed_company_id
+        assert body.first_name == "Aline"
+        return [expected_match]
+
+    monkeypatch.setattr(paxlog, "_require_external_session", fake_require_session)
+    monkeypatch.setattr(paxlog, "_get_external_ads_and_context", fake_get_ads_and_context)
+    monkeypatch.setattr(paxlog, "_find_external_contact_matches", fake_find_matches)
+
+    response = await paxlog.find_external_ads_pax_matches(
+        "token-match",
+        body=paxlog.ExternalPaxUpsertBody(first_name="Aline", last_name="Mukeba"),
+        request=SimpleNamespace(client=None, headers={}),
+        x_external_session="session-ok",
+        db=FakeDB([]),
+    )
+
+    assert len(response) == 1
+    assert response[0].contact_id == expected_match.contact_id
+
+
+@pytest.mark.asyncio
+async def test_create_external_ads_pax_rejects_duplicate_match(monkeypatch):
+    link = SimpleNamespace(id=uuid4())
+    ads = _build_ads(status="draft")
+    allowed_company_id = uuid4()
+
+    async def fake_require_session(_db, token, session_token, request=None):
+        return link
+
+    async def fake_get_ads_and_context(_db, link):
+        return ads, ads.entity_id, allowed_company_id
+
+    async def fake_find_matches(_db, *, ads_id, allowed_company_id, body):
+        return [
+            paxlog.ExternalPaxMatchRead(
+                contact_id=uuid4(),
+                first_name="Aline",
+                last_name="Mukeba",
+                match_score=80,
+                match_reasons=["name_exact"],
+                already_linked_to_ads=False,
+            )
+        ]
+
+    monkeypatch.setattr(paxlog, "_require_external_session", fake_require_session)
+    monkeypatch.setattr(paxlog, "_get_external_ads_and_context", fake_get_ads_and_context)
+    monkeypatch.setattr(paxlog, "_find_external_contact_matches", fake_find_matches)
+
+    with pytest.raises(HTTPException) as exc:
+        await paxlog.create_external_ads_pax(
+            "token-create",
+            body=paxlog.ExternalPaxUpsertBody(first_name="Aline", last_name="Mukeba"),
+            request=SimpleNamespace(client=None, headers={}),
+            x_external_session="session-ok",
+            db=FakeDB([]),
+        )
+
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "EXTERNAL_PAX_DUPLICATE_MATCH"
+
+
+@pytest.mark.asyncio
+async def test_attach_existing_external_ads_pax_updates_and_links_contact(monkeypatch):
+    link = SimpleNamespace(id=uuid4(), access_log=[])
+    ads = _build_ads(status="draft")
+    allowed_company_id = uuid4()
+    contact = SimpleNamespace(
+        id=uuid4(),
+        tier_id=allowed_company_id,
+        active=True,
+        first_name="Aline",
+        last_name="Mukeba",
+        birth_date=None,
+        nationality="CD",
+        badge_number="BG-77",
+        photo_url=None,
+        email="aline@example.com",
+        phone=None,
+        position=None,
+    )
+    db = FakeDB([FakeResult(scalar_one_or_none=None)])
+    db_get = FakeDBWithGet(db._results, get_map={(paxlog.TierContact, contact.id): contact})
+    db_get.added = db.added
+    db_get.commits = db.commits
+    db_get.refreshed = db.refreshed
+    db_get.executed = db.executed
+    audit_calls = []
+
+    async def fake_require_session(_db, token, session_token, request=None):
+        return link
+
+    async def fake_get_ads_and_context(_db, link):
+        return ads, ads.entity_id, allowed_company_id
+
+    async def fake_record_audit(*args, **kwargs):
+        audit_calls.append(kwargs)
+
+    monkeypatch.setattr(paxlog, "_require_external_session", fake_require_session)
+    monkeypatch.setattr(paxlog, "_get_external_ads_and_context", fake_get_ads_and_context)
+    monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+
+    response = await paxlog.attach_existing_external_ads_pax(
+        "token-attach",
+        contact_id=contact.id,
+        body=paxlog.ExternalPaxUpsertBody(
+            first_name="Aline",
+            last_name="Mukeba",
+            nationality="CD",
+            badge_number="BG-77",
+            email="aline@example.com",
+        ),
+        request=SimpleNamespace(client=None, headers={}),
+        x_external_session="session-ok",
+        db=db_get,
+    )
+
+    assert response["contact_id"] == str(contact.id)
+    assert response["already_linked"] is False
+    assert contact.first_name == "Aline"
+    assert contact.last_name == "Mukeba"
+    assert contact.nationality == "CD"
+    assert contact.badge_number == "BG-77"
+    assert any(isinstance(item, paxlog.AdsPax) and item.contact_id == contact.id for item in db_get.added)
+    assert link.access_log[-1]["action"] == "attach_existing_pax"
+    assert audit_calls
+
+
+@pytest.mark.asyncio
+async def test_attach_existing_external_ads_pax_rejects_non_matching_company_contact(monkeypatch):
+    link = SimpleNamespace(id=uuid4(), access_log=[])
+    ads = _build_ads(status="draft")
+    allowed_company_id = uuid4()
+    contact = SimpleNamespace(
+        id=uuid4(),
+        tier_id=allowed_company_id,
+        active=True,
+        first_name="Jean",
+        last_name="Kasongo",
+        birth_date=None,
+        nationality="CD",
+        badge_number="BG-11",
+        photo_url=None,
+        email="jean@example.com",
+        phone="+243900000111",
+        position="Welder",
+    )
+    db = FakeDB([])
+    db_get = FakeDBWithGet(db._results, get_map={(paxlog.TierContact, contact.id): contact})
+
+    async def fake_require_session(_db, token, session_token, request=None):
+        return link
+
+    async def fake_get_ads_and_context(_db, link):
+        return ads, ads.entity_id, allowed_company_id
+
+    monkeypatch.setattr(paxlog, "_require_external_session", fake_require_session)
+    monkeypatch.setattr(paxlog, "_get_external_ads_and_context", fake_get_ads_and_context)
+
+    with pytest.raises(HTTPException) as exc:
+        await paxlog.attach_existing_external_ads_pax(
+            "token-attach",
+            contact_id=contact.id,
+            body=paxlog.ExternalPaxUpsertBody(
+                first_name="Aline",
+                last_name="Mukeba",
+                nationality="FR",
+                badge_number="DIFFERENT",
+                email="aline@example.com",
+            ),
+            request=SimpleNamespace(client=None, headers={}),
+            x_external_session="session-ok",
+            db=db_get,
+        )
+
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "EXTERNAL_PAX_ATTACH_REQUIRES_MATCH"
+    assert exc.value.detail["match_score"] == 0
 
 
 @pytest.mark.asyncio
@@ -3914,6 +4224,55 @@ async def test_create_external_ads_pax_credential_rejects_foreign_company_contac
 
     assert exc.value.status_code == 403
     assert "entreprise autorisée" in exc.value.detail
+
+
+@pytest.mark.asyncio
+async def test_list_ads_external_links_returns_security_summary(monkeypatch):
+    ads = _build_ads(status="approved")
+    current_user = SimpleNamespace(id=ads.requester_id)
+    link = SimpleNamespace(
+        id=uuid4(),
+        ads_id=ads.id,
+        created_by=uuid4(),
+        otp_required=True,
+        otp_sent_to="contractor@example.com",
+        expires_at=datetime.now(timezone.utc) + timedelta(hours=4),
+        max_uses=5,
+        use_count=2,
+        revoked=False,
+        created_at=datetime.now(timezone.utc) - timedelta(hours=1),
+        session_expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
+        last_validated_at=datetime.now(timezone.utc) - timedelta(minutes=5),
+        access_log=[
+            {"action": "otp_validated", "timestamp": datetime.now(timezone.utc).isoformat(), "otp_validated": True},
+            {"action": "session_invalid", "timestamp": datetime.now(timezone.utc).isoformat(), "otp_validated": False},
+            {"action": "public_access_rate_limited", "timestamp": datetime.now(timezone.utc).isoformat(), "otp_validated": False},
+        ],
+    )
+    db = FakeDB([
+        FakeResult(scalar_one_or_none=ads),
+        FakeResult(all_rows=[link]),
+    ])
+
+    async def fake_assert_ads_read_access(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(paxlog, "_assert_ads_read_access", fake_assert_ads_read_access)
+
+    response = await paxlog.list_ads_external_links(
+        ads.id,
+        entity_id=ads.entity_id,
+        current_user=current_user,
+        db=db,
+        _=None,
+    )
+
+    assert len(response) == 1
+    assert response[0].otp_destination_masked == "co********@example.com"
+    assert response[0].remaining_uses == 3
+    assert response[0].anomaly_count == 2
+    assert response[0].anomaly_actions["session_invalid"] == 1
+    assert response[0].anomaly_actions["public_access_rate_limited"] == 1
 
 
 @pytest.mark.asyncio

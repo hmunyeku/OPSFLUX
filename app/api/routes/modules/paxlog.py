@@ -9,7 +9,6 @@ Integrates with:
 
 import logging
 import hashlib
-import unicodedata
 import re
 import secrets
 from datetime import date, datetime, timedelta, timezone
@@ -61,6 +60,8 @@ from app.models.paxlog import (
 from app.models.planner import PlannerActivity
 from app.schemas.paxlog import (
     AdsCreate,
+    AdsExternalLinkSecurityRead,
+    ExternalAdsDossierRead,
     AdsImputationSuggestionRead,
     AdsEventRead,
     AdsManualDepartureRequest,
@@ -82,6 +83,7 @@ from app.schemas.paxlog import (
     MissionPreparationTaskRead,
     MissionPreparationTaskUpdate,
     MissionProgramRead,
+    ExternalAccessEventRead,
     PaxCredentialCreate,
     PaxCredentialRead,
     PaxCredentialValidate,
@@ -707,6 +709,20 @@ def _hash_secret(value: str) -> str:
 
 EXTERNAL_OTP_SEND_WINDOW_MINUTES = 15
 EXTERNAL_OTP_SEND_MAX_PER_WINDOW = 3
+EXTERNAL_OTP_VERIFY_WINDOW_MINUTES = 15
+EXTERNAL_OTP_VERIFY_MAX_PER_WINDOW = 5
+EXTERNAL_PUBLIC_ACCESS_WINDOW_MINUTES = 15
+EXTERNAL_PUBLIC_ACCESS_MAX_PER_WINDOW = 20
+EXTERNAL_LINK_ANOMALY_ACTIONS = {
+    "otp_rate_limited",
+    "otp_verify_rate_limited",
+    "otp_locked",
+    "session_invalid",
+    "session_expired",
+    "session_context_mismatch",
+    "session_ip_changed",
+    "public_access_rate_limited",
+}
 
 
 def _get_external_request_context(request: Request | None) -> dict[str, str | None]:
@@ -783,6 +799,57 @@ def _append_external_access_log(
     link.access_log = log[-50:]
 
 
+def _build_external_link_security_read(link: ExternalAccessLink) -> AdsExternalLinkSecurityRead:
+    anomaly_actions: dict[str, int] = {}
+    recent_events: list[ExternalAccessEventRead] = []
+    for item in reversed(link.access_log or []):
+        action = str(item.get("action") or "")
+        if not action:
+            continue
+        if action in EXTERNAL_LINK_ANOMALY_ACTIONS:
+            anomaly_actions[action] = anomaly_actions.get(action, 0) + 1
+        timestamp_raw = item.get("timestamp")
+        timestamp = None
+        if isinstance(timestamp_raw, str):
+            try:
+                timestamp = datetime.fromisoformat(timestamp_raw.replace("Z", "+00:00"))
+            except ValueError:
+                timestamp = None
+        if len(recent_events) < 8:
+            recent_events.append(
+                ExternalAccessEventRead(
+                    timestamp=timestamp,
+                    action=action,
+                    otp_validated=item.get("otp_validated"),
+                    metadata=item.get("metadata") if isinstance(item.get("metadata"), dict) else None,
+                )
+            )
+    expires_at = link.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    active = (not link.revoked) and expires_at >= datetime.now(timezone.utc)
+    remaining_uses = max(link.max_uses - link.use_count, 0) if link.max_uses else None
+    return AdsExternalLinkSecurityRead(
+        id=link.id,
+        ads_id=link.ads_id,
+        created_by=link.created_by,
+        otp_required=link.otp_required,
+        otp_destination_masked=_mask_contact_value(link.otp_sent_to),
+        expires_at=link.expires_at,
+        max_uses=link.max_uses,
+        use_count=link.use_count,
+        remaining_uses=remaining_uses,
+        revoked=link.revoked,
+        active=active,
+        created_at=link.created_at,
+        session_expires_at=link.session_expires_at,
+        last_validated_at=link.last_validated_at,
+        anomaly_count=sum(anomaly_actions.values()),
+        anomaly_actions=anomaly_actions,
+        recent_events=recent_events,
+    )
+
+
 async def _get_external_link_or_404(db: AsyncSession, token: str) -> ExternalAccessLink:
     result = await db.execute(
         select(ExternalAccessLink).where(
@@ -817,6 +884,15 @@ async def _require_external_session(
     if not session_token or not link.session_token_hash:
         raise HTTPException(status_code=401, detail="Session externe requise")
     if _hash_secret(session_token) != link.session_token_hash:
+        if request:
+            _append_external_access_log(
+                link,
+                action="session_invalid",
+                request=request,
+                otp_validated=False,
+                metadata={"reason": "token_hash_mismatch"},
+            )
+            await db.commit()
         raise HTTPException(status_code=401, detail="Session externe invalide")
     if not link.session_expires_at:
         raise HTTPException(status_code=401, detail="Session externe expirée")
@@ -824,6 +900,16 @@ async def _require_external_session(
     if session_expires_at.tzinfo is None:
         session_expires_at = session_expires_at.replace(tzinfo=timezone.utc)
     if session_expires_at < datetime.now(timezone.utc):
+        link.session_token_hash = None
+        link.session_expires_at = None
+        if request:
+            _append_external_access_log(
+                link,
+                action="session_expired",
+                request=request,
+                otp_validated=False,
+            )
+            await db.commit()
         raise HTTPException(status_code=401, detail="Session externe expirée")
     if request:
         expected_context = _get_latest_external_session_context(link)
@@ -872,48 +958,18 @@ async def _get_external_ads_and_context(
     return ads, ads.entity_id, allowed_company_id
 
 
-def _normalize_name(name: str) -> str:
-    """Normalize a name for fuzzy search: lowercase, no accents, no hyphens."""
-    nfkd = unicodedata.normalize("NFKD", name)
-    ascii_str = nfkd.encode("ascii", "ignore").decode("ascii")
-    return re.sub(r"[^a-z0-9 ]", "", ascii_str.lower()).strip()
-
-
-def _phonetic_name_key(name: str) -> str:
-    normalized = _normalize_name(name).replace(" ", "")
-    if not normalized:
-        return ""
-    normalized = (
-        normalized.replace("ph", "f")
-        .replace("ck", "k")
-        .replace("qu", "k")
-        .replace("ou", "u")
-        .replace("x", "s")
-    )
-    first = normalized[0]
-    tail = re.sub(r"[aeiouyhw]", "", normalized[1:])
-    tail = re.sub(r"(.)\1+", r"\1", tail)
-    return f"{first}{tail}"
-
-
 def _compare_pax_names(
     first_name: str,
     last_name: str,
     candidate_first_name: str,
     candidate_last_name: str,
 ) -> str | None:
-    first_norm = _normalize_name(first_name)
-    last_norm = _normalize_name(last_name)
-    candidate_first_norm = _normalize_name(candidate_first_name)
-    candidate_last_norm = _normalize_name(candidate_last_name)
-    if first_norm == candidate_first_norm and last_norm == candidate_last_norm:
-        return "name_exact"
-    if (
-        _phonetic_name_key(first_name) == _phonetic_name_key(candidate_first_name)
-        and _phonetic_name_key(last_name) == _phonetic_name_key(candidate_last_name)
-    ):
-        return "name_phonetic"
-    return None
+    return paxlog_service.compare_pax_names(
+        first_name,
+        last_name,
+        candidate_first_name,
+        candidate_last_name,
+    )
 
 
 def _compute_completeness(
@@ -4224,6 +4280,21 @@ class ExternalPaxUpsertBody(BaseModel):
     position: str | None = None
 
 
+class ExternalPaxMatchRead(BaseModel):
+    contact_id: UUID
+    first_name: str
+    last_name: str
+    birth_date: date | None = None
+    nationality: str | None = None
+    badge_number: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    position: str | None = None
+    match_score: int
+    match_reasons: list[str] = []
+    already_linked_to_ads: bool = False
+
+
 class ExternalCredentialCreateBody(BaseModel):
     credential_type_id: UUID
     obtained_date: date
@@ -4243,18 +4314,50 @@ class ExternalLinkCreateBody(BaseModel):
 
 
 def _mask_contact_value(value: str | None) -> str | None:
-    if not value:
-        return None
-    if "@" in value:
-        local, _, domain = value.partition("@")
-        if len(local) <= 2:
-            local_masked = "*" * len(local)
-        else:
-            local_masked = local[:2] + "*" * max(len(local) - 2, 1)
-        return f"{local_masked}@{domain}"
-    if len(value) <= 4:
-        return "*" * len(value)
-    return "*" * (len(value) - 4) + value[-4:]
+    return paxlog_service.mask_contact_value(value)
+
+
+def _score_external_contact_match(
+    *,
+    contact: TierContact,
+    body: ExternalPaxUpsertBody,
+) -> tuple[int, list[str]]:
+    return paxlog_service.score_external_contact_match(
+        first_name=body.first_name,
+        last_name=body.last_name,
+        birth_date=body.birth_date,
+        nationality=body.nationality,
+        badge_number=body.badge_number,
+        email=body.email,
+        phone=body.phone,
+        candidate=contact,
+    )
+
+
+def _is_external_contact_match_strong(*, score: int, reasons: list[str]) -> bool:
+    return paxlog_service.is_external_contact_match_strong(score=score, reasons=reasons)
+
+
+async def _find_external_contact_matches(
+    db: AsyncSession,
+    *,
+    ads_id: UUID,
+    allowed_company_id: UUID,
+    body: ExternalPaxUpsertBody,
+) -> list[ExternalPaxMatchRead]:
+    matches = await paxlog_service.find_external_contact_matches(
+        db,
+        ads_id=ads_id,
+        allowed_company_id=allowed_company_id,
+        first_name=body.first_name,
+        last_name=body.last_name,
+        birth_date=body.birth_date,
+        nationality=body.nationality,
+        badge_number=body.badge_number,
+        email=body.email,
+        phone=body.phone,
+    )
+    return [ExternalPaxMatchRead(**item) for item in matches]
 
 
 async def _send_external_link_otp(db: AsyncSession, *, link: ExternalAccessLink) -> None:
@@ -4504,6 +4607,27 @@ async def create_external_link(
     }
 
 
+@router.get("/ads/{ads_id}/external-links", response_model=list[AdsExternalLinkSecurityRead])
+async def list_ads_external_links(
+    ads_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.ads.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    ads_result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
+    ads = ads_result.scalar_one_or_none()
+    if not ads:
+        raise HTTPException(status_code=404, detail="AdS not found")
+    await _assert_ads_read_access(ads, current_user=current_user, entity_id=entity_id, db=db)
+    result = await db.execute(
+        select(ExternalAccessLink)
+        .where(ExternalAccessLink.ads_id == ads_id)
+        .order_by(ExternalAccessLink.created_at.desc())
+    )
+    return [_build_external_link_security_read(link) for link in result.scalars().all()]
+
+
 @router.get("/external/{token}")
 async def access_external_link(
     token: str,
@@ -4520,6 +4644,29 @@ async def access_external_link(
             authenticated = True
         except HTTPException:
             authenticated = False
+    if not authenticated and link.otp_required:
+        if _count_recent_external_actions(
+            link,
+            action="public_access",
+            window_minutes=EXTERNAL_PUBLIC_ACCESS_WINDOW_MINUTES,
+        ) >= EXTERNAL_PUBLIC_ACCESS_MAX_PER_WINDOW:
+            _append_external_access_log(
+                link,
+                action="public_access_rate_limited",
+                request=request,
+                otp_validated=False,
+                metadata={
+                    "window_minutes": EXTERNAL_PUBLIC_ACCESS_WINDOW_MINUTES,
+                    "max_per_window": EXTERNAL_PUBLIC_ACCESS_MAX_PER_WINDOW,
+                },
+            )
+            await db.commit()
+            raise HTTPException(status_code=429, detail="Trop de consultations publiques récentes pour ce lien")
+        _append_external_access_log(link, action="public_access", request=request, otp_validated=False)
+        await db.commit()
+    elif authenticated:
+        _append_external_access_log(link, action="authenticated_access", request=request, otp_validated=True)
+        await db.commit()
 
     return {
         "ads_id": str(link.ads_id),
@@ -4584,18 +4731,52 @@ async def verify_external_link_otp(
         link.last_validated_at = datetime.now(timezone.utc)
         _append_external_access_log(link, action="session_opened", request=request, otp_validated=True)
         await db.commit()
-        return {"session_token": session_token, "expires_in_seconds": EXTERNAL_SESSION_TTL_MINUTES * 60}
+        return paxlog_service.build_external_session_open_payload(
+            session_token=session_token,
+            ttl_minutes=EXTERNAL_SESSION_TTL_MINUTES,
+        )
 
-    if not link.otp_code_hash or not link.otp_expires_at:
+    if _count_recent_external_actions(
+        link,
+        action="otp_failed",
+        window_minutes=EXTERNAL_OTP_VERIFY_WINDOW_MINUTES,
+    ) >= EXTERNAL_OTP_VERIFY_MAX_PER_WINDOW:
+        _append_external_access_log(
+            link,
+            action="otp_verify_rate_limited",
+            request=request,
+            otp_validated=False,
+            metadata={
+                "window_minutes": EXTERNAL_OTP_VERIFY_WINDOW_MINUTES,
+                "max_per_window": EXTERNAL_OTP_VERIFY_MAX_PER_WINDOW,
+            },
+        )
+        await db.commit()
+        raise HTTPException(status_code=429, detail="Trop de tentatives OTP récentes pour ce lien")
+
+    otp_ok, otp_error = paxlog_service.verify_external_otp_code(
+        expected_hash=link.otp_code_hash,
+        provided_hash=_hash_secret(body.code.strip()),
+        otp_expires_at=link.otp_expires_at,
+        otp_attempt_count=link.otp_attempt_count,
+        max_attempts=EXTERNAL_OTP_MAX_ATTEMPTS,
+        now=datetime.now(timezone.utc),
+    )
+    if otp_error == "missing_otp":
         raise HTTPException(status_code=400, detail="Aucun OTP actif pour ce lien")
-    otp_expires_at = link.otp_expires_at
-    if otp_expires_at.tzinfo is None:
-        otp_expires_at = otp_expires_at.replace(tzinfo=timezone.utc)
-    if otp_expires_at < datetime.now(timezone.utc):
+    if otp_error == "expired":
         raise HTTPException(status_code=410, detail="Le code OTP a expiré")
-    if link.otp_attempt_count >= EXTERNAL_OTP_MAX_ATTEMPTS:
+    if otp_error == "locked":
+        _append_external_access_log(
+            link,
+            action="otp_locked",
+            request=request,
+            otp_validated=False,
+            metadata={"max_attempts": EXTERNAL_OTP_MAX_ATTEMPTS},
+        )
+        await db.commit()
         raise HTTPException(status_code=429, detail="Nombre maximal de tentatives OTP atteint")
-    if _hash_secret(body.code.strip()) != link.otp_code_hash:
+    if not otp_ok:
         link.otp_attempt_count += 1
         _append_external_access_log(link, action="otp_failed", request=request, otp_validated=False)
         await db.commit()
@@ -4611,10 +4792,13 @@ async def verify_external_link_otp(
     link.use_count += 1
     _append_external_access_log(link, action="otp_validated", request=request, otp_validated=True)
     await db.commit()
-    return {"session_token": session_token, "expires_in_seconds": EXTERNAL_SESSION_TTL_MINUTES * 60}
+    return paxlog_service.build_external_session_open_payload(
+        session_token=session_token,
+        ttl_minutes=EXTERNAL_SESSION_TTL_MINUTES,
+    )
 
 
-@router.get("/external/{token}/dossier")
+@router.get("/external/{token}/dossier", response_model=ExternalAdsDossierRead)
 async def get_external_ads_dossier(
     token: str,
     request: Request,
@@ -4637,87 +4821,11 @@ async def get_external_ads_dossier(
         project_row = project_result.first()
         if project_row:
             project_name = f"{project_row[0]} — {project_row[1]}" if project_row[0] else project_row[1]
-    pax_entries = (
-        await db.execute(
-            select(AdsPax, TierContact)
-            .join(TierContact, TierContact.id == AdsPax.contact_id)
-            .where(AdsPax.ads_id == ads.id)
-            .order_by(TierContact.last_name, TierContact.first_name)
-        )
-    ).all()
-    allowed_pax = []
-    for entry, contact in pax_entries:
-        if allowed_company_id and contact.tier_id != allowed_company_id:
-            continue
-        compliance_summary = entry.compliance_summary or {}
-        compliance_results = [
-            item for item in (compliance_summary.get("results") or [])
-            if isinstance(item, dict)
-        ]
-        compliance_blockers = [
-            {
-                "credential_type_code": item.get("credential_type_code"),
-                "credential_type_name": item.get("credential_type_name"),
-                "status": item.get("status"),
-                "message": item.get("message"),
-                "expiry_date": item.get("expiry_date"),
-            }
-            for item in compliance_results
-            if item.get("status") in {"missing", "expired", "pending", "error"}
-        ]
-        allowed_pax.append({
-            "entry_id": str(entry.id),
-            "contact_id": str(contact.id),
-            "first_name": contact.first_name,
-            "last_name": contact.last_name,
-            "birth_date": contact.birth_date.isoformat() if contact.birth_date else None,
-            "nationality": contact.nationality,
-            "badge_number": contact.badge_number,
-            "photo_url": contact.photo_url,
-            "email": contact.email,
-            "phone": contact.phone,
-            "position": contact.position,
-            "status": entry.status,
-            "company_id": str(contact.tier_id),
-            "compliance_ok": bool(compliance_summary.get("compliant")),
-            "compliance_blocker_count": len(compliance_blockers),
-            "compliance_blockers": compliance_blockers[:5],
-            "credentials": [],
-        })
-    visible_contact_ids = [UUID(item["contact_id"]) for item in allowed_pax]
-    credentials_by_contact: dict[UUID, list[dict[str, object | None]]] = {}
-    if visible_contact_ids:
-        credential_rows = (
-            await db.execute(
-                select(PaxCredential, CredentialType)
-                .join(CredentialType, CredentialType.id == PaxCredential.credential_type_id)
-                .where(PaxCredential.contact_id.in_(visible_contact_ids))
-                .order_by(CredentialType.name.asc(), PaxCredential.obtained_date.desc())
-            )
-        ).all()
-        for credential, credential_type in credential_rows:
-            if not credential.contact_id:
-                continue
-            credentials_by_contact.setdefault(credential.contact_id, []).append(
-                {
-                    "id": str(credential.id),
-                    "credential_type_code": credential_type.code,
-                    "credential_type_name": credential_type.name,
-                    "status": credential.status,
-                    "obtained_date": credential.obtained_date.isoformat() if credential.obtained_date else None,
-                    "expiry_date": credential.expiry_date.isoformat() if credential.expiry_date else None,
-                    "proof_url": credential.proof_url,
-                }
-            )
-    for item in allowed_pax:
-        item["credentials"] = credentials_by_contact.get(UUID(item["contact_id"]), [])[:8]
-    pax_summary = {
-        "total": len(allowed_pax),
-        "pending_check": sum(1 for item in allowed_pax if item["status"] == "pending_check"),
-        "compliant": sum(1 for item in allowed_pax if item["status"] == "compliant"),
-        "blocked": sum(1 for item in allowed_pax if item["status"] == "blocked"),
-        "approved": sum(1 for item in allowed_pax if item["status"] == "approved"),
-    }
+    allowed_pax, pax_summary = await paxlog_service.build_external_dossier_pax_data(
+        db,
+        ads_id=ads.id,
+        allowed_company_id=allowed_company_id,
+    )
     _append_external_access_log(link, action="view_dossier", request=request, otp_validated=True)
     await db.commit()
     return {
@@ -4763,6 +4871,28 @@ async def list_external_credential_types(
     return result.scalars().all()
 
 
+@router.post("/external/{token}/pax/matches", response_model=list[ExternalPaxMatchRead])
+async def find_external_ads_pax_matches(
+    token: str,
+    body: ExternalPaxUpsertBody,
+    request: Request,
+    x_external_session: str | None = Header(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    link = await _require_external_session(db, token=token, session_token=x_external_session, request=request)
+    ads, _entity_id, allowed_company_id = await _get_external_ads_and_context(db, link=link)
+    if not allowed_company_id:
+        raise HTTPException(status_code=400, detail="Aucune entreprise cible n'est configurée sur ce lien externe")
+    if not body.first_name.strip() or not body.last_name.strip():
+        return []
+    return await _find_external_contact_matches(
+        db,
+        ads_id=ads.id,
+        allowed_company_id=allowed_company_id,
+        body=body,
+    )
+
+
 @router.post("/external/{token}/pax", status_code=201)
 async def create_external_ads_pax(
     token: str,
@@ -4777,6 +4907,21 @@ async def create_external_ads_pax(
         raise HTTPException(status_code=400, detail="Le dossier n'accepte plus de modification externe")
     if not allowed_company_id:
         raise HTTPException(status_code=400, detail="Aucune entreprise cible n'est configurée sur ce lien externe")
+    matches = await _find_external_contact_matches(
+        db,
+        ads_id=ads.id,
+        allowed_company_id=allowed_company_id,
+        body=body,
+    )
+    if matches:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "EXTERNAL_PAX_DUPLICATE_MATCH",
+                "message": "Un contact similaire existe déjà pour cette entreprise. Confirmez le candidat existant au lieu de créer un doublon.",
+                "matches": [match.model_dump(mode="json") for match in matches],
+            },
+        )
 
     contact = TierContact(
         tier_id=allowed_company_id,
@@ -4808,6 +4953,74 @@ async def create_external_ads_pax(
     )
     await db.commit()
     return {"contact_id": str(contact.id), "ads_id": str(ads.id)}
+
+
+@router.post("/external/{token}/pax/{contact_id}/attach-existing", status_code=201)
+async def attach_existing_external_ads_pax(
+    token: str,
+    contact_id: UUID,
+    body: ExternalPaxUpsertBody,
+    request: Request,
+    x_external_session: str | None = Header(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    link = await _require_external_session(db, token=token, session_token=x_external_session, request=request)
+    ads, entity_id, allowed_company_id = await _get_external_ads_and_context(db, link=link)
+    if ads.status not in {"draft", "requires_review"}:
+        raise HTTPException(status_code=400, detail="Le dossier n'accepte plus de modification externe")
+    if not allowed_company_id:
+        raise HTTPException(status_code=400, detail="Aucune entreprise cible n'est configurée sur ce lien externe")
+
+    contact = await db.get(TierContact, contact_id)
+    if not contact or contact.tier_id != allowed_company_id or not contact.active:
+        raise HTTPException(status_code=404, detail="Contact externe introuvable pour l'entreprise autorisée")
+    match_score, match_reasons = _score_external_contact_match(contact=contact, body=body)
+    if not _is_external_contact_match_strong(score=match_score, reasons=match_reasons):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "EXTERNAL_PAX_ATTACH_REQUIRES_MATCH",
+                "message": "Ce contact ne correspond pas suffisamment aux informations saisies",
+                "match_score": match_score,
+                "match_reasons": match_reasons,
+            },
+        )
+
+    existing_entry = (
+        await db.execute(
+            select(AdsPax).where(
+                AdsPax.ads_id == ads.id,
+                AdsPax.contact_id == contact.id,
+            )
+        )
+    ).scalar_one_or_none()
+    if not existing_entry:
+        db.add(AdsPax(ads_id=ads.id, contact_id=contact.id, status="pending_check"))
+
+    contact.first_name = body.first_name
+    contact.last_name = body.last_name
+    contact.birth_date = body.birth_date
+    contact.nationality = body.nationality
+    contact.badge_number = body.badge_number
+    contact.photo_url = body.photo_url
+    contact.email = body.email
+    contact.phone = body.phone
+    contact.position = body.position
+    _append_external_access_log(link, action="attach_existing_pax", request=request, otp_validated=True)
+    await db.commit()
+
+    await record_audit(
+        db,
+        action="paxlog.external.pax.attach_existing",
+        resource_type="tier_contact",
+        resource_id=str(contact.id),
+        entity_id=entity_id,
+        details={"ads_id": str(ads.id), "link_id": str(link.id), "already_linked": existing_entry is not None},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    await db.commit()
+    return {"contact_id": str(contact.id), "ads_id": str(ads.id), "already_linked": existing_entry is not None}
 
 
 @router.patch("/external/{token}/pax/{contact_id}")

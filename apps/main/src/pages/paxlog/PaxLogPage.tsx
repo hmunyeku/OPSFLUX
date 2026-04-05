@@ -94,6 +94,7 @@ import {
   useAdsPdf,
   useAdsPax,
   useAdsImputationSuggestion,
+  useAdsExternalLinks,
   useCreateExternalLink,
   usePaxIncidents,
   useCreatePaxIncident,
@@ -268,6 +269,17 @@ function SeverityBadge({ severity }: { severity: string }) {
 function formatDate(d: string | null) {
   if (!d) return '—'
   return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+function formatDateTime(d: string | null | undefined) {
+  if (!d) return '—'
+  return new Date(d).toLocaleString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 function formatDateShort(d: string | null | undefined) {
@@ -2070,6 +2082,7 @@ function AdsDetailPanel({ id }: { id: string }) {
   const { data: ads, isLoading } = useAds(id)
   const { data: adsPax } = useAdsPax(id)
   const { data: adsEvents } = useAdsEvents(id)
+  const { data: externalLinks = [] } = useAdsExternalLinks(id)
   const { data: stayPrograms = [] } = useStayPrograms({ ads_id: id })
   const { data: imputationSuggestion } = useAdsImputationSuggestion(id)
   const submitAds = useSubmitAds()
@@ -2306,6 +2319,24 @@ function AdsDetailPanel({ id }: { id: string }) {
                     ? t('paxlog.ads_detail.next_action.rejected')
                     : t('paxlog.ads_detail.next_action.cancelled')
   const latestOperationalImpactChanges = latestOperationalImpactMeta?.changes
+  const getExternalLinkEventLabel = (action: string) => {
+    const labels: Record<string, string> = {
+      public_access: t('paxlog.ads_detail.external_link.events.public_access'),
+      authenticated_access: t('paxlog.ads_detail.external_link.events.authenticated_access'),
+      otp_sent: t('paxlog.ads_detail.external_link.events.otp_sent'),
+      otp_failed: t('paxlog.ads_detail.external_link.events.otp_failed'),
+      otp_validated: t('paxlog.ads_detail.external_link.events.otp_validated'),
+      otp_rate_limited: t('paxlog.ads_detail.external_link.events.otp_rate_limited'),
+      otp_verify_rate_limited: t('paxlog.ads_detail.external_link.events.otp_verify_rate_limited'),
+      otp_locked: t('paxlog.ads_detail.external_link.events.otp_locked'),
+      session_invalid: t('paxlog.ads_detail.external_link.events.session_invalid'),
+      session_expired: t('paxlog.ads_detail.external_link.events.session_expired'),
+      session_context_mismatch: t('paxlog.ads_detail.external_link.events.session_context_mismatch'),
+      session_ip_changed: t('paxlog.ads_detail.external_link.events.session_ip_changed'),
+      public_access_rate_limited: t('paxlog.ads_detail.external_link.events.public_access_rate_limited'),
+    }
+    return labels[action] || action
+  }
   const latestStayChangeKinds = latestOperationalImpactMeta?.change_kinds ?? (
     latestOperationalImpactMeta?.primary_change_kind ? [latestOperationalImpactMeta.primary_change_kind] : []
   )
@@ -2597,6 +2628,85 @@ function AdsDetailPanel({ id }: { id: string }) {
                 {t('paxlog.ads_detail.external_link.confirm')}
               </PanelActionButton>
               <PanelActionButton onClick={() => setShowExternalLinkForm(false)}>{t('common.cancel')}</PanelActionButton>
+            </div>
+          </div>
+        )}
+
+        {externalLinks.length > 0 && (
+          <div className="border border-border rounded-lg p-3 space-y-3">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-foreground">{t('paxlog.ads_detail.external_link.audit_title')}</p>
+              <p className="text-xs text-muted-foreground">{t('paxlog.ads_detail.external_link.audit_description')}</p>
+            </div>
+            <div className="space-y-3">
+              {externalLinks.map((link) => (
+                <div key={link.id} className="rounded-lg border border-border/70 bg-muted/20 p-3 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={cn('gl-badge', link.active ? 'gl-badge-success' : 'gl-badge-neutral')}>
+                      {link.active ? t('paxlog.ads_detail.external_link.active') : t('paxlog.ads_detail.external_link.inactive')}
+                    </span>
+                    {link.anomaly_count > 0 && (
+                      <span className="gl-badge gl-badge-danger">
+                        {t('paxlog.ads_detail.external_link.anomalies', { count: link.anomaly_count })}
+                      </span>
+                    )}
+                    <span className="text-xs text-muted-foreground">
+                      {t('paxlog.ads_detail.external_link.destination_summary', { destination: link.otp_destination_masked || '—' })}
+                    </span>
+                  </div>
+                  <div className="grid gap-2 md:grid-cols-3 text-xs">
+                    <div>
+                      <span className="text-muted-foreground">{t('paxlog.ads_detail.external_link.created_at')}</span>
+                      <div>{formatDateTime(link.created_at)}</div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">{t('paxlog.ads_detail.external_link.expires_at')}</span>
+                      <div>{formatDateTime(link.expires_at)}</div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">{t('paxlog.ads_detail.external_link.uses')}</span>
+                      <div>{link.use_count} / {link.max_uses}{link.remaining_uses !== null ? ` (${t('paxlog.ads_detail.external_link.remaining_uses', { count: link.remaining_uses })})` : ''}</div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">{t('paxlog.ads_detail.external_link.last_validated_at')}</span>
+                      <div>{link.last_validated_at ? formatDateTime(link.last_validated_at) : '—'}</div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">{t('paxlog.ads_detail.external_link.session_expires_at')}</span>
+                      <div>{link.session_expires_at ? formatDateTime(link.session_expires_at) : '—'}</div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">{t('paxlog.ads_detail.external_link.otp_required')}</span>
+                      <div>{link.otp_required ? t('common.yes') : t('common.no')}</div>
+                    </div>
+                  </div>
+                  {Object.keys(link.anomaly_actions || {}).length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-foreground">{t('paxlog.ads_detail.external_link.anomaly_breakdown')}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(link.anomaly_actions).map(([action, count]) => (
+                          <span key={action} className="gl-badge gl-badge-danger">
+                            {getExternalLinkEventLabel(action)}: {count}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {link.recent_events.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-foreground">{t('paxlog.ads_detail.external_link.recent_events')}</p>
+                      <div className="space-y-1">
+                        {link.recent_events.map((event, index) => (
+                          <div key={`${link.id}-${event.action}-${index}`} className="flex items-center justify-between gap-3 text-xs">
+                            <span>{getExternalLinkEventLabel(event.action)}</span>
+                            <span className="text-muted-foreground">{event.timestamp ? formatDateTime(event.timestamp) : '—'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         )}

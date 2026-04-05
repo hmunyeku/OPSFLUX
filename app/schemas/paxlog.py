@@ -345,6 +345,123 @@ class AdsEventRead(OpsFluxSchema):
     recorded_at: datetime
 
 
+class ExternalAccessEventRead(BaseModel):
+    timestamp: datetime | None = None
+    action: str
+    otp_validated: bool | None = None
+    metadata: dict | None = None
+
+
+class AdsExternalLinkSecurityRead(OpsFluxSchema):
+    id: UUID
+    ads_id: UUID
+    created_by: UUID
+    otp_required: bool
+    otp_destination_masked: str | None = None
+    expires_at: datetime
+    max_uses: int
+    use_count: int
+    remaining_uses: int | None = None
+    revoked: bool
+    active: bool
+    created_at: datetime
+    session_expires_at: datetime | None = None
+    last_validated_at: datetime | None = None
+    anomaly_count: int = 0
+    anomaly_actions: dict[str, int] = {}
+    recent_events: list[ExternalAccessEventRead] = []
+
+
+class ExternalPaxCredentialRead(BaseModel):
+    id: str
+    credential_type_code: str | None = None
+    credential_type_name: str | None = None
+    status: str
+    obtained_date: str | None = None
+    expiry_date: str | None = None
+    proof_url: str | None = None
+
+
+class ExternalPaxComplianceBlockerRead(BaseModel):
+    credential_type_code: str | None = None
+    credential_type_name: str | None = None
+    status: str | None = None
+    message: str | None = None
+    expiry_date: str | None = None
+    layer_label: str | None = None
+
+
+class ExternalPaxRequiredActionRead(BaseModel):
+    code: str
+    kind: str
+    field: str | None = None
+    credential_type_code: str | None = None
+    status: str | None = None
+    label: str | None = None
+    message: str | None = None
+    layer_label: str | None = None
+    expiry_date: str | None = None
+
+
+class ExternalPaxDossierRead(BaseModel):
+    entry_id: str
+    contact_id: str
+    first_name: str
+    last_name: str
+    birth_date: str | None = None
+    nationality: str | None = None
+    badge_number: str | None = None
+    photo_url: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    position: str | None = None
+    status: str
+    company_id: str
+    compliance_ok: bool
+    compliance_blocker_count: int = 0
+    compliance_blockers: list[ExternalPaxComplianceBlockerRead] = []
+    missing_identity_fields: list[str] = []
+    required_actions: list[ExternalPaxRequiredActionRead] = []
+    credentials: list[ExternalPaxCredentialRead] = []
+
+
+class ExternalAdsSummaryRead(BaseModel):
+    id: str
+    reference: str
+    status: str
+    visit_purpose: str
+    visit_category: str
+    start_date: str
+    end_date: str
+    site_entry_asset_id: str
+    site_name: str | None = None
+    project_id: str | None = None
+    project_name: str | None = None
+    outbound_transport_mode: str | None = None
+    return_transport_mode: str | None = None
+    rejection_reason: str | None = None
+
+
+class ExternalPaxSummaryRead(BaseModel):
+    total: int = 0
+    pending_check: int = 0
+    compliant: int = 0
+    blocked: int = 0
+    approved: int = 0
+
+
+class ExternalAdsDossierRead(BaseModel):
+    ads: ExternalAdsSummaryRead
+    allowed_company_id: str | None = None
+    allowed_company_name: str | None = None
+    scope_label: str | None = None
+    can_submit: bool = False
+    can_resubmit: bool = False
+    preconfigured_data: dict = {}
+    pax_summary: ExternalPaxSummaryRead = Field(default_factory=ExternalPaxSummaryRead)
+    pax: list[ExternalPaxDossierRead] = []
+
+
 class AdsImputationSuggestionRead(BaseModel):
     owner_type: str = "ads"
     owner_id: UUID

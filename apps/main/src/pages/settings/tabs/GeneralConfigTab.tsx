@@ -82,6 +82,24 @@ export function GeneralConfigTab() {
   }
 
   const s = settings ?? {}
+  const complianceSequence = Array.isArray(s['paxlog.compliance_sequence'])
+    ? (s['paxlog.compliance_sequence'] as string[])
+    : ['site_requirements', 'job_profile', 'self_declaration']
+  const complianceStepLabels: Record<string, string> = {
+    site_requirements: 'Règles site / asset',
+    job_profile: 'Profil / habilitations',
+    self_declaration: 'Auto-déclarations / validations en attente',
+  }
+  const updateComplianceSequence = (index: number, value: string) => {
+    const next = [...complianceSequence]
+    const duplicateIndex = next.findIndex((item, itemIndex) => item === value && itemIndex !== index)
+    if (duplicateIndex >= 0) {
+      ;[next[index], next[duplicateIndex]] = [next[duplicateIndex], next[index]]
+    } else {
+      next[index] = value
+    }
+    save('paxlog.compliance_sequence', next)
+  }
 
   return (
     <>
@@ -174,6 +192,33 @@ export function GeneralConfigTab() {
         </div>
       </CollapsibleSection>
 
+      <CollapsibleSection
+        id="paxlog-compliance"
+        title="PaxLog - Séquence conformité"
+        description="Ordre officiel des couches de vérification conformité appliqué dans le moteur, les emails automatiques et la validation AdS."
+        storageKey="settings.general-config.collapse"
+      >
+        <div className="mt-2 space-y-0">
+          {[0, 1, 2].map((stepIndex) => (
+            <SettingRow
+              key={stepIndex}
+              label={`Étape ${stepIndex + 1}`}
+              description="Les doublons ne sont pas autorisés. Changer un ordre ici modifie l’ordre de lecture et de synthèse des non-conformités."
+            >
+              <select
+                className="gl-form-select text-sm min-w-[260px]"
+                value={complianceSequence[stepIndex] ?? ''}
+                onChange={(e) => updateComplianceSequence(stepIndex, e.target.value)}
+              >
+                {Object.entries(complianceStepLabels).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </SettingRow>
+          ))}
+        </div>
+      </CollapsibleSection>
+
       {/* ── Cartographie ── */}
       <CollapsibleSection
         id="cartographie"
@@ -237,6 +282,37 @@ export function GeneralConfigTab() {
                 }}
               />
               <span className="text-xs text-muted-foreground">%</span>
+            </div>
+          </SettingRow>
+        </div>
+      </CollapsibleSection>
+
+      {/* ── PaxLog ── */}
+      <CollapsibleSection
+        id="paxlog-config"
+        title="PaxLog"
+        description="Réglages opérationnels du module PaxLog au niveau entité."
+        storageKey="settings.general-config.collapse"
+      >
+        <div className="mt-2 space-y-0">
+          <SettingRow
+            label="Délai de grâce retour AdS"
+            description="Nombre de jours après la date de fin d'une AdS en cours avant clôture automatique nocturne. Une alerte est envoyée avant clôture."
+          >
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={0}
+                max={30}
+                step={1}
+                className="gl-form-input w-20 text-sm text-right font-mono"
+                defaultValue={(s['paxlog.ads_auto_close_grace_days'] as number) ?? 2}
+                onBlur={(e) => {
+                  const val = Math.max(0, Math.min(30, Math.round(Number(e.target.value) || 0)))
+                  save('paxlog.ads_auto_close_grace_days', val)
+                }}
+              />
+              <span className="text-xs text-muted-foreground">jours</span>
             </div>
           </SettingRow>
         </div>

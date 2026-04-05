@@ -65,6 +65,20 @@ def _validate_scope(scope: str) -> str:
     return scope
 
 
+def _validate_paxlog_compliance_sequence_setting(value: dict[str, Any]) -> None:
+    payload = value.get("v", value)
+    if not isinstance(payload, list):
+        raise HTTPException(status_code=400, detail="Invalid paxlog.compliance_sequence payload")
+    allowed = {"site_requirements", "job_profile", "self_declaration"}
+    normalized = [item for item in payload if isinstance(item, str)]
+    if len(normalized) != len(payload):
+        raise HTTPException(status_code=400, detail="Invalid paxlog.compliance_sequence values")
+    if len(set(normalized)) != len(normalized):
+        raise HTTPException(status_code=400, detail="Duplicate paxlog.compliance_sequence values are not allowed")
+    if set(normalized) != allowed:
+        raise HTTPException(status_code=400, detail="paxlog.compliance_sequence must contain site_requirements, job_profile, self_declaration exactly once")
+
+
 async def _require_settings_manage(current_user: User, entity_id: UUID, db: AsyncSession) -> None:
     if not await has_user_permission(current_user, entity_id, "core.settings.manage", db):
         raise HTTPException(status_code=403, detail="Permission denied: core.settings.manage")
@@ -173,6 +187,8 @@ async def upsert_setting(
 
     if body.key == "core.default_imputation":
         await _validate_default_imputation_setting(body.value, entity_id=entity_id, db=db)
+    elif body.key == "paxlog.compliance_sequence":
+        _validate_paxlog_compliance_sequence_setting(body.value)
 
     if scope == "user":
         scope_id = str(current_user.id)

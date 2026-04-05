@@ -22,7 +22,7 @@ Verdict court:
 
 Vérifications disponibles:
 
-- `python -m pytest -q` -> `123 passed, 2 skipped`
+- `python -m pytest -q` -> `128 passed, 2 skipped`
 - `npm --prefix apps/main run typecheck` -> OK
 
 ## Ce qui est fermé
@@ -114,6 +114,10 @@ Vérifications disponibles:
 
 ### Compliance / expiration
 
+- moteur de verdict centralisé dans `Conformité`
+  - `app/services/modules/compliance_service.py`
+  - consommé par `PaxLog`
+  - consommé par la route `Conformité`
 - route `compliance/expiring` bornée sur l'entité pour les credentials internes
 - bucket métier disponible sur les expirations:
   - `J-30`

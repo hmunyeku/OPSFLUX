@@ -2995,6 +2995,24 @@ function AdsDetailPanel({ id }: { id: string }) {
             <div className="space-y-1">
               {adsPax.map((ap: AdsPax) => (
                 <div key={ap.id} className="rounded px-2 py-1.5 hover:bg-accent/50 text-xs group">
+                  {(() => {
+                    const complianceSummary = (ap.compliance_summary ?? null) as null | {
+                      compliant?: boolean
+                      covered_layers?: string[]
+                      verification_sequence?: string[]
+                      issues_summary?: string
+                      results?: Array<{
+                        credential_type_name: string
+                        status: string
+                        message: string
+                        layer?: string | null
+                        layer_label?: string | null
+                        blocking?: boolean
+                      }>
+                    }
+                    const blockingResults = (complianceSummary?.results ?? []).filter((item) => item.blocking)
+                    return (
+                      <>
                   <div className="flex items-center justify-between">
                     <div className="min-w-0 flex-1">
                       <p className="font-medium truncate">
@@ -3047,6 +3065,41 @@ function AdsDetailPanel({ id }: { id: string }) {
                       )}
                     </div>
                   </div>
+                  {complianceSummary && (
+                    <div className="mt-2 space-y-1.5">
+                      {(complianceSummary.verification_sequence ?? complianceSummary.covered_layers ?? []).length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {(complianceSummary.verification_sequence ?? complianceSummary.covered_layers ?? []).map((layer) => (
+                            <span key={`${ap.id}-${layer}`} className="gl-badge gl-badge-neutral">
+                              {layer === 'site_requirements'
+                                ? t('paxlog.ads_detail.compliance.layers.site_requirements')
+                                : layer === 'job_profile'
+                                  ? t('paxlog.ads_detail.compliance.layers.job_profile')
+                                  : t('paxlog.ads_detail.compliance.layers.self_declaration')}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {blockingResults.length > 0 ? (
+                        <div className="rounded-md border border-amber-300/50 bg-amber-50/70 px-2 py-1.5 text-[11px] text-amber-900 dark:border-amber-700 dark:bg-amber-950/20 dark:text-amber-200">
+                          <p className="font-semibold">{t('paxlog.ads_detail.compliance.blocking_title')}</p>
+                          <div className="mt-1 space-y-1">
+                            {blockingResults.map((item, index) => (
+                              <p key={`${ap.id}-compliance-${index}`}>
+                                <span className="font-medium">{item.layer_label || item.layer || 'Compliance'}</span>
+                                {' - '}
+                                {item.message}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      ) : complianceSummary.compliant === true ? (
+                        <p className="text-[11px] text-emerald-700 dark:text-emerald-400">
+                          {t('paxlog.ads_detail.compliance.compliant')}
+                        </p>
+                      ) : null}
+                    </div>
+                  )}
                   {paxRejectEntryId === ap.id && (
                     <div className="mt-2 rounded-md border border-border bg-card p-2 space-y-2">
                       <textarea
@@ -3071,6 +3124,9 @@ function AdsDetailPanel({ id }: { id: string }) {
                       </div>
                     </div>
                   )}
+                      </>
+                    )
+                  })()}
                 </div>
               ))}
             </div>

@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import check_verified_lock, get_current_entity, get_current_user, require_permission
 from app.core.database import get_db
 from app.services.core.delete_service import delete_entity, get_delete_policy
+from app.services.modules import compliance_service
 from app.core.events import emit_event
 from app.core.pagination import PaginationParams, paginate
 from app.models.common import (
@@ -937,6 +938,7 @@ async def check_compliance(
     owner_type: str,
     owner_id: UUID,
     include_contextual: bool = False,
+    asset_id: UUID | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -952,7 +954,6 @@ async def check_compliance(
     Records with verification_status != 'verified' count as unverified — they don't
     contribute to compliance even if their status is 'valid'.
     """
-    now = datetime.now(timezone.utc)
     await _assert_external_owner_access(
         db,
         current_user,
@@ -960,287 +961,16 @@ async def check_compliance(
         owner_type=owner_type,
         owner_id=owner_id,
     )
-
-    # ── Step 0: Check account verification (email or phone verified) ──
-    # Configurable via admin setting 'auth.require_account_verification' (default: True)
-    account_verified = True
-    if owner_type == "user":
-        require_acct_verif_row = await db.execute(
-            select(Setting.value).where(Setting.key == "auth.require_account_verification", Setting.scope == "tenant")
-        )
-        require_acct_verif = require_acct_verif_row.scalar()
-        # Default: enabled (True). Admin can disable via settings.
-        require_verification = True
-        if require_acct_verif is not None:
-            require_verification = bool(require_acct_verif.get("v", True) if isinstance(require_acct_verif, dict) else require_acct_verif)
-
-        if require_verification:
-            email_verified = await db.execute(
-                select(sqla_func.count()).select_from(UserEmail)
-                .where(UserEmail.user_id == owner_id, UserEmail.verified == True)
-            )
-            phone_verified = await db.execute(
-                select(sqla_func.count()).select_from(Phone)
-                .where(Phone.owner_type == "user", Phone.owner_id == owner_id, Phone.verified == True)
-            )
-            has_verified_email = (email_verified.scalar() or 0) > 0
-            has_verified_phone = (phone_verified.scalar() or 0) > 0
-            account_verified = has_verified_email or has_verified_phone
-
-    # ── Step 1: Resolve required compliance types from active rules ──
-    applicability_filter = True  # noqa: E712 — include all
-    if not include_contextual:
-        applicability_filter = ComplianceRule.applicability == "permanent"
-
-    # 1a) Rules with target_type='all' — applies to everyone
-    all_rules = await db.execute(
-        select(ComplianceRule.compliance_type_id)
-        .where(ComplianceRule.entity_id == entity_id, ComplianceRule.active == True)
-        .where(ComplianceRule.target_type == "all")
-        .where(applicability_filter)
-    )
-    required_type_ids = set(r[0] for r in all_rules.all())
-
-    # 1b) Rules with target_type='job_position' — resolve via owner's job_position_id
-    job_position_id = None
-    if owner_type == "tier_contact":
-        contact_result = await db.execute(
-            select(TierContact.job_position_id).where(TierContact.id == owner_id)
-        )
-        job_position_id = contact_result.scalar()
-    elif owner_type == "user":
-        user_result = await db.execute(
-            select(User.job_position_id).where(User.id == owner_id)
-        )
-        job_position_id = user_result.scalar()
-
-    if job_position_id:
-        jp_id_str = str(job_position_id)
-        jp_rules = await db.execute(
-            select(ComplianceRule.compliance_type_id)
-            .where(
-                ComplianceRule.entity_id == entity_id,
-                ComplianceRule.active == True,
-                ComplianceRule.target_type == "job_position",
-                literal(jp_id_str) == any_(
-                    sqla_func.string_to_array(ComplianceRule.target_value, ",")
-                ),
-                applicability_filter,
-            )
-        )
-        required_type_ids |= set(r[0] for r in jp_rules.all())
-
-    # ── Step 2: Get existing records for this owner ──
-    records_result = await db.execute(
-        select(ComplianceRecord)
-        .where(
-            ComplianceRecord.entity_id == entity_id,
-            ComplianceRecord.owner_type == owner_type,
-            ComplianceRecord.owner_id == owner_id,
-            ComplianceRecord.active == True,
-        )
-    )
-    records = records_result.scalars().all()
-
-    # ── Step 3: Get active approved exemptions ──
-    record_ids = [r.id for r in records]
-    exempted_record_ids: set = set()
-    if record_ids:
-        today = now.date()
-        exemptions_result = await db.execute(
-            select(ComplianceExemption.compliance_record_id)
-            .where(
-                ComplianceExemption.compliance_record_id.in_(record_ids),
-                ComplianceExemption.status == "approved",
-                ComplianceExemption.active == True,
-                ComplianceExemption.start_date <= today,
-                ComplianceExemption.end_date >= today,
-            )
-        )
-        exempted_record_ids = set(r[0] for r in exemptions_result.all())
-
-    # ── Step 4: Evaluate each record ──
-    valid_type_ids = set()
-    exempted_type_ids = set()
-    expired_count = 0
-    unverified_count = 0
-
-    for rec in records:
-        is_expired = rec.expires_at and rec.expires_at < now
-        is_exempted = rec.id in exempted_record_ids
-        is_record_verified = getattr(rec, 'verification_status', 'verified') == 'verified'
-
-        if is_exempted:
-            exempted_type_ids.add(rec.compliance_type_id)
-        elif not is_record_verified:
-            # Record not yet verified by compliance officer — doesn't count
-            unverified_count += 1
-        elif is_expired:
-            expired_count += 1
-            rec.status = "expired"
-        elif rec.status == "valid":
-            valid_type_ids.add(rec.compliance_type_id)
-
-    # ── Step 4b: Check external sources for types with external provider ──
-    external_valid_type_ids: set = set()
-    external_results: dict[str, str] = {}  # type_id → external status
-
-    # Preload all required ComplianceType objects (need compliance_source field)
-    type_objects: dict = {}
-    for type_id in required_type_ids:
-        type_obj = await db.get(ComplianceType, type_id)
-        if type_obj:
-            type_objects[type_id] = type_obj
-
-    # Group types that need external checking
-    external_types = [
-        (tid, tobj) for tid, tobj in type_objects.items()
-        if tobj.compliance_source in ("external", "both") and tobj.external_provider
-    ]
-
-    if external_types and owner_type == "user":
-        # Resolve user info for external matching
-        user_obj = await db.get(User, owner_id)
-        if user_obj:
-            # Group by provider to minimize API calls
-            by_provider: dict[str, list[tuple]] = {}
-            for tid, tobj in external_types:
-                prov = tobj.external_provider
-                if prov not in by_provider:
-                    by_provider[prov] = []
-                by_provider[prov].append((tid, tobj))
-
-            for provider_id, types_for_provider in by_provider.items():
-                try:
-                    from app.services.connectors.compliance_connector import create_connector
-                    from app.api.routes.core.integrations import _get_connector_settings
-
-                    cfg = await _get_connector_settings(db, f"integration.{provider_id}")
-                    connector = await create_connector(provider_id, cfg)
-                    if not connector:
-                        continue
-
-                    # Match user
-                    match = await connector.match_user(
-                        email=user_obj.email,
-                        intranet_id=user_obj.intranet_id,
-                    )
-                    if not match:
-                        continue
-
-                    # Build type mapping
-                    type_mapping = {}
-                    for tid, tobj in types_for_provider:
-                        if tobj.external_mapping:
-                            ext_id = tobj.external_mapping.get("certificate_id") or tobj.external_mapping.get("training_id")
-                            if ext_id:
-                                type_mapping[str(tid)] = str(ext_id)
-
-                    # Fetch compliance from external
-                    ext_records = await connector.get_user_compliance(
-                        external_user_id=match.external_user_id,
-                        type_mapping=type_mapping if type_mapping else None,
-                    )
-
-                    # Map external results back to OpsFlux type IDs
-                    for tid, tobj in types_for_provider:
-                        if not tobj.external_mapping:
-                            continue
-                        ext_id = str(tobj.external_mapping.get("certificate_id") or tobj.external_mapping.get("training_id") or "")
-                        matching_ext = [r for r in ext_records if r.type_external_id == ext_id]
-                        if any(r.status == "valid" for r in matching_ext):
-                            external_valid_type_ids.add(tid)
-                            external_results[str(tid)] = "valid"
-                        elif any(r.status == "expired" for r in matching_ext):
-                            external_results[str(tid)] = "expired"
-                        elif any(r.status == "pending" for r in matching_ext):
-                            external_results[str(tid)] = "pending"
-
-                except Exception:
-                    logger.exception("External compliance check failed for provider %s", provider_id)
-
-    # ── Step 5: Build details per required type ──
-    details: list[dict] = []
-    for type_id in required_type_ids:
-        type_obj = type_objects.get(type_id) or await db.get(ComplianceType, type_id)
-        matching = [r for r in records if r.compliance_type_id == type_id]
-        is_exempted = type_id in exempted_type_ids
-        source = type_obj.compliance_source if type_obj else "opsflux"
-
-        # Local OpsFlux check
-        local_valid = any(
-            r.status == "valid"
-            and not (r.expires_at and r.expires_at < now)
-            and getattr(r, 'verification_status', 'verified') == 'verified'
-            for r in matching
-        )
-        has_unverified = any(
-            getattr(r, 'verification_status', 'verified') != 'verified'
-            and r.status == "valid"
-            for r in matching
-        )
-
-        # External check result
-        ext_status = external_results.get(str(type_id))
-        ext_valid = type_id in external_valid_type_ids
-
-        # Combine based on source mode
-        if source == "external":
-            # Only external counts
-            valid_match = ext_valid
-        elif source == "both":
-            # Either local OR external is enough
-            valid_match = local_valid or ext_valid
-        else:
-            # OpsFlux only
-            valid_match = local_valid
-
-        if is_exempted:
-            detail_status = "exempted"
-        elif valid_match:
-            detail_status = "valid"
-            if valid_match and not local_valid:
-                valid_type_ids.add(type_id)  # Count external valid in totals
-        elif has_unverified:
-            detail_status = "unverified"
-        elif ext_status == "expired" or any(r.expires_at and r.expires_at < now for r in matching):
-            detail_status = "expired"
-        elif ext_status == "pending":
-            detail_status = "unverified"
-        else:
-            detail_status = "missing"
-
-        detail_entry = {
-            "compliance_type_id": str(type_id),
-            "type_id": str(type_id),
-            "type_name": type_obj.name if type_obj else None,
-            "type_category": type_obj.category if type_obj else None,
-            "category": type_obj.category if type_obj else None,
-            "status": detail_status,
-            "record_count": len(matching),
-            "source": source,
-        }
-        if ext_status:
-            detail_entry["external_status"] = ext_status
-        details.append(detail_entry)
-
-    # ── Step 6: Compute final compliance status ──
-    compliant_type_ids = (valid_type_ids | external_valid_type_ids | exempted_type_ids) & required_type_ids
-    missing_type_ids = required_type_ids - valid_type_ids - external_valid_type_ids - exempted_type_ids
-    await db.commit()
-
-    return ComplianceCheckResult(
+    verdict = await compliance_service.check_owner_compliance(
+        db,
         owner_type=owner_type,
         owner_id=owner_id,
-        account_verified=account_verified,
-        total_required=len(required_type_ids),
-        total_valid=len(compliant_type_ids),
-        total_expired=expired_count,
-        total_missing=len(missing_type_ids),
-        total_unverified=unverified_count,
-        is_compliant=account_verified and len(missing_type_ids) == 0 and expired_count == 0 and unverified_count == 0,
-        details=details,
+        entity_id=entity_id,
+        include_contextual=include_contextual,
+        asset_id=asset_id,
     )
+
+    return ComplianceCheckResult(**verdict)
 
 
 # ── Job Positions (fiches de poste) ─────────────────────────────────────

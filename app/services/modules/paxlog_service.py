@@ -15,24 +15,28 @@ import logging
 from datetime import date, datetime, timedelta, timezone
 from uuid import UUID
 
-from sqlalchemy import and_, func, select, text, update
+from sqlalchemy import and_, func, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.events import OpsFluxEvent, event_bus
+from app.services.modules import compliance_service
+from app.services.core.fsm_service import fsm_service
+from app.models.common import Setting, TierContact, User
 from app.models.paxlog import (
     Ads,
     AdsEvent,
     AdsPax,
     ComplianceMatrixEntry,
     CredentialType,
+    MissionAllowanceRequest,
     MissionNotice,
     MissionPreparationTask,
     MissionProgram,
     MissionProgramPax,
+    MissionVisaFollowup,
     PaxCredential,
     PaxIncident,
 )
-from app.models.common import TierContact
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +58,7 @@ PRIORITY_WEIGHTS = {
 # ── AdS reference prefix ────────────────────────────────────────────────────
 
 ADS_REF_PREFIX = "ADS"
-NON_TRAVELWIZ_OUTBOUND_MODES = {"", "walking"}
+NON_TRAVELWIZ_TRANSPORT_MODES = {"", "walking"}
 ADS_PENDING_SIGNALLEMENT_REJECTION_STATUSES = {
     "submitted",
     "pending_initiator_review",
@@ -67,14 +71,103 @@ ADS_ACTIVE_SIGNALLEMENT_REVIEW_STATUSES = {
     "approved",
     "in_progress",
 }
+DEFAULT_COMPLIANCE_SEQUENCE = compliance_service.DEFAULT_COMPLIANCE_SEQUENCE
 
 
 def ads_requires_travelwiz_transport(
     outbound_transport_mode: str | None,
+    return_transport_mode: str | None = None,
 ) -> bool:
     """Return whether AdS approval should trigger TravelWiz manifest lookup."""
-    mode = (outbound_transport_mode or "").strip().lower()
-    return mode not in NON_TRAVELWIZ_OUTBOUND_MODES
+    outbound_mode = (outbound_transport_mode or "").strip().lower()
+    return_mode = (return_transport_mode or "").strip().lower()
+    return (
+        outbound_mode not in NON_TRAVELWIZ_TRANSPORT_MODES
+        or return_mode not in NON_TRAVELWIZ_TRANSPORT_MODES
+    )
+
+
+async def get_compliance_verification_sequence(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+) -> list[str]:
+    return await compliance_service.get_compliance_verification_sequence(
+        db,
+        entity_id=entity_id,
+    )
+
+
+def build_compliance_issues_summary(
+    compliance_items: list[dict],
+    *,
+    max_items: int = 6,
+) -> str:
+    return compliance_service.build_compliance_issues_summary(
+        compliance_items,
+        max_items=max_items,
+    )
+
+
+async def complete_ads_operationally(
+    db: AsyncSession,
+    ads: Ads,
+    *,
+    source: str,
+    actor_id: UUID | None = None,
+    reason: str | None = None,
+    extra_metadata: dict | None = None,
+) -> Ads:
+    """Complete an in-progress AdS with consistent event/FSM/module emission."""
+    if ads.status != "in_progress":
+        raise ValueError(f"Cannot complete AdS with status '{ads.status}'")
+
+    old_status = ads.status
+    metadata = {"source": source}
+    if reason:
+        metadata["reason"] = reason
+    if extra_metadata:
+        metadata.update(extra_metadata)
+
+    ads.status = "completed"
+    db.add(AdsEvent(
+        entity_id=ads.entity_id,
+        ads_id=ads.id,
+        event_type="completed",
+        old_status=old_status,
+        new_status="completed",
+        actor_id=actor_id,
+        reason=reason,
+        metadata_json=metadata,
+    ))
+
+    await db.commit()
+    await db.refresh(ads)
+
+    await fsm_service.emit_transition_event(
+        entity_type="ads",
+        entity_id=str(ads.id),
+        from_state=old_status,
+        to_state="completed",
+        actor_id=actor_id,
+        workflow_slug="ads-workflow",
+        extra_payload=metadata,
+    )
+
+    await event_bus.publish(OpsFluxEvent(
+        event_type="ads.completed",
+        payload={
+            "ads_id": str(ads.id),
+            "entity_id": str(ads.entity_id),
+            "reference": ads.reference,
+            "requester_id": str(ads.requester_id),
+            "source": source,
+            "reason": reason,
+            **(extra_metadata or {}),
+        },
+    ))
+
+    return ads
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -90,170 +183,13 @@ async def check_pax_compliance(
     user_id: UUID | None = None,
     contact_id: UUID | None = None,
 ) -> dict:
-    """Check a PAX against the compliance matrix for a specific asset.
-
-    Exactly one of user_id / contact_id must be provided.
-
-    Returns::
-
-        {
-            "compliant": bool,
-            "results": [
-                {
-                    "credential_type_code": str,
-                    "credential_type_name": str,
-                    "status": "valid" | "missing" | "expired" | "pending",
-                    "message": str,
-                    "expiry_date": date | None,
-                }
-            ]
-        }
-
-    Checks both:
-    1. Asset-level compliance matrix (mandatory creds per site)
-    2. Profile-level habilitation matrix (creds per job profile)
-    """
-    if not user_id and not contact_id:
-        return {"compliant": False, "results": [{"credential_type_code": "N/A", "status": "error", "message": "No PAX identifier provided", "expiry_date": None}]}
-
-    # Determine PAX type (internal vs external)
-    pax_type = "internal" if user_id else "external"
-
-    # ── 1. Asset-level compliance matrix ─────────────────────────────────
-    # Recursive CTE to get asset + all parent assets in hierarchy
-    asset_hierarchy = await db.execute(
-        text("""
-            WITH RECURSIVE asset_tree AS (
-                SELECT id, parent_id FROM ar_installations WHERE id = :asset_id
-                UNION ALL
-                SELECT a.id, a.parent_id
-                FROM ar_installations a
-                JOIN asset_tree t ON a.id = t.parent_id
-            )
-            SELECT id FROM asset_tree
-        """),
-        {"asset_id": str(asset_id)},
+    return await compliance_service.check_pax_asset_compliance(
+        db,
+        asset_id,
+        entity_id,
+        user_id=user_id,
+        contact_id=contact_id,
     )
-    ancestor_ids = [row[0] for row in asset_hierarchy.all()]
-    if not ancestor_ids:
-        ancestor_ids = [asset_id]
-
-    matrix_result = await db.execute(
-        select(ComplianceMatrixEntry).where(
-            ComplianceMatrixEntry.entity_id == entity_id,
-            ComplianceMatrixEntry.asset_id.in_(ancestor_ids),
-            ComplianceMatrixEntry.mandatory == True,  # noqa: E712
-        )
-    )
-    requirements = matrix_result.scalars().all()
-
-    # Filter by scope
-    applicable_reqs: list[ComplianceMatrixEntry] = []
-    for req in requirements:
-        if req.scope == "all_visitors":
-            applicable_reqs.append(req)
-        elif req.scope == "contractors_only" and pax_type == "external":
-            applicable_reqs.append(req)
-        elif req.scope == "permanent_staff_only" and pax_type == "internal":
-            applicable_reqs.append(req)
-
-    # ── 2. Profile-level habilitation matrix ─────────────────────────────
-    pax_fk_col = "user_id" if user_id else "contact_id"
-    pax_fk_val = str(user_id or contact_id)
-    hab_rows = await db.execute(
-        text(
-            f"""
-            SELECT hm.credential_type_id, hm.mandatory
-            FROM pax_profile_types ppta
-            JOIN habilitation_matrix hm ON hm.profile_type_id = ppta.profile_type_id
-            WHERE ppta.{pax_fk_col} = :pax_fk AND hm.mandatory = true
-            """
-        ),
-        {"pax_fk": pax_fk_val},
-    )
-    hab_requirements = hab_rows.all()
-
-    # Merge habilitation requirements into the applicable set (deduplicate)
-    existing_ct_ids = {r.credential_type_id for r in applicable_reqs}
-    hab_credential_type_ids = set()
-    for row in hab_requirements:
-        ct_id = row[0]
-        if ct_id not in existing_ct_ids:
-            hab_credential_type_ids.add(ct_id)
-
-    # ── Load PAX credentials ─────────────────────────────────────────────
-    cred_filter = PaxCredential.user_id == user_id if user_id else PaxCredential.contact_id == contact_id
-    creds_result = await db.execute(
-        select(PaxCredential).where(cred_filter)
-    )
-    credentials = {c.credential_type_id: c for c in creds_result.scalars().all()}
-
-    # ── Build credential type lookup ─────────────────────────────────────
-    all_ct_ids = {r.credential_type_id for r in applicable_reqs} | hab_credential_type_ids
-    ct_lookup: dict[UUID, CredentialType] = {}
-    if all_ct_ids:
-        ct_result = await db.execute(
-            select(CredentialType).where(CredentialType.id.in_(all_ct_ids))
-        )
-        for ct in ct_result.scalars().all():
-            ct_lookup[ct.id] = ct
-
-    # ── Check each requirement ───────────────────────────────────────────
-    results = []
-    overall_compliant = True
-    today = date.today()
-
-    def _check_credential(ct_id: UUID) -> dict:
-        nonlocal overall_compliant
-        ct = ct_lookup.get(ct_id)
-        code = ct.code if ct else str(ct_id)
-        name = ct.name if ct else str(ct_id)
-
-        cred = credentials.get(ct_id)
-        if not cred:
-            overall_compliant = False
-            return {
-                "credential_type_code": code,
-                "credential_type_name": name,
-                "status": "missing",
-                "message": f"Habilitation manquante : {name}",
-                "expiry_date": None,
-            }
-        elif cred.status == "expired" or (cred.expiry_date and cred.expiry_date < today):
-            overall_compliant = False
-            return {
-                "credential_type_code": code,
-                "credential_type_name": name,
-                "status": "expired",
-                "message": f"Habilitation expirée : {name} (exp. {cred.expiry_date})",
-                "expiry_date": cred.expiry_date,
-            }
-        elif cred.status == "pending_validation":
-            return {
-                "credential_type_code": code,
-                "credential_type_name": name,
-                "status": "pending",
-                "message": f"En attente de validation : {name}",
-                "expiry_date": cred.expiry_date,
-            }
-        else:
-            return {
-                "credential_type_code": code,
-                "credential_type_name": name,
-                "status": "valid",
-                "message": "OK",
-                "expiry_date": cred.expiry_date,
-            }
-
-    # Asset-level matrix requirements
-    for req in applicable_reqs:
-        results.append(_check_credential(req.credential_type_id))
-
-    # Profile-level habilitation requirements (extras)
-    for ct_id in hab_credential_type_ids:
-        results.append(_check_credential(ct_id))
-
-    return {"compliant": overall_compliant, "results": results}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -514,7 +450,17 @@ async def approve_ads(
             "end_date": str(ads.end_date),
             "outbound_transport_mode": ads.outbound_transport_mode,
             "return_transport_mode": ads.return_transport_mode,
-            "transport_requested": ads_requires_travelwiz_transport(ads.outbound_transport_mode),
+            "outbound_transport_requested": ads_requires_travelwiz_transport(
+                ads.outbound_transport_mode
+            ),
+            "return_transport_requested": ads_requires_travelwiz_transport(
+                None,
+                ads.return_transport_mode,
+            ),
+            "transport_requested": ads_requires_travelwiz_transport(
+                ads.outbound_transport_mode,
+                ads.return_transport_mode,
+            ),
             "outbound_departure_base_id": str(ads.outbound_departure_base_id) if ads.outbound_departure_base_id else None,
             "approved_pax_count": approved_count,
             "planner_activity_id": str(ads.planner_activity_id) if ads.planner_activity_id else None,
@@ -555,8 +501,8 @@ async def process_rotation_cycles(db: AsyncSession, entity_id: UUID) -> int:
     cycles_result = await db.execute(
         text(
             """
-            SELECT id, user_id, contact_id, site_asset_id, days_on, days_off,
-                   next_on_date, ads_lead_days, default_project_id, default_cc_id
+            SELECT id, user_id, contact_id, site_asset_id, rotation_days_on, rotation_days_off,
+                   next_on_date, ads_lead_days, default_project_id, default_cc_id, created_by
             FROM pax_rotation_cycles
             WHERE entity_id = :eid
               AND status = 'active'
@@ -580,6 +526,7 @@ async def process_rotation_cycles(db: AsyncSession, entity_id: UUID) -> int:
         ads_lead_days = cycle[7]
         default_project_id = cycle[8]
         default_cc_id = cycle[9]
+        cycle_created_by = cycle[10]
 
         try:
             # Generate reference
@@ -588,8 +535,15 @@ async def process_rotation_cycles(db: AsyncSession, entity_id: UUID) -> int:
             # Compute end date
             end_date = next_on_date + timedelta(days=days_on - 1)
 
-            # Determine requester_id: use user_id if internal, else fallback
-            requester_id = cycle_user_id or cycle_contact_id
+            # Internal cycles use the PAX as requester. External cycles use the
+            # cycle creator as internal sponsor while keeping the contact on AdsPax.
+            sponsor_user_id = cycle_user_id or cycle_created_by
+            if not sponsor_user_id:
+                logger.warning(
+                    "Rotation cycle %s skipped: no internal sponsor available for auto-created AdS",
+                    cycle_id,
+                )
+                continue
 
             # Create draft AdS
             ads_id_result = await db.execute(
@@ -597,13 +551,13 @@ async def process_rotation_cycles(db: AsyncSession, entity_id: UUID) -> int:
                     """
                     INSERT INTO ads (
                         entity_id, reference, type, status,
-                        requester_id, site_entry_asset_id,
+                        created_by, requester_id, site_entry_asset_id,
                         visit_purpose, visit_category,
                         start_date, end_date,
                         project_id, created_at, updated_at
                     ) VALUES (
                         :entity_id, :reference, 'individual', 'draft',
-                        :requester_id, :site_asset_id,
+                        :created_by, :requester_id, :site_asset_id,
                         :purpose, 'permanent_ops',
                         :start_date, :end_date,
                         :project_id, NOW(), NOW()
@@ -613,7 +567,8 @@ async def process_rotation_cycles(db: AsyncSession, entity_id: UUID) -> int:
                 {
                     "entity_id": str(entity_id),
                     "reference": reference,
-                    "requester_id": str(requester_id),
+                    "created_by": str(sponsor_user_id),
+                    "requester_id": str(sponsor_user_id),
                     "site_asset_id": str(site_asset_id),
                     "purpose": f"Rotation automatique (cycle {cycle_id})",
                     "start_date": next_on_date,
@@ -797,9 +752,14 @@ async def create_signalement(
     inc_user_id = data.get("user_id")
     inc_contact_id = data.get("contact_id")
     inc_company_id = data.get("company_id")
+    inc_pax_group_id = data.get("pax_group_id")
     inc_asset_id = data.get("asset_id")
     severity = data["severity"]
     recorded_by = data["recorded_by"]
+
+    scope_count = sum(1 for value in (inc_user_id, inc_contact_id, inc_company_id, inc_pax_group_id) if value)
+    if scope_count != 1:
+        raise ValueError("Signalement target must be exactly one of user, contact, company or pax group.")
 
     # Create PaxIncident
     incident = PaxIncident(
@@ -807,6 +767,7 @@ async def create_signalement(
         user_id=inc_user_id,
         contact_id=inc_contact_id,
         company_id=data.get("company_id"),
+        pax_group_id=inc_pax_group_id,
         asset_id=inc_asset_id,
         severity=severity,
         description=data["description"],
@@ -851,6 +812,7 @@ async def create_signalement(
             "user_id": str(inc_user_id) if inc_user_id else None,
             "contact_id": str(inc_contact_id) if inc_contact_id else None,
             "company_id": str(inc_company_id) if inc_company_id else None,
+            "pax_group_id": str(inc_pax_group_id) if inc_pax_group_id else None,
             "severity": severity,
             "asset_id": str(inc_asset_id) if inc_asset_id else None,
             "recorded_by": str(recorded_by),
@@ -865,6 +827,7 @@ async def create_signalement(
         "user_id": incident.user_id,
         "contact_id": incident.contact_id,
         "company_id": incident.company_id,
+        "pax_group_id": incident.pax_group_id,
         "severity": incident.severity,
         "description": incident.description,
         "incident_date": incident.incident_date,
@@ -883,6 +846,7 @@ async def _apply_signalement_ads_effects(
     entity_id: UUID,
     incident: PaxIncident,
 ) -> dict[str, int]:
+    incident_pax_group_id = getattr(incident, "pax_group_id", None)
     if incident.severity not in {"site_ban", "temp_ban", "permanent_ban"}:
         return {"rejected": 0, "requires_review": 0}
 
@@ -906,6 +870,20 @@ async def _apply_signalement_ads_effects(
             .join(TierContact, TierContact.id == AdsPax.contact_id)
             .where(TierContact.tier_id == incident.company_id)
         )
+    elif incident_pax_group_id:
+        query = (
+            query
+            .outerjoin(User, User.id == AdsPax.user_id)
+            .outerjoin(TierContact, TierContact.id == AdsPax.contact_id)
+            .where(
+                and_(
+                    or_(
+                        User.pax_group_id == incident_pax_group_id,
+                        TierContact.pax_group_id == incident_pax_group_id,
+                    ),
+                )
+            )
+        )
     else:
         return {"rejected": 0, "requires_review": 0}
 
@@ -926,6 +904,7 @@ async def _apply_signalement_ads_effects(
         "severity": incident.severity,
         "asset_id": str(incident.asset_id) if incident.asset_id else None,
         "company_id": str(incident.company_id) if incident.company_id else None,
+        "pax_group_id": str(incident_pax_group_id) if incident_pax_group_id else None,
         "user_id": str(incident.user_id) if incident.user_id else None,
         "contact_id": str(incident.contact_id) if incident.contact_id else None,
     }
@@ -1063,6 +1042,31 @@ async def submit_avm(
             auto_generated=True,
         ))
 
+    global_attachments_config = getattr(avm, "global_attachments_config", None) or []
+    per_pax_attachments_config = getattr(avm, "per_pax_attachments_config", None) or []
+
+    if global_attachments_config or per_pax_attachments_config:
+        global_count = len(global_attachments_config)
+        per_pax_count = len(per_pax_attachments_config)
+        title = "Collecte documentaire mission"
+        if global_count and per_pax_count:
+            title = f"Collecte documentaire mission ({global_count} mission, {per_pax_count} PAX)"
+        elif global_count:
+            title = f"Collecte documentaire mission ({global_count} mission)"
+        elif per_pax_count:
+            title = f"Collecte documentaire mission ({per_pax_count} PAX)"
+        tasks_to_create.append(MissionPreparationTask(
+            mission_notice_id=avm.id,
+            title=title,
+            task_type="document_collection",
+            status="pending",
+            auto_generated=True,
+            notes=(
+                f"Mission docs: {', '.join(global_attachments_config)}\n"
+                f"PAX docs: {', '.join(per_pax_attachments_config)}"
+            ).strip(),
+        ))
+
     # Create AdS creation tasks per program line with site_asset_id
     for prog in programs:
         if prog.site_asset_id:
@@ -1076,6 +1080,53 @@ async def submit_avm(
 
     for task in tasks_to_create:
         db.add(task)
+
+    await db.flush()
+
+    unique_pax_keys: set[tuple[str, UUID]] = set()
+    unique_pax_entries: list[tuple[UUID | None, UUID | None]] = []
+    for prog in programs:
+        pax_rows = (
+            await db.execute(
+                select(MissionProgramPax.user_id, MissionProgramPax.contact_id).where(
+                    MissionProgramPax.mission_program_id == prog.id
+                )
+            )
+        ).all()
+        for user_id, contact_id in pax_rows:
+            if user_id:
+                key = ("user", user_id)
+                if key not in unique_pax_keys:
+                    unique_pax_keys.add(key)
+                    unique_pax_entries.append((user_id, None))
+            elif contact_id:
+                key = ("contact", contact_id)
+                if key not in unique_pax_keys:
+                    unique_pax_keys.add(key)
+                    unique_pax_entries.append((None, contact_id))
+
+    visa_task = next((task for task in tasks_to_create if task.task_type == "visa"), None)
+    allowance_task = next((task for task in tasks_to_create if task.task_type == "allowance"), None)
+
+    if avm.requires_visa:
+        for user_id, contact_id in unique_pax_entries:
+            db.add(MissionVisaFollowup(
+                mission_notice_id=avm.id,
+                preparation_task_id=visa_task.id if visa_task else None,
+                user_id=user_id,
+                contact_id=contact_id,
+                status="to_initiate",
+            ))
+
+    if avm.eligible_displacement_allowance:
+        for user_id, contact_id in unique_pax_entries:
+            db.add(MissionAllowanceRequest(
+                mission_notice_id=avm.id,
+                preparation_task_id=allowance_task.id if allowance_task else None,
+                user_id=user_id,
+                contact_id=contact_id,
+                status="draft",
+            ))
 
     prep_summary = _summarize_preparation_tasks(tasks_to_create)
 
@@ -1375,3 +1426,61 @@ def _summarize_preparation_tasks(tasks: list[MissionPreparationTask]) -> dict:
         "blocking_task_titles": [task.title for task in open_preparation_tasks],
         "ready_for_approval": ready_for_approval,
     }
+
+
+def _derive_preparation_task_status(values: list[str], terminal_values: set[str], in_progress_values: set[str]) -> str:
+    if not values:
+        return "na"
+    if all(value in terminal_values for value in values):
+        return "completed"
+    if any(value in in_progress_values for value in values):
+        return "in_progress"
+    return "pending"
+
+
+async def sync_mission_operational_followup_tasks(db: AsyncSession, mission_notice_id: UUID) -> None:
+    visa_task = (
+        await db.execute(
+            select(MissionPreparationTask).where(
+                MissionPreparationTask.mission_notice_id == mission_notice_id,
+                MissionPreparationTask.task_type == "visa",
+            ).limit(1)
+        )
+    ).scalar_one_or_none()
+    if visa_task:
+        visa_values = list((
+            await db.execute(
+                select(MissionVisaFollowup.status).where(
+                    MissionVisaFollowup.mission_notice_id == mission_notice_id
+                )
+            )
+        ).scalars().all())
+        visa_task.status = _derive_preparation_task_status(
+            visa_values,
+            terminal_values={"obtained"},
+            in_progress_values={"submitted", "in_review"},
+        )
+        visa_task.completed_at = datetime.now(timezone.utc) if visa_task.status == "completed" else None
+
+    allowance_task = (
+        await db.execute(
+            select(MissionPreparationTask).where(
+                MissionPreparationTask.mission_notice_id == mission_notice_id,
+                MissionPreparationTask.task_type == "allowance",
+            ).limit(1)
+        )
+    ).scalar_one_or_none()
+    if allowance_task:
+        allowance_values = list((
+            await db.execute(
+                select(MissionAllowanceRequest.status).where(
+                    MissionAllowanceRequest.mission_notice_id == mission_notice_id
+                )
+            )
+        ).scalars().all())
+        allowance_task.status = _derive_preparation_task_status(
+            allowance_values,
+            terminal_values={"paid"},
+            in_progress_values={"submitted", "approved"},
+        )
+        allowance_task.completed_at = datetime.now(timezone.utc) if allowance_task.status == "completed" else None

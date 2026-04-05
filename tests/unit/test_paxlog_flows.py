@@ -11,6 +11,7 @@ from fastapi.routing import APIRoute
 from fastapi import HTTPException
 
 from app.api.routes.modules import paxlog
+from app.api.routes.modules import conformite
 from app.api.routes.modules import planner
 from app.core.events import OpsFluxEvent
 from app.event_handlers import module_handlers
@@ -23,6 +24,7 @@ from app.models.paxlog import AdsEvent, MissionAllowanceRequest, MissionVisaFoll
 from app.schemas.planner import ActivityUpdate
 from app.schemas.paxlog import AdsManualDepartureRequest, AdsStayChangeRequest, MissionNoticeModifyRequest, MissionPreparationTaskUpdate
 from app.services.modules import paxlog_service
+from app.services.modules import compliance_service
 
 
 class FakeResult:
@@ -949,6 +951,76 @@ async def test_list_ads_pax_exposes_contact_channels(monkeypatch):
     assert user_item["pax_phone"] == "+243111111111"
     assert contact_item["pax_email"] == "bob@example.com"
     assert contact_item["pax_phone"] == "+243000000000"
+
+
+@pytest.mark.asyncio
+async def test_get_compliance_verification_sequence_reads_entity_setting():
+    entity_id = uuid4()
+    db = FakeDB([
+        FakeResult(scalar_one_or_none={"v": ["job_profile", "site_requirements", "self_declaration"]}),
+    ])
+
+    sequence = await paxlog_service.get_compliance_verification_sequence(db, entity_id=entity_id)
+
+    assert sequence == ["job_profile", "site_requirements", "self_declaration"]
+
+
+@pytest.mark.asyncio
+async def test_run_ads_submission_checks_reuses_full_compliance_contract(monkeypatch):
+    ads = _build_ads(status="draft", site_entry_asset_id=uuid4())
+    pax_entry = SimpleNamespace(
+        id=uuid4(),
+        ads_id=ads.id,
+        user_id=uuid4(),
+        contact_id=None,
+        compliance_checked_at=None,
+        compliance_summary=None,
+        status="pending_check",
+    )
+    db = FakeDBWithGet(
+        [FakeResult(all_rows=[pax_entry])],
+        get_map={
+            (paxlog.User, pax_entry.user_id): SimpleNamespace(first_name="Alice", last_name="Reviewer"),
+        },
+    )
+
+    async def fake_check_pax_compliance(_db, asset_id, entity_id, *, user_id=None, contact_id=None):
+        assert asset_id == ads.site_entry_asset_id
+        assert user_id == pax_entry.user_id
+        assert contact_id is None
+        return {
+            "compliant": False,
+            "results": [
+                {
+                    "credential_type_code": "H2S",
+                    "credential_type_name": "H2S",
+                    "status": "missing",
+                    "message": "Habilitation manquante : H2S",
+                    "layer": "site_requirements",
+                    "layer_label": "Règles site",
+                    "blocking": True,
+                },
+            ],
+            "covered_layers": ["site_requirements", "job_profile"],
+            "summary_by_status": {"missing": 1},
+            "verification_sequence": ["job_profile", "site_requirements", "self_declaration"],
+        }
+
+    monkeypatch.setattr(paxlog_service, "check_pax_compliance", fake_check_pax_compliance)
+
+    pax_entries, has_issues, target_status = await paxlog._run_ads_submission_checks(
+        db,
+        ads=ads,
+        entity_id=ads.entity_id,
+    )
+
+    assert pax_entries == [pax_entry]
+    assert has_issues is True
+    assert target_status == "pending_compliance"
+    assert pax_entry.status == "blocked"
+    assert pax_entry.compliance_summary["verification_sequence"] == ["job_profile", "site_requirements", "self_declaration"]
+    assert "Alice Reviewer" in pax_entry.compliance_summary["issues_summary"]
+    assert ads.rejection_reason == pax_entry.compliance_summary["issues_summary"]
 
 
 @pytest.mark.asyncio
@@ -3066,6 +3138,7 @@ async def test_check_pax_compliance_exposes_layers_and_status_summary():
     site_requirement_id = uuid4()
     job_requirement_id = uuid4()
     db = FakeDB([
+        FakeResult(scalar_one_or_none=None),
         FakeResult(all_rows=[(asset_id,)]),
         FakeResult(all_rows=[
             SimpleNamespace(
@@ -3163,6 +3236,55 @@ async def test_check_compliance_route_returns_enriched_compliance_contract(monke
     assert response.covered_layers == ["site_requirements", "self_declaration"]
     assert response.summary_by_status["missing"] == 1
     assert response.results[0].status == "pending_validation"
+
+
+@pytest.mark.asyncio
+async def test_conformite_check_route_uses_central_asset_aware_verdict(monkeypatch):
+    entity_id = uuid4()
+    owner_id = uuid4()
+    asset_id = uuid4()
+
+    async def fake_check(*_args, **_kwargs):
+        return {
+            "compliant": False,
+            "results": [
+                {
+                    "credential_type_code": "H2S",
+                    "credential_type_name": "H2S Awareness",
+                    "status": "missing",
+                    "message": "Habilitation manquante : H2S Awareness",
+                    "layer": "site_requirements",
+                    "layer_label": "Règles site",
+                    "blocking": True,
+                }
+            ],
+            "covered_layers": ["site_requirements"],
+            "summary_by_status": {"missing": 1},
+            "verification_sequence": ["site_requirements", "job_profile", "self_declaration"],
+        }
+
+    async def fake_assert_access(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(conformite, "_assert_external_owner_access", fake_assert_access)
+    monkeypatch.setattr(compliance_service, "check_pax_asset_compliance", fake_check)
+
+    response = await conformite.check_compliance(
+        "user",
+        owner_id,
+        include_contextual=True,
+        asset_id=asset_id,
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=uuid4(), user_type="internal"),
+        db=FakeDB([]),
+    )
+
+    assert response.owner_type == "user"
+    assert response.owner_id == owner_id
+    assert response.is_compliant is False
+    assert response.total_missing == 1
+    assert response.details[0]["layer"] == "site_requirements"
+    assert response.details[0]["verification_sequence"] == ["site_requirements", "job_profile", "self_declaration"]
 
 
 @pytest.mark.asyncio

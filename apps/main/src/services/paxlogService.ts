@@ -188,10 +188,12 @@ export interface ComplianceCheckResult {
     message: string
     expiry_date: string | null
     layer?: string | null
+    layer_label?: string | null
     blocking?: boolean
   }>
   covered_layers?: string[]
   summary_by_status?: Record<string, number>
+  verification_sequence?: string[]
 }
 
 export interface ComplianceStats {

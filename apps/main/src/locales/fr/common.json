@@ -1701,6 +1701,15 @@
         "confirm": "Créer et ouvrir le lien",
         "no_recipient": "Aucun PAX de cette AdS ne dispose d'un email ou d'un numéro exploitable pour l'OTP."
       },
+      "compliance": {
+        "blocking_title": "Rubriques bloquantes",
+        "compliant": "Conformité OK pour le site sélectionné.",
+        "layers": {
+          "site_requirements": "Règles site",
+          "job_profile": "Profil / habilitations",
+          "self_declaration": "Auto-déclarations"
+        }
+      },
       "reject": {
         "reason_title": "Motif de rejet",
         "placeholder": "Indiquez le motif du rejet (optionnel)...",

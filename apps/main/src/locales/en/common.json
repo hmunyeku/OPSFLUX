@@ -1700,6 +1700,15 @@
         "confirm": "Create and open link",
         "no_recipient": "No PAX on this AdS has a usable email address or phone number for OTP delivery."
       },
+      "compliance": {
+        "blocking_title": "Blocking items",
+        "compliant": "Compliance is OK for the selected site.",
+        "layers": {
+          "site_requirements": "Site requirements",
+          "job_profile": "Profile / habilitations",
+          "self_declaration": "Self declarations"
+        }
+      },
       "reject": {
         "reason_title": "Rejection reason",
         "placeholder": "Provide the rejection reason (optional)...",

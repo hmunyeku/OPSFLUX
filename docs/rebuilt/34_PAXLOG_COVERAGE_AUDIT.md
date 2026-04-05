@@ -44,7 +44,7 @@ Références code principales:
 
 Vérifications disponibles à la date de cet audit:
 
-- `python -m pytest -q` -> `123 passed, 2 skipped`
+- `python -m pytest -q` -> `128 passed, 2 skipped`
 - `npm --prefix apps/main run typecheck` -> OK
 
 ## Matrice CDC
@@ -114,6 +114,8 @@ Références:
 
 - `app/api/routes/modules/paxlog.py`
 - `app/services/modules/paxlog_service.py`
+- `app/services/modules/compliance_service.py`
+- `app/api/routes/modules/conformite.py`
 - `apps/main/src/pages/conformite/ConformitePage.tsx`
 
 ### 4. AdS - circuit complet

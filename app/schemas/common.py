@@ -537,6 +537,8 @@ class TierContactCreate(BaseModel):
     civility: str | None = None
     first_name: str = Field(..., min_length=1, max_length=100)
     last_name: str = Field(..., min_length=1, max_length=100)
+    email: str | None = Field(None, max_length=255)
+    phone: str | None = Field(None, max_length=50)
     position: str | None = None
     department: str | None = None
     is_primary: bool = False
@@ -546,6 +548,8 @@ class TierContactUpdate(BaseModel):
     civility: str | None = None
     first_name: str | None = None
     last_name: str | None = None
+    email: str | None = Field(None, max_length=255)
+    phone: str | None = Field(None, max_length=50)
     position: str | None = None
     department: str | None = None
     is_primary: bool | None = None

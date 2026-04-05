@@ -1067,6 +1067,20 @@ async def _resolve_external_allowed_companies(
     return allowed_company_ids, allowed_company_names, primary_company_id, primary_company_name
 
 
+def _extract_ads_allowed_company_scope(ads: Ads) -> tuple[list[UUID], list[str]]:
+    allowed_company_ids: list[UUID] = []
+    allowed_company_names: list[str] = []
+    for item in getattr(ads, "allowed_companies", None) or []:
+        company_id = getattr(item, "company_id", None)
+        if company_id:
+            allowed_company_ids.append(company_id)
+        company = getattr(item, "company", None)
+        company_name = getattr(company, "name", None) if company else None
+        if company_name:
+            allowed_company_names.append(company_name)
+    return allowed_company_ids, allowed_company_names
+
+
 def _compare_pax_names(
     first_name: str,
     last_name: str,
@@ -5919,17 +5933,7 @@ async def _build_ads_read_data(
     entity_id: UUID,
 ) -> dict:
     data = AdsRead.model_validate(ads).model_dump()
-    allowed_company_ids: list[UUID] = []
-    allowed_company_names: list[str] = []
-    allowed_company_rows = getattr(ads, "allowed_companies", None) or []
-    for item in allowed_company_rows:
-        company_id = getattr(item, "company_id", None)
-        if company_id:
-            allowed_company_ids.append(company_id)
-        company = getattr(item, "company", None)
-        company_name = getattr(company, "name", None) if company else None
-        if company_name:
-            allowed_company_names.append(company_name)
+    allowed_company_ids, allowed_company_names = _extract_ads_allowed_company_scope(ads)
     data.update({
         "allowed_company_ids": allowed_company_ids,
         "allowed_company_names": allowed_company_names,

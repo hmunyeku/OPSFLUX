@@ -406,6 +406,78 @@ function SearchablePicker<T extends { id: string }>({
   )
 }
 
+type AllowedCompanySelection = {
+  id: string
+  code?: string | null
+  name: string
+}
+
+function AllowedCompaniesPicker({
+  value,
+  onChange,
+  searchValue,
+  onSearchChange,
+  disabled = false,
+  chipVariant = 'muted',
+}: {
+  value: AllowedCompanySelection[]
+  onChange: React.Dispatch<React.SetStateAction<AllowedCompanySelection[]>>
+  searchValue: string
+  onSearchChange: (value: string) => void
+  disabled?: boolean
+  chipVariant?: 'muted' | 'background'
+}) {
+  const { t } = useTranslation()
+  const { data: tiersData, isLoading: tiersLoading } = useTiers({ page: 1, page_size: 20, search: searchValue || undefined })
+
+  return (
+    <div className="space-y-3">
+      <SearchablePicker
+        label={t('paxlog.create_ads.fields.allowed_companies')}
+        icon={<Building2 size={12} className="text-muted-foreground" />}
+        items={tiersData?.items || []}
+        isLoading={tiersLoading}
+        searchValue={searchValue}
+        onSearchChange={onSearchChange}
+        renderItem={(tier) => <><span className="font-semibold">{tier.code}</span> — {tier.name}</>}
+        selectedId={null}
+        onSelect={(tier) => {
+          onChange((current) => current.some((item) => item.id === tier.id)
+            ? current
+            : [...current, { id: tier.id, code: tier.code, name: tier.name }])
+          onSearchChange('')
+        }}
+        onClear={() => onSearchChange('')}
+        placeholder={t('paxlog.search_company')}
+      />
+      <p className="text-[10px] text-muted-foreground">{t('paxlog.create_ads.allowed_companies_help')}</p>
+      {value.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {value.map((company) => (
+            <span
+              key={company.id}
+              className={cn(
+                'inline-flex items-center gap-1 rounded-full border border-border px-2 py-1 text-xs',
+                chipVariant === 'background' ? 'bg-background' : 'bg-muted/30',
+              )}
+            >
+              <span className="font-medium">{company.code ? `${company.code} — ` : ''}{company.name}</span>
+              <button
+                type="button"
+                className="text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() => onChange((current) => current.filter((item) => item.id !== company.id))}
+                disabled={disabled}
+              >
+                <X size={12} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ═══════════════════════════════════════════════════════════════
 // TAB 1: DASHBOARD
 // ═══════════════════════════════════════════════════════════════
@@ -1904,10 +1976,9 @@ function CreateAdsPanel() {
   const { data: projects } = useProjects({ page: 1, page_size: 100 })
   const { data: usersData } = useUsers({ page: 1, page_size: 200, active: true })
   const [companySearch, setCompanySearch] = useState('')
-  const { data: tiersData, isLoading: tiersLoading } = useTiers({ page: 1, page_size: 20, search: companySearch || undefined })
   const visitCategoryOptions = useDictionaryOptions('visit_category')
   const transportModeOptions = useDictionaryOptions('transport_mode')
-  const [allowedCompanies, setAllowedCompanies] = useState<Array<{ id: string; code?: string | null; name: string }>>([])
+  const [allowedCompanies, setAllowedCompanies] = useState<AllowedCompanySelection[]>([])
 
   const [form, setForm] = useState<{
     type: 'individual' | 'team'
@@ -2089,41 +2160,12 @@ function CreateAdsPanel() {
         </FormSection>
 
         <FormSection title={t('paxlog.create_ads.sections.allowed_companies')}>
-          <SearchablePicker
-            label={t('paxlog.create_ads.fields.allowed_companies')}
-            icon={<Building2 size={12} className="text-muted-foreground" />}
-            items={tiersData?.items || []}
-            isLoading={tiersLoading}
+          <AllowedCompaniesPicker
+            value={allowedCompanies}
+            onChange={setAllowedCompanies}
             searchValue={companySearch}
             onSearchChange={setCompanySearch}
-            renderItem={(tier) => <><span className="font-semibold">{tier.code}</span> — {tier.name}</>}
-            selectedId={null}
-            onSelect={(tier) => {
-              setAllowedCompanies((current) => current.some((item) => item.id === tier.id)
-                ? current
-                : [...current, { id: tier.id, code: tier.code, name: tier.name }])
-              setCompanySearch('')
-            }}
-            onClear={() => setCompanySearch('')}
-            placeholder={t('paxlog.search_company')}
           />
-          <p className="text-[10px] text-muted-foreground">{t('paxlog.create_ads.allowed_companies_help')}</p>
-          {allowedCompanies.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {allowedCompanies.map((company) => (
-                <span key={company.id} className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/30 px-2 py-1 text-xs">
-                  <span className="font-medium">{company.code ? `${company.code} — ` : ''}{company.name}</span>
-                  <button
-                    type="button"
-                    className="text-muted-foreground hover:text-foreground"
-                    onClick={() => setAllowedCompanies((current) => current.filter((item) => item.id !== company.id))}
-                  >
-                    <X size={12} />
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
         </FormSection>
 
         <p className="text-xs text-muted-foreground italic">
@@ -2191,8 +2233,7 @@ function AdsDetailPanel({ id }: { id: string }) {
   const [showPaxPicker, setShowPaxPicker] = useState(false)
   const [showStayProgramForm, setShowStayProgramForm] = useState(false)
   const [allowedCompanySearch, setAllowedCompanySearch] = useState('')
-  const { data: allowedCompaniesData, isLoading: allowedCompaniesLoading } = useTiers({ page: 1, page_size: 20, search: allowedCompanySearch || undefined })
-  const [allowedCompaniesDraft, setAllowedCompaniesDraft] = useState<Array<{ id: string; code?: string | null; name: string }>>([])
+  const [allowedCompaniesDraft, setAllowedCompaniesDraft] = useState<AllowedCompanySelection[]>([])
   const [paxRejectEntryId, setPaxRejectEntryId] = useState<string | null>(null)
   const [paxRejectReason, setPaxRejectReason] = useState('')
   const [stayProgramTarget, setStayProgramTarget] = useState<{ user_id?: string | null; contact_id?: string | null }>({})
@@ -2900,42 +2941,15 @@ function AdsDetailPanel({ id }: { id: string }) {
             <div className="mt-3 rounded-lg border border-border bg-muted/20 p-3 space-y-3">
               <div className="space-y-1">
                 <p className="text-xs font-semibold text-foreground">{t('paxlog.ads_detail.fields.allowed_companies')}</p>
-                <p className="text-[10px] text-muted-foreground">{t('paxlog.create_ads.allowed_companies_help')}</p>
               </div>
-              <SearchablePicker
-                label={t('paxlog.create_ads.fields.allowed_companies')}
-                icon={<Building2 size={12} className="text-muted-foreground" />}
-                items={allowedCompaniesData?.items || []}
-                isLoading={allowedCompaniesLoading}
+              <AllowedCompaniesPicker
+                value={allowedCompaniesDraft}
+                onChange={setAllowedCompaniesDraft}
                 searchValue={allowedCompanySearch}
                 onSearchChange={setAllowedCompanySearch}
-                renderItem={(tier) => <><span className="font-semibold">{tier.code}</span> — {tier.name}</>}
-                selectedId={null}
-                onSelect={(tier) => {
-                  setAllowedCompaniesDraft((current) => current.some((item) => item.id === tier.id)
-                    ? current
-                    : [...current, { id: tier.id, code: tier.code, name: tier.name }])
-                  setAllowedCompanySearch('')
-                }}
-                onClear={() => setAllowedCompanySearch('')}
-                placeholder={t('paxlog.search_company')}
+                disabled={updateAds.isPending}
+                chipVariant="background"
               />
-              {allowedCompaniesDraft.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {allowedCompaniesDraft.map((company) => (
-                    <span key={company.id} className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-1 text-xs">
-                      <span className="font-medium">{company.code ? `${company.code} — ` : ''}{company.name}</span>
-                      <button
-                        type="button"
-                        className="text-muted-foreground hover:text-foreground"
-                        onClick={() => setAllowedCompaniesDraft((current) => current.filter((item) => item.id !== company.id))}
-                      >
-                        <X size={12} />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
               <div className="flex justify-end">
                 <PanelActionButton
                   variant="primary"

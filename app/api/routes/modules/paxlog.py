@@ -232,17 +232,6 @@ def _expiring_alert_bucket(days_remaining: int) -> str:
     return "future"
 
 
-async def _require_ads_approve_or_project_update(
-    current_user: User = Depends(get_current_user),
-    entity_id: UUID = Depends(get_current_entity),
-    db: AsyncSession = Depends(get_db),
-) -> None:
-    can_approve_ads = await has_user_permission(current_user, entity_id, "paxlog.ads.approve", db)
-    can_update_project = await has_user_permission(current_user, entity_id, "project.update", db)
-    if not can_approve_ads and not can_update_project:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied")
-
-
 async def _get_external_user_tier_ids(
     db: AsyncSession,
     current_user: User,
@@ -680,7 +669,8 @@ async def _run_ads_submission_checks(
         else:
             pax_entry.status = "compliant"
 
-    target_status = "pending_compliance" if has_compliance_issues else "pending_validation"
+    # Compliance review is now always an explicit workflow step before final validation.
+    target_status = "pending_compliance"
     ads.rejection_reason = build_compliance_issues_summary(issues_for_summary) if has_compliance_issues else None
     return pax_entries, has_compliance_issues, target_status
 
@@ -2654,7 +2644,7 @@ async def approve_ads(
     ads_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(_require_ads_approve_or_project_update),
+    _: None = require_permission("paxlog.ads.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Approve an AdS (pending_validation → approved).
@@ -2671,9 +2661,12 @@ async def approve_ads(
         raise HTTPException(status_code=404, detail="AdS not found")
 
     if ads.status == "pending_initiator_review":
-        can_approve_ads = await has_user_permission(current_user, entity_id, "paxlog.ads.approve", db)
-        if current_user.id != ads.requester_id and not can_approve_ads:
-            raise HTTPException(status_code=403, detail="Vous ne pouvez pas valider cette revue initiateur.")
+        await _assert_ads_initiator_review_access(
+            ads,
+            current_user=current_user,
+            entity_id=entity_id,
+            db=db,
+        )
 
         project_reviewer = await _get_ads_project_reviewer(db, ads=ads, entity_id=entity_id)
         if project_reviewer and project_reviewer.manager_id != current_user.id:
@@ -2737,12 +2730,12 @@ async def approve_ads(
         return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
 
     if ads.status == "pending_project_review":
-        project_reviewer = await _get_ads_project_reviewer(db, ads=ads, entity_id=entity_id)
-        can_approve_ads = await has_user_permission(current_user, entity_id, "paxlog.ads.approve", db)
-        if not project_reviewer:
-            raise HTTPException(status_code=400, detail="Aucune validation projet n'est attendue sur cette AdS.")
-        if current_user.id != project_reviewer.manager_id and not can_approve_ads:
-            raise HTTPException(status_code=403, detail="Vous ne pouvez pas valider cette revue projet.")
+        project_reviewer = await _assert_ads_project_review_access(
+            ads,
+            current_user=current_user,
+            entity_id=entity_id,
+            db=db,
+        )
 
         pax_entries, has_compliance_issues, target_status = await _run_ads_submission_checks(
             db,
@@ -2795,11 +2788,81 @@ async def approve_ads(
         await db.commit()
         return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
 
+    if ads.status == "pending_compliance":
+        await _assert_ads_compliance_review_access(
+            current_user=current_user,
+            entity_id=entity_id,
+            db=db,
+        )
+
+        blocked_entries = (
+            await db.execute(
+                select(AdsPax).where(
+                    AdsPax.ads_id == ads_id,
+                    AdsPax.status == "blocked",
+                )
+            )
+        ).scalars().all()
+        if blocked_entries:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Un ou plusieurs PAX restent non conformes. Corrigez ou rejetez le dossier avant validation HSE.",
+            )
+
+        from_state = ads.status
+        await _try_ads_workflow_transition(
+            db,
+            entity_id_str=str(ads.id),
+            to_state="pending_validation",
+            actor_id=current_user.id,
+            entity_id_scope=entity_id,
+        )
+
+        ads.status = "pending_validation"
+        db.add(AdsEvent(
+            entity_id=entity_id,
+            ads_id=ads.id,
+            event_type="compliance_approved",
+            old_status=from_state,
+            new_status="pending_validation",
+            actor_id=current_user.id,
+        ))
+
+        await db.commit()
+        await db.refresh(ads)
+
+        await fsm_service.emit_transition_event(
+            entity_type=ADS_ENTITY_TYPE,
+            entity_id=str(ads.id),
+            from_state=from_state,
+            to_state="pending_validation",
+            actor_id=current_user.id,
+            workflow_slug=ADS_WORKFLOW_SLUG,
+            extra_payload={"reference": ads.reference},
+        )
+        await record_audit(
+            db,
+            action="paxlog.ads.compliance_approve",
+            resource_type="ads",
+            resource_id=str(ads.id),
+            user_id=current_user.id,
+            entity_id=entity_id,
+            details={"reference": ads.reference},
+        )
+        await db.commit()
+        return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
+
     if ads.status not in ("pending_validation", "submitted"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Impossible d'approuver un AdS avec le statut '{ads.status}'.",
         )
+
+    await _assert_ads_final_approval_access(
+        current_user=current_user,
+        entity_id=entity_id,
+        db=db,
+    )
 
     # Mark all compliant PAX as approved
     pax_result = await db.execute(
@@ -2888,7 +2951,7 @@ async def reject_ads(
     reason: str | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(_require_ads_approve_or_project_update),
+    _: None = require_permission("paxlog.ads.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Reject an AdS."""
@@ -2899,15 +2962,32 @@ async def reject_ads(
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
 
-    if ads.status == "pending_project_review":
-        project_reviewer = await _get_ads_project_reviewer(db, ads=ads, entity_id=entity_id)
-        can_approve_ads = await has_user_permission(current_user, entity_id, "paxlog.ads.approve", db)
-        if not project_reviewer:
-            raise HTTPException(status_code=400, detail="Aucune validation projet n'est attendue sur cette AdS.")
-        if current_user.id != project_reviewer.manager_id and not can_approve_ads:
-            raise HTTPException(status_code=403, detail="Vous ne pouvez pas rejeter cette revue projet.")
-    elif not await has_user_permission(current_user, entity_id, "paxlog.ads.approve", db):
-        raise HTTPException(status_code=403, detail="Vous ne pouvez pas rejeter cette AdS.")
+    if ads.status == "pending_initiator_review":
+        await _assert_ads_initiator_review_access(
+            ads,
+            current_user=current_user,
+            entity_id=entity_id,
+            db=db,
+        )
+    elif ads.status == "pending_project_review":
+        await _assert_ads_project_review_access(
+            ads,
+            current_user=current_user,
+            entity_id=entity_id,
+            db=db,
+        )
+    elif ads.status == "pending_compliance":
+        await _assert_ads_compliance_review_access(
+            current_user=current_user,
+            entity_id=entity_id,
+            db=db,
+        )
+    else:
+        await _assert_ads_final_approval_access(
+            current_user=current_user,
+            entity_id=entity_id,
+            db=db,
+        )
 
     if ads.status in ("cancelled", "completed", "rejected"):
         raise HTTPException(
@@ -5926,6 +6006,57 @@ async def _can_manage_ads(
     if ads.created_by == current_user.id:
         return True
     return await has_user_permission(current_user, entity_id, "paxlog.ads.approve", db)
+
+
+async def _assert_ads_initiator_review_access(
+    ads: Ads,
+    *,
+    current_user: User,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> None:
+    can_approve = await has_user_permission(current_user, entity_id, "paxlog.ads.approve", db)
+    if current_user.id != ads.requester_id and not can_approve:
+        raise HTTPException(status_code=403, detail="Vous ne pouvez pas valider cette revue initiateur.")
+
+
+async def _assert_ads_project_review_access(
+    ads: Ads,
+    *,
+    current_user: User,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> Project:
+    project_reviewer = await _get_ads_project_reviewer(db, ads=ads, entity_id=entity_id)
+    if not project_reviewer:
+        raise HTTPException(status_code=400, detail="Aucune validation projet n'est attendue sur cette AdS.")
+    can_update_project = await has_user_permission(current_user, entity_id, "project.update", db)
+    can_approve = await has_user_permission(current_user, entity_id, "paxlog.ads.approve", db)
+    if current_user.id != project_reviewer.manager_id and not can_update_project and not can_approve:
+        raise HTTPException(status_code=403, detail="Vous ne pouvez pas valider cette revue projet.")
+    return project_reviewer
+
+
+async def _assert_ads_compliance_review_access(
+    *,
+    current_user: User,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> None:
+    can_manage_compliance = await has_user_permission(current_user, entity_id, "paxlog.compliance.manage", db)
+    if not can_manage_compliance:
+        raise HTTPException(status_code=403, detail="Vous ne pouvez pas valider cette revue conformité.")
+
+
+async def _assert_ads_final_approval_access(
+    *,
+    current_user: User,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> None:
+    can_approve = await has_user_permission(current_user, entity_id, "paxlog.ads.approve", db)
+    if not can_approve:
+        raise HTTPException(status_code=403, detail="Vous ne pouvez pas approuver cette AdS.")
 
 
 async def _get_ads_project_reviewer(

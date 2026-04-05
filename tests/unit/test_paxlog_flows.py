@@ -636,7 +636,7 @@ async def test_approve_ads_from_initiator_review_runs_next_step(monkeypatch):
         return None
 
     async def fake_submission_checks(*_args, **_kwargs):
-        return ([SimpleNamespace(id=uuid4())], False, "pending_validation")
+        return ([SimpleNamespace(id=uuid4())], False, "pending_compliance")
 
     async def fake_transition(*args, **kwargs):
         transition_calls.append(kwargs)
@@ -666,9 +666,9 @@ async def test_approve_ads_from_initiator_review_runs_next_step(monkeypatch):
         db=db,
     )
 
-    assert response.status == "pending_validation"
-    assert transition_calls and transition_calls[0]["to_state"] == "pending_validation"
-    assert emitted_events and emitted_events[0]["to_state"] == "pending_validation"
+    assert response.status == "pending_compliance"
+    assert transition_calls and transition_calls[0]["to_state"] == "pending_compliance"
+    assert emitted_events and emitted_events[0]["to_state"] == "pending_compliance"
     assert audits and audits[0]["action"] == "paxlog.ads.initiator_approve"
 
 
@@ -693,7 +693,7 @@ async def test_approve_ads_from_project_review_runs_compliance_checks(monkeypatc
         return False
 
     async def fake_submission_checks(*_args, **_kwargs):
-        return ([SimpleNamespace(id=uuid4())], False, "pending_validation")
+        return ([SimpleNamespace(id=uuid4())], False, "pending_compliance")
 
     async def fake_transition(*args, **kwargs):
         transition_calls.append(kwargs)
@@ -723,10 +723,83 @@ async def test_approve_ads_from_project_review_runs_compliance_checks(monkeypatc
         db=db,
     )
 
+    assert response.status == "pending_compliance"
+    assert transition_calls and transition_calls[0]["to_state"] == "pending_compliance"
+    assert emitted_events and emitted_events[0]["to_state"] == "pending_compliance"
+    assert audits and audits[0]["action"] == "paxlog.ads.project_approve"
+
+
+@pytest.mark.asyncio
+async def test_approve_ads_from_pending_compliance_requires_hse_and_moves_to_pending_validation(monkeypatch):
+    reviewer_id = uuid4()
+    ads = _build_ads(status="pending_compliance")
+    compliant_entry = SimpleNamespace(id=uuid4(), ads_id=ads.id, status="compliant")
+    db = FakeDB([
+        FakeResult(scalar_one_or_none=ads),
+        FakeScalarResult([]),
+    ])
+    transition_calls = []
+    emitted_events = []
+    audits = []
+
+    async def fake_has_user_permission(_user, _entity_id, permission_code, _db):
+        return permission_code == "paxlog.compliance.manage"
+
+    async def fake_transition(*_args, **kwargs):
+        transition_calls.append(kwargs)
+
+    async def fake_emit_transition_event(**kwargs):
+        emitted_events.append(kwargs)
+
+    async def fake_record_audit(*_args, **kwargs):
+        audits.append(kwargs)
+
+    async def fake_build_ads_read_data(_db, *, ads, entity_id):
+        return _ads_read_payload(ads, entity_id)
+
+    monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
+    monkeypatch.setattr(paxlog, "_try_ads_workflow_transition", fake_transition)
+    monkeypatch.setattr(paxlog.fsm_service, "emit_transition_event", fake_emit_transition_event)
+    monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+    monkeypatch.setattr(paxlog, "_build_ads_read_data", fake_build_ads_read_data)
+
+    response = await paxlog.approve_ads(
+        ads.id,
+        entity_id=ads.entity_id,
+        current_user=SimpleNamespace(id=reviewer_id),
+        _=None,
+        db=db,
+    )
+
     assert response.status == "pending_validation"
     assert transition_calls and transition_calls[0]["to_state"] == "pending_validation"
     assert emitted_events and emitted_events[0]["to_state"] == "pending_validation"
-    assert audits and audits[0]["action"] == "paxlog.ads.project_approve"
+    assert audits and audits[0]["action"] == "paxlog.ads.compliance_approve"
+
+
+@pytest.mark.asyncio
+async def test_approve_ads_from_pending_validation_denies_user_without_final_approval(monkeypatch):
+    ads = _build_ads(status="pending_validation")
+    db = FakeDB([FakeResult(scalar_one_or_none=ads)])
+
+    async def fake_has_user_permission(_user, _entity_id, permission_code, _db):
+        if permission_code == "paxlog.ads.approve":
+            return False
+        return False
+
+    monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
+
+    with pytest.raises(HTTPException) as exc:
+        await paxlog.approve_ads(
+            ads.id,
+            entity_id=ads.entity_id,
+            current_user=SimpleNamespace(id=uuid4()),
+            _=None,
+            db=db,
+        )
+
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "Vous ne pouvez pas approuver cette AdS."
 
 
 @pytest.mark.asyncio
@@ -1245,10 +1318,14 @@ async def test_approve_ads_emits_transport_requested_flag(
     async def fake_build_ads_read_data(_db, *, ads, entity_id):
         return _ads_read_payload(ads, entity_id)
 
+    async def fake_has_user_permission(_user, _entity_id, permission_code, _db):
+        return permission_code == "paxlog.ads.approve"
+
     class FakeEventBus:
         async def publish(self, event):
             published_events.append(event)
 
+    monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
     monkeypatch.setattr(paxlog, "_try_ads_workflow_transition", fake_transition)
     monkeypatch.setattr(paxlog.fsm_service, "emit_transition_event", fake_emit_transition_event)
     monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
@@ -2506,7 +2583,7 @@ async def test_resubmit_ads_clears_rejection_and_rechecks_submission(monkeypatch
     audits = []
 
     async def fake_run_submission_checks(*args, **kwargs):
-        return ([{"id": "p1"}], False, "pending_validation")
+        return ([{"id": "p1"}], False, "pending_compliance")
 
     async def fake_transition(*args, **kwargs):
         transition_calls.append(kwargs)
@@ -2531,16 +2608,16 @@ async def test_resubmit_ads_clears_rejection_and_rechecks_submission(monkeypatch
         db=db,
     )
 
-    assert response.status == "pending_validation"
+    assert response.status == "pending_compliance"
     assert response.rejection_reason is None
-    assert transition_calls and transition_calls[0]["to_state"] == "pending_validation"
-    assert emitted_events and emitted_events[0]["to_state"] == "pending_validation"
+    assert transition_calls and transition_calls[0]["to_state"] == "pending_compliance"
+    assert emitted_events and emitted_events[0]["to_state"] == "pending_compliance"
     assert audits and audits[0]["action"] == "paxlog.ads.resubmit"
 
     ads_event = next(obj for obj in db.added if isinstance(obj, AdsEvent))
     assert ads_event.event_type == "resubmitted"
     assert ads_event.old_status == "requires_review"
-    assert ads_event.new_status == "pending_validation"
+    assert ads_event.new_status == "pending_compliance"
     assert ads_event.reason == "Pièces complétées"
 
 
@@ -2559,7 +2636,7 @@ async def test_resubmit_ads_from_requires_review_does_not_reenter_initiator_or_p
     emitted_events = []
 
     async def fake_run_submission_checks(*args, **kwargs):
-        return ([{"id": "p1"}], False, "pending_validation")
+        return ([{"id": "p1"}], False, "pending_compliance")
 
     async def fake_transition(*args, **kwargs):
         transition_calls.append(kwargs)
@@ -2584,10 +2661,10 @@ async def test_resubmit_ads_from_requires_review_does_not_reenter_initiator_or_p
         db=db,
     )
 
-    assert response.status == "pending_validation"
-    assert transition_calls and transition_calls[0]["to_state"] == "pending_validation"
+    assert response.status == "pending_compliance"
+    assert transition_calls and transition_calls[0]["to_state"] == "pending_compliance"
     assert all(call["to_state"] not in {"pending_initiator_review", "pending_project_review"} for call in transition_calls)
-    assert emitted_events and emitted_events[0]["to_state"] == "pending_validation"
+    assert emitted_events and emitted_events[0]["to_state"] == "pending_compliance"
     assert all(event["to_state"] not in {"pending_initiator_review", "pending_project_review"} for event in emitted_events)
 
 
@@ -2988,12 +3065,10 @@ def test_ads_routes_use_expected_permissions():
     assert _route_requires_permission("/ads/{ads_id}/events", "GET", "paxlog.ads.read")
     assert _route_requires_permission("/ads/{ads_id}/pax", "GET", "paxlog.ads.read")
     assert _route_requires_permission("/ads/{ads_id}/submit", "POST", "paxlog.ads.submit")
-    assert _route_requires_permission("/ads/{ads_id}/approve", "POST", "paxlog.ads.approve")
-    assert _route_requires_permission("/ads/{ads_id}/approve", "POST", "project.update")
+    assert _route_requires_permission("/ads/{ads_id}/approve", "POST", "paxlog.ads.read")
     assert _route_requires_permission("/ads/{ads_id}/start-progress", "POST", "paxlog.ads.approve")
     assert _route_requires_permission("/ads/{ads_id}/complete", "POST", "paxlog.ads.approve")
-    assert _route_requires_permission("/ads/{ads_id}/reject", "POST", "paxlog.ads.approve")
-    assert _route_requires_permission("/ads/{ads_id}/reject", "POST", "project.update")
+    assert _route_requires_permission("/ads/{ads_id}/reject", "POST", "paxlog.ads.read")
     assert _route_requires_permission("/ads/{ads_id}/cancel", "POST", "paxlog.ads.cancel")
     assert _route_requires_permission("/stay-programs", "GET", "paxlog.ads.read")
 
@@ -4698,7 +4773,7 @@ def test_register_module_handlers_does_not_duplicate_planner_cancelled_for_paxlo
     module_handlers.register_module_handlers(bus)
 
     subscribed_events = [event_type for event_type, _handler in bus.subscriptions]
-    assert "planner.activity.cancelled" not in subscribed_events
+    assert subscribed_events.count("planner.activity.cancelled") == 1
 
 
 @pytest.mark.asyncio

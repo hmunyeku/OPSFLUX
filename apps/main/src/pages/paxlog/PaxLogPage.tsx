@@ -21,6 +21,7 @@ import {
   CheckCircle2,
   Clock,
   Info,
+  LogOut,
   User,
   Building2,
   Search,
@@ -39,6 +40,7 @@ import { cn } from '@/lib/utils'
 import { normalizeNames } from '@/lib/normalize'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
+import { paxlogService } from '@/services/paxlogService'
 import { useDebounce } from '@/hooks/useDebounce'
 import { usePageSize } from '@/hooks/usePageSize'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
@@ -66,7 +68,9 @@ import { useAuthStore } from '@/stores/authStore'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
 import {
   usePaxProfiles,
+  usePaxGroups,
   usePaxProfile,
+  usePaxProfileSitePresenceHistory,
   useCreatePaxProfile,
   useUpdatePaxProfile,
   usePaxCredentials,
@@ -76,12 +80,15 @@ import {
   useCreateAds,
   useSubmitAds,
   useCancelAds,
+  useStartAdsProgress,
   useApproveAds,
   useDecideAdsPax,
   useRejectAds,
   useRequestAdsStayChange,
   useRequestReviewAds,
   useResubmitAds,
+  useCompleteAds,
+  useManualDepartureAds,
   useAdsEvents,
   useAdsPdf,
   useAdsPax,
@@ -109,6 +116,8 @@ import {
   useCompleteAvm,
   useCancelAvm,
   useUpdateAvmPreparationTask,
+  useUpdateAvmVisaFollowup,
+  useUpdateAvmAllowanceRequest,
   useAddPaxToAdsV2,
   useRemovePaxFromAds,
   usePaxCandidates,
@@ -139,8 +148,11 @@ import type {
   MissionNoticeSummary,
   MissionNoticeModifyRequest,
   MissionPreparationTaskUpdate,
+  MissionVisaFollowupUpdate,
+  MissionAllowanceRequestUpdate,
   MissionProgramRead,
   PaxCandidate,
+  PaxSitePresence,
 } from '@/services/paxlogService'
 
 // ── Constants ──────────────────────────────────────────────────
@@ -186,13 +198,6 @@ const SEVERITY_COLOR_MAP: Record<string, string> = {
   temp_ban: 'gl-badge-danger',
   permanent_ban: 'gl-badge-danger',
 }
-
-const ROTATION_STATUS_OPTIONS = [
-  { value: '', labelKey: 'common.all' },
-  { value: 'active', labelKey: 'paxlog.status.rotation.active' },
-  { value: 'paused', labelKey: 'paxlog.status.rotation.paused' },
-  { value: 'completed', labelKey: 'paxlog.status.rotation.completed' },
-]
 
 const ROTATION_STATUS_MAP: Record<string, { labelKey: string; badge: string }> = {
   active: { labelKey: 'paxlog.status.rotation.active', badge: 'gl-badge-success' },
@@ -945,7 +950,7 @@ function AdsTab({ openDetail, requesterOnly = false, validatorOnly = false }: { 
 // TAB 3: PROFILS PAX
 // ═══════════════════════════════════════════════════════════════
 
-function ProfilesTab({ openDetail }: { openDetail: (id: string) => void }) {
+function ProfilesTab({ openDetail }: { openDetail: (id: string, meta?: Record<string, unknown>) => void }) {
   const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const { pageSize } = usePageSize()
@@ -1036,7 +1041,7 @@ function ProfilesTab({ openDetail }: { openDetail: (id: string) => void }) {
           searchValue={search}
           onSearchChange={(v) => { setSearch(v); setPage(1) }}
           searchPlaceholder={t('paxlog.search_profile')}
-          onRowClick={(row) => openDetail(row.id)}
+          onRowClick={(row) => openDetail(row.id, { pax_source: row.pax_source })}
           importExport={(canExport || canImport) ? {
             exportFormats: canExport ? ['csv', 'xlsx'] : undefined,
             advancedExport: true,
@@ -1254,6 +1259,12 @@ function SignalementsTab() {
         if (pax.pax_first_name || pax.pax_last_name) {
           return <span className="text-xs font-medium text-foreground">{pax.pax_last_name} {pax.pax_first_name}</span>
         }
+        if (pax.group_name) {
+          return <span className="text-xs font-medium text-foreground">{pax.group_name}</span>
+        }
+        if (pax.company_name) {
+          return <span className="text-xs font-medium text-foreground">{pax.company_name}</span>
+        }
         return <span className="text-xs text-muted-foreground">—</span>
       },
     },
@@ -1351,6 +1362,12 @@ function RotationsTab() {
   const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const rotationStatusOptions = useDictionaryOptions('pax_rotation_status')
+  const rotationStatusLabels = useDictionaryLabels('pax_rotation_status', {
+    active: t('paxlog.status.rotation.active'),
+    paused: t('paxlog.status.rotation.paused'),
+    completed: t('paxlog.status.rotation.completed'),
+  })
   const endCycle = useEndRotationCycle()
 
   const { data, isLoading } = useRotationCycles({
@@ -1365,18 +1382,35 @@ function RotationsTab() {
     return data.items.filter((r: RotationCycle) =>
       (r.pax_first_name || '').toLowerCase().includes(q) ||
       (r.pax_last_name || '').toLowerCase().includes(q) ||
-      (r.site_name || '').toLowerCase().includes(q)
+      (r.site_name || '').toLowerCase().includes(q) ||
+      (r.company_name || '').toLowerCase().includes(q)
     )
   }, [data?.items, search])
+
+  const rotationStatusFilterOptions = useMemo(
+    () => [
+      { value: '', label: t('common.all') },
+      ...rotationStatusOptions.map((opt) => ({
+        value: String(opt.value),
+        label: rotationStatusLabels[String(opt.value)] || opt.label,
+      })),
+    ],
+    [rotationStatusLabels, rotationStatusOptions, t],
+  )
 
   const rotationColumns = useMemo<ColumnDef<RotationCycle, unknown>[]>(() => [
     {
       id: 'pax',
-      header: 'PAX',
+      header: t('paxlog.rotations_tab.columns.pax'),
       cell: ({ row }) => (
-        <span className="font-medium text-foreground text-xs">
-          {row.original.pax_last_name} {row.original.pax_first_name}
-        </span>
+        <div className="min-w-0">
+          <div className="font-medium text-foreground text-xs">
+            {row.original.pax_last_name} {row.original.pax_first_name}
+          </div>
+          {row.original.company_name && (
+            <div className="text-[11px] text-muted-foreground truncate">{row.original.company_name}</div>
+          )}
+        </div>
       ),
     },
     {
@@ -1421,6 +1455,26 @@ function RotationsTab() {
       size: 90,
     },
     {
+      id: 'compliance',
+      header: t('paxlog.rotations_tab.columns.compliance'),
+      cell: ({ row }) => {
+        const count = row.original.compliance_issue_count ?? 0
+        const preview = row.original.compliance_issue_preview ?? []
+        if (count === 0) {
+          return <span className="text-xs text-emerald-700">{t('paxlog.rotations_tab.compliance.clear')}</span>
+        }
+        return (
+          <div className="min-w-0">
+            <span className="gl-badge gl-badge-danger text-[11px]">
+              {t('paxlog.rotations_tab.compliance.blocked', { count })}
+            </span>
+            {preview[0] && <div className="text-[11px] text-muted-foreground truncate mt-1">{preview[0]}</div>}
+          </div>
+        )
+      },
+      size: 180,
+    },
+    {
       id: 'actions',
       header: '',
       cell: ({ row }) => row.original.status === 'active' ? (
@@ -1434,16 +1488,16 @@ function RotationsTab() {
       ) : null,
       size: 80,
     },
-  ], [endCycle])
+  ], [endCycle, t])
 
   return (
     <>
       <div className="flex items-center gap-2 border-b border-border px-3.5 h-9 shrink-0">
         <div className="flex items-center gap-1">
-          {ROTATION_STATUS_OPTIONS.map((opt) => (
+          {rotationStatusFilterOptions.map((opt) => (
             <button key={opt.value} onClick={() => { setStatusFilter(opt.value); setPage(1) }}
               className={cn('px-2 py-0.5 rounded text-xs font-medium transition-colors whitespace-nowrap', statusFilter === opt.value ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground')}>
-              {t(opt.labelKey)}
+              {opt.label}
             </button>
           ))}
         </div>
@@ -1629,12 +1683,13 @@ function CreateProfilePanel() {
 
 // ── PAX Profile Detail Panel ──────────────────────────────────
 
-function ProfileDetailPanel({ id }: { id: string }) {
+function ProfileDetailPanel({ id, paxSource }: { id: string; paxSource: 'user' | 'contact' }) {
   const { t } = useTranslation()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
-  const { data: profile, isLoading } = usePaxProfile(id)
+  const { data: profile, isLoading } = usePaxProfile(id, paxSource)
   const updateProfile = useUpdatePaxProfile()
   const { data: credentials } = usePaxCredentials(id)
+  const { data: sitePresenceHistory } = usePaxProfileSitePresenceHistory(id, profile?.pax_source)
   const { data: credentialTypes } = useCredentialTypes()
   const paxTypeLabels = useDictionaryLabels('pax_type', { internal: t('paxlog.internal'), external: t('paxlog.external') })
 
@@ -1655,6 +1710,8 @@ function ProfileDetailPanel({ id }: { id: string }) {
       </DynamicPanelShell>
     )
   }
+
+  const profileOwnerType = profile.pax_source === 'contact' ? 'tier_contact' : 'user'
 
   return (
     <DynamicPanelShell
@@ -1768,15 +1825,43 @@ function ProfileDetailPanel({ id }: { id: string }) {
               )}
             </FormSection>
 
+            <FormSection title={t('paxlog.profile_panel.site_presence_title', { count: sitePresenceHistory?.length || 0 })}>
+              {!sitePresenceHistory || sitePresenceHistory.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-2 italic">{t('paxlog.profile_panel.site_presence_empty')}</p>
+              ) : (
+                <div className="space-y-1">
+                  {sitePresenceHistory.slice(0, 8).map((presence: PaxSitePresence) => (
+                    <div key={presence.ads_id} className="rounded border border-border px-2 py-1.5 text-xs space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium truncate">{presence.site_name || t('paxlog.profile_panel.unknown_site')}</span>
+                        <StatusBadge status={presence.ads_status} />
+                      </div>
+                      <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
+                        <span>{presence.ads_reference}</span>
+                        <span>{formatDate(presence.start_date)} — {formatDate(presence.end_date)}</span>
+                      </div>
+                      {(presence.boarding_status || presence.completed_at) && (
+                        <div className="text-[10px] text-muted-foreground">
+                          {presence.boarding_status
+                            ? t('paxlog.profile_panel.boarding_status', { status: presence.boarding_status, date: formatDate(presence.boarded_at) })
+                            : t('paxlog.profile_panel.completed_at', { date: formatDate(presence.completed_at) })}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </FormSection>
+
             <ReadOnlyRow label={t('common.created_at')} value={formatDate(profile.created_at)} />
           </div>
         </SectionColumns>
 
         <CollapsibleSection id="profile-tags-notes" title={t('paxlog.ads_detail.sections.tags_notes_files')}>
           <div className="space-y-3 p-3">
-            <TagManager ownerType="pax_profile" ownerId={profile.id} compact />
-            <AttachmentManager ownerType="pax_profile" ownerId={profile.id} compact />
-            <NoteManager ownerType="pax_profile" ownerId={profile.id} compact />
+            <TagManager ownerType={profileOwnerType} ownerId={profile.id} compact />
+            <AttachmentManager ownerType={profileOwnerType} ownerId={profile.id} compact />
+            <NoteManager ownerType={profileOwnerType} ownerId={profile.id} compact />
           </div>
         </CollapsibleSection>
       </PanelContentLayout>
@@ -1987,12 +2072,15 @@ function AdsDetailPanel({ id }: { id: string }) {
   const { data: imputationSuggestion } = useAdsImputationSuggestion(id)
   const submitAds = useSubmitAds()
   const cancelAds = useCancelAds()
+  const startAdsProgress = useStartAdsProgress()
   const approveAds = useApproveAds()
   const decideAdsPax = useDecideAdsPax()
   const rejectAds = useRejectAds()
   const requestAdsStayChange = useRequestAdsStayChange()
   const requestReviewAds = useRequestReviewAds()
   const resubmitAds = useResubmitAds()
+  const completeAds = useCompleteAds()
+  const manualDepartureAds = useManualDepartureAds()
   const downloadPdf = useAdsPdf()
   const createExtLink = useCreateExternalLink()
   const createStayProgram = useCreateStayProgram()
@@ -2014,6 +2102,8 @@ function AdsDetailPanel({ id }: { id: string }) {
   const [showResubmitForm, setShowResubmitForm] = useState(false)
   const [stayChangeReason, setStayChangeReason] = useState('')
   const [showStayChangeForm, setShowStayChangeForm] = useState(false)
+  const [manualDepartureReason, setManualDepartureReason] = useState('')
+  const [showManualDepartureForm, setShowManualDepartureForm] = useState(false)
   const [proposedStartDate, setProposedStartDate] = useState('')
   const [proposedEndDate, setProposedEndDate] = useState('')
   const [proposedVisitPurpose, setProposedVisitPurpose] = useState('')
@@ -2081,6 +2171,8 @@ function AdsDetailPanel({ id }: { id: string }) {
     && hasPermission('paxlog.ads.update')
     && (ads.requester_id === currentUser?.id || hasPermission('paxlog.ads.approve'))
   const canResubmit = ads.status === 'requires_review' && hasPermission('paxlog.ads.submit')
+  const canStartProgress = ads.status === 'approved' && hasPermission('paxlog.ads.approve')
+  const canCompleteAds = ads.status === 'in_progress' && hasPermission('paxlog.ads.approve')
   const canDownloadPdf = ['approved', 'in_progress', 'completed'].includes(ads.status)
   const canGenerateLink = ['approved', 'in_progress'].includes(ads.status)
   const stayProgramsEnabled = ['approved', 'in_progress'].includes(ads.status)
@@ -2115,7 +2207,7 @@ function AdsDetailPanel({ id }: { id: string }) {
     return fieldLabels[field] || field
   }
   const adsTimeline = (adsEvents ?? []).slice(0, 8)
-  const latestOperationalImpact = (adsEvents ?? []).find((event) => ['avm_modified_requires_review', 'avm_cancelled', 'planner_activity_modified_requires_review', 'planner_activity_cancelled'].includes(event.event_type))
+  const latestOperationalImpact = (adsEvents ?? []).find((event) => ['avm_modified_requires_review', 'avm_cancelled', 'planner_activity_modified_requires_review', 'planner_activity_cancelled', 'stay_change_requested'].includes(event.event_type))
   const getAdsEventLabel = (eventType: string) => {
     const eventLabels: Record<string, string> = {
       stay_change_requested: t('paxlog.ads_detail.history.events.stay_change_requested'),
@@ -2130,14 +2222,26 @@ function AdsDetailPanel({ id }: { id: string }) {
       planner_activity_cancelled: t('paxlog.ads_detail.history.events.planner_activity_cancelled'),
       submitted: t('paxlog.ads_detail.history.events.submitted'),
       approved: t('paxlog.ads_detail.history.events.approved'),
+      in_progress: t('paxlog.ads_detail.history.events.in_progress'),
+      completed: t('paxlog.ads_detail.history.events.completed'),
       rejected: t('paxlog.ads_detail.history.events.rejected'),
       requires_review: t('paxlog.ads_detail.history.events.requires_review'),
       cancelled: t('paxlog.ads_detail.history.events.cancelled'),
       resubmitted: t('paxlog.ads_detail.history.events.resubmitted'),
       updated: t('paxlog.ads_detail.history.events.updated'),
+      overdue_return_alert: t('paxlog.ads_detail.history.events.overdue_return_alert'),
     }
     return eventLabels[eventType] || eventType
   }
+  const latestOperationalImpactMeta = latestOperationalImpact?.metadata_json as {
+    changes?: Record<string, { from?: unknown; to?: unknown; before?: unknown; after?: unknown }>
+    avm_id?: string
+    avm_reference?: string
+    planner_activity_id?: string
+    planner_activity_title?: string
+    change_kinds?: string[]
+    primary_change_kind?: string
+  } | null
   const adsReadyToSubmit = adsSubmissionChecklist.every((item) => item.done)
   const adsNextAction =
     ads.status === 'draft'
@@ -2165,13 +2269,20 @@ function AdsDetailPanel({ id }: { id: string }) {
                   : ads.status === 'rejected'
                     ? t('paxlog.ads_detail.next_action.rejected')
                     : t('paxlog.ads_detail.next_action.cancelled')
-  const latestOperationalImpactChanges = (latestOperationalImpact?.metadata_json as {
-    changes?: Record<string, { from?: unknown; to?: unknown; before?: unknown; after?: unknown }>
-    avm_id?: string
-    avm_reference?: string
-    planner_activity_id?: string
-    planner_activity_title?: string
-  } | null)?.changes
+  const latestOperationalImpactChanges = latestOperationalImpactMeta?.changes
+  const latestStayChangeKinds = latestOperationalImpactMeta?.change_kinds ?? (
+    latestOperationalImpactMeta?.primary_change_kind ? [latestOperationalImpactMeta.primary_change_kind] : []
+  )
+  const getStayChangeKindLabel = (kind: string) => {
+    const labels: Record<string, string> = {
+      extension: t('paxlog.ads_detail.operational_impact.stay_change_kinds.extension'),
+      early_return: t('paxlog.ads_detail.operational_impact.stay_change_kinds.early_return'),
+      transport_change: t('paxlog.ads_detail.operational_impact.stay_change_kinds.transport_change'),
+      window_change: t('paxlog.ads_detail.operational_impact.stay_change_kinds.window_change'),
+      stay_change: t('paxlog.ads_detail.operational_impact.stay_change_kinds.stay_change'),
+    }
+    return labels[kind] || kind
+  }
 
   const handleReject = () => {
     rejectAds.mutate({ id, reason: rejectReason || undefined })
@@ -2223,8 +2334,34 @@ function AdsDetailPanel({ id }: { id: string }) {
     )
   }
 
+  const handleManualDeparture = () => {
+    if (!manualDepartureReason.trim()) return
+    manualDepartureAds.mutate(
+      { id, reason: manualDepartureReason.trim() },
+      {
+        onSuccess: () => {
+          setShowManualDepartureForm(false)
+          setManualDepartureReason('')
+        },
+      },
+    )
+  }
+
   const handleGenerateLink = () => {
-    createExtLink.mutate({ adsId: id, payload: { expires_hours: 72, max_uses: 5 } })
+    const popup = window.open('', '_blank', 'noopener,noreferrer')
+    createExtLink.mutate(
+      { adsId: id, payload: { expires_hours: 72, max_uses: 5 } },
+      {
+        onSuccess: (link) => {
+          const url = paxlogService.resolveExternalLinkUrl(link)
+          if (popup) popup.location.href = url
+          else window.open(url, '_blank', 'noopener,noreferrer')
+        },
+        onError: () => {
+          if (popup && !popup.closed) popup.close()
+        },
+      },
+    )
   }
 
   const handleApprovePassenger = (entryId: string) => {
@@ -2306,6 +2443,21 @@ function AdsDetailPanel({ id }: { id: string }) {
           {canApprove && (
             <PanelActionButton variant="primary" disabled={approveAds.isPending} onClick={() => approveAds.mutate(id)}>
               <ThumbsUp size={12} /> {t('common.validate')}
+            </PanelActionButton>
+          )}
+          {canStartProgress && (
+            <PanelActionButton variant="primary" disabled={startAdsProgress.isPending} onClick={() => startAdsProgress.mutate(id)}>
+              {startAdsProgress.isPending ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} {t('paxlog.ads_detail.actions.start_progress')}
+            </PanelActionButton>
+          )}
+          {canCompleteAds && (
+            <PanelActionButton variant="default" onClick={() => setShowManualDepartureForm(true)}>
+              <LogOut size={12} /> {t('paxlog.ads_detail.actions.manual_departure')}
+            </PanelActionButton>
+          )}
+          {canCompleteAds && (
+            <PanelActionButton variant="primary" disabled={completeAds.isPending} onClick={() => completeAds.mutate(id)}>
+              {completeAds.isPending ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />} {t('paxlog.ads_detail.actions.complete')}
             </PanelActionButton>
           )}
           {canReject && !showRejectForm && (
@@ -2425,6 +2577,25 @@ function AdsDetailPanel({ id }: { id: string }) {
                 {t('paxlog.ads_detail.stay_change.confirm')}
               </button>
               <button className="gl-button-sm gl-button-default" onClick={() => setShowStayChangeForm(false)}>{t('common.cancel')}</button>
+            </div>
+          </div>
+        )}
+
+        {showManualDepartureForm && (
+          <div className="border border-sky-300 rounded-lg bg-sky-50 dark:bg-sky-900/10 dark:border-sky-800 p-3 space-y-2">
+            <p className="text-xs font-semibold text-sky-700 dark:text-sky-400">{t('paxlog.ads_detail.manual_departure.title')}</p>
+            <textarea
+              className="gl-form-input text-xs min-h-[60px]"
+              placeholder={t('paxlog.ads_detail.manual_departure.placeholder')}
+              value={manualDepartureReason}
+              onChange={(e) => setManualDepartureReason(e.target.value)}
+            />
+            <div className="flex items-center gap-2">
+              <button className="gl-button-sm gl-button-default" disabled={manualDepartureAds.isPending || !manualDepartureReason.trim()} onClick={handleManualDeparture}>
+                {manualDepartureAds.isPending ? <Loader2 size={12} className="animate-spin" /> : <LogOut size={12} />}
+                {t('paxlog.ads_detail.manual_departure.confirm')}
+              </button>
+              <button className="gl-button-sm gl-button-default" onClick={() => { setShowManualDepartureForm(false); setManualDepartureReason('') }}>{t('common.cancel')}</button>
             </div>
           </div>
         )}
@@ -2574,7 +2745,9 @@ function AdsDetailPanel({ id }: { id: string }) {
           <CollapsibleSection id="ads-operational-impact" title={t('paxlog.ads_detail.sections.operational_impact')} defaultExpanded>
             <div className="space-y-2 rounded-md border border-amber-300/60 bg-amber-50 px-3 py-3 text-xs text-amber-950 dark:border-amber-700/50 dark:bg-amber-950/20 dark:text-amber-50">
               <p className="font-medium">
-                {latestOperationalImpact.event_type === 'avm_cancelled'
+                {latestOperationalImpact.event_type === 'stay_change_requested'
+                  ? t('paxlog.ads_detail.operational_impact.stay_change')
+                  : latestOperationalImpact.event_type === 'avm_cancelled'
                   ? t('paxlog.ads_detail.operational_impact.avm_cancelled')
                   : latestOperationalImpact.event_type === 'planner_activity_cancelled'
                     ? t('paxlog.ads_detail.operational_impact.planner_cancelled')
@@ -2611,6 +2784,18 @@ function AdsDetailPanel({ id }: { id: string }) {
                       <span className="font-medium">{getAvmChangeFieldLabel(field)}</span>: {formatEventValue(diff.from ?? diff.before)} → {formatEventValue(diff.to ?? diff.after)}
                     </div>
                   ))}
+                </div>
+              )}
+              {latestOperationalImpact.event_type === 'stay_change_requested' && latestStayChangeKinds.length > 0 && (
+                <div className="space-y-1">
+                  <p className="font-medium">{t('paxlog.ads_detail.operational_impact.stay_change_types')}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {latestStayChangeKinds.map((kind) => (
+                      <span key={kind} className="gl-badge gl-badge-neutral">
+                        {getStayChangeKindLabel(kind)}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -3036,9 +3221,13 @@ function CreateIncidentPanel() {
   const createIncident = useCreatePaxIncident()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const severityOptions = useDictionaryOptions('pax_incident_severity')
+  const [targetScope, setTargetScope] = useState<'pax' | 'company' | 'group'>('pax')
 
   const [paxSearch, setPaxSearch] = useState('')
   const { data: paxData, isLoading: paxLoading } = usePaxProfiles({ page: 1, page_size: 20, search: paxSearch || undefined })
+  const [companySearch, setCompanySearch] = useState('')
+  const { data: tiersData, isLoading: tiersLoading } = useTiers({ page: 1, page_size: 20, search: companySearch || undefined })
+  const [groupSearch, setGroupSearch] = useState('')
 
   const [form, setForm] = useState<{
     severity: 'info' | 'warning' | 'site_ban' | 'temp_ban' | 'permanent_ban'
@@ -3046,7 +3235,11 @@ function CreateIncidentPanel() {
     incident_date: string
     user_id: string | null
     contact_id: string | null
+    company_id: string | null
+    pax_group_id: string | null
     pax_display: string | null
+    company_display: string | null
+    group_display: string | null
     asset_id: string | null
     ban_start_date: string | null
     ban_end_date: string | null
@@ -3056,10 +3249,20 @@ function CreateIncidentPanel() {
     incident_date: new Date().toISOString().split('T')[0],
     user_id: null,
     contact_id: null,
+    company_id: null,
+    pax_group_id: null,
     pax_display: null,
+    company_display: null,
+    group_display: null,
     asset_id: null,
     ban_start_date: null,
     ban_end_date: null,
+  })
+  const { data: groupData, isLoading: groupLoading } = usePaxGroups({
+    page: 1,
+    page_size: 20,
+    search: groupSearch || undefined,
+    company_id: targetScope === 'group' ? form.company_id || undefined : undefined,
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -3068,8 +3271,10 @@ function CreateIncidentPanel() {
       severity: form.severity,
       description: form.description,
       incident_date: form.incident_date,
-      user_id: form.user_id || null,
-      contact_id: form.contact_id || null,
+      user_id: targetScope === 'pax' ? form.user_id || null : null,
+      contact_id: targetScope === 'pax' ? form.contact_id || null : null,
+      company_id: targetScope === 'company' ? form.company_id || null : null,
+      pax_group_id: targetScope === 'group' ? form.pax_group_id || null : null,
       asset_id: form.asset_id || null,
       ban_start_date: form.ban_start_date || null,
       ban_end_date: form.ban_end_date || null,
@@ -3109,22 +3314,121 @@ function CreateIncidentPanel() {
         </FormSection>
 
         <FormSection title={t('paxlog.incident_panel.sections.concerned_pax')}>
-          <SearchablePicker
-            label={t('paxlog.incident_panel.fields.pax_profile')}
-            icon={<User size={12} className="text-muted-foreground" />}
-            items={paxData?.items || []}
-            isLoading={paxLoading}
-            searchValue={paxSearch}
-            onSearchChange={setPaxSearch}
-            renderItem={(p) => <>{p.last_name} {p.first_name} {p.company_name ? <span className="text-muted-foreground">— {p.company_name}</span> : ''}</>}
-            selectedId={form.user_id || form.contact_id}
-            onSelect={(p) => {
-              const isUser = p.pax_source === 'user' || p.pax_type === 'internal'
-              setForm({ ...form, user_id: isUser ? p.id : null, contact_id: isUser ? null : p.id, pax_display: `${p.last_name} ${p.first_name}` })
+          <TagSelector
+            options={[
+              { value: 'pax', label: t('paxlog.incident_panel.target_scope.pax') },
+              { value: 'company', label: t('paxlog.incident_panel.target_scope.company') },
+              { value: 'group', label: t('paxlog.incident_panel.target_scope.group') },
+            ]}
+            value={targetScope}
+            onChange={(v) => {
+              const next = v as 'pax' | 'company' | 'group'
+              setTargetScope(next)
+              setForm((prev) => ({
+                ...prev,
+                user_id: null,
+                contact_id: null,
+                company_id: next === 'company' ? prev.company_id : prev.company_id,
+                pax_group_id: null,
+                pax_display: null,
+                company_display: next === 'pax' ? null : prev.company_display,
+                group_display: null,
+              }))
             }}
-            onClear={() => setForm({ ...form, user_id: null, contact_id: null, pax_display: null })}
-            placeholder={t('paxlog.incident_panel.placeholders.search_pax')}
           />
+
+          {targetScope === 'pax' && (
+            <SearchablePicker
+              label={t('paxlog.incident_panel.fields.pax_profile')}
+              icon={<User size={12} className="text-muted-foreground" />}
+              items={paxData?.items || []}
+              isLoading={paxLoading}
+              searchValue={paxSearch}
+              onSearchChange={setPaxSearch}
+              renderItem={(p) => <>{p.last_name} {p.first_name} {p.company_name ? <span className="text-muted-foreground">— {p.company_name}</span> : ''}</>}
+              selectedId={form.user_id || form.contact_id}
+              onSelect={(p) => {
+                const isUser = p.pax_source === 'user' || p.pax_type === 'internal'
+                setForm({
+                  ...form,
+                  user_id: isUser ? p.id : null,
+                  contact_id: isUser ? null : p.id,
+                  company_id: null,
+                  pax_group_id: null,
+                  pax_display: `${p.last_name} ${p.first_name}`,
+                  company_display: null,
+                  group_display: null,
+                })
+              }}
+              onClear={() => setForm({ ...form, user_id: null, contact_id: null, pax_display: null })}
+              placeholder={t('paxlog.incident_panel.placeholders.search_pax')}
+            />
+          )}
+
+          {targetScope === 'company' && (
+            <SearchablePicker
+              label={t('paxlog.incident_panel.fields.company')}
+              icon={<Building2 size={12} className="text-muted-foreground" />}
+              items={tiersData?.items || []}
+              isLoading={tiersLoading}
+              searchValue={companySearch}
+              onSearchChange={setCompanySearch}
+              renderItem={(tier) => <>{tier.name}</>}
+              selectedId={form.company_id}
+              onSelect={(tier) => setForm({
+                ...form,
+                user_id: null,
+                contact_id: null,
+                company_id: tier.id,
+                pax_group_id: null,
+                pax_display: null,
+                company_display: tier.name,
+                group_display: null,
+              })}
+              onClear={() => setForm({ ...form, company_id: null, company_display: null })}
+              placeholder={t('paxlog.incident_panel.placeholders.search_company')}
+            />
+          )}
+
+          {targetScope === 'group' && (
+            <div className="space-y-3">
+              <SearchablePicker
+                label={t('paxlog.incident_panel.fields.company_filter')}
+                icon={<Building2 size={12} className="text-muted-foreground" />}
+                items={tiersData?.items || []}
+                isLoading={tiersLoading}
+                searchValue={companySearch}
+                onSearchChange={setCompanySearch}
+                renderItem={(tier) => <>{tier.name}</>}
+                selectedId={form.company_id}
+                onSelect={(tier) => setForm({ ...form, company_id: tier.id, company_display: tier.name, pax_group_id: null, group_display: null })}
+                onClear={() => setForm({ ...form, company_id: null, company_display: null, pax_group_id: null, group_display: null })}
+                placeholder={t('paxlog.incident_panel.placeholders.search_company')}
+              />
+              <SearchablePicker
+                label={t('paxlog.incident_panel.fields.pax_group')}
+                icon={<Users size={12} className="text-muted-foreground" />}
+                items={groupData?.items || []}
+                isLoading={groupLoading}
+                searchValue={groupSearch}
+                onSearchChange={setGroupSearch}
+                renderItem={(group) => <>{group.name}{group.company_name ? <span className="text-muted-foreground"> — {group.company_name}</span> : ''}</>}
+                selectedId={form.pax_group_id}
+                onSelect={(group) => setForm({
+                  ...form,
+                  user_id: null,
+                  contact_id: null,
+                  company_id: group.company_id || form.company_id,
+                  pax_group_id: group.id,
+                  pax_display: null,
+                  company_display: group.company_name || form.company_display,
+                  group_display: group.name,
+                })}
+                onClear={() => setForm({ ...form, pax_group_id: null, group_display: null })}
+                placeholder={t('paxlog.incident_panel.placeholders.search_group')}
+              />
+            </div>
+          )}
         </FormSection>
 
         <FormSection title={t('paxlog.incident_panel.sections.details')}>
@@ -3433,6 +3737,8 @@ function CreateAvmPanel() {
     requires_epi: false,
     requires_visa: false,
     eligible_displacement_allowance: false,
+    global_attachments_config: '',
+    per_pax_attachments_config: '',
     programs: [
       {
         activity_description: '',
@@ -3503,6 +3809,8 @@ function CreateAvmPanel() {
       requires_epi: form.requires_epi,
       requires_visa: form.requires_visa,
       eligible_displacement_allowance: form.eligible_displacement_allowance,
+      global_attachments_config: form.global_attachments_config.split('\n').map((item) => item.trim()).filter(Boolean),
+      per_pax_attachments_config: form.per_pax_attachments_config.split('\n').map((item) => item.trim()).filter(Boolean),
       programs: form.programs
         .filter((program) => program.activity_description.trim().length > 0)
         .map((program) => ({
@@ -3641,6 +3949,24 @@ function CreateAvmPanel() {
               </label>
             ))}
           </FormGrid>
+          <FormGrid>
+            <DynamicPanelField label={t('paxlog.create_avm.fields.global_documents')}>
+              <textarea
+                value={form.global_attachments_config}
+                onChange={(e) => setForm({ ...form, global_attachments_config: e.target.value })}
+                className={cn(panelInputClass, 'min-h-[72px] resize-y')}
+                placeholder={t('paxlog.create_avm.fields.documents_placeholder')}
+              />
+            </DynamicPanelField>
+            <DynamicPanelField label={t('paxlog.create_avm.fields.per_pax_documents')}>
+              <textarea
+                value={form.per_pax_attachments_config}
+                onChange={(e) => setForm({ ...form, per_pax_attachments_config: e.target.value })}
+                className={cn(panelInputClass, 'min-h-[72px] resize-y')}
+                placeholder={t('paxlog.create_avm.fields.documents_placeholder')}
+              />
+            </DynamicPanelField>
+          </FormGrid>
         </FormSection>
 
         <FormSection title={t('paxlog.create_avm.sections.initial_program')}>
@@ -3724,14 +4050,23 @@ function AvmDetailPanel({ id }: { id?: string }) {
   const completeAvmMut = useCompleteAvm()
   const cancelAvmMut = useCancelAvm()
   const updatePreparationTaskMut = useUpdateAvmPreparationTask()
+  const updateVisaFollowupMut = useUpdateAvmVisaFollowup()
+  const updateAllowanceRequestMut = useUpdateAvmAllowanceRequest()
   const { hasPermission } = usePermission()
   const missionTypeLabels = useDictionaryLabels('mission_type')
   const missionActivityTypeLabels = useDictionaryLabels('mission_activity_type')
+  const preparationTaskTypeLabels = useDictionaryLabels('pax_preparation_task_type')
+  const visaStatusLabels = useDictionaryLabels('pax_mission_visa_status')
+  const allowanceStatusLabels = useDictionaryLabels('pax_mission_allowance_status')
+  const visaTypeOptions = useDictionaryOptions('visa_type')
+  const currencyOptions = useDictionaryOptions('currency')
 
   const { data: avm, isLoading } = useAvm(id || '')
   const { data: avmUsers } = useUsers({ page: 1, page_size: 200, active: true })
   const [showModifyForm, setShowModifyForm] = useState(false)
   const [taskDrafts, setTaskDrafts] = useState<Record<string, MissionPreparationTaskUpdate>>({})
+  const [visaDrafts, setVisaDrafts] = useState<Record<string, MissionVisaFollowupUpdate>>({})
+  const [allowanceDrafts, setAllowanceDrafts] = useState<Record<string, MissionAllowanceRequestUpdate>>({})
   const [modifyForm, setModifyForm] = useState<MissionNoticeModifyRequest>({
     title: '',
     description: '',
@@ -3753,6 +4088,33 @@ function AvmDetailPanel({ id }: { id?: string }) {
             assigned_to_user_id: task.assigned_to_user_id,
             due_date: task.due_date,
             notes: task.notes || '',
+          },
+        ]),
+      ),
+    )
+    setVisaDrafts(
+      Object.fromEntries(
+        avm.visa_followups.map((item) => [
+          item.id,
+          {
+            status: item.status,
+            visa_type: item.visa_type || '',
+            country: item.country || '',
+            notes: item.notes || '',
+          },
+        ]),
+      ),
+    )
+    setAllowanceDrafts(
+      Object.fromEntries(
+        avm.allowance_requests.map((item) => [
+          item.id,
+          {
+            status: item.status,
+            amount: item.amount ?? null,
+            currency: item.currency || '',
+            payment_reference: item.payment_reference || '',
+            notes: item.notes || '',
           },
         ]),
       ),
@@ -4099,6 +4461,30 @@ function AvmDetailPanel({ id }: { id?: string }) {
               </div>
             ))}
           </div>
+          {(avm.global_attachments_config.length > 0 || avm.per_pax_attachments_config.length > 0) && (
+            <div className="mt-3 space-y-2 rounded-md border border-border bg-card px-3 py-3 text-xs">
+              {avm.global_attachments_config.length > 0 && (
+                <div className="space-y-1">
+                  <p className="font-medium text-foreground">{t('paxlog.avm_detail.fields.global_documents')}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {avm.global_attachments_config.map((item) => (
+                      <span key={item} className="gl-badge gl-badge-neutral">{item}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {avm.per_pax_attachments_config.length > 0 && (
+                <div className="space-y-1">
+                  <p className="font-medium text-foreground">{t('paxlog.avm_detail.fields.per_pax_documents')}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {avm.per_pax_attachments_config.map((item) => (
+                      <span key={item} className="gl-badge gl-badge-neutral">{item}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </CollapsibleSection>
 
         {/* Preparation checklist */}
@@ -4149,7 +4535,7 @@ function AvmDetailPanel({ id }: { id?: string }) {
                       )}
                     </div>
                     <div className="grid gap-1 text-[11px] text-muted-foreground sm:grid-cols-3">
-                      <div>{t('paxlog.avm_detail.preparation.meta.task_type', { type: task.task_type })}</div>
+                      <div>{t('paxlog.avm_detail.preparation.meta.task_type', { type: preparationTaskTypeLabels[task.task_type] || task.task_type })}</div>
                       <div>{t('paxlog.avm_detail.preparation.meta.assignee', { assignee: assignedLabel || t('common.unassigned') })}</div>
                       <div>{t('paxlog.avm_detail.preparation.meta.due_date', { date: formatDateShort(task.due_date) })}</div>
                     </div>
@@ -4237,6 +4623,194 @@ function AvmDetailPanel({ id }: { id?: string }) {
             </div>
           )}
         </CollapsibleSection>
+
+        {avm.visa_followups.length > 0 && (
+          <CollapsibleSection id="avm-visa-followups" title={t('paxlog.avm_detail.sections.visa_followups')} defaultExpanded>
+            <div className="space-y-2">
+              {avm.visa_followups.map((item) => {
+                const draft = visaDrafts[item.id] ?? {
+                  status: item.status,
+                  visa_type: item.visa_type || '',
+                  country: item.country || '',
+                  notes: item.notes || '',
+                }
+                const hasChanges =
+                  draft.status !== item.status ||
+                  (draft.visa_type || '') !== (item.visa_type || '') ||
+                  (draft.country || '') !== (item.country || '') ||
+                  (draft.notes || '') !== (item.notes || '')
+                return (
+                  <div key={item.id} className="rounded border border-border bg-card p-2.5 space-y-2">
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <div className="space-y-0.5">
+                        <p className="font-medium text-foreground">{item.pax_name || '—'}</p>
+                        {item.company_name && <p className="text-muted-foreground">{item.company_name}</p>}
+                      </div>
+                      <span className="gl-badge gl-badge-neutral">{visaStatusLabels[item.status] || item.status}</span>
+                    </div>
+                    <div className="grid gap-2 text-[11px] text-muted-foreground sm:grid-cols-3">
+                      <div>{t('paxlog.avm_detail.followups.visa_type')}: {item.visa_type || '—'}</div>
+                      <div>{t('paxlog.avm_detail.followups.country')}: {item.country || '—'}</div>
+                      <div>{t('common.status')}: {visaStatusLabels[item.status] || item.status}</div>
+                    </div>
+                    {canManagePreparation ? (
+                      <div className="space-y-2 border-t border-border pt-2">
+                        <FormGrid className="@\[900px\]:grid-cols-3">
+                          <DynamicPanelField label={t('common.status')}>
+                            <select
+                              value={draft.status || item.status}
+                              onChange={(e) => setVisaDrafts((prev) => ({ ...prev, [item.id]: { ...draft, status: e.target.value as MissionVisaFollowupUpdate['status'] } }))}
+                              className={panelInputClass}
+                            >
+                              {(['to_initiate', 'submitted', 'in_review', 'obtained', 'refused'] as const).map((statusOption) => (
+                                <option key={statusOption} value={statusOption}>{visaStatusLabels[statusOption] || statusOption}</option>
+                              ))}
+                            </select>
+                          </DynamicPanelField>
+                          <DynamicPanelField label={t('paxlog.avm_detail.followups.visa_type')}>
+                            <select
+                              value={draft.visa_type || ''}
+                              onChange={(e) => setVisaDrafts((prev) => ({ ...prev, [item.id]: { ...draft, visa_type: e.target.value || null } }))}
+                              className={panelInputClass}
+                            >
+                              <option value="">{t('common.select')}</option>
+                              {visaTypeOptions.map((option) => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                              ))}
+                            </select>
+                          </DynamicPanelField>
+                          <DynamicPanelField label={t('paxlog.avm_detail.followups.country')}>
+                            <input
+                              value={draft.country || ''}
+                              onChange={(e) => setVisaDrafts((prev) => ({ ...prev, [item.id]: { ...draft, country: e.target.value } }))}
+                              className={panelInputClass}
+                            />
+                          </DynamicPanelField>
+                        </FormGrid>
+                        <DynamicPanelField label={t('common.notes')}>
+                          <textarea
+                            value={draft.notes || ''}
+                            onChange={(e) => setVisaDrafts((prev) => ({ ...prev, [item.id]: { ...draft, notes: e.target.value } }))}
+                            className={cn(panelInputClass, 'min-h-[64px] resize-y')}
+                          />
+                        </DynamicPanelField>
+                        <PanelActionButton
+                          variant="primary"
+                          disabled={updateVisaFollowupMut.isPending || !hasChanges}
+                          onClick={() => updateVisaFollowupMut.mutate({ avmId: avm.id, followupId: item.id, payload: draft })}
+                        >
+                          {updateVisaFollowupMut.isPending ? <Loader2 size={12} className="animate-spin" /> : <><CheckCircle2 size={12} /> {t('common.save')}</>}
+                        </PanelActionButton>
+                      </div>
+                    ) : (
+                      item.notes ? <p className="text-[11px] text-muted-foreground whitespace-pre-wrap">{item.notes}</p> : null
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </CollapsibleSection>
+        )}
+
+        {avm.allowance_requests.length > 0 && (
+          <CollapsibleSection id="avm-allowance-requests" title={t('paxlog.avm_detail.sections.allowance_requests')} defaultExpanded>
+            <div className="space-y-2">
+              {avm.allowance_requests.map((item) => {
+                const draft = allowanceDrafts[item.id] ?? {
+                  status: item.status,
+                  amount: item.amount ?? null,
+                  currency: item.currency || '',
+                  payment_reference: item.payment_reference || '',
+                  notes: item.notes || '',
+                }
+                const hasChanges =
+                  draft.status !== item.status ||
+                  (draft.amount ?? null) !== (item.amount ?? null) ||
+                  (draft.currency || '') !== (item.currency || '') ||
+                  (draft.payment_reference || '') !== (item.payment_reference || '') ||
+                  (draft.notes || '') !== (item.notes || '')
+                return (
+                  <div key={item.id} className="rounded border border-border bg-card p-2.5 space-y-2">
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <div className="space-y-0.5">
+                        <p className="font-medium text-foreground">{item.pax_name || '—'}</p>
+                        {item.company_name && <p className="text-muted-foreground">{item.company_name}</p>}
+                      </div>
+                      <span className="gl-badge gl-badge-neutral">{allowanceStatusLabels[item.status] || item.status}</span>
+                    </div>
+                    <div className="grid gap-2 text-[11px] text-muted-foreground sm:grid-cols-3">
+                      <div>{t('paxlog.avm_detail.followups.amount')}: {item.amount != null ? `${item.amount} ${item.currency || ''}`.trim() : '—'}</div>
+                      <div>{t('paxlog.avm_detail.followups.payment_reference')}: {item.payment_reference || '—'}</div>
+                      <div>{t('common.status')}: {allowanceStatusLabels[item.status] || item.status}</div>
+                    </div>
+                    {canManagePreparation ? (
+                      <div className="space-y-2 border-t border-border pt-2">
+                        <FormGrid className="@\[900px\]:grid-cols-4">
+                          <DynamicPanelField label={t('common.status')}>
+                            <select
+                              value={draft.status || item.status}
+                              onChange={(e) => setAllowanceDrafts((prev) => ({ ...prev, [item.id]: { ...draft, status: e.target.value as MissionAllowanceRequestUpdate['status'] } }))}
+                              className={panelInputClass}
+                            >
+                              {(['draft', 'submitted', 'approved', 'paid'] as const).map((statusOption) => (
+                                <option key={statusOption} value={statusOption}>{allowanceStatusLabels[statusOption] || statusOption}</option>
+                              ))}
+                            </select>
+                          </DynamicPanelField>
+                          <DynamicPanelField label={t('paxlog.avm_detail.followups.amount')}>
+                            <input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              value={draft.amount ?? ''}
+                              onChange={(e) => setAllowanceDrafts((prev) => ({ ...prev, [item.id]: { ...draft, amount: e.target.value === '' ? null : Number(e.target.value) } }))}
+                              className={panelInputClass}
+                            />
+                          </DynamicPanelField>
+                          <DynamicPanelField label={t('paxlog.avm_detail.followups.currency')}>
+                            <select
+                              value={draft.currency || ''}
+                              onChange={(e) => setAllowanceDrafts((prev) => ({ ...prev, [item.id]: { ...draft, currency: e.target.value || null } }))}
+                              className={panelInputClass}
+                            >
+                              <option value="">{t('common.select')}</option>
+                              {currencyOptions.map((option) => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                              ))}
+                            </select>
+                          </DynamicPanelField>
+                          <DynamicPanelField label={t('paxlog.avm_detail.followups.payment_reference')}>
+                            <input
+                              value={draft.payment_reference || ''}
+                              onChange={(e) => setAllowanceDrafts((prev) => ({ ...prev, [item.id]: { ...draft, payment_reference: e.target.value } }))}
+                              className={panelInputClass}
+                            />
+                          </DynamicPanelField>
+                        </FormGrid>
+                        <DynamicPanelField label={t('common.notes')}>
+                          <textarea
+                            value={draft.notes || ''}
+                            onChange={(e) => setAllowanceDrafts((prev) => ({ ...prev, [item.id]: { ...draft, notes: e.target.value } }))}
+                            className={cn(panelInputClass, 'min-h-[64px] resize-y')}
+                          />
+                        </DynamicPanelField>
+                        <PanelActionButton
+                          variant="primary"
+                          disabled={updateAllowanceRequestMut.isPending || !hasChanges}
+                          onClick={() => updateAllowanceRequestMut.mutate({ avmId: avm.id, requestId: item.id, payload: draft })}
+                        >
+                          {updateAllowanceRequestMut.isPending ? <Loader2 size={12} className="animate-spin" /> : <><CheckCircle2 size={12} /> {t('common.save')}</>}
+                        </PanelActionButton>
+                      </div>
+                    ) : (
+                      item.notes ? <p className="text-[11px] text-muted-foreground whitespace-pre-wrap">{item.notes}</p> : null
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </CollapsibleSection>
+        )}
 
         {/* Program lines */}
         <CollapsibleSection id="avm-programs" title={t('paxlog.avm_detail.sections.program', { count: avm.programs.length })} defaultExpanded>
@@ -4333,8 +4907,8 @@ export function PaxLogPage() {
     else if (effectiveTab === 'avm') openDynamicPanel({ type: 'create', module: 'paxlog', meta: { subtype: 'avm' } })
   }, [effectiveTab, openDynamicPanel])
 
-  const handleOpenDetail = useCallback((id: string) => {
-    if (effectiveTab === 'profiles') openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'profile' } })
+  const handleOpenDetail = useCallback((id: string, meta?: Record<string, unknown>) => {
+    if (effectiveTab === 'profiles') openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'profile', ...(meta || {}) } })
     else if (effectiveTab === 'ads') openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'ads' } })
     else if (effectiveTab === 'avm') openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'avm' } })
   }, [effectiveTab, openDynamicPanel])
@@ -4394,7 +4968,7 @@ export function PaxLogPage() {
       {dynamicPanel?.module === 'paxlog' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'incident' && <CreateIncidentPanel />}
       {dynamicPanel?.module === 'paxlog' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'rotation' && <CreateRotationPanel />}
       {dynamicPanel?.module === 'paxlog' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'avm' && <CreateAvmPanel />}
-      {dynamicPanel?.module === 'paxlog' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'profile' && <ProfileDetailPanel id={dynamicPanel.id} />}
+      {dynamicPanel?.module === 'paxlog' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'profile' && <ProfileDetailPanel id={dynamicPanel.id} paxSource={(dynamicPanel.meta?.pax_source as 'user' | 'contact') || 'user'} />}
       {dynamicPanel?.module === 'paxlog' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'ads' && <AdsDetailPanel id={dynamicPanel.id} />}
       {dynamicPanel?.module === 'paxlog' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'avm' && <AvmDetailPanel id={dynamicPanel.id} />}
     </div>
@@ -4411,7 +4985,7 @@ registerPanelRenderer('paxlog', (view) => {
     if (view.meta?.subtype === 'avm') return <CreateAvmPanel />
   }
   if (view.type === 'detail' && 'id' in view) {
-    if (view.meta?.subtype === 'profile') return <ProfileDetailPanel id={view.id} />
+    if (view.meta?.subtype === 'profile') return <ProfileDetailPanel id={view.id} paxSource={(view.meta?.pax_source as 'user' | 'contact') || 'user'} />
     if (view.meta?.subtype === 'ads') return <AdsDetailPanel id={view.id} />
     if (view.meta?.subtype === 'avm') return <AvmDetailPanel id={view.id} />
   }

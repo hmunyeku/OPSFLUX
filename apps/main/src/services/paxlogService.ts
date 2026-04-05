@@ -68,6 +68,32 @@ export interface PaxProfileUpdate {
   status?: 'active' | 'incomplete' | 'suspended' | 'archived'
 }
 
+export interface PaxGroup {
+  id: string
+  entity_id: string
+  name: string
+  company_id: string | null
+  company_name: string | null
+  active: boolean
+}
+
+export interface PaxSitePresence {
+  ads_id: string
+  ads_reference: string
+  ads_status: string
+  pax_status: string | null
+  site_asset_id: string
+  site_name: string | null
+  start_date: string | null
+  end_date: string | null
+  visit_purpose: string | null
+  visit_category: string | null
+  boarding_status: string | null
+  boarded_at: string | null
+  approved_at: string | null
+  completed_at: string | null
+}
+
 // Credential Types
 export interface CredentialType {
   id: string
@@ -178,6 +204,7 @@ export interface ExpiringCredential {
   credential_type_category: string
   expiry_date: string
   days_remaining: number
+  alert_bucket: 'j0' | 'j7' | 'j30' | 'future'
   status: string
 }
 
@@ -324,6 +351,10 @@ export interface AdsStayChangeRequest {
   return_notes?: string | null
 }
 
+export interface AdsManualDepartureRequest {
+  reason: string
+}
+
 export interface AdsPax {
   id: string
   ads_id: string
@@ -403,6 +434,16 @@ export interface AdsExternalLinkCreate {
   max_uses?: number
 }
 
+function buildExternalPortalBase(): string {
+  const { protocol, hostname } = window.location
+  if (hostname.startsWith('ext.')) return `${protocol}//${hostname}`
+  if (hostname.startsWith('app.')) return `${protocol}//ext.${hostname.slice(4)}`
+  if (hostname.startsWith('web.')) return `${protocol}//ext.${hostname.split('.').slice(1).join('.')}`
+  if (hostname.startsWith('api.')) return `${protocol}//ext.${hostname.slice(4)}`
+  if (hostname === 'localhost' || hostname === '127.0.0.1') return `${protocol}//${hostname}:4175`
+  return `${protocol}//${hostname}`
+}
+
 // PAX Incidents / Signalements
 export interface PaxIncident {
   id: string
@@ -410,6 +451,7 @@ export interface PaxIncident {
   user_id: string | null
   contact_id: string | null
   company_id: string | null
+  pax_group_id: string | null
   asset_id: string | null
   severity: 'info' | 'warning' | 'site_ban' | 'temp_ban' | 'permanent_ban'
   description: string
@@ -424,6 +466,8 @@ export interface PaxIncident {
   // Enriched
   pax_first_name?: string | null
   pax_last_name?: string | null
+  company_name?: string | null
+  group_name?: string | null
   asset_name?: string | null
 }
 
@@ -431,6 +475,7 @@ export interface PaxIncidentCreate {
   user_id?: string | null
   contact_id?: string | null
   company_id?: string | null
+  pax_group_id?: string | null
   asset_id?: string | null
   severity: 'info' | 'warning' | 'site_ban' | 'temp_ban' | 'permanent_ban'
   description: string
@@ -464,6 +509,12 @@ export interface RotationCycle {
   pax_first_name?: string | null
   pax_last_name?: string | null
   site_name?: string | null
+  company_name?: string | null
+  auto_create_ads?: boolean
+  ads_lead_days?: number
+  compliance_risk_level?: 'clear' | 'blocked'
+  compliance_issue_count?: number
+  compliance_issue_preview?: string[]
 }
 
 export interface RotationCycleCreate {
@@ -589,6 +640,60 @@ export interface MissionPreparationTaskUpdate {
   notes?: string | null
 }
 
+export interface MissionVisaFollowupRead {
+  id: string
+  mission_notice_id: string
+  preparation_task_id?: string | null
+  user_id?: string | null
+  contact_id?: string | null
+  pax_name?: string | null
+  company_name?: string | null
+  status: 'to_initiate' | 'submitted' | 'in_review' | 'obtained' | 'refused'
+  visa_type?: string | null
+  country?: string | null
+  submitted_at?: string | null
+  obtained_at?: string | null
+  refused_at?: string | null
+  notes?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface MissionVisaFollowupUpdate {
+  status?: 'to_initiate' | 'submitted' | 'in_review' | 'obtained' | 'refused'
+  visa_type?: string | null
+  country?: string | null
+  notes?: string | null
+}
+
+export interface MissionAllowanceRequestRead {
+  id: string
+  mission_notice_id: string
+  preparation_task_id?: string | null
+  user_id?: string | null
+  contact_id?: string | null
+  pax_name?: string | null
+  company_name?: string | null
+  status: 'draft' | 'submitted' | 'approved' | 'paid'
+  amount?: number | null
+  currency?: string | null
+  submitted_at?: string | null
+  approved_at?: string | null
+  paid_at?: string | null
+  payment_reference?: string | null
+  notes?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface MissionAllowanceRequestUpdate {
+  status?: 'draft' | 'submitted' | 'approved' | 'paid'
+  amount?: number | null
+  currency?: string | null
+  payment_reference?: string | null
+  notes?: string | null
+}
+
 export interface MissionNoticeCreate {
   title: string
   description?: string | null
@@ -601,6 +706,8 @@ export interface MissionNoticeCreate {
   requires_visa?: boolean
   eligible_displacement_allowance?: boolean
   epi_measurements?: Record<string, unknown> | null
+  global_attachments_config?: string[]
+  per_pax_attachments_config?: string[]
   programs?: MissionProgramCreate[]
 }
 
@@ -616,6 +723,8 @@ export interface MissionNoticeUpdate {
   requires_visa?: boolean
   eligible_displacement_allowance?: boolean
   epi_measurements?: Record<string, unknown> | null
+  global_attachments_config?: string[] | null
+  per_pax_attachments_config?: string[] | null
 }
 
 export interface MissionNoticeModifyRequest extends MissionNoticeUpdate {
@@ -637,6 +746,8 @@ export interface MissionNoticeRead {
   requires_visa: boolean
   eligible_displacement_allowance: boolean
   epi_measurements: Record<string, unknown> | null
+  global_attachments_config: string[]
+  per_pax_attachments_config: string[]
   mission_type: 'standard' | 'vip' | 'regulatory' | 'emergency'
   pax_quota: number
   archived: boolean
@@ -647,6 +758,8 @@ export interface MissionNoticeRead {
   creator_name: string | null
   programs: MissionProgramRead[]
   preparation_tasks: MissionPreparationTaskRead[]
+  visa_followups: MissionVisaFollowupRead[]
+  allowance_requests: MissionAllowanceRequestRead[]
   preparation_progress: number
   open_preparation_tasks: number
   ready_for_approval: boolean
@@ -701,6 +814,8 @@ interface AdsListParams extends PaginationParams {
 interface IncidentListParams extends PaginationParams {
   user_id?: string
   contact_id?: string
+  company_id?: string
+  pax_group_id?: string
   asset_id?: string
   severity?: string
   active_only?: boolean
@@ -737,8 +852,18 @@ export const paxlogService = {
     return data
   },
 
-  getProfile: async (id: string): Promise<PaxProfile> => {
-    const { data } = await api.get(`/api/v1/pax/profiles/${id}`)
+  listPaxGroups: async (params: { page?: number; page_size?: number; search?: string; company_id?: string } = {}): Promise<PaginatedResponse<PaxGroup>> => {
+    const { data } = await api.get('/api/v1/pax/pax-groups', { params })
+    return data
+  },
+
+  getProfile: async (id: string, paxSource: 'user' | 'contact'): Promise<PaxProfile> => {
+    const { data } = await api.get(`/api/v1/pax/profiles/${id}`, { params: { pax_source: paxSource } })
+    return data
+  },
+
+  getProfileSitePresenceHistory: async (id: string, paxSource: 'user' | 'contact'): Promise<PaxSitePresence[]> => {
+    const { data } = await api.get(`/api/v1/pax/profiles/${id}/site-presence-history`, { params: { pax_source: paxSource } })
     return data
   },
 
@@ -839,8 +964,23 @@ export const paxlogService = {
     return data
   },
 
+  startAdsProgress: async (id: string): Promise<Ads> => {
+    const { data } = await api.post(`/api/v1/pax/ads/${id}/start-progress`)
+    return data
+  },
+
   cancelAds: async (id: string): Promise<Ads> => {
     const { data } = await api.post(`/api/v1/pax/ads/${id}/cancel`)
+    return data
+  },
+
+  completeAds: async (id: string): Promise<Ads> => {
+    const { data } = await api.post(`/api/v1/pax/ads/${id}/complete`)
+    return data
+  },
+
+  manualDepartureAds: async (id: string, payload: AdsManualDepartureRequest): Promise<Ads> => {
+    const { data } = await api.post(`/api/v1/pax/ads/${id}/manual-departure`, payload)
     return data
   },
 
@@ -941,6 +1081,14 @@ export const paxlogService = {
   createExternalLink: async (adsId: string, payload: AdsExternalLinkCreate): Promise<AdsExternalLink> => {
     const { data } = await api.post(`/api/v1/pax/ads/${adsId}/external-link`, payload)
     return data
+  },
+
+  resolveExternalLinkUrl: (link: AdsExternalLink): string => {
+    if (/^https?:\/\//i.test(link.url)) return link.url
+    if (link.url && !link.url.startsWith('/api/')) {
+      return new URL(link.url, window.location.origin).toString()
+    }
+    return `${buildExternalPortalBase()}/?token=${encodeURIComponent(link.token)}`
   },
 
   // ── PAX Incidents / Signalements ──
@@ -1080,6 +1228,14 @@ export const paxlogService = {
 
   updateAvmPreparationTask: async (avmId: string, taskId: string, payload: MissionPreparationTaskUpdate): Promise<MissionPreparationTaskRead> => {
     const { data } = await api.patch(`/api/v1/pax/avm/${avmId}/preparation-tasks/${taskId}`, payload)
+    return data
+  },
+  updateAvmVisaFollowup: async (avmId: string, followupId: string, payload: MissionVisaFollowupUpdate): Promise<MissionVisaFollowupRead> => {
+    const { data } = await api.patch(`/api/v1/pax/avm/${avmId}/visa-followups/${followupId}`, payload)
+    return data
+  },
+  updateAvmAllowanceRequest: async (avmId: string, requestId: string, payload: MissionAllowanceRequestUpdate): Promise<MissionAllowanceRequestRead> => {
+    const { data } = await api.patch(`/api/v1/pax/avm/${avmId}/allowance-requests/${requestId}`, payload)
     return data
   },
 }

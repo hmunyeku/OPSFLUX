@@ -24,6 +24,8 @@ import type {
   MissionNoticeCreate,
   MissionNoticeModifyRequest,
   MissionPreparationTaskUpdate,
+  MissionVisaFollowupUpdate,
+  MissionAllowanceRequestUpdate,
   MissionNoticeUpdate,
   AddPaxBody,
   AdsPaxDecision,
@@ -38,11 +40,26 @@ export function usePaxProfiles(params: { page?: number; page_size?: number; sear
   })
 }
 
-export function usePaxProfile(id: string) {
+export function usePaxGroups(params: { page?: number; page_size?: number; search?: string; company_id?: string } = {}) {
   return useQuery({
-    queryKey: ['paxlog', 'profiles', id],
-    queryFn: () => paxlogService.getProfile(id),
-    enabled: !!id,
+    queryKey: ['paxlog', 'pax-groups', params],
+    queryFn: () => paxlogService.listPaxGroups(params),
+  })
+}
+
+export function usePaxProfile(id: string, paxSource: 'user' | 'contact' | undefined) {
+  return useQuery({
+    queryKey: ['paxlog', 'profiles', id, paxSource],
+    queryFn: () => paxlogService.getProfile(id, paxSource as 'user' | 'contact'),
+    enabled: !!id && !!paxSource,
+  })
+}
+
+export function usePaxProfileSitePresenceHistory(id: string, paxSource: 'user' | 'contact' | undefined) {
+  return useQuery({
+    queryKey: ['paxlog', 'profiles', id, 'site-presence-history', paxSource],
+    queryFn: () => paxlogService.getProfileSitePresenceHistory(id, paxSource as 'user' | 'contact'),
+    enabled: !!id && !!paxSource,
   })
 }
 
@@ -228,6 +245,16 @@ export function useCancelAds() {
   })
 }
 
+export function useStartAdsProgress() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => paxlogService.startAdsProgress(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['paxlog', 'ads'] })
+    },
+  })
+}
+
 export function useApproveAds() {
   const qc = useQueryClient()
   return useMutation({
@@ -287,6 +314,26 @@ export function useResubmitAds() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) => paxlogService.resubmitAds(id, reason),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['paxlog', 'ads'] })
+    },
+  })
+}
+
+export function useCompleteAds() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => paxlogService.completeAds(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['paxlog', 'ads'] })
+    },
+  })
+}
+
+export function useManualDepartureAds() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) => paxlogService.manualDepartureAds(id, { reason }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['paxlog', 'ads'] })
     },
@@ -423,7 +470,7 @@ export function useCreateExternalLink() {
 
 // ── PAX Incidents / Signalements ──
 
-export function usePaxIncidents(params: { page?: number; page_size?: number; user_id?: string; contact_id?: string; asset_id?: string; severity?: string; active_only?: boolean } = {}) {
+export function usePaxIncidents(params: { page?: number; page_size?: number; user_id?: string; contact_id?: string; company_id?: string; pax_group_id?: string; asset_id?: string; severity?: string; active_only?: boolean } = {}) {
   return useQuery({
     queryKey: ['paxlog', 'incidents', params],
     queryFn: () => paxlogService.listIncidents(params),
@@ -673,6 +720,28 @@ export function useUpdateAvmPreparationTask() {
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['paxlog', 'avm'] })
       qc.invalidateQueries({ queryKey: ['paxlog', 'avm', vars.avmId] })
+    },
+  })
+}
+
+export function useUpdateAvmVisaFollowup() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ avmId, followupId, payload }: { avmId: string; followupId: string; payload: MissionVisaFollowupUpdate }) =>
+      paxlogService.updateAvmVisaFollowup(avmId, followupId, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['paxlog', 'avm'] })
+    },
+  })
+}
+
+export function useUpdateAvmAllowanceRequest() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ avmId, requestId, payload }: { avmId: string; requestId: string; payload: MissionAllowanceRequestUpdate }) =>
+      paxlogService.updateAvmAllowanceRequest(avmId, requestId, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['paxlog', 'avm'] })
     },
   })
 }

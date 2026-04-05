@@ -466,6 +466,8 @@ button:disabled {
 
 .mono {
   font-family: Consolas, monospace;
+  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 .muted {

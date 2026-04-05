@@ -1232,6 +1232,7 @@ export interface Project {
   parent_id: string | null
   tier_id: string | null
   asset_id: string | null
+  external_ref: string | null  // e.g. "gouti:<id>" for imported projects
   active: boolean
   archived: boolean
   created_at: string

@@ -92,6 +92,7 @@ async def list_projects(
     manager_id: UUID | None = None,
     tier_id: UUID | None = None,
     asset_id: UUID | None = None,
+    source: str | None = None,  # "opsflux" | "gouti" | None (all)
     search: str | None = None,
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
@@ -151,6 +152,12 @@ async def list_projects(
         query = query.where(Project.tier_id == tier_id)
     if asset_id:
         query = query.where(Project.asset_id == asset_id)
+    if source == "gouti":
+        query = query.where(Project.external_ref.startswith("gouti:"))
+    elif source == "opsflux":
+        query = query.where(
+            (Project.external_ref.is_(None)) | (~Project.external_ref.startswith("gouti:"))
+        )
     if search:
         like = f"%{search}%"
         query = query.where(Project.name.ilike(like) | Project.code.ilike(like))

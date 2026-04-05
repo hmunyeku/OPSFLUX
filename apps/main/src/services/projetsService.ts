@@ -21,7 +21,29 @@ interface ProjectListParams extends PaginationParams {
   manager_id?: string
   tier_id?: string
   asset_id?: string
+  source?: 'opsflux' | 'gouti'
   search?: string
+}
+
+export interface GoutiSyncResult {
+  synced: number
+  created: number
+  updated: number
+  errors: string[]
+}
+
+export interface GoutiSyncStatus {
+  last_sync_at: string | null
+  project_count: number
+  connector_configured: boolean
+}
+
+export interface GoutiSingleSyncResult {
+  project_id: string
+  local_id: string
+  action: 'created' | 'updated'
+  reports_synced: number
+  errors: string[]
 }
 
 export const projetsService = {
@@ -208,4 +230,30 @@ export const projetsService = {
   deleteDependency: async (projectId: string, depId: string): Promise<void> => {
     await api.delete(`/api/v1/projects/${projectId}/dependencies/${depId}`)
   },
+
+  // ── Gouti sync (import / resync from external Gouti API) ──
+  goutiStatus: async (): Promise<GoutiSyncStatus> => {
+    const { data } = await api.get('/api/v1/gouti/status')
+    return data
+  },
+
+  goutiSyncAll: async (): Promise<GoutiSyncResult> => {
+    const { data } = await api.post('/api/v1/gouti/sync')
+    return data
+  },
+
+  goutiSyncOne: async (goutiProjectId: string): Promise<GoutiSingleSyncResult> => {
+    const { data } = await api.post(`/api/v1/gouti/sync/${goutiProjectId}`)
+    return data
+  },
+}
+
+// Helper to detect Gouti-imported projects from the external_ref field
+export function isGoutiProject(p: { external_ref?: string | null }): boolean {
+  return !!p.external_ref && p.external_ref.startsWith('gouti:')
+}
+
+export function goutiProjectId(p: { external_ref?: string | null }): string | null {
+  if (!p.external_ref || !p.external_ref.startsWith('gouti:')) return null
+  return p.external_ref.slice('gouti:'.length)
 }

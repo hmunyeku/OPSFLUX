@@ -12,7 +12,7 @@ import {
   FolderKanban, Plus, Loader2, Trash2, Users, Target, X, Check,
   Sun, Cloud, CloudRain, CloudLightning, Milestone, ListTodo, UserPlus,
   Circle, CircleDot, CheckCircle2, CircleSlash, Clock,
-  Sheet, CalendarRange, ChevronRight, Layers,
+  Sheet, CalendarRange, ChevronRight, Layers, RefreshCw, Download,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -56,8 +56,9 @@ import {
   useProjectMembers, useAddProjectMember, useRemoveProjectMember,
   useProjectMilestones, useCreateProjectMilestone, useUpdateProjectMilestone, useDeleteProjectMilestone,
   useAllProjectTasks, useSubProjects,
+  useGoutiStatus, useGoutiSyncAll, useGoutiSyncOne,
 } from '@/hooks/useProjets'
-import { projetsService } from '@/services/projetsService'
+import { projetsService, isGoutiProject, goutiProjectId } from '@/services/projetsService'
 import type { Project, ProjectCreate, ProjectTask, ProjectTaskEnriched, ProjectMilestone as ProjectMilestoneType, ProjectMember as ProjectMemberType } from '@/types/api'
 
 // -- Constants ----------------------------------------------------------------
@@ -99,6 +100,69 @@ const MEMBER_ROLE_OPTIONS = [
   { value: 'reviewer', label: 'Reviseur' },
   { value: 'stakeholder', label: 'Partie prenante' },
 ]
+
+// Small badge shown on projects imported from Gouti so users can
+// distinguish them from OpsFlux-native projects at a glance.
+function GoutiBadge({ className = '' }: { className?: string }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-0.5 px-1 py-0 rounded text-[9px] font-semibold uppercase tracking-wide bg-orange-500/10 text-orange-600 border border-orange-500/20',
+        className,
+      )}
+      title="Projet importé depuis Gouti"
+    >
+      <Download size={8} /> Gouti
+    </span>
+  )
+}
+
+// Toolbar button: triggers full Gouti sync and shows status + count.
+function GoutiSyncToolbar() {
+  const { data: status } = useGoutiStatus()
+  const syncAll = useGoutiSyncAll()
+  const { toast } = useToast()
+
+  if (!status?.connector_configured) return null
+
+  const handleSync = async () => {
+    try {
+      const res = await syncAll.mutateAsync()
+      toast({
+        title: 'Sync Gouti terminée',
+        description: `${res.created} créés, ${res.updated} mis à jour${res.errors.length ? `, ${res.errors.length} erreurs` : ''}`,
+        variant: res.errors.length > 0 ? 'warning' : 'success',
+      })
+    } catch (err) {
+      const msg = (err as { response?: { data?: { detail?: string } }; message?: string })
+        ?.response?.data?.detail ?? (err as Error)?.message ?? 'Erreur inconnue'
+      toast({ title: 'Sync Gouti échouée', description: String(msg).slice(0, 200), variant: 'error' })
+    }
+  }
+
+  const lastSync = status.last_sync_at ? new Date(status.last_sync_at) : null
+  const lastSyncLabel = lastSync
+    ? lastSync.toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+    : 'jamais'
+
+  return (
+    <button
+      type="button"
+      onClick={handleSync}
+      disabled={syncAll.isPending}
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded border border-orange-500/30 bg-orange-500/5 text-orange-700 hover:bg-orange-500/10 text-xs disabled:opacity-50"
+      title={`${status.project_count} projets importés — dernière sync : ${lastSyncLabel}`}
+    >
+      {syncAll.isPending
+        ? <Loader2 size={12} className="animate-spin" />
+        : <RefreshCw size={12} />}
+      Sync Gouti
+      {status.project_count > 0 && (
+        <span className="ml-0.5 px-1 rounded bg-orange-500/20 text-[10px] tabular-nums">{status.project_count}</span>
+      )}
+    </button>
+  )
+}
 
 function WeatherIcon({ weather, size = 14 }: { weather: string; size?: number }) {
   const opt = WEATHER_OPTIONS.find(w => w.value === weather)
@@ -732,6 +796,7 @@ function ProjectDetailPanel({ id }: { id: string }) {
   const { data: members } = useProjectMembers(id)
   const { data: milestones } = useProjectMilestones(id)
   const { data: linkedAsset } = useAsset(project?.asset_id ?? '')
+  const goutiSyncOne = useGoutiSyncOne()
   const { toast } = useToast()
 
   const handleSave = useCallback((field: string, value: string) => {
@@ -744,6 +809,24 @@ function ProjectDetailPanel({ id }: { id: string }) {
     toast({ title: 'Projet archive', variant: 'success' })
   }, [id, archiveProject, closeDynamicPanel, toast])
 
+  const handleResyncGouti = useCallback(async () => {
+    if (!project) return
+    const gid = goutiProjectId(project)
+    if (!gid) return
+    try {
+      const res = await goutiSyncOne.mutateAsync(gid)
+      toast({
+        title: 'Projet resynchronisé',
+        description: `${res.action === 'created' ? 'Créé' : 'Mis à jour'} depuis Gouti — ${res.reports_synced} rapport(s)`,
+        variant: 'success',
+      })
+    } catch (err) {
+      const msg = (err as { response?: { data?: { detail?: string } }; message?: string })
+        ?.response?.data?.detail ?? (err as Error)?.message ?? 'Erreur inconnue'
+      toast({ title: 'Resync échouée', description: String(msg).slice(0, 200), variant: 'error' })
+    }
+  }, [project, goutiSyncOne, toast])
+
   if (isLoading || !project) {
     return (
       <DynamicPanelShell title={t('common.loading')} icon={<FolderKanban size={14} className="text-primary" />}>
@@ -752,19 +835,49 @@ function ProjectDetailPanel({ id }: { id: string }) {
     )
   }
 
+  const isGouti = isGoutiProject(project)
+
   return (
     <DynamicPanelShell
       title={project.code}
       subtitle={project.name}
       icon={<FolderKanban size={14} className="text-primary" />}
       actions={
-        <DangerConfirmButton icon={<Trash2 size={12} />} onConfirm={handleArchive} confirmLabel="Archiver ?">
-          Archiver
-        </DangerConfirmButton>
+        <>
+          {isGouti && (
+            <PanelActionButton
+              onClick={handleResyncGouti}
+              disabled={goutiSyncOne.isPending}
+              icon={goutiSyncOne.isPending
+                ? <Loader2 size={12} className="animate-spin" />
+                : <RefreshCw size={12} />}
+            >
+              Resync Gouti
+            </PanelActionButton>
+          )}
+          <DangerConfirmButton icon={<Trash2 size={12} />} onConfirm={handleArchive} confirmLabel="Archiver ?">
+            Archiver
+          </DangerConfirmButton>
+        </>
       }
     >
       <PanelContentLayout>
         <TagManager ownerType="project" ownerId={project.id} compact />
+
+        {isGouti && (
+          <div className="flex items-start gap-2 p-2 rounded-md border border-orange-500/30 bg-orange-500/5 text-[11px] text-orange-700">
+            <Download size={12} className="mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <div className="font-medium flex items-center gap-1.5">
+                Projet importé de Gouti <GoutiBadge />
+              </div>
+              <div className="text-orange-600/80 mt-0.5">
+                Les modifications locales seront écrasées au prochain "Resync Gouti".
+                Pour un contrôle total, modifier le projet dans Gouti puis relancer la sync.
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Quick stats — inspired by Gouti "Donnees quantitatives et acces rapide" */}
         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
@@ -1410,12 +1523,16 @@ function ProjectsListView() {
 
   const statusFilter = typeof activeFilters.status === 'string' ? activeFilters.status : undefined
   const priorityFilter = typeof activeFilters.priority === 'string' ? activeFilters.priority : undefined
+  const sourceFilter = activeFilters.source === 'gouti' || activeFilters.source === 'opsflux'
+    ? (activeFilters.source as 'gouti' | 'opsflux')
+    : undefined
 
   const { data, isLoading } = useProjects({
     page, page_size: pageSize,
     search: debouncedSearch || undefined,
     status: statusFilter,
     priority: priorityFilter,
+    source: sourceFilter,
   })
 
   useEffect(() => { setPage(1) }, [debouncedSearch, activeFilters])
@@ -1428,6 +1545,10 @@ function ProjectsListView() {
   const filters = useMemo<DataTableFilterDef[]>(() => [
     { id: 'status', label: 'Statut', type: 'multi-select', operators: ['is', 'is_not'], options: STATUS_OPTIONS.map(o => ({ value: o.value, label: o.label })) },
     { id: 'priority', label: 'Priorité', type: 'select', options: PRIORITY_OPTIONS.map(o => ({ value: o.value, label: o.label })) },
+    { id: 'source', label: 'Source', type: 'select', options: [
+      { value: 'opsflux', label: 'OpsFlux (natif)' },
+      { value: 'gouti', label: 'Importé de Gouti' },
+    ]},
   ], [])
 
   const handleFilterChange = useCallback((filterId: string, value: unknown) => {
@@ -1440,10 +1561,11 @@ function ProjectsListView() {
   }, [])
 
   const columns = useMemo<ColumnDef<Project, unknown>[]>(() => [
-    { accessorKey: 'code', header: 'Code', size: 100, cell: ({ row }) => (
+    { accessorKey: 'code', header: 'Code', size: 120, cell: ({ row }) => (
       <div className="flex items-center gap-1">
         {(row.original.children_count ?? 0) > 0 && <Layers size={10} className="text-primary" />}
         <span className="font-medium text-foreground">{row.original.code}</span>
+        {isGoutiProject(row.original) && <GoutiBadge />}
       </div>
     )},
     { accessorKey: 'name', header: 'Nom', cell: ({ row }) => <span className="text-foreground">{row.original.name}</span> },
@@ -1547,6 +1669,7 @@ export function ProjetsPage() {
       {!isFullPanel && <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
         <PanelHeader icon={FolderKanban} title="Projets" subtitle="Gestion de projets">
           <ViewTabSelector active={viewTab} onChange={setViewTab} />
+          <GoutiSyncToolbar />
           <ToolbarButton icon={Plus} label="Nouveau projet" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'projets' })} />
         </PanelHeader>
 

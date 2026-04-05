@@ -1586,6 +1586,7 @@ class ProjectRead(OpsFluxSchema):
     parent_id: UUID | None = None
     tier_id: UUID | None = None
     asset_id: UUID | None = None
+    external_ref: str | None = None  # e.g. "gouti:<id>" for imported projects
     active: bool
     archived: bool
     created_at: datetime

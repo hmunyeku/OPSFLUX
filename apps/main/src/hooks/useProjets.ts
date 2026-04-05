@@ -20,7 +20,9 @@ import type {
 export function useProjects(params: {
   page?: number; page_size?: number;
   status?: string; priority?: string; manager_id?: string;
-  tier_id?: string; asset_id?: string; search?: string;
+  tier_id?: string; asset_id?: string;
+  source?: 'opsflux' | 'gouti';
+  search?: string;
 } = {}) {
   return useQuery({
     queryKey: ['projects', params],
@@ -395,6 +397,37 @@ export function useDeleteTaskDependency() {
       projetsService.deleteDependency(projectId, depId),
     onSuccess: (_, { projectId }) => {
       qc.invalidateQueries({ queryKey: ['task-dependencies', projectId] })
+    },
+  })
+}
+
+// ── Gouti sync ──
+
+export function useGoutiStatus() {
+  return useQuery({
+    queryKey: ['gouti-sync-status'],
+    queryFn: () => projetsService.goutiStatus(),
+  })
+}
+
+export function useGoutiSyncAll() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => projetsService.goutiSyncAll(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['projects'] })
+      qc.invalidateQueries({ queryKey: ['gouti-sync-status'] })
+    },
+  })
+}
+
+export function useGoutiSyncOne() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (goutiProjectId: string) => projetsService.goutiSyncOne(goutiProjectId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['projects'] })
+      qc.invalidateQueries({ queryKey: ['gouti-sync-status'] })
     },
   })
 }

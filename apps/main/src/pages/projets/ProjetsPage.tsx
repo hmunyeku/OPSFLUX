@@ -14,6 +14,7 @@ import {
   Circle, CircleDot, CheckCircle2, CircleSlash, Clock,
   Sheet, CalendarRange, ChevronRight, Layers, RefreshCw, Download,
   Link2, Package, CheckSquare, History, ArrowRight,
+  Camera, Play, FlaskConical, Star,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -62,6 +63,7 @@ import {
   useTaskDeliverables, useCreateDeliverable, useUpdateDeliverable, useDeleteDeliverable,
   useTaskActions, useCreateAction, useUpdateAction, useDeleteAction,
   useTaskChangelog,
+  usePlanningRevisions, useCreateRevision, useApplyRevision, useDeleteRevision,
 } from '@/hooks/useProjets'
 import { projetsService, isGoutiProject, goutiProjectId } from '@/services/projetsService'
 import type {
@@ -70,6 +72,7 @@ import type {
   ProjectMember as ProjectMemberType,
   TaskDependency, DependencyType,
   TaskDeliverable, TaskAction, TaskChangeLog,
+  PlanningRevision,
 } from '@/types/api'
 
 // -- Constants ----------------------------------------------------------------
@@ -1345,6 +1348,9 @@ function ProjectDetailPanel({ id }: { id: string }) {
           </div>
         </SectionColumns>
 
+        {/* Planning Revisions — baselines + what-if simulations */}
+        <PlanningRevisionsSection projectId={id} />
+
         {/* Notes & Documents */}
         <FormSection title="Notes & Documents" collapsible defaultExpanded={false} storageKey="project-detail-docs">
           <DetailFieldGrid>
@@ -1362,6 +1368,178 @@ function ProjectDetailPanel({ id }: { id: string }) {
         </FormSection>
       </PanelContentLayout>
     </DynamicPanelShell>
+  )
+}
+
+// -- Planning Revisions Section (in ProjectDetailPanel) ----------------------
+
+function PlanningRevisionsSection({ projectId }: { projectId: string }) {
+  const { data: revisions = [] } = usePlanningRevisions(projectId)
+  const createRev = useCreateRevision()
+  const applyRev = useApplyRevision()
+  const deleteRev = useDeleteRevision()
+  const { toast } = useToast()
+  const [creating, setCreating] = useState<null | 'baseline' | 'simulation'>(null)
+  const [revName, setRevName] = useState('')
+  const [revDesc, setRevDesc] = useState('')
+
+  const handleCreate = async () => {
+    if (!revName.trim() || !creating) return
+    try {
+      await createRev.mutateAsync({
+        projectId,
+        payload: {
+          name: revName.trim(),
+          description: revDesc.trim() || null,
+          is_simulation: creating === 'simulation',
+        },
+      })
+      toast({
+        title: creating === 'simulation' ? 'Simulation créée' : 'Référence créée',
+        variant: 'success',
+      })
+      setCreating(null)
+      setRevName('')
+      setRevDesc('')
+    } catch (err) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Erreur'
+      toast({ title: 'Erreur création révision', description: String(msg), variant: 'error' })
+    }
+  }
+
+  const handleApply = async (rev: PlanningRevision) => {
+    try {
+      await applyRev.mutateAsync({ projectId, revisionId: rev.id })
+      toast({ title: `Révision "${rev.name}" activée`, variant: 'success' })
+    } catch (err) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Erreur'
+      toast({ title: 'Impossible d\'appliquer', description: String(msg), variant: 'error' })
+    }
+  }
+
+  return (
+    <FormSection
+      title={`Révisions de planning (${revisions.length})`}
+      collapsible
+      defaultExpanded={false}
+      storageKey="project-detail-revisions"
+    >
+      {revisions.length === 0 && !creating && (
+        <div className="text-[11px] text-muted-foreground italic mb-2">
+          Aucune révision. Créez une référence (baseline) pour figer le planning actuel,
+          ou une simulation pour tester des scénarios "what-if".
+        </div>
+      )}
+
+      {revisions.length > 0 && (
+        <div className="space-y-1 mb-2">
+          {revisions.map((rev: PlanningRevision) => (
+            <div
+              key={rev.id}
+              className={cn(
+                'group flex items-center gap-2 px-2 py-1.5 rounded border text-[11px]',
+                rev.is_active ? 'border-primary/30 bg-primary/5' : 'border-border hover:bg-muted/40',
+              )}
+            >
+              {rev.is_active
+                ? <Star size={11} className="text-primary shrink-0 fill-primary" />
+                : rev.is_simulation
+                  ? <FlaskConical size={11} className="text-orange-500 shrink-0" />
+                  : <Camera size={11} className="text-muted-foreground shrink-0" />}
+              <span className="font-medium">#{rev.revision_number}</span>
+              <span className="flex-1 truncate">{rev.name}</span>
+              {rev.is_simulation && (
+                <span className="text-[9px] px-1 py-0 rounded bg-orange-500/10 text-orange-600 border border-orange-500/20">
+                  Simulation
+                </span>
+              )}
+              {rev.is_active && (
+                <span className="text-[9px] px-1 py-0 rounded bg-primary/10 text-primary border border-primary/20">
+                  Active
+                </span>
+              )}
+              <span className="text-[10px] text-muted-foreground">
+                {new Date(rev.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+              </span>
+              {!rev.is_active && (
+                <button
+                  onClick={() => handleApply(rev)}
+                  disabled={applyRev.isPending}
+                  className="p-0.5 rounded hover:bg-primary/10 text-primary disabled:opacity-30"
+                  title="Activer cette révision"
+                >
+                  <Play size={10} />
+                </button>
+              )}
+              {!rev.is_active && (
+                <button
+                  onClick={() => deleteRev.mutate({ projectId, revisionId: rev.id })}
+                  className="p-0.5 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100"
+                  title="Supprimer"
+                >
+                  <X size={10} />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {creating ? (
+        <div className="border border-primary/30 rounded p-2 bg-primary/5 space-y-1.5">
+          <div className="text-[10px] font-medium text-primary flex items-center gap-1">
+            {creating === 'simulation' ? <FlaskConical size={10} /> : <Camera size={10} />}
+            Nouvelle {creating === 'simulation' ? 'simulation' : 'référence (baseline)'}
+          </div>
+          <input
+            type="text"
+            value={revName}
+            onChange={e => setRevName(e.target.value)}
+            className={`${panelInputClass} w-full text-xs`}
+            placeholder="Nom de la révision *"
+            autoFocus
+          />
+          <textarea
+            value={revDesc}
+            onChange={e => setRevDesc(e.target.value)}
+            className={`${panelInputClass} w-full text-xs min-h-[36px] resize-y`}
+            placeholder="Description (optionnel)…"
+            rows={2}
+          />
+          <div className="flex justify-end gap-1">
+            <button
+              onClick={() => { setCreating(null); setRevName(''); setRevDesc('') }}
+              className="px-2 py-0.5 text-[10px] rounded hover:bg-muted text-muted-foreground"
+            >
+              Annuler
+            </button>
+            <button
+              onClick={handleCreate}
+              disabled={!revName.trim() || createRev.isPending}
+              className="px-2 py-0.5 text-[10px] rounded bg-primary text-primary-foreground disabled:opacity-40"
+            >
+              {createRev.isPending ? <Loader2 size={9} className="animate-spin inline" /> : 'Créer'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setCreating('baseline')}
+            className="flex items-center gap-1 text-[10px] text-primary hover:text-primary/80"
+          >
+            <Camera size={10} /> Nouvelle référence
+          </button>
+          <span className="text-muted-foreground">·</span>
+          <button
+            onClick={() => setCreating('simulation')}
+            className="flex items-center gap-1 text-[10px] text-orange-600 hover:text-orange-500"
+          >
+            <FlaskConical size={10} /> Nouvelle simulation
+          </button>
+        </div>
+      )}
+    </FormSection>
   )
 }
 
@@ -1841,15 +2019,411 @@ function SubProjectsSection({ projectId }: { projectId: string }) {
   )
 }
 
+// -- Kanban view (by status) -------------------------------------------------
+
+const KANBAN_COLUMNS: { status: string; label: string; color: string }[] = [
+  { status: 'todo', label: 'À faire', color: 'border-muted' },
+  { status: 'in_progress', label: 'En cours', color: 'border-blue-400' },
+  { status: 'review', label: 'Revue', color: 'border-yellow-400' },
+  { status: 'done', label: 'Terminé', color: 'border-green-500' },
+]
+
+function KanbanCard({ task }: { task: ProjectTaskEnriched }) {
+  const priorityOpt = PRIORITY_OPTIONS.find(p => p.value === task.priority)
+  const dueDate = task.due_date ? new Date(task.due_date) : null
+  const isOverdue = dueDate && dueDate.getTime() < Date.now() && task.status !== 'done'
+
+  const handleDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.setData('application/opsflux-task', JSON.stringify({ id: task.id, currentStatus: task.status }))
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  return (
+    <div
+      draggable
+      onDragStart={handleDragStart}
+      className="bg-background border border-border rounded-md p-2 shadow-sm hover:shadow cursor-move space-y-1"
+    >
+      <div className="flex items-start gap-1.5">
+        <TaskStatusIcon status={task.status} size={11} />
+        <div className="flex-1 min-w-0">
+          <div className="text-[11px] font-medium line-clamp-2">{task.title}</div>
+          <div className="text-[9px] text-muted-foreground font-mono truncate mt-0.5">{task.project_code}</div>
+        </div>
+      </div>
+      {(task.priority === 'high' || task.priority === 'critical') && (
+        <span className={cn(
+          'inline-block text-[8px] px-1 rounded',
+          task.priority === 'critical' ? 'bg-red-500/10 text-red-500' : 'bg-orange-500/10 text-orange-500',
+        )}>
+          {priorityOpt?.label}
+        </span>
+      )}
+      <div className="flex items-center gap-1.5 text-[9px] text-muted-foreground">
+        {dueDate && (
+          <span className={cn('tabular-nums', isOverdue && 'text-red-500 font-medium')}>
+            {dueDate.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+          </span>
+        )}
+        {task.assignee_name && <span className="truncate">· {task.assignee_name}</span>}
+        {task.progress > 0 && <span className="ml-auto tabular-nums">{task.progress}%</span>}
+      </div>
+    </div>
+  )
+}
+
+function KanbanColumn({
+  status, label, color, tasks, onTaskDrop,
+}: {
+  status: string
+  label: string
+  color: string
+  tasks: ProjectTaskEnriched[]
+  onTaskDrop: (taskId: string, newStatus: string) => void
+}) {
+  const [isOver, setIsOver] = useState(false)
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (!isOver) setIsOver(true)
+  }
+
+  const handleDragLeave = () => setIsOver(false)
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsOver(false)
+    const raw = e.dataTransfer.getData('application/opsflux-task')
+    if (!raw) return
+    try {
+      const { id, currentStatus } = JSON.parse(raw)
+      if (currentStatus !== status) onTaskDrop(id, status)
+    } catch { /* ignore */ }
+  }
+
+  return (
+    <div
+      className={cn(
+        'flex flex-col w-[260px] shrink-0 rounded-lg border-t-2 bg-muted/30 transition-colors',
+        color,
+        isOver && 'bg-primary/5 ring-2 ring-primary/30',
+      )}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      <div className="px-3 py-2 flex items-center justify-between border-b border-border/40">
+        <span className="text-xs font-semibold">{label}</span>
+        <span className="text-[10px] tabular-nums px-1.5 py-0 rounded bg-background text-muted-foreground">{tasks.length}</span>
+      </div>
+      <div className="p-1.5 space-y-1.5 flex-1 overflow-y-auto max-h-[calc(100vh-220px)]">
+        {tasks.map(t => (
+          <KanbanCard key={t.id} task={t} />
+        ))}
+        {tasks.length === 0 && (
+          <div className="text-[10px] text-muted-foreground text-center py-4 italic">Glissez une tâche ici</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function KanbanView() {
+  const [filterProjectId, setFilterProjectId] = useState<string | undefined>(undefined)
+  const [search, setSearch] = useState('')
+  const debouncedSearch = useDebounce(search, 300)
+  const { data: projectsData } = useProjects({ page_size: 100 })
+  const { data: tasksData, isLoading } = useAllProjectTasks({
+    page: 1, page_size: 500,
+    project_id: filterProjectId,
+    search: debouncedSearch || undefined,
+  })
+  const { toast } = useToast()
+
+  const tasks = tasksData?.items ?? []
+  const columns = useMemo(() => {
+    const map = new Map<string, ProjectTaskEnriched[]>()
+    for (const col of KANBAN_COLUMNS) map.set(col.status, [])
+    for (const t of tasks) {
+      const bucket = map.get(t.status) ?? map.get('todo')!
+      bucket.push(t)
+    }
+    return map
+  }, [tasks])
+
+  const handleTaskDrop = useCallback(async (taskId: string, newStatus: string) => {
+    const task = tasks.find(t => t.id === taskId)
+    if (!task) return
+    try {
+      await projetsService.updateTask(task.project_id, taskId, { status: newStatus })
+      toast({ title: 'Statut mis à jour', variant: 'success' })
+    } catch {
+      toast({ title: 'Erreur mise à jour', variant: 'error' })
+    }
+  }, [tasks, toast])
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-muted/30">
+        <FolderKanban size={14} className="text-primary" />
+        <span className="text-xs font-medium text-muted-foreground">Projet:</span>
+        <select
+          value={filterProjectId || ''}
+          onChange={e => setFilterProjectId(e.target.value || undefined)}
+          className="text-xs border border-border rounded px-2 py-1 bg-background min-w-[180px]"
+        >
+          <option value="">Tous les projets</option>
+          {projectsData?.items?.map(p => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
+        </select>
+        <input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Rechercher une tâche…"
+          className="text-xs border border-border rounded px-2 py-1 bg-background flex-1 max-w-[260px]"
+        />
+        <span className="text-[10px] text-muted-foreground ml-auto">Glisser-déposer pour changer le statut</span>
+      </div>
+      {isLoading ? (
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 size={16} className="animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <div className="flex-1 overflow-x-auto p-3">
+          <div className="flex gap-3 h-full">
+            {KANBAN_COLUMNS.map(col => (
+              <KanbanColumn
+                key={col.status}
+                status={col.status}
+                label={col.label}
+                color={col.color}
+                tasks={columns.get(col.status) ?? []}
+                onTaskDrop={handleTaskDrop}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// -- Dashboard view (KPIs + health overview) ---------------------------------
+
+function DashboardKpiCard({ icon: Icon, label, value, hint, tone = 'default' }: {
+  icon: typeof Target
+  label: string
+  value: React.ReactNode
+  hint?: string
+  tone?: 'default' | 'success' | 'warning' | 'danger' | 'primary'
+}) {
+  const toneClass = {
+    default: 'border-border text-foreground',
+    success: 'border-green-500/30 bg-green-500/5 text-green-700',
+    warning: 'border-orange-500/30 bg-orange-500/5 text-orange-700',
+    danger: 'border-red-500/30 bg-red-500/5 text-red-700',
+    primary: 'border-primary/30 bg-primary/5 text-primary',
+  }[tone]
+  return (
+    <div className={cn('border rounded-md p-3', toneClass)}>
+      <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide opacity-70">
+        <Icon size={12} /> {label}
+      </div>
+      <div className="text-2xl font-semibold tabular-nums mt-1">{value}</div>
+      {hint && <div className="text-[10px] opacity-60 mt-0.5">{hint}</div>}
+    </div>
+  )
+}
+
+function DashboardView() {
+  const { data: projectsData, isLoading: projLoading } = useProjects({ page_size: 200 })
+  const { data: tasksData, isLoading: tasksLoading } = useAllProjectTasks({ page: 1, page_size: 1000 })
+  const openDynamicPanel = useUIStore(s => s.openDynamicPanel)
+
+  const projects = projectsData?.items ?? []
+  const tasks = tasksData?.items ?? []
+
+  const stats = useMemo(() => {
+    const total = projects.length
+    const active = projects.filter(p => p.status === 'active').length
+    const completed = projects.filter(p => p.status === 'completed').length
+    const onHold = projects.filter(p => p.status === 'on_hold').length
+    const avgProgress = total > 0 ? Math.round(projects.reduce((s, p) => s + p.progress, 0) / total) : 0
+    const totalBudget = projects.reduce((s, p) => s + (p.budget ?? 0), 0)
+    const goutiCount = projects.filter(p => p.external_ref && p.external_ref.startsWith('gouti:')).length
+
+    const tasksDone = tasks.filter(t => t.status === 'done').length
+    const tasksOverdue = tasks.filter(t => {
+      if (!t.due_date || t.status === 'done' || t.status === 'cancelled') return false
+      return new Date(t.due_date).getTime() < Date.now()
+    }).length
+    const tasksInProgress = tasks.filter(t => t.status === 'in_progress').length
+    const tasksCritical = tasks.filter(t => t.priority === 'critical' && t.status !== 'done').length
+
+    // Health by weather
+    const byWeather: Record<string, number> = { sunny: 0, cloudy: 0, rainy: 0, stormy: 0 }
+    for (const p of projects) byWeather[p.weather] = (byWeather[p.weather] ?? 0) + 1
+
+    // Upcoming deadlines (next 14 days)
+    const horizon = Date.now() + 14 * 86400000
+    const upcoming = tasks
+      .filter(t => t.due_date && t.status !== 'done' && t.status !== 'cancelled')
+      .filter(t => new Date(t.due_date!).getTime() < horizon)
+      .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime())
+      .slice(0, 8)
+
+    // Top projects by task volume
+    const topProjects = [...projects]
+      .sort((a, b) => (b.task_count ?? 0) - (a.task_count ?? 0))
+      .slice(0, 5)
+
+    return {
+      total, active, completed, onHold, avgProgress, totalBudget, goutiCount,
+      tasksDone, tasksOverdue, tasksInProgress, tasksCritical,
+      byWeather, upcoming, topProjects,
+    }
+  }, [projects, tasks])
+
+  if (projLoading || tasksLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 size={16} className="animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  const formatCurrency = (n: number) => n >= 1_000_000
+    ? `${(n / 1_000_000).toFixed(1)}M`
+    : n >= 1000 ? `${(n / 1000).toFixed(0)}k` : String(n)
+
+  return (
+    <div className="p-4 space-y-4 overflow-y-auto">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <DashboardKpiCard icon={FolderKanban} label="Projets actifs" value={stats.active} hint={`${stats.total} au total`} tone="primary" />
+        <DashboardKpiCard icon={CheckCircle2} label="Projets terminés" value={stats.completed} tone="success" />
+        <DashboardKpiCard icon={Target} label="Progression moy." value={`${stats.avgProgress}%`} />
+        <DashboardKpiCard
+          icon={Target}
+          label="Budget cumulé"
+          value={`${formatCurrency(stats.totalBudget)} XAF`}
+          hint={stats.goutiCount > 0 ? `${stats.goutiCount} depuis Gouti` : undefined}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <DashboardKpiCard icon={ListTodo} label="Tâches en cours" value={stats.tasksInProgress} tone="primary" />
+        <DashboardKpiCard icon={Clock} label="Tâches en retard" value={stats.tasksOverdue} tone={stats.tasksOverdue > 0 ? 'danger' : 'default'} />
+        <DashboardKpiCard icon={CircleDot} label="Tâches critiques" value={stats.tasksCritical} tone={stats.tasksCritical > 0 ? 'warning' : 'default'} />
+        <DashboardKpiCard icon={CheckCircle2} label="Tâches terminées" value={stats.tasksDone} tone="success" />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="border border-border rounded-md p-3">
+          <div className="text-xs font-semibold mb-2 flex items-center gap-1">
+            <Sun size={12} className="text-yellow-500" /> Santé des projets (météo)
+          </div>
+          <div className="space-y-1.5">
+            {WEATHER_OPTIONS.map(w => {
+              const count = stats.byWeather[w.value] ?? 0
+              const pct = stats.total > 0 ? (count / stats.total) * 100 : 0
+              return (
+                <div key={w.value} className="flex items-center gap-2 text-[11px]">
+                  <w.icon size={12} className={
+                    w.value === 'sunny' ? 'text-yellow-500' :
+                    w.value === 'cloudy' ? 'text-gray-400' :
+                    w.value === 'rainy' ? 'text-blue-400' : 'text-red-500'
+                  } />
+                  <span className="w-16">{w.label}</span>
+                  <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className={cn(
+                        'h-full rounded-full',
+                        w.value === 'sunny' ? 'bg-yellow-500' :
+                        w.value === 'cloudy' ? 'bg-gray-400' :
+                        w.value === 'rainy' ? 'bg-blue-400' : 'bg-red-500',
+                      )}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <span className="tabular-nums text-muted-foreground w-6 text-right">{count}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="border border-border rounded-md p-3">
+          <div className="text-xs font-semibold mb-2 flex items-center gap-1">
+            <Clock size={12} className="text-orange-500" /> Échéances 14 prochains jours
+          </div>
+          {stats.upcoming.length === 0 ? (
+            <div className="text-[11px] text-muted-foreground italic">Aucune tâche dans les 14 prochains jours</div>
+          ) : (
+            <div className="space-y-1">
+              {stats.upcoming.map(t => {
+                const isOverdue = new Date(t.due_date!).getTime() < Date.now()
+                return (
+                  <div key={t.id} className="flex items-center gap-1.5 text-[11px]">
+                    <TaskStatusIcon status={t.status} size={10} />
+                    <span className="flex-1 truncate">{t.title}</span>
+                    <span className="text-[9px] text-muted-foreground font-mono">{t.project_code}</span>
+                    <span className={cn('text-[9px] tabular-nums', isOverdue ? 'text-red-500 font-medium' : 'text-muted-foreground')}>
+                      {new Date(t.due_date!).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="border border-border rounded-md p-3">
+        <div className="text-xs font-semibold mb-2 flex items-center gap-1">
+          <Layers size={12} className="text-primary" /> Projets par volume de tâches (top 5)
+        </div>
+        {stats.topProjects.length === 0 ? (
+          <div className="text-[11px] text-muted-foreground italic">Aucun projet</div>
+        ) : (
+          <div className="space-y-1.5">
+            {stats.topProjects.map(p => (
+              <div
+                key={p.id}
+                className="flex items-center gap-2 text-[11px] cursor-pointer hover:bg-muted/40 px-2 py-1 rounded"
+                onClick={() => openDynamicPanel({ type: 'detail', module: 'projets', id: p.id })}
+              >
+                <WeatherIcon weather={p.weather} size={12} />
+                <span className="font-mono text-muted-foreground">{p.code}</span>
+                <span className="flex-1 truncate">{p.name}</span>
+                {p.external_ref && p.external_ref.startsWith('gouti:') && <GoutiBadge />}
+                <div className="flex items-center gap-1 w-[120px]">
+                  <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-primary rounded-full" style={{ width: `${p.progress}%` }} />
+                  </div>
+                  <span className="tabular-nums text-muted-foreground w-8 text-right">{p.progress}%</span>
+                </div>
+                <span className="text-[10px] text-muted-foreground tabular-nums w-10 text-right">{p.task_count ?? 0} t.</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // -- View Tab Selector --------------------------------------------------------
 
-type ViewTab = 'projets' | 'tableur' | 'planning'
+type ViewTab = 'projets' | 'tableur' | 'kanban' | 'planning' | 'dashboard'
 
 function ViewTabSelector({ active, onChange }: { active: ViewTab; onChange: (tab: ViewTab) => void }) {
   const tabs: { id: ViewTab; label: string; icon: typeof FolderKanban }[] = [
     { id: 'projets', label: 'Projets', icon: FolderKanban },
     { id: 'tableur', label: 'Tableur', icon: Sheet },
+    { id: 'kanban', label: 'Kanban', icon: Layers },
     { id: 'planning', label: 'Planning', icon: CalendarRange },
+    { id: 'dashboard', label: 'Dashboard', icon: Target },
   ]
 
   return (
@@ -2045,7 +2619,9 @@ export function ProjetsPage() {
         <PanelContent>
           {viewTab === 'projets' && <ProjectsListView />}
           {viewTab === 'tableur' && <SpreadsheetView />}
+          {viewTab === 'kanban' && <KanbanView />}
           {viewTab === 'planning' && <MacroPlanningView />}
+          {viewTab === 'dashboard' && <DashboardView />}
         </PanelContent>
       </div>}
 

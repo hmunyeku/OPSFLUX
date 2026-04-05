@@ -1573,8 +1573,8 @@ async def create_ads(
     reference = await generate_reference("ADS", db, entity_id=entity_id)
     requester_id = body.requester_id or current_user.id
     requester = await db.get(User, requester_id)
-    if not requester or requester.entity_id != entity_id or not requester.active:
-        raise HTTPException(status_code=400, detail="Demandeur invalide pour cette entite.")
+    if not requester or not requester.active:
+        raise HTTPException(status_code=400, detail="Demandeur invalide pour cette entité.")
 
     ads = Ads(
         entity_id=entity_id,

@@ -181,6 +181,27 @@ def _uid(args: dict) -> str:
     return _seg(_req(args, "user_id"), "user_id")
 
 
+_REF_KEYS = ("ref_ta", "ref_pr", "ref_ac", "ref_is", "Ref", "ref", "id", "Id", "ID")
+
+
+def _inject_id(item: dict, explicit: str | None = None) -> dict:
+    """Return a shallow copy of ``item`` with a stable ``_id`` field.
+
+    Tries the explicit argument first (used when the source dict was keyed
+    by ID), otherwise falls back to any Gouti ref_* or id field found in
+    the object.
+    """
+    out = dict(item)
+    if explicit is not None:
+        out.setdefault("_id", explicit)
+        return out
+    for k in _REF_KEYS:
+        if k in out and out[k]:
+            out.setdefault("_id", str(out[k]))
+            break
+    return out
+
+
 def _items(data: Any, key: str) -> list:
     """Extract list items from various Gouti response formats.
 
@@ -190,37 +211,30 @@ def _items(data: Any, key: str) -> list:
     - ``{"data": [...]}`` / ``{"items": [...]}`` : generic wrappers
     - ``{"28364": {...}, "28365": {...}}`` : dict keyed by entity ID
       (this is the most common shape for projects, users, tasks, …)
+
+    Every returned item is passed through ``_inject_id`` so callers always
+    have a stable ``_id`` field (derived from the container key or from any
+    ``ref_*``/``id`` field inside the item).
     """
     if data is None:
         return []
     if isinstance(data, list):
-        return data
+        return [_inject_id(it) if isinstance(it, dict) else it for it in data]
     if isinstance(data, dict):
         # 1. Explicit list wrappers
         for candidate_key in (key, "data", "items", "results"):
             val = data.get(candidate_key)
             if isinstance(val, list):
-                return val
+                return [_inject_id(it) if isinstance(it, dict) else it for it in val]
             if isinstance(val, dict):
                 # Wrapped dict keyed by ID — flatten to list of values
                 nested = list(val.values())
                 if nested and all(isinstance(v, dict) for v in nested):
-                    # Preserve the ID as a field for later reference
-                    out = []
-                    for k, v in val.items():
-                        item = dict(v)
-                        item.setdefault("_id", k)
-                        out.append(item)
-                    return out
+                    return [_inject_id(v, explicit=k) for k, v in val.items()]
         # 2. Top-level dict keyed by ID (common Gouti pattern)
         values = list(data.values())
         if values and all(isinstance(v, dict) for v in values):
-            out = []
-            for k, v in data.items():
-                item = dict(v)
-                item.setdefault("_id", k)
-                out.append(item)
-            return out
+            return [_inject_id(v, explicit=k) for k, v in data.items()]
         return []
     return []
 
@@ -635,14 +649,24 @@ _LIST_ROUTES: dict[str, tuple[str, str]] = {
 }
 
 
+_SEARCH_KEYS = (
+    # Generic
+    "Name", "name", "Ref", "ref", "Code", "code", "Title", "title",
+    "Description", "description", "Label", "label",
+    "first_name", "last_name", "email", "matricule",
+    # Gouti domain-suffixed fields (_ta=task, _pr=project, _ac=action, _is=issue)
+    "name_ta", "name_pr", "name_ac", "name_is",
+    "ref_ta", "ref_pr", "ref_ac", "ref_is",
+    "description_ta", "description_pr", "description_ac", "description_is",
+)
+
+
 def _matches_search(item: Any, query: str) -> bool:
     """Case-insensitive substring match across common text fields."""
     if not isinstance(item, dict):
         return query.lower() in str(item).lower()
     q = query.lower()
-    for key in ("Name", "name", "Ref", "ref", "Code", "code", "Title", "title",
-                "Description", "description", "Label", "label",
-                "first_name", "last_name", "email", "matricule"):
+    for key in _SEARCH_KEYS:
         val = item.get(key)
         if val and q in str(val).lower():
             return True
@@ -715,11 +739,22 @@ async def _handle_get(c: GoutiApiClient, a: dict) -> dict:
 
 # ── update: unified update ───────────────────────────────────────────────────
 
+# Per official Gouti Postman collection v1 EVO 07-2025, only tasks/actions/
+# issues expose a POST /{entity}/{id} update endpoint. Projects cannot be
+# updated through the public API.
 _UPDATE_ROUTES: dict[str, str] = {
-    "project": "projects/{id}",
     "task":    "projects/{pid}/tasks/{id}",
     "action":  "projects/{pid}/actions/{id}",
     "issue":   "projects/{pid}/issues/{id}",
+}
+
+# Writable fields per entity type — any other field is silently dropped by
+# Gouti (based on the official Postman collection payloads). Passing a field
+# not in this whitelist results in a warning in the response.
+_WRITABLE_FIELDS: dict[str, frozenset[str]] = {
+    "task":   frozenset({"name_ta",  "description_ta", "status_ta", "progress_ta", "workload"}),
+    "action": frozenset({"name_ac",  "description_ac", "status_ac", "progress_ac"}),
+    "issue":  frozenset({"name_is",  "description_is", "status_is", "progress_is"}),
 }
 
 
@@ -728,11 +763,50 @@ _DATE_FIELD_RE = re.compile(r"(_date_|^date_|_date$|^date$|_dt_|_dt$)", re.IGNOR
 _ISO_DATE_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
 
 
-def _normalise_date_fields(payload: dict) -> dict:
-    """Convert ISO dates (YYYY-MM-DD) to Gouti's DD-MM-YYYY format.
+def _normalise_payload(payload: dict, entity_type: str) -> tuple[dict, list[str]]:
+    """Normalise a payload before sending to Gouti.
 
-    Gouti silently drops dates in wrong formats, so we normalise here.
-    Only fields whose name matches a date pattern are touched.
+    1. Filter to the official whitelist from the Gouti Postman collection
+       (fields outside the whitelist are silently dropped by Gouti — we
+       return them in ``dropped`` so the caller sees a clear warning).
+    2. ``progress_*`` → integer (Gouti rejects strings/floats with
+       "Progress format is not good.").
+    3. ``workload`` / integer fields coerced to int when possible.
+    """
+    normalised: dict = {}
+    dropped: list[str] = []
+    writable = _WRITABLE_FIELDS.get(entity_type)
+    for k, v in payload.items():
+        if writable is not None and k not in writable:
+            dropped.append(k)
+            continue
+
+        # Progress → int
+        if k.startswith("progress_"):
+            try:
+                normalised[k] = int(float(v)) if v not in (None, "") else 0
+            except (TypeError, ValueError):
+                normalised[k] = v
+            continue
+
+        # workload → int
+        if k == "workload":
+            try:
+                normalised[k] = int(float(v)) if v not in (None, "") else 0
+            except (TypeError, ValueError):
+                normalised[k] = v
+            continue
+
+        normalised[k] = v
+    return normalised, dropped
+
+
+# Kept for backward compatibility / unit tests
+def _normalise_date_fields(payload: dict) -> dict:
+    """Legacy helper: convert ISO YYYY-MM-DD dates to Gouti DD-MM-YYYY.
+
+    No longer used by update (Gouti doesn't accept date updates) but kept
+    exported for callers that deal with other endpoints accepting dates.
     """
     out: dict = {}
     for k, v in payload.items():
@@ -747,13 +821,11 @@ def _normalise_date_fields(payload: dict) -> dict:
 
 
 # Fields that Gouti requires as "principal argument" on POST /{entity}/{id}.
-# If they're missing on update we pre-fetch the current value to avoid the
-# "Missing principal argument" error.
+# Always included on update (pre-fetched from current record if not provided).
 _PRINCIPAL_FIELDS = {
     "task":    ("name_ta",  lambda pid, tid: f"projects/{pid}/tasks/{tid}"),
     "action":  ("name_ac",  lambda pid, tid: f"projects/{pid}/actions/{tid}"),
     "issue":   ("name_is",  lambda pid, tid: f"projects/{pid}/issues/{tid}"),
-    "project": ("name_pr",  lambda _pid, tid: f"projects/{tid}"),
 }
 
 
@@ -761,7 +833,12 @@ async def _handle_update(c: GoutiApiClient, a: dict) -> dict:
     entity_type = _req(a, "type")
     route = _UPDATE_ROUTES.get(entity_type)
     if not route:
-        return _ok({"error": f"Type inconnu: '{entity_type}'", "types_disponibles": sorted(_UPDATE_ROUTES)})
+        return _ok({
+            "error": f"Type '{entity_type}' non updatable via l'API Gouti. "
+                     "Note: l'API Gouti ne supporte PAS la modification de projects, "
+                     "deliverables, goals, users, organization units, etc.",
+            "types_updatable": sorted(_UPDATE_ROUTES),
+        })
 
     raw_payload = a.get("payload")
     if not isinstance(raw_payload, dict):
@@ -774,8 +851,8 @@ async def _handle_update(c: GoutiApiClient, a: dict) -> dict:
         project_id = _pid(a)
         url = url.replace("{pid}", project_id)
 
-    # Normalise ISO dates → DD-MM-YYYY (Gouti silently drops wrong formats)
-    payload = _normalise_date_fields(raw_payload)
+    # Filter to writable fields + coerce types (progress_*, workload → int)
+    payload, dropped = _normalise_payload(raw_payload, entity_type)
 
     # Pre-fetch principal argument (name_*) if missing — Gouti errors otherwise
     principal = _PRINCIPAL_FIELDS.get(entity_type)
@@ -788,7 +865,6 @@ async def _handle_update(c: GoutiApiClient, a: dict) -> dict:
                 data = current.get("data")
                 current_value = None
                 if isinstance(data, dict):
-                    # Some endpoints wrap the record in a list/dict
                     if field_name in data:
                         current_value = data[field_name]
                     elif isinstance(data.get("data"), dict) and field_name in data["data"]:
@@ -799,13 +875,20 @@ async def _handle_update(c: GoutiApiClient, a: dict) -> dict:
                         current_value = first[field_name]
                 if current_value:
                     payload[field_name] = current_value
-                    logger.debug("Gouti update: pre-filled %s=%r", field_name, current_value)
         except Exception as exc:
             logger.warning("Gouti update: could not pre-fetch %s: %s", field_name, exc)
 
-    # Call Gouti — response includes updated_fields so the caller sees
-    # exactly what was applied (or silently dropped).
-    return _ok(await c.call(url, "POST", payload))
+    # Call Gouti and wrap the response with a clear warning about dropped
+    # fields so the caller knows which inputs Gouti does not accept.
+    resp = await c.call(url, "POST", payload)
+    result: dict[str, Any] = dict(resp)
+    if dropped:
+        result["mcp_warning"] = {
+            "message": "Certains champs ne sont pas modifiables via l'API Gouti et ont été ignorés.",
+            "dropped_fields": dropped,
+            "writable_fields": sorted(_WRITABLE_FIELDS.get(entity_type, set())),
+        }
+    return _ok(result)
 
 
 # ── timesheet: unified timesheet ops ─────────────────────────────────────────
@@ -916,22 +999,26 @@ GOUTI_TOOLS: list[tuple[str, str, dict, Any]] = [
      _handle_get),
 
     ("update",
-     "Met à jour une entité Gouti. Types: project, task, action, issue. "
-     "Passer project_id pour task/action/issue. "
-     "Les dates peuvent être au format ISO (YYYY-MM-DD), elles seront converties. "
-     "Champs tâche: name_ta, description_ta, status_ta, progress_ta, workload_ta, "
-     "initial_start_date_ta, initial_end_date_ta, actual_start_date_ta, actual_end_date_ta, "
-     "duration_ta, milestone_ta. "
-     "Champs action: description_ac, status_ac, progress_ac. "
-     "Champs issue: description_is, status_is, progress_is. "
-     "Le nom (name_ta/ac/is/pr) est auto-rempli si absent du payload. "
-     "La réponse retourne updated_fields indiquant ce qui a effectivement été modifié.",
+     "Met à jour une entité Gouti. Types supportés: task, action, issue. "
+     "L'API Gouti NE PERMET PAS la mise à jour de projects, deliverables, goals, "
+     "users ni organization units. "
+     "IMPORTANT — champs réellement modifiables (source: Postman collection officielle Gouti v1 EVO 07-2025): "
+     "• task: name_ta, description_ta, status_ta, progress_ta (int), workload (int). "
+     "• action: name_ac, description_ac, status_ac, progress_ac (int). "
+     "• issue: name_is, description_is, status_is, progress_is (int). "
+     "Les dates (initial_start_date_ta, initial_end_date_ta, actual_*_date_ta), "
+     "duration_ta et les autres champs NE SONT PAS modifiables via l'API Gouti — "
+     "ils seront ignorés et listés dans mcp_warning.dropped_fields de la réponse. "
+     "Le nom (name_ta/ac/is) est auto-rempli depuis le record courant si absent du payload. "
+     "progress_* et workload doivent être des entiers (conversion automatique faite par le MCP).",
      _s({
-         "type": {"type": "string", "description": "Type: project, task, action, issue"},
+         "type": {"type": "string", "enum": ["task", "action", "issue"],
+                  "description": "Type d'entité (project non supporté)"},
          "id": {"type": "string", "description": "ID de l'entité"},
-         "project_id": {"type": "string", "description": "ID projet (requis pour task/action/issue)"},
-         "payload": {"type": "object", "description": "Champs à modifier"},
-     }, ["type", "id", "payload"]),
+         "project_id": {"type": "string", "description": "ID projet (obligatoire)"},
+         "payload": {"type": "object",
+                     "description": "Champs à modifier (filtrés à la whitelist Gouti)"},
+     }, ["type", "id", "project_id", "payload"]),
      _handle_update),
 
     ("search_user",

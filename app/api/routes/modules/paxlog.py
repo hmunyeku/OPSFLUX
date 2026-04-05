@@ -3755,11 +3755,11 @@ async def download_external_ads_pdf(
 ):
     """Download the same canonical AdS ticket from the external portal."""
     link = await _require_external_session(db, token=token, session_token=x_external_session, request=request)
-    ads, _company = await _get_external_ads_and_context(
-        db,
-        link=link,
-        require_company_scope=False,
-    )
+    external_context = await _get_external_ads_and_context(db, link=link)
+    if len(external_context) == 3:
+        ads, _entity_id, _allowed_company_id = external_context
+    else:
+        ads, _legacy_company = external_context
     return await _build_ads_pdf_response(
         db,
         ads=ads,

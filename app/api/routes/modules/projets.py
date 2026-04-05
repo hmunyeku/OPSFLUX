@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, func as sqla_func
+from sqlalchemy import delete as sql_delete, select, func as sqla_func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, require_permission
@@ -540,6 +540,14 @@ async def delete_project_task(
     task = result.scalars().first()
     if not task:
         raise HTTPException(404, "Task not found")
+
+    # Hard-delete owned child rows first (FKs have no ON DELETE CASCADE):
+    # deliverables, actions, changelog entries. ProjectTaskDependency already
+    # cascades. Sub-tasks have parent_id ON DELETE SET NULL so they survive.
+    await db.execute(sql_delete(TaskDeliverable).where(TaskDeliverable.task_id == task_id))
+    await db.execute(sql_delete(TaskAction).where(TaskAction.task_id == task_id))
+    await db.execute(sql_delete(TaskChangeLog).where(TaskChangeLog.task_id == task_id))
+
     await delete_entity(task, db, "project_task", entity_id=task.id, user_id=current_user.id)
     await db.commit()
     await _update_project_progress(db, project_id)

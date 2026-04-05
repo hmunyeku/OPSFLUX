@@ -80,6 +80,7 @@ import {
   useAdsList,
   useAds,
   useCreateAds,
+  useUpdateAds,
   useSubmitAds,
   useCancelAds,
   useStartAdsProgress,
@@ -2162,6 +2163,7 @@ function AdsDetailPanel({ id }: { id: string }) {
   const createStayProgram = useCreateStayProgram()
   const submitStayProgram = useSubmitStayProgram()
   const approveStayProgram = useApproveStayProgram()
+  const updateAds = useUpdateAds()
   const addPaxV2 = useAddPaxToAdsV2()
   const removePax = useRemovePaxFromAds()
   const { hasPermission } = usePermission()
@@ -2188,6 +2190,9 @@ function AdsDetailPanel({ id }: { id: string }) {
   const [paxSearch, setPaxSearch] = useState('')
   const [showPaxPicker, setShowPaxPicker] = useState(false)
   const [showStayProgramForm, setShowStayProgramForm] = useState(false)
+  const [allowedCompanySearch, setAllowedCompanySearch] = useState('')
+  const { data: allowedCompaniesData, isLoading: allowedCompaniesLoading } = useTiers({ page: 1, page_size: 20, search: allowedCompanySearch || undefined })
+  const [allowedCompaniesDraft, setAllowedCompaniesDraft] = useState<Array<{ id: string; code?: string | null; name: string }>>([])
   const [paxRejectEntryId, setPaxRejectEntryId] = useState<string | null>(null)
   const [paxRejectReason, setPaxRejectReason] = useState('')
   const [stayProgramTarget, setStayProgramTarget] = useState<{ user_id?: string | null; contact_id?: string | null }>({})
@@ -2217,6 +2222,10 @@ function AdsDetailPanel({ id }: { id: string }) {
     setProposedStartDate(ads.start_date)
     setProposedEndDate(ads.end_date)
     setProposedVisitPurpose(ads.visit_purpose)
+    setAllowedCompaniesDraft((ads.allowed_company_ids ?? []).map((companyId, index) => ({
+      id: companyId,
+      name: ads.allowed_company_names?.[index] || companyId,
+    })))
   }, [ads])
 
   const eligibleExternalRecipients = useMemo(() => {
@@ -2288,6 +2297,7 @@ function AdsDetailPanel({ id }: { id: string }) {
   const stayProgramsEnabled = ['approved', 'in_progress'].includes(ads.status)
   const canManageStayPrograms = stayProgramsEnabled && hasPermission('paxlog.stay.create')
   const canApproveStayPrograms = stayProgramsEnabled && hasPermission('paxlog.stay.approve')
+  const canEditAllowedCompanies = ['draft', 'requires_review'].includes(ads.status) && hasPermission('paxlog.ads.update')
   const adsSubmissionChecklist = [
     { label: t('paxlog.ads_detail.checklist.destination'), done: !!ads.site_entry_asset_id },
     { label: t('paxlog.ads_detail.checklist.category'), done: !!ads.visit_category },
@@ -2886,6 +2896,57 @@ function AdsDetailPanel({ id }: { id: string }) {
             {ads.outbound_transport_mode && <ReadOnlyRow label={t('paxlog.ads_detail.fields.outbound_transport')} value={transportModeLabels[ads.outbound_transport_mode] || ads.outbound_transport_mode} />}
             {ads.return_transport_mode && <ReadOnlyRow label={t('paxlog.ads_detail.fields.return_transport')} value={transportModeLabels[ads.return_transport_mode] || ads.return_transport_mode} />}
           </DetailFieldGrid>
+          {canEditAllowedCompanies && (
+            <div className="mt-3 rounded-lg border border-border bg-muted/20 p-3 space-y-3">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-foreground">{t('paxlog.ads_detail.fields.allowed_companies')}</p>
+                <p className="text-[10px] text-muted-foreground">{t('paxlog.create_ads.allowed_companies_help')}</p>
+              </div>
+              <SearchablePicker
+                label={t('paxlog.create_ads.fields.allowed_companies')}
+                icon={<Building2 size={12} className="text-muted-foreground" />}
+                items={allowedCompaniesData?.items || []}
+                isLoading={allowedCompaniesLoading}
+                searchValue={allowedCompanySearch}
+                onSearchChange={setAllowedCompanySearch}
+                renderItem={(tier) => <><span className="font-semibold">{tier.code}</span> — {tier.name}</>}
+                selectedId={null}
+                onSelect={(tier) => {
+                  setAllowedCompaniesDraft((current) => current.some((item) => item.id === tier.id)
+                    ? current
+                    : [...current, { id: tier.id, code: tier.code, name: tier.name }])
+                  setAllowedCompanySearch('')
+                }}
+                onClear={() => setAllowedCompanySearch('')}
+                placeholder={t('paxlog.search_company')}
+              />
+              {allowedCompaniesDraft.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {allowedCompaniesDraft.map((company) => (
+                    <span key={company.id} className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-1 text-xs">
+                      <span className="font-medium">{company.code ? `${company.code} — ` : ''}{company.name}</span>
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-foreground"
+                        onClick={() => setAllowedCompaniesDraft((current) => current.filter((item) => item.id !== company.id))}
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="flex justify-end">
+                <PanelActionButton
+                  variant="primary"
+                  disabled={updateAds.isPending}
+                  onClick={() => updateAds.mutate({ id, payload: { allowed_company_ids: allowedCompaniesDraft.map((company) => company.id) } })}
+                >
+                  {updateAds.isPending ? <Loader2 size={12} className="animate-spin" /> : t('common.save')}
+                </PanelActionButton>
+              </div>
+            </div>
+          )}
         </CollapsibleSection>
 
         {(ads.origin_mission_notice_id || ads.origin_mission_program_id) && (

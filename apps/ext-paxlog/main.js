@@ -36,6 +36,12 @@ const state = {
 }
 
 let createPaxMatchTimer = null
+const PROTECTED_RESOURCE_LOADERS = [
+  loadDossier,
+  loadCredentialTypes,
+  loadJobPositions,
+  loadDepartureBases,
+]
 
 const app = document.getElementById("app")
 
@@ -53,22 +59,7 @@ async function bootstrap() {
     await loadLinkInfo()
   }
   if (state.sessionToken) {
-    const results = await Promise.allSettled([
-      loadDossier(),
-      loadCredentialTypes(),
-      loadJobPositions(),
-      loadDepartureBases(),
-    ])
-    if (
-      results.some(
-        (result) =>
-          result.status === "rejected" &&
-          String(result.reason?.message || "").includes("Session externe requise"),
-      )
-    ) {
-      clearExternalSession(true)
-      await loadLinkInfo()
-    }
+    await hydrateProtectedSessionState()
   }
   render()
 }
@@ -136,6 +127,20 @@ function clearExternalSession(showMessage = false) {
   }
 }
 
+function isSessionRequiredError(error) {
+  return String(error?.message || "").includes("Session externe requise")
+}
+
+async function hydrateProtectedSessionState() {
+  const results = await Promise.allSettled(PROTECTED_RESOURCE_LOADERS.map((loader) => loader()))
+  if (results.some((result) => result.status === "rejected" && isSessionRequiredError(result.reason))) {
+    clearExternalSession(true)
+    await loadLinkInfo()
+    return false
+  }
+  return true
+}
+
 async function handleSendOtp() {
   clearMessage()
   setLoading(true)
@@ -162,10 +167,11 @@ async function handleVerifyOtp(event) {
     const result = await verifyOtpAction(api, state.token, code)
     state.sessionToken = result.session_token
     localStorage.setItem(sessionStorageKey(state.token), result.session_token)
-    await Promise.all([loadLinkInfo(), loadDossier(), loadCredentialTypes(), loadJobPositions(), loadDepartureBases()])
+    await loadLinkInfo()
+    await hydrateProtectedSessionState()
     setMessage(t("action_done"), "success")
   } catch (error) {
-    if (String(error?.message || "").includes("Session externe requise")) {
+    if (isSessionRequiredError(error)) {
       clearExternalSession(true)
       await loadLinkInfo()
     }

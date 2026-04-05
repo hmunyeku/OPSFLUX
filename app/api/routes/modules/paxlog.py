@@ -1081,6 +1081,32 @@ def _extract_ads_allowed_company_scope(ads: Ads) -> tuple[list[UUID], list[str]]
     return allowed_company_ids, allowed_company_names
 
 
+async def _require_external_scope(
+    db: AsyncSession,
+    *,
+    token: str,
+    request: Request,
+    session_token: str | None,
+) -> tuple[ExternalAccessLink, Ads, UUID, list[UUID], list[str], UUID | None, str | None]:
+    link = await _require_external_session(db, token=token, session_token=session_token, request=request)
+    ads, entity_id, legacy_primary_company_id = await _get_external_ads_and_context(db, link=link)
+    allowed_company_ids, allowed_company_names, primary_company_id, primary_company_name = await _resolve_external_allowed_companies(
+        db,
+        ads=ads,
+        link=link,
+        legacy_primary_company_id=legacy_primary_company_id,
+    )
+    return (
+        link,
+        ads,
+        entity_id,
+        allowed_company_ids,
+        allowed_company_names,
+        primary_company_id,
+        primary_company_name,
+    )
+
+
 def _compare_pax_names(
     first_name: str,
     last_name: str,
@@ -4748,6 +4774,32 @@ async def _sync_external_pax_travel_profile(
     )
 
 
+async def _apply_external_pax_contact_updates(
+    db: AsyncSession,
+    *,
+    contact: TierContact,
+    body: ExternalPaxUpsertBody,
+    entity_id: UUID,
+    linked_user: User | None = None,
+) -> None:
+    job_position = await _resolve_external_job_position(
+        db,
+        entity_id=entity_id,
+        job_position_id=body.job_position_id,
+    )
+    contact.first_name = body.first_name
+    contact.last_name = body.last_name
+    contact.birth_date = body.birth_date
+    contact.nationality = body.nationality
+    contact.badge_number = body.badge_number
+    contact.photo_url = body.photo_url
+    contact.email = body.email
+    contact.phone = body.phone
+    contact.position = job_position.name if job_position else body.position
+    contact.job_position_id = job_position.id if job_position else None
+    await _sync_external_pax_travel_profile(db, contact=contact, linked_user=linked_user, body=body)
+
+
 async def _send_external_link_otp(db: AsyncSession, *, link: ExternalAccessLink) -> None:
     if not link.otp_sent_to:
         raise HTTPException(status_code=400, detail="Aucun destinataire OTP n'est configuré pour ce lien")
@@ -5386,13 +5438,11 @@ async def find_external_ads_pax_matches(
     x_external_session: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ):
-    link = await _require_external_session(db, token=token, session_token=x_external_session, request=request)
-    ads, _entity_id, _allowed_company_id = await _get_external_ads_and_context(db, link=link)
-    allowed_company_ids, _allowed_company_names, _primary_company_id, _primary_company_name = await _resolve_external_allowed_companies(
+    link, ads, _entity_id, allowed_company_ids, _allowed_company_names, _primary_company_id, _primary_company_name = await _require_external_scope(
         db,
-        ads=ads,
-        link=link,
-        legacy_primary_company_id=_allowed_company_id,
+        token=token,
+        request=request,
+        session_token=x_external_session,
     )
     if not allowed_company_ids:
         raise HTTPException(status_code=400, detail="Aucune entreprise cible n'est configurée sur ce lien externe")
@@ -5427,13 +5477,11 @@ async def create_external_ads_pax(
     x_external_session: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ):
-    link = await _require_external_session(db, token=token, session_token=x_external_session, request=request)
-    ads, entity_id, _allowed_company_id = await _get_external_ads_and_context(db, link=link)
-    allowed_company_ids, _allowed_company_names, primary_company_id, _primary_company_name = await _resolve_external_allowed_companies(
+    link, ads, entity_id, allowed_company_ids, _allowed_company_names, primary_company_id, _primary_company_name = await _require_external_scope(
         db,
-        ads=ads,
-        link=link,
-        legacy_primary_company_id=_allowed_company_id,
+        token=token,
+        request=request,
+        session_token=x_external_session,
     )
     if ads.status not in {"draft", "requires_review"}:
         raise HTTPException(status_code=400, detail="Le dossier n'accepte plus de modification externe")
@@ -5463,11 +5511,6 @@ async def create_external_ads_pax(
             },
         )
 
-    job_position = await _resolve_external_job_position(
-        db,
-        entity_id=entity_id,
-        job_position_id=body.job_position_id,
-    )
     contact = TierContact(
         tier_id=primary_company_id or allowed_company_ids[0],
         first_name=body.first_name,
@@ -5478,15 +5521,17 @@ async def create_external_ads_pax(
         photo_url=body.photo_url,
         email=body.email,
         phone=body.phone,
-        position=job_position.name if job_position else body.position,
-        job_position_id=job_position.id if job_position else None,
-        contractual_airport=_normalize_external_text(body.contractual_airport),
-        nearest_airport=_normalize_external_text(body.nearest_airport),
-        nearest_station=_normalize_external_text(body.nearest_station),
+        position=body.position,
+        job_position_id=None,
     )
     db.add(contact)
     await db.flush()
-    await _sync_external_pax_travel_profile(db, contact=contact, body=body)
+    await _apply_external_pax_contact_updates(
+        db,
+        contact=contact,
+        body=body,
+        entity_id=entity_id,
+    )
     db.add(AdsPax(ads_id=ads.id, contact_id=contact.id, status="pending_check"))
     _append_external_access_log(link, action="create_pax", request=request, otp_validated=True)
     await db.commit()
@@ -5514,13 +5559,11 @@ async def attach_existing_external_ads_pax(
     x_external_session: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ):
-    link = await _require_external_session(db, token=token, session_token=x_external_session, request=request)
-    ads, entity_id, _allowed_company_id = await _get_external_ads_and_context(db, link=link)
-    allowed_company_ids, _allowed_company_names, _primary_company_id, _primary_company_name = await _resolve_external_allowed_companies(
+    link, ads, entity_id, allowed_company_ids, _allowed_company_names, _primary_company_id, _primary_company_name = await _require_external_scope(
         db,
-        ads=ads,
-        link=link,
-        legacy_primary_company_id=_allowed_company_id,
+        token=token,
+        request=request,
+        session_token=x_external_session,
     )
     if ads.status not in {"draft", "requires_review"}:
         raise HTTPException(status_code=400, detail="Le dossier n'accepte plus de modification externe")
@@ -5556,22 +5599,13 @@ async def attach_existing_external_ads_pax(
         await db.execute(select(User).where(User.tier_contact_id == contact.id))
     ).scalar_one_or_none()
 
-    job_position = await _resolve_external_job_position(
+    await _apply_external_pax_contact_updates(
         db,
+        contact=contact,
+        body=body,
         entity_id=entity_id,
-        job_position_id=body.job_position_id,
+        linked_user=linked_user,
     )
-    contact.first_name = body.first_name
-    contact.last_name = body.last_name
-    contact.birth_date = body.birth_date
-    contact.nationality = body.nationality
-    contact.badge_number = body.badge_number
-    contact.photo_url = body.photo_url
-    contact.email = body.email
-    contact.phone = body.phone
-    contact.position = job_position.name if job_position else body.position
-    contact.job_position_id = job_position.id if job_position else None
-    await _sync_external_pax_travel_profile(db, contact=contact, linked_user=linked_user, body=body)
     _append_external_access_log(link, action="attach_existing_pax", request=request, otp_validated=True)
     await db.commit()
 
@@ -5598,13 +5632,11 @@ async def update_external_ads_pax(
     x_external_session: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ):
-    link = await _require_external_session(db, token=token, session_token=x_external_session, request=request)
-    ads, entity_id, _allowed_company_id = await _get_external_ads_and_context(db, link=link)
-    allowed_company_ids, _allowed_company_names, _primary_company_id, _primary_company_name = await _resolve_external_allowed_companies(
+    link, ads, entity_id, allowed_company_ids, _allowed_company_names, _primary_company_id, _primary_company_name = await _require_external_scope(
         db,
-        ads=ads,
-        link=link,
-        legacy_primary_company_id=_allowed_company_id,
+        token=token,
+        request=request,
+        session_token=x_external_session,
     )
     if ads.status not in {"draft", "requires_review"}:
         raise HTTPException(status_code=400, detail="Le dossier n'accepte plus de modification externe")
@@ -5624,22 +5656,13 @@ async def update_external_ads_pax(
         await db.execute(select(User).where(User.tier_contact_id == contact.id))
     ).scalar_one_or_none()
 
-    job_position = await _resolve_external_job_position(
+    await _apply_external_pax_contact_updates(
         db,
+        contact=contact,
+        body=body,
         entity_id=entity_id,
-        job_position_id=body.job_position_id,
+        linked_user=linked_user,
     )
-    contact.first_name = body.first_name
-    contact.last_name = body.last_name
-    contact.birth_date = body.birth_date
-    contact.nationality = body.nationality
-    contact.badge_number = body.badge_number
-    contact.photo_url = body.photo_url
-    contact.email = body.email
-    contact.phone = body.phone
-    contact.position = job_position.name if job_position else body.position
-    contact.job_position_id = job_position.id if job_position else None
-    await _sync_external_pax_travel_profile(db, contact=contact, linked_user=linked_user, body=body)
     _append_external_access_log(link, action="update_pax", request=request, otp_validated=True)
     await db.commit()
 
@@ -5666,13 +5689,11 @@ async def create_external_ads_pax_credential(
     x_external_session: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ):
-    link = await _require_external_session(db, token=token, session_token=x_external_session, request=request)
-    ads, entity_id, _allowed_company_id = await _get_external_ads_and_context(db, link=link)
-    allowed_company_ids, _allowed_company_names, _primary_company_id, _primary_company_name = await _resolve_external_allowed_companies(
+    link, ads, entity_id, allowed_company_ids, _allowed_company_names, _primary_company_id, _primary_company_name = await _require_external_scope(
         db,
-        ads=ads,
-        link=link,
-        legacy_primary_company_id=_allowed_company_id,
+        token=token,
+        request=request,
+        session_token=x_external_session,
     )
     if ads.status not in {"draft", "requires_review"}:
         raise HTTPException(status_code=400, detail="Le dossier n'accepte plus de modification externe")

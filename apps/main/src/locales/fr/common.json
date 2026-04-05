@@ -36,7 +36,7 @@
     "login": "Connexion",
     "email": "Adresse email",
     "password": "Mot de passe",
-    "login_button": "Se connectér",
+    "login_button": "Se connecter",
     "login_sso": "Connexion SSO",
     "forgot_password": "Mot de passe oublié ?",
     "invalid_credentials": "Email ou mot de passe incorrect",
@@ -70,11 +70,14 @@
     "sso_error_userinfo": "Impossible de récupérer les informations utilisateur.",
     "sso_error_no_email": "Aucune adresse email retournée par le fournisseur SSO.",
     "sso_error_inactive": "Ce compte est désactivé.",
-    "sso_error_generic": "Erreur SSO. Veuillez réessayer."
+    "sso_error_generic": "Erreur SSO. Veuillez réessayer.",
+    "server_checking": "Connexion...",
+    "server_online": "Serveur connecté",
+    "server_offline": "Serveur injoignable"
   },
   "common": {
     "save": "Enregistrer",
-    "cancel": "Annulér",
+    "cancel": "Annuler",
     "delete": "Supprimer",
     "edit": "Modifier",
     "create": "Créer",
@@ -138,7 +141,7 @@
     "clone": "Dupliquer",
     "publish": "Publier",
     "archive": "Archiver",
-    "undo": "Annulér (Ctrl+Z)",
+    "undo": "Annuler (Ctrl+Z)",
     "no_data": "Aucune donnée",
     "no_data_description": "Aucune donnée à afficher.",
     "search_placeholder": "Rechercher...",
@@ -1438,7 +1441,7 @@
     "search_company": "Rechercher une entreprise...",
     "search_user": "Rechercher un utilisateur...",
     "confirm_reject": "Confirmer le rejet",
-    "cancel_question": "Annulér ?",
+    "cancel_question": "Annuler ?",
     "no_passenger": "Aucun passager",
     "no_cargo": "Aucun colis",
     "log_event": "Enregistrer l'événement",
@@ -2030,7 +2033,7 @@
       "cycle": "Cycle",
       "start": "Début",
       "next_rotation": "Prochaine rotation",
-      "finish": "Terminér",
+      "finish": "Terminer",
       "count": "{{count}} rotations"
     },
     "profile_panel": {
@@ -2145,7 +2148,7 @@
     "new_activity": "Nouvelle activité",
     "no_activity": "Aucune activité",
     "no_activity_description": "Aucune activité trouvée pour cette période. Ajustez les filtres ou la plage de dates.",
-    "cancel_activity": "Annulér une activité",
+    "cancel_activity": "Annuler une activité",
     "no_conflict": "Aucun conflit",
     "no_data": "Aucune donnée",
     "no_capacity_data": "Aucune donnée de capacité trouvée pour ce site et cette période.",
@@ -2587,10 +2590,10 @@
     "skipped": "{{count}} ignoré(s)",
     "errors": "{{count}} erreur(s)",
     "download_errors": "Télécharger le rapport d'erreurs",
-    "finish": "Terminér",
+    "finish": "Terminer",
     "next": "Suivant",
     "previous": "Précédent",
-    "cancel": "Annulér",
+    "cancel": "Annuler",
     "no_saved_mappings": "Aucun mapping sauvegardé",
     "mapping_saved": "Mapping sauvegardé",
     "import_assistant": "Assistant d'import",
@@ -2798,7 +2801,7 @@
     },
     "image_editor": {
       "title": "Modifier l'image",
-      "cancel_crop": "Annulér le recadrage",
+      "cancel_crop": "Annuler le recadrage",
       "crop": "Recadrer"
     }
   },

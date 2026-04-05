@@ -70,7 +70,10 @@
     "sso_error_userinfo": "Could not retrieve user information.",
     "sso_error_no_email": "No email address returned by the SSO provider.",
     "sso_error_inactive": "This account is disabled.",
-    "sso_error_generic": "SSO error. Please try again."
+    "sso_error_generic": "SSO error. Please try again.",
+    "server_checking": "Connecting...",
+    "server_online": "Server connected",
+    "server_offline": "Server unreachable"
   },
   "common": {
     "save": "Save",

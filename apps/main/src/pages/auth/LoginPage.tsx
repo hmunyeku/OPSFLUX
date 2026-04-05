@@ -264,7 +264,7 @@ export function LoginPage() {
               serverStatus === 'offline' && 'text-red-500',
             )}>
               {serverStatus === 'checking' && t('auth.server_checking', 'Connexion...')}
-              {serverStatus === 'online' && t('auth.server_online', 'Serveur connecte')}
+              {serverStatus === 'online' && t('auth.server_online', 'Serveur connecté')}
               {serverStatus === 'offline' && t('auth.server_offline', 'Serveur injoignable')}
             </span>
           </div>

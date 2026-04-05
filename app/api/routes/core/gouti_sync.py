@@ -432,6 +432,51 @@ async def get_sync_status(
     )
 
 
+@router.get("/debug/raw-projects")
+async def debug_raw_projects(
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("core.integrations.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Diagnostic: return the raw, untransformed Gouti /projects response
+    alongside the first 3 keys/items so we can see exactly what shape and
+    field names Gouti returns for this entity."""
+    gouti_settings = await _get_gouti_settings(db, entity_id)
+    connector = _build_connector(gouti_settings)
+    raw = await connector.get_raw_projects_response()
+    # Also do a parsed extract to show the first item's full keys
+    import httpx
+    base = gouti_settings.get("base_url", "https://apiprd.gouti.net/v1/client").rstrip("/")
+    token = gouti_settings.get("token", "")
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Client-Id": gouti_settings.get("client_id", ""),
+        "Accept": "application/json",
+    }
+    if gouti_settings.get("entity_code"):
+        headers["Entity-Code"] = gouti_settings["entity_code"]
+    sample_full = None
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.get(f"{base}/projects", headers=headers)
+            body = resp.json()
+            if isinstance(body, dict):
+                first_key = next(iter(body.keys()), None)
+                if first_key is not None:
+                    first_val = body[first_key]
+                    if isinstance(first_val, dict):
+                        sample_full = {"_id": first_key, **first_val}
+            elif isinstance(body, list) and body:
+                sample_full = body[0]
+    except Exception as exc:
+        sample_full = {"error": str(exc)[:300]}
+    return {
+        "shape_summary": raw,
+        "first_item_all_keys": list(sample_full.keys()) if isinstance(sample_full, dict) else None,
+        "first_item_sample": sample_full,
+    }
+
+
 @router.post("/sync/{project_id}", response_model=SingleProjectSyncResult)
 async def sync_single_project(
     project_id: str,

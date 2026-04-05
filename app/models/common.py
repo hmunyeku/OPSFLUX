@@ -607,24 +607,44 @@ class Tier(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     code: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     alias: Mapped[str | None] = mapped_column(String(200))  # trade name / DBA
+    trade_name: Mapped[str | None] = mapped_column(String(200))
+    logo_url: Mapped[str | None] = mapped_column(String(500))
     type: Mapped[str | None] = mapped_column(String(50))  # client, supplier, subcontractor, partner
     website: Mapped[str | None] = mapped_column(String(500))
     # Legacy convenience fields (kept for backwards compat; prefer polymorphic)
     phone: Mapped[str | None] = mapped_column(String(50))
+    fax: Mapped[str | None] = mapped_column(String(50))
     email: Mapped[str | None] = mapped_column(String(255))
     # Legal / corporate
     legal_form: Mapped[str | None] = mapped_column(String(100))  # SARL, SA, SAS, GIE, etc.
+    registration_number: Mapped[str | None] = mapped_column(String(100))
+    tax_id: Mapped[str | None] = mapped_column(String(100))
+    vat_number: Mapped[str | None] = mapped_column(String(100))
     capital: Mapped[float | None] = mapped_column(Float)
     currency: Mapped[str] = mapped_column(String(10), default="XAF", nullable=False)
+    fiscal_year_start: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     # Business
     industry: Mapped[str | None] = mapped_column(String(100))
+    founded_date: Mapped[date | None] = mapped_column(Date)
     payment_terms: Mapped[str | None] = mapped_column(String(100))
     incoterm: Mapped[str | None] = mapped_column(String(20))         # EXW, FOB, CIF, DDP, etc.
     incoterm_city: Mapped[str | None] = mapped_column(String(100))   # Ville d'incoterm (Douala, etc.)
     description: Mapped[str | None] = mapped_column(Text)
+    # Address / region
+    address_line1: Mapped[str | None] = mapped_column(String(300))
+    address_line2: Mapped[str | None] = mapped_column(String(300))
+    city: Mapped[str | None] = mapped_column(String(100))
+    state: Mapped[str | None] = mapped_column(String(100))
+    zip_code: Mapped[str | None] = mapped_column(String(20))
+    country: Mapped[str | None] = mapped_column(String(100))
+    timezone: Mapped[str] = mapped_column(String(50), nullable=False, default="Africa/Douala")
+    language: Mapped[str] = mapped_column(String(10), nullable=False, default="fr")
     # Status
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB)
+    social_networks: Mapped[dict | None] = mapped_column(JSONB)
+    opening_hours: Mapped[dict | None] = mapped_column(JSONB)
+    notes: Mapped[str | None] = mapped_column(Text)
 
     is_blocked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     scope: Mapped[str] = mapped_column(String(20), default="local", nullable=False)  # 'local' or 'international'

@@ -17,7 +17,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Request, status
 from pydantic import BaseModel
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, has_user_permission, require_permission
@@ -38,6 +38,7 @@ from app.models.common import (
     User,
     UserGroup,
     UserGroupMember,
+    UserTierLink,
 )
 from app.models.paxlog import (
     Ads,
@@ -107,6 +108,38 @@ def _json_safe(value: object | None) -> object | None:
     if isinstance(value, UUID):
         return str(value)
     return value
+
+
+async def _get_external_user_tier_ids(
+    db: AsyncSession,
+    current_user: User,
+    entity_id: UUID,
+) -> set[UUID] | None:
+    if current_user.user_type != "external":
+        return None
+    result = await db.execute(
+        select(UserTierLink.tier_id)
+        .join(Tier, Tier.id == UserTierLink.tier_id)
+        .where(
+            UserTierLink.user_id == current_user.id,
+            Tier.entity_id == entity_id,
+            Tier.archived == False,
+        )
+    )
+    return {row[0] for row in result.all()}
+
+
+async def _assert_external_tier_access(
+    db: AsyncSession,
+    current_user: User,
+    entity_id: UUID,
+    tier_id: UUID,
+) -> None:
+    linked_tier_ids = await _get_external_user_tier_ids(db, current_user, entity_id)
+    if linked_tier_ids is None:
+        return
+    if tier_id not in linked_tier_ids:
+        raise HTTPException(status_code=404, detail="Company not found")
 
 
 async def _resolve_ads_imputation_suggestion(
@@ -760,6 +793,9 @@ async def _resolve_pax_identity(
     db: AsyncSession,
     profile_id: UUID,
     pax_source: str,
+    *,
+    entity_id: UUID | None = None,
+    current_user: User | None = None,
 ) -> tuple[User | TierContact, str | None]:
     """Resolve a PAX entity (User or TierContact) by id and source.
 
@@ -769,6 +805,8 @@ async def _resolve_pax_identity(
         result = await db.execute(select(User).where(User.id == profile_id))
         entity = result.scalar_one_or_none()
         if not entity:
+            raise HTTPException(status_code=404, detail="PAX user not found")
+        if current_user is not None and current_user.user_type == "external" and entity.id != current_user.id:
             raise HTTPException(status_code=404, detail="PAX user not found")
         return entity, None
     elif pax_source == "contact":
@@ -780,6 +818,8 @@ async def _resolve_pax_identity(
         row = result.one_or_none()
         if not row:
             raise HTTPException(status_code=404, detail="PAX contact not found")
+        if current_user is not None and entity_id is not None and row[0].tier_id:
+            await _assert_external_tier_access(db, current_user, entity_id, row[0].tier_id)
         return row[0], row[1]
     else:
         raise HTTPException(status_code=400, detail="pax_source must be 'user' or 'contact'")
@@ -803,9 +843,10 @@ async def list_profiles(
     """List PAX profiles — virtual UNION of Users + TierContacts."""
     like = f"%{search}%" if search else None
     items: list[PaxProfileSummary] = []
+    linked_tier_ids = await _get_external_user_tier_ids(db, current_user, entity_id)
 
     # ── 1. Internal PAX (Users belonging to this entity) ──
-    if type_filter in (None, "internal"):
+    if type_filter in (None, "internal") and current_user.user_type != "external":
         user_q = (
             select(User)
             .where(User.default_entity_id == entity_id, User.active == True)  # noqa: E712
@@ -829,6 +870,8 @@ async def list_profiles(
             .join(Tier, Tier.id == TierContact.tier_id)
             .where(Tier.entity_id == entity_id, TierContact.active == True)  # noqa: E712
         )
+        if linked_tier_ids is not None:
+            contact_q = contact_q.where(TierContact.tier_id.in_(linked_tier_ids))
         if like:
             contact_q = contact_q.where(
                 TierContact.first_name.ilike(like)
@@ -884,6 +927,7 @@ async def create_profile(
     db: AsyncSession = Depends(get_db),
 ):
     """Create an external PAX (TierContact). Internal PAX are created via user management."""
+    await _assert_external_tier_access(db, current_user, entity_id, body.company_id)
     # ── Duplicate detection ──
     fn_norm = _normalize_name(body.first_name)
     ln_norm = _normalize_name(body.last_name)
@@ -893,6 +937,9 @@ async def create_profile(
         .join(Tier, Tier.id == TierContact.tier_id)
         .where(Tier.entity_id == entity_id, TierContact.active == True)  # noqa: E712
     )
+    linked_tier_ids = await _get_external_user_tier_ids(db, current_user, entity_id)
+    if linked_tier_ids is not None:
+        dup_query = dup_query.where(TierContact.tier_id.in_(linked_tier_ids))
     dup_result = await db.execute(dup_query)
     duplicates = [
         d for d in dup_result.all()
@@ -970,6 +1017,8 @@ async def check_profile_duplicates(
         select(User.id, User.first_name, User.last_name, User.birth_date, User.badge_number)
         .where(User.default_entity_id == entity_id, User.active == True)  # noqa: E712
     )
+    if current_user.user_type == "external":
+        user_q = user_q.where(User.id == current_user.id)
     user_rows = (await db.execute(user_q)).all()
     for r in user_rows:
         if _normalize_name(r.first_name) == fn_norm and _normalize_name(r.last_name) == ln_norm:
@@ -990,6 +1039,9 @@ async def check_profile_duplicates(
         .join(Tier, Tier.id == TierContact.tier_id)
         .where(Tier.entity_id == entity_id, TierContact.active == True)  # noqa: E712
     )
+    linked_tier_ids = await _get_external_user_tier_ids(db, current_user, entity_id)
+    if linked_tier_ids is not None:
+        contact_q = contact_q.where(TierContact.tier_id.in_(linked_tier_ids))
     contact_rows = (await db.execute(contact_q)).all()
     for r in contact_rows:
         if _normalize_name(r.first_name) == fn_norm and _normalize_name(r.last_name) == ln_norm:
@@ -1013,6 +1065,8 @@ async def check_profile_duplicates(
                 User.active == True,  # noqa: E712
             )
         )
+        if current_user.user_type == "external":
+            badge_user_q = badge_user_q.where(User.id == current_user.id)
         for r in (await db.execute(badge_user_q)).all():
             matches.append({
                 "id": str(r.id), "first_name": r.first_name, "last_name": r.last_name,
@@ -1030,6 +1084,8 @@ async def check_profile_duplicates(
                 TierContact.active == True,  # noqa: E712
             )
         )
+        if linked_tier_ids is not None:
+            badge_contact_q = badge_contact_q.where(TierContact.tier_id.in_(linked_tier_ids))
         for r in (await db.execute(badge_contact_q)).all():
             matches.append({
                 "id": str(r.id), "first_name": r.first_name, "last_name": r.last_name,
@@ -1049,7 +1105,13 @@ async def get_profile(
     db: AsyncSession = Depends(get_db),
 ):
     """Get a PAX profile by ID. Use pax_source=user or pax_source=contact."""
-    entity, company_name = await _resolve_pax_identity(db, profile_id, pax_source)
+    entity, company_name = await _resolve_pax_identity(
+        db,
+        profile_id,
+        pax_source,
+        entity_id=entity_id,
+        current_user=current_user,
+    )
     if pax_source == "user":
         return _user_to_pax_read(entity, company_name)  # type: ignore[arg-type]
     return _contact_to_pax_read(entity, company_name)  # type: ignore[arg-type]
@@ -1066,7 +1128,13 @@ async def update_profile(
     db: AsyncSession = Depends(get_db),
 ):
     """Update PAX-specific fields on a User or TierContact."""
-    entity, company_name = await _resolve_pax_identity(db, profile_id, pax_source)
+    entity, company_name = await _resolve_pax_identity(
+        db,
+        profile_id,
+        pax_source,
+        entity_id=entity_id,
+        current_user=current_user,
+    )
 
     update_data = body.model_dump(exclude_unset=True)
     # Map PaxProfileUpdate fields to entity fields
@@ -2440,6 +2508,8 @@ async def search_pax_candidates(
 
     # 1. Users (internal PAX)
     user_q = select(User).where(User.active == True)  # noqa: E712
+    if current_user.user_type == "external":
+        user_q = user_q.where(User.id == current_user.id)
     if search:
         user_q = user_q.where(
             or_(
@@ -2464,7 +2534,14 @@ async def search_pax_candidates(
         })
 
     # 2. Tier contacts (external PAX)
-    contact_q = select(TierContact).where(TierContact.active == True)  # noqa: E712
+    contact_q = (
+        select(TierContact)
+        .join(Tier, Tier.id == TierContact.tier_id)
+        .where(Tier.entity_id == entity_id, TierContact.active == True)  # noqa: E712
+    )
+    linked_tier_ids = await _get_external_user_tier_ids(db, current_user, entity_id)
+    if linked_tier_ids is not None:
+        contact_q = contact_q.where(TierContact.tier_id.in_(linked_tier_ids))
     if search:
         contact_q = contact_q.where(
             or_(
@@ -2524,6 +2601,8 @@ async def add_pax_to_ads(
         u = await db.get(User, body.user_id)
         if not u:
             raise HTTPException(status_code=404, detail="User not found")
+        if current_user.user_type == "external" and u.id != current_user.id:
+            raise HTTPException(status_code=404, detail="User not found")
         pax_name = f"{u.first_name} {u.last_name}"
         # Check not already in this AdS
         existing = await db.execute(
@@ -2533,6 +2612,7 @@ async def add_pax_to_ads(
         c = await db.get(TierContact, body.contact_id)
         if not c:
             raise HTTPException(status_code=404, detail="Contact not found")
+        await _assert_external_tier_access(db, current_user, entity_id, c.tier_id)
         pax_name = f"{c.first_name} {c.last_name}"
         existing = await db.execute(
             select(AdsPax.id).where(AdsPax.ads_id == ads_id, AdsPax.contact_id == body.contact_id)

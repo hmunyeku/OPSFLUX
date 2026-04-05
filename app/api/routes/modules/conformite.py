@@ -5,7 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import case, select, func as sqla_func, literal, any_
+from sqlalchemy import and_, case, select, func as sqla_func, literal, any_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import check_verified_lock, get_current_entity, get_current_user, require_permission
@@ -49,6 +49,81 @@ def _snapshot_rule(rule: ComplianceRule) -> dict:
     }
 
 router = APIRouter(prefix="/api/v1/conformite", tags=["conformite"])
+
+
+async def _get_external_user_tier_ids(
+    db: AsyncSession,
+    current_user: User,
+    entity_id: UUID,
+) -> set[UUID] | None:
+    if current_user.user_type != "external":
+        return None
+    from app.models.common import UserTierLink
+
+    linked = await db.execute(
+        select(UserTierLink.tier_id)
+        .join(Tier, Tier.id == UserTierLink.tier_id)
+        .where(
+            UserTierLink.user_id == current_user.id,
+            Tier.entity_id == entity_id,
+            Tier.archived == False,
+        )
+    )
+    return {row[0] for row in linked.all()}
+
+
+async def _assert_external_owner_access(
+    db: AsyncSession,
+    current_user: User,
+    entity_id: UUID,
+    *,
+    owner_type: str,
+    owner_id: UUID,
+) -> None:
+    if current_user.user_type != "external":
+        return
+    if owner_type == "user":
+        if owner_id != current_user.id:
+            raise HTTPException(status_code=404, detail="Owner not found")
+        return
+    if owner_type != "tier_contact":
+        raise HTTPException(status_code=403, detail="External users cannot access this owner type")
+
+    linked_tier_ids = await _get_external_user_tier_ids(db, current_user, entity_id)
+    if not linked_tier_ids:
+        raise HTTPException(status_code=404, detail="Owner not found")
+    result = await db.execute(
+        select(TierContact.id).where(
+            TierContact.id == owner_id,
+            TierContact.tier_id.in_(linked_tier_ids),
+        )
+    )
+    if result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Owner not found")
+
+
+def _apply_external_record_scope(query, current_user: User, entity_id: UUID):
+    if current_user.user_type != "external":
+        return query
+
+    from app.models.common import UserTierLink
+
+    linked_contact_ids = (
+        select(TierContact.id)
+        .join(Tier, Tier.id == TierContact.tier_id)
+        .join(UserTierLink, UserTierLink.tier_id == Tier.id)
+        .where(
+            UserTierLink.user_id == current_user.id,
+            Tier.entity_id == entity_id,
+            Tier.archived == False,
+        )
+    )
+    return query.where(
+        or_(
+            and_(ComplianceRecord.owner_type == "user", ComplianceRecord.owner_id == current_user.id),
+            and_(ComplianceRecord.owner_type == "tier_contact", ComplianceRecord.owner_id.in_(linked_contact_ids)),
+        )
+    )
 
 
 # ── Dashboard KPIs ─────────────────────────────────────────────────────────
@@ -487,6 +562,7 @@ async def list_compliance_records(
         .join(ComplianceType, ComplianceRecord.compliance_type_id == ComplianceType.id)
         .where(ComplianceRecord.entity_id == entity_id, ComplianceRecord.active == True)
     )
+    query = _apply_external_record_scope(query, current_user, entity_id)
     # Exclude rejected records by default (unless explicitly filtered)
     if status:
         query = query.where(ComplianceRecord.status == status)
@@ -554,6 +630,13 @@ async def create_compliance_record(
     db: AsyncSession = Depends(get_db),
 ):
     data = body.model_dump()
+    await _assert_external_owner_access(
+        db,
+        current_user,
+        entity_id,
+        owner_type=data["owner_type"],
+        owner_id=data["owner_id"],
+    )
 
     # ── Pre-submission validation against ComplianceType + ComplianceRule ──
     ct = await db.get(ComplianceType, data["compliance_type_id"])
@@ -638,6 +721,13 @@ async def update_compliance_record(
     rec = result.scalars().first()
     if not rec:
         raise HTTPException(404, "Record not found")
+    await _assert_external_owner_access(
+        db,
+        current_user,
+        entity_id,
+        owner_type=rec.owner_type,
+        owner_id=rec.owner_id,
+    )
     # Block updates on verified records unless user has conformite.verify permission
     await check_verified_lock(rec, current_user, entity_id=entity_id, db=db)
     updates = body.model_dump(exclude_unset=True)
@@ -673,6 +763,13 @@ async def delete_compliance_record(
     rec = result.scalars().first()
     if not rec:
         raise HTTPException(404, "Record not found")
+    await _assert_external_owner_access(
+        db,
+        current_user,
+        entity_id,
+        owner_type=rec.owner_type,
+        owner_id=rec.owner_id,
+    )
     await delete_entity(rec, db, "compliance_record", entity_id=rec.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Record archived"}
@@ -735,6 +832,7 @@ async def list_expiring_records(
         .order_by(ComplianceRecord.expires_at)
         .limit(100)
     )
+    query = _apply_external_record_scope(query, current_user, entity_id)
     result = await db.execute(query)
     await db.commit()
 
@@ -809,6 +907,7 @@ async def list_non_compliant_records(
         .order_by(ComplianceRecord.expires_at.asc())
         .limit(100)
     )
+    query = _apply_external_record_scope(query, current_user, entity_id)
     result = await db.execute(query)
     await db.commit()
 
@@ -854,6 +953,13 @@ async def check_compliance(
     contribute to compliance even if their status is 'valid'.
     """
     now = datetime.now(timezone.utc)
+    await _assert_external_owner_access(
+        db,
+        current_user,
+        entity_id,
+        owner_type=owner_type,
+        owner_id=owner_id,
+    )
 
     # ── Step 0: Check account verification (email or phone verified) ──
     # Configurable via admin setting 'auth.require_account_verification' (default: True)
@@ -1230,6 +1336,7 @@ async def list_transfers(
     db: AsyncSession = Depends(get_db),
 ):
     """List employee transfers with enriched names."""
+    linked_tier_ids = await _get_external_user_tier_ids(db, current_user, entity_id)
     from_tier = Tier.__table__.alias("from_tier")
     to_tier = Tier.__table__.alias("to_tier")
 
@@ -1248,6 +1355,14 @@ async def list_transfers(
             select(Tier.id).where(Tier.entity_id == entity_id)
         ))
     )
+    if linked_tier_ids is not None:
+        query = query.where(
+            or_(
+                TierContactTransfer.from_tier_id.in_(linked_tier_ids),
+                TierContactTransfer.to_tier_id.in_(linked_tier_ids),
+                TierContact.tier_id.in_(linked_tier_ids),
+            )
+        )
     if contact_id:
         query = query.where(TierContactTransfer.contact_id == contact_id)
     if from_tier_id:
@@ -1280,6 +1395,17 @@ async def create_transfer(
     contact = await db.get(TierContact, body.contact_id)
     if not contact:
         raise HTTPException(404, "Contact not found")
+    await _assert_external_owner_access(
+        db,
+        current_user,
+        entity_id,
+        owner_type="tier_contact",
+        owner_id=body.contact_id,
+    )
+    if current_user.user_type == "external":
+        linked_tier_ids = await _get_external_user_tier_ids(db, current_user, entity_id)
+        if not linked_tier_ids or body.from_tier_id not in linked_tier_ids or body.to_tier_id not in linked_tier_ids:
+            raise HTTPException(status_code=403, detail="External users cannot transfer contacts outside their company scope")
 
     # Create transfer log
     transfer = TierContactTransfer(
@@ -1824,6 +1950,7 @@ async def list_verification_history(
         .limit(page_size)
         .offset((page - 1) * page_size)
     )
+    cr_q = _apply_external_record_scope(cr_q, current_user, entity_id)
     if record_type and record_type != "compliance_record":
         # Skip compliance records if filtering for a sub-model type
         cr_q = cr_q.where(False)
@@ -1856,6 +1983,8 @@ async def list_verification_history(
         (UserVaccine, "vaccine", lambda r: f"Vaccin {r.vaccine_type}"),
         (DrivingLicense, "driving_license", lambda r: f"Permis {r.license_type} — {r.country}"),
     ]
+    if current_user.user_type == "external":
+        entity_user_ids = select(literal(current_user.id))
     for Model, rtype, desc_fn in sub_models:
         if record_type and record_type != rtype:
             continue

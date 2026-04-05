@@ -388,20 +388,39 @@ class TierRead(OpsFluxSchema):
     code: str
     name: str
     alias: str | None = None
+    trade_name: str | None = None
+    logo_url: str | None = None
     type: str | None
     website: str | None = None
     # Legacy fields (prefer polymorphic phones/emails)
     phone: str | None = None
+    fax: str | None = None
     email: str | None = None
     # Corporate
     legal_form: str | None = None
+    registration_number: str | None = None
+    tax_id: str | None = None
+    vat_number: str | None = None
     capital: float | None = None
     currency: str = "XAF"
+    fiscal_year_start: int = 1
     industry: str | None = None
+    founded_date: date | None = None
     payment_terms: str | None = None
     incoterm: str | None = None
     incoterm_city: str | None = None
     description: str | None = None
+    address_line1: str | None = None
+    address_line2: str | None = None
+    city: str | None = None
+    state: str | None = None
+    zip_code: str | None = None
+    country: str | None = None
+    timezone: str = "Africa/Douala"
+    language: str = "fr"
+    social_networks: dict[str, Any] | None = None
+    opening_hours: dict[str, Any] | None = None
+    notes: str | None = None
     active: bool
     archived: bool
     is_blocked: bool = False
@@ -414,32 +433,74 @@ class TierCreate(BaseModel):
     code: str = Field(..., min_length=1, max_length=50)
     name: str = Field(..., min_length=1, max_length=200)
     alias: str | None = None
+    trade_name: str | None = None
+    logo_url: str | None = None
     type: str | None = None
     website: str | None = None
+    phone: str | None = None
+    fax: str | None = None
+    email: str | None = None
     legal_form: str | None = None
+    registration_number: str | None = None
+    tax_id: str | None = None
+    vat_number: str | None = None
     capital: float | None = None
     currency: str = "XAF"
+    fiscal_year_start: int = 1
     industry: str | None = None
+    founded_date: date | None = None
     payment_terms: str | None = None
     incoterm: str | None = None
     incoterm_city: str | None = None
     description: str | None = None
+    address_line1: str | None = None
+    address_line2: str | None = None
+    city: str | None = None
+    state: str | None = None
+    zip_code: str | None = None
+    country: str | None = None
+    timezone: str = "Africa/Douala"
+    language: str = "fr"
+    social_networks: dict[str, Any] | None = None
+    opening_hours: dict[str, Any] | None = None
+    notes: str | None = None
     scope: str = "local"
 
 
 class TierUpdate(BaseModel):
     name: str | None = None
     alias: str | None = None
+    trade_name: str | None = None
+    logo_url: str | None = None
     type: str | None = None
     website: str | None = None
+    phone: str | None = None
+    fax: str | None = None
+    email: str | None = None
     legal_form: str | None = None
+    registration_number: str | None = None
+    tax_id: str | None = None
+    vat_number: str | None = None
     capital: float | None = None
     currency: str | None = None
+    fiscal_year_start: int | None = None
     industry: str | None = None
+    founded_date: date | None = None
     payment_terms: str | None = None
     incoterm: str | None = None
     incoterm_city: str | None = None
     description: str | None = None
+    address_line1: str | None = None
+    address_line2: str | None = None
+    city: str | None = None
+    state: str | None = None
+    zip_code: str | None = None
+    country: str | None = None
+    timezone: str | None = None
+    language: str | None = None
+    social_networks: dict[str, Any] | None = None
+    opening_hours: dict[str, Any] | None = None
+    notes: str | None = None
     active: bool | None = None
     scope: str | None = None
 

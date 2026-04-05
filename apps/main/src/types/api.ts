@@ -53,18 +53,37 @@ export interface Tier {
   code: string
   name: string
   alias: string | null
+  trade_name: string | null
+  logo_url: string | null
   type: string | null
   website: string | null
   // Legacy convenience fields (prefer polymorphic phones/emails)
   phone: string | null
+  fax: string | null
   email: string | null
   // Corporate
   legal_form: string | null
+  registration_number: string | null
+  tax_id: string | null
+  vat_number: string | null
   capital: number | null
   currency: string
+  fiscal_year_start: number
   industry: string | null
+  founded_date: string | null
   payment_terms: string | null
   description: string | null
+  address_line1: string | null
+  address_line2: string | null
+  city: string | null
+  state: string | null
+  zip_code: string | null
+  country: string | null
+  timezone: string
+  language: string
+  social_networks: Record<string, unknown> | null
+  opening_hours: Record<string, unknown> | null
+  notes: string | null
   active: boolean
   archived: boolean
   is_blocked: boolean
@@ -76,14 +95,35 @@ export interface TierCreate {
   code?: string
   name: string
   alias?: string | null
+  trade_name?: string | null
+  logo_url?: string | null
   type?: string | null
   website?: string | null
+  phone?: string | null
+  fax?: string | null
+  email?: string | null
   legal_form?: string | null
+  registration_number?: string | null
+  tax_id?: string | null
+  vat_number?: string | null
   capital?: number | null
   currency?: string
+  fiscal_year_start?: number
   industry?: string | null
+  founded_date?: string | null
   payment_terms?: string | null
   description?: string | null
+  address_line1?: string | null
+  address_line2?: string | null
+  city?: string | null
+  state?: string | null
+  zip_code?: string | null
+  country?: string | null
+  timezone?: string
+  language?: string
+  social_networks?: Record<string, unknown> | null
+  opening_hours?: Record<string, unknown> | null
+  notes?: string | null
 }
 
 // ── Tier Contacts (Employees) ────────────────────────────────

@@ -58,8 +58,14 @@ export interface GoutiCatalogCategory {
 export interface GoutiCatalogTask {
   gouti_id: string
   name: string
+  code?: string
+  status_raw?: string | null
   status?: string
   progress?: number | null
+  start_date?: string | null
+  end_date?: string | null
+  workload?: number | null
+  description?: string | null
 }
 
 export interface GoutiCatalogProject {
@@ -370,6 +376,11 @@ export const projetsService = {
 
   goutiSyncSelected: async (): Promise<GoutiSyncResult> => {
     const { data } = await api.post('/api/v1/gouti/sync-selected')
+    return data
+  },
+
+  goutiProjectTasks: async (goutiProjectId: string): Promise<{ count: number; items: GoutiCatalogTask[] }> => {
+    const { data } = await api.get(`/api/v1/gouti/catalog/projects/${goutiProjectId}/tasks`)
     return data
   },
 

@@ -152,6 +152,22 @@ class GoutiConnector:
             resp.raise_for_status()
             return _extract_items(resp.json(), "reports")
 
+    async def get_project_tasks(self, project_id: str) -> list[dict[str, Any]]:
+        """Fetch tasks for a specific project from Gouti.
+
+        Returns the same dict-keyed-by-id shape as /projects — handled
+        by ``_extract_items`` so callers receive a flat list with an
+        ``_id`` field injected from the container key.
+        """
+        headers = await self._get_headers()
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(
+                f"{self.base_url}/projects/{project_id}/tasks",
+                headers=headers,
+            )
+            resp.raise_for_status()
+            return _extract_items(resp.json(), "tasks")
+
     async def get_raw_projects_response(self) -> dict[str, Any]:
         """Diagnostic: returns the untransformed Gouti /projects response
         plus metadata (status, shape). Used by the /gouti/debug endpoint."""

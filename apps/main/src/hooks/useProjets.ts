@@ -502,6 +502,15 @@ export function useGoutiSyncSelected() {
   })
 }
 
+export function useGoutiProjectTasks(goutiProjectId: string | undefined) {
+  return useQuery({
+    queryKey: ['gouti-project-tasks', goutiProjectId],
+    queryFn: () => projetsService.goutiProjectTasks(goutiProjectId!),
+    enabled: !!goutiProjectId,
+    staleTime: 30_000,
+  })
+}
+
 // ── WBS (Work Breakdown Structure) ──
 
 export function useWbsNodes(projectId: string | undefined) {

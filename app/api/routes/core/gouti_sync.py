@@ -769,6 +769,66 @@ async def get_catalog(
     }
 
 
+# ── Tasks of a single Gouti project (lazy-load for modal expansion) ──────
+
+
+@router.get("/catalog/projects/{gouti_project_id}/tasks")
+async def get_catalog_project_tasks(
+    gouti_project_id: str,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("core.integrations.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Fetch the live task list for a Gouti project without importing.
+
+    Called by the import modal when a user expands a project row, so the
+    task tree can populate without fetching every project's tasks upfront.
+    Returns a minimal compact shape keeping just the fields the modal
+    needs to render checkboxes.
+    """
+    gouti_settings = await _get_gouti_settings(db, entity_id)
+    connector = _build_connector(gouti_settings)
+    try:
+        raw_tasks = await connector.get_project_tasks(gouti_project_id)
+    except Exception as exc:
+        logger.warning("Gouti catalog task fetch failed for %s: %s", gouti_project_id, exc)
+        raise HTTPException(502, f"Erreur récupération tâches Gouti: {str(exc)[:200]}")
+
+    items: list[dict] = []
+    for t in raw_tasks:
+        if not isinstance(t, dict):
+            continue
+        tid = str(t.get("_id") or t.get("Ref") or t.get("ref_ta") or t.get("id") or "")
+        if not tid:
+            continue
+        # Gouti task fields use _ta suffix
+        progress_raw = t.get("progress_ta") or t.get("Tasks_progress") or 0
+        if isinstance(progress_raw, str):
+            progress_raw = progress_raw.replace("%", "").strip()
+        try:
+            progress = int(float(progress_raw)) if progress_raw else 0
+        except (ValueError, TypeError):
+            progress = 0
+
+        items.append({
+            "gouti_id": tid,
+            "name": str(
+                t.get("name_ta")
+                or t.get("Name")
+                or t.get("title")
+                or f"Tâche {tid}"
+            ),
+            "code": str(t.get("ref_ta") or t.get("Ref") or tid),
+            "status_raw": t.get("status_ta") or t.get("Status"),
+            "progress": progress,
+            "start_date": t.get("initial_start_date_ta") or t.get("actual_start_date_ta") or t.get("start_date"),
+            "end_date": t.get("initial_end_date_ta") or t.get("actual_end_date_ta") or t.get("end_date"),
+            "workload": t.get("workload"),
+            "description": t.get("description_ta") or t.get("description"),
+        })
+    return {"gouti_project_id": gouti_project_id, "count": len(items), "items": items}
+
+
 # ── Default filters (admin permanent filters) ────────────────────────────
 
 
@@ -875,6 +935,127 @@ async def delete_selection(
         await db.commit()
 
 
+async def _import_project_tasks(
+    db: AsyncSession,
+    entity_id: UUID,
+    local_project_id: UUID,
+    gouti_project_id: str,
+    connector,
+    task_selection: dict,
+    current_user_id: UUID,
+) -> int:
+    """Fetch and import tasks for a project according to the task selection.
+
+    task_selection.mode:
+      - "all"  : import every task returned by Gouti
+      - "none" : import nothing (return 0)
+      - "some" : import only the tasks whose _id is in task_selection.task_ids
+
+    Returns the number of tasks created/updated.
+    """
+    mode = str(task_selection.get("mode") or "all").lower()
+    if mode == "none":
+        return 0
+
+    try:
+        raw_tasks = await connector.get_project_tasks(gouti_project_id)
+    except Exception as exc:
+        logger.warning(
+            "Gouti tasks fetch failed for %s: %s", gouti_project_id, exc,
+        )
+        return 0
+
+    wanted_ids = set(task_selection.get("task_ids") or [])
+    touched = 0
+
+    for gt in raw_tasks:
+        if not isinstance(gt, dict):
+            continue
+        tid = str(gt.get("_id") or gt.get("Ref") or gt.get("ref_ta") or "")
+        if not tid:
+            continue
+        if mode == "some" and tid not in wanted_ids:
+            continue
+
+        title = str(
+            gt.get("name_ta")
+            or gt.get("Name")
+            or gt.get("title")
+            or f"Tâche Gouti {tid}"
+        )
+        code = str(gt.get("ref_ta") or gt.get("Ref") or tid)
+        status_raw = str(gt.get("status_ta") or gt.get("Status") or "").lower().strip()
+        # Map Gouti task status → OpsFlux task status enum
+        if "termin" in status_raw or "done" in status_raw or "complete" in status_raw:
+            status = "done"
+        elif "cours" in status_raw or "progress" in status_raw or "realis" in status_raw:
+            status = "in_progress"
+        elif "revue" in status_raw or "review" in status_raw:
+            status = "review"
+        elif "annul" in status_raw or "cancel" in status_raw:
+            status = "cancelled"
+        else:
+            status = "todo"
+
+        progress_raw = gt.get("progress_ta") or 0
+        if isinstance(progress_raw, str):
+            progress_raw = progress_raw.replace("%", "").strip()
+        try:
+            progress = int(float(progress_raw)) if progress_raw else 0
+        except (ValueError, TypeError):
+            progress = 0
+        progress = max(0, min(100, progress))
+
+        description = gt.get("description_ta") or gt.get("description")
+        workload_raw = gt.get("workload")
+        try:
+            workload = float(workload_raw) if workload_raw not in (None, "") else None
+        except (ValueError, TypeError):
+            workload = None
+
+        start_date = _parse_gouti_date(
+            gt.get("initial_start_date_ta") or gt.get("actual_start_date_ta") or gt.get("start_date")
+        )
+        due_date = _parse_gouti_date(
+            gt.get("initial_end_date_ta") or gt.get("actual_end_date_ta") or gt.get("end_date")
+        )
+
+        # Upsert by (project_id, code) — lightweight origin tracking.
+        from app.models.common import ProjectTask
+        task_external_ref = f"gouti:{tid}"
+        existing = (await db.execute(
+            select(ProjectTask).where(
+                ProjectTask.project_id == local_project_id,
+                ProjectTask.code == code,
+            )
+        )).scalar_one_or_none()
+
+        if existing:
+            existing.title = title
+            existing.description = description
+            existing.status = status
+            existing.progress = progress
+            existing.estimated_hours = workload
+            existing.start_date = start_date
+            existing.due_date = due_date
+        else:
+            task = ProjectTask(
+                project_id=local_project_id,
+                code=code,
+                title=title,
+                description=description,
+                status=status,
+                progress=progress,
+                estimated_hours=workload,
+                start_date=start_date,
+                due_date=due_date,
+            )
+            db.add(task)
+        touched += 1
+
+    return touched
+
+
 @router.post("/sync-selected", response_model=SyncResult)
 async def sync_selected(
     entity_id: UUID = Depends(get_current_entity),
@@ -882,11 +1063,13 @@ async def sync_selected(
     _: None = require_permission("core.integrations.manage"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Import only the projects (and tasks) the user has selected.
+    """Import only the projects (and per-project task selection) the user has saved.
 
-    This is the endpoint the split-button's main click invokes when a
-    selection already exists. When no selection is saved, the frontend
-    opens the modal first instead of calling this endpoint.
+    Applies the stored ``integration.gouti.sync_selection`` selection:
+      - Each project with include=true is upserted from its Gouti record.
+      - Its ``tasks.mode`` drives task import: "all" fetches & upserts
+        every Gouti task, "some" only the task_ids listed, "none" skips
+        task import for that project.
     """
     selection = await _load_selection(db, entity_id)
     if not selection or not selection.get("projects"):
@@ -899,8 +1082,9 @@ async def sync_selected(
     connector = _build_connector(gouti_settings)
     all_projects = await connector.get_projects()
 
+    selection_projects = selection.get("projects") or {}
     selected_ids = {
-        str(gid) for gid, entry in (selection.get("projects") or {}).items()
+        str(gid) for gid, entry in selection_projects.items()
         if isinstance(entry, dict) and entry.get("include", True)
     }
     to_import = [
@@ -910,14 +1094,28 @@ async def sync_selected(
 
     created = 0
     updated = 0
+    tasks_touched = 0
     errors: list[str] = []
     for gp in to_import:
         try:
-            _p, action = await _upsert_project_from_gouti(db, entity_id, gp)
+            local_project, action = await _upsert_project_from_gouti(db, entity_id, gp)
             if action == "created":
                 created += 1
             else:
                 updated += 1
+
+            # Flush so local_project has an id for task FK
+            await db.flush()
+
+            gid = str(gp.get("_id") or gp.get("Ref") or "")
+            entry = selection_projects.get(gid) or {}
+            task_sel = entry.get("tasks") or {"mode": "all", "task_ids": []}
+            try:
+                tasks_touched += await _import_project_tasks(
+                    db, entity_id, local_project.id, gid, connector, task_sel, current_user.id,
+                )
+            except Exception as exc:
+                errors.append(f"Tâches {gid}: {str(exc)[:200]}")
         except Exception as exc:
             gid = gp.get("_id") or gp.get("Ref") or "?"
             errors.append(f"Erreur projet {gid}: {str(exc)[:200]}")
@@ -934,8 +1132,8 @@ async def sync_selected(
     await db.commit()
 
     logger.info(
-        "Gouti sync-selected: created=%d, updated=%d, errors=%d (user=%s)",
-        created, updated, len(errors), current_user.id,
+        "Gouti sync-selected: projects created=%d updated=%d tasks=%d errors=%d (user=%s)",
+        created, updated, tasks_touched, len(errors), current_user.id,
     )
     return SyncResult(synced=created + updated, created=created, updated=updated, errors=errors)
 

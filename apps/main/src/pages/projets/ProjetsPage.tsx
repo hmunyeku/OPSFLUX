@@ -62,7 +62,7 @@ import {
   useAllProjectTasks, useSubProjects,
   useGoutiStatus, useGoutiSyncOne,
   useGoutiFacets, useGoutiCatalog, useGoutiDefaultFilters, useGoutiSetDefaultFilters,
-  useGoutiSaveSelection, useGoutiSyncSelected,
+  useGoutiSaveSelection, useGoutiSyncSelected, useGoutiProjectTasks,
   useTaskDependencies, useCreateTaskDependency, useDeleteTaskDependency,
   useTaskDeliverables, useCreateDeliverable, useUpdateDeliverable, useDeleteDeliverable,
   useTaskActions, useCreateAction, useUpdateAction, useDeleteAction,
@@ -73,6 +73,7 @@ import {
 } from '@/hooks/useProjets'
 import type {
   GoutiCatalogFilters, GoutiCatalogProject, GoutiSelectionPayload,
+  GoutiProjectSelection, GoutiTaskSelection,
 } from '@/services/projetsService'
 import { projetsService, isGoutiProject, goutiProjectId, isProjectFieldEditable } from '@/services/projetsService'
 import type {
@@ -150,6 +151,143 @@ function GoutiBadge({ className = '' }: { className?: string }) {
 // import. Saves the selection as integration.gouti.sync_selection so the
 // split-button's main click can "force sync" without asking again.
 
+// ── Single project row with expandable task tree ────────────────────────
+function GoutiProjectRow({
+  project,
+  selection,
+  onToggleInclude,
+  onTaskModeChange,
+  onToggleTaskId,
+}: {
+  project: GoutiCatalogProject
+  selection: GoutiProjectSelection | undefined
+  onToggleInclude: () => void
+  onTaskModeChange: (mode: 'all' | 'none' | 'some') => void
+  onToggleTaskId: (taskId: string) => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const included = !!selection?.include
+  const taskMode = selection?.tasks.mode ?? 'all'
+  const { data: tasksData, isLoading: tasksLoading } = useGoutiProjectTasks(
+    expanded ? project.gouti_id : undefined,
+  )
+
+  return (
+    <div className={cn('border border-border rounded', included && 'border-primary/40 bg-primary/5')}>
+      <div className="flex items-start gap-2 p-2">
+        <input
+          type="checkbox"
+          checked={included}
+          onChange={onToggleInclude}
+          onClick={e => e.stopPropagation()}
+          className="w-3.5 h-3.5 mt-0.5 shrink-0"
+        />
+        <button
+          type="button"
+          onClick={() => setExpanded(v => !v)}
+          className="shrink-0 mt-0.5 p-0.5 rounded hover:bg-muted text-muted-foreground"
+          aria-label="Déplier les tâches"
+        >
+          <ChevronRight size={12} className={cn('transition-transform', expanded && 'rotate-90')} />
+        </button>
+        <div className="flex-1 min-w-0 cursor-pointer" onClick={onToggleInclude}>
+          <div className="flex items-center gap-1.5">
+            <span className="font-mono text-[10px] text-muted-foreground">{project.code}</span>
+            <span className="text-[11px] font-medium truncate">{project.name}</span>
+          </div>
+          <div className="flex items-center gap-2 text-[9px] text-muted-foreground mt-0.5 flex-wrap">
+            {project.status_raw && <span className="px-1 rounded bg-muted">{project.status_raw}</span>}
+            {project.progress != null && <span>Progression {project.progress}%</span>}
+            {project.manager_name && <span>· {project.manager_name}</span>}
+            {project.target_date && <span>· Fin {project.target_date}</span>}
+            {project.criticality && <span>· Crit. {project.criticality}</span>}
+            {project.categories.slice(0, 3).map(c => (
+              <span key={c.id} className="px-1 rounded bg-orange-500/10 text-orange-700">{c.name}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {expanded && (
+        <div className="border-t border-border/50 bg-muted/20 px-2 py-2 space-y-1.5">
+          {/* Task mode selector */}
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Tâches:</span>
+            {(['all', 'some', 'none'] as const).map(mode => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => onTaskModeChange(mode)}
+                disabled={!included}
+                className={cn(
+                  'text-[9px] px-1.5 py-0.5 rounded border',
+                  !included && 'opacity-40',
+                  taskMode === mode
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border hover:bg-muted',
+                )}
+              >
+                {mode === 'all' ? 'Toutes' : mode === 'some' ? 'Choix' : 'Aucune'}
+              </button>
+            ))}
+            {tasksData && (
+              <span className="text-[9px] text-muted-foreground ml-auto">
+                {tasksData.count} tâche{tasksData.count > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+
+          {tasksLoading && (
+            <div className="flex items-center gap-1 text-[10px] text-muted-foreground py-1">
+              <Loader2 size={10} className="animate-spin" /> Chargement des tâches…
+            </div>
+          )}
+
+          {!tasksLoading && tasksData && tasksData.items.length === 0 && (
+            <div className="text-[10px] text-muted-foreground italic py-1">Aucune tâche dans ce projet</div>
+          )}
+
+          {!tasksLoading && tasksData && tasksData.items.length > 0 && taskMode !== 'none' && (
+            <div className="max-h-[180px] overflow-y-auto border border-border/50 rounded bg-background">
+              {tasksData.items.map(task => {
+                const taskIds = selection?.tasks.task_ids || []
+                const checked = taskMode === 'all' || (taskMode === 'some' && taskIds.includes(task.gouti_id))
+                const disabled = taskMode !== 'some' || !included
+                return (
+                  <label
+                    key={task.gouti_id}
+                    className={cn(
+                      'flex items-center gap-1.5 px-2 py-1 text-[10px] border-b border-border/30 last:border-b-0',
+                      !disabled && 'cursor-pointer hover:bg-muted/40',
+                      disabled && 'opacity-70',
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={disabled}
+                      onChange={() => onToggleTaskId(task.gouti_id)}
+                      className="w-3 h-3"
+                    />
+                    <span className="font-mono text-[9px] text-muted-foreground">{task.code}</span>
+                    <span className="flex-1 truncate">{task.name}</span>
+                    {task.progress != null && task.progress > 0 && (
+                      <span className="text-[9px] text-muted-foreground tabular-nums">{task.progress}%</span>
+                    )}
+                    {task.status_raw && (
+                      <span className="text-[9px] px-1 rounded bg-muted">{task.status_raw}</span>
+                    )}
+                  </label>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function GoutiImportModal({ onClose }: { onClose: () => void }) {
   const { data: facets, isLoading: facetsLoading } = useGoutiFacets()
   const { data: defaultFilters } = useGoutiDefaultFilters()
@@ -161,8 +299,11 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
   const [filters, setFilters] = useState<GoutiCatalogFilters>({})
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  // Per-project selection keyed by gouti_id
+  const [projectSelection, setProjectSelection] = useState<Record<string, GoutiProjectSelection>>({})
   const [showAdminDefaults, setShowAdminDefaults] = useState(false)
+
+  const includedCount = Object.values(projectSelection).filter(s => s.include).length
 
   // Seed filters from admin defaults on first load
   useEffect(() => {
@@ -177,37 +318,65 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
   }
   const { data: catalog, isLoading: catalogLoading } = useGoutiCatalog(effectiveFilters)
 
+  const getOrInit = (id: string): GoutiProjectSelection => (
+    projectSelection[id] ?? { include: false, tasks: { mode: 'all' as const, task_ids: [] } }
+  )
+
   const toggleProject = (id: string) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
+    setProjectSelection(prev => {
+      const current = prev[id] ?? { include: false, tasks: { mode: 'all' as const, task_ids: [] } }
+      return { ...prev, [id]: { ...current, include: !current.include } }
     })
   }
 
   const toggleAll = () => {
     if (!catalog) return
-    if (selectedIds.size === catalog.items.length) {
-      setSelectedIds(new Set())
-    } else {
-      setSelectedIds(new Set(catalog.items.map(p => p.gouti_id)))
-    }
+    const allSelected = catalog.items.every(p => projectSelection[p.gouti_id]?.include)
+    setProjectSelection(prev => {
+      const next = { ...prev }
+      catalog.items.forEach(p => {
+        const current = next[p.gouti_id] ?? { include: false, tasks: { mode: 'all' as const, task_ids: [] } }
+        next[p.gouti_id] = { ...current, include: !allSelected }
+      })
+      return next
+    })
+  }
+
+  const setTaskMode = (id: string, mode: 'all' | 'none' | 'some') => {
+    setProjectSelection(prev => {
+      const current = prev[id] ?? { include: true, tasks: { mode: 'all' as const, task_ids: [] } }
+      const nextTasks: GoutiTaskSelection = {
+        mode,
+        task_ids: mode === 'some' ? current.tasks.task_ids : [],
+      }
+      return { ...prev, [id]: { ...current, tasks: nextTasks } }
+    })
+  }
+
+  const toggleTaskId = (projectId: string, taskId: string) => {
+    setProjectSelection(prev => {
+      const current = prev[projectId] ?? { include: true, tasks: { mode: 'some' as const, task_ids: [] } }
+      const ids = current.tasks.task_ids.includes(taskId)
+        ? current.tasks.task_ids.filter(x => x !== taskId)
+        : [...current.tasks.task_ids, taskId]
+      return {
+        ...prev,
+        [projectId]: {
+          ...current,
+          tasks: { mode: 'some' as const, task_ids: ids },
+        },
+      }
+    })
   }
 
   const handleSaveAndSync = async () => {
-    if (selectedIds.size === 0) {
+    if (includedCount === 0) {
       toast({ title: 'Aucun projet sélectionné', variant: 'warning' })
       return
     }
-    const payload: GoutiSelectionPayload = {
-      projects: {},
-    }
-    selectedIds.forEach(id => {
-      payload.projects[id] = {
-        include: true,
-        tasks: { mode: 'all', task_ids: [] },
-      }
+    const payload: GoutiSelectionPayload = { projects: {} }
+    Object.entries(projectSelection).forEach(([id, sel]) => {
+      if (sel.include) payload.projects[id] = sel
     })
     try {
       await saveSelection.mutateAsync(payload)
@@ -270,271 +439,300 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
     (filters.manager_id ? 1 : 0) +
     (filters.criticality?.length || 0)
 
+  const allFilteredSelected = !!catalog && catalog.items.length > 0
+    && catalog.items.every(p => projectSelection[p.gouti_id]?.include)
+
   return (
     <Dialog.Root open onOpenChange={(o) => { if (!o) onClose() }}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[var(--z-modal)] bg-black/40 backdrop-blur-sm animate-in fade-in" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-[var(--z-modal)] -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-card shadow-xl animate-in fade-in slide-in-from-bottom-4 w-[95vw] max-w-5xl max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
-          <div className="flex items-center gap-2">
-            <Download size={14} className="text-orange-500" />
-            <Dialog.Title className="text-sm font-semibold">Assistant d'import Gouti</Dialog.Title>
-            <span className="text-[11px] text-muted-foreground">
-              {catalog ? `${catalog.filtered}/${catalog.total} projets` : '…'}
-            </span>
-          </div>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setShowAdminDefaults(v => !v)}
-              className={cn(
-                'p-1 rounded hover:bg-muted text-muted-foreground',
-                showAdminDefaults && 'bg-primary/10 text-primary',
-              )}
-              title="Filtres par défaut (admin)"
-            >
-              <Settings2 size={13} />
-            </button>
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-[var(--z-modal)] -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-card shadow-xl animate-in fade-in slide-in-from-bottom-4 w-[95vw] max-w-6xl h-[85vh] flex flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+            <div className="flex items-center gap-2">
+              <Download size={14} className="text-orange-500" />
+              <Dialog.Title className="text-sm font-semibold">Assistant d'import Gouti</Dialog.Title>
+              <span className="text-[11px] text-muted-foreground">
+                {catalog ? `${catalog.filtered}/${catalog.total} projets` : '…'}
+              </span>
+            </div>
             <Dialog.Close asChild>
               <button className="p-1 rounded hover:bg-muted text-muted-foreground"><X size={14} /></button>
             </Dialog.Close>
           </div>
-        </div>
+          <Dialog.Description className="sr-only">
+            Sélectionnez les projets Gouti à importer dans OpsFlux et, pour chaque projet, les tâches à synchroniser.
+          </Dialog.Description>
 
-        {/* Filter bar */}
-        <div className="px-4 py-2 border-b border-border bg-muted/30 space-y-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-1 text-xs">
-              <Filter size={11} className="text-muted-foreground" />
-              <span className="text-muted-foreground">Filtres:</span>
-            </div>
-            <div className="relative flex-1 min-w-[200px] max-w-[300px]">
-              <Search size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Rechercher par nom ou ref..."
-                className={`${panelInputClass} pl-6 text-xs w-full`}
-              />
-            </div>
-            {facetsLoading ? (
-              <Loader2 size={11} className="animate-spin text-muted-foreground" />
-            ) : (
-              <>
-                <select
-                  value={filters.year ?? ''}
-                  onChange={e => setFilters(f => ({ ...f, year: e.target.value ? Number(e.target.value) : null }))}
-                  className={`${panelInputClass} text-xs`}
-                >
-                  <option value="">Année: toutes</option>
-                  {facets?.years.map(y => <option key={y} value={y}>{y}</option>)}
-                </select>
-                <select
-                  value={filters.manager_id ?? ''}
-                  onChange={e => setFilters(f => ({ ...f, manager_id: e.target.value || null }))}
-                  className={`${panelInputClass} text-xs max-w-[180px]`}
-                >
-                  <option value="">Chef de projet: tous</option>
-                  {facets?.managers.map(m => <option key={m.ref_us} value={m.ref_us}>{m.name_us}</option>)}
-                </select>
-              </>
-            )}
-            {activeFilterCount > 0 && (
-              <button
-                onClick={resetFilters}
-                className="text-[10px] text-primary hover:text-primary/80"
-              >
-                Réinitialiser ({activeFilterCount})
-              </button>
-            )}
-          </div>
-
-          {/* Status + criticality + categories chips */}
-          {facets && (facets.statuses.length > 0 || facets.categories.length > 0) && (
-            <div className="flex items-center gap-2 flex-wrap">
-              {facets.statuses.length > 0 && (
-                <div className="flex items-center gap-1 flex-wrap">
-                  <span className="text-[9px] text-muted-foreground uppercase tracking-wide">Statut:</span>
-                  {facets.statuses.map(s => {
-                    const active = filters.status?.includes(s.value)
-                    const label = STATUS_OPTIONS.find(o => o.value === s.value)?.label || s.value
-                    return (
-                      <button
-                        key={s.value}
-                        onClick={() => toggleStatus(s.value)}
-                        className={cn(
-                          'text-[9px] px-1.5 py-0.5 rounded border',
-                          active
-                            ? 'border-primary bg-primary text-primary-foreground'
-                            : 'border-border hover:bg-muted',
-                        )}
-                      >
-                        {label} <span className="opacity-60">({s.count})</span>
-                      </button>
-                    )
-                  })}
+          {/* Body: sidebar + list */}
+          <div className="flex-1 flex min-h-0 overflow-hidden">
+            {/* ── Left sidebar: filters ───────────────────────── */}
+            <aside className="w-[260px] shrink-0 border-r border-border bg-muted/20 overflow-y-auto p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  <Filter size={11} /> Filtres
+                  {activeFilterCount > 0 && (
+                    <span className="ml-1 px-1 rounded bg-primary/10 text-primary">{activeFilterCount}</span>
+                  )}
                 </div>
-              )}
-              {facets.criticalities.length > 0 && (
-                <div className="flex items-center gap-1 flex-wrap">
-                  <span className="text-[9px] text-muted-foreground uppercase tracking-wide">Criticité:</span>
-                  {facets.criticalities.map(c => {
-                    const active = filters.criticality?.includes(c.value)
-                    return (
-                      <button
-                        key={c.value}
-                        onClick={() => toggleCriticality(c.value)}
-                        className={cn(
-                          'text-[9px] px-1.5 py-0.5 rounded border',
-                          active
-                            ? 'border-primary bg-primary text-primary-foreground'
-                            : 'border-border hover:bg-muted',
-                        )}
-                      >
-                        {c.value} <span className="opacity-60">({c.count})</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {facets && facets.categories.length > 0 && (
-            <div className="flex items-start gap-1 flex-wrap">
-              <span className="text-[9px] text-muted-foreground uppercase tracking-wide mt-0.5">Étiquettes:</span>
-              {facets.categories.map(cat => {
-                const active = filters.category_ids?.includes(cat.id)
-                return (
+                {activeFilterCount > 0 && (
                   <button
-                    key={cat.id}
-                    onClick={() => toggleCategory(cat.id)}
-                    className={cn(
-                      'text-[9px] px-1.5 py-0.5 rounded border',
-                      active
-                        ? 'border-primary bg-primary text-primary-foreground'
-                        : 'border-border hover:bg-muted',
-                    )}
+                    onClick={resetFilters}
+                    className="text-[9px] text-primary hover:text-primary/80"
                   >
-                    {cat.name}
+                    Réinitialiser
                   </button>
-                )
-              })}
-            </div>
-          )}
+                )}
+              </div>
 
-          {/* Admin default filters panel */}
-          {showAdminDefaults && (
-            <div className="flex items-center gap-2 p-2 rounded border border-primary/30 bg-primary/5">
-              <Settings2 size={11} className="text-primary" />
-              <span className="text-[10px] text-primary font-medium">
-                Les filtres actuels deviendront les filtres par défaut à chaque ouverture.
-              </span>
-              <button
-                onClick={handleSaveAsAdminDefault}
-                disabled={setDefaultFilters.isPending}
-                className="ml-auto text-[10px] px-2 py-0.5 rounded bg-primary text-primary-foreground disabled:opacity-50"
-              >
-                {setDefaultFilters.isPending ? <Loader2 size={9} className="animate-spin inline" /> : 'Enregistrer'}
-              </button>
-            </div>
-          )}
-        </div>
+              {/* Search */}
+              <div>
+                <label className="block text-[9px] uppercase tracking-wide text-muted-foreground mb-1">
+                  Recherche
+                </label>
+                <div className="relative">
+                  <Search size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    placeholder="Nom ou référence..."
+                    className={`${panelInputClass} pl-6 text-xs w-full`}
+                  />
+                </div>
+              </div>
 
-        {/* Project list */}
-        <div className="flex-1 overflow-y-auto p-2">
-          {catalogLoading && (
-            <div className="flex items-center justify-center h-32">
-              <Loader2 size={16} className="animate-spin text-muted-foreground" />
-            </div>
-          )}
-          {!catalogLoading && catalog && catalog.items.length === 0 && (
-            <div className="text-center py-8 text-xs text-muted-foreground italic">
-              Aucun projet ne correspond à vos filtres
-            </div>
-          )}
-          {!catalogLoading && catalog && catalog.items.length > 0 && (
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 px-2 py-1 border-b border-border mb-1 sticky top-0 bg-background z-10">
+              {facetsLoading && (
+                <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                  <Loader2 size={10} className="animate-spin" /> Chargement des facettes…
+                </div>
+              )}
+
+              {/* Year */}
+              {facets && facets.years.length > 0 && (
+                <div>
+                  <label className="block text-[9px] uppercase tracking-wide text-muted-foreground mb-1">
+                    Année
+                  </label>
+                  <select
+                    value={filters.year ?? ''}
+                    onChange={e => setFilters(f => ({ ...f, year: e.target.value ? Number(e.target.value) : null }))}
+                    className={`${panelInputClass} text-xs w-full`}
+                  >
+                    <option value="">Toutes</option>
+                    {facets.years.map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
+              )}
+
+              {/* Manager */}
+              {facets && facets.managers.length > 0 && (
+                <div>
+                  <label className="block text-[9px] uppercase tracking-wide text-muted-foreground mb-1">
+                    Chef de projet
+                  </label>
+                  <select
+                    value={filters.manager_id ?? ''}
+                    onChange={e => setFilters(f => ({ ...f, manager_id: e.target.value || null }))}
+                    className={`${panelInputClass} text-xs w-full`}
+                  >
+                    <option value="">Tous</option>
+                    {facets.managers.map(m => <option key={m.ref_us} value={m.ref_us}>{m.name_us}</option>)}
+                  </select>
+                </div>
+              )}
+
+              {/* Status chips */}
+              {facets && facets.statuses.length > 0 && (
+                <div>
+                  <label className="block text-[9px] uppercase tracking-wide text-muted-foreground mb-1">
+                    Statut
+                  </label>
+                  <div className="flex flex-wrap gap-1">
+                    {facets.statuses.map(s => {
+                      const active = filters.status?.includes(s.value)
+                      const label = STATUS_OPTIONS.find(o => o.value === s.value)?.label || s.value
+                      return (
+                        <button
+                          key={s.value}
+                          onClick={() => toggleStatus(s.value)}
+                          className={cn(
+                            'text-[9px] px-1.5 py-0.5 rounded border',
+                            active
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-border hover:bg-muted',
+                          )}
+                        >
+                          {label} <span className="opacity-60">({s.count})</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Criticality */}
+              {facets && facets.criticalities.length > 0 && (
+                <div>
+                  <label className="block text-[9px] uppercase tracking-wide text-muted-foreground mb-1">
+                    Criticité
+                  </label>
+                  <div className="flex flex-wrap gap-1">
+                    {facets.criticalities.map(c => {
+                      const active = filters.criticality?.includes(c.value)
+                      return (
+                        <button
+                          key={c.value}
+                          onClick={() => toggleCriticality(c.value)}
+                          className={cn(
+                            'text-[9px] px-1.5 py-0.5 rounded border',
+                            active
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-border hover:bg-muted',
+                          )}
+                        >
+                          {c.value} <span className="opacity-60">({c.count})</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Enterprise categories */}
+              {facets && facets.categories.length > 0 && (
+                <div>
+                  <label className="block text-[9px] uppercase tracking-wide text-muted-foreground mb-1">
+                    Étiquettes
+                  </label>
+                  <div className="flex flex-wrap gap-1">
+                    {facets.categories.map(cat => {
+                      const active = filters.category_ids?.includes(cat.id)
+                      return (
+                        <button
+                          key={cat.id}
+                          onClick={() => toggleCategory(cat.id)}
+                          className={cn(
+                            'text-[9px] px-1.5 py-0.5 rounded border',
+                            active
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-border hover:bg-muted',
+                          )}
+                        >
+                          {cat.name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Admin defaults */}
+              <div className="pt-2 border-t border-border">
+                <button
+                  onClick={() => setShowAdminDefaults(v => !v)}
+                  className={cn(
+                    'w-full flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground',
+                    showAdminDefaults && 'text-primary',
+                  )}
+                >
+                  <Settings2 size={10} />
+                  Filtres par défaut (admin)
+                </button>
+                {showAdminDefaults && (
+                  <div className="mt-2 p-2 rounded border border-primary/30 bg-primary/5 space-y-1.5">
+                    <p className="text-[9px] text-primary/80 leading-snug">
+                      Les filtres ci-dessus seront appliqués à chaque ouverture de l'assistant.
+                    </p>
+                    <button
+                      onClick={handleSaveAsAdminDefault}
+                      disabled={setDefaultFilters.isPending}
+                      className="w-full text-[10px] px-2 py-0.5 rounded bg-primary text-primary-foreground disabled:opacity-50"
+                    >
+                      {setDefaultFilters.isPending
+                        ? <Loader2 size={9} className="animate-spin inline" />
+                        : 'Enregistrer comme défaut'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </aside>
+
+            {/* ── Right side: project list with expandable task tree ── */}
+            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+              {/* Select-all row */}
+              <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-muted/10 shrink-0">
                 <input
                   type="checkbox"
-                  checked={selectedIds.size === catalog.items.length && catalog.items.length > 0}
-                  ref={el => { if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < catalog.items.length }}
+                  checked={allFilteredSelected}
+                  ref={el => {
+                    if (el) el.indeterminate = includedCount > 0 && !allFilteredSelected
+                  }}
                   onChange={toggleAll}
                   className="w-3.5 h-3.5"
                 />
                 <span className="text-[11px] font-medium">
-                  {selectedIds.size > 0 ? `${selectedIds.size} sélectionné${selectedIds.size > 1 ? 's' : ''}` : 'Tout sélectionner'}
+                  {includedCount > 0
+                    ? `${includedCount} projet${includedCount > 1 ? 's' : ''} sélectionné${includedCount > 1 ? 's' : ''}`
+                    : 'Tout sélectionner'}
+                </span>
+                <span className="ml-auto text-[9px] text-muted-foreground">
+                  Cliquez sur ▸ pour choisir les tâches par projet
                 </span>
               </div>
-              {catalog.items.map((p: GoutiCatalogProject) => {
-                const checked = selectedIds.has(p.gouti_id)
-                return (
-                  <div
-                    key={p.gouti_id}
-                    className={cn(
-                      'flex items-start gap-2 px-2 py-1.5 rounded hover:bg-muted/40 cursor-pointer',
-                      checked && 'bg-primary/5',
-                    )}
-                    onClick={() => toggleProject(p.gouti_id)}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleProject(p.gouti_id)}
-                      onClick={e => e.stopPropagation()}
-                      className="w-3.5 h-3.5 mt-0.5"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-mono text-[10px] text-muted-foreground">{p.code}</span>
-                        <span className="text-[11px] font-medium truncate">{p.name}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-[9px] text-muted-foreground mt-0.5 flex-wrap">
-                        {p.status_raw && <span className="px-1 rounded bg-muted">{p.status_raw}</span>}
-                        {p.progress != null && <span>Progression {p.progress}%</span>}
-                        {p.manager_name && <span>· {p.manager_name}</span>}
-                        {p.target_date && <span>· Fin {p.target_date}</span>}
-                        {p.criticality && <span>· Crit. {p.criticality}</span>}
-                        {p.categories.slice(0, 3).map(c => (
-                          <span key={c.id} className="px-1 rounded bg-orange-500/10 text-orange-700">{c.name}</span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-border bg-muted/20">
-          <span className="text-[11px] text-muted-foreground">
-            {selectedIds.size > 0
-              ? `${selectedIds.size} projet${selectedIds.size > 1 ? 's' : ''} prêts à importer`
-              : 'Sélectionnez les projets à importer'}
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onClose}
-              className="px-3 py-1 text-xs rounded border border-border hover:bg-muted"
-            >
-              Annuler
-            </button>
-            <button
-              onClick={handleSaveAndSync}
-              disabled={selectedIds.size === 0 || syncSelected.isPending || saveSelection.isPending}
-              className="px-3 py-1 text-xs rounded bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-40 flex items-center gap-1.5"
-            >
-              {(syncSelected.isPending || saveSelection.isPending)
-                ? <Loader2 size={11} className="animate-spin" />
-                : <Download size={11} />}
-              Importer {selectedIds.size > 0 && `(${selectedIds.size})`}
-            </button>
+              {/* Project list */}
+              <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                {catalogLoading && (
+                  <div className="flex items-center justify-center h-32">
+                    <Loader2 size={16} className="animate-spin text-muted-foreground" />
+                  </div>
+                )}
+                {!catalogLoading && catalog && catalog.items.length === 0 && (
+                  <div className="text-center py-8 text-xs text-muted-foreground italic">
+                    Aucun projet ne correspond à vos filtres
+                  </div>
+                )}
+                {!catalogLoading && catalog && catalog.items.length > 0 && catalog.items.map(p => (
+                  <GoutiProjectRow
+                    key={p.gouti_id}
+                    project={p}
+                    selection={getOrInit(p.gouti_id)}
+                    onToggleInclude={() => toggleProject(p.gouti_id)}
+                    onTaskModeChange={(mode) => setTaskMode(p.gouti_id, mode)}
+                    onToggleTaskId={(taskId) => toggleTaskId(p.gouti_id, taskId)}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-border bg-muted/20 shrink-0">
+            <span className="text-[11px] text-muted-foreground">
+              {includedCount > 0
+                ? `${includedCount} projet${includedCount > 1 ? 's' : ''} prêts à importer`
+                : 'Sélectionnez au moins un projet'}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onClose}
+                className="px-3 py-1 text-xs rounded border border-border hover:bg-muted"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleSaveAndSync}
+                disabled={includedCount === 0 || syncSelected.isPending || saveSelection.isPending}
+                className="px-3 py-1 text-xs rounded bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-40 flex items-center gap-1.5"
+              >
+                {(syncSelected.isPending || saveSelection.isPending)
+                  ? <Loader2 size={11} className="animate-spin" />
+                  : <Download size={11} />}
+                Importer {includedCount > 0 && `(${includedCount})`}
+              </button>
+            </div>
+          </div>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
@@ -1705,6 +1903,16 @@ function ProjectDetailPanel({ id }: { id: string }) {
           </div>
         )}
 
+        {/* Description — shown above the Fiche section so the project's
+            purpose/summary is the first thing the reader sees. */}
+        {(project.description || isProjectFieldEditable(project, 'description', capabilities)) && (
+          <FormSection title="Description" collapsible defaultExpanded storageKey="project-detail-desc">
+            {isProjectFieldEditable(project, 'description', capabilities)
+              ? <InlineEditableRow label="Description" value={project.description || ''} onSave={(v) => handleSave('description', v)} />
+              : <ReadOnlyRow label="Description" value={<span className="text-sm whitespace-pre-wrap">{project.description || '—'}</span>} />}
+          </FormSection>
+        )}
+
         {/* Quick stats — inspired by Gouti "Donnees quantitatives et acces rapide" */}
         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
           <div className="flex items-center gap-1"><WeatherIcon weather={project.weather} size={14} /> {WEATHER_OPTIONS.find(w => w.value === project.weather)?.label}</div>
@@ -1827,12 +2035,6 @@ function ProjectDetailPanel({ id }: { id: string }) {
               <AttachmentManager ownerType="project" ownerId={project.id} compact />
             </div>
           </DetailFieldGrid>
-        </FormSection>
-
-        <FormSection title="Description" collapsible defaultExpanded={false} storageKey="project-detail-desc">
-          {isProjectFieldEditable(project, 'description', capabilities)
-            ? <InlineEditableRow label="Description" value={project.description || ''} onSave={(v) => handleSave('description', v)} />
-            : <ReadOnlyRow label="Description" value={<span className="text-sm whitespace-pre-wrap">{project.description || '—'}</span>} />}
         </FormSection>
       </PanelContentLayout>
     </DynamicPanelShell>

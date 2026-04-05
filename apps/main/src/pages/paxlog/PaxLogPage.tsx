@@ -77,6 +77,7 @@ import {
   useSubmitAds,
   useCancelAds,
   useApproveAds,
+  useDecideAdsPax,
   useRejectAds,
   useRequestAdsStayChange,
   useRequestReviewAds,
@@ -178,12 +179,13 @@ const ADS_STATUS_MAP: Record<string, { labelKey: string; badge: string }> = {
   completed: { labelKey: 'paxlog.status.ads.completed', badge: 'gl-badge-success' },
 }
 
-const SEVERITY_OPTIONS = [
-  { value: 'info', labelKey: 'paxlog.severity.info', color: 'gl-badge-info' },
-  { value: 'warning', labelKey: 'paxlog.severity.warning', color: 'gl-badge-warning' },
-  { value: 'temp_ban', labelKey: 'paxlog.severity.temp_ban', color: 'gl-badge-danger' },
-  { value: 'permanent_ban', labelKey: 'paxlog.severity.permanent_ban', color: 'gl-badge-danger' },
-]
+const SEVERITY_COLOR_MAP: Record<string, string> = {
+  info: 'gl-badge-info',
+  warning: 'gl-badge-warning',
+  site_ban: 'gl-badge-danger',
+  temp_ban: 'gl-badge-danger',
+  permanent_ban: 'gl-badge-danger',
+}
 
 const ROTATION_STATUS_OPTIONS = [
   { value: '', labelKey: 'common.all' },
@@ -249,9 +251,12 @@ function StatusBadge({ status, map, className }: { status: string; map?: Record<
 }
 
 function SeverityBadge({ severity }: { severity: string }) {
-  const { t } = useTranslation()
-  const opt = SEVERITY_OPTIONS.find((o) => o.value === severity)
-  return <span className={cn('gl-badge', opt?.color || 'gl-badge-neutral')}>{opt ? t(opt.labelKey) : severity}</span>
+  const severityLabels = useDictionaryLabels('pax_incident_severity')
+  return (
+    <span className={cn('gl-badge', SEVERITY_COLOR_MAP[severity] || 'gl-badge-neutral')}>
+      {severityLabels[severity] || severity}
+    </span>
+  )
 }
 
 function formatDate(d: string | null) {
@@ -1220,6 +1225,7 @@ function SignalementsTab() {
   const [search, setSearch] = useState('')
   const [activeOnly, setActiveOnly] = useState(true)
   const [severityFilter, setSeverityFilter] = useState('')
+  const severityOptions = useDictionaryOptions('pax_incident_severity')
   const resolveIncident = useResolvePaxIncident()
 
   const { data, isLoading } = usePaxIncidents({
@@ -1307,10 +1313,10 @@ function SignalementsTab() {
           {t('paxlog.signalements.active_only')}
         </button>
         <span className="mx-1 h-3 w-px bg-border" />
-        {SEVERITY_OPTIONS.map((opt) => (
+        {severityOptions.map((opt) => (
           <button key={opt.value} onClick={() => { setSeverityFilter(severityFilter === opt.value ? '' : opt.value); setPage(1) }}
             className={cn('px-2 py-0.5 rounded text-xs font-medium transition-colors whitespace-nowrap', severityFilter === opt.value ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground')}>
-            {t(opt.labelKey)}
+            {opt.label}
           </button>
         ))}
         {data && <span className="text-xs text-muted-foreground ml-auto">{t('paxlog.signalements.count', { count: data.total })}</span>}
@@ -1784,12 +1790,15 @@ function CreateAdsPanel() {
   const { t } = useTranslation()
   const createAds = useCreateAds()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const currentUser = useAuthStore((s) => s.user)
   const { data: projects } = useProjects({ page: 1, page_size: 100 })
+  const { data: usersData } = useUsers({ page: 1, page_size: 200, active: true })
   const visitCategoryOptions = useDictionaryOptions('visit_category')
   const transportModeOptions = useDictionaryOptions('transport_mode')
 
   const [form, setForm] = useState<{
     type: 'individual' | 'team'
+    requester_id: string
     site_entry_asset_id: string
     visit_purpose: string
     visit_category: string
@@ -1800,6 +1809,7 @@ function CreateAdsPanel() {
     return_transport_mode: string
   }>({
     type: 'individual',
+    requester_id: currentUser?.id || '',
     site_entry_asset_id: '',
     visit_purpose: '',
     visit_category: '',
@@ -1826,6 +1836,7 @@ function CreateAdsPanel() {
     e.preventDefault()
     const payload = {
       ...form,
+      requester_id: form.requester_id || null,
       project_id: form.project_id || null,
       visit_category: form.visit_category,
       outbound_transport_mode: form.outbound_transport_mode || null,
@@ -1911,6 +1922,12 @@ function CreateAdsPanel() {
 
         <FormSection title={t('paxlog.create_ads.sections.visit_details')}>
           <FormGrid>
+            <DynamicPanelField label={t('paxlog.create_ads.fields.requester')} required>
+              <select value={form.requester_id} onChange={(e) => setForm({ ...form, requester_id: e.target.value })} className={panelInputClass} required>
+                <option value="">{t('paxlog.create_ads.select_option')}</option>
+                {(usersData?.items ?? []).map((user) => <option key={user.id} value={user.id}>{user.first_name} {user.last_name}</option>)}
+              </select>
+            </DynamicPanelField>
             <DynamicPanelField label={t('paxlog.visit_category')} required>
               <select value={form.visit_category} onChange={(e) => setForm({ ...form, visit_category: e.target.value })} className={panelInputClass} required>
                 <option value="">{t('paxlog.create_ads.select_option')}</option>
@@ -1971,6 +1988,7 @@ function AdsDetailPanel({ id }: { id: string }) {
   const submitAds = useSubmitAds()
   const cancelAds = useCancelAds()
   const approveAds = useApproveAds()
+  const decideAdsPax = useDecideAdsPax()
   const rejectAds = useRejectAds()
   const requestAdsStayChange = useRequestAdsStayChange()
   const requestReviewAds = useRequestReviewAds()
@@ -2002,6 +2020,8 @@ function AdsDetailPanel({ id }: { id: string }) {
   const [paxSearch, setPaxSearch] = useState('')
   const [showPaxPicker, setShowPaxPicker] = useState(false)
   const [showStayProgramForm, setShowStayProgramForm] = useState(false)
+  const [paxRejectEntryId, setPaxRejectEntryId] = useState<string | null>(null)
+  const [paxRejectReason, setPaxRejectReason] = useState('')
   const [stayProgramTarget, setStayProgramTarget] = useState<{ user_id?: string | null; contact_id?: string | null }>({})
   const [stayMovements, setStayMovements] = useState<Array<{ effective_date: string; from_location: string; to_location: string; transport_mode: string; notes: string }>>([
     { effective_date: '', from_location: '', to_location: '', transport_mode: '', notes: '' },
@@ -2041,10 +2061,20 @@ function AdsDetailPanel({ id }: { id: string }) {
 
   const compliantPaxCount = (adsPax ?? []).filter((entry) => entry.compliant === true).length
   const nonCompliantPaxCount = (adsPax ?? []).filter((entry) => entry.compliant === false).length
+  const isProjectReviewer = !!ads.project_manager_id && ads.project_manager_id === currentUser?.id
+  const isInitiatorReviewer = ads.status === 'pending_initiator_review' && ads.requester_id === currentUser?.id
   const canSubmit = ads.status === 'draft' && hasPermission('paxlog.ads.submit')
   const canCancel = !['cancelled', 'completed', 'rejected'].includes(ads.status) && hasPermission('paxlog.ads.cancel')
-  const canApprove = ['submitted', 'pending_validation'].includes(ads.status) && hasPermission('paxlog.ads.approve')
-  const canReject = ['submitted', 'pending_validation'].includes(ads.status) && hasPermission('paxlog.ads.approve')
+  const canApprove = (
+    (['submitted', 'pending_validation'].includes(ads.status) && hasPermission('paxlog.ads.approve'))
+    || (ads.status === 'pending_initiator_review' && (isInitiatorReviewer || hasPermission('paxlog.ads.approve')))
+    || (ads.status === 'pending_project_review' && (isProjectReviewer || hasPermission('paxlog.ads.approve')))
+  )
+  const canReject = (
+    (['submitted', 'pending_validation'].includes(ads.status) && hasPermission('paxlog.ads.approve'))
+    || (ads.status === 'pending_initiator_review' && (isInitiatorReviewer || hasPermission('paxlog.ads.approve')))
+    || (ads.status === 'pending_project_review' && (isProjectReviewer || hasPermission('paxlog.ads.approve')))
+  )
   const canRequestReview = ['submitted', 'pending_compliance', 'pending_validation', 'approved', 'in_progress'].includes(ads.status) && hasPermission('paxlog.ads.approve')
   const canRequestStayChange =
     ['submitted', 'pending_compliance', 'pending_validation', 'approved', 'in_progress'].includes(ads.status)
@@ -2089,6 +2119,11 @@ function AdsDetailPanel({ id }: { id: string }) {
   const getAdsEventLabel = (eventType: string) => {
     const eventLabels: Record<string, string> = {
       stay_change_requested: t('paxlog.ads_detail.history.events.stay_change_requested'),
+      submitted_for_initiator_review: t('paxlog.ads_detail.history.events.submitted_for_initiator_review'),
+      initiator_review_approved: t('paxlog.ads_detail.history.events.initiator_review_approved'),
+      initiator_review_rejected: t('paxlog.ads_detail.history.events.initiator_review_rejected'),
+      submitted_for_project_review: t('paxlog.ads_detail.history.events.submitted_for_project_review'),
+      project_review_approved: t('paxlog.ads_detail.history.events.project_review_approved'),
       avm_modified_requires_review: t('paxlog.ads_detail.history.events.avm_modified_requires_review'),
       avm_cancelled: t('paxlog.ads_detail.history.events.avm_cancelled'),
       planner_activity_modified_requires_review: t('paxlog.ads_detail.history.events.planner_activity_modified_requires_review'),
@@ -2111,10 +2146,14 @@ function AdsDetailPanel({ id }: { id: string }) {
         : t('paxlog.ads_detail.next_action.draft_missing'))
       : ads.status === 'submitted'
         ? t('paxlog.ads_detail.next_action.submitted')
+        : ads.status === 'pending_initiator_review'
+          ? t('paxlog.ads_detail.next_action.pending_initiator_review')
         : ads.status === 'pending_compliance'
           ? t('paxlog.ads_detail.next_action.pending_compliance')
           : ads.status === 'pending_validation'
             ? t('paxlog.ads_detail.next_action.pending_validation')
+            : ads.status === 'pending_project_review'
+              ? t('paxlog.ads_detail.next_action.pending_project_review')
             : ads.status === 'requires_review'
               ? t('paxlog.ads_detail.next_action.requires_review')
             : ads.status === 'approved'
@@ -2186,6 +2225,27 @@ function AdsDetailPanel({ id }: { id: string }) {
 
   const handleGenerateLink = () => {
     createExtLink.mutate({ adsId: id, payload: { expires_hours: 72, max_uses: 5 } })
+  }
+
+  const handleApprovePassenger = (entryId: string) => {
+    decideAdsPax.mutate({ adsId: id, entryId, payload: { action: 'approve' } })
+  }
+
+  const handleRejectPassenger = () => {
+    if (!paxRejectEntryId) return
+    decideAdsPax.mutate(
+      {
+        adsId: id,
+        entryId: paxRejectEntryId,
+        payload: { action: 'reject', reason: paxRejectReason.trim() || null },
+      },
+      {
+        onSuccess: () => {
+          setPaxRejectEntryId(null)
+          setPaxRejectReason('')
+        },
+      },
+    )
   }
 
   const addStayMovement = () => {
@@ -2448,6 +2508,7 @@ function AdsDetailPanel({ id }: { id: string }) {
             } />
             <ReadOnlyRow label={t('paxlog.ads_detail.fields.dates')} value={`${formatDate(ads.start_date)} → ${formatDate(ads.end_date)}`} />
             {ads.requester_name && <ReadOnlyRow label={t('paxlog.ads_detail.fields.requester')} value={ads.requester_name} />}
+            {ads.created_by_name && ads.created_by !== ads.requester_id && <ReadOnlyRow label={t('paxlog.ads_detail.fields.created_by')} value={ads.created_by_name} />}
             {ads.project_id && (
               <ReadOnlyRow label={t('paxlog.ads_detail.fields.project')} value={
                 <CrossModuleLink module="projets" id={ads.project_id} label={ads.project_name || ads.project_id} mode="navigate" />
@@ -2645,37 +2706,83 @@ function AdsDetailPanel({ id }: { id: string }) {
           ) : (
             <div className="space-y-1">
               {adsPax.map((ap: AdsPax) => (
-                <div key={ap.id} className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-accent/50 text-xs group">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium truncate">
-                      {(ap.user_id || ap.contact_id) ? (
-                        <CrossModuleLink module="paxlog" id={(ap.user_id || ap.contact_id)!} subtype="profile"
-                          label={`${ap.pax_last_name ?? ''} ${ap.pax_first_name ?? ''}`.trim()} showIcon={false} />
-                      ) : (
-                        <>{ap.pax_last_name ?? ''} {ap.pax_first_name ?? ''}</>
+                <div key={ap.id} className="rounded px-2 py-1.5 hover:bg-accent/50 text-xs group">
+                  <div className="flex items-center justify-between">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium truncate">
+                        {(ap.user_id || ap.contact_id) ? (
+                          <CrossModuleLink module="paxlog" id={(ap.user_id || ap.contact_id)!} subtype="profile"
+                            label={`${ap.pax_last_name ?? ''} ${ap.pax_first_name ?? ''}`.trim()} showIcon={false} />
+                        ) : (
+                          <>{ap.pax_last_name ?? ''} {ap.pax_first_name ?? ''}</>
+                        )}
+                      </p>
+                      {ap.pax_badge && <p className="text-[10px] text-muted-foreground">{t('paxlog.ads_detail.fields.badge', { value: ap.pax_badge })}</p>}
+                      {ap.pax_company_name && <p className="text-[10px] text-muted-foreground">{ap.pax_company_name}</p>}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {ap.compliant === true && <CheckCircle2 size={13} className="text-green-600" />}
+                      {ap.compliant === false && <XCircle size={13} className="text-red-500" />}
+                      <span className={cn('gl-badge', ap.pax_type === 'internal' ? 'gl-badge-info' : 'gl-badge-neutral')}>
+                        {ap.pax_type === 'internal' ? t('paxlog.ads_detail.passenger_type.internal') : t('paxlog.ads_detail.passenger_type.external')}
+                      </span>
+                      <StatusBadge status={ap.status} />
+                      {canApprove && !['approved', 'rejected', 'no_show'].includes(ap.status) && (
+                        <>
+                          <button
+                            className="p-1 rounded text-emerald-600 hover:bg-emerald-500/10 transition-colors"
+                            onClick={() => handleApprovePassenger(ap.id)}
+                            title={t('paxlog.ads_detail.actions.validate_passenger')}
+                          >
+                            <ThumbsUp size={12} />
+                          </button>
+                          <button
+                            className="p-1 rounded text-amber-600 hover:bg-amber-500/10 transition-colors"
+                            onClick={() => {
+                              setPaxRejectEntryId(ap.id)
+                              setPaxRejectReason('')
+                            }}
+                            title={t('paxlog.ads_detail.actions.reject_passenger')}
+                          >
+                            <ThumbsDown size={12} />
+                          </button>
+                        </>
                       )}
-                    </p>
-                    {ap.pax_badge && <p className="text-[10px] text-muted-foreground">{t('paxlog.ads_detail.fields.badge', { value: ap.pax_badge })}</p>}
-                    {ap.pax_company_name && <p className="text-[10px] text-muted-foreground">{ap.pax_company_name}</p>}
+                      {(ap.user_id || ap.contact_id) && hasPermission('paxlog.ads.update') && (
+                        <button
+                          className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                          onClick={() => removePax.mutate({ adsId: id, entryId: ap.id })}
+                          title={t('paxlog.ads_detail.actions.remove_passenger')}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {ap.compliant === true && <CheckCircle2 size={13} className="text-green-600" />}
-                    {ap.compliant === false && <XCircle size={13} className="text-red-500" />}
-                    <span className={cn('gl-badge', ap.pax_type === 'internal' ? 'gl-badge-info' : 'gl-badge-neutral')}>
-                      {ap.pax_type === 'internal' ? t('paxlog.ads_detail.passenger_type.internal') : t('paxlog.ads_detail.passenger_type.external')}
-                    </span>
-                    <StatusBadge status={ap.status} />
-                    {/* Remove button — visible only with paxlog.ads.update permission */}
-                    {(ap.user_id || ap.contact_id) && hasPermission('paxlog.ads.update') && (
-                      <button
-                        className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                        onClick={() => removePax.mutate({ adsId: id, entryId: ap.id })}
-                        title={t('paxlog.ads_detail.actions.remove_passenger')}
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    )}
-                  </div>
+                  {paxRejectEntryId === ap.id && (
+                    <div className="mt-2 rounded-md border border-border bg-card p-2 space-y-2">
+                      <textarea
+                        className="gl-form-input text-xs min-h-[56px]"
+                        placeholder={t('paxlog.ads_detail.reject.passenger_placeholder')}
+                        value={paxRejectReason}
+                        onChange={(e) => setPaxRejectReason(e.target.value)}
+                      />
+                      <div className="flex items-center gap-2">
+                        <button className="gl-button-sm gl-button-danger" disabled={decideAdsPax.isPending} onClick={handleRejectPassenger}>
+                          {t('common.reject')}
+                        </button>
+                        <button
+                          className="gl-button-sm gl-button-secondary"
+                          onClick={() => {
+                            setPaxRejectEntryId(null)
+                            setPaxRejectReason('')
+                          }}
+                        >
+                          {t('common.cancel')}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -2928,17 +3035,19 @@ function CreateIncidentPanel() {
   const { t } = useTranslation()
   const createIncident = useCreatePaxIncident()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const severityOptions = useDictionaryOptions('pax_incident_severity')
 
   const [paxSearch, setPaxSearch] = useState('')
   const { data: paxData, isLoading: paxLoading } = usePaxProfiles({ page: 1, page_size: 20, search: paxSearch || undefined })
 
   const [form, setForm] = useState<{
-    severity: 'info' | 'warning' | 'temp_ban' | 'permanent_ban'
+    severity: 'info' | 'warning' | 'site_ban' | 'temp_ban' | 'permanent_ban'
     description: string
     incident_date: string
     user_id: string | null
     contact_id: string | null
     pax_display: string | null
+    asset_id: string | null
     ban_start_date: string | null
     ban_end_date: string | null
   }>({
@@ -2948,6 +3057,7 @@ function CreateIncidentPanel() {
     user_id: null,
     contact_id: null,
     pax_display: null,
+    asset_id: null,
     ban_start_date: null,
     ban_end_date: null,
   })
@@ -2960,6 +3070,7 @@ function CreateIncidentPanel() {
       incident_date: form.incident_date,
       user_id: form.user_id || null,
       contact_id: form.contact_id || null,
+      asset_id: form.asset_id || null,
       ban_start_date: form.ban_start_date || null,
       ban_end_date: form.ban_end_date || null,
     })
@@ -2967,6 +3078,7 @@ function CreateIncidentPanel() {
   }
 
   const showBanDates = form.severity === 'temp_ban' || form.severity === 'permanent_ban'
+  const showAssetTarget = form.severity === 'site_ban'
 
   return (
     <DynamicPanelShell
@@ -2990,7 +3102,7 @@ function CreateIncidentPanel() {
         <PanelContentLayout>
         <FormSection title={t('paxlog.incident_panel.sections.severity')}>
           <TagSelector
-            options={SEVERITY_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
+            options={severityOptions}
             value={form.severity}
             onChange={(v) => setForm({ ...form, severity: v as typeof form.severity })}
           />
@@ -3019,6 +3131,14 @@ function CreateIncidentPanel() {
           <DynamicPanelField label={t('paxlog.incident_panel.fields.incident_date')} required>
             <input type="date" required value={form.incident_date} onChange={(e) => setForm({ ...form, incident_date: e.target.value })} className={panelInputClass} />
           </DynamicPanelField>
+          {showAssetTarget && (
+            <DynamicPanelField label={t('paxlog.incident_panel.fields.asset')} required>
+              <AssetPicker
+                value={form.asset_id}
+                onChange={(id) => setForm({ ...form, asset_id: id || null })}
+              />
+            </DynamicPanelField>
+          )}
           <DynamicPanelField label={t('common.description')} required>
             <textarea required value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className={cn(panelInputClass, 'min-h-[80px] resize-y')} placeholder={t('paxlog.incident_panel.placeholders.description')} />
           </DynamicPanelField>

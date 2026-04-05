@@ -1532,6 +1532,7 @@
         "team": "Team"
       },
       "fields": {
+        "requester": "Requester",
         "entry_site": "Entry site",
         "project": "Linked project",
         "dates": "Dates",
@@ -1636,7 +1637,9 @@
         "draft_ready": "The dossier can be submitted. Review PAX and imputation before sending.",
         "draft_missing": "Complete the missing information and add at least one passenger before submission.",
         "submitted": "The dossier is waiting for compliance review or validation.",
+        "pending_initiator_review": "The dossier is waiting for confirmation from the actual requester before the validation flow can continue.",
         "pending_compliance": "The dossier is under compliance review. Monitor passenger and document gaps.",
+        "pending_project_review": "The dossier is waiting for project manager validation before compliance and site validation.",
         "pending_validation": "The dossier is under validation. Final adjustments mostly concern imputation and arbitration.",
         "requires_review": "The dossier was sent back for correction. Apply the requested changes and resubmit it.",
         "approved": "The stay is approved. Prepare movements and, if needed, share the external link.",
@@ -1673,6 +1676,7 @@
         "site": "Site",
         "dates": "Dates",
         "requester": "Requester",
+        "created_by": "Created by",
         "origin_avm": "Origin AVM",
         "origin_mission_title": "Mission title",
         "origin_program_activity": "Origin activity",
@@ -1723,6 +1727,11 @@
         "source_avm": "Source AVM:",
         "events": {
           "stay_change_requested": "Stay change request",
+          "submitted_for_initiator_review": "Submitted for requester confirmation",
+          "initiator_review_approved": "Requester confirmation",
+          "initiator_review_rejected": "Requester refusal",
+          "submitted_for_project_review": "Submitted for project review",
+          "project_review_approved": "Project approval",
           "avm_modified_requires_review": "Review required after AVM change",
           "avm_cancelled": "Impact after AVM cancellation",
           "planner_activity_modified_requires_review": "Review required after Planner change",
@@ -1746,10 +1755,15 @@
       "actions": {
         "external_link": "External link",
         "add_passenger": "Add passenger",
+        "validate_passenger": "Approve this passenger",
+        "reject_passenger": "Reject this passenger",
         "remove_passenger": "Remove this passenger",
         "request_review": "Send back for correction",
         "resubmit": "Resubmit",
         "request_stay_change": "Change stay"
+      },
+      "reject": {
+        "passenger_placeholder": "Optional reason for rejecting this passenger"
       },
       "empty": {
         "pax_search": "No result for “{{search}}”",

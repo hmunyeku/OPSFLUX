@@ -26,6 +26,7 @@ import type {
   MissionPreparationTaskUpdate,
   MissionNoticeUpdate,
   AddPaxBody,
+  AdsPaxDecision,
 } from '@/services/paxlogService'
 
 // ── PAX Profiles ──
@@ -233,6 +234,20 @@ export function useApproveAds() {
     mutationFn: (id: string) => paxlogService.approveAds(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['paxlog', 'ads'] })
+    },
+  })
+}
+
+export function useDecideAdsPax() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ adsId, entryId, payload }: { adsId: string; entryId: string; payload: AdsPaxDecision }) =>
+      paxlogService.decideAdsPax(adsId, entryId, payload),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['paxlog', 'ads'] })
+      qc.invalidateQueries({ queryKey: ['paxlog', 'ads', vars.adsId] })
+      qc.invalidateQueries({ queryKey: ['paxlog', 'ads-pax', vars.adsId] })
+      qc.invalidateQueries({ queryKey: ['paxlog', 'ads-events', vars.adsId] })
     },
   })
 }

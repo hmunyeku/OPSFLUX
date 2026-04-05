@@ -87,6 +87,7 @@ from app.schemas.paxlog import (
     PaxIncidentRead,
     PaxIncidentResolve,
     PaxProfileRead,
+    AdsPaxDecision,
     PaxProfileSummary,
     PaxProfileUpdate,
 )
@@ -109,6 +110,17 @@ def _json_safe(value: object | None) -> object | None:
     if isinstance(value, UUID):
         return str(value)
     return value
+
+
+async def _require_ads_approve_or_project_update(
+    current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    can_approve_ads = await has_user_permission(current_user, entity_id, "paxlog.ads.approve", db)
+    can_update_project = await has_user_permission(current_user, entity_id, "project.update", db)
+    if not can_approve_ads and not can_update_project:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied")
 
 
 async def _get_external_user_tier_ids(
@@ -1512,7 +1524,7 @@ async def list_ads(
     """List Avis de Séjour for the current entity.
 
     Scope parameter controls data visibility:
-      - scope=my  → only ADS where requester_id == current user
+      - scope=my  → only ADS where requester_id or created_by == current user
       - scope=all → all ADS in the entity (requires paxlog.ads.read_all)
       - omitted   → auto-detected: if user has read_all → all, else → my
     """
@@ -1523,21 +1535,21 @@ async def list_ads(
 
     # ── User-scoped data visibility ──
     if scope == "my":
-        query = query.where(Ads.requester_id == current_user.id)
+        query = query.where(or_(Ads.requester_id == current_user.id, Ads.created_by == current_user.id))
     elif scope == "all":
         # Explicit "all" requires read_all permission
         can_read_all = await has_user_permission(
             current_user, entity_id, "paxlog.ads.read_all", db
         )
         if not can_read_all:
-            query = query.where(Ads.requester_id == current_user.id)
+            query = query.where(or_(Ads.requester_id == current_user.id, Ads.created_by == current_user.id))
     else:
         # Auto-detect: default to own data unless user has read_all
         can_read_all = await has_user_permission(
             current_user, entity_id, "paxlog.ads.read_all", db
         )
         if not can_read_all:
-            query = query.where(Ads.requester_id == current_user.id)
+            query = query.where(or_(Ads.requester_id == current_user.id, Ads.created_by == current_user.id))
 
     if status_filter:
         query = query.where(Ads.status == status_filter)
@@ -1559,13 +1571,18 @@ async def create_ads(
 ):
     """Create an Avis de Séjour (draft)."""
     reference = await generate_reference("ADS", db, entity_id=entity_id)
+    requester_id = body.requester_id or current_user.id
+    requester = await db.get(User, requester_id)
+    if not requester or requester.entity_id != entity_id or not requester.active:
+        raise HTTPException(status_code=400, detail="Demandeur invalide pour cette entite.")
 
     ads = Ads(
         entity_id=entity_id,
         reference=reference,
         type=body.type,
         status="draft",
-        requester_id=current_user.id,
+        created_by=current_user.id,
+        requester_id=requester_id,
         site_entry_asset_id=body.site_entry_asset_id,
         visit_purpose=body.visit_purpose,
         visit_category=body.visit_category,
@@ -1621,7 +1638,7 @@ async def create_ads(
     await db.commit()
 
     logger.info("AdS %s created by %s", reference, current_user.id)
-    return ads
+    return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
 
 
 @router.get("/ads/{ads_id}", response_model=AdsRead)
@@ -1640,42 +1657,7 @@ async def get_ads(
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
     await _assert_ads_read_access(ads, current_user=current_user, entity_id=entity_id, db=db)
-    avm_origin_result = await db.execute(
-        select(
-            MissionProgram.id,
-            MissionProgram.activity_description,
-            MissionNotice.id,
-            MissionNotice.reference,
-            MissionNotice.title,
-        )
-        .join(MissionNotice, MissionNotice.id == MissionProgram.mission_notice_id)
-        .where(MissionProgram.generated_ads_id == ads.id)
-        .limit(1)
-    )
-    avm_origin = avm_origin_result.first()
-    data = AdsRead.model_validate(ads).model_dump()
-    if avm_origin:
-        data.update({
-            "origin_mission_program_id": avm_origin[0],
-            "origin_mission_program_activity": avm_origin[1],
-            "origin_mission_notice_id": avm_origin[2],
-            "origin_mission_notice_reference": avm_origin[3],
-            "origin_mission_notice_title": avm_origin[4],
-        })
-    if ads.planner_activity_id:
-        planner_result = await db.execute(
-            select(PlannerActivity.title, PlannerActivity.status).where(
-                PlannerActivity.id == ads.planner_activity_id,
-                PlannerActivity.entity_id == entity_id,
-            )
-        )
-        planner_row = planner_result.first()
-        if planner_row:
-            data.update({
-                "planner_activity_title": planner_row[0],
-                "planner_activity_status": planner_row[1],
-            })
-    return AdsRead(**data)
+    return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
 
 
 @router.patch("/ads/{ads_id}", response_model=AdsRead)
@@ -1875,7 +1857,7 @@ async def submit_ads(
     ads_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("paxlog.ads.create"),
+    _: None = require_permission("paxlog.ads.submit"),
     db: AsyncSession = Depends(get_db),
 ):
     """Submit an AdS for validation.
@@ -1901,6 +1883,117 @@ async def submit_ads(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Impossible de soumettre un AdS avec le statut '{ads.status}'.",
         )
+
+    if ads.created_by != ads.requester_id and current_user.id != ads.requester_id:
+        from_state = ads.status
+        await _try_ads_workflow_transition(
+            db,
+            entity_id_str=str(ads.id),
+            to_state="pending_initiator_review",
+            actor_id=current_user.id,
+            entity_id_scope=entity_id,
+        )
+        ads.status = "pending_initiator_review"
+        ads.submitted_at = func.now()
+        db.add(AdsEvent(
+            entity_id=entity_id,
+            ads_id=ads.id,
+            event_type="submitted_for_initiator_review",
+            old_status=from_state,
+            new_status="pending_initiator_review",
+            actor_id=current_user.id,
+            metadata_json={
+                "requester_id": str(ads.requester_id),
+                "created_by": str(ads.created_by),
+            },
+        ))
+        await db.commit()
+        await db.refresh(ads)
+        await fsm_service.emit_transition_event(
+            entity_type=ADS_ENTITY_TYPE,
+            entity_id=str(ads.id),
+            from_state=from_state,
+            to_state="pending_initiator_review",
+            actor_id=current_user.id,
+            workflow_slug=ADS_WORKFLOW_SLUG,
+            extra_payload={
+                "reference": ads.reference,
+                "requester_id": str(ads.requester_id),
+                "created_by": str(ads.created_by),
+            },
+        )
+        await record_audit(
+            db,
+            action="paxlog.ads.submit",
+            resource_type="ads",
+            resource_id=str(ads.id),
+            user_id=current_user.id,
+            entity_id=entity_id,
+            details={
+                "reference": ads.reference,
+                "initiator_review_required": True,
+                "requester_id": str(ads.requester_id),
+                "created_by": str(ads.created_by),
+            },
+        )
+        await db.commit()
+        return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
+
+    project_reviewer = await _get_ads_project_reviewer(db, ads=ads, entity_id=entity_id)
+    if project_reviewer and project_reviewer.manager_id != current_user.id:
+        from_state = ads.status
+        await _try_ads_workflow_transition(
+            db,
+            entity_id_str=str(ads.id),
+            to_state="pending_project_review",
+            actor_id=current_user.id,
+            entity_id_scope=entity_id,
+        )
+        ads.status = "pending_project_review"
+        ads.submitted_at = func.now()
+        db.add(AdsEvent(
+            entity_id=entity_id,
+            ads_id=ads.id,
+            event_type="submitted_for_project_review",
+            old_status=from_state,
+            new_status="pending_project_review",
+            actor_id=current_user.id,
+            metadata_json={
+                "project_id": str(project_reviewer.id),
+                "project_manager_id": str(project_reviewer.manager_id),
+            },
+        ))
+        await db.commit()
+        await db.refresh(ads)
+        await fsm_service.emit_transition_event(
+            entity_type=ADS_ENTITY_TYPE,
+            entity_id=str(ads.id),
+            from_state=from_state,
+            to_state="pending_project_review",
+            actor_id=current_user.id,
+            workflow_slug=ADS_WORKFLOW_SLUG,
+            extra_payload={
+                "reference": ads.reference,
+                "project_id": str(project_reviewer.id),
+                "next_approver_id": str(project_reviewer.manager_id),
+            },
+        )
+        await record_audit(
+            db,
+            action="paxlog.ads.submit",
+            resource_type="ads",
+            resource_id=str(ads.id),
+            user_id=current_user.id,
+            entity_id=entity_id,
+            details={
+                "reference": ads.reference,
+                "project_review_required": True,
+                "project_id": str(project_reviewer.id),
+                "project_manager_id": str(project_reviewer.manager_id),
+            },
+        )
+        await db.commit()
+        return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
 
     pax_entries, has_compliance_issues, target_status = await _run_ads_submission_checks(
         db,
@@ -2003,7 +2096,7 @@ async def submit_ads(
         ads.reference, current_user.id,
         "issues" if has_compliance_issues else "ok",
     )
-    return ads
+    return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
 
 
 @router.post("/ads/{ads_id}/approve", response_model=AdsRead)
@@ -2011,7 +2104,7 @@ async def approve_ads(
     ads_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("paxlog.ads.approve"),
+    _: None = Depends(_require_ads_approve_or_project_update),
     db: AsyncSession = Depends(get_db),
 ):
     """Approve an AdS (pending_validation → approved).
@@ -2026,6 +2119,131 @@ async def approve_ads(
     ads = result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
+
+    if ads.status == "pending_initiator_review":
+        can_approve_ads = await has_user_permission(current_user, entity_id, "paxlog.ads.approve", db)
+        if current_user.id != ads.requester_id and not can_approve_ads:
+            raise HTTPException(status_code=403, detail="Vous ne pouvez pas valider cette revue initiateur.")
+
+        project_reviewer = await _get_ads_project_reviewer(db, ads=ads, entity_id=entity_id)
+        if project_reviewer and project_reviewer.manager_id != current_user.id:
+            target_status = "pending_project_review"
+            has_compliance_issues = False
+            pax_entries = []
+        else:
+            pax_entries, has_compliance_issues, target_status = await _run_ads_submission_checks(
+                db,
+                ads=ads,
+                entity_id=entity_id,
+            )
+
+        from_state = ads.status
+        await _try_ads_workflow_transition(
+            db,
+            entity_id_str=str(ads.id),
+            to_state=target_status,
+            actor_id=current_user.id,
+            entity_id_scope=entity_id,
+        )
+        ads.status = target_status
+        db.add(AdsEvent(
+            entity_id=entity_id,
+            ads_id=ads.id,
+            event_type="initiator_review_approved",
+            old_status=from_state,
+            new_status=target_status,
+            actor_id=current_user.id,
+            metadata_json={
+                "requester_id": str(ads.requester_id),
+                "created_by": str(ads.created_by),
+            },
+        ))
+        await db.commit()
+        await db.refresh(ads)
+        await fsm_service.emit_transition_event(
+            entity_type=ADS_ENTITY_TYPE,
+            entity_id=str(ads.id),
+            from_state=from_state,
+            to_state=target_status,
+            actor_id=current_user.id,
+            workflow_slug=ADS_WORKFLOW_SLUG,
+            extra_payload={"reference": ads.reference, "requester_id": str(ads.requester_id)},
+        )
+        await record_audit(
+            db,
+            action="paxlog.ads.initiator_approve",
+            resource_type="ads",
+            resource_id=str(ads.id),
+            user_id=current_user.id,
+            entity_id=entity_id,
+            details={
+                "reference": ads.reference,
+                "target_status": target_status,
+                "compliance_issues": has_compliance_issues,
+                "pax_count": len(pax_entries),
+            },
+        )
+        await db.commit()
+        return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
+
+    if ads.status == "pending_project_review":
+        project_reviewer = await _get_ads_project_reviewer(db, ads=ads, entity_id=entity_id)
+        can_approve_ads = await has_user_permission(current_user, entity_id, "paxlog.ads.approve", db)
+        if not project_reviewer:
+            raise HTTPException(status_code=400, detail="Aucune validation projet n'est attendue sur cette AdS.")
+        if current_user.id != project_reviewer.manager_id and not can_approve_ads:
+            raise HTTPException(status_code=403, detail="Vous ne pouvez pas valider cette revue projet.")
+
+        pax_entries, has_compliance_issues, target_status = await _run_ads_submission_checks(
+            db,
+            ads=ads,
+            entity_id=entity_id,
+        )
+        from_state = ads.status
+        await _try_ads_workflow_transition(
+            db,
+            entity_id_str=str(ads.id),
+            to_state=target_status,
+            actor_id=current_user.id,
+            entity_id_scope=entity_id,
+        )
+        ads.status = target_status
+        db.add(AdsEvent(
+            entity_id=entity_id,
+            ads_id=ads.id,
+            event_type="project_review_approved",
+            old_status=from_state,
+            new_status=target_status,
+            actor_id=current_user.id,
+            metadata_json={"project_id": str(project_reviewer.id)},
+        ))
+        await db.commit()
+        await db.refresh(ads)
+        await fsm_service.emit_transition_event(
+            entity_type=ADS_ENTITY_TYPE,
+            entity_id=str(ads.id),
+            from_state=from_state,
+            to_state=target_status,
+            actor_id=current_user.id,
+            workflow_slug=ADS_WORKFLOW_SLUG,
+            extra_payload={"reference": ads.reference, "project_id": str(project_reviewer.id)},
+        )
+        await record_audit(
+            db,
+            action="paxlog.ads.project_approve",
+            resource_type="ads",
+            resource_id=str(ads.id),
+            user_id=current_user.id,
+            entity_id=entity_id,
+            details={
+                "reference": ads.reference,
+                "project_id": str(project_reviewer.id),
+                "compliance_issues": has_compliance_issues,
+                "pax_count": len(pax_entries),
+            },
+        )
+        await db.commit()
+        return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
 
     if ads.status not in ("pending_validation", "submitted"):
         raise HTTPException(
@@ -2111,7 +2329,7 @@ async def approve_ads(
     ))
 
     logger.info("AdS %s approved by %s", ads.reference, current_user.id)
-    return ads
+    return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
 
 
 @router.post("/ads/{ads_id}/reject", response_model=AdsRead)
@@ -2120,7 +2338,7 @@ async def reject_ads(
     reason: str | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("paxlog.ads.approve"),
+    _: None = Depends(_require_ads_approve_or_project_update),
     db: AsyncSession = Depends(get_db),
 ):
     """Reject an AdS."""
@@ -2130,6 +2348,16 @@ async def reject_ads(
     ads = result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
+
+    if ads.status == "pending_project_review":
+        project_reviewer = await _get_ads_project_reviewer(db, ads=ads, entity_id=entity_id)
+        can_approve_ads = await has_user_permission(current_user, entity_id, "paxlog.ads.approve", db)
+        if not project_reviewer:
+            raise HTTPException(status_code=400, detail="Aucune validation projet n'est attendue sur cette AdS.")
+        if current_user.id != project_reviewer.manager_id and not can_approve_ads:
+            raise HTTPException(status_code=403, detail="Vous ne pouvez pas rejeter cette revue projet.")
+    elif not await has_user_permission(current_user, entity_id, "paxlog.ads.approve", db):
+        raise HTTPException(status_code=403, detail="Vous ne pouvez pas rejeter cette AdS.")
 
     if ads.status in ("cancelled", "completed", "rejected"):
         raise HTTPException(
@@ -2144,27 +2372,29 @@ async def reject_ads(
     for entry in pax_result.scalars().all():
         entry.status = "rejected"
 
-    # FSM transition: * → rejected
+    target_state = "cancelled" if ads.status == "pending_initiator_review" else "rejected"
+
+    # FSM transition: * → cancelled/rejected
     from_state = ads.status
     await _try_ads_workflow_transition(
         db,
         entity_id_str=str(ads.id),
-        to_state="rejected",
+        to_state=target_state,
         actor_id=current_user.id,
         entity_id_scope=entity_id,
         comment=reason,
     )
 
-    ads.status = "rejected"
-    ads.rejected_at = func.now()
+    ads.status = target_state
+    ads.rejected_at = func.now() if target_state == "rejected" else None
     ads.rejection_reason = reason
 
     db.add(AdsEvent(
         entity_id=entity_id,
         ads_id=ads.id,
-        event_type="rejected",
+        event_type="initiator_review_rejected" if target_state == "cancelled" else "rejected",
         old_status=from_state,
-        new_status="rejected",
+        new_status=target_state,
         actor_id=current_user.id,
         reason=reason,
     ))
@@ -2177,7 +2407,7 @@ async def reject_ads(
         entity_type=ADS_ENTITY_TYPE,
         entity_id=str(ads.id),
         from_state=from_state,
-        to_state="rejected",
+        to_state=target_state,
         actor_id=current_user.id,
         workflow_slug=ADS_WORKFLOW_SLUG,
         extra_payload={"rejection_reason": reason},
@@ -2186,7 +2416,7 @@ async def reject_ads(
     # Emit module-level event AFTER commit → triggers PaxLog notification handlers
     from app.core.events import OpsFluxEvent, event_bus as _event_bus
     await _event_bus.publish(OpsFluxEvent(
-        event_type="ads.rejected",
+        event_type="ads.cancelled" if target_state == "cancelled" else "ads.rejected",
         payload={
             "ads_id": str(ads.id),
             "entity_id": str(entity_id),
@@ -2196,8 +2426,8 @@ async def reject_ads(
         },
     ))
 
-    logger.info("AdS %s rejected by %s", ads.reference, current_user.id)
-    return ads
+    logger.info("AdS %s %s by %s", ads.reference, target_state, current_user.id)
+    return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
 
 
 @router.post("/ads/{ads_id}/request-review", response_model=AdsRead)
@@ -2530,6 +2760,111 @@ async def list_ads_pax(
     return items
 
 
+@router.post("/ads/{ads_id}/pax/{entry_id}/decision", response_model=AdsRead)
+async def decide_ads_pax(
+    ads_id: UUID,
+    entry_id: UUID,
+    body: AdsPaxDecision,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.ads.approve"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Approve or reject a single PAX inside an AdS."""
+    from app.services.modules.paxlog_service import ads_requires_travelwiz_transport
+
+    ads_result = await db.execute(
+        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
+    )
+    ads = ads_result.scalar_one_or_none()
+    if not ads:
+        raise HTTPException(status_code=404, detail="AdS not found")
+    if ads.status not in {"submitted", "pending_validation"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Impossible de traiter un PAX avec le statut AdS '{ads.status}'.",
+        )
+
+    pax_result = await db.execute(
+        select(AdsPax).where(AdsPax.id == entry_id, AdsPax.ads_id == ads_id)
+    )
+    entry = pax_result.scalar_one_or_none()
+    if not entry:
+        raise HTTPException(status_code=404, detail="PAX entry not found in this AdS")
+    if entry.status in {"approved", "rejected", "no_show"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Impossible de traiter un PAX avec le statut '{entry.status}'.",
+        )
+    if body.action == "approve" and entry.status == "blocked":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Un PAX bloque en conformite ne peut pas etre approuve individuellement.",
+        )
+
+    previous_ads_status = ads.status
+    old_status = entry.status
+    new_status = "approved" if body.action == "approve" else "rejected"
+    entry.status = new_status
+
+    db.add(AdsEvent(
+        entity_id=entity_id,
+        ads_id=ads.id,
+        ads_pax_id=entry.id,
+        event_type="pax_approved" if body.action == "approve" else "pax_rejected",
+        old_status=old_status,
+        new_status=new_status,
+        actor_id=current_user.id,
+        reason=body.reason,
+    ))
+
+    await _finalize_ads_after_pax_decision(
+        db=db,
+        ads=ads,
+        entity_id=entity_id,
+        actor_id=current_user.id,
+    )
+    await db.commit()
+    await db.refresh(ads)
+    if previous_ads_status != ads.status:
+        from app.core.events import OpsFluxEvent, event_bus as _event_bus
+
+        if ads.status == "approved":
+            approved_result = await db.execute(
+                select(AdsPax).where(AdsPax.ads_id == ads.id, AdsPax.status == "approved")
+            )
+            approved_count = len(approved_result.scalars().all())
+            await _event_bus.publish(OpsFluxEvent(
+                event_type="ads.approved",
+                payload={
+                    "ads_id": str(ads.id),
+                    "entity_id": str(entity_id),
+                    "site_asset_id": str(ads.site_entry_asset_id),
+                    "start_date": str(ads.start_date),
+                    "end_date": str(ads.end_date),
+                    "outbound_transport_mode": ads.outbound_transport_mode,
+                    "return_transport_mode": ads.return_transport_mode,
+                    "transport_requested": ads_requires_travelwiz_transport(ads.outbound_transport_mode),
+                    "outbound_departure_base_id": str(ads.outbound_departure_base_id) if ads.outbound_departure_base_id else None,
+                    "requester_id": str(ads.requester_id),
+                    "reference": ads.reference,
+                    "approved_pax_count": approved_count,
+                },
+            ))
+        elif ads.status == "rejected":
+            await _event_bus.publish(OpsFluxEvent(
+                event_type="ads.rejected",
+                payload={
+                    "ads_id": str(ads.id),
+                    "entity_id": str(entity_id),
+                    "reference": ads.reference,
+                    "requester_id": str(ads.requester_id),
+                    "rejection_reason": ads.rejection_reason or "",
+                },
+            ))
+    return ads
+
+
 class AddPaxBody(BaseModel):
     """Body to add a PAX to an AdS. Provide exactly one of user_id or contact_id."""
     user_id: UUID | None = None
@@ -2742,29 +3077,7 @@ async def get_ads_by_reference(
     if not ads:
         raise HTTPException(status_code=404, detail=f"AdS «{reference}» introuvable")
     await _assert_ads_read_access(ads, current_user=current_user, entity_id=entity_id, db=db)
-    avm_origin_result = await db.execute(
-        select(
-            MissionProgram.id,
-            MissionProgram.activity_description,
-            MissionNotice.id,
-            MissionNotice.reference,
-            MissionNotice.title,
-        )
-        .join(MissionNotice, MissionNotice.id == MissionProgram.mission_notice_id)
-        .where(MissionProgram.generated_ads_id == ads.id)
-        .limit(1)
-    )
-    avm_origin = avm_origin_result.first()
-    data = AdsRead.model_validate(ads).model_dump()
-    if avm_origin:
-        data.update({
-            "origin_mission_program_id": avm_origin[0],
-            "origin_mission_program_activity": avm_origin[1],
-            "origin_mission_notice_id": avm_origin[2],
-            "origin_mission_notice_reference": avm_origin[3],
-            "origin_mission_notice_title": avm_origin[4],
-        })
-    return AdsRead(**data)
+    return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
 
 
 @router.get("/ads/{ads_id}/pdf")
@@ -3962,6 +4275,8 @@ async def _can_read_ads(
 ) -> bool:
     if ads.requester_id == current_user.id:
         return True
+    if ads.created_by == current_user.id:
+        return True
     return await has_user_permission(current_user, entity_id, "paxlog.ads.read_all", db)
 
 
@@ -3985,7 +4300,165 @@ async def _can_manage_ads(
 ) -> bool:
     if ads.requester_id == current_user.id:
         return True
+    if ads.created_by == current_user.id:
+        return True
     return await has_user_permission(current_user, entity_id, "paxlog.ads.approve", db)
+
+
+async def _get_ads_project_reviewer(
+    db: AsyncSession,
+    *,
+    ads: Ads,
+    entity_id: UUID,
+) -> Project | None:
+    if not ads.project_id:
+        return None
+    project = await db.get(Project, ads.project_id)
+    if not project or project.entity_id != entity_id or project.archived or not project.manager_id:
+        return None
+    origin_result = await db.execute(
+        select(MissionProgram.id).where(MissionProgram.generated_ads_id == ads.id).limit(1)
+    )
+    if origin_result.scalar_one_or_none():
+        return None
+    return project
+
+
+async def _build_ads_read_data(
+    db: AsyncSession,
+    *,
+    ads: Ads,
+    entity_id: UUID,
+) -> dict:
+    data = AdsRead.model_validate(ads).model_dump()
+
+    people_result = await db.execute(
+        select(User.id, User.first_name, User.last_name).where(
+            User.id.in_([ads.requester_id, ads.created_by])
+        )
+    )
+    people = {
+        row[0]: f"{row[1]} {row[2]}".strip()
+        for row in people_result.all()
+        if row[1] or row[2]
+    }
+    data.update({
+        "requester_name": people.get(ads.requester_id),
+        "created_by_name": people.get(ads.created_by),
+    })
+
+    avm_origin_result = await db.execute(
+        select(
+            MissionProgram.id,
+            MissionProgram.activity_description,
+            MissionNotice.id,
+            MissionNotice.reference,
+            MissionNotice.title,
+        )
+        .join(MissionNotice, MissionNotice.id == MissionProgram.mission_notice_id)
+        .where(MissionProgram.generated_ads_id == ads.id)
+        .limit(1)
+    )
+    avm_origin = avm_origin_result.first()
+    if avm_origin:
+        data.update({
+            "origin_mission_program_id": avm_origin[0],
+            "origin_mission_program_activity": avm_origin[1],
+            "origin_mission_notice_id": avm_origin[2],
+            "origin_mission_notice_reference": avm_origin[3],
+            "origin_mission_notice_title": avm_origin[4],
+        })
+
+    if ads.project_id:
+        project_result = await db.execute(
+            select(Project.manager_id, User.first_name, User.last_name)
+            .outerjoin(User, Project.manager_id == User.id)
+            .where(Project.id == ads.project_id, Project.entity_id == entity_id)
+        )
+        project_row = project_result.first()
+        if project_row:
+            data.update({
+                "project_manager_id": project_row[0],
+                "project_manager_name": f"{project_row[1]} {project_row[2]}".strip() if project_row[1] else None,
+            })
+
+    if ads.planner_activity_id:
+        planner_result = await db.execute(
+            select(PlannerActivity.title, PlannerActivity.status).where(
+                PlannerActivity.id == ads.planner_activity_id,
+                PlannerActivity.entity_id == entity_id,
+            )
+        )
+        planner_row = planner_result.first()
+        if planner_row:
+            data.update({
+                "planner_activity_title": planner_row[0],
+                "planner_activity_status": planner_row[1],
+            })
+
+    return data
+
+
+async def _finalize_ads_after_pax_decision(
+    *,
+    db: AsyncSession,
+    ads: Ads,
+    entity_id: UUID,
+    actor_id: UUID,
+) -> Ads:
+    result = await db.execute(
+        select(AdsPax).where(AdsPax.ads_id == ads.id)
+    )
+    pax_entries = result.scalars().all()
+    terminal_statuses = {"approved", "rejected", "no_show"}
+    if not pax_entries or any(entry.status not in terminal_statuses for entry in pax_entries):
+        return ads
+
+    approved_entries = [entry for entry in pax_entries if entry.status == "approved"]
+    from_state = ads.status
+    if approved_entries:
+        ads.status = "approved"
+        ads.approved_at = func.now()
+        ads.rejected_at = None
+        ads.rejection_reason = None
+        db.add(AdsEvent(
+            entity_id=entity_id,
+            ads_id=ads.id,
+            event_type="approved",
+            old_status=from_state,
+            new_status="approved",
+            actor_id=actor_id,
+            metadata_json={"approved_pax_count": len(approved_entries)},
+        ))
+        await _try_ads_workflow_transition(
+            db,
+            entity_id_str=str(ads.id),
+            to_state="approved",
+            actor_id=actor_id,
+            entity_id_scope=entity_id,
+        )
+    else:
+        ads.status = "rejected"
+        ads.rejected_at = func.now()
+        ads.rejection_reason = "Tous les PAX de l'AdS ont été rejetés."
+        db.add(AdsEvent(
+            entity_id=entity_id,
+            ads_id=ads.id,
+            event_type="rejected",
+            old_status=from_state,
+            new_status="rejected",
+            actor_id=actor_id,
+            reason=ads.rejection_reason,
+        ))
+        await _try_ads_workflow_transition(
+            db,
+            entity_id_str=str(ads.id),
+            to_state="rejected",
+            actor_id=actor_id,
+            entity_id_scope=entity_id,
+            comment=ads.rejection_reason,
+        )
+    return ads
 
 
 async def _can_read_avm(
@@ -4744,6 +5217,7 @@ async def list_signalements(
 async def create_signalement(
     user_id: UUID | None = None,
     contact_id: UUID | None = None,
+    company_id: UUID | None = None,
     asset_id: UUID | None = None,
     severity: str = "info",
     description: str = "",
@@ -4755,9 +5229,9 @@ async def create_signalement(
     _: None = require_permission("paxlog.incident.create"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a formal signalement (incident, HSE violation, ban).
+    """Create a formal signalement (incident, HSE violation, sanction).
 
-    If severity is temp_ban or permanent_ban, the PAX is auto-suspended.
+    Ban-like severities can suspend the PAX and immediately impact related AdS.
     """
     from app.services.modules.paxlog_service import create_signalement as svc_create
 
@@ -4773,6 +5247,7 @@ async def create_signalement(
         data={
             "user_id": user_id,
             "contact_id": contact_id,
+            "company_id": company_id,
             "asset_id": asset_id,
             "severity": severity,
             "description": description,

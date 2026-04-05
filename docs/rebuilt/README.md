@@ -59,6 +59,7 @@ Statut officiel au 3 avril 2026:
 32. [31_REFERENCE_TEST_DATASET.md](C:/Users/ajha0/Desktop/OPSFLUX/docs/rebuilt/31_REFERENCE_TEST_DATASET.md)
 33. [32_MODULE_GAP_MATRIX.md](C:/Users/ajha0/Desktop/OPSFLUX/docs/rebuilt/32_MODULE_GAP_MATRIX.md)
 34. [33_PAXLOG_FUNCTIONAL_RECIPE.md](C:/Users/ajha0/Desktop/OPSFLUX/docs/rebuilt/33_PAXLOG_FUNCTIONAL_RECIPE.md)
+35. [34_PAXLOG_COVERAGE_AUDIT.md](C:/Users/ajha0/Desktop/OPSFLUX/docs/rebuilt/34_PAXLOG_COVERAGE_AUDIT.md)
 
 ## Modules
 

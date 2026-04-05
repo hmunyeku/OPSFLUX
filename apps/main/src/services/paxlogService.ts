@@ -189,7 +189,10 @@ export interface Ads {
   type: 'individual' | 'team'
   status: string
   workflow_id: string | null
+  created_by: string
+  created_by_name?: string | null
   requester_id: string
+  requester_name?: string | null
   site_entry_asset_id: string
   visit_purpose: string
   visit_category: string
@@ -198,6 +201,8 @@ export interface Ads {
   outbound_transport_mode: string | null
   return_transport_mode: string | null
   project_id: string | null
+  project_manager_id?: string | null
+  project_manager_name?: string | null
   planner_activity_id: string | null
   planner_activity_title?: string | null
   planner_activity_status?: string | null
@@ -215,7 +220,6 @@ export interface Ads {
   created_at: string
   updated_at: string
   // Enriched
-  requester_name?: string | null
   site_name?: string | null
   project_name?: string | null
   pax_count?: number
@@ -254,6 +258,7 @@ export interface AdsEvent {
 
 export interface AdsCreate {
   type?: 'individual' | 'team'
+  requester_id?: string | null
   site_entry_asset_id: string
   visit_purpose: string
   visit_category: string
@@ -339,6 +344,11 @@ export interface AdsPax {
   compliant?: boolean | null
 }
 
+export interface AdsPaxDecision {
+  action: 'approve' | 'reject'
+  reason?: string | null
+}
+
 // AdS Imputations
 export interface AdsImputation {
   id: string
@@ -401,7 +411,7 @@ export interface PaxIncident {
   contact_id: string | null
   company_id: string | null
   asset_id: string | null
-  severity: 'info' | 'warning' | 'temp_ban' | 'permanent_ban'
+  severity: 'info' | 'warning' | 'site_ban' | 'temp_ban' | 'permanent_ban'
   description: string
   incident_date: string
   ban_start_date: string | null
@@ -422,7 +432,7 @@ export interface PaxIncidentCreate {
   contact_id?: string | null
   company_id?: string | null
   asset_id?: string | null
-  severity: 'info' | 'warning' | 'temp_ban' | 'permanent_ban'
+  severity: 'info' | 'warning' | 'site_ban' | 'temp_ban' | 'permanent_ban'
   description: string
   incident_date: string
   ban_start_date?: string | null
@@ -876,6 +886,11 @@ export const paxlogService = {
 
   listAdsPax: async (adsId: string): Promise<AdsPax[]> => {
     const { data } = await api.get(`/api/v1/pax/ads/${adsId}/pax`)
+    return data
+  },
+
+  decideAdsPax: async (adsId: string, entryId: string, body: AdsPaxDecision): Promise<Ads> => {
+    const { data } = await api.post(`/api/v1/pax/ads/${adsId}/pax/${entryId}/decision`, body)
     return data
   },
 

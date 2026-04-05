@@ -214,7 +214,7 @@ async def seed_dev_data(db: AsyncSession) -> None:
                 # Step 0-A: initiator review (when created_by != requester_id)
                 {"from": "submitted", "to": "pending_initiator_review", "label": "Vers validation initiateur"},
                 {"from": "pending_initiator_review", "to": "pending_project_review", "label": "Valider", "required_roles": ["READER"]},
-                {"from": "pending_initiator_review", "to": "rejected", "label": "Rejeter", "comment_required": True},
+                {"from": "pending_initiator_review", "to": "cancelled", "label": "Annuler", "comment_required": True},
                 # Step 0-B: project review (when linked to a project)
                 {"from": "submitted", "to": "pending_project_review", "label": "Vers validation projet"},
                 {"from": "pending_project_review", "to": "pending_compliance", "label": "Valider", "required_roles": ["CHEF_PROJET"]},
@@ -1192,6 +1192,12 @@ async def seed_dictionary_entries(db: AsyncSession) -> None:
         ("compliance_verification_status", "pending", "En attente", 1, {"en": "Pending"}),
         ("compliance_verification_status", "verified", "Vérifié", 2, {"en": "Verified"}),
         ("compliance_verification_status", "rejected", "Rejeté", 3, {"en": "Rejected"}),
+        # ── Pax incident severities ──
+        ("pax_incident_severity", "info", "Information", 1, {"en": "Information"}),
+        ("pax_incident_severity", "warning", "Avertissement", 2, {"en": "Warning"}),
+        ("pax_incident_severity", "site_ban", "Interdiction site", 3, {"en": "Site ban"}),
+        ("pax_incident_severity", "temp_ban", "Suspension temporaire", 4, {"en": "Temporary ban"}),
+        ("pax_incident_severity", "permanent_ban", "Exclusion permanente", 5, {"en": "Permanent ban"}),
     ]
 
     created = 0

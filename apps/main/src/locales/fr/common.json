@@ -1541,6 +1541,7 @@
         "team": "Équipe"
       },
       "fields": {
+        "requester": "Demandeur",
         "entry_site": "Site d'entrée",
         "project": "Projet associé",
         "dates": "Dates",
@@ -1645,6 +1646,8 @@
         "draft_ready": "Le dossier peut être soumis. Vérifiez les PAX et l’imputation avant envoi.",
         "draft_missing": "Complétez les informations manquantes et ajoutez au moins un passager avant soumission.",
         "submitted": "Le dossier attend le passage en revue conformité ou validation.",
+        "pending_initiator_review": "Le dossier attend la confirmation du demandeur réel avant de poursuivre le circuit de validation.",
+        "pending_project_review": "Le dossier attend la validation du chef de projet avant le contrôle conformité et la validation du site.",
         "pending_compliance": "Le dossier est en contrôle conformité. Surveillez les écarts sur les passagers et les pièces.",
         "pending_validation": "Le dossier est en validation. Les derniers ajustements portent surtout sur l’imputation et les arbitrages.",
         "requires_review": "Le dossier a été renvoyé en correction. Corrigez les éléments demandés puis re-soumettez-le.",
@@ -1682,6 +1685,7 @@
         "site": "Site",
         "dates": "Dates",
         "requester": "Demandeur",
+        "created_by": "Créée par",
         "origin_avm": "AVM d'origine",
         "origin_mission_title": "Titre de mission",
         "origin_program_activity": "Activité d'origine",
@@ -1732,6 +1736,11 @@
         "source_avm": "Source AVM :",
         "events": {
           "stay_change_requested": "Demande de modification de séjour",
+          "submitted_for_initiator_review": "Soumis pour validation du demandeur",
+          "initiator_review_approved": "Validation du demandeur",
+          "initiator_review_rejected": "Refus du demandeur",
+          "submitted_for_project_review": "Soumis pour validation projet",
+          "project_review_approved": "Validation projet",
           "avm_modified_requires_review": "Revue requise suite à une modification d'AVM",
           "avm_cancelled": "Impact suite à l'annulation de l'AVM",
           "planner_activity_modified_requires_review": "Revue requise suite à une modification Planner",
@@ -1755,10 +1764,15 @@
       "actions": {
         "external_link": "Lien externe",
         "add_passenger": "Ajouter un passager",
+        "validate_passenger": "Valider ce passager",
+        "reject_passenger": "Rejeter ce passager",
         "remove_passenger": "Retirer ce passager",
         "request_review": "Renvoyer en correction",
         "resubmit": "Re-soumettre",
         "request_stay_change": "Modifier le séjour"
+      },
+      "reject": {
+        "passenger_placeholder": "Motif optionnel du rejet de ce passager"
       },
       "empty": {
         "pax_search": "Aucun résultat pour « {{search}} »",

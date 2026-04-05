@@ -172,6 +172,7 @@ class Ads(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
         Index("idx_ads_asset", "site_entry_asset_id"),
         Index("idx_ads_dates", "start_date", "end_date"),
         Index("idx_ads_requester", "requester_id"),
+        Index("idx_ads_created_by", "created_by"),
         CheckConstraint("end_date >= start_date", name="ck_ads_dates"),
         CheckConstraint(
             "status IN ('draft','submitted','pending_initiator_review',"
@@ -203,6 +204,9 @@ class Ads(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     )
     project_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("projects.id")
+    )
+    created_by: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
     )
     requester_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
@@ -302,7 +306,7 @@ class PaxIncident(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             name="ck_pax_incidents_pax_xor",
         ),
         CheckConstraint(
-            "severity IN ('info','warning','temp_ban','permanent_ban')",
+            "severity IN ('info','warning','site_ban','temp_ban','permanent_ban')",
             name="ck_incident_severity",
         ),
     )

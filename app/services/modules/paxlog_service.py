@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.events import OpsFluxEvent, event_bus
 from app.models.paxlog import (
     Ads,
+    AdsEvent,
     AdsPax,
     ComplianceMatrixEntry,
     CredentialType,
@@ -31,6 +32,7 @@ from app.models.paxlog import (
     PaxCredential,
     PaxIncident,
 )
+from app.models.common import TierContact
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +55,18 @@ PRIORITY_WEIGHTS = {
 
 ADS_REF_PREFIX = "ADS"
 NON_TRAVELWIZ_OUTBOUND_MODES = {"", "walking"}
+ADS_PENDING_SIGNALLEMENT_REJECTION_STATUSES = {
+    "submitted",
+    "pending_initiator_review",
+    "pending_project_review",
+    "pending_compliance",
+    "pending_validation",
+    "pending_arbitration",
+}
+ADS_ACTIVE_SIGNALLEMENT_REVIEW_STATUSES = {
+    "approved",
+    "in_progress",
+}
 
 
 def ads_requires_travelwiz_transport(
@@ -768,10 +782,11 @@ async def create_signalement(
     entity_id: UUID,
     data: dict,
 ) -> dict:
-    """Create a formal signalement (incident, HSE violation, ban).
+    """Create a formal signalement (incident, HSE violation, sanction).
 
     If severity is ``temp_ban`` or ``permanent_ban``, auto-blocks PAX from
-    future AdS by updating their profile status to ``suspended``.
+    future AdS by updating their profile status to ``suspended``. Ban-like
+    severities also propagate immediate effects to impacted AdS.
 
     ``data`` keys:
         pax_id, asset_id, severity, description, incident_date,
@@ -781,6 +796,8 @@ async def create_signalement(
     """
     inc_user_id = data.get("user_id")
     inc_contact_id = data.get("contact_id")
+    inc_company_id = data.get("company_id")
+    inc_asset_id = data.get("asset_id")
     severity = data["severity"]
     recorded_by = data["recorded_by"]
 
@@ -790,7 +807,7 @@ async def create_signalement(
         user_id=inc_user_id,
         contact_id=inc_contact_id,
         company_id=data.get("company_id"),
-        asset_id=data.get("asset_id"),
+        asset_id=inc_asset_id,
         severity=severity,
         description=data["description"],
         incident_date=data["incident_date"],
@@ -816,6 +833,12 @@ async def create_signalement(
             )
             logger.info("Contact %s suspended due to %s signalement %s", inc_contact_id, severity, incident.id)
 
+    impacted_ads = await _apply_signalement_ads_effects(
+        db,
+        entity_id=entity_id,
+        incident=incident,
+    )
+
     await db.commit()
     await db.refresh(incident)
 
@@ -827,9 +850,12 @@ async def create_signalement(
             "entity_id": str(entity_id),
             "user_id": str(inc_user_id) if inc_user_id else None,
             "contact_id": str(inc_contact_id) if inc_contact_id else None,
+            "company_id": str(inc_company_id) if inc_company_id else None,
             "severity": severity,
-            "asset_id": str(data.get("asset_id")) if data.get("asset_id") else None,
+            "asset_id": str(inc_asset_id) if inc_asset_id else None,
             "recorded_by": str(recorded_by),
+            "ads_rejected": impacted_ads["rejected"],
+            "ads_flagged_for_review": impacted_ads["requires_review"],
         },
     ))
 
@@ -838,6 +864,7 @@ async def create_signalement(
         "entity_id": incident.entity_id,
         "user_id": incident.user_id,
         "contact_id": incident.contact_id,
+        "company_id": incident.company_id,
         "severity": incident.severity,
         "description": incident.description,
         "incident_date": incident.incident_date,
@@ -845,7 +872,97 @@ async def create_signalement(
         "ban_end_date": incident.ban_end_date,
         "recorded_by": incident.recorded_by,
         "created_at": incident.created_at,
+        "ads_rejected": impacted_ads["rejected"],
+        "ads_flagged_for_review": impacted_ads["requires_review"],
     }
+
+
+async def _apply_signalement_ads_effects(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    incident: PaxIncident,
+) -> dict[str, int]:
+    if incident.severity not in {"site_ban", "temp_ban", "permanent_ban"}:
+        return {"rejected": 0, "requires_review": 0}
+
+    query = (
+        select(Ads)
+        .join(AdsPax, AdsPax.ads_id == Ads.id)
+        .where(
+            Ads.entity_id == entity_id,
+            Ads.archived == False,  # noqa: E712
+        )
+        .distinct()
+    )
+
+    if incident.user_id:
+        query = query.where(AdsPax.user_id == incident.user_id)
+    elif incident.contact_id:
+        query = query.where(AdsPax.contact_id == incident.contact_id)
+    elif incident.company_id:
+        query = (
+            query
+            .join(TierContact, TierContact.id == AdsPax.contact_id)
+            .where(TierContact.tier_id == incident.company_id)
+        )
+    else:
+        return {"rejected": 0, "requires_review": 0}
+
+    if incident.severity == "site_ban":
+        if not incident.asset_id:
+            return {"rejected": 0, "requires_review": 0}
+        query = query.where(Ads.site_entry_asset_id == incident.asset_id)
+
+    result = await db.execute(query)
+    impacted_ads = result.scalars().all()
+
+    rejected_count = 0
+    review_count = 0
+    now = datetime.now(timezone.utc)
+    reason = incident.description
+    target_scope = {
+        "incident_id": str(incident.id),
+        "severity": incident.severity,
+        "asset_id": str(incident.asset_id) if incident.asset_id else None,
+        "company_id": str(incident.company_id) if incident.company_id else None,
+        "user_id": str(incident.user_id) if incident.user_id else None,
+        "contact_id": str(incident.contact_id) if incident.contact_id else None,
+    }
+
+    for ads in impacted_ads:
+        from_state = ads.status
+        if from_state in ADS_PENDING_SIGNALLEMENT_REJECTION_STATUSES:
+            ads.status = "rejected"
+            ads.rejected_at = now
+            ads.rejection_reason = reason
+            rejected_count += 1
+            db.add(AdsEvent(
+                entity_id=entity_id,
+                ads_id=ads.id,
+                event_type="signalement_rejected",
+                old_status=from_state,
+                new_status="rejected",
+                actor_id=incident.recorded_by,
+                reason=reason,
+                metadata_json=target_scope,
+            ))
+        elif from_state in ADS_ACTIVE_SIGNALLEMENT_REVIEW_STATUSES:
+            ads.status = "requires_review"
+            ads.rejection_reason = reason
+            review_count += 1
+            db.add(AdsEvent(
+                entity_id=entity_id,
+                ads_id=ads.id,
+                event_type="signalement_requires_review",
+                old_status=from_state,
+                new_status="requires_review",
+                actor_id=incident.recorded_by,
+                reason=reason,
+                metadata_json=target_scope,
+            ))
+
+    return {"rejected": rejected_count, "requires_review": review_count}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

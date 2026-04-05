@@ -177,6 +177,7 @@ class AdsPaxEntry(BaseModel):
 
 class AdsCreate(BaseModel):
     type: str = Field(default="individual", pattern=r"^(individual|team)$")
+    requester_id: UUID | None = None
     site_entry_asset_id: UUID
     visit_purpose: str = Field(min_length=1)
     visit_category: str = Field(
@@ -222,6 +223,11 @@ class AdsStayChangeRequest(BaseModel):
     return_notes: str | None = None
 
 
+class AdsPaxDecision(BaseModel):
+    action: str = Field(pattern=r"^(approve|reject)$")
+    reason: str | None = None
+
+
 class AdsPaxRead(OpsFluxSchema):
     id: UUID
     ads_id: UUID
@@ -242,11 +248,16 @@ class AdsRead(OpsFluxSchema):
     type: str
     status: str
     workflow_id: UUID | None
+    created_by: UUID
+    created_by_name: str | None = None
     planner_activity_id: UUID | None = None
     planner_activity_title: str | None = None
     planner_activity_status: str | None = None
     project_id: UUID | None = None
+    project_manager_id: UUID | None = None
+    project_manager_name: str | None = None
     requester_id: UUID
+    requester_name: str | None = None
     site_entry_asset_id: UUID
     visit_purpose: str
     visit_category: str
@@ -324,7 +335,7 @@ class PaxIncidentCreate(BaseModel):
     contact_id: UUID | None = None
     company_id: UUID | None = None
     asset_id: UUID | None = None
-    severity: str = Field(pattern=r"^(info|warning|temp_ban|permanent_ban)$")
+    severity: str = Field(pattern=r"^(info|warning|site_ban|temp_ban|permanent_ban)$")
     description: str = Field(min_length=1)
     incident_date: date
     ban_start_date: date | None = None

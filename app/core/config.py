@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     ALLOWED_HOSTS: str = "*"
     ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
     CORS_ALLOWED_METHODS: str = "GET,POST,PUT,PATCH,DELETE,OPTIONS"
-    CORS_ALLOWED_HEADERS: str = "Authorization,Content-Type,X-Entity-ID,X-Tenant,X-Request-Id,Accept,Accept-Language"
+    CORS_ALLOWED_HEADERS: str = "Authorization,Content-Type,X-External-Session,X-Entity-ID,X-Tenant,X-Request-Id,Accept,Accept-Language"
     LOG_LEVEL: str = "INFO"
     DEV_SEED_ON_STARTUP: bool = False
 

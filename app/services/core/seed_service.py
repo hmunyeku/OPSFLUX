@@ -584,6 +584,7 @@ async def seed_email_templates(db: AsyncSession, entity_id, admin_id) -> None:
     from app.models.common import EmailTemplate, EmailTemplateVersion
 
     created = 0
+    updated = 0
     for tpl_def in DEFAULT_TEMPLATES:
         result = await db.execute(
             select(EmailTemplate.id).where(
@@ -706,6 +707,8 @@ async def seed_reference_numbering(db: AsyncSession, entity_id) -> None:
         ("NCR", "{prefix}-{YYYY}-{####}"),
         # Documents
         ("DOC", "{entity_code}-{prefix}-{YYYY}-{####}"),
+        # Tiers (companies)
+        ("TIR", "{prefix}-{YYYY}-{####}"),
     ]
 
     created = 0
@@ -1154,6 +1157,43 @@ async def seed_dictionary_entries(db: AsyncSession) -> None:
         ("TH", "Thaïlande", "Thaïlandaise", 50, "🇹🇭"),
     ]
 
+    translated_entries = [
+        # ── Compliance categories (with translations) ──
+        ("compliance_category", "formation", "Formation", 1, {"en": "Training"}),
+        ("compliance_category", "certification", "Certification", 2, {"en": "Certification"}),
+        ("compliance_category", "habilitation", "Habilitation", 3, {"en": "Authorization"}),
+        ("compliance_category", "audit", "Audit", 4, {"en": "Audit"}),
+        ("compliance_category", "medical", "Médical", 5, {"en": "Medical"}),
+        ("compliance_category", "epi", "EPI", 6, {"en": "PPE"}),
+        # ── Compliance record statuses ──
+        ("compliance_status", "valid", "Valide", 1, {"en": "Valid"}),
+        ("compliance_status", "expired", "Expiré", 2, {"en": "Expired"}),
+        ("compliance_status", "pending", "En attente", 3, {"en": "Pending"}),
+        ("compliance_status", "rejected", "Rejeté", 4, {"en": "Rejected"}),
+        # ── Exemption statuses ──
+        ("compliance_exemption_status", "pending", "En attente", 1, {"en": "Pending"}),
+        ("compliance_exemption_status", "approved", "Approuvée", 2, {"en": "Approved"}),
+        ("compliance_exemption_status", "rejected", "Rejetée", 3, {"en": "Rejected"}),
+        ("compliance_exemption_status", "expired", "Expirée", 4, {"en": "Expired"}),
+        # ── Rule target types ──
+        ("compliance_rule_target", "all", "Tous", 1, {"en": "All"}),
+        ("compliance_rule_target", "tier_type", "Type de tiers", 2, {"en": "Tier type"}),
+        ("compliance_rule_target", "asset", "Asset", 3, {"en": "Asset"}),
+        ("compliance_rule_target", "department", "Département", 4, {"en": "Department"}),
+        ("compliance_rule_target", "job_position", "Fiche de poste", 5, {"en": "Job position"}),
+        # ── Rule priorities ──
+        ("compliance_rule_priority", "high", "Haute", 1, {"en": "High"}),
+        ("compliance_rule_priority", "normal", "Normale", 2, {"en": "Normal"}),
+        ("compliance_rule_priority", "low", "Basse", 3, {"en": "Low"}),
+        # ── Rule applicability ──
+        ("compliance_rule_applicability", "permanent", "Permanente", 1, {"en": "Permanent"}),
+        ("compliance_rule_applicability", "contextual", "Contextuelle", 2, {"en": "Contextual"}),
+        # ── Verification statuses ──
+        ("compliance_verification_status", "pending", "En attente", 1, {"en": "Pending"}),
+        ("compliance_verification_status", "verified", "Vérifié", 2, {"en": "Verified"}),
+        ("compliance_verification_status", "rejected", "Rejeté", 3, {"en": "Rejected"}),
+    ]
+
     created = 0
     for category, code, label, sort_order in entries:
         existing = await db.execute(
@@ -1174,8 +1214,37 @@ async def seed_dictionary_entries(db: AsyncSession) -> None:
         ))
         created += 1
 
+    for category, code, label, sort_order, translations in translated_entries:
+        existing = await db.execute(
+            select(DictionaryEntry).where(
+                DictionaryEntry.category == category,
+                DictionaryEntry.code == code,
+            )
+        )
+        entry = existing.scalar_one_or_none()
+        if entry:
+            changed = False
+            if not entry.translations:
+                entry.translations = translations
+                changed = True
+            if not entry.label:
+                entry.label = label
+                changed = True
+            if changed:
+                updated += 1
+            continue
+
+        db.add(DictionaryEntry(
+            category=category,
+            code=code,
+            label=label,
+            sort_order=sort_order,
+            active=True,
+            translations=translations,
+        ))
+        created += 1
+
     # Nationality entries with country + nationality metadata columns
-    updated = 0
     for iso_code, country, nationality, sort_order, flag in nationality_entries:
         expected_meta = {"flag": flag, "iso_code": iso_code, "country": country, "nationality": nationality}
         result = await db.execute(

@@ -13,6 +13,7 @@ from sqlalchemy.orm import selectinload
 from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.config import settings as app_settings
 from app.core.database import get_db
+from app.core.references import generate_reference
 from app.core.security import create_password_reset_token
 from app.core.email_templates import render_and_send_email
 from app.services.core.delete_service import delete_entity
@@ -118,7 +119,11 @@ async def create_tier(
             },
         )
 
-    tier = Tier(entity_id=entity_id, **body.model_dump())
+    # ── Auto-generate code server-side (client never provides it) ──
+    payload = body.model_dump()
+    payload["code"] = await generate_reference("TIR", db, entity_id=entity_id)
+
+    tier = Tier(entity_id=entity_id, **payload)
     db.add(tier)
     await db.commit()
     await db.refresh(tier)
@@ -220,6 +225,36 @@ async def list_all_contacts(
     query = query.order_by(TierContact.last_name, TierContact.first_name)
 
     return await paginate(db, query, pagination, transform=_contact_with_tier)
+
+
+@router.get("/contacts/all/{contact_id}", response_model=TierContactWithTier)
+async def get_global_contact(
+    contact_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("tier.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get a single contact across all companies, with parent tier info."""
+    linked_tier_ids = await _get_external_user_tier_ids(db, current_user, entity_id)
+    query = (
+        select(TierContact, Tier.name.label("tier_name"), Tier.code.label("tier_code"))
+        .options(selectinload(TierContact.promoted_user))
+        .join(Tier, TierContact.tier_id == Tier.id)
+        .where(
+            TierContact.id == contact_id,
+            Tier.entity_id == entity_id,
+            Tier.archived == False,
+            TierContact.active == True,
+        )
+    )
+    if linked_tier_ids is not None:
+        query = query.where(Tier.id.in_(linked_tier_ids))
+    result = await db.execute(query)
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    return _contact_with_tier(row)
 
 
 def _contact_with_tier(row) -> dict:

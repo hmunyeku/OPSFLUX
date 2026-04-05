@@ -92,7 +92,7 @@ export interface Tier {
 }
 
 export interface TierCreate {
-  code?: string
+  // Note: code is auto-generated server-side via the TIR numbering pattern.
   name: string
   alias?: string | null
   trade_name?: string | null
@@ -275,6 +275,7 @@ export interface UserRead {
   last_name: string
   active: boolean
   default_entity_id: string | null
+  tier_contact_id: string | null
   intranet_id: string | null
   language: string
   avatar_url: string | null

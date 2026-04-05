@@ -430,7 +430,8 @@ class TierRead(OpsFluxSchema):
 
 
 class TierCreate(BaseModel):
-    code: str = Field(..., min_length=1, max_length=50)
+    # ``code`` is always auto-generated server-side via the TIR numbering
+    # pattern. It must not be provided by the client.
     name: str = Field(..., min_length=1, max_length=200)
     alias: str | None = None
     trade_name: str | None = None

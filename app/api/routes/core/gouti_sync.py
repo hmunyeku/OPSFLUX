@@ -894,32 +894,30 @@ def _as_float(v) -> float | None:
 def _build_task_tree_metadata(raw_tasks: list[dict]) -> list[dict]:
     """Enrich a flat Gouti task list with synthesized parent ref and level.
 
-    Gouti exposes only ``level_ta`` (int, 1-based depth) + ``order_ta``
-    (display order). The parent of a task at level N is the most recent
-    preceding task at level N-1 in order. We walk the list sorted by
-    ``order_ta`` and maintain a level stack.
+    Gouti's ``/projects/{id}/tasks`` endpoint already returns tasks in
+    **depth-first traversal order**: parents come before their children
+    and siblings preserve their visual order. ``order_ta`` is only a
+    **local** index within a parent group, not a global sequence, so
+    sorting by order_ta globally scrambles the tree.
+
+    We therefore walk the list in its original order and maintain a
+    simple level stack: at level N, the parent is the last task pushed
+    at level N-1.
     """
-    # Sort by numeric order_ta, fallback to input order
-    def _order_key(t):
-        return _as_int(t.get("order_ta"), 0)
-
-    sorted_tasks = sorted(
-        [t for t in raw_tasks if isinstance(t, dict)],
-        key=_order_key,
-    )
-
     stack: list[tuple[int, str]] = []  # list of (level, ref_ta)
     out: list[dict] = []
-    for t in sorted_tasks:
+    for idx, t in enumerate(raw_tasks):
+        if not isinstance(t, dict):
+            continue
         level = _as_int(t.get("level_ta"), 1)
         ref = str(t.get("ref_ta") or t.get("_id") or "")
-        # Pop stack to find the right parent
+        # Pop stack until the top has a strictly shallower level
         while stack and stack[-1][0] >= level:
             stack.pop()
         parent_ref = stack[-1][1] if stack else None
         enriched = dict(t)
         enriched["_level"] = level
-        enriched["_order"] = _order_key(t)
+        enriched["_order"] = _as_int(t.get("order_ta"), idx)
         enriched["_parent_ref"] = parent_ref
         out.append(enriched)
         if ref:

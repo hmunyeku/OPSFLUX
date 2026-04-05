@@ -619,6 +619,8 @@ async def _run_ads_submission_checks(
     entity_id: UUID,
 ) -> tuple[list[AdsPax], bool, str]:
     """Run compliance checks and determine the next submission status for an AdS."""
+    from app.services.modules.paxlog_service import build_compliance_issues_summary, check_pax_compliance
+
     pax_entries_result = await db.execute(
         select(AdsPax).where(AdsPax.ads_id == ads.id)
     )
@@ -629,66 +631,50 @@ async def _run_ads_submission_checks(
             detail="L'AdS doit contenir au moins un PAX.",
         )
 
-    matrix_result = await db.execute(
-        select(ComplianceMatrixEntry).where(
-            ComplianceMatrixEntry.entity_id == entity_id,
-            ComplianceMatrixEntry.asset_id == ads.site_entry_asset_id,
-            ComplianceMatrixEntry.mandatory == True,  # noqa: E712
-        )
-    )
-    requirements = matrix_result.scalars().all()
-
     has_compliance_issues = False
+    issues_for_summary: list[dict] = []
     for pax_entry in pax_entries:
+        compliance = await check_pax_compliance(
+            db,
+            asset_id=ads.site_entry_asset_id,
+            entity_id=entity_id,
+            user_id=pax_entry.user_id,
+            contact_id=pax_entry.contact_id,
+        )
+
+        pax_label = None
         if pax_entry.user_id:
             u = await db.get(User, pax_entry.user_id)
-            pax_type = u.pax_type if u else "internal"
-            cred_filter = PaxCredential.user_id == pax_entry.user_id
+            pax_label = f"{u.first_name} {u.last_name}".strip() if u else "PAX interne"
         elif pax_entry.contact_id:
-            pax_type = "external"
-            cred_filter = PaxCredential.contact_id == pax_entry.contact_id
-        else:
-            continue
+            c = await db.get(TierContact, pax_entry.contact_id)
+            pax_label = f"{c.first_name} {c.last_name}".strip() if c else "PAX externe"
 
-        applicable_reqs = []
-        for req in requirements:
-            if req.scope == "all_visitors":
-                applicable_reqs.append(req)
-            elif req.scope == "contractors_only" and pax_type == "external":
-                applicable_reqs.append(req)
-            elif req.scope == "permanent_staff_only" and pax_type == "internal":
-                applicable_reqs.append(req)
-
-        creds_result = await db.execute(select(PaxCredential).where(cred_filter))
-        credentials = {c.credential_type_id: c for c in creds_result.scalars().all()}
-
-        missing: list[str] = []
-        expired: list[str] = []
-        for req in applicable_reqs:
-            cred = credentials.get(req.credential_type_id)
-            if not cred:
-                ct = await db.get(CredentialType, req.credential_type_id)
-                missing.append(ct.name if ct else str(req.credential_type_id))
-            elif cred.status == "expired" or (cred.expiry_date and cred.expiry_date < date.today()):
-                ct = await db.get(CredentialType, req.credential_type_id)
-                expired.append(ct.name if ct else str(req.credential_type_id))
-            elif cred.expiry_date and cred.expiry_date < ads.end_date:
-                ct = await db.get(CredentialType, req.credential_type_id)
-                expired.append(f"{ct.name if ct else ''} (expire pendant le séjour)")
+        blocking_items = [
+            {
+                **item,
+                "pax_label": pax_label,
+                "layer_label": item.get("layer_label") or item.get("layer"),
+            }
+            for item in compliance.get("results", [])
+            if item.get("blocking")
+        ]
 
         pax_entry.compliance_checked_at = func.now()
         pax_entry.compliance_summary = {
-            "missing": missing,
-            "expired": expired,
-            "compliant": len(missing) == 0 and len(expired) == 0,
+            **compliance,
+            "pax_label": pax_label,
+            "issues_summary": build_compliance_issues_summary(blocking_items),
         }
-        if missing or expired:
+        if blocking_items:
             pax_entry.status = "blocked"
             has_compliance_issues = True
+            issues_for_summary.extend(blocking_items)
         else:
             pax_entry.status = "compliant"
 
     target_status = "pending_compliance" if has_compliance_issues else "pending_validation"
+    ads.rejection_reason = build_compliance_issues_summary(issues_for_summary) if has_compliance_issues else None
     return pax_entries, has_compliance_issues, target_status
 
 
@@ -2332,7 +2318,7 @@ async def submit_ads(
                 "requester_id": str(ads.requester_id),
                 "blocked_pax_count": blocked_count,
                 "total_pax_count": len(pax_entries),
-                "issues_summary": "",
+                "issues_summary": ads.rejection_reason or "",
             },
         ))
 

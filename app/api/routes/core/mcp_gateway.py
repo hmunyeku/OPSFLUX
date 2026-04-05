@@ -790,18 +790,14 @@ async def oauth_token(request: Request):
 
 # ── Proxy route ──────────────────────────────────────────────────────────────
 
-@proxy_router.api_route(
-    "/{backend_slug}",
-    methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
-    include_in_schema=False,
-)
-@proxy_router.api_route(
-    "/{backend_slug}/{path:path}",
-    methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
-)
-async def proxy_to_backend(backend_slug: str, request: Request, path: str = ""):
-    """Authenticate via MCP Bearer token, then proxy to the upstream backend."""
+# The default backend slug when the client hits the short URL /mcp without
+# specifying a sub-backend. "opsflux" exposes the core OpsFlux tools
+# (tiers, contacts, projects, …).
+_DEFAULT_BACKEND_SLUG = "opsflux"
 
+
+async def _proxy_backend_call(backend_slug: str, request: Request, path: str = ""):
+    """Shared handler for both legacy /mcp-gw/{slug} and short /mcp[/{slug}]."""
     # Skip OAuth well-known / token paths that matched the catch-all
     if backend_slug in (".well-known", "oauth"):
         return JSONResponse({"error": "Not found"}, status_code=404)
@@ -919,6 +915,54 @@ async def proxy_to_backend(backend_slug: str, request: Request, path: str = ""):
     )
 
 
+# ── Legacy proxy route mounts on proxy_router (prefix="/mcp-gw") ─────────────
+
+@proxy_router.api_route(
+    "/{backend_slug}",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+    include_in_schema=False,
+)
+@proxy_router.api_route(
+    "/{backend_slug}/{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+)
+async def proxy_to_backend(backend_slug: str, request: Request, path: str = ""):
+    """Legacy /mcp-gw/{slug}/... route — kept for backward compatibility."""
+    return await _proxy_backend_call(backend_slug, request, path)
+
+
+# ── Short MCP URLs (canonical) ───────────────────────────────────────────────
+# https://api.opsflux.io/mcp             → default backend (opsflux)
+# https://api.opsflux.io/mcp/gouti       → gouti backend
+# https://api.opsflux.io/mcp/<slug>      → any other native/proxied backend
+
+short_mcp_router = APIRouter(prefix="/mcp", tags=["mcp"])
+
+
+@short_mcp_router.api_route(
+    "",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+    include_in_schema=False,
+)
+async def short_mcp_default(request: Request):
+    """Default MCP endpoint — routes to the core OpsFlux backend."""
+    return await _proxy_backend_call(_DEFAULT_BACKEND_SLUG, request, "")
+
+
+@short_mcp_router.api_route(
+    "/{backend_slug}",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+    include_in_schema=False,
+)
+@short_mcp_router.api_route(
+    "/{backend_slug}/{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+)
+async def short_mcp_backend(backend_slug: str, request: Request, path: str = ""):
+    """Routes /mcp/{slug}[/{path}] to the named backend."""
+    return await _proxy_backend_call(backend_slug, request, path)
+
+
 # ── Root-level OAuth endpoints (Claude.ai uses {issuer}/authorize) ────────────
 
 root_oauth_router = APIRouter(tags=["mcp-gateway-proxy"])
@@ -948,4 +992,5 @@ async def root_authorize_submit(request: Request):
 router = APIRouter()
 router.include_router(admin_router)
 router.include_router(proxy_router)
+router.include_router(short_mcp_router)
 router.include_router(root_oauth_router)

@@ -9,10 +9,12 @@ from app.mcp.registry import mcp_registry
 logger = logging.getLogger(__name__)
 
 
-async def _ensure_gouti_backend() -> None:
-    """Ensure the Gouti native backend row exists in mcp_gateway_backends.
+async def _ensure_native_backend(
+    slug: str, name: str, description: str,
+) -> None:
+    """Ensure a native backend row exists in mcp_gateway_backends.
 
-    Idempotent — creates the row only if slug 'gouti' doesn't exist yet.
+    Idempotent — creates the row only if the slug doesn't exist yet.
     """
     from sqlalchemy import select, text
     from app.core.database import async_session_factory
@@ -21,21 +23,37 @@ async def _ensure_gouti_backend() -> None:
     async with async_session_factory() as session:
         await session.execute(text("SET search_path TO public"))
         result = await session.execute(
-            select(McpGatewayBackend).where(McpGatewayBackend.slug == "gouti")
+            select(McpGatewayBackend).where(McpGatewayBackend.slug == slug)
         )
         if result.scalar_one_or_none() is not None:
-            return  # already exists
+            return
 
         backend = McpGatewayBackend(
-            slug="gouti",
-            name="Gouti Project Management",
-            upstream_url="internal://gouti",
-            description="Native Gouti MCP tools (auto-created)",
+            slug=slug,
+            name=name,
+            upstream_url=f"internal://{slug}",
+            description=description,
             active=True,
         )
         session.add(backend)
         await session.commit()
-        logger.info("MCP: auto-created Gouti native backend entry")
+        logger.info("MCP: auto-created '%s' native backend entry", slug)
+
+
+async def _ensure_gouti_backend() -> None:
+    await _ensure_native_backend(
+        slug="gouti",
+        name="Gouti Project Management",
+        description="Native Gouti MCP tools (auto-created)",
+    )
+
+
+async def _ensure_opsflux_backend() -> None:
+    await _ensure_native_backend(
+        slug="opsflux",
+        name="OpsFlux",
+        description="Native OpsFlux MCP tools (tiers, contacts, projects, ...) — auto-created",
+    )
 
 
 async def _ensure_mcp_token() -> None:
@@ -85,13 +103,19 @@ async def register_mcp_plugins() -> None:
     # Register native MCP backend initializers (lazy — actual init on first request)
     from app.mcp.mcp_native import register_native_initializer
     from app.mcp.gouti_tools import create_gouti_backend
+    from app.mcp.opsflux_tools import create_opsflux_backend
     register_native_initializer("gouti", create_gouti_backend)
+    register_native_initializer("opsflux", create_opsflux_backend)
 
-    # Ensure Gouti backend row + MCP token exist in DB (idempotent)
+    # Ensure native backend rows + MCP token exist in DB (idempotent)
     try:
         await _ensure_gouti_backend()
     except Exception as exc:
         logger.warning("MCP: could not auto-create Gouti backend entry: %s", exc)
+    try:
+        await _ensure_opsflux_backend()
+    except Exception as exc:
+        logger.warning("MCP: could not auto-create OpsFlux backend entry: %s", exc)
 
     try:
         await _ensure_mcp_token()

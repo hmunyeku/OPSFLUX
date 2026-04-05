@@ -13,7 +13,8 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.requests import Request
 from starlette.responses import Response
 
-_MCP_PREFIXES = ("/mcp-gw/", "/.well-known/oauth", "/authorize", "/oauth/")
+_MCP_PREFIXES = ("/mcp-gw/", "/mcp/", "/.well-known/oauth", "/authorize", "/oauth/")
+_MCP_EXACT_PATHS = ("/mcp",)
 
 _ALLOW_HEADERS = "Authorization, Content-Type, Accept, Mcp-Session-Id"
 _ALLOW_METHODS = "GET, POST, PUT, DELETE, PATCH, OPTIONS"
@@ -25,7 +26,8 @@ class McpCorsMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         path = request.url.path
-        if not any(path.startswith(p) for p in _MCP_PREFIXES):
+        is_mcp = any(path.startswith(p) for p in _MCP_PREFIXES) or path in _MCP_EXACT_PATHS
+        if not is_mcp:
             return await call_next(request)
 
         origin = request.headers.get("origin", "*")

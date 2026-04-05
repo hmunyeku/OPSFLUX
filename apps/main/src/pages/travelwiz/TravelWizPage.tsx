@@ -322,7 +322,7 @@ function DashboardTab() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 border-b border-border">
         <StatCard label="Voyages du jour" value={kpis?.active_voyages ?? trips.length} icon={Plane} accent="text-primary" />
         <StatCard label="Cargo en transit" value={kpis?.cargo_in_transit ?? 0} icon={Package} accent="text-amber-500" />
-        <StatCard label="PAX en deplacement" value={kpis?.pax_in_transit ?? 0} icon={Users} accent="text-blue-500" />
+        <StatCard label="PAX en déplacement" value={kpis?.pax_in_transit ?? 0} icon={Users} accent="text-blue-500" />
         <StatCard label="No-shows ce mois" value={kpis?.no_shows_month ?? 0} icon={XCircle} accent="text-destructive" />
       </div>
 
@@ -502,9 +502,9 @@ function VoyagesTab() {
   return (
     <>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 border-b border-border">
-        <StatCard label="Planifies" value={stats.planned} icon={Calendar} />
+        <StatCard label="Planifiés" value={stats.planned} icon={Calendar} />
         <StatCard label="En cours" value={stats.inProgress} icon={Plane} />
-        <StatCard label="Arrives" value={stats.arrived} icon={Anchor} />
+        <StatCard label="Arrivés" value={stats.arrived} icon={Anchor} />
         <StatCard label="PAX total" value={stats.totalPax} icon={Users} />
       </div>
 
@@ -958,7 +958,7 @@ function VecteursTab() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 border-b border-border">
         <StatCard label="Vecteurs" value={stats.count} icon={Ship} />
         <StatCard label="Capacite totale" value={stats.totalCapacity} icon={Users} />
-        <StatCard label="Helicopteres" value={stats.byType['helicopter'] ?? 0} icon={Plane} />
+        <StatCard label="Hélicoptères" value={stats.byType['helicopter'] ?? 0} icon={Plane} />
         <StatCard label="Navires" value={(stats.byType['boat'] ?? 0) + (stats.byType['ship'] ?? 0)} icon={Anchor} />
       </div>
 
@@ -1166,7 +1166,7 @@ function PickupTab() {
     },
     {
       accessorKey: 'vehicle_name',
-      header: 'Vehicule',
+      header: 'Véhicule',
       size: 130,
       cell: ({ row }) => <span className="text-foreground truncate">{row.original.vehicle_name || '—'}</span>,
     },
@@ -1618,7 +1618,7 @@ function CreateVectorPanel() {
               </DynamicPanelField>
               <DynamicPanelField label="Type" required>
                 <select value={form.type} onChange={(e) => handleTypeChange(e.target.value)} className={panelInputClass}>
-                  <option value="helicopter">Helicoptere</option>
+                  <option value="helicopter">Hélicoptère</option>
                   <option value="boat">Bateau</option>
                   <option value="surfer">Surfer</option>
                   <option value="bus">Bus</option>

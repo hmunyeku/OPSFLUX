@@ -93,9 +93,9 @@ const ACTIVITY_STATUS_OPTIONS = [
   { value: 'submitted', label: 'Soumis' },
   { value: 'validated', label: 'Valide' },
   { value: 'in_progress', label: 'En cours' },
-  { value: 'completed', label: 'Termine' },
+  { value: 'completed', label: 'Terminé' },
   { value: 'rejected', label: 'Rejete' },
-  { value: 'cancelled', label: 'Annule' },
+  { value: 'cancelled', label: 'Annulé' },
 ]
 
 const ACTIVITY_STATUS_MAP: Record<string, { label: string; badge: string }> = {
@@ -104,8 +104,8 @@ const ACTIVITY_STATUS_MAP: Record<string, { label: string; badge: string }> = {
   validated: { label: 'Valide', badge: 'gl-badge-success' },
   rejected: { label: 'Rejete', badge: 'gl-badge-danger' },
   in_progress: { label: 'En cours', badge: 'gl-badge-warning' },
-  completed: { label: 'Termine', badge: 'gl-badge-success' },
-  cancelled: { label: 'Annule', badge: 'gl-badge-neutral' },
+  completed: { label: 'Terminé', badge: 'gl-badge-success' },
+  cancelled: { label: 'Annulé', badge: 'gl-badge-neutral' },
 }
 
 const ACTIVITY_TYPE_MAP: Record<string, { label: string; badge: string; icon: typeof Wrench }> = {
@@ -594,7 +594,7 @@ function ActivitiesTab() {
     },
     {
       accessorKey: 'priority',
-      header: 'Priorite',
+      header: 'Priorité',
       size: 90,
       cell: ({ row }) => {
         const p = PRIORITY_MAP[row.original.priority]
@@ -769,7 +769,7 @@ function ActivitiesTab() {
             exportHeaders: {
               title: 'Titre',
               type: 'Type',
-              priority: 'Priorite',
+              priority: 'Priorité',
               pax_quota: 'PAX',
               start_date: 'Debut',
               end_date: 'Fin',
@@ -1536,7 +1536,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
       { activityId: id, priority: priorityOverrideForm.priority, reason: priorityOverrideForm.reason },
       {
         onSuccess: () => {
-          toast({ title: 'Priorite modifiee', variant: 'success' })
+          toast({ title: 'Priorité modifiee', variant: 'success' })
           setShowPriorityOverride(false)
         },
         onError: () => toast({ title: 'Erreur', variant: 'error' }),
@@ -1657,7 +1657,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
                     className={panelInputClass}
                   />
                 </DynamicPanelField>
-                <DynamicPanelField label="Priorite">
+                <DynamicPanelField label="Priorité">
                   <select
                     value={editForm.priority as string}
                     onChange={(e) => setEditForm({ ...editForm, priority: e.target.value })}
@@ -1803,7 +1803,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
                     }
                   />
                   <DetailRow
-                    label="Priorite"
+                    label="Priorité"
                     value={
                       <span className={cn('text-sm font-medium', priorityEntry?.cls || 'text-muted-foreground')}>
                         {priorityEntry?.label || activity.priority}
@@ -2294,7 +2294,7 @@ function CreateActivityPanel() {
                   placeholder="Sous-type (optionnel)"
                 />
               </DynamicPanelField>
-              <DynamicPanelField label="Priorite">
+              <DynamicPanelField label="Priorité">
                 <select
                   value={form.priority || 'medium'}
                   onChange={(e) => setForm({ ...form, priority: e.target.value })}

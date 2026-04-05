@@ -210,6 +210,36 @@ if settings.ALLOWED_HOSTS != "*":
     )
 
 
+# ─── Global exception handler with CORS headers ────────────────────────────
+# When an uncaught Python exception bubbles up, FastAPI's default handler
+# does NOT run through CORSMiddleware, so the browser sees a misleading
+# "CORS policy blocked" error instead of the real 500. This handler ensures
+# the browser always gets a clean JSON error + the proper CORS headers.
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):  # type: ignore[no-untyped-def]
+    import logging as _logging
+    from starlette.responses import JSONResponse as _JSONResponse
+    _logging.getLogger("app.main").exception(
+        "Unhandled exception on %s %s", request.method, request.url.path
+    )
+    origin = request.headers.get("origin", "")
+    allowed_origins = set(settings.allowed_origins_list)
+    cors_origin = origin if origin in allowed_origins or origin.startswith("https://") else "*"
+    return _JSONResponse(
+        status_code=500,
+        content={
+            "error": "internal_server_error",
+            "message": "Une erreur interne est survenue.",
+            "path": request.url.path,
+        },
+        headers={
+            "Access-Control-Allow-Origin": cors_origin,
+            "Access-Control-Allow-Credentials": "true",
+            "Vary": "Origin",
+        },
+    )
+
+
 # ─── Routes ────────────────────────────────────────────────────────────────
 app.include_router(auth_router)
 app.include_router(users_router)

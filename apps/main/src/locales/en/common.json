@@ -252,7 +252,6 @@
     "status_decommissioned": "Decommissioned",
     "status_construction": "Under construction",
     "status_standby": "Standby",
-
     "registry_title": "Asset Registry",
     "fields": "Fields",
     "sites": "Sites",
@@ -306,7 +305,6 @@
     "create_installation": "New installation",
     "create_equipment": "New equipment",
     "create_pipeline": "New pipeline",
-
     "reservoir_formation": "Reservoir formation",
     "license_type": "License type",
     "license_expiry": "License expiry",
@@ -356,7 +354,6 @@
     "piggable": "Piggable",
     "installation_year": "Installation year",
     "corrosion_allowance": "Corrosion allowance (mm)",
-
     "code_help": "Unique code (e.g. TKA, BMB, LKL)",
     "tag_help": "Unique tag (e.g. P-1001, V-2001)",
     "field_parent": "Parent field",
@@ -373,14 +370,12 @@
     "technical_details": "Technical details",
     "is_mobile": "Mobile",
     "area": "Area",
-    "sub_area": "Sub-area",
     "env_onshore": "Onshore",
     "env_offshore": "Offshore",
     "env_swamp": "Swamp",
     "env_shallow_water": "Shallow water",
     "env_deepwater": "Deepwater",
     "env_subsea": "Subsea",
-
     "tag_number": "Tag",
     "pipeline_id": "Pipeline ID",
     "manning": "Manning / Accommodation",
@@ -390,13 +385,11 @@
     "from_node_desc": "From node description",
     "to_node_desc": "To node description",
     "fluid": "Fluid",
-
     "field_created": "Field created successfully",
     "site_created": "Site created successfully",
     "installation_created": "Installation created successfully",
     "equipment_created": "Equipment created successfully",
     "pipeline_created": "Pipeline created successfully",
-
     "crane_mount_type": "Mount type",
     "swl_tonnes": "SWL (tonnes)",
     "boom_max_length": "Max boom length (m)",
@@ -412,7 +405,6 @@
     "tank_type": "Tank type",
     "nominal_capacity_m3": "Nominal capacity (m³)",
     "shell_diameter_m": "Shell diameter (m)",
-
     "access_road": "Road access",
     "access_helicopter": "Helicopter access",
     "access_vessel": "Vessel access",
@@ -455,7 +447,6 @@
     "integrity": "Integrity",
     "regulatory": "Regulatory",
     "dimensions_materials": "Dimensions / Materials",
-
     "spec_section": {
       "specialized_data": "Specialized data",
       "crane_general": "Crane — General",
@@ -489,7 +480,6 @@
       "tank_design": "Design & Materials",
       "tank_safety": "Safety & Inspection"
     },
-
     "spec": {
       "crane_type": "Crane type",
       "boom_structure": "Boom structure",
@@ -526,7 +516,6 @@
       "installed_power": "Installed power",
       "design_standard": "Design standard",
       "operation_standard": "Operation standard",
-
       "separator_type": "Separator type",
       "orientation": "Orientation",
       "separation_stage": "Separation stage",
@@ -568,7 +557,6 @@
       "primary_psv_tag": "Primary PSV tag",
       "primary_psv_set": "Primary PSV set",
       "bdv_tag": "BDV tag",
-
       "pump_type": "Pump type",
       "api_type_designation": "API type",
       "pump_service": "Service",
@@ -597,7 +585,6 @@
       "impeller_material": "Impeller material",
       "casing_material": "Casing material",
       "seal_type": "Seal type",
-
       "compressor_type": "Compressor type",
       "service": "Service",
       "gas_description": "Gas description",
@@ -616,7 +603,6 @@
       "surge_margin": "Surge margin",
       "anti_surge_valve_tag": "Anti-surge valve tag",
       "dgs_installed": "DGS installed",
-
       "is_emergency_generator": "Emergency generator",
       "generator_class": "Generator class",
       "engine_manufacturer": "Engine manufacturer",
@@ -634,7 +620,6 @@
       "fuel_autonomy": "Fuel autonomy",
       "auto_start_mains_failure": "Auto-start on mains failure",
       "parallel_operation": "Parallel operation",
-
       "tank_type": "Tank type",
       "tank_service": "Service",
       "api_standard": "API standard",
@@ -654,7 +639,6 @@
       "foam_system_type": "Foam system type",
       "internal_inspection_interval": "Internal inspection interval"
     },
-
     "sub_section": {
       "crane_configurations": "Boom / Reeving Configurations",
       "crane_hook_blocks": "Hook Blocks",
@@ -664,7 +648,6 @@
       "pump_curve_points": "Pump Curve",
       "column_sections": "Column Sections"
     },
-
     "sub": {
       "config_code": "Config code",
       "config_name": "Config name",
@@ -698,15 +681,15 @@
       "no_nozzles": "No nozzles",
       "case_name": "Case name",
       "inlet_pressure": "Inlet P (barg)",
-      "inlet_temp": "Inlet T (\u00b0C)",
+      "inlet_temp": "Inlet T (°C)",
       "inlet_gas_flow": "Gas flow (MMscfd)",
-      "inlet_oil_flow": "Oil flow (Sm\u00b3/d)",
-      "inlet_water_flow": "Water flow (Sm\u00b3/d)",
+      "inlet_oil_flow": "Oil flow (Sm³/d)",
+      "inlet_water_flow": "Water flow (Sm³/d)",
       "op_pressure": "Op. P (barg)",
-      "op_temp": "Op. T (\u00b0C)",
+      "op_temp": "Op. T (°C)",
       "simulation_tool": "Simulation tool",
       "no_process_cases": "No process cases",
-      "flow_m3h": "Flow (m\u00b3/h)",
+      "flow_m3h": "Flow (m³/h)",
       "head_m": "Head (m)",
       "efficiency_pct": "Efficiency (%)",
       "power_kw": "Power (kW)",
@@ -722,7 +705,6 @@
       "packing_height": "Packing height (m)",
       "no_sections": "No sections"
     },
-
     "inst_sub": {
       "decks": "Platform Decks",
       "deck_name": "Deck name",
@@ -731,12 +713,11 @@
       "elevation_m": "Elevation (m)",
       "deck_length": "Length (m)",
       "deck_width": "Width (m)",
-      "deck_area": "Area (m\u00b2)",
-      "max_deck_load": "Max load (t/m\u00b2)",
+      "deck_area": "Area (m²)",
+      "max_deck_load": "Max load (t/m²)",
       "deck_function": "Function",
       "no_decks": "No decks registered"
     },
-
     "inst_detail": {
       "type_specific": "Type-specific details",
       "offshore_structure": "Offshore — Structure",
@@ -796,7 +777,6 @@
       "operating_permit": "Operating permit",
       "land_title": "Land title ref."
     },
-
     "dashboard_tab": "Dashboard",
     "total_fields": "Fields",
     "total_sites": "Sites",
@@ -826,7 +806,107 @@
     "type_select": "Select a type",
     "supplier": "Supplier",
     "subcontractor": "Subcontractor",
-    "partner": "Partner"
+    "partner": "Partner",
+    "tab_companies": "Companies",
+    "tab_contacts": "Employees",
+    "ui": {
+      "sections": {
+        "identity": "Company identity",
+        "contact": "Company contact details",
+        "address": "Address and location",
+        "legal": "Legal information",
+        "configuration": "Company configuration",
+        "contact_identity": "Employee profile",
+        "access": "External access",
+        "contact_details": "Employee contact details",
+        "compliance": "References & compliance",
+        "notes_documents": "Notes & documents"
+      },
+      "auto_generated": "Auto-generated on creation",
+      "trade_name": "Primary trade name",
+      "alias": "Alias / short name",
+      "website": "Website",
+      "fax": "Fax",
+      "address_line1": "Address line 1",
+      "address_line2": "Address line 2",
+      "city": "City",
+      "state": "State / region",
+      "zip_code": "ZIP / postal code",
+      "country": "Country",
+      "legal_form": "Legal form",
+      "registration_number": "Registration number",
+      "tax_id": "Tax identifier",
+      "vat_number": "VAT number",
+      "capital": "Share capital",
+      "currency": "Currency",
+      "fiscal_year_start": "Fiscal year start month",
+      "industry": "Industry",
+      "founded_date": "Foundation date",
+      "payment_terms": "Payment terms",
+      "language": "Language",
+      "timezone": "Timezone",
+      "logo_url": "Logo URL",
+      "social_networks": "Social networks",
+      "opening_hours": "Opening hours",
+      "civility": "Title",
+      "first_name": "First name",
+      "last_name": "Last name",
+      "position": "Role / position",
+      "department": "Department",
+      "linked_user": "Linked user",
+      "external_user": "External user",
+      "no_linked_user": "No linked user",
+      "promote_to_external_user": "Promote to external user",
+      "promote_hint": "This contact can receive an external account limited to its own company.",
+      "promote_missing_email": "Add a primary email to this contact before promoting it.",
+      "primary_contact": "Primary employee",
+      "primary_contact_set": "Primary employee set",
+      "set_primary_contact": "Set as primary employee",
+      "contact_updated": "Employee updated",
+      "contact_deleted": "Employee deleted",
+      "contact_promoted": "Contact promoted to external user",
+      "contact_promote_error": "Could not promote this contact to an external user.",
+      "contact_created": "Employee added",
+      "contact_hint": "Polymorphic managers remain available after creation to enrich contact details.",
+      "contact_detail_hint": "Phones, emails, and addresses for this contact remain managed on its own record.",
+      "legal_hint": "Multiple legal identifiers remain managed through the dedicated registry on the company record.",
+      "add_alias": "+ Add alias",
+      "add_contact": "Add employee",
+      "search_contact": "Search an employee...",
+      "no_contacts": "No employee",
+      "no_contacts_description": "Add the employees of this company",
+      "no_contact_results": "No result for \"{{search}}\"",
+      "show_more_contacts": "Show more ({{count}} remaining)",
+      "block_type": "Block type",
+      "block_purchasing": "Purchasing",
+      "block_payment": "Payments",
+      "block_full": "Full",
+      "block_reason": "Reason *",
+      "block_reason_placeholder": "Reason for blocking / unblocking...",
+      "block": "Block",
+      "unblock": "Unblock",
+      "blocked": "Blocked",
+      "unblocked": "Unblocked",
+      "no_block_history": "No block history.",
+      "external_refs": "External references",
+      "add_external_ref": "Add reference",
+      "system": "System *",
+      "no_external_refs": "No external reference.",
+      "related_projects": "Related projects",
+      "placeholders": {
+        "company_name": "Company name",
+        "trade_name": "Trade name / brand",
+        "alias": "Short name / acronym",
+        "email": "contact@company.com",
+        "phone": "+243 ...",
+        "fax": "+243 ...",
+        "address_line1": "Street, building, suite",
+        "address_line2": "Additional address details",
+        "industry": "Oil & gas",
+        "payment_terms": "Net 30 days",
+        "description": "Free description..."
+      }
+    }
   },
   "users": {
     "title": "Users",
@@ -1304,12 +1384,7 @@
         "cancelled": "Cancelled"
       }
     },
-    "severity": {
-      "info": "Info",
-      "warning": "Warning",
-      "temp_ban": "Temporary ban",
-      "permanent_ban": "Permanent ban"
-    },
+    "severity": "Severity",
     "profiles": "PAX Profiles",
     "ads_label": "Visit notices",
     "credentials": "Credentials",
@@ -1328,7 +1403,6 @@
     "start_date": "Start date",
     "end_date": "End date",
     "pax_count": "Passengers",
-    "severity": "Severity",
     "submit": "Submit",
     "resolve": "Resolve",
     "avm_label": "Missions (AVM)",
@@ -1575,15 +1649,17 @@
       "fields": {
         "planned_pax": "Planned PAX",
         "departure": "Departure",
-        "return": "Return"
+        "return": "Return",
+        "global_documents": "Mission documents",
+        "per_pax_documents": "Per-PAX documents",
+        "documents_placeholder": "One requirement per line"
       },
       "placeholders": {
         "title": "Ex: E-LINE ESF1 Mission",
         "description": "Mission description..."
       },
       "date_hint": "The mission timeframe is the baseline. Program lines can then refine their own dates.",
-      "program_intro": "Start with the main mission steps. You can later arbitrate, link visit notices and refine lines during validation."
-      ,
+      "program_intro": "Start with the main mission steps. You can later arbitrate, link visit notices and refine lines during validation.",
       "program": {
         "line": "Line {{index}}",
         "activity": "Activity",
@@ -1600,11 +1676,22 @@
     },
     "ads_detail": {
       "actions": {
-        "external_link": "External link"
+        "external_link": "External link",
+        "add_passenger": "Add passenger",
+        "start_progress": "Start stay",
+        "manual_departure": "Manual OMAA departure",
+        "complete": "Close stay",
+        "validate_passenger": "Approve this passenger",
+        "reject_passenger": "Reject this passenger",
+        "remove_passenger": "Remove this passenger",
+        "request_review": "Send back for correction",
+        "resubmit": "Resubmit",
+        "request_stay_change": "Change stay"
       },
       "reject": {
         "reason_title": "Rejection reason",
-        "placeholder": "Provide the rejection reason (optional)..."
+        "placeholder": "Provide the rejection reason (optional)...",
+        "passenger_placeholder": "Optional reason for rejecting this passenger"
       },
       "request_review": {
         "reason_title": "Reason for correction request",
@@ -1738,32 +1825,37 @@
           "planner_activity_cancelled": "Impact after Planner activity cancellation",
           "submitted": "Submission",
           "approved": "Approval",
+          "in_progress": "Stay started",
+          "completed": "Stay completed",
           "rejected": "Rejection",
           "cancelled": "Cancellation",
           "resubmitted": "Resubmission",
           "updated": "Update",
+          "overdue_return_alert": "Overdue return alert",
           "requires_review": "Moved to review"
         }
       },
       "operational_impact": {
+        "stay_change": "This visit notice was sent back to review after an in-flight stay change.",
         "avm_modified": "This visit notice is under review following a change to the source AVM.",
         "avm_cancelled": "This visit notice was impacted by the cancellation of the source AVM.",
         "planner_modified": "This visit notice is under review following a change to the linked Planner activity.",
         "planner_cancelled": "This visit notice was impacted by the cancellation of the linked Planner activity.",
-        "changed_fields": "Impacted fields"
+        "changed_fields": "Impacted fields",
+        "stay_change_types": "Change type",
+        "stay_change_kinds": {
+          "extension": "Stay extension",
+          "early_return": "Early return",
+          "transport_change": "Transport change",
+          "window_change": "Window change",
+          "stay_change": "Stay change"
+        }
       },
-      "actions": {
-        "external_link": "External link",
-        "add_passenger": "Add passenger",
-        "validate_passenger": "Approve this passenger",
-        "reject_passenger": "Reject this passenger",
-        "remove_passenger": "Remove this passenger",
-        "request_review": "Send back for correction",
-        "resubmit": "Resubmit",
-        "request_stay_change": "Change stay"
-      },
-      "reject": {
-        "passenger_placeholder": "Optional reason for rejecting this passenger"
+      "manual_departure": {
+        "title": "Manual departure declaration",
+        "reason": "Manual departure reason",
+        "placeholder": "Explain why the departure was not tracked in TravelWiz...",
+        "confirm": "Declare departure and close"
       },
       "empty": {
         "pax_search": "No result for “{{search}}”",
@@ -1804,6 +1896,8 @@
         "information": "Information",
         "preparation_indicators": "Preparation indicators",
         "preparation_tasks": "Preparation ({{progress}}%)",
+        "visa_followups": "Visa follow-up",
+        "allowance_requests": "Allowance follow-up",
         "program": "Program ({{count}} lines)",
         "metadata": "Metadata",
         "last_changes": "Latest change",
@@ -1818,7 +1912,9 @@
         "last_modification_reason": "Change reason",
         "last_modified_by": "Modified by",
         "last_modified_at": "Modified at",
-        "planned_pax": "Planned PAX"
+        "planned_pax": "Planned PAX",
+        "global_documents": "Required mission documents",
+        "per_pax_documents": "Required per-PAX documents"
       },
       "actions": {
         "modify": "Modify AVM"
@@ -1870,6 +1966,13 @@
           "na": "N/A"
         }
       },
+      "followups": {
+        "visa_type": "Visa type",
+        "country": "Country",
+        "amount": "Amount",
+        "currency": "Currency",
+        "payment_reference": "Payment reference"
+      },
       "program": {
         "site": "Site: {{site}}",
         "site_missing": "Site to be specified",
@@ -1914,6 +2017,15 @@
       }
     },
     "rotations_tab": {
+      "columns": {
+        "pax": "PAX",
+        "compliance": "Compliance"
+      },
+      "compliance": {
+        "clear": "Compliant",
+        "blocked_one": "1 blocker",
+        "blocked_other": "{{count}} blockers"
+      },
       "cycle": "Cycle",
       "start": "Start",
       "next_rotation": "Next rotation",
@@ -1945,19 +2057,24 @@
         "internal": "Perenco staff — linked to a user account",
         "external": "Contractor / visitor — linked to a company (tier)"
       },
-        "archive_confirm": "Archive?",
-        "linked_company": "Linked company",
-        "linked_user": "Linked user account",
-        "internal_user_profile": "Internal user profile",
-        "external_user": "External user",
-        "promoted_external_user": "Contact promoted to external user",
-        "promoted_external_user_inactive": "Contact promoted to inactive external user",
-        "external_contact_profile": "External contact profile",
-        "external_contact_promoted": "External contact profile promoted to external user",
-        "credentials_title": "Credentials ({{count}})",
-        "credential_obtained": "Obtained: {{date}}",
-        "credential_expires": "Expires: {{date}}"
-      },
+      "archive_confirm": "Archive?",
+      "linked_company": "Linked company",
+      "linked_user": "Linked user account",
+      "internal_user_profile": "Internal user profile",
+      "external_user": "External user",
+      "promoted_external_user": "Contact promoted to external user",
+      "promoted_external_user_inactive": "Contact promoted to inactive external user",
+      "external_contact_profile": "External contact profile",
+      "external_contact_promoted": "External contact profile promoted to external user",
+      "credentials_title": "Credentials ({{count}})",
+      "credential_obtained": "Obtained: {{date}}",
+      "credential_expires": "Expires: {{date}}",
+      "site_presence_title": "Site presence ({{count}})",
+      "site_presence_empty": "No known site presence.",
+      "unknown_site": "Unknown site",
+      "boarding_status": "Boarding {{status}} on {{date}}",
+      "completed_at": "Completed on {{date}}"
+    },
     "incident_panel": {
       "create_title": "New incident",
       "subtitle": "PaxLog — Incidents",
@@ -1967,14 +2084,25 @@
         "details": "Details",
         "ban_period": "Ban period"
       },
+      "target_scope": {
+        "pax": "Individual",
+        "company": "Company",
+        "group": "PAX group"
+      },
       "fields": {
         "pax_profile": "PAX profile",
+        "company": "Company",
+        "company_filter": "Company filter",
+        "pax_group": "PAX group",
         "incident_date": "Incident date",
         "ban_start": "Ban start",
-        "ban_end": "Ban end"
+        "ban_end": "Ban end",
+        "asset": "Site / asset"
       },
       "placeholders": {
         "search_pax": "Search for a PAX...",
+        "search_company": "Search for a company...",
+        "search_group": "Search for a PAX group...",
         "description": "Describe the incident..."
       }
     },
@@ -2686,107 +2814,5 @@
     "remove_user": "Remove",
     "no_entities": "No entities",
     "stats": "Statistics"
-  },
-  "tiers": {
-    "tab_companies": "Companies",
-    "tab_contacts": "Employees",
-    "ui": {
-      "sections": {
-        "identity": "Company identity",
-        "contact": "Company contact details",
-        "address": "Address and location",
-        "legal": "Legal information",
-        "configuration": "Company configuration",
-        "contact_identity": "Employee profile",
-        "access": "External access",
-        "contact_details": "Employee contact details",
-        "compliance": "References & compliance",
-        "notes_documents": "Notes & documents"
-      },
-      "auto_generated": "Auto-generated on creation",
-      "trade_name": "Primary trade name",
-      "alias": "Alias / short name",
-      "website": "Website",
-      "fax": "Fax",
-      "address_line1": "Address line 1",
-      "address_line2": "Address line 2",
-      "city": "City",
-      "state": "State / region",
-      "zip_code": "ZIP / postal code",
-      "country": "Country",
-      "legal_form": "Legal form",
-      "registration_number": "Registration number",
-      "tax_id": "Tax identifier",
-      "vat_number": "VAT number",
-      "capital": "Share capital",
-      "currency": "Currency",
-      "fiscal_year_start": "Fiscal year start month",
-      "industry": "Industry",
-      "founded_date": "Foundation date",
-      "payment_terms": "Payment terms",
-      "language": "Language",
-      "timezone": "Timezone",
-      "logo_url": "Logo URL",
-      "social_networks": "Social networks",
-      "opening_hours": "Opening hours",
-      "civility": "Title",
-      "first_name": "First name",
-      "last_name": "Last name",
-      "position": "Role / position",
-      "department": "Department",
-      "linked_user": "Linked user",
-      "external_user": "External user",
-      "no_linked_user": "No linked user",
-      "promote_to_external_user": "Promote to external user",
-      "promote_hint": "This contact can receive an external account limited to its own company.",
-      "promote_missing_email": "Add a primary email to this contact before promoting it.",
-      "primary_contact": "Primary employee",
-      "primary_contact_set": "Primary employee set",
-      "set_primary_contact": "Set as primary employee",
-      "contact_updated": "Employee updated",
-      "contact_deleted": "Employee deleted",
-      "contact_promoted": "Contact promoted to external user",
-      "contact_promote_error": "Could not promote this contact to an external user.",
-      "contact_created": "Employee added",
-      "contact_hint": "Polymorphic managers remain available after creation to enrich contact details.",
-      "contact_detail_hint": "Phones, emails, and addresses for this contact remain managed on its own record.",
-      "legal_hint": "Multiple legal identifiers remain managed through the dedicated registry on the company record.",
-      "add_alias": "+ Add alias",
-      "add_contact": "Add employee",
-      "search_contact": "Search an employee...",
-      "no_contacts": "No employee",
-      "no_contacts_description": "Add the employees of this company",
-      "no_contact_results": "No result for \"{{search}}\"",
-      "show_more_contacts": "Show more ({{count}} remaining)",
-      "block_type": "Block type",
-      "block_purchasing": "Purchasing",
-      "block_payment": "Payments",
-      "block_full": "Full",
-      "block_reason": "Reason *",
-      "block_reason_placeholder": "Reason for blocking / unblocking...",
-      "block": "Block",
-      "unblock": "Unblock",
-      "blocked": "Blocked",
-      "unblocked": "Unblocked",
-      "no_block_history": "No block history.",
-      "external_refs": "External references",
-      "add_external_ref": "Add reference",
-      "system": "System *",
-      "no_external_refs": "No external reference.",
-      "related_projects": "Related projects",
-      "placeholders": {
-        "company_name": "Company name",
-        "trade_name": "Trade name / brand",
-        "alias": "Short name / acronym",
-        "email": "contact@company.com",
-        "phone": "+243 ...",
-        "fax": "+243 ...",
-        "address_line1": "Street, building, suite",
-        "address_line2": "Additional address details",
-        "industry": "Oil & gas",
-        "payment_terms": "Net 30 days",
-        "description": "Free description..."
-      }
-    }
   }
 }

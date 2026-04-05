@@ -782,12 +782,15 @@ export function DangerConfirmButton({
 export function InlineEditableRow({
   label,
   value,
+  displayValue,
   onSave,
   type = 'text',
   disabled,
 }: {
   label: string
   value: string
+  /** Optional formatted label shown in read mode (e.g. resolved dictionary label). */
+  displayValue?: string
   onSave: (newValue: string) => void
   type?: 'text' | 'email' | 'tel' | 'date'
   disabled?: boolean
@@ -860,7 +863,7 @@ export function InlineEditableRow({
       title={disabled ? undefined : "Double-cliquer pour modifier"}
     >
       <span className="text-sm text-muted-foreground w-28 shrink-0">{label}</span>
-      <span className="text-sm text-foreground flex-1 min-w-0 break-words">{value || '—'}</span>
+      <span className="text-sm text-foreground flex-1 min-w-0 break-words">{displayValue || value || '—'}</span>
       {!disabled && <Pencil size={12} className="shrink-0 text-transparent group-hover:text-muted-foreground transition-colors" />}
     </div>
   )

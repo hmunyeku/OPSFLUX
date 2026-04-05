@@ -365,7 +365,7 @@ export function DashboardPage() {
               variant="promo"
               title="Bienvenue sur OpsFlux"
               description="Explorez les fonctionnalites de gestion d'assets, tiers et workflows. Utilisez Ctrl+K pour la recherche rapide."
-              action={{ label: 'Decouvrir', onClick: () => navigate('/search') }}
+              action={{ label: 'Découvrir', onClick: () => navigate('/search') }}
               dismissKey="banner:welcome-v1"
             />
           </div>

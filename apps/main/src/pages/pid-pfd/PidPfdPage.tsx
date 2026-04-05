@@ -107,7 +107,7 @@ const STATUS_LABELS: Record<string, string> = {
   approved: 'Approuve',
   issued: 'Emis',
   superseded: 'Remplace',
-  cancelled: 'Annule',
+  cancelled: 'Annulé',
 }
 
 const STATUS_OPTIONS = [
@@ -116,7 +116,7 @@ const STATUS_OPTIONS = [
   { value: 'approved', label: 'Approuve' },
   { value: 'issued', label: 'Emis' },
   { value: 'superseded', label: 'Remplace' },
-  { value: 'cancelled', label: 'Annule' },
+  { value: 'cancelled', label: 'Annulé' },
 ]
 
 const PID_TYPE_OPTIONS = [

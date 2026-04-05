@@ -133,11 +133,11 @@ export function LegalIdentifierManager({ ownerType, ownerId, country, compact }:
         </div>
       )}
 
-      {/* Missing required identifiers warning */}
+      {/* Missing required identifiers warning — deduped by label */}
       {!isLoading && missingRequired.length > 0 && (
         <div className="flex items-start gap-1.5 text-[10px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded px-2 py-1.5">
           <AlertCircle size={10} className="shrink-0 mt-0.5" />
-          <span>Obligatoire : {missingRequired.map((t) => t.label).join(', ')}</span>
+          <span>Obligatoire : {Array.from(new Set(missingRequired.map((t) => t.label))).join(', ')}</span>
         </div>
       )}
 

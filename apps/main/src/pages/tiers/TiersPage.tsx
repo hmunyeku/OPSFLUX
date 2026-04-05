@@ -306,8 +306,13 @@ function CreateTierPanel() {
 
 // -- Tier Detail Panel --------------------------------------------------------
 
+const MONTH_LABELS_FR = [
+  'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
+]
+
 function TierDetailPanel({ id }: { id: string }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const archiveTier = useArchiveTier()
   const { data } = useTiers({ page: 1, page_size: 100 })
@@ -317,6 +322,18 @@ function TierDetailPanel({ id }: { id: string }) {
   const canEdit = hasPermission('tier.update')
   const tierTypeOptions = useDictionaryOptions('tier_type')
   const legalFormOptions = useDictionaryOptions('legal_form')
+  const countryLabels = useDictionaryLabels('country')
+  const languageLabels = useDictionaryLabels('language', {
+    fr: 'Français', en: 'English', es: 'Español', pt: 'Português',
+    de: 'Deutsch', it: 'Italiano', ar: 'العربية', zh: '中文',
+  })
+  const monthLabel = (n: number) => {
+    try {
+      return new Intl.DateTimeFormat(i18n.language, { month: 'long' }).format(new Date(2000, Math.max(0, n - 1), 1))
+    } catch {
+      return MONTH_LABELS_FR[Math.max(0, Math.min(11, n - 1))]
+    }
+  }
 
   // Drill-down state: null = company view, string = contact detail view
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null)
@@ -420,7 +437,7 @@ function TierDetailPanel({ id }: { id: string }) {
                   options={tierTypeOptions}
                   onSave={(v) => handleInlineSave('type', v)}
                 />
-                <InlineEditableRow label={t('tiers.ui.country')} value={tier.country || ''} onSave={(v) => handleInlineSave('country', v)} />
+                <InlineEditableRow label={t('tiers.ui.country')} value={tier.country || ''} displayValue={tier.country ? (countryLabels[tier.country] || tier.country) : ''} onSave={(v) => handleInlineSave('country', v)} />
                 <ReadOnlyRow
                   label={t('common.status')}
                   value={
@@ -431,9 +448,9 @@ function TierDetailPanel({ id }: { id: string }) {
                 />
               </DetailFieldGrid>
               <DetailFieldGrid>
-                <InlineEditableRow label={t('tiers.ui.language')} value={tier.language || 'fr'} onSave={(v) => handleInlineSave('language', v)} />
+                <InlineEditableRow label={t('tiers.ui.language')} value={tier.language || 'fr'} displayValue={languageLabels[tier.language || 'fr'] || tier.language || 'Français'} onSave={(v) => handleInlineSave('language', v)} />
                 <InlineEditableRow label={t('tiers.ui.timezone')} value={tier.timezone || 'Africa/Kinshasa'} onSave={(v) => handleInlineSave('timezone', v)} />
-                <InlineEditableRow label={t('tiers.ui.fiscal_year_start')} value={String(tier.fiscal_year_start || 1)} onSave={(v) => handleInlineSave('fiscal_year_start', Number(v) || 1)} />
+                <InlineEditableRow label={t('tiers.ui.fiscal_year_start')} value={String(tier.fiscal_year_start || 1)} displayValue={monthLabel(tier.fiscal_year_start || 1)} onSave={(v) => handleInlineSave('fiscal_year_start', Number(v) || 1)} />
               </DetailFieldGrid>
             </FormSection>
 

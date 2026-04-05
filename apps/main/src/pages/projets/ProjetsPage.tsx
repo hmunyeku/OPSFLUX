@@ -64,11 +64,11 @@ import type { Project, ProjectCreate, ProjectTask, ProjectTaskEnriched, ProjectM
 
 const STATUS_OPTIONS = [
   { value: 'draft', label: 'Brouillon' },
-  { value: 'planned', label: 'Planifie' },
+  { value: 'planned', label: 'Planifié' },
   { value: 'active', label: 'Actif' },
   { value: 'on_hold', label: 'Suspendu' },
-  { value: 'completed', label: 'Termine' },
-  { value: 'cancelled', label: 'Annule' },
+  { value: 'completed', label: 'Terminé' },
+  { value: 'cancelled', label: 'Annulé' },
 ]
 
 const PRIORITY_OPTIONS = [
@@ -178,7 +178,7 @@ function CreateProjectPanel() {
                       onChange={(e) => setForm({ ...form, parent_id: e.target.value || null })}
                       className={panelInputClass}
                     >
-                      <option value="">Aucun (projet independant)</option>
+                      <option value="">Aucun (projet indépendant)</option>
                       {projectsData?.items?.map(p => (
                         <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
                       ))}
@@ -212,7 +212,7 @@ function CreateProjectPanel() {
                 <TagSelector options={STATUS_OPTIONS} value={form.status || 'draft'} onChange={(v) => setForm({ ...form, status: v })} />
               </FormSection>
 
-              <FormSection title="Priorite">
+              <FormSection title="Priorité">
                 <TagSelector options={PRIORITY_OPTIONS} value={form.priority || 'medium'} onChange={(v) => setForm({ ...form, priority: v })} />
               </FormSection>
 
@@ -483,7 +483,7 @@ function TaskRow({ task, projectId }: { task: ProjectTask; projectId: string }) 
             {task.code && <span>Ref: {task.code}</span>}
             {task.assignee_name && <span>Resp: {task.assignee_name}</span>}
             <span>Cree le {new Date(task.created_at).toLocaleDateString('fr-FR')}</span>
-            {task.completed_at && <span>Termine le {new Date(task.completed_at).toLocaleDateString('fr-FR')}</span>}
+            {task.completed_at && <span>Terminé le {new Date(task.completed_at).toLocaleDateString('fr-FR')}</span>}
           </div>
         </div>
       )}
@@ -782,8 +782,8 @@ function ProjectDetailPanel({ id }: { id: string }) {
                 <InlineEditableRow label="Nom" value={project.name} onSave={(v) => handleSave('name', v)} />
                 <ReadOnlyRow label="Code" value={<span className="text-sm font-mono font-medium text-foreground">{project.code || '—'}</span>} />
                 <InlineEditableTags label="Statut" value={project.status} options={STATUS_OPTIONS} onSave={(v) => handleSave('status', v)} />
-                <InlineEditableTags label="Priorite" value={project.priority} options={PRIORITY_OPTIONS} onSave={(v) => handleSave('priority', v)} />
-                <InlineEditableTags label="Meteo" value={project.weather} options={WEATHER_OPTIONS.map(w => ({ value: w.value, label: w.label }))} onSave={(v) => handleSave('weather', v)} />
+                <InlineEditableTags label="Priorité" value={project.priority} options={PRIORITY_OPTIONS} onSave={(v) => handleSave('priority', v)} />
+                <InlineEditableTags label="Météo" value={project.weather} options={WEATHER_OPTIONS.map(w => ({ value: w.value, label: w.label }))} onSave={(v) => handleSave('weather', v)} />
               </DetailFieldGrid>
               <DetailFieldGrid>
                 <ReadOnlyRow label="Chef de projet" value={project.manager_name || '--'} />
@@ -930,7 +930,7 @@ function SpreadsheetView() {
 
   const filters = useMemo<DataTableFilterDef[]>(() => [
     { id: 'status', label: 'Statut', type: 'multi-select', operators: ['is', 'is_not'], options: TASK_STATUS_OPTIONS.map(o => ({ value: o.value, label: o.label })) },
-    { id: 'priority', label: 'Priorite', type: 'select', options: PRIORITY_OPTIONS.map(o => ({ value: o.value, label: o.label })) },
+    { id: 'priority', label: 'Priorité', type: 'select', options: PRIORITY_OPTIONS.map(o => ({ value: o.value, label: o.label })) },
   ], [])
 
   const inlineEdit = useMemo<InlineEditConfig<ProjectTaskEnriched>>(() => ({
@@ -966,7 +966,7 @@ function SpreadsheetView() {
       },
     },
     {
-      accessorKey: 'priority', header: 'Priorite', size: 80,
+      accessorKey: 'priority', header: 'Priorité', size: 80,
       cell: ({ row }) => {
         const p = row.original.priority
         const cls = p === 'critical' ? 'gl-badge-danger' : p === 'high' ? 'gl-badge-warning' : 'gl-badge-neutral'
@@ -1181,7 +1181,7 @@ function MacroPlanningView() {
                 config.colorBy === opt ? 'bg-primary text-primary-foreground border-primary' : 'border-border hover:bg-muted'
               )}
             >
-              {opt === 'status' ? 'Statut' : opt === 'priority' ? 'Priorite' : 'Meteo'}
+              {opt === 'status' ? 'Statut' : opt === 'priority' ? 'Priorité' : 'Météo'}
             </button>
           ))}
         </div>
@@ -1427,7 +1427,7 @@ function ProjectsListView() {
 
   const filters = useMemo<DataTableFilterDef[]>(() => [
     { id: 'status', label: 'Statut', type: 'multi-select', operators: ['is', 'is_not'], options: STATUS_OPTIONS.map(o => ({ value: o.value, label: o.label })) },
-    { id: 'priority', label: 'Priorite', type: 'select', options: PRIORITY_OPTIONS.map(o => ({ value: o.value, label: o.label })) },
+    { id: 'priority', label: 'Priorité', type: 'select', options: PRIORITY_OPTIONS.map(o => ({ value: o.value, label: o.label })) },
   ], [])
 
   const handleFilterChange = useCallback((filterId: string, value: unknown) => {
@@ -1455,7 +1455,7 @@ function ProjectsListView() {
         return <span className={cn('gl-badge', cls)}>{STATUS_OPTIONS.find(o => o.value === s)?.label ?? s}</span>
       },
     },
-    { accessorKey: 'weather', header: 'Meteo', size: 60, cell: ({ row }) => <WeatherIcon weather={row.original.weather} /> },
+    { accessorKey: 'weather', header: 'Météo', size: 60, cell: ({ row }) => <WeatherIcon weather={row.original.weather} /> },
     {
       accessorKey: 'progress', header: '%', size: 60,
       cell: ({ row }) => (
@@ -1468,7 +1468,7 @@ function ProjectsListView() {
       ),
     },
     {
-      accessorKey: 'priority', header: 'Priorite', size: 80,
+      accessorKey: 'priority', header: 'Priorité', size: 80,
       cell: ({ row }) => {
         const p = row.original.priority
         const cls = p === 'critical' ? 'gl-badge-danger' : p === 'high' ? 'gl-badge-warning' : 'gl-badge-neutral'

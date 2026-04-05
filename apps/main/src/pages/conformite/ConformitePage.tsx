@@ -1724,7 +1724,7 @@ function RulesMatrixView({
           { id: 'category', header: 'Categorie' },
           { id: 'target_type', header: 'Cible' },
           { id: 'target_value_display', header: 'Valeur Cible' },
-          { id: 'priority', header: 'Priorite' },
+          { id: 'priority', header: 'Priorité' },
           { id: 'applicability', header: 'Applicabilite' },
           { id: 'description', header: 'Description' },
           { id: 'effective_from', header: 'Depuis' },

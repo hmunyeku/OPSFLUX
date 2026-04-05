@@ -36,7 +36,7 @@
     "login": "Connexion",
     "email": "Adresse email",
     "password": "Mot de passe",
-    "login_button": "Se connecter",
+    "login_button": "Se connectér",
     "login_sso": "Connexion SSO",
     "forgot_password": "Mot de passe oublié ?",
     "invalid_credentials": "Email ou mot de passe incorrect",
@@ -74,7 +74,7 @@
   },
   "common": {
     "save": "Enregistrer",
-    "cancel": "Annuler",
+    "cancel": "Annulér",
     "delete": "Supprimer",
     "edit": "Modifier",
     "create": "Créer",
@@ -138,7 +138,7 @@
     "clone": "Dupliquer",
     "publish": "Publier",
     "archive": "Archiver",
-    "undo": "Annuler (Ctrl+Z)",
+    "undo": "Annulér (Ctrl+Z)",
     "no_data": "Aucune donnée",
     "no_data_description": "Aucune donnée à afficher.",
     "search_placeholder": "Rechercher...",
@@ -252,7 +252,6 @@
     "status_decommissioned": "Décommissionné",
     "status_construction": "En construction",
     "status_standby": "En attente",
-
     "registry_title": "Registre des Assets",
     "fields": "Champs",
     "sites": "Sites",
@@ -262,7 +261,6 @@
     "field": "Champ pétrolier",
     "site": "Site",
     "installation": "Installation",
-
     "search_fields": "Rechercher par code, nom de champ…",
     "search_sites": "Rechercher par code, nom de site…",
     "search_installations": "Rechercher par code, nom d'installation…",
@@ -270,14 +268,12 @@
     "search_pipelines": "Rechercher par ID, nom de pipeline…",
     "search_hierarchy": "Rechercher dans la hiérarchie…",
     "children": "Éléments rattachés",
-
     "no_fields": "Aucun champ enregistré",
     "no_sites": "Aucun site enregistré",
     "no_installations": "Aucune installation enregistrée",
     "no_equipment": "Aucun équipement enregistré",
     "no_pipelines": "Aucun pipeline enregistré",
     "confirm_archive_selected": "Archiver les éléments sélectionnés ? Cette action est irréversible.",
-
     "country": "Pays",
     "operator": "Opérateur",
     "environment": "Environnement",
@@ -288,7 +284,6 @@
     "license_number": "N° licence",
     "geology": "Géologie / Réservoir",
     "license": "Licence / Permis",
-
     "manned": "Habité",
     "pob_capacity": "POB max",
     "access": "Accès",
@@ -297,18 +292,15 @@
     "design_life": "Durée de vie design",
     "design_pressure": "Pression de design (barg)",
     "design_temp": "Temp. de design max (°C)",
-
     "equipment_class": "Classe d'équipement",
     "criticality": "Criticité",
     "safety_function": "Fonction sécurité",
     "manufacturer_info": "Fabricant / Identification",
     "serial_number": "N° série",
     "year_manufactured": "Année fabrication",
-
     "service": "Service",
     "pipe_material": "Matériau",
     "waypoints": "Points de passage",
-
     "reservoir_formation": "Formation réservoir",
     "license_type": "Type de licence",
     "license_expiry": "Expiration licence",
@@ -358,13 +350,11 @@
     "piggable": "Raclable",
     "installation_year": "Année d'installation",
     "corrosion_allowance": "Surépaisseur corrosion (mm)",
-
     "create_field": "Nouveau champ",
     "create_site": "Nouveau site",
     "create_installation": "Nouvelle installation",
     "create_equipment": "Nouvel équipement",
     "create_pipeline": "Nouveau pipeline",
-
     "code_help": "Code unique (ex: TKA, BMB, LKL)",
     "tag_help": "Tag unique (ex: P-1001, V-2001)",
     "field_parent": "Champ parent",
@@ -381,15 +371,12 @@
     "technical_details": "Détails techniques",
     "is_mobile": "Mobile",
     "area": "Zone",
-    "sub_area": "Sous-zone",
-
     "env_onshore": "Onshore",
     "env_offshore": "Offshore",
     "env_swamp": "Marécage",
     "env_shallow_water": "Eaux peu profondes",
     "env_deepwater": "Eaux profondes",
     "env_subsea": "Sous-marin",
-
     "tag_number": "Tag",
     "pipeline_id": "ID Pipeline",
     "manning": "Manning / Hébergement",
@@ -399,13 +386,11 @@
     "from_node_desc": "Description noeud départ",
     "to_node_desc": "Description noeud arrivée",
     "fluid": "Fluide",
-
     "field_created": "Champ créé avec succès",
     "site_created": "Site créé avec succès",
     "installation_created": "Installation créée avec succès",
     "equipment_created": "Équipement créé avec succès",
     "pipeline_created": "Pipeline créé avec succès",
-
     "crane_mount_type": "Type de montage",
     "swl_tonnes": "SWL (tonnes)",
     "boom_max_length": "Longueur max flèche (m)",
@@ -421,7 +406,6 @@
     "tank_type": "Type de bac",
     "nominal_capacity_m3": "Capacité nominale (m³)",
     "shell_diameter_m": "Diamètre virole (m)",
-
     "access_road": "Accès routier",
     "access_helicopter": "Accès hélicoptère",
     "access_vessel": "Accès maritime",
@@ -464,7 +448,6 @@
     "integrity": "Intégrité",
     "regulatory": "Réglementaire",
     "dimensions_materials": "Dimensions / Matériaux",
-
     "spec_section": {
       "specialized_data": "Données spécialisées",
       "crane_general": "Grue — Général",
@@ -498,7 +481,6 @@
       "tank_design": "Design & Matériaux",
       "tank_safety": "Sécurité & Inspection"
     },
-
     "spec": {
       "crane_type": "Type de grue",
       "boom_structure": "Structure flèche",
@@ -535,7 +517,6 @@
       "installed_power": "Puissance installée",
       "design_standard": "Norme de conception",
       "operation_standard": "Norme d'exploitation",
-
       "separator_type": "Type séparateur",
       "orientation": "Orientation",
       "separation_stage": "Étage de séparation",
@@ -577,7 +558,6 @@
       "primary_psv_tag": "Tag PSV principal",
       "primary_psv_set": "Tarage PSV principal",
       "bdv_tag": "Tag BDV",
-
       "pump_type": "Type de pompe",
       "api_type_designation": "Désignation API",
       "pump_service": "Service",
@@ -606,7 +586,6 @@
       "impeller_material": "Matériau impulseur",
       "casing_material": "Matériau corps",
       "seal_type": "Type garniture",
-
       "compressor_type": "Type compresseur",
       "service": "Service",
       "gas_description": "Description gaz",
@@ -625,7 +604,6 @@
       "surge_margin": "Marge de pompage",
       "anti_surge_valve_tag": "Tag vanne anti-pompage",
       "dgs_installed": "DGS installé",
-
       "is_emergency_generator": "Groupe de secours",
       "generator_class": "Classe groupe",
       "engine_manufacturer": "Fabricant moteur",
@@ -643,7 +621,6 @@
       "fuel_autonomy": "Autonomie carburant",
       "auto_start_mains_failure": "Démarrage auto sur défaut réseau",
       "parallel_operation": "Fonctionnement parallèle",
-
       "tank_type": "Type de bac",
       "tank_service": "Service",
       "api_standard": "Norme API",
@@ -663,7 +640,6 @@
       "foam_system_type": "Type système mousse",
       "internal_inspection_interval": "Intervalle inspection interne"
     },
-
     "sub_section": {
       "crane_configurations": "Configurations flèche / mouflage",
       "crane_hook_blocks": "Moufles / Crochets",
@@ -673,7 +649,6 @@
       "pump_curve_points": "Courbe pompe",
       "column_sections": "Sections de colonne"
     },
-
     "sub": {
       "config_code": "Code config",
       "config_name": "Nom config",
@@ -731,7 +706,6 @@
       "packing_height": "Hauteur garnissage (m)",
       "no_sections": "Aucune section"
     },
-
     "inst_sub": {
       "decks": "Ponts / Niveaux",
       "deck_name": "Nom du pont",
@@ -745,7 +719,6 @@
       "deck_function": "Fonction",
       "no_decks": "Aucun pont enregistré"
     },
-
     "inst_detail": {
       "type_specific": "Détails spécifiques au type",
       "offshore_structure": "Offshore — Structure",
@@ -805,7 +778,6 @@
       "operating_permit": "Permis d'exploitation",
       "land_title": "Réf. titre foncier"
     },
-
     "dashboard_tab": "Tableau de bord",
     "total_fields": "Champs",
     "total_sites": "Sites",
@@ -835,7 +807,107 @@
     "type_select": "Sélectionner un type",
     "supplier": "Fournisseur",
     "subcontractor": "Sous-traitant",
-    "partner": "Partenaire"
+    "partner": "Partenaire",
+    "tab_companies": "Entreprises",
+    "tab_contacts": "Employés",
+    "ui": {
+      "sections": {
+        "identity": "Identité entreprise",
+        "contact": "Coordonnées entreprise",
+        "address": "Adresse et localisation",
+        "legal": "Informations légales",
+        "configuration": "Configuration entreprise",
+        "contact_identity": "Fiche employé",
+        "access": "Accès externe",
+        "contact_details": "Coordonnées de l'employé",
+        "compliance": "Référentiels & conformité",
+        "notes_documents": "Notes & documents"
+      },
+      "auto_generated": "Auto-généré à la création",
+      "trade_name": "Nom commercial principal",
+      "alias": "Alias / nom court",
+      "website": "Site web",
+      "fax": "Fax",
+      "address_line1": "Adresse ligne 1",
+      "address_line2": "Adresse ligne 2",
+      "city": "Ville",
+      "state": "Région / État",
+      "zip_code": "Code postal",
+      "country": "Pays",
+      "legal_form": "Forme juridique",
+      "registration_number": "N° d'enregistrement",
+      "tax_id": "Identifiant fiscal",
+      "vat_number": "N° TVA",
+      "capital": "Capital social",
+      "currency": "Devise",
+      "fiscal_year_start": "Mois de début d'exercice",
+      "industry": "Secteur d'activité",
+      "founded_date": "Date de création",
+      "payment_terms": "Conditions de paiement",
+      "language": "Langue",
+      "timezone": "Fuseau horaire",
+      "logo_url": "URL du logo",
+      "social_networks": "Réseaux sociaux",
+      "opening_hours": "Horaires d'ouverture",
+      "civility": "Civilité",
+      "first_name": "Prénom",
+      "last_name": "Nom",
+      "position": "Poste / fonction",
+      "department": "Département",
+      "linked_user": "Utilisateur lié",
+      "external_user": "Utilisateur externe",
+      "no_linked_user": "Aucun utilisateur lié",
+      "promote_to_external_user": "Promouvoir en utilisateur externe",
+      "promote_hint": "Ce contact peut recevoir un compte externe limité à son entreprise.",
+      "promote_missing_email": "Ajoutez d'abord un email principal au contact pour pouvoir le promouvoir.",
+      "primary_contact": "Employé principal",
+      "primary_contact_set": "Employé principal défini",
+      "set_primary_contact": "Définir comme employé principal",
+      "contact_updated": "Employé mis à jour",
+      "contact_deleted": "Employé supprimé",
+      "contact_promoted": "Contact promu en utilisateur externe",
+      "contact_promote_error": "Impossible de promouvoir ce contact en utilisateur externe.",
+      "contact_created": "Employé ajouté",
+      "contact_hint": "Les gestionnaires polymorphes restent disponibles après création pour enrichir les coordonnées.",
+      "contact_detail_hint": "Téléphones, emails et adresses du contact seront gérés dans sa fiche.",
+      "legal_hint": "Les identifiants légaux multiples restent gérés dans le registre dédié de la fiche entreprise.",
+      "add_alias": "+ Ajouter un alias",
+      "add_contact": "Ajouter un employé",
+      "search_contact": "Rechercher un employé...",
+      "no_contacts": "Aucun employé",
+      "no_contacts_description": "Ajoutez les employés de cette entreprise",
+      "no_contact_results": "Aucun résultat pour \"{{search}}\"",
+      "show_more_contacts": "Afficher plus ({{count}} restant)",
+      "block_type": "Type de blocage",
+      "block_purchasing": "Achats",
+      "block_payment": "Paiements",
+      "block_full": "Complet",
+      "block_reason": "Motif *",
+      "block_reason_placeholder": "Raison du blocage / déblocage...",
+      "block": "Bloquer",
+      "unblock": "Débloquer",
+      "blocked": "Bloqué",
+      "unblocked": "Débloqué",
+      "no_block_history": "Aucun historique de blocage.",
+      "external_refs": "Identifiants externes",
+      "add_external_ref": "Ajouter un identifiant",
+      "system": "Système *",
+      "no_external_refs": "Aucun identifiant externe.",
+      "related_projects": "Projets liés",
+      "placeholders": {
+        "company_name": "Nom de l'entreprise",
+        "trade_name": "Trade name / enseigne",
+        "alias": "Nom court / sigle",
+        "email": "contact@entreprise.com",
+        "phone": "+243 ...",
+        "fax": "+243 ...",
+        "address_line1": "Rue, avenue, immeuble",
+        "address_line2": "Complément d'adresse",
+        "industry": "Pétrole & gaz",
+        "payment_terms": "30 jours net",
+        "description": "Description libre..."
+      }
+    }
   },
   "users": {
     "title": "Utilisateurs",
@@ -1313,12 +1385,7 @@
         "cancelled": "Annulée"
       }
     },
-    "severity": {
-      "info": "Info",
-      "warning": "Avertissement",
-      "temp_ban": "Ban temporaire",
-      "permanent_ban": "Ban permanent"
-    },
+    "severity": "Sévérité",
     "profiles": "Profils PAX",
     "ads_label": "Avis de séjour",
     "credentials": "Certifications",
@@ -1337,7 +1404,6 @@
     "start_date": "Date début",
     "end_date": "Date fin",
     "pax_count": "Passagers",
-    "severity": "Sévérité",
     "submit": "Soumettre",
     "resolve": "Résoudre",
     "avm_label": "Missions (AVM)",
@@ -1372,7 +1438,7 @@
     "search_company": "Rechercher une entreprise...",
     "search_user": "Rechercher un utilisateur...",
     "confirm_reject": "Confirmer le rejet",
-    "cancel_question": "Annuler ?",
+    "cancel_question": "Annulér ?",
     "no_passenger": "Aucun passager",
     "no_cargo": "Aucun colis",
     "log_event": "Enregistrer l'événement",
@@ -1584,15 +1650,17 @@
       "fields": {
         "planned_pax": "PAX prévus",
         "departure": "Départ",
-        "return": "Retour"
+        "return": "Retour",
+        "global_documents": "Documents mission",
+        "per_pax_documents": "Documents par PAX",
+        "documents_placeholder": "Une exigence par ligne"
       },
       "placeholders": {
         "title": "Ex: Mission E-LINE ESF1",
         "description": "Description de la mission..."
       },
       "date_hint": "La fenêtre mission sert de référence. Les lignes de programme peuvent ensuite affiner leurs propres dates.",
-      "program_intro": "Commencez par les étapes principales de la mission. Vous pourrez ensuite arbitrer, rattacher des AdS et affiner les lignes selon les validations."
-      ,
+      "program_intro": "Commencez par les étapes principales de la mission. Vous pourrez ensuite arbitrer, rattacher des AdS et affiner les lignes selon les validations.",
       "program": {
         "line": "Ligne {{index}}",
         "activity": "Activité",
@@ -1609,11 +1677,22 @@
     },
     "ads_detail": {
       "actions": {
-        "external_link": "Lien externe"
+        "external_link": "Lien externe",
+        "add_passenger": "Ajouter un passager",
+        "start_progress": "Démarrer le séjour",
+        "manual_departure": "Départ manuel OMAA",
+        "complete": "Clôturer le séjour",
+        "validate_passenger": "Valider ce passager",
+        "reject_passenger": "Rejeter ce passager",
+        "remove_passenger": "Retirer ce passager",
+        "request_review": "Renvoyer en correction",
+        "resubmit": "Re-soumettre",
+        "request_stay_change": "Modifier le séjour"
       },
       "reject": {
         "reason_title": "Motif de rejet",
-        "placeholder": "Indiquez le motif du rejet (optionnel)..."
+        "placeholder": "Indiquez le motif du rejet (optionnel)...",
+        "passenger_placeholder": "Motif optionnel du rejet de ce passager"
       },
       "request_review": {
         "reason_title": "Motif du retour pour correction",
@@ -1747,32 +1826,37 @@
           "planner_activity_cancelled": "Impact suite à l'annulation de l'activité Planner",
           "submitted": "Soumission",
           "approved": "Approbation",
+          "in_progress": "Séjour démarré",
+          "completed": "Séjour clôturé",
           "rejected": "Rejet",
           "cancelled": "Annulation",
           "resubmitted": "Re-soumission",
           "updated": "Mise à jour",
+          "overdue_return_alert": "Alerte dépassement retour",
           "requires_review": "Passage en revue"
         }
       },
       "operational_impact": {
+        "stay_change": "Cette AdS a été renvoyée en revue à la suite d'une modification de séjour en cours de mission.",
         "avm_modified": "Cette AdS est en revue à la suite d'une modification de l'AVM source.",
         "avm_cancelled": "Cette AdS a été impactée par l'annulation de l'AVM source.",
         "planner_modified": "Cette AdS est en revue à la suite d'une modification de l'activité Planner liée.",
         "planner_cancelled": "Cette AdS a été impactée par l'annulation de l'activité Planner liée.",
-        "changed_fields": "Champs impactés"
+        "changed_fields": "Champs impactés",
+        "stay_change_types": "Type de modification",
+        "stay_change_kinds": {
+          "extension": "Prolongation de séjour",
+          "early_return": "Retour anticipé",
+          "transport_change": "Changement transport",
+          "window_change": "Changement de fenêtre",
+          "stay_change": "Modification de séjour"
+        }
       },
-      "actions": {
-        "external_link": "Lien externe",
-        "add_passenger": "Ajouter un passager",
-        "validate_passenger": "Valider ce passager",
-        "reject_passenger": "Rejeter ce passager",
-        "remove_passenger": "Retirer ce passager",
-        "request_review": "Renvoyer en correction",
-        "resubmit": "Re-soumettre",
-        "request_stay_change": "Modifier le séjour"
-      },
-      "reject": {
-        "passenger_placeholder": "Motif optionnel du rejet de ce passager"
+      "manual_departure": {
+        "title": "Déclaration manuelle de départ",
+        "reason": "Motif du départ manuel",
+        "placeholder": "Expliquez pourquoi le départ n'a pas été tracé dans TravelWiz...",
+        "confirm": "Déclarer le départ et clôturer"
       },
       "empty": {
         "pax_search": "Aucun résultat pour « {{search}} »",
@@ -1813,6 +1897,8 @@
         "information": "Informations",
         "preparation_indicators": "Indicateurs de préparation",
         "preparation_tasks": "Préparation ({{progress}}%)",
+        "visa_followups": "Suivi visas",
+        "allowance_requests": "Suivi indemnités",
         "program": "Programme ({{count}} lignes)",
         "metadata": "Métadonnées",
         "last_changes": "Dernière modification",
@@ -1827,7 +1913,9 @@
         "last_modification_reason": "Motif de modification",
         "last_modified_by": "Modifié par",
         "last_modified_at": "Modifié le",
-        "planned_pax": "PAX prévus"
+        "planned_pax": "PAX prévus",
+        "global_documents": "Documents mission requis",
+        "per_pax_documents": "Documents requis par PAX"
       },
       "actions": {
         "modify": "Modifier l'AVM"
@@ -1879,6 +1967,13 @@
           "na": "N/A"
         }
       },
+      "followups": {
+        "visa_type": "Type de visa",
+        "country": "Pays",
+        "amount": "Montant",
+        "currency": "Devise",
+        "payment_reference": "Référence de paiement"
+      },
       "program": {
         "site": "Site : {{site}}",
         "site_missing": "Site à préciser",
@@ -1923,10 +2018,19 @@
       }
     },
     "rotations_tab": {
+      "columns": {
+        "pax": "PAX",
+        "compliance": "Conformité"
+      },
+      "compliance": {
+        "clear": "Conforme",
+        "blocked_one": "1 blocage",
+        "blocked_other": "{{count}} blocages"
+      },
       "cycle": "Cycle",
       "start": "Début",
       "next_rotation": "Prochaine rotation",
-      "finish": "Terminer",
+      "finish": "Terminér",
       "count": "{{count}} rotations"
     },
     "profile_panel": {
@@ -1954,19 +2058,24 @@
         "internal": "Personnel Perenco — lié à un compte utilisateur",
         "external": "Sous-traitant / visiteur — lié à une entreprise (tier)"
       },
-        "archive_confirm": "Archiver ?",
-        "linked_company": "Entreprise liée",
-        "linked_user": "Compte utilisateur lié",
-        "internal_user_profile": "Profil utilisateur interne",
-        "external_user": "Utilisateur externe",
-        "promoted_external_user": "Contact promu en utilisateur externe",
-        "promoted_external_user_inactive": "Contact promu en utilisateur externe inactif",
-        "external_contact_profile": "Profil contact externe",
-        "external_contact_promoted": "Profil contact externe promu en utilisateur externe",
-        "credentials_title": "Certifications ({{count}})",
-        "credential_obtained": "Obtenu : {{date}}",
-        "credential_expires": "Expire : {{date}}"
-      },
+      "archive_confirm": "Archiver ?",
+      "linked_company": "Entreprise liée",
+      "linked_user": "Compte utilisateur lié",
+      "internal_user_profile": "Profil utilisateur interne",
+      "external_user": "Utilisateur externe",
+      "promoted_external_user": "Contact promu en utilisateur externe",
+      "promoted_external_user_inactive": "Contact promu en utilisateur externe inactif",
+      "external_contact_profile": "Profil contact externe",
+      "external_contact_promoted": "Profil contact externe promu en utilisateur externe",
+      "credentials_title": "Certifications ({{count}})",
+      "credential_obtained": "Obtenu : {{date}}",
+      "credential_expires": "Expire : {{date}}",
+      "site_presence_title": "Présences site ({{count}})",
+      "site_presence_empty": "Aucune présence site connue.",
+      "unknown_site": "Site inconnu",
+      "boarding_status": "Boarding {{status}} le {{date}}",
+      "completed_at": "Clôturé le {{date}}"
+    },
     "incident_panel": {
       "create_title": "Nouveau signalement",
       "subtitle": "PaxLog — Signalements",
@@ -1976,14 +2085,25 @@
         "details": "Détails",
         "ban_period": "Période de ban"
       },
+      "target_scope": {
+        "pax": "Individu",
+        "company": "Entreprise",
+        "group": "Groupe PAX"
+      },
       "fields": {
         "pax_profile": "Profil PAX",
+        "company": "Entreprise",
+        "company_filter": "Filtre entreprise",
+        "pax_group": "Groupe PAX",
         "incident_date": "Date de l'incident",
         "ban_start": "Début du ban",
-        "ban_end": "Fin du ban"
+        "ban_end": "Fin du ban",
+        "asset": "Site / asset"
       },
       "placeholders": {
         "search_pax": "Rechercher un PAX...",
+        "search_company": "Rechercher une entreprise...",
+        "search_group": "Rechercher un groupe PAX...",
         "description": "Décrire l'incident..."
       }
     },
@@ -2025,7 +2145,7 @@
     "new_activity": "Nouvelle activité",
     "no_activity": "Aucune activité",
     "no_activity_description": "Aucune activité trouvée pour cette période. Ajustez les filtres ou la plage de dates.",
-    "cancel_activity": "Annuler une activité",
+    "cancel_activity": "Annulér une activité",
     "no_conflict": "Aucun conflit",
     "no_data": "Aucune donnée",
     "no_capacity_data": "Aucune donnée de capacité trouvée pour ce site et cette période.",
@@ -2060,7 +2180,7 @@
       "weather": "Météo"
     },
     "voyages_empty_title": "Voyages",
-    "voyages_empty_description": "Planifiez et suivez les voyages de personnel vers les sites opérationnels.",
+    "voyages_empty_description": "Planifiéz et suivez les voyages de personnel vers les sites opérationnels.",
     "vectors_empty_title": "Vecteurs",
     "vectors_empty_description": "Gérez les moyens de transport : hélicoptères, bateaux, véhicules et autres vecteurs logistiques.",
     "cargo_empty_title": "Cargo",
@@ -2068,7 +2188,7 @@
     "manifests_empty_title": "Manifestes",
     "manifests_empty_description": "Gérez les manifestes passagers et cargo pour chaque rotation.",
     "rotations_empty_title": "Rotations",
-    "rotations_empty_description": "Planifiez les rotations de personnel et les cycles de travail sur site.",
+    "rotations_empty_description": "Planifiéz les rotations de personnel et les cycles de travail sur site.",
     "fleet_map": "Carte flotte",
     "pickup_rounds": "Tournées de ramassage",
     "weather": "Météo",
@@ -2467,10 +2587,10 @@
     "skipped": "{{count}} ignoré(s)",
     "errors": "{{count}} erreur(s)",
     "download_errors": "Télécharger le rapport d'erreurs",
-    "finish": "Terminer",
+    "finish": "Terminér",
     "next": "Suivant",
     "previous": "Précédent",
-    "cancel": "Annuler",
+    "cancel": "Annulér",
     "no_saved_mappings": "Aucun mapping sauvegardé",
     "mapping_saved": "Mapping sauvegardé",
     "import_assistant": "Assistant d'import",
@@ -2678,13 +2798,13 @@
     },
     "image_editor": {
       "title": "Modifier l'image",
-      "cancel_crop": "Annuler le recadrage",
+      "cancel_crop": "Annulér le recadrage",
       "crop": "Recadrer"
     }
   },
   "entities": {
-    "title": "Entit\u00e9s",
-    "create": "Nouvelle entit\u00e9",
+    "title": "Entités",
+    "create": "Nouvelle entité",
     "code": "Code",
     "name": "Nom",
     "country": "Pays",
@@ -2693,109 +2813,7 @@
     "users": "Utilisateurs",
     "add_user": "Ajouter un utilisateur",
     "remove_user": "Retirer",
-    "no_entities": "Aucune entit\u00e9",
+    "no_entities": "Aucune entité",
     "stats": "Statistiques"
-  },
-  "tiers": {
-    "tab_companies": "Entreprises",
-    "tab_contacts": "Employés",
-    "ui": {
-      "sections": {
-        "identity": "Identité entreprise",
-        "contact": "Coordonnées entreprise",
-        "address": "Adresse et localisation",
-        "legal": "Informations légales",
-        "configuration": "Configuration entreprise",
-        "contact_identity": "Fiche employé",
-        "access": "Accès externe",
-        "contact_details": "Coordonnées de l'employé",
-        "compliance": "Référentiels & conformité",
-        "notes_documents": "Notes & documents"
-      },
-      "auto_generated": "Auto-généré à la création",
-      "trade_name": "Nom commercial principal",
-      "alias": "Alias / nom court",
-      "website": "Site web",
-      "fax": "Fax",
-      "address_line1": "Adresse ligne 1",
-      "address_line2": "Adresse ligne 2",
-      "city": "Ville",
-      "state": "Région / État",
-      "zip_code": "Code postal",
-      "country": "Pays",
-      "legal_form": "Forme juridique",
-      "registration_number": "N° d'enregistrement",
-      "tax_id": "Identifiant fiscal",
-      "vat_number": "N° TVA",
-      "capital": "Capital social",
-      "currency": "Devise",
-      "fiscal_year_start": "Mois de début d'exercice",
-      "industry": "Secteur d'activité",
-      "founded_date": "Date de création",
-      "payment_terms": "Conditions de paiement",
-      "language": "Langue",
-      "timezone": "Fuseau horaire",
-      "logo_url": "URL du logo",
-      "social_networks": "Réseaux sociaux",
-      "opening_hours": "Horaires d'ouverture",
-      "civility": "Civilité",
-      "first_name": "Prénom",
-      "last_name": "Nom",
-      "position": "Poste / fonction",
-      "department": "Département",
-      "linked_user": "Utilisateur lié",
-      "external_user": "Utilisateur externe",
-      "no_linked_user": "Aucun utilisateur lié",
-      "promote_to_external_user": "Promouvoir en utilisateur externe",
-      "promote_hint": "Ce contact peut recevoir un compte externe limité à son entreprise.",
-      "promote_missing_email": "Ajoutez d'abord un email principal au contact pour pouvoir le promouvoir.",
-      "primary_contact": "Employé principal",
-      "primary_contact_set": "Employé principal défini",
-      "set_primary_contact": "Définir comme employé principal",
-      "contact_updated": "Employé mis à jour",
-      "contact_deleted": "Employé supprimé",
-      "contact_promoted": "Contact promu en utilisateur externe",
-      "contact_promote_error": "Impossible de promouvoir ce contact en utilisateur externe.",
-      "contact_created": "Employé ajouté",
-      "contact_hint": "Les gestionnaires polymorphes restent disponibles après création pour enrichir les coordonnées.",
-      "contact_detail_hint": "Téléphones, emails et adresses du contact seront gérés dans sa fiche.",
-      "legal_hint": "Les identifiants légaux multiples restent gérés dans le registre dédié de la fiche entreprise.",
-      "add_alias": "+ Ajouter un alias",
-      "add_contact": "Ajouter un employé",
-      "search_contact": "Rechercher un employé...",
-      "no_contacts": "Aucun employé",
-      "no_contacts_description": "Ajoutez les employés de cette entreprise",
-      "no_contact_results": "Aucun résultat pour \"{{search}}\"",
-      "show_more_contacts": "Afficher plus ({{count}} restant)",
-      "block_type": "Type de blocage",
-      "block_purchasing": "Achats",
-      "block_payment": "Paiements",
-      "block_full": "Complet",
-      "block_reason": "Motif *",
-      "block_reason_placeholder": "Raison du blocage / déblocage...",
-      "block": "Bloquer",
-      "unblock": "Débloquer",
-      "blocked": "Bloqué",
-      "unblocked": "Débloqué",
-      "no_block_history": "Aucun historique de blocage.",
-      "external_refs": "Identifiants externes",
-      "add_external_ref": "Ajouter un identifiant",
-      "system": "Système *",
-      "no_external_refs": "Aucun identifiant externe.",
-      "related_projects": "Projets liés",
-      "placeholders": {
-        "company_name": "Nom de l'entreprise",
-        "trade_name": "Trade name / enseigne",
-        "alias": "Nom court / sigle",
-        "email": "contact@entreprise.com",
-        "phone": "+243 ...",
-        "fax": "+243 ...",
-        "address_line1": "Rue, avenue, immeuble",
-        "address_line2": "Complément d'adresse",
-        "industry": "Pétrole & gaz",
-        "payment_terms": "30 jours net",
-        "description": "Description libre..."
-      }
-    }
   }
 }

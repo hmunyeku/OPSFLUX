@@ -909,7 +909,8 @@
         "industry": "Pétrole & gaz",
         "payment_terms": "30 jours net",
         "description": "Description libre..."
-      }
+      },
+      "blocking_section": "Blocage"
     }
   },
   "users": {

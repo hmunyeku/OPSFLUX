@@ -17,7 +17,7 @@
  * - 8px spacing base unit
  * - Inset box-shadow for input borders
  */
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import React, { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   X, Check, Pencil, ChevronRight, ChevronLeft, ChevronDown,
@@ -646,13 +646,37 @@ export function DynamicPanelField({
   required?: boolean
   span?: 'full'
 }) {
+  // Generate a stable id pair (label + control) so every field has proper
+  // aria-labelledby and htmlFor, fixing the a11y "form field without label"
+  // and "form field without id/name" warnings.
+  const labelId = useId()
+  const controlId = useId()
+
+  // Derive a machine-friendly name from the label for autocomplete support
+  const fieldName = label
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
+
+  // Inject id + name + aria-labelledby into the single child input if possible
+  const enhancedChild = (() => {
+    if (!React.isValidElement(children)) return children
+    const element = children as React.ReactElement<Record<string, unknown>>
+    const existingProps = element.props || {}
+    return React.cloneElement(element, {
+      id: (existingProps.id as string) || controlId,
+      name: (existingProps.name as string) || fieldName,
+      'aria-labelledby': labelId,
+    })
+  })()
+
   return (
     <div className={cn(span === 'full' && 'col-span-full')}>
-      <label className="gl-label-sm">
+      <label id={labelId} htmlFor={controlId} className="gl-label-sm">
         {label}
         {required && <span className="text-destructive ml-0.5">*</span>}
       </label>
-      {children}
+      {enhancedChild}
     </div>
   )
 }

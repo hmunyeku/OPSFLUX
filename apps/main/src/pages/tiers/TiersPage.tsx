@@ -38,6 +38,7 @@ import {
   FormGrid,
   FormSection,
   InlineEditableRow,
+  InlineEditableSelect,
   InlineEditableTags,
   ReadOnlyRow,
   PanelActionButton,
@@ -311,6 +312,18 @@ const MONTH_LABELS_FR = [
   'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
 ]
 
+function formatCapital(amount: number, currency: string = 'XAF'): string {
+  try {
+    return new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 0,
+    }).format(amount)
+  } catch {
+    return new Intl.NumberFormat('fr-FR').format(amount) + (currency ? ` ${currency}` : '')
+  }
+}
+
 function TierDetailPanel({ id }: { id: string }) {
   const { t, i18n } = useTranslation()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
@@ -322,11 +335,16 @@ function TierDetailPanel({ id }: { id: string }) {
   const canEdit = hasPermission('tier.update')
   const tierTypeOptions = useDictionaryOptions('tier_type')
   const legalFormOptions = useDictionaryOptions('legal_form')
+  const countryOptions = useDictionaryOptions('country')
   const countryLabels = useDictionaryLabels('country')
   const languageLabels = useDictionaryLabels('language', {
     fr: 'Français', en: 'English', es: 'Español', pt: 'Português',
     de: 'Deutsch', it: 'Italiano', ar: 'العربية', zh: '中文',
   })
+  const languageOptions = useMemo(
+    () => Object.entries(languageLabels).map(([value, label]) => ({ value, label })),
+    [languageLabels],
+  )
   const monthLabel = (n: number) => {
     try {
       return new Intl.DateTimeFormat(i18n.language, { month: 'long' }).format(new Date(2000, Math.max(0, n - 1), 1))
@@ -334,6 +352,12 @@ function TierDetailPanel({ id }: { id: string }) {
       return MONTH_LABELS_FR[Math.max(0, Math.min(11, n - 1))]
     }
   }
+  const fiscalYearOptions = useMemo(() => (
+    Array.from({ length: 12 }, (_, idx) => {
+      const value = String(idx + 1)
+      return { value, label: monthLabel(idx + 1) }
+    })
+  ), [i18n.language])
 
   // Drill-down state: null = company view, string = contact detail view
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null)
@@ -437,7 +461,7 @@ function TierDetailPanel({ id }: { id: string }) {
                   options={tierTypeOptions}
                   onSave={(v) => handleInlineSave('type', v)}
                 />
-                <InlineEditableRow label={t('tiers.ui.country')} value={tier.country || ''} displayValue={tier.country ? (countryLabels[tier.country] || tier.country) : ''} onSave={(v) => handleInlineSave('country', v)} />
+                <InlineEditableSelect label={t('tiers.ui.country')} value={tier.country || ''} displayValue={tier.country ? (countryLabels[tier.country] || tier.country) : ''} options={countryOptions} onSave={(v) => handleInlineSave('country', v)} />
                 <ReadOnlyRow
                   label={t('common.status')}
                   value={
@@ -448,9 +472,9 @@ function TierDetailPanel({ id }: { id: string }) {
                 />
               </DetailFieldGrid>
               <DetailFieldGrid>
-                <InlineEditableRow label={t('tiers.ui.language')} value={tier.language || 'fr'} displayValue={languageLabels[tier.language || 'fr'] || tier.language || 'Français'} onSave={(v) => handleInlineSave('language', v)} />
+                <InlineEditableSelect label={t('tiers.ui.language')} value={tier.language || 'fr'} displayValue={languageLabels[tier.language || 'fr'] || tier.language || 'Français'} options={languageOptions} onSave={(v) => handleInlineSave('language', v)} />
                 <InlineEditableRow label={t('tiers.ui.timezone')} value={tier.timezone || 'Africa/Kinshasa'} onSave={(v) => handleInlineSave('timezone', v)} />
-                <InlineEditableRow label={t('tiers.ui.fiscal_year_start')} value={String(tier.fiscal_year_start || 1)} displayValue={monthLabel(tier.fiscal_year_start || 1)} onSave={(v) => handleInlineSave('fiscal_year_start', Number(v) || 1)} />
+                <InlineEditableSelect label={t('tiers.ui.fiscal_year_start')} value={String(tier.fiscal_year_start || 1)} displayValue={monthLabel(tier.fiscal_year_start || 1)} options={fiscalYearOptions} onSave={(v) => handleInlineSave('fiscal_year_start', Number(v) || 1)} />
               </DetailFieldGrid>
             </FormSection>
 
@@ -503,7 +527,12 @@ function TierDetailPanel({ id }: { id: string }) {
                 <InlineEditableRow label={t('tiers.ui.registration_number')} value={tier.registration_number || ''} onSave={(v) => handleInlineSave('registration_number', v)} />
                 <InlineEditableRow label={t('tiers.ui.tax_id')} value={tier.tax_id || ''} onSave={(v) => handleInlineSave('tax_id', v)} />
                 <InlineEditableRow label={t('tiers.ui.vat_number')} value={tier.vat_number || ''} onSave={(v) => handleInlineSave('vat_number', v)} />
-                <InlineEditableRow label={t('tiers.ui.capital')} value={tier.capital ? String(tier.capital) : ''} onSave={(v) => handleInlineSave('capital', v)} />
+                <InlineEditableRow
+                  label={t('tiers.ui.capital')}
+                  value={tier.capital ? String(tier.capital) : ''}
+                  displayValue={tier.capital ? formatCapital(tier.capital, tier.currency) : ''}
+                  onSave={(v) => handleInlineSave('capital', v)}
+                />
                 <ReadOnlyRow label={t('tiers.ui.currency')} value={<span className="text-sm">{tier.currency || 'XAF'}</span>} />
                 <InlineEditableRow label={t('tiers.ui.industry')} value={tier.industry || ''} onSave={(v) => handleInlineSave('industry', v)} />
                 <InlineEditableRow label={t('tiers.ui.payment_terms')} value={tier.payment_terms || ''} onSave={(v) => handleInlineSave('payment_terms', v)} />
@@ -533,7 +562,7 @@ function TierDetailPanel({ id }: { id: string }) {
         <FormSection
           title={
             <span className="flex items-center gap-2">
-              {t('tiers.ui.block')}
+              {t('tiers.ui.blocking_section')}
               {tier.is_blocked && (
                 <span className="gl-badge gl-badge-danger text-[10px]">
                   <ShieldBan size={10} className="mr-0.5" />{t('tiers.ui.blocked')}
@@ -541,7 +570,7 @@ function TierDetailPanel({ id }: { id: string }) {
               )}
             </span>
           }
-          id={t('tiers.ui.block')}
+          id="tier-blocking-section"
           collapsible
           defaultExpanded={tier.is_blocked}
           storageKey="tier-detail-blocage"
@@ -817,6 +846,7 @@ function ContactListSection({
   const { toast } = useToast()
   const createContact = useCreateTierContact()
   const civilityOptions = useDictionaryOptions('civility')
+  const civilityLabels = useDictionaryLabels('civility')
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState<TierContactCreate>(EMPTY_CONTACT_FORM)
   const [contactSearch, setContactSearch] = useState('')
@@ -972,7 +1002,7 @@ function ContactListSection({
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
-                  {contact.civility && <span className="text-[10px] text-muted-foreground">{contact.civility}</span>}
+                  {contact.civility && <span className="text-[10px] text-muted-foreground">{civilityLabels[contact.civility] || contact.civility}</span>}
                   <span className="text-xs font-medium text-foreground truncate">
                     {contact.first_name} {contact.last_name}
                   </span>
@@ -1021,6 +1051,7 @@ function ContactDetailPanel({
   const canEdit = hasPermission('tier.update')
   const canPromote = hasPermission('user.create')
   const civilityOptions = useDictionaryOptions('civility')
+  const civilityLabels = useDictionaryLabels('civility')
   const { data: contacts } = useTierContacts(tierId)
   const contact = contacts?.find((c) => c.id === contactId)
 
@@ -1099,7 +1130,8 @@ function ContactDetailPanel({
     )
   }
 
-  const fullName = `${contact.civility ? contact.civility + ' ' : ''}${contact.first_name} ${contact.last_name}`
+  const civilityLabel = contact.civility ? (civilityLabels[contact.civility] || contact.civility) : ''
+  const fullName = `${civilityLabel ? civilityLabel + ' ' : ''}${contact.first_name} ${contact.last_name}`
 
   return (
     <DynamicPanelShell
@@ -1188,7 +1220,7 @@ function ContactDetailPanel({
                 </div>
               ) : (
                 <DetailFieldGrid>
-                  <ReadOnlyRow label={t('tiers.ui.civility')} value={contact.civility || '--'} />
+                  <ReadOnlyRow label={t('tiers.ui.civility')} value={civilityLabel || '--'} />
                   <ReadOnlyRow label={t('tiers.ui.first_name')} value={contact.first_name} />
                   <ReadOnlyRow label={t('tiers.ui.last_name')} value={contact.last_name} />
                   <ReadOnlyRow label={t('tiers.ui.position')} value={contact.position || '--'} />
@@ -1289,26 +1321,31 @@ const TABS: { id: TiersTab; label: string; icon: typeof Building2 }[] = [
 // ── Contacts columns (for the global contacts DataTable) ──
 function useContactColumns() {
   const { t } = useTranslation()
+  const civilityLabels = useDictionaryLabels('civility')
   return useMemo<ColumnDef<TierContactWithTier, unknown>[]>(() => [
     {
       accessorKey: 'last_name',
       header: t('tiers.ui.last_name'),
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <div className={cn(
-            'w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-semibold shrink-0',
-            row.original.is_primary ? 'bg-primary/15 text-primary' : 'bg-accent text-muted-foreground',
-          )}>
-            {row.original.first_name[0]}{row.original.last_name[0]}
+      cell: ({ row }) => {
+        const civ = row.original.civility
+        const civLabel = civ ? (civilityLabels[civ] || civ) : ''
+        return (
+          <div className="flex items-center gap-2">
+            <div className={cn(
+              'w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-semibold shrink-0',
+              row.original.is_primary ? 'bg-primary/15 text-primary' : 'bg-accent text-muted-foreground',
+            )}>
+              {row.original.first_name[0]}{row.original.last_name[0]}
+            </div>
+            <div className="min-w-0">
+              <span className="text-foreground font-medium text-sm">
+                {civLabel ? `${civLabel} ` : ''}{row.original.first_name} {row.original.last_name}
+              </span>
+              {row.original.is_primary && <Star size={9} className="inline ml-1 text-primary fill-primary" />}
+            </div>
           </div>
-          <div className="min-w-0">
-            <span className="text-foreground font-medium text-sm">
-              {row.original.civility ? `${row.original.civility} ` : ''}{row.original.first_name} {row.original.last_name}
-            </span>
-            {row.original.is_primary && <Star size={9} className="inline ml-1 text-primary fill-primary" />}
-          </div>
-        </div>
-      ),
+        )
+      },
     },
     {
       accessorKey: 'tier_name',
@@ -1350,7 +1387,7 @@ function useContactColumns() {
         </span>
       ),
     },
-  ], [t])
+  ], [t, civilityLabels])
 }
 
 export function TiersPage() {

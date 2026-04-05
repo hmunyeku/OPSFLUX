@@ -908,7 +908,8 @@
         "industry": "Oil & gas",
         "payment_terms": "Net 30 days",
         "description": "Free description..."
-      }
+      },
+      "blocking_section": "Blocking"
     }
   },
   "users": {

@@ -1588,7 +1588,8 @@
       "sections": {
         "request": "Request",
         "type_destination": "Type and destination",
-        "visit_details": "Visit details"
+        "visit_details": "Visit details",
+        "allowed_companies": "Allowed companies"
       },
       "checklist": {
         "destination": "Destination completed",
@@ -1603,6 +1604,7 @@
         "category": "Category",
         "project": "Project",
         "transports": "Transport",
+        "allowed_companies": "Companies",
         "bu_entity_imputation": "BU / entity imputation"
       },
       "type": {
@@ -1615,7 +1617,8 @@
         "project": "Linked project",
         "dates": "Dates",
         "outbound_transport": "Outbound transport",
-        "return_transport": "Return transport"
+        "return_transport": "Return transport",
+        "allowed_companies": "Allowed companies"
       },
       "select_option": "— Select —",
       "no_project": "— No project —",
@@ -1623,7 +1626,8 @@
       "placeholders": {
         "visit_purpose": "Describe the purpose of the visit..."
       },
-      "footer_hint": "Passengers and imputations can be added after creation from the detail panel."
+      "footer_hint": "Passengers and imputations can be added after creation from the detail panel.",
+      "allowed_companies_help": "Use this scope to limit external autocomplete, public links, and audit visibility to the selected companies."
     },
     "create_avm": {
       "title": "New mission notice",
@@ -1819,6 +1823,7 @@
         "origin_mission_title": "Mission title",
         "origin_program_activity": "Origin activity",
         "project": "Project",
+        "allowed_companies": "Allowed companies",
         "planner_activity": "Planner activity",
         "planner_activity_title": "Activity title",
         "planner_activity_status": "Planner status",

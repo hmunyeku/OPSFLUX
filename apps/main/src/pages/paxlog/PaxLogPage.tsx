@@ -1902,8 +1902,11 @@ function CreateAdsPanel() {
   const currentUser = useAuthStore((s) => s.user)
   const { data: projects } = useProjects({ page: 1, page_size: 100 })
   const { data: usersData } = useUsers({ page: 1, page_size: 200, active: true })
+  const [companySearch, setCompanySearch] = useState('')
+  const { data: tiersData, isLoading: tiersLoading } = useTiers({ page: 1, page_size: 20, search: companySearch || undefined })
   const visitCategoryOptions = useDictionaryOptions('visit_category')
   const transportModeOptions = useDictionaryOptions('transport_mode')
+  const [allowedCompanies, setAllowedCompanies] = useState<Array<{ id: string; code?: string | null; name: string }>>([])
 
   const [form, setForm] = useState<{
     type: 'individual' | 'team'
@@ -1940,6 +1943,9 @@ function CreateAdsPanel() {
   const selectedProjectLabel = (projects?.items ?? []).find((project) => project.id === form.project_id)
   const selectedOutboundMode = transportModeOptions.find((option) => option.value === form.outbound_transport_mode)?.label || t('paxlog.create_ads.summary.to_define')
   const selectedReturnMode = transportModeOptions.find((option) => option.value === form.return_transport_mode)?.label || t('paxlog.create_ads.summary.to_define')
+  const selectedAllowedCompaniesLabel = allowedCompanies.length > 0
+    ? allowedCompanies.map((company) => company.name).join(', ')
+    : t('common.none')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -1947,6 +1953,7 @@ function CreateAdsPanel() {
       ...form,
       requester_id: form.requester_id || null,
       project_id: form.project_id || null,
+      allowed_company_ids: allowedCompanies.map((company) => company.id),
       visit_category: form.visit_category,
       outbound_transport_mode: form.outbound_transport_mode || null,
       return_transport_mode: form.return_transport_mode || null,
@@ -1991,7 +1998,7 @@ function CreateAdsPanel() {
               ))}
             </div>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
             <div className="rounded-md border border-border bg-card px-3 py-2">
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('paxlog.create_ads.summary.format')}</p>
               <p className="mt-1 text-sm font-semibold text-foreground">{form.type === 'individual' ? t('paxlog.create_ads.type.individual') : t('paxlog.create_ads.type.team')}</p>
@@ -2007,6 +2014,10 @@ function CreateAdsPanel() {
             <div className="rounded-md border border-border bg-card px-3 py-2">
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('paxlog.create_ads.summary.transports')}</p>
               <p className="mt-1 text-sm font-semibold text-foreground truncate">{selectedOutboundMode} / {selectedReturnMode}</p>
+            </div>
+            <div className="rounded-md border border-border bg-card px-3 py-2">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('paxlog.create_ads.summary.allowed_companies')}</p>
+              <p className="mt-1 text-sm font-semibold text-foreground truncate">{selectedAllowedCompaniesLabel}</p>
             </div>
           </div>
         </FormSection>
@@ -2074,6 +2085,44 @@ function CreateAdsPanel() {
           <DynamicPanelField label={t('paxlog.visit_purpose')} required>
             <textarea required value={form.visit_purpose} onChange={(e) => setForm({ ...form, visit_purpose: e.target.value })} className={cn(panelInputClass, 'min-h-[60px] resize-y')} placeholder={t('paxlog.create_ads.placeholders.visit_purpose')} />
           </DynamicPanelField>
+        </FormSection>
+
+        <FormSection title={t('paxlog.create_ads.sections.allowed_companies')}>
+          <SearchablePicker
+            label={t('paxlog.create_ads.fields.allowed_companies')}
+            icon={<Building2 size={12} className="text-muted-foreground" />}
+            items={tiersData?.items || []}
+            isLoading={tiersLoading}
+            searchValue={companySearch}
+            onSearchChange={setCompanySearch}
+            renderItem={(tier) => <><span className="font-semibold">{tier.code}</span> — {tier.name}</>}
+            selectedId={null}
+            onSelect={(tier) => {
+              setAllowedCompanies((current) => current.some((item) => item.id === tier.id)
+                ? current
+                : [...current, { id: tier.id, code: tier.code, name: tier.name }])
+              setCompanySearch('')
+            }}
+            onClear={() => setCompanySearch('')}
+            placeholder={t('paxlog.search_company')}
+          />
+          <p className="text-[10px] text-muted-foreground">{t('paxlog.create_ads.allowed_companies_help')}</p>
+          {allowedCompanies.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {allowedCompanies.map((company) => (
+                <span key={company.id} className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/30 px-2 py-1 text-xs">
+                  <span className="font-medium">{company.code ? `${company.code} — ` : ''}{company.name}</span>
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={() => setAllowedCompanies((current) => current.filter((item) => item.id !== company.id))}
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
         </FormSection>
 
         <p className="text-xs text-muted-foreground italic">
@@ -2826,6 +2875,9 @@ function AdsDetailPanel({ id }: { id: string }) {
             <ReadOnlyRow label={t('paxlog.ads_detail.fields.dates')} value={`${formatDate(ads.start_date)} → ${formatDate(ads.end_date)}`} />
             {ads.requester_name && <ReadOnlyRow label={t('paxlog.ads_detail.fields.requester')} value={ads.requester_name} />}
             {ads.created_by_name && ads.created_by !== ads.requester_id && <ReadOnlyRow label={t('paxlog.ads_detail.fields.created_by')} value={ads.created_by_name} />}
+            {(ads.allowed_company_names?.length ?? 0) > 0 && (
+              <ReadOnlyRow label={t('paxlog.ads_detail.fields.allowed_companies')} value={ads.allowed_company_names?.join(', ') || '—'} />
+            )}
             {ads.project_id && (
               <ReadOnlyRow label={t('paxlog.ads_detail.fields.project')} value={
                 <CrossModuleLink module="projets" id={ads.project_id} label={ads.project_name || ads.project_id} mode="navigate" />

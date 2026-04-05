@@ -1589,7 +1589,8 @@
       "sections": {
         "request": "Demande",
         "type_destination": "Type et destination",
-        "visit_details": "Détails de la visite"
+        "visit_details": "Détails de la visite",
+        "allowed_companies": "Entreprises autorisées"
       },
       "checklist": {
         "destination": "Destination renseignée",
@@ -1604,6 +1605,7 @@
         "category": "Catégorie",
         "project": "Projet",
         "transports": "Transports",
+        "allowed_companies": "Entreprises",
         "bu_entity_imputation": "Imputation BU / entité"
       },
       "type": {
@@ -1616,7 +1618,8 @@
         "project": "Projet associé",
         "dates": "Dates",
         "outbound_transport": "Transport aller",
-        "return_transport": "Transport retour"
+        "return_transport": "Transport retour",
+        "allowed_companies": "Entreprises autorisées"
       },
       "select_option": "— Sélectionner —",
       "no_project": "— Aucun projet —",
@@ -1624,7 +1627,8 @@
       "placeholders": {
         "visit_purpose": "Décrire l'objet de la visite..."
       },
-      "footer_hint": "Les passagers et imputations peuvent être ajoutés après la création, via le panneau de détail."
+      "footer_hint": "Les passagers et imputations peuvent être ajoutés après la création, via le panneau de détail.",
+      "allowed_companies_help": "Limitez ici les entreprises autorisées pour l'autocomplétion externe, les liens publics et le périmètre d'audit."
     },
     "create_avm": {
       "title": "Nouvel avis de mission",
@@ -1820,6 +1824,7 @@
         "origin_mission_title": "Titre de mission",
         "origin_program_activity": "Activité d'origine",
         "project": "Projet",
+        "allowed_companies": "Entreprises autorisées",
         "planner_activity": "Activité planner",
         "planner_activity_title": "Titre activité",
         "planner_activity_status": "Statut planner",

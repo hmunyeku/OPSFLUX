@@ -9,7 +9,7 @@ Addresses several issues discovered during the 2026-04-05 E2E audit:
    mission_type, mission_activity_type, pax_type.
 
 Revision ID: 089_e2e_audit_fixes
-Revises: 088_add_mission_visa_and_allowance_followups
+Revises: 086_ads_creator_and_initiator_review
 Create Date: 2026-04-05
 """
 
@@ -17,7 +17,10 @@ from alembic import op
 
 
 revision = "089_e2e_audit_fixes"
-down_revision = "088_add_mission_visa_and_allowance_followups"
+# Migrations 087 and 088 were authored locally but never committed — 089
+# chains directly off the last tracked revision to keep the deployable
+# history contiguous.
+down_revision = "086_ads_creator_and_initiator_review"
 branch_labels = None
 depends_on = None
 

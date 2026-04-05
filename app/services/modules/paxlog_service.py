@@ -262,7 +262,7 @@ async def find_external_contact_matches(
     db: AsyncSession,
     *,
     ads_id: UUID,
-    allowed_company_id: UUID,
+    allowed_company_ids: list[UUID],
     first_name: str,
     last_name: str,
     birth_date: date | None,
@@ -271,11 +271,13 @@ async def find_external_contact_matches(
     email: str | None,
     phone: str | None,
 ) -> list[dict[str, object | None]]:
+    if not allowed_company_ids:
+        return []
     candidates = (
         await db.execute(
             select(TierContact)
             .where(
-                TierContact.tier_id == allowed_company_id,
+                TierContact.tier_id.in_(allowed_company_ids),
                 TierContact.active == True,  # noqa: E712
             )
             .order_by(TierContact.last_name.asc(), TierContact.first_name.asc())
@@ -330,7 +332,7 @@ async def build_external_dossier_pax_data(
     db: AsyncSession,
     *,
     ads_id: UUID,
-    allowed_company_id: UUID | None,
+    allowed_company_ids: list[UUID],
 ) -> tuple[list[dict[str, object | None]], dict[str, int]]:
     pax_entries = (
         await db.execute(
@@ -355,7 +357,7 @@ async def build_external_dossier_pax_data(
     for entry, contact, user in pax_entries:
         if not contact:
             continue
-        if allowed_company_id and contact.tier_id != allowed_company_id:
+        if allowed_company_ids and contact.tier_id not in allowed_company_ids:
             continue
 
         compliance_summary = entry.compliance_summary or {}

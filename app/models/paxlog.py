@@ -242,6 +242,27 @@ class Ads(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     pax_entries: Mapped[list["AdsPax"]] = relationship(
         back_populates="ads", cascade="all, delete-orphan"
     )
+    allowed_companies: Mapped[list["AdsAllowedCompany"]] = relationship(
+        back_populates="ads", cascade="all, delete-orphan"
+    )
+
+
+class AdsAllowedCompany(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "ads_allowed_companies"
+    __table_args__ = (
+        UniqueConstraint("ads_id", "company_id", name="uq_ads_allowed_company"),
+        Index("idx_ads_allowed_companies_ads", "ads_id"),
+        Index("idx_ads_allowed_companies_company", "company_id"),
+    )
+
+    ads_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ads.id", ondelete="CASCADE"), nullable=False
+    )
+    company_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tiers.id"), nullable=False
+    )
+
+    ads: Mapped["Ads"] = relationship(back_populates="allowed_companies")
 
 
 # ─── PAX in an AdS ──────────────────────────────────────────────────────────

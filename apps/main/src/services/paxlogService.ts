@@ -241,6 +241,8 @@ export interface Ads {
   outbound_transport_mode: string | null
   return_transport_mode: string | null
   project_id: string | null
+  allowed_company_ids?: string[]
+  allowed_company_names?: string[]
   project_manager_id?: string | null
   project_manager_name?: string | null
   planner_activity_id: string | null
@@ -276,6 +278,8 @@ export interface AdsSummary {
   visit_category: string
   start_date: string
   end_date: string
+  allowed_company_ids?: string[]
+  allowed_company_names?: string[]
   pax_count: number
   created_at: string
   requester_name?: string | null
@@ -307,6 +311,7 @@ export interface AdsCreate {
   pax_entries?: Array<{ user_id?: string | null; contact_id?: string | null }>
   project_id?: string | null
   planner_activity_id?: string | null
+  allowed_company_ids?: string[]
   outbound_transport_mode?: string | null
   outbound_departure_base_id?: string | null
   outbound_notes?: string | null
@@ -342,6 +347,7 @@ export interface AdsUpdate {
   visit_category?: string
   start_date?: string
   end_date?: string
+  allowed_company_ids?: string[] | null
   outbound_transport_mode?: string | null
   outbound_departure_base_id?: string | null
   outbound_notes?: string | null
@@ -373,6 +379,7 @@ export interface AdsPax {
   ads_id: string
   user_id: string | null
   contact_id: string | null
+  pax_source?: 'user' | 'contact' | null
   status: string
   compliance_checked_at: string | null
   compliance_summary: Record<string, unknown> | null
@@ -380,6 +387,7 @@ export interface AdsPax {
   current_onboard: boolean
   priority_score: number
   // Enriched
+  pax_company_id?: string | null
   pax_first_name?: string | null
   pax_last_name?: string | null
   pax_badge?: string | null

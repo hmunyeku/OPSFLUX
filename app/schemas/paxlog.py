@@ -220,6 +220,7 @@ class AdsCreate(BaseModel):
     pax_entries: list[AdsPaxEntry] = []
     planner_activity_id: UUID | None = None
     project_id: UUID | None = None
+    allowed_company_ids: list[UUID] = []
     outbound_transport_mode: str | None = None
     outbound_departure_base_id: UUID | None = None
     outbound_notes: str | None = None
@@ -233,6 +234,7 @@ class AdsUpdate(BaseModel):
     visit_category: str | None = None
     start_date: date | None = None
     end_date: date | None = None
+    allowed_company_ids: list[UUID] | None = None
     outbound_transport_mode: str | None = None
     outbound_departure_base_id: UUID | None = None
     outbound_notes: str | None = None
@@ -290,6 +292,8 @@ class AdsRead(OpsFluxSchema):
     planner_activity_title: str | None = None
     planner_activity_status: str | None = None
     project_id: UUID | None = None
+    allowed_company_ids: list[UUID] = []
+    allowed_company_names: list[str] = []
     project_manager_id: UUID | None = None
     project_manager_name: str | None = None
     requester_id: UUID
@@ -327,6 +331,8 @@ class AdsSummary(OpsFluxSchema):
     visit_category: str
     start_date: date
     end_date: date
+    allowed_company_ids: list[UUID] = []
+    allowed_company_names: list[str] = []
     pax_count: int = 0
     created_at: datetime
 
@@ -476,6 +482,8 @@ class ExternalAdsDossierRead(BaseModel):
     ads: ExternalAdsSummaryRead
     allowed_company_id: str | None = None
     allowed_company_name: str | None = None
+    allowed_company_ids: list[str] = []
+    allowed_company_names: list[str] = []
     scope_label: str | None = None
     can_submit: bool = False
     can_resubmit: bool = False

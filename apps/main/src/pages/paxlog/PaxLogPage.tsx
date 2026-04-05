@@ -35,6 +35,7 @@ import {
   Percent,
   Link2,
   Briefcase,
+  ArrowLeft,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { normalizeNames } from '@/lib/normalize'
@@ -1696,9 +1697,10 @@ function CreateProfilePanel() {
 
 // ── PAX Profile Detail Panel ──────────────────────────────────
 
-function ProfileDetailPanel({ id, paxSource }: { id: string; paxSource: 'user' | 'contact' }) {
+function ProfileDetailPanel({ id, paxSource, adsId }: { id: string; paxSource: 'user' | 'contact'; adsId?: string }) {
   const { t } = useTranslation()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const { data: profile, isLoading } = usePaxProfile(id, paxSource)
   const updateProfile = useUpdatePaxProfile()
   const { data: credentials } = usePaxCredentials(id)
@@ -1732,13 +1734,22 @@ function ProfileDetailPanel({ id, paxSource }: { id: string; paxSource: 'user' |
       subtitle={profile.badge_number || profile.pax_type}
       icon={<User size={14} className="text-primary" />}
       actions={
-        <DangerConfirmButton
-          icon={<Trash2 size={12} />}
-          onConfirm={() => { updateProfile.mutate({ id, payload: { status: 'archived' } }); closeDynamicPanel() }}
-          confirmLabel={t('paxlog.profile_panel.archive_confirm')}
-        >
-          {t('common.archive')}
-        </DangerConfirmButton>
+        <>
+          {adsId && (
+            <PanelActionButton
+              onClick={() => openDynamicPanel({ type: 'detail', module: 'paxlog', id: adsId, meta: { subtype: 'ads' } })}
+            >
+              <ArrowLeft size={12} /> {t('paxlog.profile_panel.back_to_ads')}
+            </PanelActionButton>
+          )}
+          <DangerConfirmButton
+            icon={<Trash2 size={12} />}
+            onConfirm={() => { updateProfile.mutate({ id, payload: { status: 'archived' } }); closeDynamicPanel() }}
+            confirmLabel={t('paxlog.profile_panel.archive_confirm')}
+          >
+            {t('common.archive')}
+          </DangerConfirmButton>
+        </>
       }
     >
       <PanelContentLayout>
@@ -2079,6 +2090,7 @@ function CreateAdsPanel() {
 function AdsDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
   const { toast } = useToast()
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const { data: ads, isLoading } = useAds(id)
   const { data: adsPax } = useAdsPax(id)
   const { data: adsEvents } = useAdsEvents(id)
@@ -2632,85 +2644,6 @@ function AdsDetailPanel({ id }: { id: string }) {
           </div>
         )}
 
-        {externalLinks.length > 0 && (
-          <div className="border border-border rounded-lg p-3 space-y-3">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-foreground">{t('paxlog.ads_detail.external_link.audit_title')}</p>
-              <p className="text-xs text-muted-foreground">{t('paxlog.ads_detail.external_link.audit_description')}</p>
-            </div>
-            <div className="space-y-3">
-              {externalLinks.map((link) => (
-                <div key={link.id} className="rounded-lg border border-border/70 bg-muted/20 p-3 space-y-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className={cn('gl-badge', link.active ? 'gl-badge-success' : 'gl-badge-neutral')}>
-                      {link.active ? t('paxlog.ads_detail.external_link.active') : t('paxlog.ads_detail.external_link.inactive')}
-                    </span>
-                    {link.anomaly_count > 0 && (
-                      <span className="gl-badge gl-badge-danger">
-                        {t('paxlog.ads_detail.external_link.anomalies', { count: link.anomaly_count })}
-                      </span>
-                    )}
-                    <span className="text-xs text-muted-foreground">
-                      {t('paxlog.ads_detail.external_link.destination_summary', { destination: link.otp_destination_masked || '—' })}
-                    </span>
-                  </div>
-                  <div className="grid gap-2 md:grid-cols-3 text-xs">
-                    <div>
-                      <span className="text-muted-foreground">{t('paxlog.ads_detail.external_link.created_at')}</span>
-                      <div>{formatDateTime(link.created_at)}</div>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">{t('paxlog.ads_detail.external_link.expires_at')}</span>
-                      <div>{formatDateTime(link.expires_at)}</div>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">{t('paxlog.ads_detail.external_link.uses')}</span>
-                      <div>{link.use_count} / {link.max_uses}{link.remaining_uses !== null ? ` (${t('paxlog.ads_detail.external_link.remaining_uses', { count: link.remaining_uses })})` : ''}</div>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">{t('paxlog.ads_detail.external_link.last_validated_at')}</span>
-                      <div>{link.last_validated_at ? formatDateTime(link.last_validated_at) : '—'}</div>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">{t('paxlog.ads_detail.external_link.session_expires_at')}</span>
-                      <div>{link.session_expires_at ? formatDateTime(link.session_expires_at) : '—'}</div>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">{t('paxlog.ads_detail.external_link.otp_required')}</span>
-                      <div>{link.otp_required ? t('common.yes') : t('common.no')}</div>
-                    </div>
-                  </div>
-                  {Object.keys(link.anomaly_actions || {}).length > 0 && (
-                    <div className="space-y-1">
-                      <p className="text-xs font-medium text-foreground">{t('paxlog.ads_detail.external_link.anomaly_breakdown')}</p>
-                      <div className="flex flex-wrap gap-2">
-                        {Object.entries(link.anomaly_actions).map(([action, count]) => (
-                          <span key={action} className="gl-badge gl-badge-danger">
-                            {getExternalLinkEventLabel(action)}: {count}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {link.recent_events.length > 0 && (
-                    <div className="space-y-1">
-                      <p className="text-xs font-medium text-foreground">{t('paxlog.ads_detail.external_link.recent_events')}</p>
-                      <div className="space-y-1">
-                        {link.recent_events.map((event, index) => (
-                          <div key={`${link.id}-${event.action}-${index}`} className="flex items-center justify-between gap-3 text-xs">
-                            <span>{getExternalLinkEventLabel(event.action)}</span>
-                            <span className="text-muted-foreground">{event.timestamp ? formatDateTime(event.timestamp) : '—'}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Reject reason inline form */}
         {showRejectForm && (
           <div className="border border-red-300 rounded-lg bg-red-50 dark:bg-red-900/10 dark:border-red-800 p-3 space-y-2">
@@ -3127,8 +3060,23 @@ function AdsDetailPanel({ id }: { id: string }) {
                     <div className="min-w-0 flex-1">
                       <p className="font-medium truncate">
                         {(ap.user_id || ap.contact_id) ? (
-                          <CrossModuleLink module="paxlog" id={(ap.user_id || ap.contact_id)!} subtype="profile"
-                            label={`${ap.pax_last_name ?? ''} ${ap.pax_first_name ?? ''}`.trim()} showIcon={false} />
+                          <button
+                            className="font-medium text-primary hover:underline text-left"
+                            onClick={() =>
+                              openDynamicPanel({
+                                type: 'detail',
+                                module: 'paxlog',
+                                id: (ap.user_id || ap.contact_id)!,
+                                meta: {
+                                  subtype: 'profile',
+                                  pax_source: (ap.pax_source || (ap.user_id ? 'user' : 'contact')),
+                                  from_ads_id: id,
+                                },
+                              })
+                            }
+                          >
+                            {`${ap.pax_last_name ?? ''} ${ap.pax_first_name ?? ''}`.trim()}
+                          </button>
                         ) : (
                           <>{ap.pax_last_name ?? ''} {ap.pax_first_name ?? ''}</>
                         )}
@@ -3468,6 +3416,84 @@ function AdsDetailPanel({ id }: { id: string }) {
                 </div>
               )
             })}
+            {externalLinks.length > 0 && (
+              <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-3 space-y-3">
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-foreground">{t('paxlog.ads_detail.external_link.audit_title')}</p>
+                  <p className="text-xs text-muted-foreground">{t('paxlog.ads_detail.external_link.audit_description')}</p>
+                </div>
+                <div className="space-y-3">
+                  {externalLinks.map((link) => (
+                    <div key={link.id} className="rounded-lg border border-border/70 bg-background p-3 space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={cn('gl-badge', link.active ? 'gl-badge-success' : 'gl-badge-neutral')}>
+                          {link.active ? t('paxlog.ads_detail.external_link.active') : t('paxlog.ads_detail.external_link.inactive')}
+                        </span>
+                        {link.anomaly_count > 0 && (
+                          <span className="gl-badge gl-badge-danger">
+                            {t('paxlog.ads_detail.external_link.anomalies', { count: link.anomaly_count })}
+                          </span>
+                        )}
+                        <span className="text-xs text-muted-foreground">
+                          {t('paxlog.ads_detail.external_link.destination_summary', { destination: link.otp_destination_masked || '—' })}
+                        </span>
+                      </div>
+                      <div className="grid gap-2 md:grid-cols-3 text-xs">
+                        <div>
+                          <span className="text-muted-foreground">{t('paxlog.ads_detail.external_link.created_at')}</span>
+                          <div>{formatDateTime(link.created_at)}</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">{t('paxlog.ads_detail.external_link.expires_at')}</span>
+                          <div>{formatDateTime(link.expires_at)}</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">{t('paxlog.ads_detail.external_link.uses')}</span>
+                          <div>{link.use_count} / {link.max_uses}{link.remaining_uses !== null ? ` (${t('paxlog.ads_detail.external_link.remaining_uses', { count: link.remaining_uses })})` : ''}</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">{t('paxlog.ads_detail.external_link.last_validated_at')}</span>
+                          <div>{link.last_validated_at ? formatDateTime(link.last_validated_at) : '—'}</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">{t('paxlog.ads_detail.external_link.session_expires_at')}</span>
+                          <div>{link.session_expires_at ? formatDateTime(link.session_expires_at) : '—'}</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">{t('paxlog.ads_detail.external_link.otp_required')}</span>
+                          <div>{link.otp_required ? t('common.yes') : t('common.no')}</div>
+                        </div>
+                      </div>
+                      {Object.keys(link.anomaly_actions || {}).length > 0 && (
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium text-foreground">{t('paxlog.ads_detail.external_link.anomaly_breakdown')}</p>
+                          <div className="flex flex-wrap gap-2">
+                            {Object.entries(link.anomaly_actions).map(([action, count]) => (
+                              <span key={action} className="gl-badge gl-badge-danger">
+                                {getExternalLinkEventLabel(action)}: {count}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {link.recent_events.length > 0 && (
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium text-foreground">{t('paxlog.ads_detail.external_link.recent_events')}</p>
+                          <div className="space-y-1">
+                            {link.recent_events.map((event, index) => (
+                              <div key={`${link.id}-${event.action}-${index}`} className="flex items-center justify-between gap-3 text-xs">
+                                <span>{getExternalLinkEventLabel(event.action)}</span>
+                                <span className="text-muted-foreground">{event.timestamp ? formatDateTime(event.timestamp) : '—'}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </CollapsibleSection>
 
@@ -5237,7 +5263,7 @@ export function PaxLogPage() {
       {dynamicPanel?.module === 'paxlog' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'incident' && <CreateIncidentPanel />}
       {dynamicPanel?.module === 'paxlog' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'rotation' && <CreateRotationPanel />}
       {dynamicPanel?.module === 'paxlog' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'avm' && <CreateAvmPanel />}
-      {dynamicPanel?.module === 'paxlog' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'profile' && <ProfileDetailPanel id={dynamicPanel.id} paxSource={(dynamicPanel.meta?.pax_source as 'user' | 'contact') || 'user'} />}
+      {dynamicPanel?.module === 'paxlog' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'profile' && <ProfileDetailPanel id={dynamicPanel.id} paxSource={(dynamicPanel.meta?.pax_source as 'user' | 'contact') || 'user'} adsId={dynamicPanel.meta?.from_ads_id as string | undefined} />}
       {dynamicPanel?.module === 'paxlog' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'ads' && <AdsDetailPanel id={dynamicPanel.id} />}
       {dynamicPanel?.module === 'paxlog' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'avm' && <AvmDetailPanel id={dynamicPanel.id} />}
     </div>
@@ -5254,7 +5280,7 @@ registerPanelRenderer('paxlog', (view) => {
     if (view.meta?.subtype === 'avm') return <CreateAvmPanel />
   }
   if (view.type === 'detail' && 'id' in view) {
-    if (view.meta?.subtype === 'profile') return <ProfileDetailPanel id={view.id} paxSource={(view.meta?.pax_source as 'user' | 'contact') || 'user'} />
+    if (view.meta?.subtype === 'profile') return <ProfileDetailPanel id={view.id} paxSource={(view.meta?.pax_source as 'user' | 'contact') || 'user'} adsId={view.meta?.from_ads_id as string | undefined} />
     if (view.meta?.subtype === 'ads') return <AdsDetailPanel id={view.id} />
     if (view.meta?.subtype === 'avm') return <AvmDetailPanel id={view.id} />
   }

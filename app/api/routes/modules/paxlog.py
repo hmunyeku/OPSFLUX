@@ -44,6 +44,7 @@ from app.models.common import (
 )
 from app.models.paxlog import (
     Ads,
+    AdsAllowedCompany,
     AdsEvent,
     AdsPax,
     ComplianceMatrixEntry,
@@ -960,6 +961,110 @@ async def _get_external_ads_and_context(
         except ValueError:
             allowed_company_id = None
     return ads, ads.entity_id, allowed_company_id
+
+
+async def _get_ads_allowed_company_scope(
+    db: AsyncSession,
+    *,
+    ads_id: UUID,
+) -> tuple[list[UUID], list[str]]:
+    rows = (
+        await db.execute(
+            select(AdsAllowedCompany.company_id, Tier.name)
+            .join(Tier, Tier.id == AdsAllowedCompany.company_id)
+            .where(AdsAllowedCompany.ads_id == ads_id)
+            .order_by(Tier.name.asc())
+        )
+    ).all()
+    return [row[0] for row in rows], [row[1] for row in rows if row[1]]
+
+
+async def _replace_ads_allowed_companies(
+    db: AsyncSession,
+    *,
+    ads_id: UUID,
+    entity_id: UUID,
+    company_ids: list[UUID],
+) -> tuple[list[UUID], list[str]]:
+    unique_company_ids = list(dict.fromkeys(company_ids))
+    if unique_company_ids:
+        valid_rows = (
+            await db.execute(
+                select(Tier.id, Tier.name)
+                .where(
+                    Tier.entity_id == entity_id,
+                    Tier.id.in_(unique_company_ids),
+                    Tier.archived == False,  # noqa: E712
+                )
+            )
+        ).all()
+        valid_ids = {row[0] for row in valid_rows}
+        missing = [company_id for company_id in unique_company_ids if company_id not in valid_ids]
+        if missing:
+            raise HTTPException(status_code=400, detail="Une ou plusieurs entreprises autorisées sont invalides pour cette entité.")
+    await db.execute(text("DELETE FROM ads_allowed_companies WHERE ads_id = :ads_id"), {"ads_id": str(ads_id)})
+    for company_id in unique_company_ids:
+        db.add(AdsAllowedCompany(ads_id=ads_id, company_id=company_id))
+    return await _get_ads_allowed_company_scope(db, ads_id=ads_id)
+
+
+async def _resolve_external_allowed_companies(
+    db: AsyncSession,
+    *,
+    ads: Ads,
+    link: ExternalAccessLink,
+    legacy_primary_company_id: UUID | None = None,
+) -> tuple[list[UUID], list[str], UUID | None, str | None]:
+    preconfigured = getattr(link, "preconfigured_data", None) or {}
+    raw_allowed_ids = preconfigured.get("allowed_company_ids")
+    raw_company_id = preconfigured.get("target_company_id") or preconfigured.get("company_id")
+    if legacy_primary_company_id is not None and not raw_allowed_ids and not raw_company_id:
+        return [legacy_primary_company_id], [], legacy_primary_company_id, None
+    allowed_company_ids: list[UUID] = []
+    allowed_company_names: list[str] = []
+    if preconfigured or legacy_primary_company_id is None:
+        try:
+            allowed_company_ids, allowed_company_names = await _get_ads_allowed_company_scope(db, ads_id=ads.id)
+        except AssertionError:
+            allowed_company_ids, allowed_company_names = [], []
+    if isinstance(raw_allowed_ids, list):
+        parsed_ids: list[UUID] = []
+        for raw_value in raw_allowed_ids:
+            try:
+                parsed_ids.append(UUID(str(raw_value)))
+            except ValueError:
+                continue
+            if parsed_ids:
+                allowed_company_ids = parsed_ids
+    primary_company_id: UUID | None = None
+    if raw_company_id:
+        try:
+            parsed = UUID(str(raw_company_id))
+            if not allowed_company_ids or parsed in allowed_company_ids:
+                primary_company_id = parsed
+        except ValueError:
+            primary_company_id = None
+    if primary_company_id is None and len(allowed_company_ids) == 1:
+        primary_company_id = allowed_company_ids[0]
+    if primary_company_id is None and legacy_primary_company_id is not None:
+        primary_company_id = legacy_primary_company_id
+    if not allowed_company_ids and legacy_primary_company_id is not None:
+        allowed_company_ids = [legacy_primary_company_id]
+    primary_company_name: str | None = None
+    if primary_company_id and hasattr(db, "scalar"):
+        try:
+            primary_company_name = await db.scalar(select(Tier.name).where(Tier.id == primary_company_id))
+        except (AssertionError, AttributeError):
+            primary_company_name = None
+    if not allowed_company_names and allowed_company_ids:
+        rows = (
+            await db.execute(
+                select(Tier.id, Tier.name).where(Tier.id.in_(allowed_company_ids))
+            )
+        ).all()
+        name_map = {row[0]: row[1] for row in rows}
+        allowed_company_names = [name_map[company_id] for company_id in allowed_company_ids if company_id in name_map]
+    return allowed_company_ids, allowed_company_names, primary_company_id, primary_company_name
 
 
 def _compare_pax_names(
@@ -1952,6 +2057,12 @@ async def create_ads(
     )
     db.add(ads)
     await db.flush()
+    await _replace_ads_allowed_companies(
+        db,
+        ads_id=ads.id,
+        entity_id=entity_id,
+        company_ids=body.allowed_company_ids,
+    )
 
     # Add PAX entries (dual FK: user_id or contact_id)
     for entry in body.pax_entries:
@@ -2050,11 +2161,33 @@ async def update_ads(
     previous_start = ads.start_date
     previous_end = ads.end_date
     changed_fields: dict[str, dict[str, object | None]] = {}
+    allowed_company_ids_payload = update_data.pop("allowed_company_ids", None)
     for field_name, value in update_data.items():
         previous = getattr(ads, field_name)
         if previous != value:
             changed_fields[field_name] = {"from": _json_safe(previous), "to": _json_safe(value)}
         setattr(ads, field_name, value)
+
+    if allowed_company_ids_payload is not None:
+        previous_allowed_company_ids, previous_allowed_company_names = await _get_ads_allowed_company_scope(
+            db,
+            ads_id=ads.id,
+        )
+        new_allowed_company_ids, new_allowed_company_names = await _replace_ads_allowed_companies(
+            db,
+            ads_id=ads.id,
+            entity_id=entity_id,
+            company_ids=allowed_company_ids_payload,
+        )
+        if previous_allowed_company_ids != new_allowed_company_ids:
+            changed_fields["allowed_company_ids"] = {
+                "from": [str(company_id) for company_id in previous_allowed_company_ids],
+                "to": [str(company_id) for company_id in new_allowed_company_ids],
+            }
+            changed_fields["allowed_company_names"] = {
+                "from": previous_allowed_company_names,
+                "to": new_allowed_company_names,
+            }
 
     if changed_fields:
         db.add(AdsEvent(
@@ -3235,6 +3368,14 @@ async def list_ads_pax(
     for ads_pax in entries:
         if ads_pax.user_id:
             u = await db.get(User, ads_pax.user_id)
+            linked_contact = None
+            linked_company_name = None
+            if u and getattr(u, "tier_contact_id", None):
+                linked_contact = await db.get(TierContact, u.tier_contact_id)
+                if linked_contact:
+                    linked_company_name = await db.scalar(
+                        select(Tier.name).where(Tier.id == linked_contact.tier_id)
+                    )
             pax_email = None
             pax_phone = None
             if u:
@@ -3251,9 +3392,10 @@ async def list_ads_pax(
                 "priority_score": ads_pax.priority_score,
                 "pax_first_name": u.first_name if u else "?",
                 "pax_last_name": u.last_name if u else "?",
-                "pax_company_id": None,
+                "pax_company_id": str(linked_contact.tier_id) if linked_contact else None,
+                "pax_company_name": linked_company_name,
                 "pax_badge": u.badge_number if u else None,
-                "pax_type": u.pax_type if u else "internal",
+                "pax_type": "external" if linked_contact else (u.pax_type if u else "internal"),
                 "pax_email": pax_email,
                 "pax_phone": pax_phone,
             })
@@ -4421,13 +4563,15 @@ async def _find_external_contact_matches(
     db: AsyncSession,
     *,
     ads_id: UUID,
-    allowed_company_id: UUID,
+    allowed_company_id: UUID | None = None,
+    allowed_company_ids: list[UUID] | None = None,
     body: ExternalPaxUpsertBody,
 ) -> list[ExternalPaxMatchRead]:
+    resolved_allowed_company_ids = allowed_company_ids or ([allowed_company_id] if allowed_company_id else [])
     matches = await paxlog_service.find_external_contact_matches(
         db,
         ads_id=ads_id,
-        allowed_company_id=allowed_company_id,
+        allowed_company_ids=resolved_allowed_company_ids,
         first_name=body.first_name,
         last_name=body.last_name,
         birth_date=body.birth_date,
@@ -5036,7 +5180,13 @@ async def get_external_ads_dossier(
     db: AsyncSession = Depends(get_db),
 ):
     link = await _require_external_session(db, token=token, session_token=x_external_session, request=request)
-    ads, _entity_id, allowed_company_id = await _get_external_ads_and_context(db, link=link)
+    ads, _entity_id, _allowed_company_id = await _get_external_ads_and_context(db, link=link)
+    allowed_company_ids, allowed_company_names, primary_company_id, primary_company_name = await _resolve_external_allowed_companies(
+        db,
+        ads=ads,
+        link=link,
+        legacy_primary_company_id=_allowed_company_id,
+    )
     preconfigured_data = link.preconfigured_data or {}
     site_name_result = await db.execute(
         text("SELECT name FROM ar_installations WHERE id = :asset_id"),
@@ -5069,7 +5219,7 @@ async def get_external_ads_dossier(
     allowed_pax, pax_summary = await paxlog_service.build_external_dossier_pax_data(
         db,
         ads_id=ads.id,
-        allowed_company_id=allowed_company_id,
+        allowed_company_ids=allowed_company_ids,
     )
     _append_external_access_log(link, action="view_dossier", request=request, otp_validated=True)
     await db.commit()
@@ -5097,8 +5247,11 @@ async def get_external_ads_dossier(
             "rejection_reason": ads.rejection_reason,
         },
         "preconfigured_data": preconfigured_data,
-        "allowed_company_id": str(allowed_company_id) if allowed_company_id else None,
-        "allowed_company_name": preconfigured_data.get("company_name"),
+        "allowed_company_id": str(primary_company_id) if primary_company_id else None,
+        "allowed_company_name": primary_company_name or preconfigured_data.get("company_name"),
+        "allowed_company_ids": [str(company_id) for company_id in allowed_company_ids],
+        "allowed_company_names": allowed_company_names,
+        "scope_label": ", ".join(allowed_company_names) if allowed_company_names else None,
         "can_submit": ads.status == "draft" and len(allowed_pax) > 0,
         "can_resubmit": ads.status == "requires_review",
         "pax_summary": pax_summary,
@@ -5220,8 +5373,14 @@ async def find_external_ads_pax_matches(
     db: AsyncSession = Depends(get_db),
 ):
     link = await _require_external_session(db, token=token, session_token=x_external_session, request=request)
-    ads, _entity_id, allowed_company_id = await _get_external_ads_and_context(db, link=link)
-    if not allowed_company_id:
+    ads, _entity_id, _allowed_company_id = await _get_external_ads_and_context(db, link=link)
+    allowed_company_ids, _allowed_company_names, _primary_company_id, _primary_company_name = await _resolve_external_allowed_companies(
+        db,
+        ads=ads,
+        link=link,
+        legacy_primary_company_id=_allowed_company_id,
+    )
+    if not allowed_company_ids:
         raise HTTPException(status_code=400, detail="Aucune entreprise cible n'est configurée sur ce lien externe")
     has_lookup_signal = (
         (body.first_name.strip() and body.last_name.strip())
@@ -5231,10 +5390,17 @@ async def find_external_ads_pax_matches(
     )
     if not has_lookup_signal:
         return []
+    if len(allowed_company_ids) == 1:
+        return await _find_external_contact_matches(
+            db,
+            ads_id=ads.id,
+            allowed_company_id=allowed_company_ids[0],
+            body=body,
+        )
     return await _find_external_contact_matches(
         db,
         ads_id=ads.id,
-        allowed_company_id=allowed_company_id,
+        allowed_company_ids=allowed_company_ids,
         body=body,
     )
 
@@ -5248,17 +5414,31 @@ async def create_external_ads_pax(
     db: AsyncSession = Depends(get_db),
 ):
     link = await _require_external_session(db, token=token, session_token=x_external_session, request=request)
-    ads, entity_id, allowed_company_id = await _get_external_ads_and_context(db, link=link)
+    ads, entity_id, _allowed_company_id = await _get_external_ads_and_context(db, link=link)
+    allowed_company_ids, _allowed_company_names, primary_company_id, _primary_company_name = await _resolve_external_allowed_companies(
+        db,
+        ads=ads,
+        link=link,
+        legacy_primary_company_id=_allowed_company_id,
+    )
     if ads.status not in {"draft", "requires_review"}:
         raise HTTPException(status_code=400, detail="Le dossier n'accepte plus de modification externe")
-    if not allowed_company_id:
+    if not allowed_company_ids:
         raise HTTPException(status_code=400, detail="Aucune entreprise cible n'est configurée sur ce lien externe")
-    matches = await _find_external_contact_matches(
-        db,
-        ads_id=ads.id,
-        allowed_company_id=allowed_company_id,
-        body=body,
-    )
+    if len(allowed_company_ids) == 1:
+        matches = await _find_external_contact_matches(
+            db,
+            ads_id=ads.id,
+            allowed_company_id=allowed_company_ids[0],
+            body=body,
+        )
+    else:
+        matches = await _find_external_contact_matches(
+            db,
+            ads_id=ads.id,
+            allowed_company_ids=allowed_company_ids,
+            body=body,
+        )
     if matches:
         raise HTTPException(
             status_code=409,
@@ -5275,7 +5455,7 @@ async def create_external_ads_pax(
         job_position_id=body.job_position_id,
     )
     contact = TierContact(
-        tier_id=allowed_company_id,
+        tier_id=primary_company_id or allowed_company_ids[0],
         first_name=body.first_name,
         last_name=body.last_name,
         birth_date=body.birth_date,
@@ -5321,14 +5501,20 @@ async def attach_existing_external_ads_pax(
     db: AsyncSession = Depends(get_db),
 ):
     link = await _require_external_session(db, token=token, session_token=x_external_session, request=request)
-    ads, entity_id, allowed_company_id = await _get_external_ads_and_context(db, link=link)
+    ads, entity_id, _allowed_company_id = await _get_external_ads_and_context(db, link=link)
+    allowed_company_ids, _allowed_company_names, _primary_company_id, _primary_company_name = await _resolve_external_allowed_companies(
+        db,
+        ads=ads,
+        link=link,
+        legacy_primary_company_id=_allowed_company_id,
+    )
     if ads.status not in {"draft", "requires_review"}:
         raise HTTPException(status_code=400, detail="Le dossier n'accepte plus de modification externe")
-    if not allowed_company_id:
+    if not allowed_company_ids:
         raise HTTPException(status_code=400, detail="Aucune entreprise cible n'est configurée sur ce lien externe")
 
     contact = await db.get(TierContact, contact_id)
-    if not contact or contact.tier_id != allowed_company_id or not contact.active:
+    if not contact or contact.tier_id not in allowed_company_ids or not contact.active:
         raise HTTPException(status_code=404, detail="Contact externe introuvable pour l'entreprise autorisée")
     match_score, match_reasons = _score_external_contact_match(contact=contact, body=body)
     if not _is_external_contact_match_strong(score=match_score, reasons=match_reasons):
@@ -5399,7 +5585,13 @@ async def update_external_ads_pax(
     db: AsyncSession = Depends(get_db),
 ):
     link = await _require_external_session(db, token=token, session_token=x_external_session, request=request)
-    ads, entity_id, allowed_company_id = await _get_external_ads_and_context(db, link=link)
+    ads, entity_id, _allowed_company_id = await _get_external_ads_and_context(db, link=link)
+    allowed_company_ids, _allowed_company_names, _primary_company_id, _primary_company_name = await _resolve_external_allowed_companies(
+        db,
+        ads=ads,
+        link=link,
+        legacy_primary_company_id=_allowed_company_id,
+    )
     if ads.status not in {"draft", "requires_review"}:
         raise HTTPException(status_code=400, detail="Le dossier n'accepte plus de modification externe")
 
@@ -5412,7 +5604,7 @@ async def update_external_ads_pax(
     if not row:
         raise HTTPException(status_code=404, detail="PAX externe introuvable sur cette AdS")
     _entry, contact = row
-    if allowed_company_id and contact.tier_id != allowed_company_id:
+    if allowed_company_ids and contact.tier_id not in allowed_company_ids:
         raise HTTPException(status_code=403, detail="Ce PAX n'appartient pas à l'entreprise autorisée")
     linked_user = (
         await db.execute(select(User).where(User.tier_contact_id == contact.id))
@@ -5461,7 +5653,13 @@ async def create_external_ads_pax_credential(
     db: AsyncSession = Depends(get_db),
 ):
     link = await _require_external_session(db, token=token, session_token=x_external_session, request=request)
-    ads, entity_id, allowed_company_id = await _get_external_ads_and_context(db, link=link)
+    ads, entity_id, _allowed_company_id = await _get_external_ads_and_context(db, link=link)
+    allowed_company_ids, _allowed_company_names, _primary_company_id, _primary_company_name = await _resolve_external_allowed_companies(
+        db,
+        ads=ads,
+        link=link,
+        legacy_primary_company_id=_allowed_company_id,
+    )
     if ads.status not in {"draft", "requires_review"}:
         raise HTTPException(status_code=400, detail="Le dossier n'accepte plus de modification externe")
 
@@ -5474,7 +5672,7 @@ async def create_external_ads_pax_credential(
     if not row:
         raise HTTPException(status_code=404, detail="PAX externe introuvable sur cette AdS")
     _entry, contact = row
-    if allowed_company_id and contact.tier_id != allowed_company_id:
+    if allowed_company_ids and contact.tier_id not in allowed_company_ids:
         raise HTTPException(status_code=403, detail="Ce PAX n'appartient pas à l'entreprise autorisée")
 
     credential = PaxCredential(
@@ -5721,6 +5919,21 @@ async def _build_ads_read_data(
     entity_id: UUID,
 ) -> dict:
     data = AdsRead.model_validate(ads).model_dump()
+    allowed_company_ids: list[UUID] = []
+    allowed_company_names: list[str] = []
+    allowed_company_rows = getattr(ads, "allowed_companies", None) or []
+    for item in allowed_company_rows:
+        company_id = getattr(item, "company_id", None)
+        if company_id:
+            allowed_company_ids.append(company_id)
+        company = getattr(item, "company", None)
+        company_name = getattr(company, "name", None) if company else None
+        if company_name:
+            allowed_company_names.append(company_name)
+    data.update({
+        "allowed_company_ids": allowed_company_ids,
+        "allowed_company_names": allowed_company_names,
+    })
 
     people_result = await db.execute(
         select(User.id, User.first_name, User.last_name).where(

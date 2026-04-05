@@ -1692,6 +1692,10 @@
         "resubmit": "Re-soumettre",
         "request_stay_change": "Modifier le séjour"
       },
+      "external_link": {
+        "prompt": "Email ou numéro WhatsApp pour recevoir le code OTP",
+        "missing_destination": "Le lien externe OTP exige un email ou un numéro WhatsApp."
+      },
       "reject": {
         "reason_title": "Motif de rejet",
         "placeholder": "Indiquez le motif du rejet (optionnel)...",

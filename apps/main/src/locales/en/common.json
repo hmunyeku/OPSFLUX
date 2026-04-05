@@ -1691,6 +1691,10 @@
         "resubmit": "Resubmit",
         "request_stay_change": "Change stay"
       },
+      "external_link": {
+        "prompt": "Email or WhatsApp number to receive the OTP code",
+        "missing_destination": "An OTP external link requires an email or WhatsApp number."
+      },
       "reject": {
         "reason_title": "Rejection reason",
         "placeholder": "Provide the rejection reason (optional)...",

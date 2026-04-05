@@ -63,6 +63,7 @@ import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 import { TagManager } from '@/components/shared/TagManager'
 import { NoteManager } from '@/components/shared/NoteManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
+import { useToast } from '@/components/ui/Toast'
 import { useUIStore } from '@/stores/uiStore'
 import { useAuthStore } from '@/stores/authStore'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
@@ -2065,6 +2066,7 @@ function CreateAdsPanel() {
 
 function AdsDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
+  const { toast } = useToast()
   const { data: ads, isLoading } = useAds(id)
   const { data: adsPax } = useAdsPax(id)
   const { data: adsEvents } = useAdsEvents(id)
@@ -2348,9 +2350,17 @@ function AdsDetailPanel({ id }: { id: string }) {
   }
 
   const handleGenerateLink = () => {
+    const otpSentTo = window.prompt(t('paxlog.ads_detail.external_link.prompt'), '')?.trim() || ''
+    if (!otpSentTo) {
+      toast({
+        title: t('paxlog.ads_detail.external_link.missing_destination'),
+        variant: 'error',
+      })
+      return
+    }
     const popup = window.open('', '_blank', 'noopener,noreferrer')
     createExtLink.mutate(
-      { adsId: id, payload: { expires_hours: 72, max_uses: 5 } },
+      { adsId: id, payload: { expires_hours: 72, max_uses: 5, otp_required: true, otp_sent_to: otpSentTo } },
       {
         onSuccess: (link) => {
           const url = paxlogService.resolveExternalLinkUrl(link)

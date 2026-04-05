@@ -13,6 +13,7 @@ import {
   Sun, Cloud, CloudRain, CloudLightning, Milestone, ListTodo, UserPlus,
   Circle, CircleDot, CheckCircle2, CircleSlash, Clock,
   Sheet, CalendarRange, ChevronRight, Layers, RefreshCw, Download,
+  Link2, Package, CheckSquare, History, ArrowRight,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -57,9 +58,19 @@ import {
   useProjectMilestones, useCreateProjectMilestone, useUpdateProjectMilestone, useDeleteProjectMilestone,
   useAllProjectTasks, useSubProjects,
   useGoutiStatus, useGoutiSyncAll, useGoutiSyncOne,
+  useTaskDependencies, useCreateTaskDependency, useDeleteTaskDependency,
+  useTaskDeliverables, useCreateDeliverable, useUpdateDeliverable, useDeleteDeliverable,
+  useTaskActions, useCreateAction, useUpdateAction, useDeleteAction,
+  useTaskChangelog,
 } from '@/hooks/useProjets'
 import { projetsService, isGoutiProject, goutiProjectId } from '@/services/projetsService'
-import type { Project, ProjectCreate, ProjectTask, ProjectTaskEnriched, ProjectMilestone as ProjectMilestoneType, ProjectMember as ProjectMemberType } from '@/types/api'
+import type {
+  Project, ProjectCreate, ProjectTask, ProjectTaskEnriched,
+  ProjectMilestone as ProjectMilestoneType,
+  ProjectMember as ProjectMemberType,
+  TaskDependency, DependencyType,
+  TaskDeliverable, TaskAction, TaskChangeLog,
+} from '@/types/api'
 
 // -- Constants ----------------------------------------------------------------
 
@@ -416,9 +427,364 @@ function TaskCreateForm({ projectId, onClose }: { projectId: string; onClose: ()
   )
 }
 
+// -- Task sub-features: Dependencies / Livrables / Actions / Historique -----
+
+const DEPENDENCY_TYPE_LABELS: Record<DependencyType, string> = {
+  finish_to_start: 'FS — Fin → Début',
+  start_to_start: 'SS — Début → Début',
+  finish_to_finish: 'FF — Fin → Fin',
+  start_to_finish: 'SF — Début → Fin',
+}
+
+const DELIVERABLE_STATUS_OPTIONS = [
+  { value: 'pending', label: 'En attente', color: 'text-muted-foreground' },
+  { value: 'in_progress', label: 'En cours', color: 'text-primary' },
+  { value: 'delivered', label: 'Livré', color: 'text-blue-500' },
+  { value: 'accepted', label: 'Accepté', color: 'text-green-500' },
+  { value: 'rejected', label: 'Rejeté', color: 'text-red-500' },
+]
+
+type SubTab = 'deps' | 'deliverables' | 'actions' | 'history'
+
+function TaskDependenciesSection({ task, projectId, allTasks }: {
+  task: ProjectTask
+  projectId: string
+  allTasks: ProjectTask[]
+}) {
+  const { data: deps = [] } = useTaskDependencies(projectId)
+  const createDep = useCreateTaskDependency()
+  const deleteDep = useDeleteTaskDependency()
+  const { toast } = useToast()
+  const [showAdd, setShowAdd] = useState(false)
+  const [depForm, setDepForm] = useState<{ to_task_id: string; dependency_type: DependencyType; lag_days: number }>({
+    to_task_id: '',
+    dependency_type: 'finish_to_start',
+    lag_days: 0,
+  })
+
+  const predecessors = deps.filter((d: TaskDependency) => d.to_task_id === task.id)
+  const successors = deps.filter((d: TaskDependency) => d.from_task_id === task.id)
+  const otherTasks = allTasks.filter(t => t.id !== task.id)
+  const taskById = useMemo(() => new Map(allTasks.map(t => [t.id, t])), [allTasks])
+
+  const handleCreate = async () => {
+    if (!depForm.to_task_id) return
+    try {
+      await createDep.mutateAsync({
+        projectId,
+        payload: {
+          from_task_id: task.id,
+          to_task_id: depForm.to_task_id,
+          dependency_type: depForm.dependency_type,
+          lag_days: depForm.lag_days,
+        },
+      })
+      toast({ title: 'Dépendance ajoutée', variant: 'success' })
+      setShowAdd(false)
+      setDepForm({ to_task_id: '', dependency_type: 'finish_to_start', lag_days: 0 })
+    } catch (err) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Erreur'
+      toast({ title: 'Impossible d\'ajouter la dépendance', description: String(msg), variant: 'error' })
+    }
+  }
+
+  const renderLink = (d: TaskDependency, otherId: string, direction: 'from' | 'to') => {
+    const other = taskById.get(otherId)
+    return (
+      <div key={d.id} className="flex items-center gap-1.5 py-1 text-[11px] group">
+        {direction === 'from' ? <ArrowRight size={10} className="text-primary" /> : <ArrowRight size={10} className="text-muted-foreground rotate-180" />}
+        <span className="truncate flex-1">{other?.title ?? `(tâche ${otherId.slice(0, 8)}…)`}</span>
+        <span className="text-[9px] text-muted-foreground shrink-0">
+          {DEPENDENCY_TYPE_LABELS[d.dependency_type]}{d.lag_days ? ` +${d.lag_days}j` : ''}
+        </span>
+        <button
+          onClick={() => deleteDep.mutate({ projectId, depId: d.id })}
+          className="p-0.5 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100"
+          title="Supprimer"
+        >
+          <X size={10} />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2">
+      {predecessors.length > 0 && (
+        <div>
+          <div className="text-[10px] text-muted-foreground mb-0.5">Prédécesseurs ({predecessors.length})</div>
+          {predecessors.map((d: TaskDependency) => renderLink(d, d.from_task_id, 'to'))}
+        </div>
+      )}
+      {successors.length > 0 && (
+        <div>
+          <div className="text-[10px] text-muted-foreground mb-0.5">Successeurs ({successors.length})</div>
+          {successors.map((d: TaskDependency) => renderLink(d, d.to_task_id, 'from'))}
+        </div>
+      )}
+      {predecessors.length === 0 && successors.length === 0 && !showAdd && (
+        <div className="text-[10px] text-muted-foreground italic">Aucune dépendance</div>
+      )}
+
+      {showAdd ? (
+        <div className="border border-border rounded p-2 space-y-1.5 bg-background">
+          <select
+            value={depForm.to_task_id}
+            onChange={e => setDepForm(f => ({ ...f, to_task_id: e.target.value }))}
+            className={`${panelInputClass} w-full text-xs`}
+          >
+            <option value="">Sélectionner une tâche successeur…</option>
+            {otherTasks.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
+          </select>
+          <div className="grid grid-cols-[1fr_60px] gap-1.5">
+            <select
+              value={depForm.dependency_type}
+              onChange={e => setDepForm(f => ({ ...f, dependency_type: e.target.value as DependencyType }))}
+              className={`${panelInputClass} text-xs`}
+            >
+              {(Object.entries(DEPENDENCY_TYPE_LABELS) as [DependencyType, string][]).map(([v, l]) =>
+                <option key={v} value={v}>{l}</option>)}
+            </select>
+            <input
+              type="number"
+              value={depForm.lag_days}
+              onChange={e => setDepForm(f => ({ ...f, lag_days: Number(e.target.value) || 0 }))}
+              className={`${panelInputClass} text-xs`}
+              placeholder="Lag j"
+            />
+          </div>
+          <div className="flex justify-end gap-1">
+            <button onClick={() => setShowAdd(false)} className="px-2 py-0.5 text-[10px] rounded hover:bg-muted">Annuler</button>
+            <button
+              onClick={handleCreate}
+              disabled={!depForm.to_task_id || createDep.isPending}
+              className="px-2 py-0.5 text-[10px] rounded bg-primary text-primary-foreground disabled:opacity-40"
+            >
+              {createDep.isPending ? <Loader2 size={9} className="animate-spin inline" /> : 'Ajouter'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setShowAdd(true)}
+          className="flex items-center gap-1 text-[10px] text-primary hover:text-primary/80"
+        >
+          <Plus size={10} /> Lier à une autre tâche
+        </button>
+      )}
+    </div>
+  )
+}
+
+function TaskDeliverablesSection({ task, projectId }: { task: ProjectTask; projectId: string }) {
+  const { data: deliverables = [] } = useTaskDeliverables(projectId, task.id)
+  const createD = useCreateDeliverable()
+  const updateD = useUpdateDeliverable()
+  const deleteD = useDeleteDeliverable()
+  const [newName, setNewName] = useState('')
+
+  const handleAdd = async () => {
+    const name = newName.trim()
+    if (!name) return
+    await createD.mutateAsync({ projectId, taskId: task.id, payload: { name } })
+    setNewName('')
+  }
+
+  return (
+    <div className="space-y-1.5">
+      {deliverables.length === 0 && (
+        <div className="text-[10px] text-muted-foreground italic">Aucun livrable</div>
+      )}
+      {deliverables.map((d: TaskDeliverable) => {
+        const statusOpt = DELIVERABLE_STATUS_OPTIONS.find(o => o.value === d.status)
+        return (
+          <div key={d.id} className="flex items-center gap-1.5 text-[11px] group">
+            <Package size={10} className={cn('shrink-0', statusOpt?.color)} />
+            <span className="flex-1 truncate">{d.name}</span>
+            <select
+              value={d.status}
+              onChange={e => updateD.mutate({
+                projectId, taskId: task.id, deliverableId: d.id,
+                payload: { status: e.target.value },
+              })}
+              className={`${panelInputClass} text-[10px] w-[90px] py-0`}
+              onClick={e => e.stopPropagation()}
+            >
+              {DELIVERABLE_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+            <button
+              onClick={() => deleteD.mutate({ projectId, taskId: task.id, deliverableId: d.id })}
+              className="p-0.5 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100"
+            >
+              <X size={10} />
+            </button>
+          </div>
+        )
+      })}
+      <div className="flex items-center gap-1">
+        <input
+          type="text"
+          value={newName}
+          onChange={e => setNewName(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') handleAdd() }}
+          className={`${panelInputClass} flex-1 text-[11px]`}
+          placeholder="Nouveau livrable…"
+        />
+        <button
+          onClick={handleAdd}
+          disabled={!newName.trim() || createD.isPending}
+          className="p-1 rounded hover:bg-primary/10 text-primary disabled:opacity-30"
+        >
+          {createD.isPending ? <Loader2 size={10} className="animate-spin" /> : <Plus size={10} />}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function TaskActionsSection({ task, projectId }: { task: ProjectTask; projectId: string }) {
+  const { data: actions = [] } = useTaskActions(projectId, task.id)
+  const createA = useCreateAction()
+  const updateA = useUpdateAction()
+  const deleteA = useDeleteAction()
+  const [newTitle, setNewTitle] = useState('')
+
+  const handleAdd = async () => {
+    const title = newTitle.trim()
+    if (!title) return
+    await createA.mutateAsync({ projectId, taskId: task.id, payload: { title } })
+    setNewTitle('')
+  }
+
+  const toggleDone = (a: TaskAction) => {
+    updateA.mutate({
+      projectId, taskId: task.id, actionId: a.id,
+      payload: { completed: !a.completed },
+    })
+  }
+
+  const completedCount = actions.filter((a: TaskAction) => a.completed).length
+
+  return (
+    <div className="space-y-1.5">
+      {actions.length > 0 && (
+        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+          <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
+            <div className="h-full bg-green-500 rounded-full" style={{ width: `${actions.length > 0 ? (completedCount / actions.length) * 100 : 0}%` }} />
+          </div>
+          <span className="tabular-nums">{completedCount}/{actions.length}</span>
+        </div>
+      )}
+      {actions.length === 0 && (
+        <div className="text-[10px] text-muted-foreground italic">Aucune action</div>
+      )}
+      {actions.map((a: TaskAction) => (
+        <div key={a.id} className="flex items-center gap-1.5 text-[11px] group">
+          <button onClick={() => toggleDone(a)} className="shrink-0">
+            {a.completed
+              ? <CheckSquare size={12} className="text-green-500" />
+              : <Circle size={12} className="text-muted-foreground" />}
+          </button>
+          <span className={cn('flex-1 truncate', a.completed && 'line-through text-muted-foreground')}>{a.title}</span>
+          <button
+            onClick={() => deleteA.mutate({ projectId, taskId: task.id, actionId: a.id })}
+            className="p-0.5 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100"
+          >
+            <X size={10} />
+          </button>
+        </div>
+      ))}
+      <div className="flex items-center gap-1">
+        <input
+          type="text"
+          value={newTitle}
+          onChange={e => setNewTitle(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') handleAdd() }}
+          className={`${panelInputClass} flex-1 text-[11px]`}
+          placeholder="Nouvelle action…"
+        />
+        <button
+          onClick={handleAdd}
+          disabled={!newTitle.trim() || createA.isPending}
+          className="p-1 rounded hover:bg-primary/10 text-primary disabled:opacity-30"
+        >
+          {createA.isPending ? <Loader2 size={10} className="animate-spin" /> : <Plus size={10} />}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function TaskHistorySection({ task, projectId }: { task: ProjectTask; projectId: string }) {
+  const { data: logs = [] } = useTaskChangelog(projectId, task.id)
+  if (logs.length === 0) {
+    return <div className="text-[10px] text-muted-foreground italic">Aucune modification enregistrée</div>
+  }
+  return (
+    <div className="space-y-1 max-h-[160px] overflow-y-auto">
+      {logs.map((l: TaskChangeLog) => (
+        <div key={l.id} className="text-[10px] border-l-2 border-border pl-2 py-0.5">
+          <div className="flex items-center gap-1">
+            <span className="font-medium">{l.field_name}</span>
+            <span className="text-muted-foreground">•</span>
+            <span className="text-muted-foreground">{new Date(l.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+          </div>
+          <div className="text-muted-foreground truncate">
+            <span className="line-through">{l.old_value ?? '∅'}</span>
+            <ArrowRight size={8} className="inline mx-1" />
+            <span className="text-foreground">{l.new_value ?? '∅'}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function TaskSubFeatures({ task, projectId, allTasks }: {
+  task: ProjectTask
+  projectId: string
+  allTasks: ProjectTask[]
+}) {
+  const [tab, setTab] = useState<SubTab>('deps')
+  const tabs: { id: SubTab; label: string; icon: typeof Link2 }[] = [
+    { id: 'deps', label: 'Dépendances', icon: Link2 },
+    { id: 'deliverables', label: 'Livrables', icon: Package },
+    { id: 'actions', label: 'Actions', icon: CheckSquare },
+    { id: 'history', label: 'Historique', icon: History },
+  ]
+  return (
+    <div className="border-t border-border/30 pt-2 mt-1">
+      <div className="flex items-center gap-0.5 mb-2 border border-border rounded p-0.5 bg-muted/20">
+        {tabs.map(t => {
+          const Icon = t.icon
+          return (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={cn(
+                'flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-colors flex-1 justify-center',
+                tab === t.id ? 'bg-background text-foreground shadow-sm font-medium' : 'text-muted-foreground hover:bg-muted',
+              )}
+            >
+              <Icon size={10} />
+              {t.label}
+            </button>
+          )
+        })}
+      </div>
+      <div className="px-1">
+        {tab === 'deps' && <TaskDependenciesSection task={task} projectId={projectId} allTasks={allTasks} />}
+        {tab === 'deliverables' && <TaskDeliverablesSection task={task} projectId={projectId} />}
+        {tab === 'actions' && <TaskActionsSection task={task} projectId={projectId} />}
+        {tab === 'history' && <TaskHistorySection task={task} projectId={projectId} />}
+      </div>
+    </div>
+  )
+}
+
 // -- Task Row (interactive, expandable) --------------------------------------
 
-function TaskRow({ task, projectId }: { task: ProjectTask; projectId: string }) {
+function TaskRow({ task, projectId, allTasks }: { task: ProjectTask; projectId: string; allTasks: ProjectTask[] }) {
   const updateTask = useUpdateProjectTask()
   const deleteTask = useDeleteProjectTask()
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -541,6 +907,9 @@ function TaskRow({ task, projectId }: { task: ProjectTask; projectId: string }) 
               placeholder="Description de la tache..."
             />
           </div>
+
+          {/* Dependencies / Deliverables / Actions / History tabs */}
+          <TaskSubFeatures task={task} projectId={projectId} allTasks={allTasks} />
 
           {/* Meta info */}
           <div className="flex items-center gap-3 text-[10px] text-muted-foreground pt-1">
@@ -761,7 +1130,7 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
       {tasks.length > 0 ? (
         <div className="border border-border rounded-md overflow-hidden max-h-[400px] overflow-y-auto">
           {tasks.map((task) => (
-            <TaskRow key={task.id} task={task} projectId={projectId} />
+            <TaskRow key={task.id} task={task} projectId={projectId} allTasks={tasks} />
           ))}
         </div>
       ) : (

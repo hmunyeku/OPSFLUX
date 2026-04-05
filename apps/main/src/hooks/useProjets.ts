@@ -11,6 +11,7 @@ import type {
   PlanningRevisionCreate, PlanningRevisionUpdate,
   TaskDeliverableCreate, TaskDeliverableUpdate,
   TaskActionCreate, TaskActionUpdate,
+  TaskDependencyCreate,
   PaginationParams,
 } from '@/types/api'
 
@@ -363,5 +364,37 @@ export function useTaskChangelog(projectId: string | undefined, taskId: string |
     queryKey: ['task-changelog', projectId, taskId],
     queryFn: () => projetsService.listChangelog(projectId!, taskId!),
     enabled: !!projectId && !!taskId,
+  })
+}
+
+// ── Task Dependencies ──
+
+export function useTaskDependencies(projectId: string | undefined) {
+  return useQuery({
+    queryKey: ['task-dependencies', projectId],
+    queryFn: () => projetsService.listDependencies(projectId!),
+    enabled: !!projectId,
+  })
+}
+
+export function useCreateTaskDependency() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, payload }: { projectId: string; payload: TaskDependencyCreate }) =>
+      projetsService.createDependency(projectId, payload),
+    onSuccess: (_, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ['task-dependencies', projectId] })
+    },
+  })
+}
+
+export function useDeleteTaskDependency() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, depId }: { projectId: string; depId: string }) =>
+      projetsService.deleteDependency(projectId, depId),
+    onSuccess: (_, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ['task-dependencies', projectId] })
+    },
   })
 }

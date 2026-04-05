@@ -11,6 +11,7 @@ import type {
   TaskDeliverable, TaskDeliverableCreate, TaskDeliverableUpdate,
   TaskAction, TaskActionCreate, TaskActionUpdate,
   TaskChangeLog,
+  TaskDependency, TaskDependencyCreate,
   PaginatedResponse, PaginationParams,
 } from '@/types/api'
 
@@ -191,5 +192,20 @@ export const projetsService = {
   listChangelog: async (projectId: string, taskId: string): Promise<TaskChangeLog[]> => {
     const { data } = await api.get(`/api/v1/projects/${projectId}/tasks/${taskId}/changelog`)
     return data
+  },
+
+  // ── Task Dependencies ──
+  listDependencies: async (projectId: string): Promise<TaskDependency[]> => {
+    const { data } = await api.get(`/api/v1/projects/${projectId}/dependencies`)
+    return data
+  },
+
+  createDependency: async (projectId: string, payload: TaskDependencyCreate): Promise<TaskDependency> => {
+    const { data } = await api.post(`/api/v1/projects/${projectId}/dependencies`, payload)
+    return data
+  },
+
+  deleteDependency: async (projectId: string, depId: string): Promise<void> => {
+    await api.delete(`/api/v1/projects/${projectId}/dependencies/${depId}`)
   },
 }

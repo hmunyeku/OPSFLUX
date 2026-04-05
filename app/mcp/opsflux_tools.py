@@ -31,14 +31,19 @@ from app.models.common import (
     Address,
     Attachment,
     ComplianceRecord,
+    ComplianceRule,
     ComplianceType,
     ContactEmail,
+    CostCenter,
+    CostImputation,
     Entity,
     ExternalReference,
+    ImputationReference,
     LegalIdentifier,
     Note,
     OpeningHour,
     Phone,
+    Setting,
     SocialNetwork,
     Tag,
     Tier,
@@ -47,6 +52,7 @@ from app.models.common import (
     TierContactTransfer,
     User,
 )
+from app.models.asset_registry import Installation, OilSite
 from app.mcp.mcp_native import NativeBackend
 
 logger = logging.getLogger(__name__)
@@ -1286,6 +1292,659 @@ async def _list_compliance_types(args: dict) -> dict:
     return _ok({"count": len(items), "items": items})
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# Asset Registry (sites + installations)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _site_to_dict(s: OilSite) -> dict:
+    return {
+        "id": str(s.id),
+        "code": s.code,
+        "name": s.name,
+        "site_type": s.site_type,
+        "environment": s.environment,
+        "country": s.country,
+        "region": s.region,
+        "status": s.status,
+        "manned": s.manned,
+        "pob_capacity": s.pob_capacity,
+        "latitude": float(s.latitude) if s.latitude is not None else None,
+        "longitude": float(s.longitude) if s.longitude is not None else None,
+    }
+
+
+def _installation_to_dict(inst: Installation, *, compact: bool = False) -> dict:
+    if compact:
+        return {
+            "id": str(inst.id),
+            "code": inst.code,
+            "name": inst.name,
+            "installation_type": inst.installation_type,
+            "environment": inst.environment,
+            "status": inst.status,
+            "site_id": str(inst.site_id),
+        }
+    return {
+        "id": str(inst.id),
+        "code": inst.code,
+        "name": inst.name,
+        "site_id": str(inst.site_id),
+        "installation_type": inst.installation_type,
+        "environment": inst.environment,
+        "status": inst.status,
+        "is_manned": inst.is_manned,
+        "is_normally_unmanned": inst.is_normally_unmanned,
+        "pob_max": inst.pob_max,
+        "helideck_available": inst.helideck_available,
+        "latitude": float(inst.latitude) if inst.latitude is not None else None,
+        "longitude": float(inst.longitude) if inst.longitude is not None else None,
+        "installation_date": inst.installation_date.isoformat() if inst.installation_date else None,
+        "commissioning_date": inst.commissioning_date.isoformat() if inst.commissioning_date else None,
+        "design_life_years": inst.design_life_years,
+        "notes": inst.notes,
+    }
+
+
+async def _list_sites(args: dict) -> dict:
+    """List oil sites with optional search."""
+    search = (args.get("search") or "").strip()
+    limit = min(max(int(args.get("limit", 20) or 20), 1), 200)
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, args.get("entity_code"))
+        query = select(OilSite).where(
+            OilSite.entity_id == entity_id,
+            OilSite.deleted_at.is_(None),
+        )
+        if search:
+            needle = f"%{search.lower()}%"
+            query = query.where(
+                or_(
+                    sqla_func.lower(OilSite.code).like(needle),
+                    sqla_func.lower(OilSite.name).like(needle),
+                )
+            )
+        query = query.order_by(OilSite.code).limit(limit)
+        rows = (await session.execute(query)).scalars().all()
+    return _ok({
+        "count": len(rows),
+        "items": [_site_to_dict(s) for s in rows],
+    })
+
+
+async def _list_assets(args: dict) -> dict:
+    """List installations (assets). Optional filters: site_id, status, search."""
+    search = (args.get("search") or "").strip()
+    site_id_str = args.get("site_id")
+    status_filter = args.get("status")
+    limit = min(max(int(args.get("limit", 20) or 20), 1), 200)
+
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, args.get("entity_code"))
+        query = select(Installation).where(
+            Installation.entity_id == entity_id,
+            Installation.deleted_at.is_(None),
+        )
+        if site_id_str:
+            try:
+                query = query.where(Installation.site_id == UUID(str(site_id_str)))
+            except ValueError:
+                return _err(f"site_id invalide: {site_id_str}")
+        if status_filter:
+            query = query.where(Installation.status == status_filter)
+        if search:
+            needle = f"%{search.lower()}%"
+            query = query.where(
+                or_(
+                    sqla_func.lower(Installation.code).like(needle),
+                    sqla_func.lower(Installation.name).like(needle),
+                )
+            )
+        query = query.order_by(Installation.code).limit(limit)
+        rows = (await session.execute(query)).scalars().all()
+    return _ok({
+        "count": len(rows),
+        "items": [_installation_to_dict(r, compact=True) for r in rows],
+    })
+
+
+async def _get_asset(args: dict) -> dict:
+    """Get an installation (asset) by id or by code."""
+    asset_id = args.get("id")
+    code = args.get("code")
+    if not asset_id and not code:
+        raise ValueError("id ou code requis")
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, args.get("entity_code"))
+        query = select(Installation).where(
+            Installation.entity_id == entity_id,
+            Installation.deleted_at.is_(None),
+        )
+        if asset_id:
+            try:
+                query = query.where(Installation.id == UUID(str(asset_id)))
+            except ValueError:
+                return _err(f"id invalide: {asset_id}")
+        else:
+            query = query.where(Installation.code == str(code))
+        inst = (await session.execute(query)).scalar_one_or_none()
+        if inst is None:
+            return _err("Asset introuvable")
+    return _ok(_installation_to_dict(inst))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Compliance — rules and types creation
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _compliance_type_to_dict(ct: ComplianceType) -> dict:
+    return {
+        "id": str(ct.id),
+        "code": ct.code,
+        "name": ct.name,
+        "category": ct.category,
+        "description": ct.description,
+        "validity_days": ct.validity_days,
+        "is_mandatory": ct.is_mandatory,
+        "compliance_source": ct.compliance_source,
+        "external_provider": ct.external_provider,
+        "active": ct.active,
+    }
+
+
+def _compliance_rule_to_dict(r: ComplianceRule) -> dict:
+    return {
+        "id": str(r.id),
+        "compliance_type_id": str(r.compliance_type_id),
+        "target_type": r.target_type,
+        "target_value": r.target_value,
+        "description": r.description,
+        "version": r.version,
+        "effective_from": r.effective_from.isoformat() if r.effective_from else None,
+        "effective_to": r.effective_to.isoformat() if r.effective_to else None,
+        "active": r.active,
+    }
+
+
+async def _create_compliance_type(args: dict) -> dict:
+    """Create a new compliance type (referentiel)."""
+    code = (args.get("code") or "").strip()
+    name = (args.get("name") or "").strip()
+    category = (args.get("category") or "").strip()
+    if not code or not name or not category:
+        raise ValueError("code, name et category requis")
+    if category not in {"formation", "certification", "habilitation", "audit", "medical", "epi"}:
+        raise ValueError("category invalide")
+
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, args.get("entity_code"))
+        dupe = (await session.execute(
+            select(ComplianceType).where(
+                ComplianceType.entity_id == entity_id,
+                ComplianceType.code == code,
+            )
+        )).scalar_one_or_none()
+        if dupe:
+            return _err(f"Un type de conformité avec le code '{code}' existe déjà")
+
+        ct = ComplianceType(
+            entity_id=entity_id,
+            code=code,
+            name=name,
+            category=category,
+            description=args.get("description"),
+            validity_days=args.get("validity_days"),
+            is_mandatory=bool(args.get("is_mandatory", False)),
+            compliance_source=args.get("compliance_source") or "opsflux",
+            external_provider=args.get("external_provider"),
+            active=True,
+        )
+        session.add(ct)
+        await session.commit()
+        await session.refresh(ct)
+    return _ok(_compliance_type_to_dict(ct))
+
+
+async def _list_compliance_rules(args: dict) -> dict:
+    """List compliance rules, optionally filtered by type or target."""
+    type_id_str = args.get("compliance_type_id")
+    target_type = args.get("target_type")
+    target_value = args.get("target_value")
+    only_active = bool(args.get("only_active", True))
+    limit = min(max(int(args.get("limit", 50) or 50), 1), 200)
+
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, args.get("entity_code"))
+        query = select(ComplianceRule).where(ComplianceRule.entity_id == entity_id)
+        if only_active:
+            query = query.where(ComplianceRule.active == True, ComplianceRule.deleted_at.is_(None))  # noqa: E712
+        if type_id_str:
+            try:
+                query = query.where(ComplianceRule.compliance_type_id == UUID(str(type_id_str)))
+            except ValueError:
+                return _err(f"compliance_type_id invalide: {type_id_str}")
+        if target_type:
+            query = query.where(ComplianceRule.target_type == target_type)
+        if target_value:
+            query = query.where(ComplianceRule.target_value == target_value)
+        query = query.order_by(ComplianceRule.created_at.desc()).limit(limit)
+        rows = (await session.execute(query)).scalars().all()
+    return _ok({
+        "count": len(rows),
+        "items": [_compliance_rule_to_dict(r) for r in rows],
+    })
+
+
+async def _create_compliance_rule(args: dict) -> dict:
+    """Create a compliance rule (who must have this compliance type)."""
+    ct_ref = args.get("compliance_type_id") or args.get("compliance_type_code")
+    target_type = (args.get("target_type") or "").strip()
+    if not ct_ref or not target_type:
+        raise ValueError("compliance_type_id (ou code) et target_type requis")
+    if target_type not in {"tier_type", "asset", "department", "job_position", "all"}:
+        raise ValueError("target_type invalide")
+
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, args.get("entity_code"))
+        # Resolve compliance type
+        ct_query = select(ComplianceType).where(ComplianceType.entity_id == entity_id)
+        try:
+            ct_query = ct_query.where(ComplianceType.id == UUID(str(ct_ref)))
+        except (TypeError, ValueError):
+            ct_query = ct_query.where(ComplianceType.code == str(ct_ref))
+        ct = (await session.execute(ct_query)).scalar_one_or_none()
+        if ct is None:
+            return _err(f"Type de conformité introuvable: {ct_ref}")
+
+        admin = (await session.execute(
+            select(User.id).where(User.active == True).limit(1)  # noqa: E712
+        )).scalar_one_or_none()
+
+        def _parse_date(s: str | None):
+            if not s:
+                return None
+            try:
+                return datetime.fromisoformat(s).date()
+            except ValueError as exc:
+                raise ValueError(f"Date invalide '{s}': {exc}")
+
+        rule = ComplianceRule(
+            entity_id=entity_id,
+            compliance_type_id=ct.id,
+            target_type=target_type,
+            target_value=args.get("target_value"),
+            description=args.get("description"),
+            version=1,
+            effective_from=_parse_date(args.get("effective_from")),
+            effective_to=_parse_date(args.get("effective_to")),
+            changed_by=admin,
+            change_reason=args.get("change_reason") or "Created via MCP",
+            active=True,
+        )
+        session.add(rule)
+        await session.commit()
+        await session.refresh(rule)
+    return _ok(_compliance_rule_to_dict(rule))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Cost imputations
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _cost_center_to_dict(cc: CostCenter) -> dict:
+    return {
+        "id": str(cc.id),
+        "code": cc.code,
+        "name": cc.name,
+        "department_id": str(cc.department_id) if cc.department_id else None,
+        "active": cc.active,
+    }
+
+
+def _imputation_ref_to_dict(r: ImputationReference) -> dict:
+    return {
+        "id": str(r.id),
+        "code": r.code,
+        "name": r.name,
+        "description": r.description,
+        "imputation_type": r.imputation_type,
+        "otp_policy": r.otp_policy,
+        "default_project_id": str(r.default_project_id) if r.default_project_id else None,
+        "default_cost_center_id": str(r.default_cost_center_id) if r.default_cost_center_id else None,
+        "valid_from": r.valid_from.isoformat() if r.valid_from else None,
+        "valid_to": r.valid_to.isoformat() if r.valid_to else None,
+        "active": r.active,
+    }
+
+
+def _cost_imputation_to_dict(c: CostImputation) -> dict:
+    return {
+        "id": str(c.id),
+        "owner_type": c.owner_type,
+        "owner_id": str(c.owner_id),
+        "imputation_reference_id": str(c.imputation_reference_id) if c.imputation_reference_id else None,
+        "project_id": str(c.project_id) if c.project_id else None,
+        "wbs_id": str(c.wbs_id) if c.wbs_id else None,
+        "cost_center_id": str(c.cost_center_id) if c.cost_center_id else None,
+        "percentage": float(c.percentage),
+        "cross_imputation": c.cross_imputation,
+        "notes": c.notes,
+    }
+
+
+async def _list_cost_centers(args: dict) -> dict:
+    """List cost centers for the current entity."""
+    limit = min(max(int(args.get("limit", 100) or 100), 1), 500)
+    only_active = bool(args.get("only_active", True))
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, args.get("entity_code"))
+        query = select(CostCenter).where(CostCenter.entity_id == entity_id)
+        if only_active:
+            query = query.where(CostCenter.active == True)  # noqa: E712
+        query = query.order_by(CostCenter.code).limit(limit)
+        rows = (await session.execute(query)).scalars().all()
+    return _ok({"count": len(rows), "items": [_cost_center_to_dict(c) for c in rows]})
+
+
+async def _list_imputation_references(args: dict) -> dict:
+    """List imputation references (OPEX/CAPEX codes) for the current entity."""
+    search = (args.get("search") or "").strip()
+    imputation_type = args.get("imputation_type")
+    limit = min(max(int(args.get("limit", 50) or 50), 1), 500)
+    only_active = bool(args.get("only_active", True))
+
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, args.get("entity_code"))
+        query = select(ImputationReference).where(ImputationReference.entity_id == entity_id)
+        if only_active:
+            query = query.where(ImputationReference.active == True)  # noqa: E712
+        if imputation_type:
+            query = query.where(ImputationReference.imputation_type == imputation_type)
+        if search:
+            needle = f"%{search.lower()}%"
+            query = query.where(
+                or_(
+                    sqla_func.lower(ImputationReference.code).like(needle),
+                    sqla_func.lower(ImputationReference.name).like(needle),
+                )
+            )
+        query = query.order_by(ImputationReference.code).limit(limit)
+        rows = (await session.execute(query)).scalars().all()
+    return _ok({"count": len(rows), "items": [_imputation_ref_to_dict(r) for r in rows]})
+
+
+async def _list_imputations(args: dict) -> dict:
+    """List cost imputations for a given owner (ads, voyage, mission, …)."""
+    owner_type = (args.get("owner_type") or "").strip()
+    owner_id_str = args.get("owner_id")
+    if not owner_type or not owner_id_str:
+        raise ValueError("owner_type et owner_id requis")
+    try:
+        owner_id = UUID(str(owner_id_str))
+    except ValueError:
+        return _err(f"owner_id invalide: {owner_id_str}")
+    async with async_session_factory() as session:
+        rows = (await session.execute(
+            select(CostImputation)
+            .where(CostImputation.owner_type == owner_type, CostImputation.owner_id == owner_id)
+            .order_by(CostImputation.created_at)
+        )).scalars().all()
+    return _ok({"count": len(rows), "items": [_cost_imputation_to_dict(c) for c in rows]})
+
+
+async def _add_imputation(args: dict) -> dict:
+    """Add a cost imputation split to an owner.
+    Sum of percentages per owner must stay ≤ 100 (warning only)."""
+    owner_type = (args.get("owner_type") or "").strip()
+    owner_id_str = args.get("owner_id")
+    percentage = args.get("percentage")
+    if not owner_type or not owner_id_str or percentage is None:
+        raise ValueError("owner_type, owner_id et percentage requis")
+    try:
+        pct = float(percentage)
+    except (TypeError, ValueError):
+        raise ValueError("percentage doit être numérique")
+    if pct <= 0 or pct > 100:
+        raise ValueError("percentage doit être dans (0, 100]")
+    try:
+        owner_id = UUID(str(owner_id_str))
+    except ValueError:
+        return _err(f"owner_id invalide: {owner_id_str}")
+
+    ref_id = args.get("imputation_reference_id")
+    project_id = args.get("project_id")
+    cost_center_id = args.get("cost_center_id")
+
+    async with async_session_factory() as session:
+        # Ensure sum ≤ 100
+        existing_pct = (await session.execute(
+            select(sqla_func.coalesce(sqla_func.sum(CostImputation.percentage), 0))
+            .where(CostImputation.owner_type == owner_type, CostImputation.owner_id == owner_id)
+        )).scalar_one()
+        total = float(existing_pct or 0) + pct
+        if total > 100.001:
+            return _err(f"Somme des imputations dépasserait 100% ({total:.2f}%)")
+
+        admin = (await session.execute(
+            select(User.id).where(User.active == True).limit(1)  # noqa: E712
+        )).scalar_one_or_none()
+        if admin is None:
+            return _err("Aucun utilisateur actif")
+
+        imp = CostImputation(
+            owner_type=owner_type,
+            owner_id=owner_id,
+            percentage=pct,
+            imputation_reference_id=UUID(str(ref_id)) if ref_id else None,
+            project_id=UUID(str(project_id)) if project_id else None,
+            cost_center_id=UUID(str(cost_center_id)) if cost_center_id else None,
+            cross_imputation=bool(args.get("cross_imputation", False)),
+            notes=args.get("notes"),
+            created_by=admin,
+        )
+        session.add(imp)
+        await session.commit()
+        await session.refresh(imp)
+    return _ok(_cost_imputation_to_dict(imp))
+
+
+async def _delete_imputation(args: dict) -> dict:
+    imp_id = args.get("id")
+    if not imp_id:
+        raise ValueError("id requis")
+    async with async_session_factory() as session:
+        imp = (await session.execute(
+            select(CostImputation).where(CostImputation.id == UUID(str(imp_id)))
+        )).scalar_one_or_none()
+        if imp is None:
+            return _err(f"Imputation introuvable: {imp_id}")
+        await session.delete(imp)
+        await session.commit()
+    return _ok({"deleted": imp_id})
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Users (read-only)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _user_to_dict(u: User) -> dict:
+    return {
+        "id": str(u.id),
+        "email": u.email,
+        "first_name": u.first_name,
+        "last_name": u.last_name,
+        "active": u.active,
+        "language": u.language,
+        "default_entity_id": str(u.default_entity_id) if u.default_entity_id else None,
+        "tier_contact_id": str(u.tier_contact_id) if u.tier_contact_id else None,
+        "auth_type": u.auth_type,
+        "mfa_enabled": u.mfa_enabled,
+        "last_login_at": u.last_login_at.isoformat() if u.last_login_at else None,
+    }
+
+
+async def _list_users(args: dict) -> dict:
+    """List user accounts. Read-only — cannot create/update users via MCP.
+    Filters: search (email/name), only_active (default true)."""
+    search = (args.get("search") or "").strip()
+    only_active = bool(args.get("only_active", True))
+    limit = min(max(int(args.get("limit", 30) or 30), 1), 200)
+    async with async_session_factory() as session:
+        query = select(User)
+        if only_active:
+            query = query.where(User.active == True)  # noqa: E712
+        if search:
+            needle = f"%{search.lower()}%"
+            query = query.where(
+                or_(
+                    sqla_func.lower(User.email).like(needle),
+                    sqla_func.lower(User.first_name).like(needle),
+                    sqla_func.lower(User.last_name).like(needle),
+                )
+            )
+        query = query.order_by(User.last_name, User.first_name).limit(limit)
+        rows = (await session.execute(query)).scalars().all()
+    return _ok({"count": len(rows), "items": [_user_to_dict(u) for u in rows]})
+
+
+async def _get_user(args: dict) -> dict:
+    """Get a user by id or email."""
+    user_id = args.get("id")
+    email = args.get("email")
+    if not user_id and not email:
+        raise ValueError("id ou email requis")
+    async with async_session_factory() as session:
+        query = select(User)
+        if user_id:
+            try:
+                query = query.where(User.id == UUID(str(user_id)))
+            except ValueError:
+                return _err(f"id invalide: {user_id}")
+        else:
+            query = query.where(sqla_func.lower(User.email) == str(email).lower())
+        u = (await session.execute(query)).scalar_one_or_none()
+        if u is None:
+            return _err("Utilisateur introuvable")
+    return _ok(_user_to_dict(u))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Settings / configuration
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _setting_to_dict(s: Setting) -> dict:
+    return {
+        "id": str(s.id),
+        "key": s.key,
+        "value": s.value,
+        "scope": s.scope,
+        "scope_id": s.scope_id,
+        "updated_at": s.updated_at.isoformat() if s.updated_at else None,
+    }
+
+
+async def _list_settings(args: dict) -> dict:
+    """List settings. Filters: scope (tenant/entity/user), key_prefix."""
+    scope = args.get("scope")
+    key_prefix = (args.get("key_prefix") or "").strip()
+    limit = min(max(int(args.get("limit", 50) or 50), 1), 500)
+    async with async_session_factory() as session:
+        query = select(Setting)
+        if scope:
+            if scope not in {"tenant", "entity", "user"}:
+                return _err("scope doit être tenant|entity|user")
+            query = query.where(Setting.scope == scope)
+        if key_prefix:
+            query = query.where(Setting.key.like(f"{key_prefix}%"))
+        query = query.order_by(Setting.scope, Setting.key).limit(limit)
+        rows = (await session.execute(query)).scalars().all()
+    return _ok({"count": len(rows), "items": [_setting_to_dict(s) for s in rows]})
+
+
+async def _get_setting(args: dict) -> dict:
+    """Get a setting by key (+ optional scope and scope_id)."""
+    key = (args.get("key") or "").strip()
+    if not key:
+        raise ValueError("key requis")
+    scope = args.get("scope") or "tenant"
+    scope_id = args.get("scope_id")
+    async with async_session_factory() as session:
+        query = select(Setting).where(Setting.key == key, Setting.scope == scope)
+        if scope_id is not None:
+            query = query.where(Setting.scope_id == str(scope_id))
+        else:
+            query = query.where(Setting.scope_id.is_(None))
+        s = (await session.execute(query)).scalar_one_or_none()
+        if s is None:
+            return _err(f"Setting introuvable: {key}@{scope}")
+    return _ok(_setting_to_dict(s))
+
+
+async def _set_setting(args: dict) -> dict:
+    """Create or update a setting. value must be a JSON-serialisable dict."""
+    key = (args.get("key") or "").strip()
+    if not key:
+        raise ValueError("key requis")
+    raw_value = args.get("value")
+    if raw_value is None:
+        raise ValueError("value requis")
+    # Allow passing a JSON string — parse it
+    if isinstance(raw_value, str):
+        try:
+            value = json.loads(raw_value)
+        except json.JSONDecodeError:
+            value = {"value": raw_value}
+    elif isinstance(raw_value, dict):
+        value = raw_value
+    else:
+        value = {"value": raw_value}
+    scope = args.get("scope") or "tenant"
+    if scope not in {"tenant", "entity", "user"}:
+        raise ValueError("scope doit être tenant|entity|user")
+    scope_id = args.get("scope_id")
+    async with async_session_factory() as session:
+        query = select(Setting).where(Setting.key == key, Setting.scope == scope)
+        if scope_id is not None:
+            query = query.where(Setting.scope_id == str(scope_id))
+        else:
+            query = query.where(Setting.scope_id.is_(None))
+        existing = (await session.execute(query)).scalar_one_or_none()
+        if existing:
+            existing.value = value
+            s = existing
+        else:
+            s = Setting(key=key, value=value, scope=scope, scope_id=str(scope_id) if scope_id else None)
+            session.add(s)
+        await session.commit()
+        await session.refresh(s)
+    return _ok(_setting_to_dict(s))
+
+
+async def _delete_setting(args: dict) -> dict:
+    """Delete a setting by key+scope(+scope_id)."""
+    key = (args.get("key") or "").strip()
+    if not key:
+        raise ValueError("key requis")
+    scope = args.get("scope") or "tenant"
+    scope_id = args.get("scope_id")
+    async with async_session_factory() as session:
+        query = select(Setting).where(Setting.key == key, Setting.scope == scope)
+        if scope_id is not None:
+            query = query.where(Setting.scope_id == str(scope_id))
+        else:
+            query = query.where(Setting.scope_id.is_(None))
+        s = (await session.execute(query)).scalar_one_or_none()
+        if s is None:
+            return _err(f"Setting introuvable: {key}@{scope}")
+        await session.delete(s)
+        await session.commit()
+    return _ok({"deleted": key, "scope": scope})
+
+
 # ─── Tool registry ───────────────────────────────────────────────────────────
 
 def _s(props: dict | None = None, required: list | None = None) -> dict:
@@ -1669,6 +2328,183 @@ OPSFLUX_TOOLS: list[tuple[str, str, dict, Any]] = [
      "Historique des transferts d'un contact (mouvements entre entreprises).",
      _s({"contact_id": {"type": "string"}}, ["contact_id"]),
      _list_contact_transfers),
+
+    # ── Assets (sites + installations) ───────────────────────────────────
+    ("list_sites",
+     "Liste les sites pétroliers (ar_sites) de l'entité. Filtres: search, limit. "
+     "Un site regroupe plusieurs installations physiques.",
+     _s({
+         "search": {"type": "string"},
+         "limit": {"type": "integer"},
+         "entity_code": {"type": "string"},
+     }), _list_sites),
+
+    ("list_assets",
+     "Liste les installations (ar_installations) = plateformes, terminaux, puits, "
+     "FPSO… Filtres: site_id, status (OPERATIONAL/…), search, limit.",
+     _s({
+         "site_id": {"type": "string"},
+         "status": {"type": "string"},
+         "search": {"type": "string"},
+         "limit": {"type": "integer"},
+         "entity_code": {"type": "string"},
+     }), _list_assets),
+
+    ("get_asset",
+     "Récupère une installation (asset) par id ou par code.",
+     _s({
+         "id": {"type": "string"},
+         "code": {"type": "string"},
+         "entity_code": {"type": "string"},
+     }), _get_asset),
+
+    # ── Compliance rules (V2) ────────────────────────────────────────────
+    ("create_compliance_type",
+     "Crée un type de conformité (ex: H2S_BASIC, MED_APTITUDE). "
+     "category doit être: formation, certification, habilitation, audit, medical, epi. "
+     "validity_days null = permanent.",
+     _s({
+         "code": {"type": "string"},
+         "name": {"type": "string"},
+         "category": {"type": "string"},
+         "description": {"type": "string"},
+         "validity_days": {"type": "integer"},
+         "is_mandatory": {"type": "boolean"},
+         "compliance_source": {"type": "string", "description": "opsflux | external | both"},
+         "external_provider": {"type": "string"},
+         "entity_code": {"type": "string"},
+     }, ["code", "name", "category"]), _create_compliance_type),
+
+    ("list_compliance_rules",
+     "Liste les règles de conformité (qui doit avoir quel type). "
+     "Filtres: compliance_type_id, target_type (tier_type|asset|department|job_position|all), target_value.",
+     _s({
+         "compliance_type_id": {"type": "string"},
+         "target_type": {"type": "string"},
+         "target_value": {"type": "string"},
+         "only_active": {"type": "boolean"},
+         "limit": {"type": "integer"},
+         "entity_code": {"type": "string"},
+     }), _list_compliance_rules),
+
+    ("create_compliance_rule",
+     "Crée une règle de conformité: tel ComplianceType est obligatoire pour telle cible. "
+     "Accepte compliance_type_id (UUID) ou compliance_type_code. "
+     "target_type: tier_type|asset|department|job_position|all. "
+     "target_value: ex 'client', asset_id, 'Operations'.",
+     _s({
+         "compliance_type_id": {"type": "string"},
+         "compliance_type_code": {"type": "string"},
+         "target_type": {"type": "string"},
+         "target_value": {"type": "string"},
+         "description": {"type": "string"},
+         "effective_from": {"type": "string", "description": "YYYY-MM-DD"},
+         "effective_to": {"type": "string", "description": "YYYY-MM-DD"},
+         "change_reason": {"type": "string"},
+         "entity_code": {"type": "string"},
+     }, ["target_type"]), _create_compliance_rule),
+
+    # ── Cost imputations ─────────────────────────────────────────────────
+    ("list_cost_centers",
+     "Liste les centres de coûts de l'entité.",
+     _s({
+         "only_active": {"type": "boolean"},
+         "limit": {"type": "integer"},
+         "entity_code": {"type": "string"},
+     }), _list_cost_centers),
+
+    ("list_imputation_references",
+     "Liste les références d'imputation (codes OPEX/CAPEX configurés). "
+     "Filtres: search, imputation_type (OPEX/CAPEX), only_active.",
+     _s({
+         "search": {"type": "string"},
+         "imputation_type": {"type": "string"},
+         "only_active": {"type": "boolean"},
+         "limit": {"type": "integer"},
+         "entity_code": {"type": "string"},
+     }), _list_imputation_references),
+
+    ("list_imputations",
+     "Liste les imputations de coût d'un owner (ads/voyage/mission/purchase_order/…).",
+     _s({
+         "owner_type": {"type": "string"},
+         "owner_id": {"type": "string"},
+     }, ["owner_type", "owner_id"]), _list_imputations),
+
+    ("add_imputation",
+     "Ajoute une imputation (split de coût) à un owner. "
+     "La somme des pourcentages par owner doit rester ≤ 100. "
+     "owner_type: ads, voyage, mission, purchase_order, … "
+     "Au moins une cible (imputation_reference_id, project_id, cost_center_id) est recommandée.",
+     _s({
+         "owner_type": {"type": "string"},
+         "owner_id": {"type": "string"},
+         "percentage": {"type": "number", "description": "(0, 100]"},
+         "imputation_reference_id": {"type": "string"},
+         "project_id": {"type": "string"},
+         "cost_center_id": {"type": "string"},
+         "cross_imputation": {"type": "boolean"},
+         "notes": {"type": "string"},
+     }, ["owner_type", "owner_id", "percentage"]), _add_imputation),
+
+    ("delete_imputation",
+     "Supprime une imputation par son id.",
+     _s({"id": {"type": "string"}}, ["id"]), _delete_imputation),
+
+    # ── Users (read-only) ────────────────────────────────────────────────
+    ("list_users",
+     "Liste les comptes utilisateurs. Lecture seule via MCP — la création de "
+     "compte doit se faire dans OpsFlux directement. Filtres: search, only_active.",
+     _s({
+         "search": {"type": "string"},
+         "only_active": {"type": "boolean"},
+         "limit": {"type": "integer"},
+     }), _list_users),
+
+    ("get_user",
+     "Récupère un utilisateur par id ou par email.",
+     _s({
+         "id": {"type": "string"},
+         "email": {"type": "string"},
+     }), _get_user),
+
+    # ── Settings / configuration ─────────────────────────────────────────
+    ("list_settings",
+     "Liste les paramètres de configuration. Filtres: scope (tenant/entity/user), "
+     "key_prefix (ex: 'integration.gouti.' pour ne voir que la config Gouti).",
+     _s({
+         "scope": {"type": "string"},
+         "key_prefix": {"type": "string"},
+         "limit": {"type": "integer"},
+     }), _list_settings),
+
+    ("get_setting",
+     "Récupère un paramètre de config par key (+ scope et scope_id optionnels).",
+     _s({
+         "key": {"type": "string"},
+         "scope": {"type": "string", "description": "tenant|entity|user (défaut tenant)"},
+         "scope_id": {"type": "string"},
+     }, ["key"]), _get_setting),
+
+    ("set_setting",
+     "Crée ou met à jour un paramètre de config. value peut être un objet JSON "
+     "ou une chaîne — si chaîne, sera wrappée dans {\"value\": ...}. "
+     "scope: tenant (défaut) | entity | user. scope_id identifie l'entité/user "
+     "ciblé pour les scopes non-tenant.",
+     _s({
+         "key": {"type": "string"},
+         "value": {},
+         "scope": {"type": "string"},
+         "scope_id": {"type": "string"},
+     }, ["key", "value"]), _set_setting),
+
+    ("delete_setting",
+     "Supprime un paramètre de config par key(+scope+scope_id).",
+     _s({
+         "key": {"type": "string"},
+         "scope": {"type": "string"},
+         "scope_id": {"type": "string"},
+     }, ["key"]), _delete_setting),
 ]
 
 OPSFLUX_TOOLS_LIST = [

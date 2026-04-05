@@ -300,6 +300,7 @@ class PaxIncident(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Index("idx_incidents_user", "user_id"),
         Index("idx_incidents_contact", "contact_id"),
         Index("idx_incidents_company", "company_id"),
+        Index("idx_incidents_pax_group", "pax_group_id"),
         # Incidents: allow both NULL (company-level)
         CheckConstraint(
             "NOT (user_id IS NOT NULL AND contact_id IS NOT NULL)",
@@ -322,6 +323,9 @@ class PaxIncident(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     company_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("tiers.id")
+    )
+    pax_group_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("pax_groups.id")
     )
     asset_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("ar_installations.id")
@@ -509,6 +513,85 @@ class MissionPreparationTask(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     auto_generated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     mission_notice: Mapped["MissionNotice"] = relationship(back_populates="preparation_tasks")
+
+
+class MissionVisaFollowup(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Mission-scoped visa follow-up for a specific PAX."""
+    __tablename__ = "mission_visa_followups"
+    __table_args__ = (
+        Index("idx_mission_visa_followups_notice", "mission_notice_id", "status"),
+        UniqueConstraint("mission_notice_id", "user_id", name="uq_mission_visa_followup_user"),
+        UniqueConstraint("mission_notice_id", "contact_id", name="uq_mission_visa_followup_contact"),
+        CheckConstraint(
+            "(user_id IS NOT NULL AND contact_id IS NULL) OR "
+            "(user_id IS NULL AND contact_id IS NOT NULL)",
+            name="ck_mission_visa_followups_pax_xor",
+        ),
+        CheckConstraint(
+            "status IN ('to_initiate','submitted','in_review','obtained','refused')",
+            name="ck_mission_visa_followups_status",
+        ),
+    )
+
+    mission_notice_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("mission_notices.id", ondelete="CASCADE"), nullable=False
+    )
+    preparation_task_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("mission_preparation_tasks.id", ondelete="SET NULL")
+    )
+    user_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id")
+    )
+    contact_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tier_contacts.id")
+    )
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="to_initiate")
+    visa_type: Mapped[str | None] = mapped_column(String(100))
+    country: Mapped[str | None] = mapped_column(String(100))
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    obtained_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    refused_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    notes: Mapped[str | None] = mapped_column(Text)
+
+
+class MissionAllowanceRequest(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Mission-scoped displacement allowance request for a specific PAX."""
+    __tablename__ = "mission_allowance_requests"
+    __table_args__ = (
+        Index("idx_mission_allowance_requests_notice", "mission_notice_id", "status"),
+        UniqueConstraint("mission_notice_id", "user_id", name="uq_mission_allowance_request_user"),
+        UniqueConstraint("mission_notice_id", "contact_id", name="uq_mission_allowance_request_contact"),
+        CheckConstraint(
+            "(user_id IS NOT NULL AND contact_id IS NULL) OR "
+            "(user_id IS NULL AND contact_id IS NOT NULL)",
+            name="ck_mission_allowance_requests_pax_xor",
+        ),
+        CheckConstraint(
+            "status IN ('draft','submitted','approved','paid')",
+            name="ck_mission_allowance_requests_status",
+        ),
+    )
+
+    mission_notice_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("mission_notices.id", ondelete="CASCADE"), nullable=False
+    )
+    preparation_task_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("mission_preparation_tasks.id", ondelete="SET NULL")
+    )
+    user_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id")
+    )
+    contact_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tier_contacts.id")
+    )
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="draft")
+    amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    currency: Mapped[str | None] = mapped_column(String(10))
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    payment_reference: Mapped[str | None] = mapped_column(String(100))
+    notes: Mapped[str | None] = mapped_column(Text)
 
 
 class MissionStakeholder(UUIDPrimaryKeyMixin, TimestampMixin, Base):

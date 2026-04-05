@@ -10,7 +10,8 @@ from datetime import date, datetime, timezone, UTC
 from uuid import UUID
 
 from app.core.database import async_session_factory
-from app.core.events import EventBus, OpsFluxEvent
+from app.core.events import EventBus, OpsFluxEvent, event_bus
+from app.services.core.fsm_service import fsm_service
 
 logger = logging.getLogger(__name__)
 
@@ -256,6 +257,7 @@ async def on_ads_approved(event: OpsFluxEvent) -> None:
     start_date_str = payload.get("start_date")
     end_date_str = payload.get("end_date")
     outbound_transport_mode = payload.get("outbound_transport_mode")
+    return_transport_mode = payload.get("return_transport_mode")
     transport_requested = payload.get("transport_requested")
     outbound_departure_base_id = payload.get("outbound_departure_base_id")
 
@@ -266,7 +268,10 @@ async def on_ads_approved(event: OpsFluxEvent) -> None:
     if transport_requested is None:
         from app.services.modules.paxlog_service import ads_requires_travelwiz_transport
 
-        transport_requested = ads_requires_travelwiz_transport(outbound_transport_mode)
+        transport_requested = ads_requires_travelwiz_transport(
+            outbound_transport_mode,
+            return_transport_mode,
+        )
 
     if not transport_requested:
         logger.info(
@@ -484,6 +489,95 @@ async def on_ads_approved(event: OpsFluxEvent) -> None:
 # When return manifest closed — auto-close linked AdS
 # ═══════════════════════════════════════════════════════════════════════════
 
+async def _complete_ads_from_travelwiz_passengers(
+    *,
+    db,
+    passengers,
+    manifest_id: str | None,
+    voyage_id: str | None,
+    source: str,
+) -> int:
+    from sqlalchemy import select
+    from app.models.paxlog import Ads, AdsEvent, AdsPax
+
+    ads_ids_to_close: set[str] = set()
+    for passenger in passengers:
+        ads_pax_result = await db.execute(
+            select(AdsPax.ads_id).where(AdsPax.id == passenger.ads_pax_id)
+        )
+        ads_id = ads_pax_result.scalar_one_or_none()
+        if ads_id:
+            ads_ids_to_close.add(str(ads_id))
+
+    completed_ads_payloads: list[dict[str, str]] = []
+    closed_count = 0
+    for ads_id_str in ads_ids_to_close:
+        ads_result = await db.execute(
+            select(Ads).where(
+                Ads.id == UUID(ads_id_str),
+                Ads.status == "in_progress",
+            )
+        )
+        ads = ads_result.scalar_one_or_none()
+        if ads:
+            old_status = ads.status
+            ads.status = "completed"
+            db.add(AdsEvent(
+                entity_id=ads.entity_id,
+                ads_id=ads.id,
+                event_type="completed",
+                old_status=old_status,
+                new_status="completed",
+                actor_id=None,
+                metadata_json={
+                    "source": source,
+                    "manifest_id": manifest_id,
+                    "voyage_id": voyage_id,
+                },
+            ))
+            completed_ads_payloads.append(
+                {
+                    "ads_id": str(ads.id),
+                    "entity_id": str(ads.entity_id),
+                    "reference": ads.reference,
+                    "requester_id": str(ads.requester_id),
+                    "manifest_id": manifest_id or "",
+                    "voyage_id": voyage_id or "",
+                }
+            )
+            closed_count += 1
+
+    if closed_count > 0:
+        await db.commit()
+        for item in completed_ads_payloads:
+            await fsm_service.emit_transition_event(
+                entity_type="ads",
+                entity_id=item["ads_id"],
+                from_state="in_progress",
+                to_state="completed",
+                actor_id=None,
+                workflow_slug="ads-workflow",
+                extra_payload={
+                    "source": source,
+                    "manifest_id": item["manifest_id"] or None,
+                    "voyage_id": item["voyage_id"] or None,
+                },
+            )
+            await event_bus.publish(OpsFluxEvent(
+                event_type="ads.completed",
+                payload={
+                    "ads_id": item["ads_id"],
+                    "entity_id": item["entity_id"],
+                    "reference": item["reference"],
+                    "requester_id": item["requester_id"],
+                    "source": source,
+                    "manifest_id": item["manifest_id"] or None,
+                    "voyage_id": item["voyage_id"] or None,
+                },
+            ))
+
+    return closed_count
+
 async def on_travelwiz_manifest_closed(event: OpsFluxEvent) -> None:
     """When return manifest is closed — auto-close linked AdS to 'completed'."""
     payload = event.payload
@@ -497,11 +591,9 @@ async def on_travelwiz_manifest_closed(event: OpsFluxEvent) -> None:
 
     try:
         from sqlalchemy import select
-        from app.models.paxlog import Ads, AdsPax
         from app.models.travelwiz import ManifestPassenger
 
         async with async_session_factory() as db:
-            # Find all manifest passengers with ads_pax_id links
             result = await db.execute(
                 select(ManifestPassenger).where(
                     ManifestPassenger.manifest_id == UUID(str(manifest_id)),
@@ -510,33 +602,13 @@ async def on_travelwiz_manifest_closed(event: OpsFluxEvent) -> None:
                 )
             )
             passengers = result.scalars().all()
-
-            # Collect unique AdS IDs
-            ads_ids_to_close: set[str] = set()
-            for p in passengers:
-                ads_pax_result = await db.execute(
-                    select(AdsPax.ads_id).where(AdsPax.id == p.ads_pax_id)
-                )
-                ads_id = ads_pax_result.scalar_one_or_none()
-                if ads_id:
-                    ads_ids_to_close.add(str(ads_id))
-
-            # Close each linked AdS
-            closed_count = 0
-            for ads_id_str in ads_ids_to_close:
-                ads_result = await db.execute(
-                    select(Ads).where(
-                        Ads.id == UUID(ads_id_str),
-                        Ads.status == "in_progress",
-                    )
-                )
-                ads = ads_result.scalar_one_or_none()
-                if ads:
-                    ads.status = "completed"
-                    closed_count += 1
-
-            if closed_count > 0:
-                await db.commit()
+            closed_count = await _complete_ads_from_travelwiz_passengers(
+                db=db,
+                passengers=passengers,
+                manifest_id=str(manifest_id),
+                voyage_id=str(voyage_id) if voyage_id else None,
+                source="travelwiz.manifest.closed",
+            )
 
             logger.info(
                 "travelwiz.manifest.closed: auto-closed %d AdS from manifest %s",
@@ -544,6 +616,55 @@ async def on_travelwiz_manifest_closed(event: OpsFluxEvent) -> None:
             )
     except Exception:
         logger.exception("Error in on_travelwiz_manifest_closed for manifest %s", manifest_id)
+
+
+async def on_travelwiz_trip_closed(event: OpsFluxEvent) -> None:
+    """When voyage is closed — auto-close linked AdS from boarded passengers on closed pax manifests."""
+    payload = event.payload
+    voyage_id = payload.get("voyage_id")
+    entity_id = payload.get("entity_id")
+
+    if not voyage_id or not entity_id:
+        return
+
+    try:
+        from sqlalchemy import select
+        from app.models.travelwiz import ManifestPassenger, VoyageManifest
+
+        async with async_session_factory() as db:
+            manifest_result = await db.execute(
+                select(VoyageManifest.id).where(
+                    VoyageManifest.voyage_id == UUID(str(voyage_id)),
+                    VoyageManifest.manifest_type == "pax",
+                    VoyageManifest.status == "closed",
+                )
+            )
+            manifest_ids = list(manifest_result.scalars().all())
+            if not manifest_ids:
+                return
+
+            passenger_result = await db.execute(
+                select(ManifestPassenger).where(
+                    ManifestPassenger.manifest_id.in_(manifest_ids),
+                    ManifestPassenger.ads_pax_id.isnot(None),
+                    ManifestPassenger.boarding_status == "boarded",
+                )
+            )
+            passengers = passenger_result.scalars().all()
+            closed_count = await _complete_ads_from_travelwiz_passengers(
+                db=db,
+                passengers=passengers,
+                manifest_id=None,
+                voyage_id=str(voyage_id),
+                source="travelwiz.trip.closed",
+            )
+
+            logger.info(
+                "travelwiz.trip.closed: auto-closed %d AdS from voyage %s",
+                closed_count, voyage_id,
+            )
+    except Exception:
+        logger.exception("Error in on_travelwiz_trip_closed for voyage %s", voyage_id)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -900,6 +1021,7 @@ def register_module_handlers(event_bus: EventBus) -> None:
     event_bus.subscribe("planner.conflict.detected", on_planner_conflict_detected)
     event_bus.subscribe("ads.approved", on_ads_approved)
     event_bus.subscribe("travelwiz.manifest.closed", on_travelwiz_manifest_closed)
+    event_bus.subscribe("travelwiz.trip.closed", on_travelwiz_trip_closed)
     # Conformite & Projets events
     event_bus.subscribe("conformite.rule.created", on_compliance_rule_changed)
     event_bus.subscribe("conformite.rule.updated", on_compliance_rule_changed)

@@ -44,6 +44,7 @@ from app.models.common import (
     Tier,
     TierBlock,
     TierContact,
+    TierContactTransfer,
     User,
 )
 from app.mcp.mcp_native import NativeBackend
@@ -1145,6 +1146,121 @@ async def _add_compliance_record(args: dict) -> dict:
         return _ok(_compliance_record_to_dict(record, ct.name))
 
 
+# ─── Contact transfer ─────────────────────────────────────────────────────
+
+async def _transfer_contact(args: dict) -> dict:
+    """Move a contact from one tier to another and log the transfer."""
+    contact_id = args.get("contact_id")
+    to_tier_id = args.get("to_tier_id")
+    reason = (args.get("reason") or "").strip()
+    if not contact_id or not to_tier_id:
+        raise ValueError("contact_id et to_tier_id requis")
+    if not reason:
+        raise ValueError("reason requis (historisé sur le transfert)")
+
+    transfer_date_str = args.get("transfer_date")
+    try:
+        transfer_date = (
+            datetime.fromisoformat(transfer_date_str.replace("Z", "+00:00"))
+            if transfer_date_str
+            else datetime.now(timezone.utc)
+        )
+    except ValueError as exc:
+        raise ValueError(f"transfer_date invalide: {exc}")
+
+    async with async_session_factory() as session:
+        contact = (await session.execute(
+            select(TierContact).where(TierContact.id == UUID(str(contact_id)))
+        )).scalar_one_or_none()
+        if contact is None:
+            return _err(f"Contact id={contact_id} introuvable")
+
+        to_tier = (await session.execute(
+            select(Tier).where(Tier.id == UUID(str(to_tier_id)))
+        )).scalar_one_or_none()
+        if to_tier is None:
+            return _err(f"Tier cible id={to_tier_id} introuvable")
+
+        from_tier_id = contact.tier_id
+        if from_tier_id == to_tier.id:
+            return _err("Le contact est déjà rattaché à cette entreprise")
+
+        admin = (await session.execute(
+            select(User.id).where(User.active == True).limit(1)  # noqa: E712
+        )).scalar_one_or_none()
+        if admin is None:
+            return _err("Aucun utilisateur actif pour signer le transfert")
+
+        transfer = TierContactTransfer(
+            contact_id=contact.id,
+            from_tier_id=from_tier_id,
+            to_tier_id=to_tier.id,
+            transfer_date=transfer_date,
+            reason=reason,
+            transferred_by=admin,
+        )
+        session.add(transfer)
+        contact.tier_id = to_tier.id
+        await session.commit()
+        await session.refresh(transfer)
+
+        from_tier = (await session.execute(
+            select(Tier).where(Tier.id == from_tier_id)
+        )).scalar_one_or_none()
+
+        return _ok({
+            "id": str(transfer.id),
+            "contact_id": str(contact.id),
+            "contact_name": f"{contact.first_name} {contact.last_name}",
+            "from_tier_id": str(from_tier_id),
+            "from_tier_name": from_tier.name if from_tier else None,
+            "to_tier_id": str(to_tier.id),
+            "to_tier_name": to_tier.name,
+            "transfer_date": transfer.transfer_date.isoformat(),
+            "reason": transfer.reason,
+        })
+
+
+async def _list_contact_transfers(args: dict) -> dict:
+    """List a contact's transfer history."""
+    contact_id = args.get("contact_id")
+    if not contact_id:
+        raise ValueError("contact_id requis")
+
+    async with async_session_factory() as session:
+        from_tier = Tier.__table__.alias("from_tier")
+        to_tier = Tier.__table__.alias("to_tier")
+        rows = (await session.execute(
+            select(
+                TierContactTransfer,
+                from_tier.c.name.label("from_name"),
+                from_tier.c.code.label("from_code"),
+                to_tier.c.name.label("to_name"),
+                to_tier.c.code.label("to_code"),
+            )
+            .join(from_tier, TierContactTransfer.from_tier_id == from_tier.c.id)
+            .join(to_tier, TierContactTransfer.to_tier_id == to_tier.c.id)
+            .where(TierContactTransfer.contact_id == UUID(str(contact_id)))
+            .order_by(TierContactTransfer.transfer_date.desc())
+        )).all()
+
+    items = [
+        {
+            "id": str(row[0].id),
+            "transfer_date": row[0].transfer_date.isoformat(),
+            "reason": row[0].reason,
+            "from_tier_id": str(row[0].from_tier_id),
+            "from_tier_name": row[1],
+            "from_tier_code": row[2],
+            "to_tier_id": str(row[0].to_tier_id),
+            "to_tier_name": row[3],
+            "to_tier_code": row[4],
+        }
+        for row in rows
+    ]
+    return _ok({"count": len(items), "items": items})
+
+
 async def _list_compliance_types(args: dict) -> dict:
     """List available compliance types for the current entity."""
     async with async_session_factory() as session:
@@ -1535,6 +1651,24 @@ OPSFLUX_TOOLS: list[tuple[str, str, dict, Any]] = [
      "habilitations, audits, médical, EPI) configurés pour l'entité.",
      _s({"entity_code": {"type": "string"}}),
      _list_compliance_types),
+
+    # ── Contact transfer (move employee between companies) ──────────────
+    ("transfer_contact",
+     "Transfère un employé d'une entreprise à une autre, avec historisation "
+     "(date, motif, utilisateur). Le contact.tier_id est mis à jour et un "
+     "TierContactTransfer est créé.",
+     _s({
+         "contact_id": {"type": "string", "description": "UUID du contact à transférer"},
+         "to_tier_id": {"type": "string", "description": "UUID de la nouvelle entreprise"},
+         "reason": {"type": "string", "description": "Motif du transfert (obligatoire pour l'historique)"},
+         "transfer_date": {"type": "string", "description": "Date du transfert ISO (défaut: maintenant)"},
+     }, ["contact_id", "to_tier_id", "reason"]),
+     _transfer_contact),
+
+    ("list_contact_transfers",
+     "Historique des transferts d'un contact (mouvements entre entreprises).",
+     _s({"contact_id": {"type": "string"}}, ["contact_id"]),
+     _list_contact_transfers),
 ]
 
 OPSFLUX_TOOLS_LIST = [

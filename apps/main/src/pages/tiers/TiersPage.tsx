@@ -324,7 +324,7 @@ function formatCapital(amount: number, currency: string = 'XAF'): string {
   }
 }
 
-function TierDetailPanel({ id }: { id: string }) {
+function TierDetailPanel({ id, initialContactId }: { id: string; initialContactId?: string }) {
   const { t, i18n } = useTranslation()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const archiveTier = useArchiveTier()
@@ -359,8 +359,10 @@ function TierDetailPanel({ id }: { id: string }) {
     })
   ), [i18n.language])
 
-  // Drill-down state: null = company view, string = contact detail view
-  const [selectedContactId, setSelectedContactId] = useState<string | null>(null)
+  // Drill-down state: null = company view, string = contact detail view.
+  // Pre-selected from meta.contact_id when opening the panel directly from
+  // the global contacts DataTable.
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(initialContactId ?? null)
 
   const handleInlineSave = useCallback((field: keyof TierCreate, value: string | number | null) => {
     updateTier.mutate({ id, payload: normalizeNames({ [field]: value } as Partial<TierCreate>) })
@@ -994,12 +996,21 @@ function ContactListSection({
                 contact.is_primary && 'bg-primary/[0.03]',
               )}
             >
-              <div className={cn(
-                'w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0',
-                contact.is_primary ? 'bg-primary/15 text-primary' : 'bg-accent text-muted-foreground',
-              )}>
-                {contact.first_name[0]}{contact.last_name[0]}
-              </div>
+              {contact.photo_url ? (
+                <img
+                  src={contact.photo_url}
+                  alt={`${contact.first_name} ${contact.last_name}`}
+                  className="w-8 h-8 rounded-full object-cover shrink-0"
+                  loading="lazy"
+                />
+              ) : (
+                <div className={cn(
+                  'w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0',
+                  contact.is_primary ? 'bg-primary/15 text-primary' : 'bg-accent text-muted-foreground',
+                )}>
+                  {contact.first_name[0]}{contact.last_name[0]}
+                </div>
+              )}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   {contact.civility && <span className="text-[10px] text-muted-foreground">{civilityLabels[contact.civility] || contact.civility}</span>}
@@ -1329,14 +1340,24 @@ function useContactColumns() {
       cell: ({ row }) => {
         const civ = row.original.civility
         const civLabel = civ ? (civilityLabels[civ] || civ) : ''
+        const photo = row.original.photo_url
         return (
           <div className="flex items-center gap-2">
-            <div className={cn(
-              'w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-semibold shrink-0',
-              row.original.is_primary ? 'bg-primary/15 text-primary' : 'bg-accent text-muted-foreground',
-            )}>
-              {row.original.first_name[0]}{row.original.last_name[0]}
-            </div>
+            {photo ? (
+              <img
+                src={photo}
+                alt={`${row.original.first_name} ${row.original.last_name}`}
+                className="w-7 h-7 rounded-full object-cover shrink-0"
+                loading="lazy"
+              />
+            ) : (
+              <div className={cn(
+                'w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-semibold shrink-0',
+                row.original.is_primary ? 'bg-primary/15 text-primary' : 'bg-accent text-muted-foreground',
+              )}>
+                {row.original.first_name[0]}{row.original.last_name[0]}
+              </div>
+            )}
             <div className="min-w-0">
               <span className="text-foreground font-medium text-sm">
                 {civLabel ? `${civLabel} ` : ''}{row.original.first_name} {row.original.last_name}
@@ -1412,13 +1433,19 @@ export function TiersPage() {
   // Reset page when tab/search/filters change
   useEffect(() => { setPage(1) }, [debouncedSearch, activeFilters, activeTab])
 
-  // Reset search/filters when switching tabs
+  // Reset search/filters when switching tabs. When jumping to the
+  // contacts tab while a tier detail panel is open, pre-apply the
+  // tier_id filter so only that company's employees are listed.
   const handleTabChange = useCallback((tab: TiersTab) => {
     setActiveTab(tab)
     setSearch('')
-    setActiveFilters({})
+    if (tab === 'contacts' && dynamicPanel?.module === 'tiers' && dynamicPanel.type === 'detail') {
+      setActiveFilters({ tier_id: dynamicPanel.id })
+    } else {
+      setActiveFilters({})
+    }
     setPage(1)
-  }, [])
+  }, [dynamicPanel])
 
   // ── Entreprises tab data ──
   const typeFilter = typeof activeFilters.type === 'string' ? activeFilters.type : undefined
@@ -1694,7 +1721,12 @@ export function TiersPage() {
               filters={contactFilters}
               activeFilters={activeFilters}
               onFilterChange={handleFilterChange}
-              onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'tiers', id: row.tier_id })}
+              onRowClick={(row) => openDynamicPanel({
+                type: 'detail',
+                module: 'tiers',
+                id: row.tier_id,
+                meta: { contact_id: row.id },
+              })}
               emptyIcon={Users}
               emptyTitle={t('tiers.ui.no_contacts')}
               columnResizing
@@ -1708,7 +1740,9 @@ export function TiersPage() {
       </div>}
 
       {dynamicPanel?.module === 'tiers' && dynamicPanel.type === 'create' && <CreateTierPanel />}
-      {dynamicPanel?.module === 'tiers' && dynamicPanel.type === 'detail' && <TierDetailPanel id={dynamicPanel.id} />}
+      {dynamicPanel?.module === 'tiers' && dynamicPanel.type === 'detail' && (
+        <TierDetailPanel id={dynamicPanel.id} initialContactId={dynamicPanel.meta?.contact_id} />
+      )}
     </div>
   )
 }
@@ -1716,6 +1750,9 @@ export function TiersPage() {
 // -- Module-level renderer registration --
 registerPanelRenderer('tiers', (view) => {
   if (view.type === 'create') return <CreateTierPanel />
-  if (view.type === 'detail' && 'id' in view) return <TierDetailPanel id={view.id} />
+  if (view.type === 'detail' && 'id' in view) {
+    const initialContactId = 'meta' in view ? view.meta?.contact_id : undefined
+    return <TierDetailPanel id={view.id} initialContactId={initialContactId} />
+  }
   return null
 })

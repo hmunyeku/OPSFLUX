@@ -138,6 +138,7 @@ export interface TierContact {
   position: string | null
   department: string | null
   job_position_id: string | null
+  photo_url: string | null
   is_primary: boolean
   active: boolean
   linked_user_id: string | null
@@ -156,8 +157,11 @@ export interface TierContactCreate {
   civility?: string | null
   first_name: string
   last_name: string
+  email?: string | null
+  phone?: string | null
   position?: string | null
   department?: string | null
+  photo_url?: string | null
   is_primary?: boolean
 }
 
@@ -165,8 +169,11 @@ export interface TierContactUpdate {
   civility?: string | null
   first_name?: string
   last_name?: string
+  email?: string | null
+  phone?: string | null
   position?: string | null
   department?: string | null
+  photo_url?: string | null
   is_primary?: boolean
   active?: boolean
 }

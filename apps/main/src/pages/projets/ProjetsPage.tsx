@@ -7,6 +7,7 @@
  *  - CreateProjectPanel: full creation form
  */
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import * as Dialog from '@radix-ui/react-dialog'
 import { useTranslation } from 'react-i18next'
 import {
   FolderKanban, Plus, Loader2, Trash2, Users, Target, X, Check,
@@ -15,7 +16,7 @@ import {
   Sheet, CalendarRange, ChevronRight, Layers, RefreshCw, Download,
   Link2, Package, CheckSquare, History, ArrowRight,
   Camera, Play, FlaskConical, Star,
-  Zap, GitBranch,
+  Zap, GitBranch, ChevronDown, Filter, Search, Settings2,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -59,7 +60,9 @@ import {
   useProjectMembers, useAddProjectMember, useRemoveProjectMember,
   useProjectMilestones, useCreateProjectMilestone, useUpdateProjectMilestone, useDeleteProjectMilestone,
   useAllProjectTasks, useSubProjects,
-  useGoutiStatus, useGoutiSyncAll, useGoutiSyncOne,
+  useGoutiStatus, useGoutiSyncOne,
+  useGoutiFacets, useGoutiCatalog, useGoutiDefaultFilters, useGoutiSetDefaultFilters,
+  useGoutiSaveSelection, useGoutiSyncSelected,
   useTaskDependencies, useCreateTaskDependency, useDeleteTaskDependency,
   useTaskDeliverables, useCreateDeliverable, useUpdateDeliverable, useDeleteDeliverable,
   useTaskActions, useCreateAction, useUpdateAction, useDeleteAction,
@@ -68,6 +71,9 @@ import {
   useWbsNodes, useCreateWbsNode, useDeleteWbsNode,
   useProjectCpm,
 } from '@/hooks/useProjets'
+import type {
+  GoutiCatalogFilters, GoutiCatalogProject, GoutiSelectionPayload,
+} from '@/services/projetsService'
 import { projetsService, isGoutiProject, goutiProjectId, isProjectFieldEditable } from '@/services/projetsService'
 import type {
   Project, ProjectCreate, ProjectTask, ProjectTaskEnriched,
@@ -136,26 +142,432 @@ function GoutiBadge({ className = '' }: { className?: string }) {
   )
 }
 
-// Toolbar button: triggers full Gouti sync and shows status + count.
+// ── Gouti Import Modal ──────────────────────────────────────────────────
+//
+// Opens from the split-button's dropdown (or automatically on first click
+// when no selection is saved). Lets the user filter the live Gouti catalog
+// via facets, then pick projects (and optionally drill down to tasks) to
+// import. Saves the selection as integration.gouti.sync_selection so the
+// split-button's main click can "force sync" without asking again.
+
+function GoutiImportModal({ onClose }: { onClose: () => void }) {
+  const { data: facets, isLoading: facetsLoading } = useGoutiFacets()
+  const { data: defaultFilters } = useGoutiDefaultFilters()
+  const setDefaultFilters = useGoutiSetDefaultFilters()
+  const saveSelection = useGoutiSaveSelection()
+  const syncSelected = useGoutiSyncSelected()
+  const { toast } = useToast()
+
+  const [filters, setFilters] = useState<GoutiCatalogFilters>({})
+  const [search, setSearch] = useState('')
+  const debouncedSearch = useDebounce(search, 300)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [showAdminDefaults, setShowAdminDefaults] = useState(false)
+
+  // Seed filters from admin defaults on first load
+  useEffect(() => {
+    if (defaultFilters && Object.keys(defaultFilters).length > 0 && Object.keys(filters).length === 0) {
+      setFilters({ ...defaultFilters })
+    }
+  }, [defaultFilters]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const effectiveFilters: GoutiCatalogFilters = {
+    ...filters,
+    search: debouncedSearch || undefined,
+  }
+  const { data: catalog, isLoading: catalogLoading } = useGoutiCatalog(effectiveFilters)
+
+  const toggleProject = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleAll = () => {
+    if (!catalog) return
+    if (selectedIds.size === catalog.items.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(catalog.items.map(p => p.gouti_id)))
+    }
+  }
+
+  const handleSaveAndSync = async () => {
+    if (selectedIds.size === 0) {
+      toast({ title: 'Aucun projet sélectionné', variant: 'warning' })
+      return
+    }
+    const payload: GoutiSelectionPayload = {
+      projects: {},
+    }
+    selectedIds.forEach(id => {
+      payload.projects[id] = {
+        include: true,
+        tasks: { mode: 'all', task_ids: [] },
+      }
+    })
+    try {
+      await saveSelection.mutateAsync(payload)
+      const res = await syncSelected.mutateAsync()
+      toast({
+        title: `${res.synced} projet${res.synced > 1 ? 's' : ''} importé${res.synced > 1 ? 's' : ''}`,
+        description: `${res.created} créés, ${res.updated} mis à jour${res.errors.length ? `, ${res.errors.length} erreurs` : ''}`,
+        variant: res.errors.length > 0 ? 'warning' : 'success',
+      })
+      onClose()
+    } catch (err) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Erreur'
+      toast({ title: 'Échec de l\'import', description: String(msg), variant: 'error' })
+    }
+  }
+
+  const handleSaveAsAdminDefault = async () => {
+    try {
+      await setDefaultFilters.mutateAsync(filters)
+      toast({ title: 'Filtres par défaut enregistrés', variant: 'success' })
+      setShowAdminDefaults(false)
+    } catch {
+      toast({ title: 'Erreur', variant: 'error' })
+    }
+  }
+
+  const toggleCategory = (id: string) => {
+    setFilters(f => {
+      const current = f.category_ids || []
+      const next = current.includes(id) ? current.filter(x => x !== id) : [...current, id]
+      return { ...f, category_ids: next }
+    })
+  }
+
+  const toggleStatus = (v: string) => {
+    setFilters(f => {
+      const current = f.status || []
+      const next = current.includes(v) ? current.filter(x => x !== v) : [...current, v]
+      return { ...f, status: next }
+    })
+  }
+
+  const toggleCriticality = (v: number) => {
+    setFilters(f => {
+      const current = f.criticality || []
+      const next = current.includes(v) ? current.filter(x => x !== v) : [...current, v]
+      return { ...f, criticality: next }
+    })
+  }
+
+  const resetFilters = () => {
+    setFilters({})
+    setSearch('')
+  }
+
+  const activeFilterCount =
+    (filters.year ? 1 : 0) +
+    (filters.category_ids?.length || 0) +
+    (filters.status?.length || 0) +
+    (filters.manager_id ? 1 : 0) +
+    (filters.criticality?.length || 0)
+
+  return (
+    <Dialog.Root open onOpenChange={(o) => { if (!o) onClose() }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-[var(--z-modal)] bg-black/40 backdrop-blur-sm animate-in fade-in" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-[var(--z-modal)] -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-card shadow-xl animate-in fade-in slide-in-from-bottom-4 w-[95vw] max-w-5xl max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+          <div className="flex items-center gap-2">
+            <Download size={14} className="text-orange-500" />
+            <Dialog.Title className="text-sm font-semibold">Assistant d'import Gouti</Dialog.Title>
+            <span className="text-[11px] text-muted-foreground">
+              {catalog ? `${catalog.filtered}/${catalog.total} projets` : '…'}
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setShowAdminDefaults(v => !v)}
+              className={cn(
+                'p-1 rounded hover:bg-muted text-muted-foreground',
+                showAdminDefaults && 'bg-primary/10 text-primary',
+              )}
+              title="Filtres par défaut (admin)"
+            >
+              <Settings2 size={13} />
+            </button>
+            <Dialog.Close asChild>
+              <button className="p-1 rounded hover:bg-muted text-muted-foreground"><X size={14} /></button>
+            </Dialog.Close>
+          </div>
+        </div>
+
+        {/* Filter bar */}
+        <div className="px-4 py-2 border-b border-border bg-muted/30 space-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1 text-xs">
+              <Filter size={11} className="text-muted-foreground" />
+              <span className="text-muted-foreground">Filtres:</span>
+            </div>
+            <div className="relative flex-1 min-w-[200px] max-w-[300px]">
+              <Search size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Rechercher par nom ou ref..."
+                className={`${panelInputClass} pl-6 text-xs w-full`}
+              />
+            </div>
+            {facetsLoading ? (
+              <Loader2 size={11} className="animate-spin text-muted-foreground" />
+            ) : (
+              <>
+                <select
+                  value={filters.year ?? ''}
+                  onChange={e => setFilters(f => ({ ...f, year: e.target.value ? Number(e.target.value) : null }))}
+                  className={`${panelInputClass} text-xs`}
+                >
+                  <option value="">Année: toutes</option>
+                  {facets?.years.map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+                <select
+                  value={filters.manager_id ?? ''}
+                  onChange={e => setFilters(f => ({ ...f, manager_id: e.target.value || null }))}
+                  className={`${panelInputClass} text-xs max-w-[180px]`}
+                >
+                  <option value="">Chef de projet: tous</option>
+                  {facets?.managers.map(m => <option key={m.ref_us} value={m.ref_us}>{m.name_us}</option>)}
+                </select>
+              </>
+            )}
+            {activeFilterCount > 0 && (
+              <button
+                onClick={resetFilters}
+                className="text-[10px] text-primary hover:text-primary/80"
+              >
+                Réinitialiser ({activeFilterCount})
+              </button>
+            )}
+          </div>
+
+          {/* Status + criticality + categories chips */}
+          {facets && (facets.statuses.length > 0 || facets.categories.length > 0) && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {facets.statuses.length > 0 && (
+                <div className="flex items-center gap-1 flex-wrap">
+                  <span className="text-[9px] text-muted-foreground uppercase tracking-wide">Statut:</span>
+                  {facets.statuses.map(s => {
+                    const active = filters.status?.includes(s.value)
+                    const label = STATUS_OPTIONS.find(o => o.value === s.value)?.label || s.value
+                    return (
+                      <button
+                        key={s.value}
+                        onClick={() => toggleStatus(s.value)}
+                        className={cn(
+                          'text-[9px] px-1.5 py-0.5 rounded border',
+                          active
+                            ? 'border-primary bg-primary text-primary-foreground'
+                            : 'border-border hover:bg-muted',
+                        )}
+                      >
+                        {label} <span className="opacity-60">({s.count})</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+              {facets.criticalities.length > 0 && (
+                <div className="flex items-center gap-1 flex-wrap">
+                  <span className="text-[9px] text-muted-foreground uppercase tracking-wide">Criticité:</span>
+                  {facets.criticalities.map(c => {
+                    const active = filters.criticality?.includes(c.value)
+                    return (
+                      <button
+                        key={c.value}
+                        onClick={() => toggleCriticality(c.value)}
+                        className={cn(
+                          'text-[9px] px-1.5 py-0.5 rounded border',
+                          active
+                            ? 'border-primary bg-primary text-primary-foreground'
+                            : 'border-border hover:bg-muted',
+                        )}
+                      >
+                        {c.value} <span className="opacity-60">({c.count})</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {facets && facets.categories.length > 0 && (
+            <div className="flex items-start gap-1 flex-wrap">
+              <span className="text-[9px] text-muted-foreground uppercase tracking-wide mt-0.5">Étiquettes:</span>
+              {facets.categories.map(cat => {
+                const active = filters.category_ids?.includes(cat.id)
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => toggleCategory(cat.id)}
+                    className={cn(
+                      'text-[9px] px-1.5 py-0.5 rounded border',
+                      active
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border hover:bg-muted',
+                    )}
+                  >
+                    {cat.name}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Admin default filters panel */}
+          {showAdminDefaults && (
+            <div className="flex items-center gap-2 p-2 rounded border border-primary/30 bg-primary/5">
+              <Settings2 size={11} className="text-primary" />
+              <span className="text-[10px] text-primary font-medium">
+                Les filtres actuels deviendront les filtres par défaut à chaque ouverture.
+              </span>
+              <button
+                onClick={handleSaveAsAdminDefault}
+                disabled={setDefaultFilters.isPending}
+                className="ml-auto text-[10px] px-2 py-0.5 rounded bg-primary text-primary-foreground disabled:opacity-50"
+              >
+                {setDefaultFilters.isPending ? <Loader2 size={9} className="animate-spin inline" /> : 'Enregistrer'}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Project list */}
+        <div className="flex-1 overflow-y-auto p-2">
+          {catalogLoading && (
+            <div className="flex items-center justify-center h-32">
+              <Loader2 size={16} className="animate-spin text-muted-foreground" />
+            </div>
+          )}
+          {!catalogLoading && catalog && catalog.items.length === 0 && (
+            <div className="text-center py-8 text-xs text-muted-foreground italic">
+              Aucun projet ne correspond à vos filtres
+            </div>
+          )}
+          {!catalogLoading && catalog && catalog.items.length > 0 && (
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 px-2 py-1 border-b border-border mb-1 sticky top-0 bg-background z-10">
+                <input
+                  type="checkbox"
+                  checked={selectedIds.size === catalog.items.length && catalog.items.length > 0}
+                  ref={el => { if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < catalog.items.length }}
+                  onChange={toggleAll}
+                  className="w-3.5 h-3.5"
+                />
+                <span className="text-[11px] font-medium">
+                  {selectedIds.size > 0 ? `${selectedIds.size} sélectionné${selectedIds.size > 1 ? 's' : ''}` : 'Tout sélectionner'}
+                </span>
+              </div>
+              {catalog.items.map((p: GoutiCatalogProject) => {
+                const checked = selectedIds.has(p.gouti_id)
+                return (
+                  <div
+                    key={p.gouti_id}
+                    className={cn(
+                      'flex items-start gap-2 px-2 py-1.5 rounded hover:bg-muted/40 cursor-pointer',
+                      checked && 'bg-primary/5',
+                    )}
+                    onClick={() => toggleProject(p.gouti_id)}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleProject(p.gouti_id)}
+                      onClick={e => e.stopPropagation()}
+                      className="w-3.5 h-3.5 mt-0.5"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-[10px] text-muted-foreground">{p.code}</span>
+                        <span className="text-[11px] font-medium truncate">{p.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[9px] text-muted-foreground mt-0.5 flex-wrap">
+                        {p.status_raw && <span className="px-1 rounded bg-muted">{p.status_raw}</span>}
+                        {p.progress != null && <span>Progression {p.progress}%</span>}
+                        {p.manager_name && <span>· {p.manager_name}</span>}
+                        {p.target_date && <span>· Fin {p.target_date}</span>}
+                        {p.criticality && <span>· Crit. {p.criticality}</span>}
+                        {p.categories.slice(0, 3).map(c => (
+                          <span key={c.id} className="px-1 rounded bg-orange-500/10 text-orange-700">{c.name}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-border bg-muted/20">
+          <span className="text-[11px] text-muted-foreground">
+            {selectedIds.size > 0
+              ? `${selectedIds.size} projet${selectedIds.size > 1 ? 's' : ''} prêts à importer`
+              : 'Sélectionnez les projets à importer'}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onClose}
+              className="px-3 py-1 text-xs rounded border border-border hover:bg-muted"
+            >
+              Annuler
+            </button>
+            <button
+              onClick={handleSaveAndSync}
+              disabled={selectedIds.size === 0 || syncSelected.isPending || saveSelection.isPending}
+              className="px-3 py-1 text-xs rounded bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-40 flex items-center gap-1.5"
+            >
+              {(syncSelected.isPending || saveSelection.isPending)
+                ? <Loader2 size={11} className="animate-spin" />
+                : <Download size={11} />}
+              Importer {selectedIds.size > 0 && `(${selectedIds.size})`}
+            </button>
+          </div>
+        </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  )
+}
+
+// ── Split button: main click = force sync (if selection saved), dropdown = reopen modal ─
 function GoutiSyncToolbar() {
   const { data: status } = useGoutiStatus()
-  const syncAll = useGoutiSyncAll()
+  const syncSelected = useGoutiSyncSelected()
   const { toast } = useToast()
+  const [modalOpen, setModalOpen] = useState(false)
+  const [dropdownOpen, setDropdownOpen] = useState(false)
 
   if (!status?.connector_configured) return null
 
-  const handleSync = async () => {
+  const hasSelection = !!status.has_selection
+
+  const handleMainClick = async () => {
+    if (!hasSelection) {
+      setModalOpen(true)
+      return
+    }
     try {
-      const res = await syncAll.mutateAsync()
+      const res = await syncSelected.mutateAsync()
       toast({
         title: 'Sync Gouti terminée',
         description: `${res.created} créés, ${res.updated} mis à jour${res.errors.length ? `, ${res.errors.length} erreurs` : ''}`,
         variant: res.errors.length > 0 ? 'warning' : 'success',
       })
     } catch (err) {
-      const msg = (err as { response?: { data?: { detail?: string } }; message?: string })
-        ?.response?.data?.detail ?? (err as Error)?.message ?? 'Erreur inconnue'
-      toast({ title: 'Sync Gouti échouée', description: String(msg).slice(0, 200), variant: 'error' })
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Erreur'
+      toast({ title: 'Sync échouée', description: String(msg).slice(0, 200), variant: 'error' })
     }
   }
 
@@ -165,21 +577,56 @@ function GoutiSyncToolbar() {
     : 'jamais'
 
   return (
-    <button
-      type="button"
-      onClick={handleSync}
-      disabled={syncAll.isPending}
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded border border-orange-500/30 bg-orange-500/5 text-orange-700 hover:bg-orange-500/10 text-xs disabled:opacity-50"
-      title={`${status.project_count} projets importés — dernière sync : ${lastSyncLabel}`}
-    >
-      {syncAll.isPending
-        ? <Loader2 size={12} className="animate-spin" />
-        : <RefreshCw size={12} />}
-      Sync Gouti
-      {status.project_count > 0 && (
-        <span className="ml-0.5 px-1 rounded bg-orange-500/20 text-[10px] tabular-nums">{status.project_count}</span>
-      )}
-    </button>
+    <>
+      <div className="relative inline-flex rounded border border-orange-500/30 bg-orange-500/5 text-orange-700 hover:bg-orange-500/10 text-xs overflow-hidden">
+        <button
+          type="button"
+          onClick={handleMainClick}
+          disabled={syncSelected.isPending}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 disabled:opacity-50"
+          title={hasSelection
+            ? `Forcer la synchronisation (${status.project_count} importés · dernière : ${lastSyncLabel})`
+            : 'Ouvrir l\'assistant d\'import Gouti'}
+        >
+          {syncSelected.isPending
+            ? <Loader2 size={12} className="animate-spin" />
+            : <RefreshCw size={12} />}
+          Sync Gouti
+          {status.project_count > 0 && (
+            <span className="ml-0.5 px-1 rounded bg-orange-500/20 text-[10px] tabular-nums">{status.project_count}</span>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => setDropdownOpen(v => !v)}
+          className="px-1.5 border-l border-orange-500/30 hover:bg-orange-500/10"
+          title="Options"
+          aria-haspopup="menu"
+          aria-expanded={dropdownOpen}
+        >
+          <ChevronDown size={11} />
+        </button>
+        {dropdownOpen && (
+          <div className="absolute top-full right-0 mt-1 w-[220px] bg-background border border-border rounded-md shadow-lg z-50 py-1">
+            <button
+              onClick={() => { setDropdownOpen(false); setModalOpen(true) }}
+              className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2"
+            >
+              <Filter size={11} /> Re-sélectionner les projets…
+            </button>
+            {hasSelection && (
+              <button
+                onClick={() => { setDropdownOpen(false); handleMainClick() }}
+                className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2"
+              >
+                <RefreshCw size={11} /> Forcer la synchronisation
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+      {modalOpen && <GoutiImportModal onClose={() => setModalOpen(false)} />}
+    </>
   )
 }
 

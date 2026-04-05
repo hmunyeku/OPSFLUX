@@ -433,6 +433,75 @@ export function useGoutiSyncOne() {
   })
 }
 
+// ── Gouti import assistant (catalog + selection) ──
+
+import type { GoutiCatalogFilters, GoutiSelectionPayload } from '@/services/projetsService'
+
+export function useGoutiFacets(enabled = true) {
+  return useQuery({
+    queryKey: ['gouti-facets'],
+    queryFn: () => projetsService.goutiFacets(),
+    enabled,
+    staleTime: 60_000,
+  })
+}
+
+export function useGoutiCatalog(filters: GoutiCatalogFilters, enabled = true) {
+  return useQuery({
+    queryKey: ['gouti-catalog', filters],
+    queryFn: () => projetsService.goutiCatalog(filters),
+    enabled,
+    staleTime: 30_000,
+  })
+}
+
+export function useGoutiDefaultFilters() {
+  return useQuery({
+    queryKey: ['gouti-default-filters'],
+    queryFn: () => projetsService.goutiDefaultFilters(),
+  })
+}
+
+export function useGoutiSetDefaultFilters() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (filters: GoutiCatalogFilters) => projetsService.goutiSetDefaultFilters(filters),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['gouti-default-filters'] })
+      qc.invalidateQueries({ queryKey: ['gouti-catalog'] })
+    },
+  })
+}
+
+export function useGoutiSelection() {
+  return useQuery({
+    queryKey: ['gouti-selection'],
+    queryFn: () => projetsService.goutiGetSelection(),
+  })
+}
+
+export function useGoutiSaveSelection() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: GoutiSelectionPayload) => projetsService.goutiSaveSelection(payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['gouti-selection'] })
+      qc.invalidateQueries({ queryKey: ['gouti-sync-status'] })
+    },
+  })
+}
+
+export function useGoutiSyncSelected() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => projetsService.goutiSyncSelected(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['projects'] })
+      qc.invalidateQueries({ queryKey: ['gouti-sync-status'] })
+    },
+  })
+}
+
 // ── WBS (Work Breakdown Structure) ──
 
 export function useWbsNodes(projectId: string | undefined) {

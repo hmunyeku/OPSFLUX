@@ -47,6 +47,74 @@ export interface GoutiSyncStatus {
   capabilities?: GoutiCapabilities | null
   auto_sync_enabled?: boolean
   auto_sync_interval_minutes?: number
+  has_selection?: boolean
+}
+
+export interface GoutiCatalogCategory {
+  id: string | number
+  name: string
+}
+
+export interface GoutiCatalogTask {
+  gouti_id: string
+  name: string
+  status?: string
+  progress?: number | null
+}
+
+export interface GoutiCatalogProject {
+  gouti_id: string
+  code: string
+  name: string
+  status: string
+  status_raw?: string | null
+  progress: number | null
+  manager_name: string | null
+  target_date: string | null
+  start_date?: string | null
+  criticality?: string | null
+  categories: GoutiCatalogCategory[]
+  task_count: number
+  tasks: GoutiCatalogTask[]
+}
+
+export interface GoutiCatalogResponse {
+  total: number
+  filtered: number
+  applied_filters: Record<string, unknown>
+  items: GoutiCatalogProject[]
+}
+
+export interface GoutiFacets {
+  years: number[]
+  categories: { id: string; name: string }[]
+  statuses: { value: string; count: number }[]
+  managers: { ref_us: string; name_us: string }[]
+  criticalities: { value: number; count: number }[]
+  total_projects: number
+}
+
+export interface GoutiCatalogFilters {
+  year?: number | null
+  category_ids?: string[]
+  status?: string[]
+  manager_id?: string | null
+  criticality?: number[]
+  search?: string
+}
+
+export interface GoutiTaskSelection {
+  mode: 'all' | 'none' | 'some'
+  task_ids: string[]
+}
+
+export interface GoutiProjectSelection {
+  include: boolean
+  tasks: GoutiTaskSelection
+}
+
+export interface GoutiSelectionPayload {
+  projects: Record<string, GoutiProjectSelection>
 }
 
 export interface GoutiSingleSyncResult {
@@ -255,6 +323,53 @@ export const projetsService = {
 
   goutiSyncOne: async (goutiProjectId: string): Promise<GoutiSingleSyncResult> => {
     const { data } = await api.post(`/api/v1/gouti/sync/${goutiProjectId}`)
+    return data
+  },
+
+  // ── Gouti catalog / filters / selection (import assistant) ──
+  goutiFacets: async (): Promise<GoutiFacets> => {
+    const { data } = await api.get('/api/v1/gouti/catalog/facets')
+    return data
+  },
+
+  goutiCatalog: async (filters: GoutiCatalogFilters = {}): Promise<GoutiCatalogResponse> => {
+    const params: Record<string, string | number> = {}
+    if (filters.year != null) params.year = filters.year
+    if (filters.category_ids?.length) params.category_ids = filters.category_ids.join(',')
+    if (filters.status?.length) params.status = filters.status.join(',')
+    if (filters.manager_id) params.manager_id = filters.manager_id
+    if (filters.criticality?.length) params.criticality = filters.criticality.join(',')
+    if (filters.search) params.search = filters.search
+    const { data } = await api.get('/api/v1/gouti/catalog', { params })
+    return data
+  },
+
+  goutiDefaultFilters: async (): Promise<GoutiCatalogFilters> => {
+    const { data } = await api.get('/api/v1/gouti/default-filters')
+    return data
+  },
+
+  goutiSetDefaultFilters: async (filters: GoutiCatalogFilters): Promise<GoutiCatalogFilters> => {
+    const { data } = await api.put('/api/v1/gouti/default-filters', filters)
+    return data
+  },
+
+  goutiGetSelection: async (): Promise<GoutiSelectionPayload> => {
+    const { data } = await api.get('/api/v1/gouti/selection')
+    return data
+  },
+
+  goutiSaveSelection: async (payload: GoutiSelectionPayload): Promise<GoutiSelectionPayload> => {
+    const { data } = await api.put('/api/v1/gouti/selection', payload)
+    return data
+  },
+
+  goutiClearSelection: async (): Promise<void> => {
+    await api.delete('/api/v1/gouti/selection')
+  },
+
+  goutiSyncSelected: async (): Promise<GoutiSyncResult> => {
+    const { data } = await api.post('/api/v1/gouti/sync-selected')
     return data
   },
 

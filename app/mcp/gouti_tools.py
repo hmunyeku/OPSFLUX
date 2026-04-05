@@ -227,11 +227,19 @@ def _items(data: Any, key: str) -> list:
 
 # Fields to keep when summarising list items (keeps responses compact)
 _SUMMARY_FIELDS = {
+    "_id",  # synthetic id injected by _items() when flattening dict-keyed dicts
     "id", "Id", "ID", "name", "Name", "label", "Label", "title", "Title",
     "status", "Status", "state", "code", "Code", "slug", "type", "Type",
+    # Gouti domain suffixes (_ta=task, _pr=project, _ac=action, _is=issue)
+    "name_ta", "name_pr", "name_ac", "name_is",
+    "ref", "Ref", "ref_ta", "ref_pr", "ref_ac", "ref_is",
+    "status_ta", "status_pr", "status_ac", "status_is",
+    "progress_ta", "progress_pr", "progress_ac", "progress_is",
+    "initial_start_date_ta", "initial_end_date_ta",
+    "actual_start_date_ta", "actual_end_date_ta",
     "start_date", "end_date", "due_date", "priority", "Priority",
     "assigned_to", "owner", "matricule", "email", "first_name", "last_name",
-    "description",
+    "description", "description_ta", "description_ac", "description_is",
 }
 
 _MAX_LIST_ITEMS = 50
@@ -262,10 +270,43 @@ _MAX_RESPONSE_CHARS = 12_000  # ~3 000 tokens — keeps Claude context manageabl
 
 
 def _ok(data: Any) -> dict:
-    """Format a successful MCP tool result, truncating if too large."""
+    """Format a successful MCP tool result, truncating if too large.
+
+    When the payload exceeds ``_MAX_RESPONSE_CHARS`` we wrap it in a safe
+    text envelope explaining the truncation rather than cutting raw JSON
+    (which would produce broken output).
+    """
     text = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
     if len(text) > _MAX_RESPONSE_CHARS:
-        text = text[:_MAX_RESPONSE_CHARS] + '\n... [tronqué — réponse trop longue, affinez votre requête]'
+        # For list-shaped payloads we can give a much better truncation
+        # by reducing the number of items instead of slicing mid-character.
+        if isinstance(data, dict) and isinstance(data.get("items"), list):
+            items = data["items"]
+            # Binary search-ish reduction: halve until it fits
+            truncated_items = list(items)
+            while truncated_items and len(json.dumps(
+                {**data, "items": truncated_items},
+                ensure_ascii=False, separators=(",", ":"),
+            )) > _MAX_RESPONSE_CHARS - 200:
+                truncated_items = truncated_items[:max(1, len(truncated_items) // 2)]
+            reduced = {
+                **data,
+                "items": truncated_items,
+                "truncated": True,
+                "truncation_note": (
+                    f"Affichage réduit à {len(truncated_items)}/{len(items)} éléments "
+                    f"(réponse trop longue). Utilisez search ou limit plus petit."
+                ),
+            }
+            text = json.dumps(reduced, ensure_ascii=False, separators=(",", ":"))
+        else:
+            # Fallback: wrap a sliced preview in a valid JSON envelope
+            preview = text[:_MAX_RESPONSE_CHARS - 300]
+            text = json.dumps({
+                "truncated": True,
+                "truncation_note": "Réponse trop longue — aperçu seulement. Utilisez un filtre pour affiner.",
+                "preview": preview,
+            }, ensure_ascii=False)
     return {"content": [{"type": "text", "text": text}]}
 
 

@@ -17,7 +17,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Request, status
 from pydantic import BaseModel
-from sqlalchemy import and_, func, literal, or_, select
+from sqlalchemy import and_, func, literal, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, has_user_permission, require_permission
@@ -705,21 +705,81 @@ def _hash_secret(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
+EXTERNAL_OTP_SEND_WINDOW_MINUTES = 15
+EXTERNAL_OTP_SEND_MAX_PER_WINDOW = 3
+
+
+def _get_external_request_context(request: Request | None) -> dict[str, str | None]:
+    ip = request.client.host if request and request.client else None
+    user_agent = request.headers.get("user-agent") if request else None
+    normalized_user_agent = (user_agent or "").strip().lower()
+    return {
+        "ip": ip,
+        "user_agent": user_agent,
+        "ip_hash": _hash_secret(ip) if ip else None,
+        "user_agent_hash": _hash_secret(normalized_user_agent) if normalized_user_agent else None,
+    }
+
+
+def _get_latest_external_session_context(link: ExternalAccessLink) -> dict | None:
+    for item in reversed(link.access_log or []):
+        if item.get("action") in {"session_opened", "otp_validated"} and isinstance(item.get("session_context"), dict):
+            return item["session_context"]
+    return None
+
+
+def _count_recent_external_actions(
+    link: ExternalAccessLink,
+    *,
+    action: str,
+    window_minutes: int,
+) -> int:
+    now = datetime.now(timezone.utc)
+    count = 0
+    for item in link.access_log or []:
+        if item.get("action") != action:
+            continue
+        timestamp_raw = item.get("timestamp")
+        if not isinstance(timestamp_raw, str):
+            continue
+        try:
+            ts = datetime.fromisoformat(timestamp_raw.replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        if ts >= now - timedelta(minutes=window_minutes):
+            count += 1
+    return count
+
+
 def _append_external_access_log(
     link: ExternalAccessLink,
     *,
     action: str,
     request: Request | None = None,
     otp_validated: bool | None = None,
+    metadata: dict | None = None,
 ) -> None:
+    context = _get_external_request_context(request)
     log = list(link.access_log or [])
-    log.append({
+    entry = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "action": action,
-        "ip": request.client.host if request and request.client else None,
-        "user_agent": request.headers.get("user-agent") if request else None,
+        "ip": context["ip"],
+        "user_agent": context["user_agent"],
+        "ip_hash": context["ip_hash"],
+        "user_agent_hash": context["user_agent_hash"],
         "otp_validated": otp_validated,
-    })
+    }
+    if action in {"session_opened", "otp_validated"}:
+        entry["session_context"] = {
+            "ip_hash": context["ip_hash"],
+            "user_agent_hash": context["user_agent_hash"],
+        }
+    if metadata:
+        entry["metadata"] = metadata
+    log.append(entry)
     link.access_log = log[-50:]
 
 
@@ -749,6 +809,7 @@ async def _require_external_session(
     *,
     token: str,
     session_token: str | None,
+    request: Request | None = None,
 ) -> ExternalAccessLink:
     link = await _get_external_link_or_404(db, token)
     if not link.otp_required:
@@ -764,6 +825,31 @@ async def _require_external_session(
         session_expires_at = session_expires_at.replace(tzinfo=timezone.utc)
     if session_expires_at < datetime.now(timezone.utc):
         raise HTTPException(status_code=401, detail="Session externe expirée")
+    if request:
+        expected_context = _get_latest_external_session_context(link)
+        current_context = _get_external_request_context(request)
+        expected_user_agent_hash = (expected_context or {}).get("user_agent_hash")
+        if expected_user_agent_hash and current_context.get("user_agent_hash") != expected_user_agent_hash:
+            link.session_token_hash = None
+            link.session_expires_at = None
+            _append_external_access_log(
+                link,
+                action="session_context_mismatch",
+                request=request,
+                otp_validated=False,
+                metadata={"reason": "user_agent_changed"},
+            )
+            await db.commit()
+            raise HTTPException(status_code=401, detail="Contexte navigateur invalide pour cette session externe")
+        expected_ip_hash = (expected_context or {}).get("ip_hash")
+        if expected_ip_hash and current_context.get("ip_hash") and current_context.get("ip_hash") != expected_ip_hash:
+            _append_external_access_log(
+                link,
+                action="session_ip_changed",
+                request=request,
+                otp_validated=True,
+            )
+            await db.commit()
     return link
 
 
@@ -4421,6 +4507,7 @@ async def create_external_link(
 @router.get("/external/{token}")
 async def access_external_link(
     token: str,
+    request: Request,
     x_external_session: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ):
@@ -4429,7 +4516,7 @@ async def access_external_link(
     authenticated = False
     if link.otp_required and x_external_session:
         try:
-            await _require_external_session(db, token=token, session_token=x_external_session)
+            await _require_external_session(db, token=token, session_token=x_external_session, request=request)
             authenticated = True
         except HTTPException:
             authenticated = False
@@ -4454,6 +4541,23 @@ async def send_external_link_otp(
     link = await _get_external_link_or_404(db, token)
     if not link.otp_required:
         return {"otp_required": False, "message": "OTP non requis pour ce lien"}
+    if _count_recent_external_actions(
+        link,
+        action="otp_sent",
+        window_minutes=EXTERNAL_OTP_SEND_WINDOW_MINUTES,
+    ) >= EXTERNAL_OTP_SEND_MAX_PER_WINDOW:
+        _append_external_access_log(
+            link,
+            action="otp_rate_limited",
+            request=request,
+            otp_validated=False,
+            metadata={
+                "window_minutes": EXTERNAL_OTP_SEND_WINDOW_MINUTES,
+                "max_per_window": EXTERNAL_OTP_SEND_MAX_PER_WINDOW,
+            },
+        )
+        await db.commit()
+        raise HTTPException(status_code=429, detail="Trop de demandes OTP récentes pour ce lien")
 
     await _send_external_link_otp(db, link=link)
     _append_external_access_log(link, action="otp_sent", request=request, otp_validated=False)
@@ -4517,9 +4621,22 @@ async def get_external_ads_dossier(
     x_external_session: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ):
-    link = await _require_external_session(db, token=token, session_token=x_external_session)
+    link = await _require_external_session(db, token=token, session_token=x_external_session, request=request)
     ads, _entity_id, allowed_company_id = await _get_external_ads_and_context(db, link=link)
     preconfigured_data = link.preconfigured_data or {}
+    site_name_result = await db.execute(
+        text("SELECT name FROM ar_installations WHERE id = :asset_id"),
+        {"asset_id": str(ads.site_entry_asset_id)},
+    )
+    site_name = site_name_result.scalar_one_or_none()
+    project_name = None
+    if ads.project_id:
+        project_result = await db.execute(
+            select(Project.code, Project.name).where(Project.id == ads.project_id)
+        )
+        project_row = project_result.first()
+        if project_row:
+            project_name = f"{project_row[0]} — {project_row[1]}" if project_row[0] else project_row[1]
     pax_entries = (
         await db.execute(
             select(AdsPax, TierContact)
@@ -4613,7 +4730,9 @@ async def get_external_ads_dossier(
             "start_date": ads.start_date.isoformat(),
             "end_date": ads.end_date.isoformat(),
             "site_entry_asset_id": str(ads.site_entry_asset_id),
+            "site_name": site_name,
             "project_id": str(ads.project_id) if ads.project_id else None,
+            "project_name": project_name,
             "outbound_transport_mode": ads.outbound_transport_mode,
             "return_transport_mode": ads.return_transport_mode,
             "rejection_reason": ads.rejection_reason,
@@ -4621,11 +4740,27 @@ async def get_external_ads_dossier(
         "preconfigured_data": preconfigured_data,
         "allowed_company_id": str(allowed_company_id) if allowed_company_id else None,
         "allowed_company_name": preconfigured_data.get("company_name"),
-        "can_submit": ads.status == "draft",
+        "can_submit": ads.status == "draft" and len(allowed_pax) > 0,
         "can_resubmit": ads.status == "requires_review",
         "pax_summary": pax_summary,
         "pax": allowed_pax,
     }
+
+
+@router.get("/external/{token}/credential-types", response_model=list[CredentialTypeRead])
+async def list_external_credential_types(
+    token: str,
+    request: Request,
+    x_external_session: str | None = Header(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    await _require_external_session(db, token=token, session_token=x_external_session, request=request)
+    result = await db.execute(
+        select(CredentialType)
+        .where(CredentialType.active == True)  # noqa: E712
+        .order_by(CredentialType.category, CredentialType.name)
+    )
+    return result.scalars().all()
 
 
 @router.post("/external/{token}/pax", status_code=201)
@@ -4636,7 +4771,7 @@ async def create_external_ads_pax(
     x_external_session: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ):
-    link = await _require_external_session(db, token=token, session_token=x_external_session)
+    link = await _require_external_session(db, token=token, session_token=x_external_session, request=request)
     ads, entity_id, allowed_company_id = await _get_external_ads_and_context(db, link=link)
     if ads.status not in {"draft", "requires_review"}:
         raise HTTPException(status_code=400, detail="Le dossier n'accepte plus de modification externe")
@@ -4684,7 +4819,7 @@ async def update_external_ads_pax(
     x_external_session: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ):
-    link = await _require_external_session(db, token=token, session_token=x_external_session)
+    link = await _require_external_session(db, token=token, session_token=x_external_session, request=request)
     ads, entity_id, allowed_company_id = await _get_external_ads_and_context(db, link=link)
     if ads.status not in {"draft", "requires_review"}:
         raise HTTPException(status_code=400, detail="Le dossier n'accepte plus de modification externe")
@@ -4736,7 +4871,7 @@ async def create_external_ads_pax_credential(
     x_external_session: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ):
-    link = await _require_external_session(db, token=token, session_token=x_external_session)
+    link = await _require_external_session(db, token=token, session_token=x_external_session, request=request)
     ads, entity_id, allowed_company_id = await _get_external_ads_and_context(db, link=link)
     if ads.status not in {"draft", "requires_review"}:
         raise HTTPException(status_code=400, detail="Le dossier n'accepte plus de modification externe")
@@ -4799,7 +4934,6 @@ async def _finalize_external_ads_submission(
     )
     ads.status = target_status
     ads.submitted_at = func.now()
-    ads.rejection_reason = None
 
     db.add(AdsEvent(
         entity_id=entity_id,
@@ -4841,7 +4975,7 @@ async def submit_external_ads(
     x_external_session: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ):
-    link = await _require_external_session(db, token=token, session_token=x_external_session)
+    link = await _require_external_session(db, token=token, session_token=x_external_session, request=request)
     ads, entity_id, _allowed_company_id = await _get_external_ads_and_context(db, link=link)
     if ads.status != "draft":
         raise HTTPException(status_code=400, detail=f"Impossible de soumettre ce dossier avec le statut '{ads.status}'")
@@ -4865,7 +4999,7 @@ async def resubmit_external_ads(
     x_external_session: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ):
-    link = await _require_external_session(db, token=token, session_token=x_external_session)
+    link = await _require_external_session(db, token=token, session_token=x_external_session, request=request)
     ads, entity_id, _allowed_company_id = await _get_external_ads_and_context(db, link=link)
     if ads.status != "requires_review":
         raise HTTPException(status_code=400, detail=f"Impossible de re-soumettre ce dossier avec le statut '{ads.status}'")

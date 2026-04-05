@@ -3337,7 +3337,12 @@ async def test_access_external_link_hides_preconfigured_data_without_session(mon
 
     monkeypatch.setattr(paxlog, "_get_external_link_or_404", fake_get_link)
 
-    response = await paxlog.access_external_link("token-1", x_external_session=None, db=FakeDB([]))
+    response = await paxlog.access_external_link(
+        "token-1",
+        request=SimpleNamespace(client=None, headers={}),
+        x_external_session=None,
+        db=FakeDB([]),
+    )
 
     assert response["ads_id"] == str(link.ads_id)
     assert response["authenticated"] is False
@@ -3361,9 +3366,10 @@ async def test_access_external_link_exposes_preconfigured_data_with_valid_sessio
     async def fake_get_link(_db, _token):
         return link
 
-    async def fake_require_session(_db, token, session_token):
+    async def fake_require_session(_db, token, session_token, request=None):
         assert token == "token-2"
         assert session_token == "session-123"
+        assert request is not None
         return link
 
     monkeypatch.setattr(paxlog, "_get_external_link_or_404", fake_get_link)
@@ -3371,6 +3377,7 @@ async def test_access_external_link_exposes_preconfigured_data_with_valid_sessio
 
     response = await paxlog.access_external_link(
         "token-2",
+        request=SimpleNamespace(client=None, headers={}),
         x_external_session="session-123",
         db=FakeDB([]),
     )
@@ -3509,11 +3516,78 @@ async def test_verify_external_link_otp_opens_session_and_consumes_use(monkeypat
 
 
 @pytest.mark.asyncio
+async def test_send_external_link_otp_rate_limits_recent_requests(monkeypatch):
+    now = datetime.now(timezone.utc)
+    link = SimpleNamespace(
+        otp_required=True,
+        otp_sent_to="contractor@example.com",
+        access_log=[
+            {"action": "otp_sent", "timestamp": (now - timedelta(minutes=3)).isoformat()},
+            {"action": "otp_sent", "timestamp": (now - timedelta(minutes=2)).isoformat()},
+            {"action": "otp_sent", "timestamp": (now - timedelta(minutes=1)).isoformat()},
+        ],
+    )
+
+    async def fake_get_link(_db, _token):
+        return link
+
+    monkeypatch.setattr(paxlog, "_get_external_link_or_404", fake_get_link)
+
+    with pytest.raises(HTTPException) as exc:
+        await paxlog.send_external_link_otp(
+            "token-otp",
+            request=SimpleNamespace(client=SimpleNamespace(host="127.0.0.1"), headers={"user-agent": "pytest-browser"}),
+            db=FakeDB([]),
+        )
+
+    assert exc.value.status_code == 429
+    assert link.access_log[-1]["action"] == "otp_rate_limited"
+
+
+@pytest.mark.asyncio
+async def test_require_external_session_rejects_browser_context_change(monkeypatch):
+    session_token = "session-token-123"
+    original_request = SimpleNamespace(
+        client=SimpleNamespace(host="127.0.0.1"),
+        headers={"user-agent": "Browser A"},
+    )
+    link = SimpleNamespace(
+        otp_required=True,
+        token="token-ctx",
+        session_token_hash=paxlog._hash_secret(session_token),
+        session_expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
+        access_log=[],
+    )
+    paxlog._append_external_access_log(link, action="session_opened", request=original_request, otp_validated=True)
+    db = FakeDB([])
+
+    async def fake_get_link(_db, _token):
+        return link
+
+    monkeypatch.setattr(paxlog, "_get_external_link_or_404", fake_get_link)
+
+    with pytest.raises(HTTPException) as exc:
+        await paxlog._require_external_session(
+            db,
+            token="token-ctx",
+            session_token=session_token,
+            request=SimpleNamespace(
+                client=SimpleNamespace(host="127.0.0.1"),
+                headers={"user-agent": "Browser B"},
+            ),
+        )
+
+    assert exc.value.status_code == 401
+    assert link.access_log[-1]["action"] == "session_context_mismatch"
+    assert link.session_token_hash is None
+
+
+@pytest.mark.asyncio
 async def test_submit_external_ads_requires_draft(monkeypatch):
     link = SimpleNamespace(id=uuid4())
     ads = _build_ads(status="approved")
 
-    async def fake_require_session(_db, token, session_token):
+    async def fake_require_session(_db, token, session_token, request=None):
         return link
 
     async def fake_get_ads_and_context(_db, link):
@@ -3540,7 +3614,7 @@ async def test_resubmit_external_ads_uses_finalize_flow(monkeypatch):
     ads = _build_ads(status="requires_review")
     finalized_calls = []
 
-    async def fake_require_session(_db, token, session_token):
+    async def fake_require_session(_db, token, session_token, request=None):
         return link
 
     async def fake_get_ads_and_context(_db, link):
@@ -3569,10 +3643,46 @@ async def test_resubmit_external_ads_uses_finalize_flow(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_finalize_external_ads_submission_keeps_compliance_reason(monkeypatch):
+    link = SimpleNamespace(id=uuid4(), access_log=[])
+    ads = _build_ads(status="draft", rejection_reason=None)
+    pax_entries = [SimpleNamespace(id=uuid4(), status="blocked")]
+    audit_calls = []
+    db = FakeDB([])
+
+    async def fake_run_checks(_db, *, ads, entity_id):
+        ads.rejection_reason = "Alice [Règles site]: H2S manquante"
+        return pax_entries, True, "pending_compliance"
+
+    async def fake_record_audit(*_args, **kwargs):
+        audit_calls.append(kwargs)
+
+    monkeypatch.setattr(paxlog, "_run_ads_submission_checks", fake_run_checks)
+    monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+
+    response = await paxlog._finalize_external_ads_submission(
+        link=link,
+        ads=ads,
+        entity_id=ads.entity_id,
+        reason=None,
+        event_type="external_submitted",
+        old_status="draft",
+        request=SimpleNamespace(client=None, headers={}),
+        db=db,
+    )
+
+    assert response is ads
+    assert ads.status == "pending_compliance"
+    assert ads.rejection_reason == "Alice [Règles site]: H2S manquante"
+    assert audit_calls and audit_calls[0]["details"]["compliance_issues"] is True
+
+
+@pytest.mark.asyncio
 async def test_get_external_ads_dossier_filters_pax_to_allowed_company(monkeypatch):
     link = SimpleNamespace(id=uuid4(), preconfigured_data={"company_name": "Vendor X"}, access_log=[])
     allowed_company_id = uuid4()
-    ads = _build_ads(status="draft")
+    project_id = uuid4()
+    ads = _build_ads(status="draft", project_id=project_id, rejection_reason="Pièces HSE manquantes")
     visible_contact = SimpleNamespace(
         id=uuid4(),
         tier_id=allowed_company_id,
@@ -3601,6 +3711,8 @@ async def test_get_external_ads_dossier_filters_pax_to_allowed_company(monkeypat
     )
     db = FakeDB(
         [
+            FakeResult(scalar_one_or_none="Onshore Alpha"),
+            FakeResult(first=("PRJ-001", "Projet Alpha")),
             FakeResult(
                 all_rows=[
                     (
@@ -3650,7 +3762,7 @@ async def test_get_external_ads_dossier_filters_pax_to_allowed_company(monkeypat
         ]
     )
 
-    async def fake_require_session(_db, token, session_token):
+    async def fake_require_session(_db, token, session_token, request=None):
         assert token == "token-dossier"
         assert session_token == "session-ok"
         return link
@@ -3681,6 +3793,35 @@ async def test_get_external_ads_dossier_filters_pax_to_allowed_company(monkeypat
     assert response["pax_summary"]["pending_check"] == 1
     assert response["ads"]["outbound_transport_mode"] == ads.outbound_transport_mode
     assert response["ads"]["return_transport_mode"] == ads.return_transport_mode
+    assert response["ads"]["site_name"] == "Onshore Alpha"
+    assert response["ads"]["project_name"] == "PRJ-001 — Projet Alpha"
+    assert response["ads"]["rejection_reason"] == "Pièces HSE manquantes"
+
+
+@pytest.mark.asyncio
+async def test_list_external_credential_types_requires_external_session(monkeypatch):
+    link = SimpleNamespace(id=uuid4())
+    credential_types = [
+        SimpleNamespace(id=uuid4(), code="BOSIET", name="BOSIET", category="training", active=True),
+        SimpleNamespace(id=uuid4(), code="H2S", name="H2S", category="safety", active=True),
+    ]
+    db = FakeDB([FakeResult(all_rows=credential_types)])
+
+    async def fake_require_session(_db, token, session_token, request=None):
+        assert token == "token-cred"
+        assert session_token == "session-ok"
+        return link
+
+    monkeypatch.setattr(paxlog, "_require_external_session", fake_require_session)
+
+    response = await paxlog.list_external_credential_types(
+        "token-cred",
+        request=SimpleNamespace(client=None, headers={}),
+        x_external_session="session-ok",
+        db=db,
+    )
+
+    assert [item.code for item in response] == ["BOSIET", "H2S"]
 
 
 @pytest.mark.asyncio
@@ -3688,7 +3829,7 @@ async def test_create_external_ads_pax_requires_allowed_company(monkeypatch):
     link = SimpleNamespace(id=uuid4())
     ads = _build_ads(status="draft")
 
-    async def fake_require_session(_db, token, session_token):
+    async def fake_require_session(_db, token, session_token, request=None):
         return link
 
     async def fake_get_ads_and_context(_db, link):
@@ -3718,7 +3859,7 @@ async def test_update_external_ads_pax_rejects_foreign_company_contact(monkeypat
     foreign_contact = SimpleNamespace(id=uuid4(), tier_id=uuid4())
     db = FakeDB([FakeResult(first=(SimpleNamespace(id=uuid4()), foreign_contact))])
 
-    async def fake_require_session(_db, token, session_token):
+    async def fake_require_session(_db, token, session_token, request=None):
         return link
 
     async def fake_get_ads_and_context(_db, link):
@@ -3749,7 +3890,7 @@ async def test_create_external_ads_pax_credential_rejects_foreign_company_contac
     foreign_contact = SimpleNamespace(id=uuid4(), tier_id=uuid4())
     db = FakeDB([FakeResult(first=(SimpleNamespace(id=uuid4()), foreign_contact))])
 
-    async def fake_require_session(_db, token, session_token):
+    async def fake_require_session(_db, token, session_token, request=None):
         return link
 
     async def fake_get_ads_and_context(_db, link):

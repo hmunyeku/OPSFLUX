@@ -18,6 +18,7 @@ Design mirrors ``gouti_tools.py``:
 
 import json
 import logging
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
@@ -26,7 +27,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import async_session_factory
 from app.core.references import generate_reference
-from app.models.common import Tier, TierContact, Entity
+from app.models.common import (
+    Address,
+    Attachment,
+    ComplianceRecord,
+    ComplianceType,
+    ContactEmail,
+    Entity,
+    ExternalReference,
+    LegalIdentifier,
+    Note,
+    OpeningHour,
+    Phone,
+    SocialNetwork,
+    Tag,
+    Tier,
+    TierBlock,
+    TierContact,
+    User,
+)
 from app.mcp.mcp_native import NativeBackend
 
 logger = logging.getLogger(__name__)
@@ -419,6 +438,738 @@ async def _update_contact(args: dict) -> dict:
         return _ok(_contact_to_dict(contact))
 
 
+async def _archive_contact(args: dict) -> dict:
+    contact_id = args.get("id")
+    if not contact_id:
+        raise ValueError("id requis")
+    async with async_session_factory() as session:
+        result = await session.execute(
+            select(TierContact).where(TierContact.id == UUID(str(contact_id)))
+        )
+        contact = result.scalar_one_or_none()
+        if contact is None:
+            return _err(f"Contact id={contact_id} introuvable")
+        contact.active = False
+        await session.commit()
+        return _ok({"archived": True, "id": str(contact.id)})
+
+
+# ─── Polymorphic helpers (phones, emails, addresses, tags, notes) ─────────────
+
+_VALID_OWNER_TYPES = frozenset({"tier", "tier_contact"})
+
+
+def _validate_owner(owner_type: str, owner_id: str) -> tuple[str, UUID]:
+    if owner_type not in _VALID_OWNER_TYPES:
+        raise ValueError(
+            f"owner_type doit être 'tier' ou 'tier_contact' (reçu: '{owner_type}')"
+        )
+    try:
+        return owner_type, UUID(str(owner_id))
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"owner_id invalide: {exc}")
+
+
+async def _owner_exists(session: AsyncSession, owner_type: str, owner_id: UUID) -> bool:
+    if owner_type == "tier":
+        result = await session.execute(select(Tier.id).where(Tier.id == owner_id))
+    else:
+        result = await session.execute(select(TierContact.id).where(TierContact.id == owner_id))
+    return result.scalar_one_or_none() is not None
+
+
+# ─── Phones ────────────────────────────────────────────────────────────────
+
+def _phone_to_dict(p: Phone) -> dict:
+    return {
+        "id": str(p.id),
+        "owner_type": p.owner_type,
+        "owner_id": str(p.owner_id),
+        "label": p.label,
+        "number": p.number,
+        "country_code": p.country_code,
+        "is_default": p.is_default,
+        "verified": p.verified,
+    }
+
+
+async def _list_phones(args: dict) -> dict:
+    owner_type, owner_id = _validate_owner(args.get("owner_type", ""), args.get("owner_id", ""))
+    async with async_session_factory() as session:
+        rows = (await session.execute(
+            select(Phone).where(
+                Phone.owner_type == owner_type,
+                Phone.owner_id == owner_id,
+            ).order_by(Phone.is_default.desc(), Phone.label)
+        )).scalars().all()
+    return _ok({"count": len(rows), "items": [_phone_to_dict(p) for p in rows]})
+
+
+async def _add_phone(args: dict) -> dict:
+    owner_type, owner_id = _validate_owner(args.get("owner_type", ""), args.get("owner_id", ""))
+    number = (args.get("number") or "").strip()
+    if not number:
+        raise ValueError("number requis")
+    label = (args.get("label") or "mobile").strip()
+    country_code = args.get("country_code")
+    is_default = bool(args.get("is_default", False))
+    async with async_session_factory() as session:
+        if not await _owner_exists(session, owner_type, owner_id):
+            return _err(f"{owner_type} id={owner_id} introuvable")
+        if is_default:
+            # Unset any existing default on the same owner
+            existing = (await session.execute(
+                select(Phone).where(
+                    Phone.owner_type == owner_type,
+                    Phone.owner_id == owner_id,
+                    Phone.is_default == True,  # noqa: E712
+                )
+            )).scalars().all()
+            for p in existing:
+                p.is_default = False
+        phone = Phone(
+            owner_type=owner_type, owner_id=owner_id,
+            label=label, number=number,
+            country_code=country_code,
+            is_default=is_default,
+        )
+        session.add(phone)
+        await session.commit()
+        await session.refresh(phone)
+        return _ok(_phone_to_dict(phone))
+
+
+async def _delete_phone(args: dict) -> dict:
+    phone_id = args.get("id")
+    if not phone_id:
+        raise ValueError("id requis")
+    async with async_session_factory() as session:
+        phone = (await session.execute(
+            select(Phone).where(Phone.id == UUID(str(phone_id)))
+        )).scalar_one_or_none()
+        if phone is None:
+            return _err(f"Phone id={phone_id} introuvable")
+        await session.delete(phone)
+        await session.commit()
+        return _ok({"deleted": True, "id": str(phone_id)})
+
+
+# ─── Emails (contact_emails) ───────────────────────────────────────────────
+
+def _email_to_dict(e: ContactEmail) -> dict:
+    return {
+        "id": str(e.id),
+        "owner_type": e.owner_type,
+        "owner_id": str(e.owner_id),
+        "label": e.label,
+        "email": e.email,
+        "is_default": e.is_default,
+        "verified": e.verified,
+    }
+
+
+async def _list_emails(args: dict) -> dict:
+    owner_type, owner_id = _validate_owner(args.get("owner_type", ""), args.get("owner_id", ""))
+    async with async_session_factory() as session:
+        rows = (await session.execute(
+            select(ContactEmail).where(
+                ContactEmail.owner_type == owner_type,
+                ContactEmail.owner_id == owner_id,
+            ).order_by(ContactEmail.is_default.desc(), ContactEmail.label)
+        )).scalars().all()
+    return _ok({"count": len(rows), "items": [_email_to_dict(e) for e in rows]})
+
+
+async def _add_email(args: dict) -> dict:
+    owner_type, owner_id = _validate_owner(args.get("owner_type", ""), args.get("owner_id", ""))
+    email = (args.get("email") or "").strip()
+    if not email or "@" not in email:
+        raise ValueError("email valide requis")
+    label = (args.get("label") or "work").strip()
+    is_default = bool(args.get("is_default", False))
+    async with async_session_factory() as session:
+        if not await _owner_exists(session, owner_type, owner_id):
+            return _err(f"{owner_type} id={owner_id} introuvable")
+        if is_default:
+            existing = (await session.execute(
+                select(ContactEmail).where(
+                    ContactEmail.owner_type == owner_type,
+                    ContactEmail.owner_id == owner_id,
+                    ContactEmail.is_default == True,  # noqa: E712
+                )
+            )).scalars().all()
+            for e in existing:
+                e.is_default = False
+        obj = ContactEmail(
+            owner_type=owner_type, owner_id=owner_id,
+            label=label, email=email, is_default=is_default,
+        )
+        session.add(obj)
+        await session.commit()
+        await session.refresh(obj)
+        return _ok(_email_to_dict(obj))
+
+
+async def _delete_email(args: dict) -> dict:
+    email_id = args.get("id")
+    if not email_id:
+        raise ValueError("id requis")
+    async with async_session_factory() as session:
+        obj = (await session.execute(
+            select(ContactEmail).where(ContactEmail.id == UUID(str(email_id)))
+        )).scalar_one_or_none()
+        if obj is None:
+            return _err(f"Email id={email_id} introuvable")
+        await session.delete(obj)
+        await session.commit()
+        return _ok({"deleted": True, "id": str(email_id)})
+
+
+# ─── Addresses ─────────────────────────────────────────────────────────────
+
+def _address_to_dict(a: Address) -> dict:
+    return {
+        "id": str(a.id),
+        "owner_type": a.owner_type,
+        "owner_id": str(a.owner_id),
+        "label": a.label,
+        "address_line1": a.address_line1,
+        "address_line2": a.address_line2,
+        "city": a.city,
+        "state_province": a.state_province,
+        "postal_code": a.postal_code,
+        "country": a.country,
+        "latitude": a.latitude,
+        "longitude": a.longitude,
+        "is_default": a.is_default,
+    }
+
+
+async def _list_addresses(args: dict) -> dict:
+    owner_type, owner_id = _validate_owner(args.get("owner_type", ""), args.get("owner_id", ""))
+    async with async_session_factory() as session:
+        rows = (await session.execute(
+            select(Address).where(
+                Address.owner_type == owner_type,
+                Address.owner_id == owner_id,
+            ).order_by(Address.is_default.desc(), Address.label)
+        )).scalars().all()
+    return _ok({"count": len(rows), "items": [_address_to_dict(a) for a in rows]})
+
+
+async def _add_address(args: dict) -> dict:
+    owner_type, owner_id = _validate_owner(args.get("owner_type", ""), args.get("owner_id", ""))
+    line1 = (args.get("address_line1") or "").strip()
+    city = (args.get("city") or "").strip()
+    country = (args.get("country") or "").strip()
+    if not line1 or not city or not country:
+        raise ValueError("address_line1, city et country requis")
+    async with async_session_factory() as session:
+        if not await _owner_exists(session, owner_type, owner_id):
+            return _err(f"{owner_type} id={owner_id} introuvable")
+        addr = Address(
+            owner_type=owner_type, owner_id=owner_id,
+            label=(args.get("label") or "main").strip(),
+            address_line1=line1,
+            address_line2=args.get("address_line2"),
+            city=city,
+            state_province=args.get("state_province"),
+            postal_code=args.get("postal_code"),
+            country=country,
+            latitude=args.get("latitude"),
+            longitude=args.get("longitude"),
+            is_default=bool(args.get("is_default", False)),
+        )
+        session.add(addr)
+        await session.commit()
+        await session.refresh(addr)
+        return _ok(_address_to_dict(addr))
+
+
+async def _delete_address(args: dict) -> dict:
+    addr_id = args.get("id")
+    if not addr_id:
+        raise ValueError("id requis")
+    async with async_session_factory() as session:
+        obj = (await session.execute(
+            select(Address).where(Address.id == UUID(str(addr_id)))
+        )).scalar_one_or_none()
+        if obj is None:
+            return _err(f"Address id={addr_id} introuvable")
+        await session.delete(obj)
+        await session.commit()
+        return _ok({"deleted": True, "id": str(addr_id)})
+
+
+# ─── Notes ─────────────────────────────────────────────────────────────────
+
+def _note_to_dict(n: Note) -> dict:
+    return {
+        "id": str(n.id),
+        "owner_type": n.owner_type,
+        "owner_id": str(n.owner_id),
+        "content": n.content,
+        "visibility": n.visibility,
+        "pinned": n.pinned,
+        "created_by": str(n.created_by),
+        "created_at": n.created_at.isoformat() if n.created_at else None,
+    }
+
+
+async def _list_notes(args: dict) -> dict:
+    owner_type, owner_id = _validate_owner(args.get("owner_type", ""), args.get("owner_id", ""))
+    async with async_session_factory() as session:
+        rows = (await session.execute(
+            select(Note).where(
+                Note.owner_type == owner_type,
+                Note.owner_id == owner_id,
+            ).order_by(Note.pinned.desc(), Note.created_at.desc())
+        )).scalars().all()
+    return _ok({"count": len(rows), "items": [_note_to_dict(n) for n in rows]})
+
+
+async def _add_note(args: dict) -> dict:
+    owner_type, owner_id = _validate_owner(args.get("owner_type", ""), args.get("owner_id", ""))
+    content = (args.get("content") or "").strip()
+    if not content:
+        raise ValueError("content requis")
+    async with async_session_factory() as session:
+        if not await _owner_exists(session, owner_type, owner_id):
+            return _err(f"{owner_type} id={owner_id} introuvable")
+        # Default author: the first admin user (system write via MCP has no session user).
+        admin = (await session.execute(
+            select(User.id).where(User.active == True).limit(1)  # noqa: E712
+        )).scalar_one_or_none()
+        if admin is None:
+            return _err("Aucun utilisateur actif pour signer la note")
+        note = Note(
+            owner_type=owner_type, owner_id=owner_id,
+            content=content,
+            visibility=args.get("visibility", "public"),
+            pinned=bool(args.get("pinned", False)),
+            created_by=admin,
+        )
+        session.add(note)
+        await session.commit()
+        await session.refresh(note)
+        return _ok(_note_to_dict(note))
+
+
+async def _delete_note(args: dict) -> dict:
+    note_id = args.get("id")
+    if not note_id:
+        raise ValueError("id requis")
+    async with async_session_factory() as session:
+        obj = (await session.execute(
+            select(Note).where(Note.id == UUID(str(note_id)))
+        )).scalar_one_or_none()
+        if obj is None:
+            return _err(f"Note id={note_id} introuvable")
+        await session.delete(obj)
+        await session.commit()
+        return _ok({"deleted": True, "id": str(note_id)})
+
+
+# ─── Tags ──────────────────────────────────────────────────────────────────
+
+def _tag_to_dict(t: Tag) -> dict:
+    return {
+        "id": str(t.id),
+        "owner_type": t.owner_type,
+        "owner_id": str(t.owner_id),
+        "name": t.name,
+        "color": t.color,
+        "visibility": t.visibility,
+    }
+
+
+async def _list_tags(args: dict) -> dict:
+    owner_type, owner_id = _validate_owner(args.get("owner_type", ""), args.get("owner_id", ""))
+    async with async_session_factory() as session:
+        rows = (await session.execute(
+            select(Tag).where(
+                Tag.owner_type == owner_type,
+                Tag.owner_id == owner_id,
+            ).order_by(Tag.name)
+        )).scalars().all()
+    return _ok({"count": len(rows), "items": [_tag_to_dict(t) for t in rows]})
+
+
+async def _add_tag(args: dict) -> dict:
+    owner_type, owner_id = _validate_owner(args.get("owner_type", ""), args.get("owner_id", ""))
+    name = (args.get("name") or "").strip()
+    if not name:
+        raise ValueError("name requis")
+    async with async_session_factory() as session:
+        if not await _owner_exists(session, owner_type, owner_id):
+            return _err(f"{owner_type} id={owner_id} introuvable")
+        admin = (await session.execute(
+            select(User.id).where(User.active == True).limit(1)  # noqa: E712
+        )).scalar_one_or_none()
+        if admin is None:
+            return _err("Aucun utilisateur actif")
+        tag = Tag(
+            owner_type=owner_type, owner_id=owner_id,
+            name=name,
+            color=args.get("color", "#6b7280"),
+            visibility=args.get("visibility", "public"),
+            created_by=admin,
+        )
+        session.add(tag)
+        await session.commit()
+        await session.refresh(tag)
+        return _ok(_tag_to_dict(tag))
+
+
+async def _delete_tag(args: dict) -> dict:
+    tag_id = args.get("id")
+    if not tag_id:
+        raise ValueError("id requis")
+    async with async_session_factory() as session:
+        obj = (await session.execute(
+            select(Tag).where(Tag.id == UUID(str(tag_id)))
+        )).scalar_one_or_none()
+        if obj is None:
+            return _err(f"Tag id={tag_id} introuvable")
+        await session.delete(obj)
+        await session.commit()
+        return _ok({"deleted": True, "id": str(tag_id)})
+
+
+# ─── Legal Identifiers ─────────────────────────────────────────────────────
+
+def _legal_id_to_dict(li: LegalIdentifier) -> dict:
+    return {
+        "id": str(li.id),
+        "owner_type": li.owner_type,
+        "owner_id": str(li.owner_id),
+        "type": li.type,
+        "value": li.value,
+        "country": li.country,
+        "issued_at": li.issued_at,
+        "expires_at": li.expires_at,
+    }
+
+
+async def _list_legal_identifiers(args: dict) -> dict:
+    owner_type, owner_id = _validate_owner(args.get("owner_type", ""), args.get("owner_id", ""))
+    async with async_session_factory() as session:
+        rows = (await session.execute(
+            select(LegalIdentifier).where(
+                LegalIdentifier.owner_type == owner_type,
+                LegalIdentifier.owner_id == owner_id,
+            ).order_by(LegalIdentifier.type)
+        )).scalars().all()
+    return _ok({"count": len(rows), "items": [_legal_id_to_dict(li) for li in rows]})
+
+
+async def _add_legal_identifier(args: dict) -> dict:
+    owner_type, owner_id = _validate_owner(args.get("owner_type", ""), args.get("owner_id", ""))
+    type_ = (args.get("type") or "").strip()
+    value = (args.get("value") or "").strip()
+    if not type_ or not value:
+        raise ValueError("type et value requis")
+    async with async_session_factory() as session:
+        if not await _owner_exists(session, owner_type, owner_id):
+            return _err(f"{owner_type} id={owner_id} introuvable")
+        li = LegalIdentifier(
+            owner_type=owner_type, owner_id=owner_id,
+            type=type_, value=value,
+            country=args.get("country"),
+            issued_at=args.get("issued_at"),
+            expires_at=args.get("expires_at"),
+        )
+        session.add(li)
+        await session.commit()
+        await session.refresh(li)
+        return _ok(_legal_id_to_dict(li))
+
+
+async def _delete_legal_identifier(args: dict) -> dict:
+    li_id = args.get("id")
+    if not li_id:
+        raise ValueError("id requis")
+    async with async_session_factory() as session:
+        obj = (await session.execute(
+            select(LegalIdentifier).where(LegalIdentifier.id == UUID(str(li_id)))
+        )).scalar_one_or_none()
+        if obj is None:
+            return _err(f"LegalIdentifier id={li_id} introuvable")
+        await session.delete(obj)
+        await session.commit()
+        return _ok({"deleted": True, "id": str(li_id)})
+
+
+# ─── External references ───────────────────────────────────────────────────
+
+def _ext_ref_to_dict(r: ExternalReference) -> dict:
+    return {
+        "id": str(r.id),
+        "owner_type": r.owner_type,
+        "owner_id": str(r.owner_id),
+        "system": r.system,
+        "code": r.code,
+    }
+
+
+async def _list_external_refs(args: dict) -> dict:
+    owner_type, owner_id = _validate_owner(args.get("owner_type", ""), args.get("owner_id", ""))
+    async with async_session_factory() as session:
+        rows = (await session.execute(
+            select(ExternalReference).where(
+                ExternalReference.owner_type == owner_type,
+                ExternalReference.owner_id == owner_id,
+            ).order_by(ExternalReference.system)
+        )).scalars().all()
+    return _ok({"count": len(rows), "items": [_ext_ref_to_dict(r) for r in rows]})
+
+
+async def _add_external_ref(args: dict) -> dict:
+    owner_type, owner_id = _validate_owner(args.get("owner_type", ""), args.get("owner_id", ""))
+    system = (args.get("system") or "").strip()
+    code = (args.get("code") or "").strip()
+    if not system or not code:
+        raise ValueError("system et code requis")
+    async with async_session_factory() as session:
+        if not await _owner_exists(session, owner_type, owner_id):
+            return _err(f"{owner_type} id={owner_id} introuvable")
+        ref = ExternalReference(
+            owner_type=owner_type, owner_id=owner_id,
+            system=system, code=code,
+        )
+        session.add(ref)
+        await session.commit()
+        await session.refresh(ref)
+        return _ok(_ext_ref_to_dict(ref))
+
+
+# ─── Tier blocks ───────────────────────────────────────────────────────────
+
+async def _block_tier(args: dict) -> dict:
+    tier_id = args.get("id")
+    reason = (args.get("reason") or "").strip()
+    if not tier_id:
+        raise ValueError("id requis")
+    if not reason:
+        raise ValueError("reason requis")
+    block_type = args.get("block_type", "all")
+
+    async with async_session_factory() as session:
+        tier = (await session.execute(
+            select(Tier).where(Tier.id == UUID(str(tier_id)))
+        )).scalar_one_or_none()
+        if tier is None:
+            return _err(f"Tier id={tier_id} introuvable")
+        admin = (await session.execute(
+            select(User.id).where(User.active == True).limit(1)  # noqa: E712
+        )).scalar_one_or_none()
+        if admin is None:
+            return _err("Aucun utilisateur actif")
+        block = TierBlock(
+            entity_id=tier.entity_id,
+            tier_id=tier.id,
+            action="block",
+            reason=reason,
+            block_type=block_type,
+            performed_by=admin,
+        )
+        tier.is_blocked = True
+        session.add(block)
+        await session.commit()
+        return _ok({"id": str(tier.id), "code": tier.code, "is_blocked": True, "block_type": block_type})
+
+
+async def _unblock_tier(args: dict) -> dict:
+    tier_id = args.get("id")
+    reason = (args.get("reason") or "").strip()
+    if not tier_id:
+        raise ValueError("id requis")
+    if not reason:
+        raise ValueError("reason requis")
+
+    async with async_session_factory() as session:
+        tier = (await session.execute(
+            select(Tier).where(Tier.id == UUID(str(tier_id)))
+        )).scalar_one_or_none()
+        if tier is None:
+            return _err(f"Tier id={tier_id} introuvable")
+        admin = (await session.execute(
+            select(User.id).where(User.active == True).limit(1)  # noqa: E712
+        )).scalar_one_or_none()
+        block = TierBlock(
+            entity_id=tier.entity_id,
+            tier_id=tier.id,
+            action="unblock",
+            reason=reason,
+            block_type="all",
+            performed_by=admin,
+        )
+        tier.is_blocked = False
+        session.add(block)
+        await session.commit()
+        return _ok({"id": str(tier.id), "code": tier.code, "is_blocked": False})
+
+
+async def _list_tier_blocks(args: dict) -> dict:
+    tier_id = args.get("tier_id")
+    if not tier_id:
+        raise ValueError("tier_id requis")
+    async with async_session_factory() as session:
+        rows = (await session.execute(
+            select(TierBlock).where(
+                TierBlock.tier_id == UUID(str(tier_id))
+            ).order_by(TierBlock.created_at.desc())
+        )).scalars().all()
+    items = [
+        {
+            "id": str(b.id),
+            "action": b.action,
+            "reason": b.reason,
+            "block_type": b.block_type,
+            "created_at": b.created_at.isoformat() if b.created_at else None,
+        }
+        for b in rows
+    ]
+    return _ok({"count": len(items), "items": items})
+
+
+# ─── Compliance ────────────────────────────────────────────────────────────
+
+async def _check_compliance(args: dict) -> dict:
+    """Run the canonical compliance verdict for a tier or contact."""
+    owner_type, owner_id = _validate_owner(args.get("owner_type", ""), args.get("owner_id", ""))
+    from app.services.modules.compliance_service import check_owner_compliance
+
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, args.get("entity_code"))
+        try:
+            verdict = await check_owner_compliance(
+                session,
+                owner_type=owner_type,
+                owner_id=owner_id,
+                entity_id=entity_id,
+            )
+        except Exception as exc:
+            logger.exception("MCP: compliance check failed")
+            return _err(f"Erreur check conformité: {exc}")
+    return _ok(verdict)
+
+
+def _compliance_record_to_dict(r: ComplianceRecord, type_name: str | None = None) -> dict:
+    return {
+        "id": str(r.id),
+        "compliance_type_id": str(r.compliance_type_id),
+        "compliance_type_name": type_name,
+        "owner_type": r.owner_type,
+        "owner_id": str(r.owner_id),
+        "status": r.status,
+        "issued_at": r.issued_at.isoformat() if r.issued_at else None,
+        "expires_at": r.expires_at.isoformat() if r.expires_at else None,
+        "issuer": r.issuer,
+        "reference_number": r.reference_number,
+        "notes": r.notes,
+        "active": r.active,
+    }
+
+
+async def _list_compliance_records(args: dict) -> dict:
+    owner_type, owner_id = _validate_owner(args.get("owner_type", ""), args.get("owner_id", ""))
+    async with async_session_factory() as session:
+        rows = (await session.execute(
+            select(ComplianceRecord, ComplianceType.name)
+            .join(ComplianceType, ComplianceType.id == ComplianceRecord.compliance_type_id)
+            .where(
+                ComplianceRecord.owner_type == owner_type,
+                ComplianceRecord.owner_id == owner_id,
+                ComplianceRecord.active == True,  # noqa: E712
+            ).order_by(ComplianceRecord.expires_at.desc().nulls_last())
+        )).all()
+    items = [_compliance_record_to_dict(rec, type_name) for rec, type_name in rows]
+    return _ok({"count": len(items), "items": items})
+
+
+async def _add_compliance_record(args: dict) -> dict:
+    owner_type, owner_id = _validate_owner(args.get("owner_type", ""), args.get("owner_id", ""))
+    compliance_type = args.get("compliance_type_id") or args.get("compliance_type_code")
+    if not compliance_type:
+        raise ValueError("compliance_type_id ou compliance_type_code requis")
+
+    def _parse_dt(s: str | None) -> datetime | None:
+        if not s:
+            return None
+        try:
+            if len(s) == 10:  # YYYY-MM-DD
+                return datetime.fromisoformat(s).replace(tzinfo=timezone.utc)
+            return datetime.fromisoformat(s.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise ValueError(f"Date invalide '{s}': {exc}")
+
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, args.get("entity_code"))
+        # Resolve compliance type (by id or code)
+        ct_query = select(ComplianceType).where(ComplianceType.entity_id == entity_id)
+        try:
+            ct_query = ct_query.where(ComplianceType.id == UUID(str(compliance_type)))
+        except (TypeError, ValueError):
+            ct_query = ct_query.where(ComplianceType.code == str(compliance_type))
+        ct = (await session.execute(ct_query)).scalar_one_or_none()
+        if ct is None:
+            return _err(f"Type de conformité introuvable: {compliance_type}")
+
+        if not await _owner_exists(session, owner_type, owner_id):
+            return _err(f"{owner_type} id={owner_id} introuvable")
+
+        admin = (await session.execute(
+            select(User.id).where(User.active == True).limit(1)  # noqa: E712
+        )).scalar_one_or_none()
+        if admin is None:
+            return _err("Aucun utilisateur actif")
+
+        record = ComplianceRecord(
+            entity_id=entity_id,
+            compliance_type_id=ct.id,
+            owner_type=owner_type,
+            owner_id=owner_id,
+            status=args.get("status", "valid"),
+            issued_at=_parse_dt(args.get("issued_at")),
+            expires_at=_parse_dt(args.get("expires_at")),
+            issuer=args.get("issuer"),
+            reference_number=args.get("reference_number"),
+            notes=args.get("notes"),
+            created_by=admin,
+            active=True,
+        )
+        session.add(record)
+        await session.commit()
+        await session.refresh(record)
+        return _ok(_compliance_record_to_dict(record, ct.name))
+
+
+async def _list_compliance_types(args: dict) -> dict:
+    """List available compliance types for the current entity."""
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, args.get("entity_code"))
+        rows = (await session.execute(
+            select(ComplianceType).where(
+                ComplianceType.entity_id == entity_id,
+                ComplianceType.active == True,  # noqa: E712
+            ).order_by(ComplianceType.category, ComplianceType.name)
+        )).scalars().all()
+    items = [
+        {
+            "id": str(ct.id),
+            "code": ct.code,
+            "name": ct.name,
+            "category": ct.category,
+            "description": ct.description,
+            "validity_days": ct.validity_days,
+            "is_mandatory": ct.is_mandatory,
+        }
+        for ct in rows
+    ]
+    return _ok({"count": len(items), "items": items})
+
+
 # ─── Tool registry ───────────────────────────────────────────────────────────
 
 def _s(props: dict | None = None, required: list | None = None) -> dict:
@@ -547,6 +1298,243 @@ OPSFLUX_TOOLS: list[tuple[str, str, dict, Any]] = [
          "is_primary": {"type": "boolean"},
      }, ["id"]),
      _update_contact),
+
+    ("archive_contact",
+     "Désactive (soft-delete) un contact.",
+     _s({"id": {"type": "string"}}, ["id"]),
+     _archive_contact),
+
+    # ── Phones (polymorphic — tier ou tier_contact) ──────────────────────
+    ("list_phones",
+     "Liste les téléphones d'un tier ou d'un contact.",
+     _s({
+         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+         "owner_id": {"type": "string"},
+     }, ["owner_type", "owner_id"]), _list_phones),
+
+    ("add_phone",
+     "Ajoute un téléphone (labels: mobile, office, fax, home). "
+     "is_default=true retire le flag des autres téléphones du même owner.",
+     _s({
+         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+         "owner_id": {"type": "string"},
+         "number": {"type": "string"},
+         "label": {"type": "string"},
+         "country_code": {"type": "string"},
+         "is_default": {"type": "boolean"},
+     }, ["owner_type", "owner_id", "number"]), _add_phone),
+
+    ("delete_phone",
+     "Supprime un téléphone par son id.",
+     _s({"id": {"type": "string"}}, ["id"]), _delete_phone),
+
+    # ── Emails (polymorphic) ─────────────────────────────────────────────
+    ("list_emails",
+     "Liste les emails d'un tier ou d'un contact.",
+     _s({
+         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+         "owner_id": {"type": "string"},
+     }, ["owner_type", "owner_id"]), _list_emails),
+
+    ("add_email",
+     "Ajoute une adresse email (labels: work, personal, billing, support).",
+     _s({
+         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+         "owner_id": {"type": "string"},
+         "email": {"type": "string"},
+         "label": {"type": "string"},
+         "is_default": {"type": "boolean"},
+     }, ["owner_type", "owner_id", "email"]), _add_email),
+
+    ("delete_email",
+     "Supprime un email par son id.",
+     _s({"id": {"type": "string"}}, ["id"]), _delete_email),
+
+    # ── Addresses (polymorphic) ──────────────────────────────────────────
+    ("list_addresses",
+     "Liste les adresses d'un tier ou d'un contact.",
+     _s({
+         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+         "owner_id": {"type": "string"},
+     }, ["owner_type", "owner_id"]), _list_addresses),
+
+    ("add_address",
+     "Ajoute une adresse. Champs requis: address_line1, city, country.",
+     _s({
+         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+         "owner_id": {"type": "string"},
+         "label": {"type": "string", "description": "main/billing/shipping/…"},
+         "address_line1": {"type": "string"},
+         "address_line2": {"type": "string"},
+         "city": {"type": "string"},
+         "state_province": {"type": "string"},
+         "postal_code": {"type": "string"},
+         "country": {"type": "string"},
+         "latitude": {"type": "number"},
+         "longitude": {"type": "number"},
+         "is_default": {"type": "boolean"},
+     }, ["owner_type", "owner_id", "address_line1", "city", "country"]),
+     _add_address),
+
+    ("delete_address",
+     "Supprime une adresse par son id.",
+     _s({"id": {"type": "string"}}, ["id"]), _delete_address),
+
+    # ── Notes (polymorphic) ──────────────────────────────────────────────
+    ("list_notes",
+     "Liste les notes attachées à un tier ou un contact. Ordonnées par pinned puis date descendante.",
+     _s({
+         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+         "owner_id": {"type": "string"},
+     }, ["owner_type", "owner_id"]), _list_notes),
+
+    ("add_note",
+     "Ajoute une note à un tier ou contact. visibility = public (défaut) ou private.",
+     _s({
+         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+         "owner_id": {"type": "string"},
+         "content": {"type": "string"},
+         "visibility": {"type": "string", "enum": ["public", "private"]},
+         "pinned": {"type": "boolean"},
+     }, ["owner_type", "owner_id", "content"]), _add_note),
+
+    ("delete_note",
+     "Supprime une note par son id.",
+     _s({"id": {"type": "string"}}, ["id"]), _delete_note),
+
+    # ── Tags (polymorphic) ───────────────────────────────────────────────
+    ("list_tags",
+     "Liste les tags d'un tier ou d'un contact.",
+     _s({
+         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+         "owner_id": {"type": "string"},
+     }, ["owner_type", "owner_id"]), _list_tags),
+
+    ("add_tag",
+     "Ajoute un tag. color = code hex (défaut #6b7280).",
+     _s({
+         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+         "owner_id": {"type": "string"},
+         "name": {"type": "string"},
+         "color": {"type": "string"},
+         "visibility": {"type": "string", "enum": ["public", "private"]},
+     }, ["owner_type", "owner_id", "name"]), _add_tag),
+
+    ("delete_tag",
+     "Supprime un tag par son id.",
+     _s({"id": {"type": "string"}}, ["id"]), _delete_tag),
+
+    # ── Legal identifiers ────────────────────────────────────────────────
+    ("list_legal_identifiers",
+     "Liste les identifiants légaux (SIRET, RCCM, NIU, TVA, NIF, …) d'un tier ou contact.",
+     _s({
+         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+         "owner_id": {"type": "string"},
+     }, ["owner_type", "owner_id"]), _list_legal_identifiers),
+
+    ("add_legal_identifier",
+     "Ajoute un identifiant légal. type = code du dictionnaire legal_identifier_type "
+     "(siret, rccm, niu, tva, nif, ninea, …). issued_at et expires_at au format ISO (YYYY-MM-DD).",
+     _s({
+         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+         "owner_id": {"type": "string"},
+         "type": {"type": "string"},
+         "value": {"type": "string"},
+         "country": {"type": "string"},
+         "issued_at": {"type": "string"},
+         "expires_at": {"type": "string"},
+     }, ["owner_type", "owner_id", "type", "value"]),
+     _add_legal_identifier),
+
+    ("delete_legal_identifier",
+     "Supprime un identifiant légal par son id.",
+     _s({"id": {"type": "string"}}, ["id"]), _delete_legal_identifier),
+
+    # ── External references (SAP, Gouti, Intranet, …) ───────────────────
+    ("list_external_refs",
+     "Liste les références externes (SAP, Gouti, Intranet, Legacy…) d'un tier ou contact.",
+     _s({
+         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+         "owner_id": {"type": "string"},
+     }, ["owner_type", "owner_id"]), _list_external_refs),
+
+    ("add_external_ref",
+     "Ajoute une référence externe (mapping d'ID vers un système externe).",
+     _s({
+         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+         "owner_id": {"type": "string"},
+         "system": {"type": "string", "description": "SAP/Gouti/Intranet/Legacy/Other"},
+         "code": {"type": "string", "description": "Identifiant dans le système externe"},
+     }, ["owner_type", "owner_id", "system", "code"]),
+     _add_external_ref),
+
+    # ── Tier blocks (block / unblock) ────────────────────────────────────
+    ("block_tier",
+     "Bloque une entreprise (achats, paiements ou complet). Motif obligatoire.",
+     _s({
+         "id": {"type": "string"},
+         "reason": {"type": "string"},
+         "block_type": {"type": "string", "enum": ["all", "purchasing", "payment"],
+                         "description": "Défaut: all"},
+     }, ["id", "reason"]), _block_tier),
+
+    ("unblock_tier",
+     "Débloque une entreprise précédemment bloquée. Motif obligatoire.",
+     _s({
+         "id": {"type": "string"},
+         "reason": {"type": "string"},
+     }, ["id", "reason"]), _unblock_tier),
+
+    ("list_tier_blocks",
+     "Historique des blocages/déblocages d'une entreprise.",
+     _s({"tier_id": {"type": "string"}}, ["tier_id"]),
+     _list_tier_blocks),
+
+    # ── Compliance / conformité ──────────────────────────────────────────
+    ("check_compliance",
+     "Calcule le verdict de conformité canonique pour un tier ou un contact "
+     "(tous les types applicables, validité, expirations, documents manquants). "
+     "Retourne is_compliant + détails par type.",
+     _s({
+         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+         "owner_id": {"type": "string"},
+         "entity_code": {"type": "string"},
+     }, ["owner_type", "owner_id"]),
+     _check_compliance),
+
+    ("list_compliance_records",
+     "Liste les enregistrements de conformité (certificats, habilitations, …) "
+     "d'un tier ou contact — avec dates d'émission/expiration et statut.",
+     _s({
+         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+         "owner_id": {"type": "string"},
+     }, ["owner_type", "owner_id"]),
+     _list_compliance_records),
+
+    ("add_compliance_record",
+     "Ajoute un enregistrement de conformité. compliance_type_code est le code "
+     "d'un type de conformité configuré (ex: 'MED_APTITUDE', 'H2S_BASIC'). "
+     "Alternative: compliance_type_id (UUID direct).",
+     _s({
+         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+         "owner_id": {"type": "string"},
+         "compliance_type_code": {"type": "string"},
+         "compliance_type_id": {"type": "string"},
+         "status": {"type": "string", "enum": ["valid", "expired", "pending", "rejected"]},
+         "issued_at": {"type": "string", "description": "Date d'émission ISO YYYY-MM-DD"},
+         "expires_at": {"type": "string", "description": "Date d'expiration ISO YYYY-MM-DD"},
+         "issuer": {"type": "string", "description": "Organisme émetteur"},
+         "reference_number": {"type": "string"},
+         "notes": {"type": "string"},
+         "entity_code": {"type": "string"},
+     }, ["owner_type", "owner_id"]),
+     _add_compliance_record),
+
+    ("list_compliance_types",
+     "Liste tous les types de conformité disponibles (formations, certifications, "
+     "habilitations, audits, médical, EPI) configurés pour l'entité.",
+     _s({"entity_code": {"type": "string"}}),
+     _list_compliance_types),
 ]
 
 OPSFLUX_TOOLS_LIST = [

@@ -318,6 +318,7 @@ async def get_tier_contact(
 async def create_tier_contact(
     tier_id: UUID, body: TierContactCreate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("tier.update"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -372,6 +373,7 @@ async def create_tier_contact(
 async def update_tier_contact(
     tier_id: UUID, contact_id: UUID, body: TierContactUpdate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("tier.update"),
     db: AsyncSession = Depends(get_db),
 ):

@@ -27,6 +27,149 @@ _SEED_NS = UUID("a1b2c3d4-e5f6-7890-abcd-ef1234567890")
 logger = logging.getLogger(__name__)
 
 
+def _default_workflow_definitions() -> list[dict]:
+    return [
+        {
+            "slug": "project",
+            "legacy_slugs": [],
+            "name": "Project Lifecycle",
+            "entity_type": "project",
+            "states": ["draft", "active", "on_hold", "completed", "cancelled"],
+            "transitions": [
+                {"from": "draft", "to": "active", "label": "Activer", "required_roles": ["CHEF_PROJET", "DPROJ"]},
+                {"from": "draft", "to": "cancelled", "label": "Annuler"},
+                {"from": "active", "to": "on_hold", "label": "Mettre en pause", "required_roles": ["CHEF_PROJET", "DPROJ"]},
+                {"from": "active", "to": "completed", "label": "Terminer", "required_roles": ["CHEF_PROJET", "DPROJ"]},
+                {"from": "active", "to": "cancelled", "label": "Annuler", "required_roles": ["DPROJ", "DO"]},
+                {"from": "on_hold", "to": "active", "label": "Reprendre", "required_roles": ["CHEF_PROJET", "DPROJ"]},
+                {"from": "on_hold", "to": "cancelled", "label": "Annuler", "required_roles": ["DPROJ", "DO"]},
+            ],
+        },
+        {
+            "slug": "ads-workflow",
+            "legacy_slugs": ["ads"],
+            "name": "Avis de Séjour",
+            "entity_type": "ads",
+            "states": [
+                "draft", "submitted",
+                "pending_initiator_review", "pending_project_review",
+                "pending_compliance", "pending_validation",
+                "pending_arbitration", "approved", "rejected", "cancelled",
+                "requires_review", "in_progress", "completed",
+            ],
+            "transitions": [
+                {"from": "draft", "to": "submitted", "label": "Soumettre", "required_permission": "paxlog.ads.submit"},
+                {"from": "draft", "to": "cancelled", "label": "Annuler", "required_permission": "paxlog.ads.cancel"},
+                {"from": "submitted", "to": "pending_initiator_review", "label": "Vers validation initiateur"},
+                {"from": "pending_initiator_review", "to": "pending_project_review", "label": "Valider"},
+                {"from": "pending_initiator_review", "to": "pending_compliance", "label": "Valider"},
+                {"from": "pending_initiator_review", "to": "pending_validation", "label": "Valider"},
+                {"from": "pending_initiator_review", "to": "cancelled", "label": "Annuler", "comment_required": True},
+                {"from": "submitted", "to": "pending_project_review", "label": "Vers validation projet"},
+                {"from": "pending_project_review", "to": "pending_compliance", "label": "Valider"},
+                {"from": "pending_project_review", "to": "pending_validation", "label": "Valider"},
+                {"from": "pending_project_review", "to": "rejected", "label": "Rejeter", "comment_required": True},
+                {"from": "submitted", "to": "pending_compliance", "label": "Vers vérification compliance"},
+                {"from": "submitted", "to": "pending_validation", "label": "Soumettre sans blocage compliance"},
+                {"from": "pending_compliance", "to": "pending_validation", "label": "Conforme"},
+                {"from": "pending_compliance", "to": "rejected", "label": "Non conforme", "comment_required": True},
+                {"from": "pending_validation", "to": "approved", "label": "Approuver"},
+                {"from": "pending_validation", "to": "rejected", "label": "Rejeter", "comment_required": True},
+                {"from": "pending_validation", "to": "pending_arbitration", "label": "Escalader"},
+                {"from": "pending_arbitration", "to": "approved", "label": "Approuver (DO)"},
+                {"from": "pending_arbitration", "to": "rejected", "label": "Rejeter (DO)", "comment_required": True},
+                {"from": "approved", "to": "in_progress", "label": "Démarrer"},
+                {"from": "approved", "to": "requires_review", "label": "Demander révision"},
+                {"from": "approved", "to": "cancelled", "label": "Annuler"},
+                {"from": "in_progress", "to": "completed", "label": "Terminer"},
+                {"from": "in_progress", "to": "requires_review", "label": "Demander révision"},
+                {"from": "requires_review", "to": "pending_validation", "label": "Re-soumettre"},
+                {"from": "requires_review", "to": "cancelled", "label": "Annuler"},
+                {"from": "requires_review", "to": "submitted", "label": "Re-soumettre à l'étape nominale"},
+            ],
+        },
+        {
+            "slug": "planner-activity",
+            "legacy_slugs": ["planner_activity"],
+            "name": "Planner Activity",
+            "entity_type": "planner_activity",
+            "states": ["draft", "submitted", "approved", "rejected", "cancelled", "in_progress", "completed"],
+            "transitions": [
+                {"from": "draft", "to": "submitted", "label": "Soumettre"},
+                {"from": "draft", "to": "cancelled", "label": "Annuler"},
+                {"from": "submitted", "to": "approved", "label": "Approuver", "required_roles": ["CDS", "DPROD"]},
+                {"from": "submitted", "to": "rejected", "label": "Rejeter", "comment_required": True, "required_roles": ["CDS", "DPROD"]},
+                {"from": "approved", "to": "in_progress", "label": "Démarrer"},
+                {"from": "approved", "to": "cancelled", "label": "Annuler", "required_roles": ["CDS", "DPROD", "DO"]},
+                {"from": "in_progress", "to": "completed", "label": "Terminer"},
+                {"from": "rejected", "to": "draft", "label": "Réviser"},
+            ],
+        },
+        {
+            "slug": "voyage-workflow",
+            "legacy_slugs": [],
+            "name": "TravelWiz Voyage",
+            "entity_type": "voyage",
+            "states": ["planned", "confirmed", "boarding", "departed", "delayed", "arrived", "closed", "cancelled"],
+            "transitions": [
+                {"from": "planned", "to": "confirmed", "label": "Confirmer"},
+                {"from": "planned", "to": "cancelled", "label": "Annuler"},
+                {"from": "confirmed", "to": "boarding", "label": "Embarquement"},
+                {"from": "confirmed", "to": "delayed", "label": "Retarder"},
+                {"from": "confirmed", "to": "cancelled", "label": "Annuler"},
+                {"from": "boarding", "to": "departed", "label": "Départ"},
+                {"from": "boarding", "to": "cancelled", "label": "Annuler"},
+                {"from": "departed", "to": "arrived", "label": "Arrivée"},
+                {"from": "departed", "to": "delayed", "label": "Retarder"},
+                {"from": "delayed", "to": "confirmed", "label": "Reconfirmer"},
+                {"from": "delayed", "to": "boarding", "label": "Embarquement"},
+                {"from": "delayed", "to": "departed", "label": "Départ"},
+                {"from": "delayed", "to": "cancelled", "label": "Annuler"},
+                {"from": "arrived", "to": "closed", "label": "Clôturer"},
+            ],
+        },
+    ]
+
+
+async def _sync_default_workflow_definition(db: AsyncSession, *, entity_id: UUID, definition_data: dict) -> None:
+    lookup_slugs = [definition_data["slug"], *definition_data.get("legacy_slugs", [])]
+    result = await db.execute(
+        select(WorkflowDefinition).where(
+            WorkflowDefinition.entity_id == entity_id,
+            WorkflowDefinition.slug.in_(lookup_slugs),
+        ).order_by(WorkflowDefinition.created_at)
+    )
+    definition = result.scalars().first()
+    if not definition:
+        db.add(WorkflowDefinition(
+            entity_id=entity_id,
+            slug=definition_data["slug"],
+            name=definition_data["name"],
+            entity_type=definition_data["entity_type"],
+            states=definition_data["states"],
+            transitions=definition_data["transitions"],
+            status="published",
+        ))
+        logger.info("Seed: created workflow definition '%s'", definition_data["slug"])
+        return
+
+    changed = False
+    for field, value in (
+        ("slug", definition_data["slug"]),
+        ("name", definition_data["name"]),
+        ("entity_type", definition_data["entity_type"]),
+        ("states", definition_data["states"]),
+        ("transitions", definition_data["transitions"]),
+        ("status", "published"),
+        ("active", True),
+    ):
+        if getattr(definition, field) != value:
+            setattr(definition, field, value)
+            changed = True
+    if changed:
+        logger.info("Seed: synced workflow definition '%s'", definition_data["slug"])
+
+
 async def seed_dev_data(db: AsyncSession) -> None:
     """Seed development data — idempotent."""
 
@@ -180,102 +323,12 @@ async def seed_dev_data(db: AsyncSession) -> None:
         logger.info("Seed: created sample assets")
 
     # ── Workflow definitions ─────────────────────────────────────
-    workflows = [
-        {
-            "slug": "project",
-            "name": "Project Lifecycle",
-            "entity_type": "project",
-            "states": ["draft", "active", "on_hold", "completed", "cancelled"],
-            "transitions": [
-                {"from": "draft", "to": "active", "label": "Activer", "required_roles": ["CHEF_PROJET", "DPROJ"]},
-                {"from": "draft", "to": "cancelled", "label": "Annuler"},
-                {"from": "active", "to": "on_hold", "label": "Mettre en pause", "required_roles": ["CHEF_PROJET", "DPROJ"]},
-                {"from": "active", "to": "completed", "label": "Terminer", "required_roles": ["CHEF_PROJET", "DPROJ"]},
-                {"from": "active", "to": "cancelled", "label": "Annuler", "required_roles": ["DPROJ", "DO"]},
-                {"from": "on_hold", "to": "active", "label": "Reprendre", "required_roles": ["CHEF_PROJET", "DPROJ"]},
-                {"from": "on_hold", "to": "cancelled", "label": "Annuler", "required_roles": ["DPROJ", "DO"]},
-            ],
-        },
-        {
-            "slug": "ads",
-            "name": "Avis de Séjour",
-            "entity_type": "ads",
-            "states": [
-                "draft", "submitted",
-                "pending_initiator_review", "pending_project_review",
-                "pending_compliance", "pending_validation",
-                "pending_arbitration", "approved", "rejected", "cancelled",
-                "requires_review", "in_progress", "completed",
-            ],
-            "transitions": [
-                # Draft
-                {"from": "draft", "to": "submitted", "label": "Soumettre"},
-                {"from": "draft", "to": "cancelled", "label": "Annuler"},
-                # Step 0-A: initiator review (when created_by != requester_id)
-                {"from": "submitted", "to": "pending_initiator_review", "label": "Vers validation initiateur"},
-                {"from": "pending_initiator_review", "to": "pending_project_review", "label": "Valider", "required_roles": ["READER"]},
-                {"from": "pending_initiator_review", "to": "cancelled", "label": "Annuler", "comment_required": True},
-                # Step 0-B: project review (when linked to a project)
-                {"from": "submitted", "to": "pending_project_review", "label": "Vers validation projet"},
-                {"from": "pending_project_review", "to": "pending_compliance", "label": "Valider", "required_roles": ["CHEF_PROJET"]},
-                {"from": "pending_project_review", "to": "rejected", "label": "Rejeter", "comment_required": True, "required_roles": ["CHEF_PROJET"]},
-                # Standard flow
-                {"from": "submitted", "to": "pending_compliance", "label": "Vers vérification compliance"},
-                {"from": "pending_compliance", "to": "pending_validation", "label": "Conforme", "required_roles": ["HSE_ADMIN", "HSE_ADMIN"]},
-                {"from": "pending_compliance", "to": "rejected", "label": "Non conforme", "comment_required": True, "required_roles": ["HSE_ADMIN", "HSE_ADMIN"]},
-                {"from": "pending_validation", "to": "approved", "label": "Approuver", "required_roles": ["CDS", "DPROD"]},
-                {"from": "pending_validation", "to": "rejected", "label": "Rejeter", "comment_required": True, "required_roles": ["CDS", "DPROD"]},
-                {"from": "pending_validation", "to": "pending_arbitration", "label": "Escalader au DO", "required_roles": ["CDS", "DPROD"]},
-                # DO arbitrage
-                {"from": "pending_arbitration", "to": "approved", "label": "Approuver (DO)", "required_roles": ["DO"]},
-                {"from": "pending_arbitration", "to": "rejected", "label": "Rejeter (DO)", "comment_required": True, "required_roles": ["DO"]},
-                # Post-approval
-                {"from": "approved", "to": "in_progress", "label": "Démarrer"},
-                {"from": "approved", "to": "requires_review", "label": "Demander révision"},
-                {"from": "approved", "to": "cancelled", "label": "Annuler", "required_roles": ["CDS", "DPROD", "DO"]},
-                {"from": "in_progress", "to": "completed", "label": "Terminer"},
-                {"from": "in_progress", "to": "requires_review", "label": "Demander révision"},
-                # Review loop
-                {"from": "requires_review", "to": "pending_validation", "label": "Re-soumettre"},
-                {"from": "requires_review", "to": "cancelled", "label": "Annuler"},
-            ],
-        },
-        {
-            "slug": "planner_activity",
-            "name": "Planner Activity",
-            "entity_type": "activity",
-            "states": ["draft", "submitted", "approved", "rejected", "cancelled", "in_progress", "completed"],
-            "transitions": [
-                {"from": "draft", "to": "submitted", "label": "Soumettre"},
-                {"from": "draft", "to": "cancelled", "label": "Annuler"},
-                {"from": "submitted", "to": "approved", "label": "Approuver", "required_roles": ["CDS", "DPROD"]},
-                {"from": "submitted", "to": "rejected", "label": "Rejeter", "comment_required": True, "required_roles": ["CDS", "DPROD"]},
-                {"from": "approved", "to": "in_progress", "label": "Démarrer"},
-                {"from": "approved", "to": "cancelled", "label": "Annuler", "required_roles": ["CDS", "DPROD", "DO"]},
-                {"from": "in_progress", "to": "completed", "label": "Terminer"},
-                {"from": "rejected", "to": "draft", "label": "Réviser"},
-            ],
-        },
-    ]
-
-    for wf in workflows:
-        result = await db.execute(
-            select(WorkflowDefinition).where(
-                WorkflowDefinition.slug == wf["slug"],
-                WorkflowDefinition.entity_id == entity.id,
-            )
+    for workflow_definition in _default_workflow_definitions():
+        await _sync_default_workflow_definition(
+            db,
+            entity_id=entity.id,
+            definition_data=workflow_definition,
         )
-        if not result.scalar_one_or_none():
-            db.add(WorkflowDefinition(
-                entity_id=entity.id,
-                slug=wf["slug"],
-                name=wf["name"],
-                entity_type=wf["entity_type"],
-                states=wf["states"],
-                transitions=wf["transitions"],
-                status="published",
-            ))
-            logger.info("Seed: created workflow definition '%s'", wf["slug"])
 
     # ── Sample test users with different roles ─────────────────
     test_users = [

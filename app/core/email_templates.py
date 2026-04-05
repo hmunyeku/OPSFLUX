@@ -49,6 +49,51 @@ _jinja_env = Environment(
 
 DEFAULT_TEMPLATES: list[dict] = [
     {
+        "slug": "paxlog_external_link_otp",
+        "name": "PaxLog - OTP portail externe",
+        "description": "Envoyé pour transmettre le lien externe PaxLog et le code OTP associé.",
+        "object_type": "ads",
+        "variables_schema": {
+            "otp_code": "Code OTP à usage unique",
+            "external_link_url": "Lien du portail externe",
+            "otp_expires_minutes": "Durée de validité du code OTP en minutes",
+            "ads.reference": "Référence de l'AdS",
+            "ads.visit_purpose": "Objet de la visite",
+            "ads.start_date": "Date de début",
+            "ads.end_date": "Date de fin",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — Code OTP et lien d'accès pour {{ ads.reference }}",
+                "body_html": (
+                    "<p>Bonjour,</p>"
+                    "<p>Vous avez reçu un accès sécurisé au portail externe OpsFlux pour l'AdS <strong>{{ ads.reference }}</strong>.</p>"
+                    "<p>Objet : {{ ads.visit_purpose }}</p>"
+                    "<p>Période : {{ ads.start_date }} au {{ ads.end_date }}</p>"
+                    "<p>Votre code OTP est :</p>"
+                    "<p><strong style='font-size:20px'>{{ otp_code }}</strong></p>"
+                    "<p>Utilisez ensuite ce lien :</p>"
+                    '<p><a href="{{ external_link_url }}">{{ external_link_url }}</a></p>'
+                    "<p>Le code expire dans {{ otp_expires_minutes }} minutes.</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — OTP code and access link for {{ ads.reference }}",
+                "body_html": (
+                    "<p>Hello,</p>"
+                    "<p>You have received secure access to the OpsFlux external portal for AdS <strong>{{ ads.reference }}</strong>.</p>"
+                    "<p>Purpose: {{ ads.visit_purpose }}</p>"
+                    "<p>Period: {{ ads.start_date }} to {{ ads.end_date }}</p>"
+                    "<p>Your OTP code is:</p>"
+                    "<p><strong style='font-size:20px'>{{ otp_code }}</strong></p>"
+                    "<p>Then use this link:</p>"
+                    '<p><a href="{{ external_link_url }}">{{ external_link_url }}</a></p>'
+                    "<p>This code expires in {{ otp_expires_minutes }} minutes.</p>"
+                ),
+            },
+        },
+    },
+    {
         "slug": "email_verification",
         "name": "Vérification d'adresse email",
         "description": "Envoyé quand un utilisateur ajoute une nouvelle adresse email.",

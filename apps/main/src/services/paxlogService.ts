@@ -383,6 +383,8 @@ export interface AdsPax {
   pax_badge?: string | null
   pax_type?: string | null
   pax_company_name?: string | null
+  pax_email?: string | null
+  pax_phone?: string | null
   compliant?: boolean | null
 }
 
@@ -441,6 +443,8 @@ export interface AdsExternalLink {
 export interface AdsExternalLinkCreate {
   otp_required?: boolean
   otp_sent_to?: string | null
+  recipient_user_id?: string | null
+  recipient_contact_id?: string | null
   expires_hours?: number
   max_uses?: number
 }

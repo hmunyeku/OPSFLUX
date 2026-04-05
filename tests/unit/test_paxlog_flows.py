@@ -790,6 +790,7 @@ async def test_create_external_link_denies_non_owner_without_approve(monkeypatch
     with pytest.raises(HTTPException) as exc:
         await paxlog.create_external_link(
             ads.id,
+            body=paxlog.ExternalLinkCreateBody(),
             entity_id=ads.entity_id,
             current_user=SimpleNamespace(id=outsider_id),
             _=None,
@@ -811,11 +812,22 @@ async def test_create_external_link_returns_external_portal_url(monkeypatch):
     async def fake_record_audit(*args, **kwargs):
         audit_calls.append((args, kwargs))
 
+    async def fake_resolve_destination(_db, *, ads_id, body):
+        assert ads_id == ads.id
+        assert body.max_uses == 3
+        return "contractor@example.com", {
+            "source": "ads_pax",
+            "recipient_label": "Jean Dupont",
+            "effective_channel": "email",
+        }
+
     monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+    monkeypatch.setattr(paxlog, "_resolve_external_link_destination", fake_resolve_destination)
     monkeypatch.setattr(paxlog.settings, "APP_URL", "https://app.opsflux.io")
 
     response = await paxlog.create_external_link(
         ads.id,
+        body=paxlog.ExternalLinkCreateBody(max_uses=3),
         entity_id=ads.entity_id,
         current_user=current_user,
         _=None,
@@ -824,7 +836,119 @@ async def test_create_external_link_returns_external_portal_url(monkeypatch):
 
     assert response["token"]
     assert response["url"] == f"https://ext.opsflux.io/?token={response['token']}"
+    assert response["otp_sent_to"] == "contractor@example.com"
+    assert response["max_uses"] == 3
     assert audit_calls
+
+
+@pytest.mark.asyncio
+async def test_create_external_link_uses_selected_recipient_destination(monkeypatch):
+    ads = _build_ads(status="approved")
+    current_user = SimpleNamespace(id=ads.requester_id)
+    selected_contact_id = uuid4()
+    db = FakeDB([FakeResult(scalar_one_or_none=ads)])
+
+    captured = {}
+
+    async def fake_record_audit(*args, **kwargs):
+        return None
+
+    async def fake_resolve_destination(_db, *, ads_id, body):
+        captured["recipient_contact_id"] = body.recipient_contact_id
+        captured["otp_required"] = body.otp_required
+        return "vendor@example.com", {"source": "ads_pax"}
+
+    monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+    monkeypatch.setattr(paxlog, "_resolve_external_link_destination", fake_resolve_destination)
+
+    response = await paxlog.create_external_link(
+        ads.id,
+        body=paxlog.ExternalLinkCreateBody(recipient_contact_id=selected_contact_id),
+        entity_id=ads.entity_id,
+        current_user=current_user,
+        _=None,
+        db=db,
+    )
+
+    assert response["otp_sent_to"] == "vendor@example.com"
+    assert captured["recipient_contact_id"] == selected_contact_id
+    assert captured["otp_required"] is True
+
+
+@pytest.mark.asyncio
+async def test_list_ads_pax_exposes_contact_channels(monkeypatch):
+    ads = _build_ads(status="approved")
+    user_id = uuid4()
+    contact_id = uuid4()
+    db = FakeDBWithGet(
+        [
+            FakeResult(scalar_one_or_none=ads),
+            FakeResult(all_rows=[
+                SimpleNamespace(
+                    id=uuid4(),
+                    ads_id=ads.id,
+                    user_id=user_id,
+                    contact_id=None,
+                    status="pending",
+                    compliance_summary=None,
+                    priority_score=0,
+                ),
+                SimpleNamespace(
+                    id=uuid4(),
+                    ads_id=ads.id,
+                    user_id=None,
+                    contact_id=contact_id,
+                    status="pending",
+                    compliance_summary=None,
+                    priority_score=0,
+                ),
+            ]),
+        ],
+        get_map={
+            (paxlog.User, user_id): SimpleNamespace(
+                id=user_id,
+                first_name="Alice",
+                last_name="User",
+                badge_number="U-1",
+                pax_type="internal",
+                email="alice@example.com",
+            ),
+            (paxlog.TierContact, contact_id): SimpleNamespace(
+                id=contact_id,
+                first_name="Bob",
+                last_name="Contact",
+                tier_id=uuid4(),
+                badge_number="C-1",
+                email="bob@example.com",
+                phone="+243000000000",
+            ),
+        },
+    )
+
+    async def fake_assert_ads_read_access(*args, **kwargs):
+        return None
+
+    async def fake_resolve_user_contact(_db, _user_id, channel):
+        return "alice@example.com" if channel == "email" else "+243111111111"
+
+    monkeypatch.setattr(paxlog, "_assert_ads_read_access", fake_assert_ads_read_access)
+    monkeypatch.setattr("app.core.sms_service.resolve_user_contact", fake_resolve_user_contact)
+
+    items = await paxlog.list_ads_pax(
+        ads.id,
+        entity_id=ads.entity_id,
+        current_user=SimpleNamespace(id=ads.requester_id),
+        _=None,
+        db=db,
+    )
+
+    user_item = next(item for item in items if item["user_id"] == str(user_id))
+    contact_item = next(item for item in items if item["contact_id"] == str(contact_id))
+
+    assert user_item["pax_email"] == "alice@example.com"
+    assert user_item["pax_phone"] == "+243111111111"
+    assert contact_item["pax_email"] == "bob@example.com"
+    assert contact_item["pax_phone"] == "+243000000000"
 
 
 @pytest.mark.asyncio
@@ -3136,8 +3260,11 @@ async def test_access_external_link_exposes_preconfigured_data_with_valid_sessio
 
 @pytest.mark.asyncio
 async def test_send_external_link_otp_sets_code_and_masks_destination(monkeypatch):
+    ads = _build_ads()
     link = SimpleNamespace(
         otp_required=True,
+        ads_id=ads.id,
+        token="token-otp",
         otp_sent_to="contractor@example.com",
         otp_code_hash=None,
         otp_expires_at=None,
@@ -3147,27 +3274,42 @@ async def test_send_external_link_otp_sets_code_and_masks_destination(monkeypatc
         access_log=[],
     )
     sent_messages = []
+    template_calls = []
 
     async def fake_get_link(_db, _token):
         return link
+
+    async def fake_render_and_send_email(db, slug, entity_id, language, to, variables):
+        template_calls.append({
+            "slug": slug,
+            "entity_id": entity_id,
+            "language": language,
+            "to": to,
+            "variables": variables,
+        })
+        return True
 
     async def fake_send_email(*, to, subject, body_html):
         sent_messages.append({"to": to, "subject": subject, "body_html": body_html})
 
     monkeypatch.setattr(paxlog, "_get_external_link_or_404", fake_get_link)
+    monkeypatch.setattr("app.core.email_templates.render_and_send_email", fake_render_and_send_email)
     monkeypatch.setattr("app.core.notifications.send_email", fake_send_email)
     monkeypatch.setattr(paxlog.secrets, "randbelow", lambda _max: 123456)
 
     response = await paxlog.send_external_link_otp(
         "token-otp",
         request=SimpleNamespace(client=SimpleNamespace(host="127.0.0.1"), headers={"user-agent": "pytest"}),
-        db=FakeDB([]),
+        db=FakeDBWithGet([], get_map={(paxlog.Ads, ads.id): ads}),
     )
 
     assert response["otp_required"] is True
     assert response["destination_masked"] == "co********@example.com"
     assert response["expires_in_seconds"] == paxlog.EXTERNAL_OTP_TTL_MINUTES * 60
-    assert sent_messages and "123456" in sent_messages[0]["body_html"]
+    assert not sent_messages
+    assert template_calls and template_calls[0]["slug"] == "paxlog_external_link_otp"
+    assert template_calls[0]["variables"]["otp_code"] == "123456"
+    assert template_calls[0]["variables"]["external_link_url"].endswith("token-otp")
     assert link.otp_code_hash == paxlog._hash_secret("123456")
     assert link.otp_attempt_count == 0
     assert link.session_token_hash is None

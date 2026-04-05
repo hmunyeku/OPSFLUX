@@ -1693,8 +1693,12 @@
         "request_stay_change": "Modifier le séjour"
       },
       "external_link": {
-        "prompt": "Email ou numéro WhatsApp pour recevoir le code OTP",
-        "missing_destination": "Le lien externe OTP exige un email ou un numéro WhatsApp."
+        "title": "Destinataire du lien externe",
+        "description": "OpsFlux enverra automatiquement le lien et le code OTP au PAX sélectionné, selon la configuration de canal définie dans l'administration.",
+        "recipient_label": "PAX destinataire",
+        "channel_hint": "Le canal effectif utilisé est déterminé par la configuration OTP admin et les coordonnées disponibles du PAX.",
+        "confirm": "Créer et ouvrir le lien",
+        "no_recipient": "Aucun PAX de cette AdS ne dispose d'un email ou d'un numéro exploitable pour l'OTP."
       },
       "reject": {
         "reason_title": "Motif de rejet",

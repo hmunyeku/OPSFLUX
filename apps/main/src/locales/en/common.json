@@ -1692,8 +1692,12 @@
         "request_stay_change": "Change stay"
       },
       "external_link": {
-        "prompt": "Email or WhatsApp number to receive the OTP code",
-        "missing_destination": "An OTP external link requires an email or WhatsApp number."
+        "title": "External link recipient",
+        "description": "OpsFlux will automatically send the external link and OTP code to the selected PAX, using the OTP channel configured in administration.",
+        "recipient_label": "Recipient PAX",
+        "channel_hint": "The effective channel is determined by the admin OTP configuration and the contact details available for the selected PAX.",
+        "confirm": "Create and open link",
+        "no_recipient": "No PAX on this AdS has a usable email address or phone number for OTP delivery."
       },
       "reject": {
         "reason_title": "Rejection reason",

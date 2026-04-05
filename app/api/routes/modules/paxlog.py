@@ -17,11 +17,12 @@ from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Request, status
 from pydantic import BaseModel
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, has_user_permission, require_permission
 from app.core.audit import record_audit
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.pagination import PaginationParams, paginate
 from app.core.references import generate_reference
@@ -62,6 +63,7 @@ from app.schemas.paxlog import (
     AdsCreate,
     AdsImputationSuggestionRead,
     AdsEventRead,
+    AdsManualDepartureRequest,
     AdsPaxEntry,
     AdsRead,
     AdsStayChangeRequest,
@@ -83,16 +85,20 @@ from app.schemas.paxlog import (
     PaxCredentialCreate,
     PaxCredentialRead,
     PaxCredentialValidate,
+    PaxGroupRead,
     PaxIncidentCreate,
     PaxIncidentRead,
     PaxIncidentResolve,
     PaxProfileRead,
     AdsPaxDecision,
     PaxProfileSummary,
+    PaxSitePresenceRead,
     PaxProfileUpdate,
+    RotationCycleRead,
 )
 from app.schemas.common import PaginatedResponse
 from app.services.core.fsm_service import fsm_service, FSMError, FSMPermissionError
+from app.services.modules import paxlog_service
 
 router = APIRouter(prefix="/api/v1/pax", tags=["paxlog"])
 logger = logging.getLogger(__name__)
@@ -104,12 +110,119 @@ EXTERNAL_SESSION_TTL_MINUTES = 30
 EXTERNAL_OTP_MAX_ATTEMPTS = 3
 
 
+def _build_external_portal_url(token: str) -> str:
+    return f"{settings.external_paxlog_url}/?token={token}"
+
+
 def _json_safe(value: object | None) -> object | None:
     if isinstance(value, (date, datetime)):
         return value.isoformat()
     if isinstance(value, UUID):
         return str(value)
     return value
+
+
+def _transport_mode_requires_travelwiz(mode: str | None) -> bool:
+    normalized = (mode or "").strip().lower()
+    return normalized not in {"", "walking"}
+
+
+def _build_ads_transport_flags(ads: Ads) -> dict[str, bool]:
+    outbound_requested = _transport_mode_requires_travelwiz(ads.outbound_transport_mode)
+    return_requested = _transport_mode_requires_travelwiz(ads.return_transport_mode)
+    return {
+        "outbound_transport_requested": outbound_requested,
+        "return_transport_requested": return_requested,
+        "transport_requested": outbound_requested or return_requested,
+    }
+
+
+def _classify_ads_stay_change(
+    *,
+    previous_start: date | None,
+    previous_end: date | None,
+    final_start: date | None,
+    final_end: date | None,
+    changed_fields: dict[str, dict[str, object | None]],
+) -> tuple[list[str], str | None]:
+    change_kinds: list[str] = []
+
+    if final_end and previous_end:
+        if final_end > previous_end:
+            change_kinds.append("extension")
+        elif final_end < previous_end:
+            change_kinds.append("early_return")
+
+    window_fields = {"start_date", "end_date"}
+    if (
+        any(field in changed_fields for field in window_fields)
+        and not any(kind in change_kinds for kind in {"extension", "early_return"})
+    ):
+        change_kinds.append("window_change")
+
+    transport_fields = {
+        "outbound_transport_mode",
+        "outbound_departure_base_id",
+        "outbound_notes",
+        "return_transport_mode",
+        "return_departure_base_id",
+        "return_notes",
+    }
+    if any(field in changed_fields for field in transport_fields):
+        change_kinds.append("transport_change")
+
+    return change_kinds, (change_kinds[0] if change_kinds else None)
+
+
+def _incident_row_to_read(row) -> PaxIncidentRead:
+    incident = row[0] if isinstance(row, tuple) else row.PaxIncident
+    user_first_name = row[1] if len(row) > 1 else None
+    user_last_name = row[2] if len(row) > 2 else None
+    contact_first_name = row[3] if len(row) > 3 else None
+    contact_last_name = row[4] if len(row) > 4 else None
+    company_name = row[5] if len(row) > 5 else None
+    group_name = row[6] if len(row) > 6 else None
+    asset_name = row[7] if len(row) > 7 else None
+    return PaxIncidentRead(
+        id=incident.id,
+        entity_id=incident.entity_id,
+        user_id=incident.user_id,
+        contact_id=incident.contact_id,
+        company_id=incident.company_id,
+        pax_group_id=getattr(incident, "pax_group_id", None),
+        asset_id=incident.asset_id,
+        severity=incident.severity,
+        description=incident.description,
+        incident_date=incident.incident_date,
+        ban_start_date=incident.ban_start_date,
+        ban_end_date=incident.ban_end_date,
+        recorded_by=incident.recorded_by,
+        resolved_at=incident.resolved_at,
+        resolved_by=incident.resolved_by,
+        resolution_notes=incident.resolution_notes,
+        created_at=incident.created_at,
+        reference=getattr(incident, "reference", None),
+        category=getattr(incident, "category", None),
+        decision=getattr(incident, "decision", None),
+        decision_duration_days=getattr(incident, "decision_duration_days", None),
+        decision_end_date=getattr(incident, "decision_end_date", None),
+        evidence_urls=getattr(incident, "evidence_urls", None),
+        pax_first_name=user_first_name or contact_first_name,
+        pax_last_name=user_last_name or contact_last_name,
+        company_name=company_name,
+        group_name=group_name,
+        asset_name=asset_name,
+    )
+
+
+def _expiring_alert_bucket(days_remaining: int) -> str:
+    if days_remaining <= 0:
+        return "j0"
+    if days_remaining <= 7:
+        return "j7"
+    if days_remaining <= 30:
+        return "j30"
+    return "future"
 
 
 async def _require_ads_approve_or_project_update(
@@ -694,6 +807,43 @@ def _normalize_name(name: str) -> str:
     return re.sub(r"[^a-z0-9 ]", "", ascii_str.lower()).strip()
 
 
+def _phonetic_name_key(name: str) -> str:
+    normalized = _normalize_name(name).replace(" ", "")
+    if not normalized:
+        return ""
+    normalized = (
+        normalized.replace("ph", "f")
+        .replace("ck", "k")
+        .replace("qu", "k")
+        .replace("ou", "u")
+        .replace("x", "s")
+    )
+    first = normalized[0]
+    tail = re.sub(r"[aeiouyhw]", "", normalized[1:])
+    tail = re.sub(r"(.)\1+", r"\1", tail)
+    return f"{first}{tail}"
+
+
+def _compare_pax_names(
+    first_name: str,
+    last_name: str,
+    candidate_first_name: str,
+    candidate_last_name: str,
+) -> str | None:
+    first_norm = _normalize_name(first_name)
+    last_norm = _normalize_name(last_name)
+    candidate_first_norm = _normalize_name(candidate_first_name)
+    candidate_last_norm = _normalize_name(candidate_last_name)
+    if first_norm == candidate_first_norm and last_norm == candidate_last_norm:
+        return "name_exact"
+    if (
+        _phonetic_name_key(first_name) == _phonetic_name_key(candidate_first_name)
+        and _phonetic_name_key(last_name) == _phonetic_name_key(candidate_last_name)
+    ):
+        return "name_phonetic"
+    return None
+
+
 def _compute_completeness(
     entity: User | TierContact,
     has_credentials: bool = False,
@@ -923,6 +1073,42 @@ async def list_profiles(
     }
 
 
+@router.get("/pax-groups", response_model=list[PaxGroupRead])
+async def list_pax_groups(
+    company_id: UUID | None = None,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.profile.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """List PAX groups visible in the current entity."""
+    query = (
+        select(PaxGroup, Tier.name.label("company_name"))
+        .outerjoin(Tier, Tier.id == PaxGroup.company_id)
+        .where(PaxGroup.entity_id == entity_id)
+        .order_by(PaxGroup.name)
+    )
+    linked_tier_ids = await _get_external_user_tier_ids(db, current_user, entity_id)
+    if linked_tier_ids is not None:
+        query = query.where(or_(PaxGroup.company_id == None, PaxGroup.company_id.in_(linked_tier_ids)))  # noqa: E711
+    if company_id:
+        await _assert_external_tier_access(db, current_user, entity_id, company_id)
+        query = query.where(PaxGroup.company_id == company_id)
+
+    result = await db.execute(query)
+    return [
+        PaxGroupRead(
+            id=group.id,
+            entity_id=group.entity_id,
+            name=group.name,
+            company_id=group.company_id,
+            company_name=company_name,
+            active=group.active,
+        )
+        for group, company_name in result.all()
+    ]
+
+
 class _ExternalPaxCreate(BaseModel):
     """Body to create an external PAX (TierContact)."""
     first_name: str
@@ -949,9 +1135,6 @@ async def create_profile(
     """Create an external PAX (TierContact). Internal PAX are created via user management."""
     await _assert_external_tier_access(db, current_user, entity_id, body.company_id)
     # ── Duplicate detection ──
-    fn_norm = _normalize_name(body.first_name)
-    ln_norm = _normalize_name(body.last_name)
-
     dup_query = (
         select(TierContact.id, TierContact.first_name, TierContact.last_name, TierContact.badge_number)
         .join(Tier, Tier.id == TierContact.tier_id)
@@ -963,7 +1146,7 @@ async def create_profile(
     dup_result = await db.execute(dup_query)
     duplicates = [
         d for d in dup_result.all()
-        if _normalize_name(d.first_name) == fn_norm and _normalize_name(d.last_name) == ln_norm
+        if _compare_pax_names(body.first_name, body.last_name, d.first_name, d.last_name)
     ]
 
     if duplicates:
@@ -1029,8 +1212,6 @@ async def check_profile_duplicates(
 
     Returns a list of similar profiles so the frontend can warn the user.
     """
-    fn_norm = _normalize_name(first_name)
-    ln_norm = _normalize_name(last_name)
     matches: list[dict] = []
 
     # ── Users with matching names ──
@@ -1042,7 +1223,8 @@ async def check_profile_duplicates(
         user_q = user_q.where(User.id == current_user.id)
     user_rows = (await db.execute(user_q)).all()
     for r in user_rows:
-        if _normalize_name(r.first_name) == fn_norm and _normalize_name(r.last_name) == ln_norm:
+        match_type = _compare_pax_names(first_name, last_name, r.first_name, r.last_name)
+        if match_type:
             matches.append({
                 "id": str(r.id),
                 "first_name": r.first_name,
@@ -1050,7 +1232,7 @@ async def check_profile_duplicates(
                 "birth_date": str(r.birth_date) if r.birth_date else None,
                 "badge_number": r.badge_number,
                 "pax_source": "user",
-                "match_type": "name_exact",
+                "match_type": match_type,
             })
 
     # ── TierContacts with matching names ──
@@ -1065,7 +1247,8 @@ async def check_profile_duplicates(
         contact_q = contact_q.where(TierContact.tier_id.in_(linked_tier_ids))
     contact_rows = (await db.execute(contact_q)).all()
     for r in contact_rows:
-        if _normalize_name(r.first_name) == fn_norm and _normalize_name(r.last_name) == ln_norm:
+        match_type = _compare_pax_names(first_name, last_name, r.first_name, r.last_name)
+        if match_type:
             matches.append({
                 "id": str(r.id),
                 "first_name": r.first_name,
@@ -1073,7 +1256,7 @@ async def check_profile_duplicates(
                 "birth_date": str(r.birth_date) if r.birth_date else None,
                 "badge_number": r.badge_number,
                 "pax_source": "contact",
-                "match_type": "name_exact",
+                "match_type": match_type,
             })
 
     # ── Badge number match (if provided and no name match found) ──
@@ -1137,6 +1320,83 @@ async def get_profile(
     if pax_source == "user":
         return _user_to_pax_read(entity, company_name)  # type: ignore[arg-type]
     return _contact_to_pax_read(entity, company_name)  # type: ignore[arg-type]
+
+
+@router.get("/profiles/{profile_id}/site-presence-history", response_model=list[PaxSitePresenceRead])
+async def get_profile_site_presence_history(
+    profile_id: UUID,
+    pax_source: str = Query("user", pattern=r"^(user|contact)$"),
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.profile.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the known on-site presence history for a PAX based on AdS participation."""
+    from sqlalchemy import text as sa_text
+
+    await _resolve_pax_identity(
+        db,
+        profile_id,
+        pax_source,
+        entity_id=entity_id,
+        current_user=current_user,
+    )
+
+    pax_filter = "ap.user_id = :profile_id" if pax_source == "user" else "ap.contact_id = :profile_id"
+    # Use raw SQL so we can join travel and site context without adding fake ORM models in PaxLog.
+    raw_result = await db.execute(
+        sa_text(
+            """
+        SELECT DISTINCT ON (a.id)
+            a.id,
+            a.reference,
+            a.status,
+            ap.status AS pax_status,
+            a.site_entry_asset_id,
+            site.name AS site_name,
+            a.start_date,
+            a.end_date,
+            a.visit_purpose,
+            a.visit_category,
+            mp.boarding_status,
+            mp.boarded_at,
+            a.approved_at,
+            CASE WHEN a.status = 'completed' THEN COALESCE(mp.boarded_at, a.updated_at) ELSE NULL END AS completed_at
+        FROM ads a
+        JOIN ads_pax ap ON ap.ads_id = a.id
+        LEFT JOIN ar_installations site ON site.id = a.site_entry_asset_id
+        LEFT JOIN manifest_passengers mp ON mp.ads_pax_id = ap.id AND mp.active = true
+        WHERE a.entity_id = :eid
+          AND """
+            + pax_filter
+            + """
+        ORDER BY a.id, mp.boarded_at DESC NULLS LAST, mp.created_at DESC NULLS LAST, a.start_date DESC
+        """
+        ),
+        {"eid": str(entity_id), "profile_id": str(profile_id)},
+    )
+
+    items = []
+    for row in raw_result.all():
+        items.append(
+            PaxSitePresenceRead(
+                ads_id=row[0],
+                ads_reference=row[1],
+                ads_status=row[2],
+                pax_status=row[3],
+                site_asset_id=row[4],
+                site_name=row[5],
+                start_date=row[6],
+                end_date=row[7],
+                visit_purpose=row[8],
+                visit_category=row[9],
+                boarding_status=row[10],
+                boarded_at=row[11],
+                approved_at=row[12],
+                completed_at=row[13],
+            )
+        )
+    return items
 
 
 @router.patch("/profiles/{profile_id}", response_model=PaxProfileRead)
@@ -1426,81 +1686,42 @@ async def check_compliance(
     db: AsyncSession = Depends(get_db),
 ):
     """Check a PAX's compliance against a specific asset's requirements."""
-    # Determine pax_type for scope filtering
-    if pax_source == "user":
-        u_result = await db.execute(select(User).where(User.id == profile_id))
-        pax_entity = u_result.scalar_one_or_none()
-        if not pax_entity:
-            raise HTTPException(status_code=404, detail="PAX user not found")
-        pax_type = pax_entity.pax_type
-    else:
-        c_result = await db.execute(select(TierContact).where(TierContact.id == profile_id))
-        pax_entity = c_result.scalar_one_or_none()
-        if not pax_entity:
-            raise HTTPException(status_code=404, detail="PAX contact not found")
-        pax_type = "external"
-
-    # Load matrix requirements for this asset
-    matrix_result = await db.execute(
-        select(ComplianceMatrixEntry)
-        .where(
-            ComplianceMatrixEntry.entity_id == entity_id,
-            ComplianceMatrixEntry.asset_id == asset_id,
-            ComplianceMatrixEntry.mandatory == True,
-        )
+    await _resolve_pax_identity(
+        db,
+        profile_id,
+        pax_source,
+        entity_id=entity_id,
+        current_user=current_user,
     )
-    requirements = matrix_result.scalars().all()
 
-    # Filter by scope
-    filtered_reqs = []
-    for req in requirements:
-        if req.scope == "all_visitors":
-            filtered_reqs.append(req)
-        elif req.scope == "contractors_only" and pax_type == "external":
-            filtered_reqs.append(req)
-        elif req.scope == "permanent_staff_only" and pax_type == "internal":
-            filtered_reqs.append(req)
-
-    # Load PAX credentials
-    creds_result = await db.execute(
-        select(PaxCredential).where(_cred_pax_filter(profile_id, pax_source))
+    compliance = await paxlog_service.check_pax_compliance(
+        db,
+        asset_id=asset_id,
+        entity_id=entity_id,
+        user_id=profile_id if pax_source == "user" else None,
+        contact_id=profile_id if pax_source == "contact" else None,
     )
-    credentials = {c.credential_type_id: c for c in creds_result.scalars().all()}
 
-    # Check each requirement
-    missing: list[str] = []
-    expired: list[str] = []
-    pending: list[str] = []
-
-    for req in filtered_reqs:
-        cred = credentials.get(req.credential_type_id)
-        if not cred:
-            ct_result = await db.execute(
-                select(CredentialType.name).where(CredentialType.id == req.credential_type_id)
-            )
-            ct_name = ct_result.scalar() or str(req.credential_type_id)
-            missing.append(ct_name)
-        elif cred.status == "expired" or (cred.expiry_date and cred.expiry_date < date.today()):
-            ct_result = await db.execute(
-                select(CredentialType.name).where(CredentialType.id == req.credential_type_id)
-            )
-            ct_name = ct_result.scalar() or str(req.credential_type_id)
-            expired.append(ct_name)
-        elif cred.status == "pending_validation":
-            ct_result = await db.execute(
-                select(CredentialType.name).where(CredentialType.id == req.credential_type_id)
-            )
-            ct_name = ct_result.scalar() or str(req.credential_type_id)
-            pending.append(ct_name)
+    results = compliance.get("results", [])
+    missing = [item["credential_type_name"] for item in results if item.get("status") == "missing"]
+    expired = [item["credential_type_name"] for item in results if item.get("status") == "expired"]
+    pending = [
+        item["credential_type_name"]
+        for item in results
+        if item.get("status") in {"pending", "pending_validation"}
+    ]
 
     return ComplianceCheckResult(
         user_id=profile_id if pax_source == "user" else None,
         contact_id=profile_id if pax_source == "contact" else None,
         asset_id=asset_id,
-        compliant=len(missing) == 0 and len(expired) == 0,
+        compliant=bool(compliance.get("compliant", False)),
         missing_credentials=missing,
         expired_credentials=expired,
         pending_credentials=pending,
+        results=results,
+        covered_layers=compliance.get("covered_layers", []),
+        summary_by_status=compliance.get("summary_by_status", {}),
     )
 
 
@@ -1694,6 +1915,8 @@ async def update_ads(
             detail="La date de fin doit être postérieure ou égale à la date de début.",
         )
 
+    previous_start = ads.start_date
+    previous_end = ads.end_date
     changed_fields: dict[str, dict[str, object | None]] = {}
     for field_name, value in update_data.items():
         previous = getattr(ads, field_name)
@@ -1767,6 +1990,8 @@ async def request_ads_stay_change(
             detail="La date de fin doit être postérieure ou égale à la date de début.",
         )
 
+    previous_start = ads.start_date
+    previous_end = ads.end_date
     changed_fields: dict[str, dict[str, object | None]] = {}
     for field_name, value in update_data.items():
         previous = getattr(ads, field_name)
@@ -1779,6 +2004,13 @@ async def request_ads_stay_change(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="La demande ne contient aucun changement effectif.",
         )
+    change_kinds, primary_change_kind = _classify_ads_stay_change(
+        previous_start=previous_start,
+        previous_end=previous_end,
+        final_start=final_start,
+        final_end=final_end,
+        changed_fields=changed_fields,
+    )
 
     from_state = ads.status
     await _try_ads_workflow_transition(
@@ -1801,7 +2033,11 @@ async def request_ads_stay_change(
         new_status="requires_review",
         actor_id=current_user.id,
         reason=body.reason,
-        metadata_json={"changes": changed_fields},
+        metadata_json={
+            "changes": changed_fields,
+            "change_kinds": change_kinds,
+            "primary_change_kind": primary_change_kind,
+        },
     ))
 
     await db.commit()
@@ -1814,7 +2050,12 @@ async def request_ads_stay_change(
         to_state="requires_review",
         actor_id=current_user.id,
         workflow_slug=ADS_WORKFLOW_SLUG,
-        extra_payload={"reason": body.reason, "changes": changed_fields},
+        extra_payload={
+            "reason": body.reason,
+            "changes": changed_fields,
+            "change_kinds": change_kinds,
+            "primary_change_kind": primary_change_kind,
+        },
     )
 
     await record_audit(
@@ -1830,6 +2071,8 @@ async def request_ads_stay_change(
             "to_status": "requires_review",
             "reason": body.reason,
             "changes": changed_fields,
+            "change_kinds": change_kinds,
+            "primary_change_kind": primary_change_kind,
         },
     )
     await db.commit()
@@ -1845,6 +2088,8 @@ async def request_ads_stay_change(
             "actor_id": str(current_user.id),
             "reason": body.reason,
             "changes": changed_fields,
+            "change_kinds": change_kinds,
+            "primary_change_kind": primary_change_kind,
         },
     ))
 
@@ -2321,7 +2566,7 @@ async def approve_ads(
             "end_date": str(ads.end_date),
             "outbound_transport_mode": ads.outbound_transport_mode,
             "return_transport_mode": ads.return_transport_mode,
-            "transport_requested": ads_requires_travelwiz_transport(ads.outbound_transport_mode),
+            **_build_ads_transport_flags(ads),
             "outbound_departure_base_id": str(ads.outbound_departure_base_id) if ads.outbound_departure_base_id else None,
             "requester_id": str(ads.requester_id),
             "reference": ads.reference,
@@ -2585,6 +2830,140 @@ async def cancel_ads(
     return ads
 
 
+@router.post("/ads/{ads_id}/manual-departure", response_model=AdsRead)
+async def complete_ads_manual_departure(
+    ads_id: UUID,
+    body: AdsManualDepartureRequest,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.ads.approve"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Complete an in-progress AdS from a manual OMAA departure declaration."""
+    result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
+    ads = result.scalar_one_or_none()
+    if not ads:
+        raise HTTPException(status_code=404, detail="AdS not found")
+
+    await paxlog_service.complete_ads_operationally(
+        db,
+        ads,
+        source="omaa.manual_departure",
+        actor_id=current_user.id,
+        reason=body.reason,
+    )
+    await record_audit(
+        db,
+        action="paxlog.ads.manual_departure",
+        resource_type="ads",
+        resource_id=str(ads.id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={"reference": ads.reference, "reason": body.reason},
+    )
+    await db.commit()
+    return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
+
+
+@router.post("/ads/{ads_id}/start-progress", response_model=AdsRead)
+async def start_ads_progress(
+    ads_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.ads.approve"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Move an approved AdS into operational execution."""
+    result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
+    ads = result.scalar_one_or_none()
+    if not ads:
+        raise HTTPException(status_code=404, detail="AdS not found")
+    if ads.status != "approved":
+        raise HTTPException(status_code=400, detail=f"Cannot start AdS with status '{ads.status}'")
+
+    from_state = ads.status
+    await _try_ads_workflow_transition(
+        db,
+        entity_id_str=str(ads.id),
+        to_state="in_progress",
+        actor_id=current_user.id,
+        entity_id_scope=entity_id,
+    )
+    ads.status = "in_progress"
+    db.add(AdsEvent(
+        entity_id=entity_id,
+        ads_id=ads.id,
+        event_type="in_progress",
+        old_status=from_state,
+        new_status="in_progress",
+        actor_id=current_user.id,
+    ))
+    await db.commit()
+    await db.refresh(ads)
+    await fsm_service.emit_transition_event(
+        entity_type=ADS_ENTITY_TYPE,
+        entity_id=str(ads.id),
+        from_state=from_state,
+        to_state="in_progress",
+        actor_id=current_user.id,
+        workflow_slug=ADS_WORKFLOW_SLUG,
+    )
+    await record_audit(
+        db,
+        action="paxlog.ads.start_progress",
+        resource_type="ads",
+        resource_id=str(ads.id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={"reference": ads.reference},
+    )
+    await db.commit()
+    from app.core.events import OpsFluxEvent, event_bus as _event_bus
+    await _event_bus.publish(OpsFluxEvent(
+        event_type="ads.in_progress",
+        payload={
+            "ads_id": str(ads.id),
+            "entity_id": str(entity_id),
+            "reference": ads.reference,
+            "requester_id": str(ads.requester_id),
+        },
+    ))
+    return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
+
+
+@router.post("/ads/{ads_id}/complete", response_model=AdsRead)
+async def complete_ads(
+    ads_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.ads.approve"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Manually complete an in-progress AdS."""
+    result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
+    ads = result.scalar_one_or_none()
+    if not ads:
+        raise HTTPException(status_code=404, detail="AdS not found")
+
+    await paxlog_service.complete_ads_operationally(
+        db,
+        ads,
+        source="paxlog.manual_completion",
+        actor_id=current_user.id,
+    )
+    await record_audit(
+        db,
+        action="paxlog.ads.complete",
+        resource_type="ads",
+        resource_id=str(ads.id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={"reference": ads.reference},
+    )
+    await db.commit()
+    return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
+
+
 @router.get("/ads/{ads_id}/events", response_model=list[AdsEventRead])
 async def list_ads_events(
     ads_id: UUID,
@@ -2704,6 +3083,8 @@ async def list_ads_pax(
     db: AsyncSession = Depends(get_db),
 ):
     """List PAX entries for an AdS with profile details (User + TierContact)."""
+    from app.core.sms_service import resolve_user_contact
+
     # Verify AdS
     ads_result = await db.execute(
         select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
@@ -2722,6 +3103,11 @@ async def list_ads_pax(
     for ads_pax in entries:
         if ads_pax.user_id:
             u = await db.get(User, ads_pax.user_id)
+            pax_email = None
+            pax_phone = None
+            if u:
+                pax_email = await resolve_user_contact(db, str(u.id), "email") or u.email
+                pax_phone = await resolve_user_contact(db, str(u.id), "sms")
             items.append({
                 "id": str(ads_pax.id),
                 "ads_id": str(ads_pax.ads_id),
@@ -2736,6 +3122,8 @@ async def list_ads_pax(
                 "pax_company_id": None,
                 "pax_badge": u.badge_number if u else None,
                 "pax_type": u.pax_type if u else "internal",
+                "pax_email": pax_email,
+                "pax_phone": pax_phone,
             })
         elif ads_pax.contact_id:
             c = await db.get(TierContact, ads_pax.contact_id)
@@ -2753,6 +3141,8 @@ async def list_ads_pax(
                 "pax_company_id": str(c.tier_id) if c else None,
                 "pax_badge": c.badge_number if c else None,
                 "pax_type": "external",
+                "pax_email": c.email if c else None,
+                "pax_phone": c.phone if c else None,
             })
 
     # Sort by last_name, first_name
@@ -2844,7 +3234,7 @@ async def decide_ads_pax(
                     "end_date": str(ads.end_date),
                     "outbound_transport_mode": ads.outbound_transport_mode,
                     "return_transport_mode": ads.return_transport_mode,
-                    "transport_requested": ads_requires_travelwiz_transport(ads.outbound_transport_mode),
+                    **_build_ads_transport_flags(ads),
                     "outbound_departure_base_id": str(ads.outbound_departure_base_id) if ads.outbound_departure_base_id else None,
                     "requester_id": str(ads.requester_id),
                     "reference": ads.reference,
@@ -3234,40 +3624,69 @@ async def create_incident(
     db: AsyncSession = Depends(get_db),
 ):
     """Record a PAX incident."""
-    incident = PaxIncident(
+    from app.services.modules.paxlog_service import create_signalement as svc_create
+
+    result = await svc_create(
+        db,
         entity_id=entity_id,
-        user_id=body.user_id,
-        contact_id=body.contact_id,
-        company_id=body.company_id,
-        asset_id=body.asset_id,
-        severity=body.severity,
-        description=body.description,
-        incident_date=body.incident_date,
-        ban_start_date=body.ban_start_date,
-        ban_end_date=body.ban_end_date,
-        recorded_by=current_user.id,
+        data={
+            "user_id": body.user_id,
+            "contact_id": body.contact_id,
+            "company_id": body.company_id,
+            "pax_group_id": body.pax_group_id,
+            "asset_id": body.asset_id,
+            "severity": body.severity,
+            "description": body.description,
+            "incident_date": body.incident_date,
+            "ban_start_date": body.ban_start_date,
+            "ban_end_date": body.ban_end_date,
+            "category": body.category,
+            "decision": body.decision,
+            "decision_duration_days": body.decision_duration_days,
+            "recorded_by": current_user.id,
+        },
     )
-    db.add(incident)
-    await db.commit()
-    await db.refresh(incident)
 
     await record_audit(
         db,
         action="paxlog.incident.create",
         resource_type="pax_incident",
-        resource_id=str(incident.id),
+        resource_id=str(result["id"]),
         user_id=current_user.id,
         entity_id=entity_id,
         details={
             "severity": body.severity,
             "user_id": str(body.user_id) if body.user_id else None,
             "contact_id": str(body.contact_id) if body.contact_id else None,
+            "company_id": str(body.company_id) if body.company_id else None,
+            "pax_group_id": str(body.pax_group_id) if body.pax_group_id else None,
         },
     )
     await db.commit()
 
+    incident_result = await db.execute(
+        select(
+            PaxIncident,
+            User.first_name.label("user_first_name"),
+            User.last_name.label("user_last_name"),
+            TierContact.first_name.label("contact_first_name"),
+            TierContact.last_name.label("contact_last_name"),
+            Tier.name.label("company_name"),
+            PaxGroup.name.label("group_name"),
+            literal(None).label("asset_name"),
+        )
+        .outerjoin(User, User.id == PaxIncident.user_id)
+        .outerjoin(TierContact, TierContact.id == PaxIncident.contact_id)
+        .outerjoin(Tier, Tier.id == PaxIncident.company_id)
+        .outerjoin(PaxGroup, PaxGroup.id == PaxIncident.pax_group_id)
+        .where(PaxIncident.id == result["id"], PaxIncident.entity_id == entity_id)
+    )
+    row = incident_result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Incident not found")
+
     logger.info("PAX incident created (%s) by %s", body.severity, current_user.id)
-    return incident
+    return _incident_row_to_read(row)
 
 
 @router.patch("/incidents/{incident_id}/resolve", response_model=PaxIncidentRead)
@@ -3422,18 +3841,20 @@ async def delete_imputation(
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-@router.get("/rotation-cycles")
+@router.get("/rotation-cycles", response_model=PaginatedResponse[RotationCycleRead])
 async def list_rotation_cycles(
     user_id: UUID | None = None,
     contact_id: UUID | None = None,
     site_asset_id: UUID | None = None,
     status_filter: str | None = None,
+    pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("paxlog.rotation.manage"),
     db: AsyncSession = Depends(get_db),
 ):
     """List rotation cycles for the entity."""
+    from app.services.modules import paxlog_service
     from sqlalchemy import text as sa_text
 
     conditions = ["entity_id = :eid"]
@@ -3453,39 +3874,84 @@ async def list_rotation_cycles(
         params["status"] = status_filter
 
     where_clause = " AND ".join(conditions)
-    result = await db.execute(
+    count_result = await db.execute(
         sa_text(
             f"""
-            SELECT id, user_id, contact_id, site_asset_id, rotation_days_on, rotation_days_off,
-                   cycle_start_date, status,
-                   auto_create_ads, ads_lead_days,
-                   default_project_id, default_cc_id, created_at
+            SELECT COUNT(*)
             FROM pax_rotation_cycles
             WHERE {where_clause}
-            ORDER BY created_at DESC
             """
         ),
         params,
     )
-    rows = result.all()
-    return [
-        {
-            "id": str(r[0]),
-            "user_id": str(r[1]) if r[1] else None,
-            "contact_id": str(r[2]) if r[2] else None,
-            "site_asset_id": str(r[3]),
-            "days_on": r[4],
-            "days_off": r[5],
-            "cycle_start_date": str(r[6]) if r[6] else None,
-            "status": r[7],
-            "auto_create_ads": r[8],
-            "ads_lead_days": r[9],
-            "default_project_id": str(r[10]) if r[10] else None,
-            "default_cc_id": str(r[11]) if r[11] else None,
-            "created_at": str(r[12]),
-        }
-        for r in rows
-    ]
+    total = count_result.scalar() or 0
+
+    offset = (pagination.page - 1) * pagination.page_size
+    list_result = await db.execute(
+        sa_text(
+            f"""
+            SELECT id, entity_id, user_id, contact_id, site_asset_id, rotation_days_on, rotation_days_off,
+                   cycle_start_date, next_on_date, status,
+                   auto_create_ads, ads_lead_days,
+                   default_project_id, default_cc_id, notes, created_at, updated_at,
+                   pax_first_name, pax_last_name, site_name, company_name
+            FROM pax_rotation_cycles
+            WHERE {where_clause}
+            ORDER BY created_at DESC
+            LIMIT :limit OFFSET :offset
+            """
+        ),
+        {**params, "limit": pagination.page_size, "offset": offset},
+    )
+    items: list[RotationCycleRead] = []
+    for row in list_result.all():
+        pax_user_id = row[2]
+        pax_contact_id = row[3]
+        compliance_result = await paxlog_service.check_pax_compliance(
+            db,
+            row[4],
+            entity_id,
+            user_id=pax_user_id,
+            contact_id=pax_contact_id,
+        )
+        issues = [item["message"] for item in compliance_result.get("results", []) if item.get("status") != "valid"]
+        risk_level = "clear" if compliance_result.get("compliant") else "blocked"
+        items.append(
+            RotationCycleRead(
+                id=row[0],
+                entity_id=row[1],
+                user_id=pax_user_id,
+                contact_id=pax_contact_id,
+                site_asset_id=row[4],
+                days_on=row[5],
+                days_off=row[6],
+                start_date=row[7],
+                next_rotation_date=row[8],
+                status=row[9],
+                auto_create_ads=row[10],
+                ads_lead_days=row[11],
+                default_project_id=row[12],
+                default_cc_id=row[13],
+                notes=row[14],
+                created_at=row[15],
+                updated_at=row[16],
+                pax_first_name=row[18],
+                pax_last_name=row[19],
+                site_name=row[20],
+                company_name=row[21],
+                compliance_risk_level=risk_level,
+                compliance_issue_count=len(issues),
+                compliance_issue_preview=issues[:3],
+            )
+        )
+
+    return PaginatedResponse[RotationCycleRead](
+        items=items,
+        total=total,
+        page=pagination.page,
+        page_size=pagination.page_size,
+        pages=max(1, -(-total // pagination.page_size)) if pagination.page_size else 1,
+    )
 
 
 @router.post("/rotation-cycles", status_code=201)
@@ -3515,15 +3981,15 @@ async def create_rotation_cycle(
         sa_text(
             """
             INSERT INTO pax_rotation_cycles (
-                entity_id, user_id, contact_id, site_asset_id, days_on, days_off,
+                entity_id, user_id, contact_id, site_asset_id, rotation_days_on, rotation_days_off,
                 cycle_start_date, next_on_date, status,
                 auto_create_ads, ads_lead_days,
-                default_project_id, default_cc_id, created_at
+                default_project_id, default_cc_id, created_by, created_at
             ) VALUES (
                 :eid, :user_id, :contact_id, :site_id, :days_on, :days_off,
                 :start_date, :start_date, 'active',
                 :auto_ads, :lead_days,
-                :project_id, :cc_id, NOW()
+                :project_id, :cc_id, :created_by, NOW()
             ) RETURNING id
             """
         ),
@@ -3539,6 +4005,7 @@ async def create_rotation_cycle(
             "lead_days": ads_lead_days,
             "project_id": str(default_project_id) if default_project_id else None,
             "cc_id": str(default_cc_id) if default_cc_id else None,
+            "created_by": str(current_user.id),
         },
     )
     new_id = result.scalar()
@@ -3606,10 +4073,10 @@ async def update_rotation_cycle(
         updates.append("status = :status")
         params["status"] = status_val
     if days_on is not None:
-        updates.append("days_on = :days_on")
+        updates.append("rotation_days_on = :days_on")
         params["days_on"] = days_on
     if days_off is not None:
-        updates.append("days_off = :days_off")
+        updates.append("rotation_days_off = :days_off")
         params["days_off"] = days_off
     if ads_lead_days is not None:
         updates.append("ads_lead_days = :lead")
@@ -3693,6 +4160,16 @@ class ExternalCredentialCreateBody(BaseModel):
     notes: str | None = None
 
 
+class ExternalLinkCreateBody(BaseModel):
+    otp_required: bool = True
+    otp_sent_to: str | None = None
+    recipient_user_id: UUID | None = None
+    recipient_contact_id: UUID | None = None
+    expires_hours: int = 72
+    max_uses: int = 1
+    preconfigured_data: dict | None = None
+
+
 def _mask_contact_value(value: str | None) -> str | None:
     if not value:
         return None
@@ -3721,17 +4198,41 @@ async def _send_external_link_otp(db: AsyncSession, *, link: ExternalAccessLink)
 
     destination = link.otp_sent_to.strip()
     if "@" in destination:
+        from app.core.email_templates import render_and_send_email
         from app.core.notifications import send_email
 
-        await send_email(
-            to=destination,
-            subject="OpsFlux - Code de verification",
-            body_html=(
-                "<p>Votre code de verification OpsFlux est :</p>"
-                f"<p><strong style='font-size:18px'>{code}</strong></p>"
-                f"<p>Ce code expire dans {EXTERNAL_OTP_TTL_MINUTES} minutes.</p>"
-            ),
-        )
+        ads = await db.get(Ads, link.ads_id)
+        template_sent = False
+        if ads:
+            template_sent = await render_and_send_email(
+                db,
+                slug="paxlog_external_link_otp",
+                entity_id=ads.entity_id,
+                language="fr",
+                to=destination,
+                variables={
+                    "otp_code": code,
+                    "external_link_url": _build_external_portal_url(link.token),
+                    "otp_expires_minutes": EXTERNAL_OTP_TTL_MINUTES,
+                    "ads": {
+                        "reference": ads.reference,
+                        "visit_purpose": ads.visit_purpose,
+                        "start_date": str(ads.start_date) if ads.start_date else "",
+                        "end_date": str(ads.end_date) if ads.end_date else "",
+                    },
+                },
+            )
+        if not template_sent:
+            await send_email(
+                to=destination,
+                subject="OpsFlux - Code de verification",
+                body_html=(
+                    "<p>Votre code de verification OpsFlux est :</p>"
+                    f"<p><strong style='font-size:18px'>{code}</strong></p>"
+                    f'<p><a href="{_build_external_portal_url(link.token)}">{_build_external_portal_url(link.token)}</a></p>'
+                    f"<p>Ce code expire dans {EXTERNAL_OTP_TTL_MINUTES} minutes.</p>"
+                ),
+            )
         return
 
     from app.core.sms_service import send_whatsapp_otp
@@ -3741,14 +4242,120 @@ async def _send_external_link_otp(db: AsyncSession, *, link: ExternalAccessLink)
         raise HTTPException(status_code=503, detail="Impossible d'envoyer le code OTP")
 
 
+async def _resolve_external_link_recipients(
+    db: AsyncSession,
+    *,
+    ads_id: UUID,
+) -> list[dict]:
+    from app.core.sms_service import _get_admin_channel_default, _get_user_preferred_channel, _resolve_channel, resolve_user_contact
+
+    rows = (
+        await db.execute(select(AdsPax).where(AdsPax.ads_id == ads_id))
+    ).scalars().all()
+
+    admin_default = await _get_admin_channel_default(db, "otp")
+    candidates: list[dict] = []
+
+    for entry in rows:
+        if entry.user_id:
+            user = await db.get(User, entry.user_id)
+            if not user:
+                continue
+            effective_channel = _resolve_channel(await _get_user_preferred_channel(db, str(user.id)), admin_default)
+            email = await resolve_user_contact(db, str(user.id), "email") or user.email
+            phone = await resolve_user_contact(db, str(user.id), "sms")
+            preferred_destination = None
+            if effective_channel == "email":
+                preferred_destination = email or phone
+            elif effective_channel in {"sms", "whatsapp"}:
+                preferred_destination = phone or email
+            else:
+                preferred_destination = phone or email
+            candidates.append({
+                "user_id": user.id,
+                "contact_id": None,
+                "pax_source": "user",
+                "label": f"{user.first_name} {user.last_name}",
+                "email": email,
+                "phone": phone,
+                "effective_channel": effective_channel,
+                "preferred_destination": preferred_destination,
+            })
+            continue
+
+        if entry.contact_id:
+            contact = await db.get(TierContact, entry.contact_id)
+            if not contact:
+                continue
+            effective_channel = admin_default
+            email = contact.email
+            phone = contact.phone
+            if effective_channel == "email":
+                preferred_destination = email or phone
+            elif effective_channel in {"sms", "whatsapp"}:
+                preferred_destination = phone or email
+            else:
+                preferred_destination = phone or email
+            candidates.append({
+                "user_id": None,
+                "contact_id": contact.id,
+                "pax_source": "contact",
+                "label": f"{contact.first_name} {contact.last_name}",
+                "email": email,
+                "phone": phone,
+                "effective_channel": effective_channel,
+                "preferred_destination": preferred_destination,
+            })
+
+    return [candidate for candidate in candidates if candidate["preferred_destination"]]
+
+
+async def _resolve_external_link_destination(
+    db: AsyncSession,
+    *,
+    ads_id: UUID,
+    body: ExternalLinkCreateBody,
+) -> tuple[str | None, dict | None]:
+    if not body.otp_required:
+        return None, None
+    if body.otp_sent_to:
+        destination = body.otp_sent_to.strip()
+        if destination:
+            return destination, {"source": "manual"}
+
+    candidates = await _resolve_external_link_recipients(db, ads_id=ads_id)
+    selected = None
+
+    if body.recipient_user_id or body.recipient_contact_id:
+        for candidate in candidates:
+            if body.recipient_user_id and candidate["user_id"] == body.recipient_user_id:
+                selected = candidate
+                break
+            if body.recipient_contact_id and candidate["contact_id"] == body.recipient_contact_id:
+                selected = candidate
+                break
+        if not selected:
+            raise HTTPException(status_code=400, detail="Le destinataire OTP sélectionné n'est pas valide pour cette AdS.")
+    elif len(candidates) == 1:
+        selected = candidates[0]
+    elif len(candidates) > 1:
+        raise HTTPException(status_code=400, detail="Plusieurs destinataires OTP sont disponibles. Sélectionnez le PAX destinataire.")
+    else:
+        raise HTTPException(status_code=400, detail="Aucun destinataire OTP exploitable n'est disponible sur les PAX de cette AdS.")
+
+    return selected["preferred_destination"], {
+        "source": "ads_pax",
+        "effective_channel": selected["effective_channel"],
+        "recipient_user_id": str(selected["user_id"]) if selected["user_id"] else None,
+        "recipient_contact_id": str(selected["contact_id"]) if selected["contact_id"] else None,
+        "recipient_label": selected["label"],
+    }
+
+
 @router.post("/ads/{ads_id}/external-link", status_code=201)
 async def create_external_link(
     ads_id: UUID,
-    otp_required: bool = True,
-    otp_sent_to: str | None = None,
-    expires_hours: int = 72,
-    max_uses: int = 1,
-    preconfigured_data: dict | None = None,
+    body: ExternalLinkCreateBody,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("paxlog.ads.update"),
@@ -3767,17 +4374,22 @@ async def create_external_link(
     if not await _can_manage_ads(ads, current_user=current_user, entity_id=entity_id, db=db):
         raise HTTPException(status_code=403, detail="Vous ne pouvez pas créer de lien externe pour cette AdS.")
 
+    otp_sent_to, otp_meta = await _resolve_external_link_destination(
+        db,
+        ads_id=ads_id,
+        body=body,
+    )
     token = secrets.token_urlsafe(48)
-    expires_at = datetime.now(timezone.utc) + timedelta(hours=expires_hours)
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=body.expires_hours)
     link = ExternalAccessLink(
         ads_id=ads_id,
         token=token,
         created_by=current_user.id,
-        preconfigured_data=preconfigured_data,
-        otp_required=otp_required,
+        preconfigured_data=body.preconfigured_data,
+        otp_required=body.otp_required,
         otp_sent_to=otp_sent_to,
         expires_at=expires_at,
-        max_uses=max_uses,
+        max_uses=body.max_uses,
         use_count=0,
         revoked=False,
         access_log=[],
@@ -3793,7 +4405,13 @@ async def create_external_link(
         resource_id=str(link.id),
         user_id=current_user.id,
         entity_id=entity_id,
-        details={"ads_id": str(ads_id), "expires_hours": expires_hours},
+        details={
+            "ads_id": str(ads_id),
+            "expires_hours": body.expires_hours,
+            "otp_required": body.otp_required,
+            "otp_sent_to": otp_sent_to,
+            "otp_resolution": otp_meta,
+        },
     )
     await db.commit()
 
@@ -3803,10 +4421,14 @@ async def create_external_link(
         "id": str(link.id),
         "ads_id": str(ads_id),
         "token": token,
-        "url": f"/api/v1/pax/external/{token}",
-        "otp_required": otp_required,
+        "url": _build_external_portal_url(token),
+        "otp_required": body.otp_required,
+        "otp_sent_to": otp_sent_to,
         "expires_at": expires_at.isoformat(),
-        "max_uses": max_uses,
+        "max_uses": body.max_uses,
+        "use_count": link.use_count,
+        "active": not link.revoked,
+        "created_at": link.created_at.isoformat() if getattr(link, "created_at", None) else datetime.now(timezone.utc).isoformat(),
     }
 
 
@@ -3911,6 +4533,7 @@ async def get_external_ads_dossier(
 ):
     link = await _require_external_session(db, token=token, session_token=x_external_session)
     ads, _entity_id, allowed_company_id = await _get_external_ads_and_context(db, link=link)
+    preconfigured_data = link.preconfigured_data or {}
     pax_entries = (
         await db.execute(
             select(AdsPax, TierContact)
@@ -3923,6 +4546,22 @@ async def get_external_ads_dossier(
     for entry, contact in pax_entries:
         if allowed_company_id and contact.tier_id != allowed_company_id:
             continue
+        compliance_summary = entry.compliance_summary or {}
+        compliance_results = [
+            item for item in (compliance_summary.get("results") or [])
+            if isinstance(item, dict)
+        ]
+        compliance_blockers = [
+            {
+                "credential_type_code": item.get("credential_type_code"),
+                "credential_type_name": item.get("credential_type_name"),
+                "status": item.get("status"),
+                "message": item.get("message"),
+                "expiry_date": item.get("expiry_date"),
+            }
+            for item in compliance_results
+            if item.get("status") in {"missing", "expired", "pending", "error"}
+        ]
         allowed_pax.append({
             "entry_id": str(entry.id),
             "contact_id": str(contact.id),
@@ -3937,7 +4576,45 @@ async def get_external_ads_dossier(
             "position": contact.position,
             "status": entry.status,
             "company_id": str(contact.tier_id),
+            "compliance_ok": bool(compliance_summary.get("compliant")),
+            "compliance_blocker_count": len(compliance_blockers),
+            "compliance_blockers": compliance_blockers[:5],
+            "credentials": [],
         })
+    visible_contact_ids = [UUID(item["contact_id"]) for item in allowed_pax]
+    credentials_by_contact: dict[UUID, list[dict[str, object | None]]] = {}
+    if visible_contact_ids:
+        credential_rows = (
+            await db.execute(
+                select(PaxCredential, CredentialType)
+                .join(CredentialType, CredentialType.id == PaxCredential.credential_type_id)
+                .where(PaxCredential.contact_id.in_(visible_contact_ids))
+                .order_by(CredentialType.name.asc(), PaxCredential.obtained_date.desc())
+            )
+        ).all()
+        for credential, credential_type in credential_rows:
+            if not credential.contact_id:
+                continue
+            credentials_by_contact.setdefault(credential.contact_id, []).append(
+                {
+                    "id": str(credential.id),
+                    "credential_type_code": credential_type.code,
+                    "credential_type_name": credential_type.name,
+                    "status": credential.status,
+                    "obtained_date": credential.obtained_date.isoformat() if credential.obtained_date else None,
+                    "expiry_date": credential.expiry_date.isoformat() if credential.expiry_date else None,
+                    "proof_url": credential.proof_url,
+                }
+            )
+    for item in allowed_pax:
+        item["credentials"] = credentials_by_contact.get(UUID(item["contact_id"]), [])[:8]
+    pax_summary = {
+        "total": len(allowed_pax),
+        "pending_check": sum(1 for item in allowed_pax if item["status"] == "pending_check"),
+        "compliant": sum(1 for item in allowed_pax if item["status"] == "compliant"),
+        "blocked": sum(1 for item in allowed_pax if item["status"] == "blocked"),
+        "approved": sum(1 for item in allowed_pax if item["status"] == "approved"),
+    }
     _append_external_access_log(link, action="view_dossier", request=request, otp_validated=True)
     await db.commit()
     return {
@@ -3951,12 +4628,16 @@ async def get_external_ads_dossier(
             "end_date": ads.end_date.isoformat(),
             "site_entry_asset_id": str(ads.site_entry_asset_id),
             "project_id": str(ads.project_id) if ads.project_id else None,
+            "outbound_transport_mode": ads.outbound_transport_mode,
+            "return_transport_mode": ads.return_transport_mode,
             "rejection_reason": ads.rejection_reason,
         },
-        "preconfigured_data": link.preconfigured_data or {},
+        "preconfigured_data": preconfigured_data,
         "allowed_company_id": str(allowed_company_id) if allowed_company_id else None,
+        "allowed_company_name": preconfigured_data.get("company_name"),
         "can_submit": ads.status == "draft",
         "can_resubmit": ads.status == "requires_review",
+        "pax_summary": pax_summary,
         "pax": allowed_pax,
     }
 
@@ -5016,6 +5697,7 @@ async def get_expiring_credentials(
         .join(User, User.id == PaxCredential.user_id)
         .join(CredentialType, CredentialType.id == PaxCredential.credential_type_id)
         .where(
+            User.default_entity_id == entity_id,
             PaxCredential.user_id.isnot(None),
             PaxCredential.expiry_date.isnot(None),
             PaxCredential.expiry_date <= cutoff,
@@ -5054,6 +5736,7 @@ async def get_expiring_credentials(
 
     items = []
     for r in user_creds.all():
+        days_remaining = (r[3] - today).days
         items.append({
             "credential_id": str(r[0]),
             "user_id": str(r[1]),
@@ -5067,9 +5750,11 @@ async def get_expiring_credentials(
             "pax_badge": r[7],
             "credential_code": r[8],
             "credential_name": r[9],
-            "days_remaining": (r[3] - today).days,
+            "days_remaining": days_remaining,
+            "alert_bucket": _expiring_alert_bucket(days_remaining),
         })
     for r in contact_creds.all():
+        days_remaining = (r[3] - today).days
         items.append({
             "credential_id": str(r[0]),
             "user_id": None,
@@ -5083,7 +5768,8 @@ async def get_expiring_credentials(
             "pax_badge": r[7],
             "credential_code": r[8],
             "credential_name": r[9],
-            "days_remaining": (r[3] - today).days,
+            "days_remaining": days_remaining,
+            "alert_bucket": _expiring_alert_bucket(days_remaining),
         })
 
     items.sort(key=lambda x: x["expiry_date"])

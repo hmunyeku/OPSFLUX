@@ -2104,6 +2104,8 @@ function AdsDetailPanel({ id }: { id: string }) {
   const [showResubmitForm, setShowResubmitForm] = useState(false)
   const [stayChangeReason, setStayChangeReason] = useState('')
   const [showStayChangeForm, setShowStayChangeForm] = useState(false)
+  const [showExternalLinkForm, setShowExternalLinkForm] = useState(false)
+  const [externalLinkRecipientKey, setExternalLinkRecipientKey] = useState('')
   const [manualDepartureReason, setManualDepartureReason] = useState('')
   const [showManualDepartureForm, setShowManualDepartureForm] = useState(false)
   const [proposedStartDate, setProposedStartDate] = useState('')
@@ -2142,6 +2144,38 @@ function AdsDetailPanel({ id }: { id: string }) {
     setProposedEndDate(ads.end_date)
     setProposedVisitPurpose(ads.visit_purpose)
   }, [ads])
+
+  const eligibleExternalRecipients = useMemo(() => {
+    return (adsPax ?? [])
+      .map((entry) => {
+        const email = entry.pax_email?.trim() || ''
+        const phone = entry.pax_phone?.trim() || ''
+        if (!email && !phone) return null
+        return {
+          key: entry.user_id ? `user:${entry.user_id}` : `contact:${entry.contact_id}`,
+          user_id: entry.user_id,
+          contact_id: entry.contact_id,
+          label: `${entry.pax_first_name || ''} ${entry.pax_last_name || ''}`.trim() || t('common.unknown'),
+          contactSummary: [email, phone].filter(Boolean).join(' • '),
+        }
+      })
+      .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
+  }, [adsPax, t])
+
+  const selectedExternalRecipient = useMemo(
+    () => eligibleExternalRecipients.find((entry) => entry.key === externalLinkRecipientKey) || null,
+    [eligibleExternalRecipients, externalLinkRecipientKey],
+  )
+
+  useEffect(() => {
+    if (eligibleExternalRecipients.length === 1) {
+      setExternalLinkRecipientKey(eligibleExternalRecipients[0].key)
+      return
+    }
+    if (!eligibleExternalRecipients.some((entry) => entry.key === externalLinkRecipientKey)) {
+      setExternalLinkRecipientKey(eligibleExternalRecipients[0]?.key || '')
+    }
+  }, [eligibleExternalRecipients, externalLinkRecipientKey])
 
   if (isLoading || !ads) {
     return (
@@ -2349,20 +2383,29 @@ function AdsDetailPanel({ id }: { id: string }) {
     )
   }
 
-  const handleGenerateLink = () => {
-    const otpSentTo = window.prompt(t('paxlog.ads_detail.external_link.prompt'), '')?.trim() || ''
-    if (!otpSentTo) {
+  const handleGenerateLink = (recipient?: { user_id: string | null; contact_id: string | null }) => {
+    if (!recipient?.user_id && !recipient?.contact_id) {
       toast({
-        title: t('paxlog.ads_detail.external_link.missing_destination'),
+        title: t('paxlog.ads_detail.external_link.no_recipient'),
         variant: 'error',
       })
       return
     }
     const popup = window.open('', '_blank', 'noopener,noreferrer')
     createExtLink.mutate(
-      { adsId: id, payload: { expires_hours: 72, max_uses: 5, otp_required: true, otp_sent_to: otpSentTo } },
+      {
+        adsId: id,
+        payload: {
+          expires_hours: 72,
+          max_uses: 5,
+          otp_required: true,
+          recipient_user_id: recipient.user_id,
+          recipient_contact_id: recipient.contact_id,
+        },
+      },
       {
         onSuccess: (link) => {
+          setShowExternalLinkForm(false)
           const url = paxlogService.resolveExternalLinkUrl(link)
           if (popup) popup.location.href = url
           else window.open(url, '_blank', 'noopener,noreferrer')
@@ -2372,6 +2415,21 @@ function AdsDetailPanel({ id }: { id: string }) {
         },
       },
     )
+  }
+
+  const openExternalLinkFlow = () => {
+    if (eligibleExternalRecipients.length === 0) {
+      toast({
+        title: t('paxlog.ads_detail.external_link.no_recipient'),
+        variant: 'error',
+      })
+      return
+    }
+    if (eligibleExternalRecipients.length === 1) {
+      handleGenerateLink(eligibleExternalRecipients[0])
+      return
+    }
+    setShowExternalLinkForm(true)
   }
 
   const handleApprovePassenger = (entryId: string) => {
@@ -2441,7 +2499,7 @@ function AdsDetailPanel({ id }: { id: string }) {
       actions={
         <div className="flex items-center gap-1">
           {canGenerateLink && (
-            <PanelActionButton variant="default" disabled={createExtLink.isPending} onClick={handleGenerateLink}>
+            <PanelActionButton variant="default" disabled={createExtLink.isPending} onClick={openExternalLinkFlow}>
               {createExtLink.isPending ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />} {t('paxlog.ads_detail.actions.external_link')}
             </PanelActionButton>
           )}
@@ -2508,6 +2566,41 @@ function AdsDetailPanel({ id }: { id: string }) {
       }
     >
       <div className="p-4 space-y-5">
+        {showExternalLinkForm && (
+          <div className="border border-primary/30 rounded-lg bg-primary/5 p-3 space-y-3">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-primary">{t('paxlog.ads_detail.external_link.title')}</p>
+              <p className="text-xs text-muted-foreground">{t('paxlog.ads_detail.external_link.description')}</p>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-foreground">{t('paxlog.ads_detail.external_link.recipient_label')}</label>
+              <select
+                value={externalLinkRecipientKey}
+                onChange={(e) => setExternalLinkRecipientKey(e.target.value)}
+                className={panelInputClass}
+              >
+                {eligibleExternalRecipients.map((recipient) => (
+                  <option key={recipient.key} value={recipient.key}>
+                    {recipient.label}{recipient.contactSummary ? ` — ${recipient.contactSummary}` : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-muted-foreground">{t('paxlog.ads_detail.external_link.channel_hint')}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <PanelActionButton
+                variant="primary"
+                disabled={createExtLink.isPending || !selectedExternalRecipient}
+                onClick={() => selectedExternalRecipient && handleGenerateLink(selectedExternalRecipient)}
+              >
+                {createExtLink.isPending ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />}
+                {t('paxlog.ads_detail.external_link.confirm')}
+              </PanelActionButton>
+              <PanelActionButton onClick={() => setShowExternalLinkForm(false)}>{t('common.cancel')}</PanelActionButton>
+            </div>
+          </div>
+        )}
+
         {/* Reject reason inline form */}
         {showRejectForm && (
           <div className="border border-red-300 rounded-lg bg-red-50 dark:bg-red-900/10 dark:border-red-800 p-3 space-y-2">

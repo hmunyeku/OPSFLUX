@@ -1138,6 +1138,47 @@ async def sync_selected(
     return SyncResult(synced=created + updated, created=created, updated=updated, errors=errors)
 
 
+@router.get("/debug/raw-tasks/{gouti_project_id}")
+async def debug_raw_tasks(
+    gouti_project_id: str,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("core.integrations.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Diagnostic: return one full task from a Gouti project with every key."""
+    gouti_settings = await _get_gouti_settings(db, entity_id)
+    base = gouti_settings.get("base_url", "https://apiprd.gouti.net/v1/client").rstrip("/")
+    headers = {
+        "Authorization": f"Bearer {gouti_settings.get('token', '')}",
+        "Client-Id": gouti_settings.get("client_id", ""),
+        "Accept": "application/json",
+    }
+    if gouti_settings.get("entity_code"):
+        headers["Entity-Code"] = gouti_settings["entity_code"]
+
+    import httpx
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.get(f"{base}/projects/{gouti_project_id}/tasks", headers=headers)
+        body = resp.json()
+    top_level_keys = list(body.keys())[:5] if isinstance(body, dict) else None
+    first_key = next(iter(body.keys()), None) if isinstance(body, dict) else None
+    first_item = None
+    if isinstance(body, dict) and first_key is not None:
+        first_val = body[first_key]
+        if isinstance(first_val, dict):
+            first_item = {"_id": first_key, **first_val}
+    elif isinstance(body, list) and body:
+        first_item = body[0]
+    return {
+        "http_status": resp.status_code,
+        "shape": type(body).__name__,
+        "top_level_keys_sample": top_level_keys,
+        "total_count": len(body) if isinstance(body, (dict, list)) else None,
+        "first_item_all_keys": sorted(first_item.keys()) if isinstance(first_item, dict) else None,
+        "first_item_full": first_item,
+    }
+
+
 @router.get("/debug/raw-projects")
 async def debug_raw_projects(
     entity_id: UUID = Depends(get_current_entity),

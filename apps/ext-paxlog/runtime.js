@@ -46,3 +46,25 @@ export async function apiRequest({ apiBase, sessionToken }, path, options = {}) 
   }
   return payload
 }
+
+export async function apiDownload({ apiBase, sessionToken }, path, options = {}) {
+  const method = (options.method || "GET").toUpperCase()
+  const headers = { ...(options.headers || {}) }
+  if (options.body != null && method !== "GET" && method !== "HEAD" && !("Content-Type" in headers)) {
+    headers["Content-Type"] = "application/json"
+  }
+  if (sessionToken) {
+    headers["X-External-Session"] = sessionToken
+  }
+  const response = await fetch(`${apiBase}${path}`, {
+    ...options,
+    headers,
+  })
+  if (!response.ok) {
+    const contentType = response.headers.get("content-type") || ""
+    const payload = contentType.includes("application/json") ? await response.json() : await response.text()
+    const detail = typeof payload === "object" && payload?.detail ? payload.detail : payload
+    throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail))
+  }
+  return response.blob()
+}

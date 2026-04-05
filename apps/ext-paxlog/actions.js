@@ -74,3 +74,14 @@ export async function resubmitExternalAction(api, token, reason) {
     body: JSON.stringify({ reason }),
   })
 }
+
+export async function updateTransportPreferencesAction(api, token, payload) {
+  return api(`/api/v1/pax/external/${token}/transport-preferences`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function downloadExternalAdsPdfAction(apiDownload, token) {
+  return apiDownload(`/api/v1/pax/external/${token}/pdf`)
+}

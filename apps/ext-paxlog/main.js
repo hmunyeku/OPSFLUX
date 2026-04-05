@@ -48,6 +48,10 @@ bootstrap().catch((error) => {
 async function bootstrap() {
   state.sessionToken = state.token ? localStorage.getItem(sessionStorageKey(state.token)) : null
   await loadLinkInfo()
+  if (state.sessionToken && !state.linkInfo?.authenticated) {
+    clearExternalSession()
+    await loadLinkInfo()
+  }
   if (state.sessionToken) {
     const results = await Promise.allSettled([
       loadDossier(),
@@ -312,7 +316,7 @@ function render() {
 
   const link = state.linkInfo
   const dossier = state.dossier
-  const authenticated = Boolean(link?.authenticated || state.sessionToken)
+  const authenticated = Boolean(link?.authenticated)
   app.innerHTML = renderPage({ state, link, dossier, authenticated, t, lang })
 
   bindEvents()

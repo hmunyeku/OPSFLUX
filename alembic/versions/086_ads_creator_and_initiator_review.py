@@ -17,14 +17,48 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("ads", sa.Column("created_by", postgresql.UUID(as_uuid=True), nullable=True))
-    op.execute("UPDATE ads SET created_by = requester_id WHERE created_by IS NULL")
-    op.alter_column("ads", "created_by", nullable=False)
-    op.create_foreign_key("fk_ads_created_by_users", "ads", "users", ["created_by"], ["id"])
-    op.create_index("idx_ads_created_by", "ads", ["created_by"], unique=False)
+    # Idempotent: the column may already exist from an earlier partial
+    # apply (model auto-sync) without the NOT NULL / FK / index parts.
+    op.execute(
+        "ALTER TABLE ads ADD COLUMN IF NOT EXISTS created_by UUID"
+    )
+    op.execute(
+        "UPDATE ads SET created_by = requester_id WHERE created_by IS NULL"
+    )
+    op.execute(
+        "ALTER TABLE ads ALTER COLUMN created_by SET NOT NULL"
+    )
+    op.execute(
+        """
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint WHERE conname = 'fk_ads_created_by_users'
+            ) THEN
+                ALTER TABLE ads
+                ADD CONSTRAINT fk_ads_created_by_users
+                FOREIGN KEY (created_by) REFERENCES users(id);
+            END IF;
+        END $$;
+        """
+    )
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_ads_created_by ON ads (created_by)"
+    )
 
 
 def downgrade() -> None:
-    op.drop_index("idx_ads_created_by", table_name="ads")
-    op.drop_constraint("fk_ads_created_by_users", "ads", type_="foreignkey")
-    op.drop_column("ads", "created_by")
+    op.execute("DROP INDEX IF EXISTS idx_ads_created_by")
+    op.execute(
+        """
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM pg_constraint WHERE conname = 'fk_ads_created_by_users'
+            ) THEN
+                ALTER TABLE ads DROP CONSTRAINT fk_ads_created_by_users;
+            END IF;
+        END $$;
+        """
+    )
+    op.execute("ALTER TABLE ads DROP COLUMN IF EXISTS created_by")

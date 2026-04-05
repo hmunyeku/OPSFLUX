@@ -406,6 +406,8 @@ class ExternalPaxRequiredActionRead(BaseModel):
 class ExternalPaxDossierRead(BaseModel):
     entry_id: str
     contact_id: str
+    user_id: str | None = None
+    pax_source: str | None = None
     first_name: str
     last_name: str
     birth_date: str | None = None
@@ -414,6 +416,17 @@ class ExternalPaxDossierRead(BaseModel):
     photo_url: str | None = None
     email: str | None = None
     phone: str | None = None
+    contractual_airport: str | None = None
+    nearest_airport: str | None = None
+    nearest_station: str | None = None
+    pickup_address_line1: str | None = None
+    pickup_address_line2: str | None = None
+    pickup_city: str | None = None
+    pickup_state_province: str | None = None
+    pickup_postal_code: str | None = None
+    pickup_country: str | None = None
+    job_position_id: str | None = None
+    job_position_name: str | None = None
     position: str | None = None
     status: str
     company_id: str
@@ -423,6 +436,9 @@ class ExternalPaxDossierRead(BaseModel):
     missing_identity_fields: list[str] = []
     required_actions: list[ExternalPaxRequiredActionRead] = []
     credentials: list[ExternalPaxCredentialRead] = []
+    linked_user_id: str | None = None
+    linked_user_email: str | None = None
+    linked_user_active: bool | None = None
 
 
 class ExternalAdsSummaryRead(BaseModel):
@@ -438,7 +454,13 @@ class ExternalAdsSummaryRead(BaseModel):
     project_id: str | None = None
     project_name: str | None = None
     outbound_transport_mode: str | None = None
+    outbound_departure_base_id: str | None = None
+    outbound_departure_base_name: str | None = None
+    outbound_notes: str | None = None
     return_transport_mode: str | None = None
+    return_departure_base_id: str | None = None
+    return_departure_base_name: str | None = None
+    return_notes: str | None = None
     rejection_reason: str | None = None
 
 

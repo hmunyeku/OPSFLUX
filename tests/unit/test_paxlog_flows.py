@@ -56,6 +56,7 @@ class FakeDB:
     def __init__(self, results):
         self._results = list(results)
         self.added = []
+        self.deleted = []
         self.commits = 0
         self.refreshed = []
         self.executed = []
@@ -68,6 +69,9 @@ class FakeDB:
 
     def add(self, obj):
         self.added.append(obj)
+
+    async def delete(self, obj):
+        self.deleted.append(obj)
 
     async def flush(self):
         for obj in reversed(self.added):
@@ -3846,8 +3850,9 @@ async def test_get_external_ads_dossier_filters_pax_to_allowed_company(monkeypat
                             },
                         ),
                         visible_contact,
+                        None,
                     ),
-                    (SimpleNamespace(id=uuid4(), status="pending_check"), hidden_contact),
+                    (SimpleNamespace(id=uuid4(), status="pending_check"), hidden_contact, None),
                 ]
             ),
             FakeResult(
@@ -3865,6 +3870,7 @@ async def test_get_external_ads_dossier_filters_pax_to_allowed_company(monkeypat
                     ),
                 ]
             ),
+            FakeResult(all_rows=[]),
         ]
     )
 
@@ -3908,6 +3914,146 @@ async def test_get_external_ads_dossier_filters_pax_to_allowed_company(monkeypat
 
 
 @pytest.mark.asyncio
+async def test_get_external_ads_dossier_includes_user_backed_promoted_contact(monkeypatch):
+    link = SimpleNamespace(id=uuid4(), preconfigured_data={"company_name": "Vendor X"}, access_log=[])
+    allowed_company_id = uuid4()
+    ads = _build_ads(status="draft", project_id=uuid4())
+    promoted_contact_id = uuid4()
+    promoted_user_id = uuid4()
+    promoted_contact = SimpleNamespace(
+        id=promoted_contact_id,
+        tier_id=allowed_company_id,
+        first_name="Aline",
+        last_name="Mukeba",
+        birth_date=date(1990, 5, 1),
+        nationality="CD",
+        badge_number="BG-01",
+        photo_url=None,
+        email="aline@example.com",
+        phone="+243000001",
+        position=None,
+        contractual_airport=None,
+        nearest_airport=None,
+        nearest_station=None,
+        job_position_id=None,
+        job_position=None,
+        linked_user_email="aline@example.com",
+        linked_user_active=True,
+    )
+    promoted_user = SimpleNamespace(
+        id=promoted_user_id,
+        first_name="Aline",
+        last_name="Mukeba",
+        birth_date=date(1990, 5, 1),
+        nationality="CD",
+        badge_number="BG-01",
+        email="aline@example.com",
+        active=True,
+        contractual_airport="FIH",
+        nearest_airport="FIH",
+        nearest_station="Gare centrale",
+        job_position_id=None,
+        job_position_name="Supervisor",
+    )
+    pickup_address = SimpleNamespace(
+        owner_type="user",
+        owner_id=promoted_user_id,
+        label="pickup",
+        address_line1="12 Avenue du Port",
+        address_line2=None,
+        city="Matadi",
+        state_province="Kongo Central",
+        postal_code="1001",
+        country="CD",
+        is_default=True,
+        created_at=datetime.now(timezone.utc),
+    )
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none="Onshore Alpha"),
+            FakeResult(first=None),
+            FakeResult(
+                all_rows=[
+                    (
+                        SimpleNamespace(
+                            id=uuid4(),
+                            user_id=promoted_user_id,
+                            contact_id=None,
+                            status="pending_check",
+                            compliance_summary={"compliant": True, "results": []},
+                        ),
+                        promoted_contact,
+                        promoted_user,
+                    ),
+                ]
+            ),
+            FakeResult(all_rows=[]),
+            FakeResult(all_rows=[pickup_address]),
+        ]
+    )
+
+    async def fake_require_session(_db, token, session_token, request=None):
+        return link
+
+    async def fake_get_ads_and_context(_db, link):
+        return ads, ads.entity_id, allowed_company_id
+
+    monkeypatch.setattr(paxlog, "_require_external_session", fake_require_session)
+    monkeypatch.setattr(paxlog, "_get_external_ads_and_context", fake_get_ads_and_context)
+
+    response = await paxlog.get_external_ads_dossier(
+        "token-dossier",
+        request=SimpleNamespace(client=None, headers={}),
+        x_external_session="session-ok",
+        db=db,
+    )
+
+    assert len(response["pax"]) == 1
+    assert response["pax"][0]["contact_id"] == str(promoted_contact_id)
+    assert response["pax"][0]["user_id"] == str(promoted_user_id)
+    assert response["pax"][0]["pax_source"] == "user"
+    assert response["pax"][0]["contractual_airport"] == "FIH"
+    assert response["pax"][0]["pickup_city"] == "Matadi"
+    assert response["pax_summary"]["total"] == 1
+
+
+@pytest.mark.asyncio
+async def test_download_external_ads_pdf_reuses_canonical_ads_ticket(monkeypatch):
+    ads = _build_ads()
+    link = SimpleNamespace(ads_id=ads.id, company_id=None)
+    response_calls = []
+
+    async def fake_require_session(_db, token, session_token, request=None):
+        assert token == "tok"
+        assert session_token == "sess"
+        return link
+
+    async def fake_get_ads_and_context(_db, link, require_company_scope=False):
+        assert link.ads_id == ads.id
+        assert require_company_scope is False
+        return ads, None
+
+    async def fake_build_response(_db, *, ads, entity_id, language="fr"):
+        response_calls.append((ads.id, entity_id, language))
+        return "PDF-OK"
+
+    monkeypatch.setattr(paxlog, "_require_external_session", fake_require_session)
+    monkeypatch.setattr(paxlog, "_get_external_ads_and_context", fake_get_ads_and_context)
+    monkeypatch.setattr(paxlog, "_build_ads_pdf_response", fake_build_response)
+
+    response = await paxlog.download_external_ads_pdf(
+        "tok",
+        language="en",
+        x_external_session="sess",
+        request=None,
+        db=FakeDB([]),
+    )
+
+    assert response == "PDF-OK"
+    assert response_calls == [(ads.id, ads.entity_id, "en")]
+
+
+@pytest.mark.asyncio
 async def test_list_external_credential_types_requires_external_session(monkeypatch):
     link = SimpleNamespace(id=uuid4())
     credential_types = [
@@ -3931,6 +4077,84 @@ async def test_list_external_credential_types_requires_external_session(monkeypa
     )
 
     assert [item.code for item in response] == ["BOSIET", "H2S"]
+
+
+@pytest.mark.asyncio
+async def test_list_external_departure_bases_requires_external_session(monkeypatch):
+    link = SimpleNamespace(id=uuid4())
+    ads = _build_ads(status="draft")
+    bases = [
+        SimpleNamespace(id=uuid4(), code="BASE-A", name="Base A", installation_type="base", archived=False),
+        SimpleNamespace(id=uuid4(), code="PORT-B", name="Port B", installation_type="port", archived=False),
+    ]
+    db = FakeDB([FakeResult(all_rows=bases)])
+
+    async def fake_require_session(_db, token, session_token, request=None):
+        return link
+
+    async def fake_get_ads_and_context(_db, link):
+        return ads, ads.entity_id, uuid4()
+
+    monkeypatch.setattr(paxlog, "_require_external_session", fake_require_session)
+    monkeypatch.setattr(paxlog, "_get_external_ads_and_context", fake_get_ads_and_context)
+
+    response = await paxlog.list_external_departure_bases(
+        "token-bases",
+        request=SimpleNamespace(client=None, headers={}),
+        x_external_session="session-ok",
+        db=db,
+    )
+
+    assert [item.code for item in response] == ["BASE-A", "PORT-B"]
+
+
+@pytest.mark.asyncio
+async def test_update_external_transport_preferences_updates_ads(monkeypatch):
+    link = SimpleNamespace(id=uuid4(), access_log=[])
+    ads = _build_ads(status="draft")
+    outbound_base = SimpleNamespace(id=uuid4(), entity_id=ads.entity_id, archived=False)
+    return_base = SimpleNamespace(id=uuid4(), entity_id=ads.entity_id, archived=False)
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=outbound_base),
+            FakeResult(scalar_one_or_none=return_base),
+        ]
+    )
+    audit_calls = []
+
+    async def fake_require_session(_db, token, session_token, request=None):
+        return link
+
+    async def fake_get_ads_and_context(_db, link):
+        return ads, ads.entity_id, uuid4()
+
+    async def fake_record_audit(*args, **kwargs):
+        audit_calls.append(kwargs)
+
+    monkeypatch.setattr(paxlog, "_require_external_session", fake_require_session)
+    monkeypatch.setattr(paxlog, "_get_external_ads_and_context", fake_get_ads_and_context)
+    monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+
+    response = await paxlog.update_external_transport_preferences(
+        "token-transport",
+        body=paxlog.ExternalTransportPreferencesBody(
+            outbound_departure_base_id=outbound_base.id,
+            outbound_notes="Ramassage au port à 05h30",
+            return_departure_base_id=return_base.id,
+            return_notes="Retour flexible selon marée",
+        ),
+        request=SimpleNamespace(client=None, headers={}),
+        x_external_session="session-ok",
+        db=db,
+    )
+
+    assert response["ads_id"] == str(ads.id)
+    assert ads.outbound_departure_base_id == outbound_base.id
+    assert ads.return_departure_base_id == return_base.id
+    assert ads.outbound_notes == "Ramassage au port à 05h30"
+    assert ads.return_notes == "Retour flexible selon marée"
+    assert link.access_log[-1]["action"] == "update_transport_preferences"
+    assert audit_calls
 
 
 @pytest.mark.asyncio
@@ -3973,6 +4197,51 @@ async def test_find_external_ads_pax_matches_uses_allowed_company_scope(monkeypa
 
     assert len(response) == 1
     assert response[0].contact_id == expected_match.contact_id
+
+
+@pytest.mark.asyncio
+async def test_find_external_ads_pax_matches_accepts_email_only_lookup(monkeypatch):
+    link = SimpleNamespace(id=uuid4())
+    ads = _build_ads(status="draft")
+    expected_allowed_company_id = uuid4()
+    expected_match = paxlog.ExternalPaxMatchRead(
+        contact_id=uuid4(),
+        first_name="Aline",
+        last_name="Mukeba",
+        email="aline@example.com",
+        match_score=80,
+        match_reasons=["email"],
+        already_linked_to_ads=False,
+    )
+
+    async def fake_require_session(_db, token, session_token, request=None):
+        return link
+
+    async def fake_get_ads_and_context(_db, link):
+        return ads, ads.entity_id, expected_allowed_company_id
+
+    async def fake_find_matches(_db, *, ads_id, allowed_company_id: object, body):
+        assert ads_id == ads.id
+        assert allowed_company_id == expected_allowed_company_id
+        assert body.first_name == ""
+        assert body.last_name == ""
+        assert body.email == "aline@example.com"
+        return [expected_match]
+
+    monkeypatch.setattr(paxlog, "_require_external_session", fake_require_session)
+    monkeypatch.setattr(paxlog, "_get_external_ads_and_context", fake_get_ads_and_context)
+    monkeypatch.setattr(paxlog, "_find_external_contact_matches", fake_find_matches)
+
+    response = await paxlog.find_external_ads_pax_matches(
+        "token-match",
+        body=paxlog.ExternalPaxUpsertBody(first_name="", last_name="", email="aline@example.com"),
+        request=SimpleNamespace(client=None, headers={}),
+        x_external_session="session-ok",
+        db=FakeDB([]),
+    )
+
+    assert len(response) == 1
+    assert response[0].email == "aline@example.com"
 
 
 @pytest.mark.asyncio
@@ -4034,13 +4303,31 @@ async def test_attach_existing_external_ads_pax_updates_and_links_contact(monkey
         email="aline@example.com",
         phone=None,
         position=None,
+        contractual_airport=None,
+        nearest_airport=None,
+        nearest_station=None,
     )
-    db = FakeDB([FakeResult(scalar_one_or_none=None)])
+    linked_user = SimpleNamespace(
+        id=uuid4(),
+        tier_contact_id=contact.id,
+        contractual_airport=None,
+        nearest_airport=None,
+        nearest_station=None,
+    )
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=None),
+            FakeResult(scalar_one_or_none=linked_user),
+            FakeResult(all_rows=[]),
+            FakeResult(all_rows=[]),
+        ]
+    )
     db_get = FakeDBWithGet(db._results, get_map={(paxlog.TierContact, contact.id): contact})
     db_get.added = db.added
     db_get.commits = db.commits
     db_get.refreshed = db.refreshed
     db_get.executed = db.executed
+    db_get.deleted = db.deleted
     audit_calls = []
 
     async def fake_require_session(_db, token, session_token, request=None):
@@ -4065,6 +4352,14 @@ async def test_attach_existing_external_ads_pax_updates_and_links_contact(monkey
             nationality="CD",
             badge_number="BG-77",
             email="aline@example.com",
+            contractual_airport="FIH",
+            nearest_airport="FIH",
+            nearest_station="Gare de Matadi",
+            pickup_address_line1="12 Avenue du Port",
+            pickup_city="Matadi",
+            pickup_state_province="Kongo Central",
+            pickup_postal_code="1001",
+            pickup_country="CD",
         ),
         request=SimpleNamespace(client=None, headers={}),
         x_external_session="session-ok",
@@ -4077,7 +4372,11 @@ async def test_attach_existing_external_ads_pax_updates_and_links_contact(monkey
     assert contact.last_name == "Mukeba"
     assert contact.nationality == "CD"
     assert contact.badge_number == "BG-77"
+    assert contact.contractual_airport == "FIH"
+    assert linked_user.contractual_airport == "FIH"
     assert any(isinstance(item, paxlog.AdsPax) and item.contact_id == contact.id for item in db_get.added)
+    assert any(isinstance(item, paxlog.Address) and item.owner_type == "tier_contact" for item in db_get.added)
+    assert any(isinstance(item, paxlog.Address) and item.owner_type == "user" for item in db_get.added)
     assert link.access_log[-1]["action"] == "attach_existing_pax"
     assert audit_calls
 

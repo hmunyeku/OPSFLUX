@@ -26,11 +26,13 @@ from app.core.database import get_db
 from app.core.pagination import PaginationParams, paginate
 from app.core.references import generate_reference
 from app.models.common import (
+    Address,
     AuditLog,
     CostCenter,
     CostImputation,
     ImputationAssignment,
     ImputationReference,
+    JobPosition,
     Project,
     Setting,
     Tier,
@@ -98,6 +100,8 @@ from app.schemas.paxlog import (
     PaxProfileUpdate,
     RotationCycleRead,
 )
+from app.models.asset_registry import Installation
+from app.schemas.common import JobPositionRead
 from app.schemas.common import PaginatedResponse
 from app.services.core.fsm_service import fsm_service, FSMError, FSMPermissionError
 from app.services.modules import paxlog_service
@@ -3607,15 +3611,28 @@ async def download_ads_pdf(
     _: None = require_permission("paxlog.ads.read"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Generate and download the AdS as a PDF ticket (boarding pass style).
+    """Generate and download the canonical AdS PDF ticket."""
+    ads = await _get_ads_pdf_accessible(
+        db,
+        ads_id=ads_id,
+        entity_id=entity_id,
+        current_user=current_user,
+    )
+    return await _build_ads_pdf_response(
+        db,
+        ads=ads,
+        entity_id=entity_id,
+        language=language,
+    )
 
-    Uses the configurable PDF template system (slug: ads.ticket).
-    Admins can customize the layout via Settings → PDF Templates.
-    """
-    from fastapi.responses import Response
-    from app.core.pdf_templates import render_pdf
 
-    # Load ADS with all related data
+async def _get_ads_pdf_accessible(
+    db: AsyncSession,
+    *,
+    ads_id: UUID,
+    entity_id: UUID,
+    current_user: User,
+) -> Ads:
     result = await db.execute(
         select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
     )
@@ -3623,10 +3640,23 @@ async def download_ads_pdf(
     if not ads:
         raise HTTPException(status_code=404, detail="AdS introuvable")
     await _assert_ads_read_access(ads, current_user=current_user, entity_id=entity_id, db=db)
+    return ads
+
+
+async def _build_ads_pdf_response(
+    db: AsyncSession,
+    *,
+    ads: Ads,
+    entity_id: UUID,
+    language: str = "fr",
+):
+    """Render the shared `ads.ticket` PDF response for internal and external flows."""
+    from fastapi.responses import Response
+    from app.core.pdf_templates import render_pdf
 
     # Load PAX entries with profile details (User + TierContact)
     pax_result = await db.execute(
-        select(AdsPax).where(AdsPax.ads_id == ads_id)
+        select(AdsPax).where(AdsPax.ads_id == ads.id)
     )
     pax_rows = pax_result.scalars().all()
     passengers = []
@@ -3712,6 +3742,29 @@ async def download_ads_pdf(
         content=pdf_bytes,
         media_type="application/pdf",
         headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
+
+
+@router.get("/external/{token}/pdf")
+async def download_external_ads_pdf(
+    token: str,
+    language: str = "fr",
+    x_external_session: str | None = Header(default=None, alias="X-External-Session"),
+    request: Request = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Download the same canonical AdS ticket from the external portal."""
+    link = await _require_external_session(db, token=token, session_token=x_external_session, request=request)
+    ads, _company = await _get_external_ads_and_context(
+        db,
+        link=link,
+        require_company_scope=False,
+    )
+    return await _build_ads_pdf_response(
+        db,
+        ads=ads,
+        entity_id=ads.entity_id,
+        language=language,
     )
 
 
@@ -4278,6 +4331,16 @@ class ExternalPaxUpsertBody(BaseModel):
     email: str | None = None
     phone: str | None = None
     position: str | None = None
+    job_position_id: UUID | None = None
+    contractual_airport: str | None = None
+    nearest_airport: str | None = None
+    nearest_station: str | None = None
+    pickup_address_line1: str | None = None
+    pickup_address_line2: str | None = None
+    pickup_city: str | None = None
+    pickup_state_province: str | None = None
+    pickup_postal_code: str | None = None
+    pickup_country: str | None = None
 
 
 class ExternalPaxMatchRead(BaseModel):
@@ -4290,6 +4353,8 @@ class ExternalPaxMatchRead(BaseModel):
     email: str | None = None
     phone: str | None = None
     position: str | None = None
+    job_position_id: UUID | None = None
+    job_position_name: str | None = None
     match_score: int
     match_reasons: list[str] = []
     already_linked_to_ads: bool = False
@@ -4311,6 +4376,20 @@ class ExternalLinkCreateBody(BaseModel):
     expires_hours: int = 72
     max_uses: int = 1
     preconfigured_data: dict | None = None
+
+
+class ExternalDepartureBaseRead(BaseModel):
+    id: UUID
+    code: str
+    name: str
+    installation_type: str
+
+
+class ExternalTransportPreferencesBody(BaseModel):
+    outbound_departure_base_id: UUID | None = None
+    outbound_notes: str | None = None
+    return_departure_base_id: UUID | None = None
+    return_notes: str | None = None
 
 
 def _mask_contact_value(value: str | None) -> str | None:
@@ -4358,6 +4437,157 @@ async def _find_external_contact_matches(
         phone=body.phone,
     )
     return [ExternalPaxMatchRead(**item) for item in matches]
+
+
+async def _resolve_external_job_position(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    job_position_id: UUID | None,
+) -> JobPosition | None:
+    if not job_position_id:
+        return None
+    job_position = (
+        await db.execute(
+            select(JobPosition).where(
+                JobPosition.id == job_position_id,
+                JobPosition.entity_id == entity_id,
+                JobPosition.active == True,  # noqa: E712
+            )
+        )
+    ).scalar_one_or_none()
+    if not job_position:
+        raise HTTPException(status_code=400, detail="Le poste sélectionné n'est pas valide pour cette entité")
+    return job_position
+
+
+async def _resolve_external_departure_base(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    base_id: UUID | None,
+) -> Installation | None:
+    if not base_id:
+        return None
+    installation = (
+        await db.execute(
+            select(Installation).where(
+                Installation.id == base_id,
+                Installation.entity_id == entity_id,
+                Installation.archived == False,  # noqa: E712
+            )
+        )
+    ).scalar_one_or_none()
+    if not installation:
+        raise HTTPException(status_code=400, detail="Le point de départ sélectionné n'est pas valide pour cette entité")
+    return installation
+
+
+def _normalize_external_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None
+
+
+async def _load_pickup_address(
+    db: AsyncSession,
+    *,
+    owner_type: str,
+    owner_id: UUID | None,
+) -> Address | None:
+    if not owner_id:
+        return None
+    rows = (
+        await db.execute(
+            select(Address)
+            .where(
+                Address.owner_type == owner_type,
+                Address.owner_id == owner_id,
+                Address.label == "pickup",
+            )
+            .order_by(Address.is_default.desc(), Address.created_at.desc())
+        )
+    ).scalars().all()
+    return rows[0] if rows else None
+
+
+async def _upsert_pickup_address(
+    db: AsyncSession,
+    *,
+    owner_type: str,
+    owner_id: UUID | None,
+    body: ExternalPaxUpsertBody,
+) -> None:
+    if not owner_id:
+        return
+    address_fields = {
+        "address_line1": _normalize_external_text(body.pickup_address_line1),
+        "address_line2": _normalize_external_text(body.pickup_address_line2),
+        "city": _normalize_external_text(body.pickup_city),
+        "state_province": _normalize_external_text(body.pickup_state_province),
+        "postal_code": _normalize_external_text(body.pickup_postal_code),
+        "country": _normalize_external_text(body.pickup_country),
+    }
+    existing = await _load_pickup_address(db, owner_type=owner_type, owner_id=owner_id)
+    has_meaningful_pickup = any(
+        value for key, value in address_fields.items() if key != "address_line2"
+    )
+    if not has_meaningful_pickup:
+        if existing:
+            await db.delete(existing)
+        return
+    if existing:
+        existing.address_line1 = address_fields["address_line1"] or existing.address_line1
+        existing.address_line2 = address_fields["address_line2"]
+        existing.city = address_fields["city"] or existing.city
+        existing.state_province = address_fields["state_province"]
+        existing.postal_code = address_fields["postal_code"]
+        existing.country = address_fields["country"] or existing.country
+        return
+    db.add(
+        Address(
+            owner_type=owner_type,
+            owner_id=owner_id,
+            label="pickup",
+            address_line1=address_fields["address_line1"] or "",
+            address_line2=address_fields["address_line2"],
+            city=address_fields["city"] or "",
+            state_province=address_fields["state_province"],
+            postal_code=address_fields["postal_code"],
+            country=address_fields["country"] or "",
+            is_default=True,
+        )
+    )
+
+
+async def _sync_external_pax_travel_profile(
+    db: AsyncSession,
+    *,
+    contact: TierContact,
+    body: ExternalPaxUpsertBody,
+    linked_user: User | None = None,
+) -> None:
+    contact.contractual_airport = _normalize_external_text(body.contractual_airport)
+    contact.nearest_airport = _normalize_external_text(body.nearest_airport)
+    contact.nearest_station = _normalize_external_text(body.nearest_station)
+    await _upsert_pickup_address(
+        db,
+        owner_type="tier_contact",
+        owner_id=contact.id,
+        body=body,
+    )
+    if not linked_user:
+        return
+    linked_user.contractual_airport = contact.contractual_airport
+    linked_user.nearest_airport = contact.nearest_airport
+    linked_user.nearest_station = contact.nearest_station
+    await _upsert_pickup_address(
+        db,
+        owner_type="user",
+        owner_id=linked_user.id,
+        body=body,
+    )
 
 
 async def _send_external_link_otp(db: AsyncSession, *, link: ExternalAccessLink) -> None:
@@ -4813,6 +5043,21 @@ async def get_external_ads_dossier(
         {"asset_id": str(ads.site_entry_asset_id)},
     )
     site_name = site_name_result.scalar_one_or_none()
+    departure_base_names: dict[UUID, str] = {}
+    departure_base_ids = [
+        base_id for base_id in (ads.outbound_departure_base_id, ads.return_departure_base_id) if base_id
+    ]
+    if departure_base_ids:
+        departure_base_rows = (
+            await db.execute(
+                select(Installation.id, Installation.code, Installation.name)
+                .where(Installation.id.in_(departure_base_ids))
+            )
+        ).all()
+        departure_base_names = {
+            row[0]: f"{row[1]} — {row[2]}" if row[1] else row[2]
+            for row in departure_base_rows
+        }
     project_name = None
     if ads.project_id:
         project_result = await db.execute(
@@ -4841,8 +5086,14 @@ async def get_external_ads_dossier(
             "site_name": site_name,
             "project_id": str(ads.project_id) if ads.project_id else None,
             "project_name": project_name,
-            "outbound_transport_mode": ads.outbound_transport_mode,
-            "return_transport_mode": ads.return_transport_mode,
+            "outbound_transport_mode": getattr(ads, "outbound_transport_mode", None),
+            "outbound_departure_base_id": str(getattr(ads, "outbound_departure_base_id", None)) if getattr(ads, "outbound_departure_base_id", None) else None,
+            "outbound_departure_base_name": departure_base_names.get(getattr(ads, "outbound_departure_base_id", None)) if getattr(ads, "outbound_departure_base_id", None) else None,
+            "outbound_notes": getattr(ads, "outbound_notes", None),
+            "return_transport_mode": getattr(ads, "return_transport_mode", None),
+            "return_departure_base_id": str(getattr(ads, "return_departure_base_id", None)) if getattr(ads, "return_departure_base_id", None) else None,
+            "return_departure_base_name": departure_base_names.get(getattr(ads, "return_departure_base_id", None)) if getattr(ads, "return_departure_base_id", None) else None,
+            "return_notes": getattr(ads, "return_notes", None),
             "rejection_reason": ads.rejection_reason,
         },
         "preconfigured_data": preconfigured_data,
@@ -4871,6 +5122,95 @@ async def list_external_credential_types(
     return result.scalars().all()
 
 
+@router.get("/external/{token}/job-positions", response_model=list[JobPositionRead])
+async def list_external_job_positions(
+    token: str,
+    request: Request,
+    x_external_session: str | None = Header(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    link = await _require_external_session(db, token=token, session_token=x_external_session, request=request)
+    ads, entity_id, _allowed_company_id = await _get_external_ads_and_context(db, link=link)
+    result = await db.execute(
+        select(JobPosition)
+        .where(
+            JobPosition.entity_id == entity_id,
+            JobPosition.active == True,  # noqa: E712
+        )
+        .order_by(JobPosition.department.asc(), JobPosition.name.asc())
+    )
+    return result.scalars().all()
+
+
+@router.get("/external/{token}/departure-bases", response_model=list[ExternalDepartureBaseRead])
+async def list_external_departure_bases(
+    token: str,
+    request: Request,
+    x_external_session: str | None = Header(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    link = await _require_external_session(db, token=token, session_token=x_external_session, request=request)
+    _ads, entity_id, _allowed_company_id = await _get_external_ads_and_context(db, link=link)
+    result = await db.execute(
+        select(Installation)
+        .where(
+            Installation.entity_id == entity_id,
+            Installation.archived == False,  # noqa: E712
+        )
+        .order_by(Installation.code.asc(), Installation.name.asc())
+    )
+    return result.scalars().all()
+
+
+@router.patch("/external/{token}/transport-preferences")
+async def update_external_transport_preferences(
+    token: str,
+    body: ExternalTransportPreferencesBody,
+    request: Request,
+    x_external_session: str | None = Header(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    link = await _require_external_session(db, token=token, session_token=x_external_session, request=request)
+    ads, entity_id, _allowed_company_id = await _get_external_ads_and_context(db, link=link)
+    if ads.status not in {"draft", "requires_review"}:
+        raise HTTPException(status_code=400, detail="Le dossier n'accepte plus de modification externe")
+
+    outbound_base = await _resolve_external_departure_base(
+        db,
+        entity_id=entity_id,
+        base_id=body.outbound_departure_base_id,
+    )
+    return_base = await _resolve_external_departure_base(
+        db,
+        entity_id=entity_id,
+        base_id=body.return_departure_base_id,
+    )
+
+    ads.outbound_departure_base_id = outbound_base.id if outbound_base else None
+    ads.outbound_notes = _normalize_external_text(body.outbound_notes)
+    ads.return_departure_base_id = return_base.id if return_base else None
+    ads.return_notes = _normalize_external_text(body.return_notes)
+    _append_external_access_log(link, action="update_transport_preferences", request=request, otp_validated=True)
+    await db.commit()
+
+    await record_audit(
+        db,
+        action="paxlog.external.transport_preferences.update",
+        resource_type="ads",
+        resource_id=str(ads.id),
+        entity_id=entity_id,
+        details={
+            "link_id": str(link.id),
+            "outbound_departure_base_id": str(ads.outbound_departure_base_id) if ads.outbound_departure_base_id else None,
+            "return_departure_base_id": str(ads.return_departure_base_id) if ads.return_departure_base_id else None,
+        },
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    await db.commit()
+    return {"ads_id": str(ads.id)}
+
+
 @router.post("/external/{token}/pax/matches", response_model=list[ExternalPaxMatchRead])
 async def find_external_ads_pax_matches(
     token: str,
@@ -4883,7 +5223,13 @@ async def find_external_ads_pax_matches(
     ads, _entity_id, allowed_company_id = await _get_external_ads_and_context(db, link=link)
     if not allowed_company_id:
         raise HTTPException(status_code=400, detail="Aucune entreprise cible n'est configurée sur ce lien externe")
-    if not body.first_name.strip() or not body.last_name.strip():
+    has_lookup_signal = (
+        (body.first_name.strip() and body.last_name.strip())
+        or bool(body.badge_number)
+        or bool(body.email)
+        or bool(body.phone)
+    )
+    if not has_lookup_signal:
         return []
     return await _find_external_contact_matches(
         db,
@@ -4923,6 +5269,11 @@ async def create_external_ads_pax(
             },
         )
 
+    job_position = await _resolve_external_job_position(
+        db,
+        entity_id=entity_id,
+        job_position_id=body.job_position_id,
+    )
     contact = TierContact(
         tier_id=allowed_company_id,
         first_name=body.first_name,
@@ -4933,10 +5284,15 @@ async def create_external_ads_pax(
         photo_url=body.photo_url,
         email=body.email,
         phone=body.phone,
-        position=body.position,
+        position=job_position.name if job_position else body.position,
+        job_position_id=job_position.id if job_position else None,
+        contractual_airport=_normalize_external_text(body.contractual_airport),
+        nearest_airport=_normalize_external_text(body.nearest_airport),
+        nearest_station=_normalize_external_text(body.nearest_station),
     )
     db.add(contact)
     await db.flush()
+    await _sync_external_pax_travel_profile(db, contact=contact, body=body)
     db.add(AdsPax(ads_id=ads.id, contact_id=contact.id, status="pending_check"))
     _append_external_access_log(link, action="create_pax", request=request, otp_validated=True)
     await db.commit()
@@ -4996,7 +5352,15 @@ async def attach_existing_external_ads_pax(
     ).scalar_one_or_none()
     if not existing_entry:
         db.add(AdsPax(ads_id=ads.id, contact_id=contact.id, status="pending_check"))
+    linked_user = (
+        await db.execute(select(User).where(User.tier_contact_id == contact.id))
+    ).scalar_one_or_none()
 
+    job_position = await _resolve_external_job_position(
+        db,
+        entity_id=entity_id,
+        job_position_id=body.job_position_id,
+    )
     contact.first_name = body.first_name
     contact.last_name = body.last_name
     contact.birth_date = body.birth_date
@@ -5005,7 +5369,9 @@ async def attach_existing_external_ads_pax(
     contact.photo_url = body.photo_url
     contact.email = body.email
     contact.phone = body.phone
-    contact.position = body.position
+    contact.position = job_position.name if job_position else body.position
+    contact.job_position_id = job_position.id if job_position else None
+    await _sync_external_pax_travel_profile(db, contact=contact, linked_user=linked_user, body=body)
     _append_external_access_log(link, action="attach_existing_pax", request=request, otp_validated=True)
     await db.commit()
 
@@ -5048,7 +5414,15 @@ async def update_external_ads_pax(
     _entry, contact = row
     if allowed_company_id and contact.tier_id != allowed_company_id:
         raise HTTPException(status_code=403, detail="Ce PAX n'appartient pas à l'entreprise autorisée")
+    linked_user = (
+        await db.execute(select(User).where(User.tier_contact_id == contact.id))
+    ).scalar_one_or_none()
 
+    job_position = await _resolve_external_job_position(
+        db,
+        entity_id=entity_id,
+        job_position_id=body.job_position_id,
+    )
     contact.first_name = body.first_name
     contact.last_name = body.last_name
     contact.birth_date = body.birth_date
@@ -5057,7 +5431,9 @@ async def update_external_ads_pax(
     contact.photo_url = body.photo_url
     contact.email = body.email
     contact.phone = body.phone
-    contact.position = body.position
+    contact.position = job_position.name if job_position else body.position
+    contact.job_position_id = job_position.id if job_position else None
+    await _sync_external_pax_travel_profile(db, contact=contact, linked_user=linked_user, body=body)
     _append_external_access_log(link, action="update_pax", request=request, otp_validated=True)
     await db.commit()
 

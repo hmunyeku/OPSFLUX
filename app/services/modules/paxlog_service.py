@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.events import OpsFluxEvent, event_bus
 from app.services.modules import compliance_service
 from app.services.core.fsm_service import fsm_service
-from app.models.common import Setting, TierContact, User
+from app.models.common import Address, Setting, TierContact, User
 from app.models.paxlog import (
     Ads,
     AdsEvent,
@@ -137,6 +137,26 @@ def build_external_pax_summary(allowed_pax: list[dict[str, object | None]]) -> d
         "compliant": sum(1 for item in allowed_pax if item.get("status") == "compliant"),
         "blocked": sum(1 for item in allowed_pax if item.get("status") == "blocked"),
         "approved": sum(1 for item in allowed_pax if item.get("status") == "approved"),
+    }
+
+
+def _serialize_pickup_address(address: Address | None) -> dict[str, str | None]:
+    if not address:
+        return {
+            "pickup_address_line1": None,
+            "pickup_address_line2": None,
+            "pickup_city": None,
+            "pickup_state_province": None,
+            "pickup_postal_code": None,
+            "pickup_country": None,
+        }
+    return {
+        "pickup_address_line1": address.address_line1,
+        "pickup_address_line2": address.address_line2,
+        "pickup_city": address.city,
+        "pickup_state_province": address.state_province,
+        "pickup_postal_code": address.postal_code,
+        "pickup_country": address.country,
     }
 
 
@@ -296,6 +316,8 @@ async def find_external_contact_matches(
             "email": contact.email,
             "phone": contact.phone,
             "position": contact.position,
+            "job_position_id": contact.job_position_id,
+            "job_position_name": contact.job_position.name if getattr(contact, "job_position", None) else None,
             "match_score": score,
             "match_reasons": reasons,
             "already_linked_to_ads": contact.id in linked_contact_ids,
@@ -312,15 +334,27 @@ async def build_external_dossier_pax_data(
 ) -> tuple[list[dict[str, object | None]], dict[str, int]]:
     pax_entries = (
         await db.execute(
-            select(AdsPax, TierContact)
-            .join(TierContact, TierContact.id == AdsPax.contact_id)
+            select(AdsPax, TierContact, User)
+            .outerjoin(User, User.id == AdsPax.user_id)
+            .outerjoin(
+                TierContact,
+                or_(
+                    TierContact.id == AdsPax.contact_id,
+                    TierContact.id == User.tier_contact_id,
+                ),
+            )
             .where(AdsPax.ads_id == ads_id)
-            .order_by(TierContact.last_name, TierContact.first_name)
+            .order_by(
+                func.coalesce(TierContact.last_name, User.last_name),
+                func.coalesce(TierContact.first_name, User.first_name),
+            )
         )
     ).all()
 
     allowed_pax: list[dict[str, object | None]] = []
-    for entry, contact in pax_entries:
+    for entry, contact, user in pax_entries:
+        if not contact:
+            continue
         if allowed_company_id and contact.tier_id != allowed_company_id:
             continue
 
@@ -342,15 +376,22 @@ async def build_external_dossier_pax_data(
         allowed_pax.append({
             "entry_id": str(entry.id),
             "contact_id": str(contact.id),
-            "first_name": contact.first_name,
-            "last_name": contact.last_name,
-            "birth_date": contact.birth_date.isoformat() if contact.birth_date else None,
-            "nationality": contact.nationality,
-            "badge_number": contact.badge_number,
+            "user_id": str(user.id) if user else None,
+            "pax_source": "user" if getattr(entry, "user_id", None) else "contact",
+            "first_name": contact.first_name or (user.first_name if user else None),
+            "last_name": contact.last_name or (user.last_name if user else None),
+            "birth_date": (contact.birth_date or (user.birth_date if user else None)).isoformat() if (contact.birth_date or (user.birth_date if user else None)) else None,
+            "nationality": contact.nationality or (user.nationality if user else None),
+            "badge_number": contact.badge_number or (user.badge_number if user else None),
             "photo_url": contact.photo_url,
-            "email": contact.email,
+            "email": contact.email or (user.email if user else None),
             "phone": contact.phone,
-            "position": contact.position,
+            "contractual_airport": getattr(contact, "contractual_airport", None) or (getattr(user, "contractual_airport", None) if user else None),
+            "nearest_airport": getattr(contact, "nearest_airport", None) or (getattr(user, "nearest_airport", None) if user else None),
+            "nearest_station": getattr(contact, "nearest_station", None) or (getattr(user, "nearest_station", None) if user else None),
+            "job_position_id": str(getattr(contact, "job_position_id", None)) if getattr(contact, "job_position_id", None) else (str(getattr(user, "job_position_id", None)) if user and getattr(user, "job_position_id", None) else None),
+            "job_position_name": (contact.job_position.name if getattr(contact, "job_position", None) else None) or (user.job_position_name if user else None),
+            "position": contact.position or (user.job_position_name if user else None),
             "status": entry.status,
             "company_id": str(contact.tier_id),
             "compliance_ok": bool(compliance_summary.get("compliant")),
@@ -359,9 +400,19 @@ async def build_external_dossier_pax_data(
             "missing_identity_fields": missing_identity_fields,
             "required_actions": required_actions[:8],
             "credentials": [],
+            "pickup_address_line1": None,
+            "pickup_address_line2": None,
+            "pickup_city": None,
+            "pickup_state_province": None,
+            "pickup_postal_code": None,
+            "pickup_country": None,
+            "linked_user_id": str(user.id) if user else None,
+            "linked_user_email": user.email if user else getattr(contact, "linked_user_email", None),
+            "linked_user_active": user.active if user else getattr(contact, "linked_user_active", None),
         })
 
     visible_contact_ids = [UUID(str(item["contact_id"])) for item in allowed_pax]
+    visible_user_ids = [UUID(str(item["user_id"])) for item in allowed_pax if item.get("user_id")]
     credentials_by_contact: dict[UUID, list[dict[str, object | None]]] = {}
     if visible_contact_ids:
         credential_rows = (
@@ -387,8 +438,33 @@ async def build_external_dossier_pax_data(
                 }
             )
 
+    pickup_addresses_by_owner: dict[tuple[str, UUID], Address] = {}
+    if visible_contact_ids or visible_user_ids:
+        address_rows = (
+            await db.execute(
+                select(Address)
+                .where(
+                    Address.label == "pickup",
+                    or_(
+                        and_(Address.owner_type == "tier_contact", Address.owner_id.in_(visible_contact_ids or [UUID(int=0)])),
+                        and_(Address.owner_type == "user", Address.owner_id.in_(visible_user_ids or [UUID(int=0)])),
+                    ),
+                )
+                .order_by(Address.is_default.desc(), Address.created_at.desc())
+            )
+        ).scalars().all()
+        for address in address_rows:
+            pickup_addresses_by_owner.setdefault((address.owner_type, address.owner_id), address)
+
     for item in allowed_pax:
         item["credentials"] = credentials_by_contact.get(UUID(str(item["contact_id"])), [])[:8]
+        contact_address = pickup_addresses_by_owner.get(("tier_contact", UUID(str(item["contact_id"]))))
+        user_address = (
+            pickup_addresses_by_owner.get(("user", UUID(str(item["user_id"]))))
+            if item.get("user_id")
+            else None
+        )
+        item.update(_serialize_pickup_address(contact_address or user_address))
 
     return allowed_pax, build_external_pax_summary(allowed_pax)
 

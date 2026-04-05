@@ -257,11 +257,26 @@ async def _upsert_project_from_gouti(
         or gouti_data.get("code")
         or f"GOU-{gouti_id}"
     )
-    description = (
-        gouti_data.get("Description")
-        or gouti_data.get("description_pr")
-        or gouti_data.get("description")
-    )
+    # Compose a rich description: project description + context/situation
+    # blocks that Gouti surfaces separately — and sanitise HTML.
+    description_parts: list[str] = []
+    for key in ("Description", "description_pr", "description"):
+        v = gouti_data.get(key)
+        if v:
+            description_parts.append(_html_to_text(v) or "")
+    for label, key in (
+        ("Contexte", "Context"),
+        ("Justification métier", "Business_justification"),
+        ("Contraintes", "Constraints"),
+        ("Exclusions", "Exclusions"),
+        ("Situation globale", "General_situation"),
+        ("Situation détaillée", "Detailed_situation"),
+    ):
+        v = gouti_data.get(key)
+        cleaned = _html_to_text(v) if v else None
+        if cleaned:
+            description_parts.append(f"### {label}\n{cleaned}")
+    description = "\n\n".join(p for p in description_parts if p).strip() or None
     status = _map_gouti_status(
         gouti_data.get("Status")
         or gouti_data.get("status_pr")
@@ -772,6 +787,146 @@ async def get_catalog(
 # ── Tasks of a single Gouti project (lazy-load for modal expansion) ──────
 
 
+def _html_to_text(raw: str | None) -> str | None:
+    """Convert Gouti HTML descriptions to clean plain text.
+
+    Gouti stores rich text as HTML (``<div>...</div><br><a href=...>``).
+    Rendering that as plain text in OpsFlux shows the tags literally,
+    so we normalise at import time:
+    - Replace ``<br>``, ``<br/>``, closing ``</div>``, ``</p>`` with ``\n``
+    - Inline ``<a href="X">Y</a>`` as ``Y (X)``
+    - Strip every remaining tag
+    - Unescape HTML entities (``&amp;``, ``&nbsp;``, ...)
+    - Collapse 3+ consecutive newlines down to 2
+    """
+    if raw is None:
+        return None
+    import re
+    from html import unescape
+    s = str(raw)
+    if not s.strip():
+        return None
+    # <a href="X">Y</a> -> Y (X)
+    s = re.sub(
+        r'<a\s+[^>]*href\s*=\s*"([^"]+)"[^>]*>(.*?)</a>',
+        lambda m: f"{m.group(2)} ({m.group(1)})",
+        s,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    s = re.sub(
+        r"<a\s+[^>]*href\s*=\s*'([^']+)'[^>]*>(.*?)</a>",
+        lambda m: f"{m.group(2)} ({m.group(1)})",
+        s,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    # Line-break producing tags
+    s = re.sub(r"<br\s*/?>", "\n", s, flags=re.IGNORECASE)
+    s = re.sub(r"</\s*(div|p|li|h[1-6]|tr)\s*>", "\n", s, flags=re.IGNORECASE)
+    s = re.sub(r"<\s*li[^>]*>", "\n- ", s, flags=re.IGNORECASE)
+    # Strip all remaining tags
+    s = re.sub(r"<[^>]+>", "", s)
+    # Decode entities
+    s = unescape(s)
+    # Collapse whitespace
+    s = re.sub(r"[ \t]+\n", "\n", s)
+    s = re.sub(r"\n{3,}", "\n\n", s)
+    return s.strip() or None
+
+
+def _gouti_task_name(t: dict) -> str:
+    """Best-effort Gouti task title with sensible fallbacks.
+
+    Gouti tasks sometimes have an empty ``name_ta`` for macro/grouping
+    rows (``macro_ta == "1"``). In that case we try other text fields
+    and finally fall back to the ref.
+    """
+    for key in ("name_ta", "name", "Name", "title"):
+        v = t.get(key)
+        if isinstance(v, str) and v.strip():
+            return v.strip()
+    # Macro rows sometimes leave name blank — flag them explicitly
+    if str(t.get("macro_ta") or "").strip() == "1":
+        tid = t.get("ref_ta") or "?"
+        return f"(Groupe macro {tid})"
+    tid = t.get("ref_ta") or t.get("_id") or "?"
+    return f"Tâche {tid}"
+
+
+def _parse_gouti_status_task(raw: str | int | None) -> str:
+    """Map Gouti task status codes to OpsFlux task status enum.
+
+    Gouti ``status_ta`` is a numeric code: "0" = not started (todo),
+    "1" = in progress, "2" = done. Also accept the French labels we
+    saw in /projects for future-proofing.
+    """
+    if raw is None:
+        return "todo"
+    s = str(raw).lower().strip()
+    if s in {"2", "done", "termin\u00e9", "closed", "complete"}:
+        return "done"
+    if s in {"1", "in_progress", "progress", "en_cours", "cours"}:
+        return "in_progress"
+    if s in {"3", "review", "revue"}:
+        return "review"
+    if s in {"4", "cancelled", "annul\u00e9"}:
+        return "cancelled"
+    return "todo"
+
+
+def _as_int(v, default: int = 0) -> int:
+    if v in (None, ""):
+        return default
+    try:
+        return int(float(str(v).replace("%", "").strip()))
+    except (ValueError, TypeError):
+        return default
+
+
+def _as_float(v) -> float | None:
+    if v in (None, ""):
+        return None
+    try:
+        return float(str(v).strip())
+    except (ValueError, TypeError):
+        return None
+
+
+def _build_task_tree_metadata(raw_tasks: list[dict]) -> list[dict]:
+    """Enrich a flat Gouti task list with synthesized parent ref and level.
+
+    Gouti exposes only ``level_ta`` (int, 1-based depth) + ``order_ta``
+    (display order). The parent of a task at level N is the most recent
+    preceding task at level N-1 in order. We walk the list sorted by
+    ``order_ta`` and maintain a level stack.
+    """
+    # Sort by numeric order_ta, fallback to input order
+    def _order_key(t):
+        return _as_int(t.get("order_ta"), 0)
+
+    sorted_tasks = sorted(
+        [t for t in raw_tasks if isinstance(t, dict)],
+        key=_order_key,
+    )
+
+    stack: list[tuple[int, str]] = []  # list of (level, ref_ta)
+    out: list[dict] = []
+    for t in sorted_tasks:
+        level = _as_int(t.get("level_ta"), 1)
+        ref = str(t.get("ref_ta") or t.get("_id") or "")
+        # Pop stack to find the right parent
+        while stack and stack[-1][0] >= level:
+            stack.pop()
+        parent_ref = stack[-1][1] if stack else None
+        enriched = dict(t)
+        enriched["_level"] = level
+        enriched["_order"] = _order_key(t)
+        enriched["_parent_ref"] = parent_ref
+        out.append(enriched)
+        if ref:
+            stack.append((level, ref))
+    return out
+
+
 @router.get("/catalog/projects/{gouti_project_id}/tasks")
 async def get_catalog_project_tasks(
     gouti_project_id: str,
@@ -781,10 +936,9 @@ async def get_catalog_project_tasks(
 ):
     """Fetch the live task list for a Gouti project without importing.
 
-    Called by the import modal when a user expands a project row, so the
-    task tree can populate without fetching every project's tasks upfront.
-    Returns a minimal compact shape keeping just the fields the modal
-    needs to render checkboxes.
+    Returns the full tree with ``parent_ref`` / ``level`` / ``order`` /
+    ``is_milestone`` / ``is_macro`` so the frontend can render a
+    treegrid with expand/collapse that mirrors Gouti's own hierarchy.
     """
     gouti_settings = await _get_gouti_settings(db, entity_id)
     connector = _build_connector(gouti_settings)
@@ -794,37 +948,33 @@ async def get_catalog_project_tasks(
         logger.warning("Gouti catalog task fetch failed for %s: %s", gouti_project_id, exc)
         raise HTTPException(502, f"Erreur récupération tâches Gouti: {str(exc)[:200]}")
 
-    items: list[dict] = []
-    for t in raw_tasks:
-        if not isinstance(t, dict):
-            continue
-        tid = str(t.get("_id") or t.get("Ref") or t.get("ref_ta") or t.get("id") or "")
-        if not tid:
-            continue
-        # Gouti task fields use _ta suffix
-        progress_raw = t.get("progress_ta") or t.get("Tasks_progress") or 0
-        if isinstance(progress_raw, str):
-            progress_raw = progress_raw.replace("%", "").strip()
-        try:
-            progress = int(float(progress_raw)) if progress_raw else 0
-        except (ValueError, TypeError):
-            progress = 0
+    enriched = _build_task_tree_metadata(raw_tasks)
 
+    items: list[dict] = []
+    for t in enriched:
+        ref = str(t.get("ref_ta") or t.get("_id") or "")
+        if not ref:
+            continue
         items.append({
-            "gouti_id": tid,
-            "name": str(
-                t.get("name_ta")
-                or t.get("Name")
-                or t.get("title")
-                or f"Tâche {tid}"
-            ),
-            "code": str(t.get("ref_ta") or t.get("Ref") or tid),
-            "status_raw": t.get("status_ta") or t.get("Status"),
-            "progress": progress,
-            "start_date": t.get("initial_start_date_ta") or t.get("actual_start_date_ta") or t.get("start_date"),
-            "end_date": t.get("initial_end_date_ta") or t.get("actual_end_date_ta") or t.get("end_date"),
-            "workload": t.get("workload"),
-            "description": t.get("description_ta") or t.get("description"),
+            "gouti_id": ref,
+            "code": ref,
+            "name": _gouti_task_name(t),
+            "status_raw": t.get("status_ta"),
+            "status": _parse_gouti_status_task(t.get("status_ta")),
+            "progress": _as_int(t.get("progress_ta"), 0),
+            "start_date": t.get("initial_start_date_ta") or t.get("actual_start_date_ta") or None,
+            "end_date": t.get("initial_end_date_ta") or t.get("actual_end_date_ta") or None,
+            "actual_start_date": t.get("actual_start_date_ta") or None,
+            "actual_end_date": t.get("actual_end_date_ta") or None,
+            "workload": _as_float(t.get("workload_ta")),
+            "actual_workload": _as_float(t.get("actual_workload_ta")),
+            "duration_days": _as_int(t.get("duration_ta"), 0),
+            "description": t.get("description_ta") or None,
+            "is_milestone": str(t.get("milestone_ta") or "0").strip() == "1",
+            "is_macro": str(t.get("macro_ta") or "0").strip() == "1",
+            "level": t.get("_level", 1),
+            "order": t.get("_order", 0),
+            "parent_ref": t.get("_parent_ref"),
         })
     return {"gouti_project_id": gouti_project_id, "count": len(items), "items": items}
 
@@ -944,14 +1094,16 @@ async def _import_project_tasks(
     task_selection: dict,
     current_user_id: UUID,
 ) -> int:
-    """Fetch and import tasks for a project according to the task selection.
+    """Fetch and import tasks for a project preserving Gouti's hierarchy.
 
-    task_selection.mode:
-      - "all"  : import every task returned by Gouti
-      - "none" : import nothing (return 0)
-      - "some" : import only the tasks whose _id is in task_selection.task_ids
-
-    Returns the number of tasks created/updated.
+    - Rebuilds the parent/child tree from ``level_ta`` + ``order_ta``.
+    - Upserts each task by ``(project_id, code)`` and stores the
+      parent_id FK pointing to the local parent task that was upserted
+      earlier in the same pass (walking in order).
+    - Gouti tasks flagged with ``milestone_ta == 1`` are imported as
+      ``ProjectMilestone`` rows instead of tasks.
+    - Task selection ``mode`` drives filtering: "all" / "none" /
+      "some" (task_ids subset).
     """
     mode = str(task_selection.get("mode") or "all").lower()
     if mode == "none":
@@ -960,69 +1112,79 @@ async def _import_project_tasks(
     try:
         raw_tasks = await connector.get_project_tasks(gouti_project_id)
     except Exception as exc:
-        logger.warning(
-            "Gouti tasks fetch failed for %s: %s", gouti_project_id, exc,
-        )
+        logger.warning("Gouti tasks fetch failed for %s: %s", gouti_project_id, exc)
         return 0
 
+    # Enrich with level/order/parent_ref
+    tree_tasks = _build_task_tree_metadata(raw_tasks)
+
     wanted_ids = set(task_selection.get("task_ids") or [])
+
+    from app.models.common import ProjectTask, ProjectMilestone
+
+    # Map Gouti ref → local ProjectTask.id so children can point to parents
+    gouti_to_local_id: dict[str, UUID] = {}
     touched = 0
 
-    for gt in raw_tasks:
-        if not isinstance(gt, dict):
-            continue
-        tid = str(gt.get("_id") or gt.get("Ref") or gt.get("ref_ta") or "")
+    for gt in tree_tasks:
+        tid = str(gt.get("ref_ta") or gt.get("_id") or "")
         if not tid:
             continue
         if mode == "some" and tid not in wanted_ids:
             continue
 
-        title = str(
-            gt.get("name_ta")
-            or gt.get("Name")
-            or gt.get("title")
-            or f"Tâche Gouti {tid}"
-        )
-        code = str(gt.get("ref_ta") or gt.get("Ref") or tid)
-        status_raw = str(gt.get("status_ta") or gt.get("Status") or "").lower().strip()
-        # Map Gouti task status → OpsFlux task status enum
-        if "termin" in status_raw or "done" in status_raw or "complete" in status_raw:
-            status = "done"
-        elif "cours" in status_raw or "progress" in status_raw or "realis" in status_raw:
-            status = "in_progress"
-        elif "revue" in status_raw or "review" in status_raw:
-            status = "review"
-        elif "annul" in status_raw or "cancel" in status_raw:
-            status = "cancelled"
-        else:
-            status = "todo"
-
-        progress_raw = gt.get("progress_ta") or 0
-        if isinstance(progress_raw, str):
-            progress_raw = progress_raw.replace("%", "").strip()
-        try:
-            progress = int(float(progress_raw)) if progress_raw else 0
-        except (ValueError, TypeError):
-            progress = 0
-        progress = max(0, min(100, progress))
-
-        description = gt.get("description_ta") or gt.get("description")
-        workload_raw = gt.get("workload")
-        try:
-            workload = float(workload_raw) if workload_raw not in (None, "") else None
-        except (ValueError, TypeError):
-            workload = None
-
+        is_milestone = str(gt.get("milestone_ta") or "0").strip() == "1"
+        title = _gouti_task_name(gt)
+        description = _html_to_text(gt.get("description_ta") or gt.get("description"))
+        progress = max(0, min(100, _as_int(gt.get("progress_ta"), 0)))
+        status = _parse_gouti_status_task(gt.get("status_ta"))
         start_date = _parse_gouti_date(
-            gt.get("initial_start_date_ta") or gt.get("actual_start_date_ta") or gt.get("start_date")
+            gt.get("initial_start_date_ta") or gt.get("actual_start_date_ta")
         )
-        due_date = _parse_gouti_date(
-            gt.get("initial_end_date_ta") or gt.get("actual_end_date_ta") or gt.get("end_date")
+        end_date = _parse_gouti_date(
+            gt.get("initial_end_date_ta") or gt.get("actual_end_date_ta")
         )
+        code = tid
+        order_val = gt.get("_order", 0)
 
-        # Upsert by (project_id, code) — lightweight origin tracking.
-        from app.models.common import ProjectTask
-        task_external_ref = f"gouti:{tid}"
+        # ── Milestones: import as ProjectMilestone, not ProjectTask ──
+        if is_milestone:
+            try:
+                existing_ms = (await db.execute(
+                    select(ProjectMilestone).where(
+                        ProjectMilestone.project_id == local_project_id,
+                        ProjectMilestone.name == title,
+                    )
+                )).scalar_one_or_none()
+                if existing_ms:
+                    existing_ms.description = description
+                    existing_ms.due_date = end_date or start_date
+                    existing_ms.status = "completed" if status == "done" else "pending"
+                else:
+                    db.add(ProjectMilestone(
+                        project_id=local_project_id,
+                        name=title,
+                        description=description,
+                        due_date=end_date or start_date,
+                        status="completed" if status == "done" else "pending",
+                    ))
+                touched += 1
+            except Exception as exc:
+                logger.warning("Milestone upsert failed for %s: %s", tid, exc)
+            continue
+
+        # ── Regular task upsert ──
+        workload = _as_float(gt.get("workload_ta"))
+        actual_workload = _as_float(gt.get("actual_workload_ta"))
+
+        # Resolve parent_id locally using the parent_ref surfaced by the
+        # tree builder. The parent must have been upserted earlier (we
+        # iterate in order), except in partial-import mode where the
+        # parent might be skipped — in that case we leave parent_id=None
+        # so the task becomes a root.
+        parent_ref = gt.get("_parent_ref")
+        parent_id: UUID | None = gouti_to_local_id.get(parent_ref) if parent_ref else None
+
         existing = (await db.execute(
             select(ProjectTask).where(
                 ProjectTask.project_id == local_project_id,
@@ -1036,21 +1198,31 @@ async def _import_project_tasks(
             existing.status = status
             existing.progress = progress
             existing.estimated_hours = workload
+            existing.actual_hours = actual_workload
             existing.start_date = start_date
-            existing.due_date = due_date
+            existing.due_date = end_date
+            existing.order = order_val
+            existing.parent_id = parent_id
+            gouti_to_local_id[tid] = existing.id
         else:
             task = ProjectTask(
                 project_id=local_project_id,
+                parent_id=parent_id,
                 code=code,
                 title=title,
                 description=description,
                 status=status,
                 progress=progress,
                 estimated_hours=workload,
+                actual_hours=actual_workload,
                 start_date=start_date,
-                due_date=due_date,
+                due_date=end_date,
+                order=order_val,
             )
             db.add(task)
+            # Flush so task.id is populated and children can reference it
+            await db.flush()
+            gouti_to_local_id[tid] = task.id
         touched += 1
 
     return touched

@@ -64,8 +64,17 @@ export interface GoutiCatalogTask {
   progress?: number | null
   start_date?: string | null
   end_date?: string | null
+  actual_start_date?: string | null
+  actual_end_date?: string | null
   workload?: number | null
+  actual_workload?: number | null
+  duration_days?: number | null
   description?: string | null
+  is_milestone?: boolean
+  is_macro?: boolean
+  level?: number
+  order?: number
+  parent_ref?: string | null
 }
 
 export interface GoutiCatalogProject {

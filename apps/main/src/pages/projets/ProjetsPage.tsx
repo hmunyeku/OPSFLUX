@@ -72,7 +72,7 @@ import {
   useProjectCpm,
 } from '@/hooks/useProjets'
 import type {
-  GoutiCatalogFilters, GoutiCatalogProject, GoutiSelectionPayload,
+  GoutiCatalogFilters, GoutiCatalogProject, GoutiCatalogTask, GoutiSelectionPayload,
   GoutiProjectSelection, GoutiTaskSelection,
 } from '@/services/projetsService'
 import { projetsService, isGoutiProject, goutiProjectId, isProjectFieldEditable } from '@/services/projetsService'
@@ -127,6 +127,52 @@ const MEMBER_ROLE_OPTIONS = [
   { value: 'stakeholder', label: 'Partie prenante' },
 ]
 
+// Dismissible warning banner shown on Gouti-imported projects. The
+// dismissal is persisted in localStorage so the same user sees it at
+// most once per browser — if the warning still applies, a Resync Gouti
+// button in the panel header remains the authoritative action.
+const GOUTI_BANNER_DISMISSED_KEY = 'opsflux:gouti-project-banner-dismissed'
+
+function GoutiProjectBanner() {
+  const [dismissed, setDismissed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(GOUTI_BANNER_DISMISSED_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
+  if (dismissed) return null
+  const handleDismiss = () => {
+    try {
+      localStorage.setItem(GOUTI_BANNER_DISMISSED_KEY, '1')
+    } catch { /* ignore quota/privacy mode errors */ }
+    setDismissed(true)
+  }
+  return (
+    <div className="flex items-start gap-2 p-2 rounded-md border border-orange-500/30 bg-orange-500/5 text-[11px] text-orange-700">
+      <Download size={12} className="mt-0.5 shrink-0" />
+      <div className="flex-1">
+        <div className="font-medium flex items-center gap-1.5">
+          Projet importé de Gouti <GoutiBadge />
+        </div>
+        <div className="text-orange-600/80 mt-0.5">
+          Les modifications locales seront écrasées au prochain "Resync Gouti".
+          Pour un contrôle total, modifier le projet dans Gouti puis relancer la sync.
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={handleDismiss}
+        className="p-0.5 rounded hover:bg-orange-500/20 text-orange-700 shrink-0"
+        aria-label="Masquer ce bandeau"
+        title="Masquer (votre préférence est sauvegardée)"
+      >
+        <X size={12} />
+      </button>
+    </div>
+  )
+}
+
 // Small badge shown on projects imported from Gouti so users can
 // distinguish them from OpsFlux-native projects at a glance.
 function GoutiBadge({ className = '' }: { className?: string }) {
@@ -150,6 +196,149 @@ function GoutiBadge({ className = '' }: { className?: string }) {
 // via facets, then pick projects (and optionally drill down to tasks) to
 // import. Saves the selection as integration.gouti.sync_selection so the
 // split-button's main click can "force sync" without asking again.
+
+// ── Gouti task treegrid used by the import modal ────────────────────────
+//
+// Gouti tasks come with a flat list + a synthesized ``parent_ref`` built
+// from ``level_ta`` + ``order_ta``. This component rebuilds the nested
+// tree, supports collapsible parent rows, and visually indents children
+// so users can see the real hierarchy before picking which tasks to
+// import. Milestones (``is_milestone``) get a diamond icon and macro
+// grouping rows (``is_macro``) get a folder icon.
+function GoutiTaskTree({
+  tasks,
+  taskMode,
+  included,
+  selectedTaskIds,
+  onToggleTaskId,
+}: {
+  tasks: GoutiCatalogTask[]
+  taskMode: 'all' | 'some' | 'none'
+  included: boolean
+  selectedTaskIds: string[]
+  onToggleTaskId: (taskId: string) => void
+}) {
+  // Build children map keyed by parent_ref (null for roots)
+  const childrenOf = useMemo(() => {
+    const map = new Map<string | null, GoutiCatalogTask[]>()
+    for (const t of tasks) {
+      const k = t.parent_ref ?? null
+      if (!map.has(k)) map.set(k, [])
+      map.get(k)!.push(t)
+    }
+    for (const arr of map.values()) {
+      arr.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    }
+    return map
+  }, [tasks])
+
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const toggleCollapse = (id: string) => {
+    setCollapsed(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const disabled = taskMode !== 'some' || !included
+  const selectedSet = useMemo(() => new Set(selectedTaskIds), [selectedTaskIds])
+
+  const renderRow = (task: GoutiCatalogTask, depth: number): React.ReactNode => {
+    const children = childrenOf.get(task.gouti_id) || []
+    const hasChildren = children.length > 0
+    const isCollapsed = collapsed.has(task.gouti_id)
+    const checked = taskMode === 'all' || selectedSet.has(task.gouti_id)
+
+    return (
+      <div key={task.gouti_id} role="treeitem" aria-level={depth + 1} aria-expanded={hasChildren ? !isCollapsed : undefined}>
+        <div
+          className={cn(
+            'flex items-center gap-1.5 px-2 py-1 text-[10px] border-b border-border/30',
+            !disabled && !task.is_macro && 'cursor-pointer hover:bg-muted/40',
+            disabled && 'opacity-70',
+            task.is_macro && 'bg-muted/30 font-medium',
+          )}
+          style={{ paddingLeft: `${8 + depth * 14}px` }}
+          onClick={() => { if (!disabled && !task.is_macro) onToggleTaskId(task.gouti_id) }}
+        >
+          {/* Expand/collapse chevron */}
+          {hasChildren ? (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); toggleCollapse(task.gouti_id) }}
+              className="p-0.5 rounded hover:bg-muted text-muted-foreground shrink-0"
+              aria-label={isCollapsed ? 'Déplier' : 'Replier'}
+            >
+              <ChevronRight size={10} className={cn('transition-transform', !isCollapsed && 'rotate-90')} />
+            </button>
+          ) : (
+            <span className="w-[14px] shrink-0" />
+          )}
+
+          {/* Checkbox (hidden for macro grouping rows which aren't real tasks) */}
+          {!task.is_macro ? (
+            <input
+              type="checkbox"
+              checked={checked}
+              disabled={disabled}
+              onChange={(e) => { e.stopPropagation(); onToggleTaskId(task.gouti_id) }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-3 h-3 shrink-0"
+            />
+          ) : (
+            <span className="w-3 h-3 shrink-0" />
+          )}
+
+          {/* Type icon */}
+          {task.is_milestone ? (
+            <Milestone size={10} className="text-yellow-600 shrink-0" />
+          ) : task.is_macro ? (
+            <Layers size={10} className="text-primary shrink-0" />
+          ) : null}
+
+          {/* Code + name */}
+          <span className="font-mono text-[9px] text-muted-foreground shrink-0">{task.code}</span>
+          <span className="flex-1 truncate">{task.name}</span>
+
+          {/* Meta */}
+          {task.progress != null && task.progress > 0 && (
+            <span className="text-[9px] text-muted-foreground tabular-nums">{task.progress}%</span>
+          )}
+          {task.status_raw && (
+            <span className="text-[9px] px-1 rounded bg-muted">{task.status_raw}</span>
+          )}
+          {task.workload != null && task.workload > 0 && (
+            <span className="text-[9px] text-muted-foreground tabular-nums">{task.workload}h</span>
+          )}
+        </div>
+
+        {hasChildren && !isCollapsed && (
+          <div role="group">
+            {children.map(child => renderRow(child, depth + 1))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const roots = childrenOf.get(null) || []
+  return (
+    <div
+      role="tree"
+      aria-label="Hiérarchie des tâches Gouti"
+      className="max-h-[260px] overflow-y-auto border border-border/50 rounded bg-background"
+    >
+      {roots.length === 0 && (
+        <div className="text-center py-3 text-[10px] text-muted-foreground italic">
+          Aucune tâche racine — vérifiez le filtre
+        </div>
+      )}
+      {roots.map(r => renderRow(r, 0))}
+    </div>
+  )
+}
 
 // ── Single project row with expandable task tree ────────────────────────
 function GoutiProjectRow({
@@ -248,39 +437,13 @@ function GoutiProjectRow({
           )}
 
           {!tasksLoading && tasksData && tasksData.items.length > 0 && taskMode !== 'none' && (
-            <div className="max-h-[180px] overflow-y-auto border border-border/50 rounded bg-background">
-              {tasksData.items.map(task => {
-                const taskIds = selection?.tasks.task_ids || []
-                const checked = taskMode === 'all' || (taskMode === 'some' && taskIds.includes(task.gouti_id))
-                const disabled = taskMode !== 'some' || !included
-                return (
-                  <label
-                    key={task.gouti_id}
-                    className={cn(
-                      'flex items-center gap-1.5 px-2 py-1 text-[10px] border-b border-border/30 last:border-b-0',
-                      !disabled && 'cursor-pointer hover:bg-muted/40',
-                      disabled && 'opacity-70',
-                    )}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      disabled={disabled}
-                      onChange={() => onToggleTaskId(task.gouti_id)}
-                      className="w-3 h-3"
-                    />
-                    <span className="font-mono text-[9px] text-muted-foreground">{task.code}</span>
-                    <span className="flex-1 truncate">{task.name}</span>
-                    {task.progress != null && task.progress > 0 && (
-                      <span className="text-[9px] text-muted-foreground tabular-nums">{task.progress}%</span>
-                    )}
-                    {task.status_raw && (
-                      <span className="text-[9px] px-1 rounded bg-muted">{task.status_raw}</span>
-                    )}
-                  </label>
-                )
-              })}
-            </div>
+            <GoutiTaskTree
+              tasks={tasksData.items}
+              taskMode={taskMode}
+              included={included}
+              selectedTaskIds={selection?.tasks.task_ids || []}
+              onToggleTaskId={onToggleTaskId}
+            />
           )}
         </div>
       )}
@@ -1462,7 +1625,14 @@ function TaskSubFeatures({ task, projectId, allTasks }: {
 
 // -- Task Row (interactive, expandable) --------------------------------------
 
-function TaskRow({ task, projectId, allTasks }: { task: ProjectTask; projectId: string; allTasks: ProjectTask[] }) {
+function TaskRow({
+  task, projectId, allTasks, depth = 0,
+}: {
+  task: ProjectTask
+  projectId: string
+  allTasks: ProjectTask[]
+  depth?: number
+}) {
   const updateTask = useUpdateProjectTask()
   const deleteTask = useDeleteProjectTask()
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -1483,11 +1653,29 @@ function TaskRow({ task, projectId, allTasks }: { task: ProjectTask; projectId: 
 
   const statusOpt = TASK_STATUS_OPTIONS.find(s => s.value === task.status)
   const priorityOpt = PRIORITY_OPTIONS.find(p => p.value === task.priority)
+  const hasChildren = allTasks.some(t => t.parent_id === task.id)
 
   return (
-    <div className="border-b border-border/60 last:border-0">
+    <div
+      role="treeitem"
+      aria-level={depth + 1}
+      aria-expanded={hasChildren ? expanded : undefined}
+      className="border-b border-border/60 last:border-0"
+    >
       {/* Summary row */}
-      <div className="group flex items-center gap-2 px-2.5 py-2 text-xs hover:bg-muted/40 transition-colors cursor-pointer" onClick={() => setExpanded(!expanded)}>
+      <div
+        className="group flex items-center gap-2 py-2 text-xs hover:bg-muted/40 transition-colors cursor-pointer"
+        style={{ paddingLeft: `${10 + depth * 16}px`, paddingRight: '10px' }}
+        onClick={() => setExpanded(!expanded)}
+      >
+        {hasChildren ? (
+          <ChevronRight
+            size={10}
+            className={cn('text-muted-foreground shrink-0 transition-transform', expanded && 'rotate-90')}
+          />
+        ) : (
+          <span className="w-[10px] shrink-0" />
+        )}
         <button onClick={(e) => { e.stopPropagation(); handleStatusChange(nextTaskStatus(task.status)) }} className="shrink-0 hover:scale-110 transition-transform" title={statusOpt?.label}>
           <TaskStatusIcon status={task.status} />
         </button>
@@ -1789,6 +1977,42 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
   const reviewCount = tasks.filter(t => t.status === 'review').length
   const doneCount = tasks.filter(t => t.status === 'done').length
 
+  // Build a tree from parent_id so the list preserves Gouti-style hierarchy
+  // (and any OpsFlux-native task tree built via the "sub-task" field).
+  const tree = useMemo(() => {
+    const byParent = new Map<string | null, ProjectTask[]>()
+    for (const t of tasks) {
+      const key = t.parent_id ?? null
+      if (!byParent.has(key)) byParent.set(key, [])
+      byParent.get(key)!.push(t)
+    }
+    for (const arr of byParent.values()) {
+      arr.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    }
+    return byParent
+  }, [tasks])
+
+  const walk = (parent: string | null, depth: number): React.ReactNode[] => {
+    const children = tree.get(parent) || []
+    const nodes: React.ReactNode[] = []
+    for (const t of children) {
+      nodes.push(
+        <TaskRow key={t.id} task={t} projectId={projectId} allTasks={tasks} depth={depth} />,
+      )
+      // Recurse into subtasks
+      nodes.push(...walk(t.id, depth + 1))
+    }
+    return nodes
+  }
+  const rootNodes = walk(null, 0)
+  // Orphan safety: tasks whose parent_id doesn't exist in the flat set
+  const knownIds = new Set(tasks.map(t => t.id))
+  const orphanNodes = tasks
+    .filter(t => t.parent_id && !knownIds.has(t.parent_id))
+    .map(t => (
+      <TaskRow key={t.id} task={t} projectId={projectId} allTasks={tasks} depth={0} />
+    ))
+
   return (
     <FormSection
       title={`Taches (${tasks.length})`}
@@ -1804,12 +2028,11 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
         <span className="px-1.5 py-0.5 rounded bg-green-500/10 text-green-600">{doneCount} terminees</span>
       </div>
 
-      {/* Task list */}
+      {/* Task treegrid (hierarchy preserved via parent_id) */}
       {tasks.length > 0 ? (
-        <div className="border border-border rounded-md overflow-hidden max-h-[400px] overflow-y-auto">
-          {tasks.map((task) => (
-            <TaskRow key={task.id} task={task} projectId={projectId} allTasks={tasks} />
-          ))}
+        <div role="tree" aria-label="Hiérarchie des tâches" className="border border-border rounded-md overflow-hidden max-h-[400px] overflow-y-auto">
+          {rootNodes}
+          {orphanNodes}
         </div>
       ) : (
         <EmptyState icon={ListTodo} title="Aucune tache" variant="search" size="compact" />
@@ -1913,20 +2136,7 @@ function ProjectDetailPanel({ id }: { id: string }) {
       <PanelContentLayout>
         <TagManager ownerType="project" ownerId={project.id} compact />
 
-        {isGouti && (
-          <div className="flex items-start gap-2 p-2 rounded-md border border-orange-500/30 bg-orange-500/5 text-[11px] text-orange-700">
-            <Download size={12} className="mt-0.5 shrink-0" />
-            <div className="flex-1">
-              <div className="font-medium flex items-center gap-1.5">
-                Projet importé de Gouti <GoutiBadge />
-              </div>
-              <div className="text-orange-600/80 mt-0.5">
-                Les modifications locales seront écrasées au prochain "Resync Gouti".
-                Pour un contrôle total, modifier le projet dans Gouti puis relancer la sync.
-              </div>
-            </div>
-          </div>
-        )}
+        {isGouti && <GoutiProjectBanner />}
 
         {/* Description — shown above the Fiche section so the project's
             purpose/summary is the first thing the reader sees. */}

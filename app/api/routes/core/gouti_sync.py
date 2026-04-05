@@ -364,10 +364,15 @@ async def get_sync_status(
     )
     project_count = count_result.scalar() or 0
 
-    # Determine if the connector is configured
-    connector_configured = bool(
-        gouti_settings.get("client_id") and gouti_settings.get("client_secret")
+    # Determine if the connector is configured.
+    # Gouti accepts either (client_id + client_secret) for full OAuth flow, or
+    # (client_id + cached token) for token-based auth. Align with _test_gouti
+    # which validates the same way — requiring both secret and token here would
+    # incorrectly report "not configured" for token-auth setups.
+    has_credentials = bool(
+        gouti_settings.get("client_secret") or gouti_settings.get("token")
     )
+    connector_configured = bool(gouti_settings.get("client_id")) and has_credentials
 
     return SyncStatus(
         last_sync_at=last_sync_at,

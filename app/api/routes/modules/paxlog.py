@@ -6286,7 +6286,7 @@ async def _build_ads_read_data(
 
     if ads.project_id:
         project_result = await db.execute(
-            select(Project.manager_id, User.first_name, User.last_name)
+            select(Project.manager_id, Project.code, Project.name, User.first_name, User.last_name)
             .outerjoin(User, Project.manager_id == User.id)
             .where(Project.id == ads.project_id, Project.entity_id == entity_id)
         )
@@ -6294,8 +6294,19 @@ async def _build_ads_read_data(
         if project_row:
             data.update({
                 "project_manager_id": project_row[0],
-                "project_manager_name": f"{project_row[1]} {project_row[2]}".strip() if project_row[1] else None,
+                "project_name": f"{project_row[1]} — {project_row[2]}" if project_row[1] else project_row[2],
+                "project_manager_name": f"{project_row[3]} {project_row[4]}".strip() if project_row[3] else None,
             })
+
+    site_result = await db.execute(
+        select(Installation.code, Installation.name).where(
+            Installation.id == ads.site_entry_asset_id,
+            Installation.entity_id == entity_id,
+        )
+    )
+    site_row = site_result.first()
+    if site_row:
+        data["site_name"] = f"{site_row[0]} — {site_row[1]}" if site_row[0] else site_row[1]
 
     if ads.planner_activity_id:
         planner_result = await db.execute(

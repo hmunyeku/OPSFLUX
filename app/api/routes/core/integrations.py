@@ -548,6 +548,17 @@ async def _test_riseup(cfg: dict[str, str]) -> tuple[str, str]:
     return await connector.test_connection()
 
 
+async def _test_weather(cfg: dict[str, str]) -> tuple[str, str]:
+    """Test configured weather provider for TravelWiz."""
+    from app.services.connectors.weather_connector import create_weather_connector
+
+    provider = (cfg.get("provider") or "open_meteo").strip().lower()
+    connector = create_weather_connector(provider, cfg)
+    if connector is None:
+        return "error", f"Provider météo inconnu: {provider}"
+    return await connector.test_connection()
+
+
 CONNECTOR_TESTERS = {
     "smtp": ("integration.smtp", _test_smtp),
     "s3_storage": ("integration.storage", _test_s3),
@@ -564,6 +575,7 @@ CONNECTOR_TESTERS = {
     "gouti": ("integration.gouti", _test_gouti),
     "ai": ("integration.ai", _test_ai),
     "riseup": ("integration.riseup", _test_riseup),
+    "weather": ("integration.weather", _test_weather),
 }
 
 

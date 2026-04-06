@@ -462,7 +462,7 @@ class WeatherData(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     source: Mapped[str] = mapped_column(
         String(30), nullable=False
-    )  # manual | api_openweather | api_windy | captain_report
+    )  # manual | api_open_meteo | api_openweather | captain_report
     wind_speed_knots: Mapped[float | None] = mapped_column(Numeric(6, 2))
     wind_direction_deg: Mapped[int | None] = mapped_column(SmallInteger)
     wave_height_m: Mapped[float | None] = mapped_column(Numeric(5, 2))

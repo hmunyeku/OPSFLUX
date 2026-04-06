@@ -145,6 +145,7 @@ def _register_jobs() -> None:
 
     from app.tasks.jobs.travelwiz_operational_watch import process_travelwiz_operational_watch
     from app.tasks.jobs.travelwiz_pickup_reminders import process_travelwiz_pickup_reminders
+    from app.tasks.jobs.travelwiz_weather_sync import process_travelwiz_weather_sync
     scheduler.add_job(
         process_travelwiz_operational_watch,
         trigger=IntervalTrigger(minutes=30),
@@ -158,6 +159,14 @@ def _register_jobs() -> None:
         trigger=IntervalTrigger(minutes=1),
         id="travelwiz_pickup_reminders",
         name="Envoyer les rappels SMS de ramassage TravelWiz",
+        replace_existing=True,
+        max_instances=1,
+    )
+    scheduler.add_job(
+        process_travelwiz_weather_sync,
+        trigger=IntervalTrigger(minutes=10),
+        id="travelwiz_weather_sync",
+        name="Synchroniser la météo TravelWiz depuis le provider connecté",
         replace_existing=True,
         max_instances=1,
     )

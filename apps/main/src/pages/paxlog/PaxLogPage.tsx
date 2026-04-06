@@ -2578,7 +2578,11 @@ function AdsDetailPanel({ id }: { id: string }) {
       })
       return
     }
-    const popup = window.open('', '_blank', 'noopener,noreferrer')
+    const popup = window.open('', '_blank')
+    if (popup) {
+      popup.document.write(`<html><body style="font-family: sans-serif; padding: 16px;">${t('common.loading')}</body></html>`)
+      popup.document.close()
+    }
     createExtLink.mutate(
       {
         adsId: id,
@@ -2595,7 +2599,7 @@ function AdsDetailPanel({ id }: { id: string }) {
           setShowExternalLinkForm(false)
           const url = paxlogService.resolveExternalLinkUrl(link)
           if (popup) popup.location.href = url
-          else window.open(url, '_blank', 'noopener,noreferrer')
+          else window.open(url, '_blank')
         },
         onError: () => {
           if (popup && !popup.closed) popup.close()

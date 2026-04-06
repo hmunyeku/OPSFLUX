@@ -14,6 +14,7 @@ from app.event_handlers import travelwiz_handlers
 from app.services.modules import travelwiz_service
 from app.tasks.jobs import travelwiz_operational_watch
 from app.tasks.jobs import travelwiz_pickup_reminders
+from app.tasks.jobs import travelwiz_weather_sync
 
 
 class FakeResult:
@@ -57,12 +58,20 @@ class FakeDB:
         self.commits = 0
         self.rollbacks = 0
         self.flushes = 0
+        self.added = []
 
     async def execute(self, statement, params=None):
         self.executed.append((statement, params))
         if not self._results:
             raise AssertionError("Unexpected execute call")
         return self._results.pop(0)
+
+    async def scalar(self, statement):
+        result = await self.execute(statement)
+        return result.scalar_one_or_none()
+
+    def add(self, instance):
+        self.added.append(instance)
 
     async def commit(self):
         self.commits += 1
@@ -797,9 +806,97 @@ async def test_travelwiz_pickup_reminders_send_once(monkeypatch):
     assert sent_calls and sent_calls[0]["user_id"] == str(user_id)
 
 
+@pytest.mark.asyncio
+async def test_fetch_and_record_weather_for_asset_uses_configured_provider(monkeypatch):
+    entity_id = uuid4()
+    asset_id = uuid4()
+    asset = SimpleNamespace(
+        id=asset_id,
+        entity_id=entity_id,
+        active=True,
+        latitude=Decimal("4.788"),
+        longitude=Decimal("11.867"),
+        centroid_latitude=None,
+        centroid_longitude=None,
+    )
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=asset),
+            FakeResult(scalar_one_or_none={"v": "open_meteo"}),
+            FakeResult(all_rows=[SimpleNamespace(key="integration.weather.provider", value={"v": "open_meteo"})]),
+        ]
+    )
+    recorded_payloads = []
+
+    class FakeConnector:
+        async def fetch_current_weather(self, *, latitude: float, longitude: float):
+            assert latitude == 4.788
+            assert longitude == 11.867
+            return SimpleNamespace(
+                recorded_at=datetime.now(timezone.utc),
+                source="api_open_meteo",
+                wind_speed_knots=22.5,
+                wind_direction_deg=180,
+                wave_height_m=None,
+                visibility_nm=5.2,
+                sea_state=None,
+                temperature_c=27.1,
+                weather_code="rain",
+                flight_conditions="mvfr",
+                raw_data={"ok": True},
+                notes=None,
+            )
+
+    async def fake_record_weather(db_arg, entity_id, data):
+        recorded_payloads.append((entity_id, data))
+        return {"asset_id": data["asset_id"], "source": data["source"]}
+
+    monkeypatch.setattr("app.services.connectors.weather_connector.create_weather_connector", lambda provider_id, settings: FakeConnector())
+    monkeypatch.setattr(travelwiz_service, "record_weather", fake_record_weather)
+
+    result = await travelwiz_service.fetch_and_record_weather_for_asset(
+        db,
+        entity_id=entity_id,
+        asset_id=asset_id,
+    )
+
+    assert result["source"] == "api_open_meteo"
+    assert recorded_payloads and recorded_payloads[0][1]["weather_code"] == "rain"
+
+
+@pytest.mark.asyncio
+async def test_travelwiz_weather_sync_fetches_missing_observations(monkeypatch):
+    entity_id = uuid4()
+    asset_id = uuid4()
+    db = FakeDB(
+        [
+            FakeResult(all_rows=[(entity_id, asset_id)]),
+            FakeResult(scalar_one_or_none=None),
+        ]
+    )
+    fetched = []
+
+    async def fake_fetch_and_record_weather_for_asset(db_arg, *, entity_id, asset_id):
+        fetched.append((entity_id, asset_id))
+        return {"asset_id": asset_id}
+
+    async def fake_get_weather_sync_interval_minutes(db_arg, *, entity_id):
+        return 30
+
+    monkeypatch.setattr(travelwiz_weather_sync, "async_session_factory", lambda: FakeAsyncSessionContext(db))
+    monkeypatch.setattr(travelwiz_weather_sync, "fetch_and_record_weather_for_asset", fake_fetch_and_record_weather_for_asset)
+    monkeypatch.setattr(travelwiz_weather_sync, "get_weather_sync_interval_minutes", fake_get_weather_sync_interval_minutes)
+
+    result = await travelwiz_weather_sync.process_travelwiz_weather_sync()
+
+    assert result == {"fetched": 1, "skipped_recent": 0, "failed": 0}
+    assert fetched == [(entity_id, asset_id)]
+
+
 def test_validate_travelwiz_numeric_settings():
     settings_routes._validate_travelwiz_numeric_setting(_body("travelwiz.delay_reassign_threshold_hours", 4))
     settings_routes._validate_travelwiz_numeric_setting(_body("travelwiz.weight_alert_ratio", 0.9))
+    settings_routes._validate_travelwiz_numeric_setting(_body("travelwiz.weather_sync_interval_minutes", 15))
     settings_routes._validate_travelwiz_numeric_setting(_body("travelwiz.captain_session_minutes", 30))
     settings_routes._validate_travelwiz_numeric_setting(_body("travelwiz.driver_session_minutes", 30))
     settings_routes._validate_travelwiz_numeric_setting(_body("travelwiz.pickup_sms_lead_minutes", 5))

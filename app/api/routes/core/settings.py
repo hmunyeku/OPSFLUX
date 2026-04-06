@@ -84,6 +84,7 @@ def _validate_travelwiz_numeric_setting(body: SettingWrite) -> None:
         "travelwiz.delay_reassign_threshold_hours": (0.25, None),
         "travelwiz.weight_alert_ratio": (0.1, 1.0),
         "travelwiz.weather_alert_beaufort_threshold": (1.0, 12.0),
+        "travelwiz.weather_sync_interval_minutes": (5.0, None),
         "travelwiz.signal_stale_minutes": (1.0, None),
         "travelwiz.captain_session_minutes": (5.0, None),
         "travelwiz.driver_session_minutes": (5.0, None),

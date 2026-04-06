@@ -380,6 +380,29 @@ const CONNECTORS_CATALOG: ConnectorDef[] = [
       { key: 'temperature', label: 'Température', placeholder: '0.3', type: 'text', helpText: '0 = déterministe, 1 = créatif' },
     ],
   },
+  {
+    id: 'weather',
+    name: 'Météo opérationnelle',
+    category: 'other',
+    description: 'Provider météo utilisé par TravelWiz pour les conditions de vol, la surveillance opérationnelle et les alertes par zone.',
+    helpText: 'Configurez ici le provider météo central de TravelWiz. Les relevés seront récupérés automatiquement à partir des coordonnées des bases et sites actifs, puis normalisés dans OpsFlux.',
+    consoleUrl: 'https://open-meteo.com/en/docs',
+    consoleName: 'Documentation provider',
+    icon: '🌦️',
+    settingsPrefix: 'integration.weather',
+    enabledKey: 'integration.weather.provider',
+    fields: [
+      { key: 'provider', label: 'Fournisseur', placeholder: '', type: 'select', options: [
+        { value: 'open_meteo', label: 'Open-Meteo' },
+        { value: 'openweather', label: 'OpenWeather' },
+      ]},
+      { key: 'base_url', label: 'URL API (optionnel)', placeholder: 'https://api.open-meteo.com/v1/forecast', type: 'text' },
+      { key: 'api_key', label: 'Clé API (si requise)', placeholder: 'Votre clé API provider', type: 'secret' },
+      { key: 'test_latitude', label: 'Latitude de test', placeholder: '4.788', type: 'text', helpText: 'Coordonnée utilisée pour tester la connectivité du provider.' },
+      { key: 'test_longitude', label: 'Longitude de test', placeholder: '11.867', type: 'text', helpText: 'Coordonnée utilisée pour tester la connectivité du provider.' },
+      { key: 'timeout_seconds', label: 'Timeout API', placeholder: '15', type: 'text', helpText: 'Délai max d’appel provider avant échec.' },
+    ],
+  },
   // ── Webhooks ──
   {
     id: 'webhook',

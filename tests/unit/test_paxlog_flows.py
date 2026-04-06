@@ -366,6 +366,7 @@ async def test_get_ads_includes_avm_origin(monkeypatch):
             FakeResult(all_rows=[]),
             FakeResult(all_rows=[(ads.requester_id, "Aline", "Mukeba")]),
             FakeResult(first=(program_id, "Inspection compresseur", avm_id, "AVM-009", "Campagne compresseur")),
+            FakeResult(first=None),
         ]
     )
 
@@ -399,6 +400,7 @@ async def test_get_ads_includes_planner_context(monkeypatch):
             FakeResult(scalar_one_or_none=ads),
             FakeResult(all_rows=[]),
             FakeResult(all_rows=[(ads.requester_id, "Aline", "Mukeba")]),
+            FakeResult(first=None),
             FakeResult(first=None),
             FakeResult(first=("Inspection ligne 12", "validated")),
         ]

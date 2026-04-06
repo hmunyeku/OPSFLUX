@@ -47,6 +47,7 @@ VOYAGE_REF_PREFIX = "VYG"
 DEFAULT_DELAY_REASSIGN_THRESHOLD_HOURS = 4.0
 DEFAULT_WEIGHT_ALERT_RATIO = 0.9
 DEFAULT_WEATHER_ALERT_BEAUFORT = 6
+DEFAULT_WEATHER_SYNC_INTERVAL_MINUTES = 30
 DEFAULT_SIGNAL_STALE_MINUTES = 15
 DEFAULT_CAPTAIN_SESSION_MINUTES = 480
 DEFAULT_DRIVER_SESSION_MINUTES = 480
@@ -119,6 +120,27 @@ async def _get_entity_numeric_setting(
         return default
 
 
+async def _get_entity_text_setting(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    key: str,
+    default: str,
+) -> str:
+    result = await db.execute(
+        select(Setting.value).where(
+            Setting.key == key,
+            Setting.scope == "entity",
+            Setting.scope_id == str(entity_id),
+        )
+    )
+    raw = result.scalar_one_or_none()
+    value = raw.get("v") if isinstance(raw, dict) else raw
+    if value in (None, ""):
+        return default
+    return str(value)
+
+
 async def get_delay_reassign_threshold_hours(
     db: AsyncSession,
     *,
@@ -160,6 +182,35 @@ async def get_weather_alert_beaufort_threshold(
         default=float(DEFAULT_WEATHER_ALERT_BEAUFORT),
     )
     return max(1, int(round(value)))
+
+
+async def get_weather_sync_interval_minutes(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+) -> int:
+    value = await _get_entity_numeric_setting(
+        db,
+        entity_id=entity_id,
+        key="travelwiz.weather_sync_interval_minutes",
+        default=float(DEFAULT_WEATHER_SYNC_INTERVAL_MINUTES),
+    )
+    return max(5, int(round(value)))
+
+
+async def get_weather_provider_id(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+) -> str:
+    return (
+        await _get_entity_text_setting(
+            db,
+            entity_id=entity_id,
+            key="integration.weather.provider",
+            default="open_meteo",
+        )
+    ).strip().lower() or "open_meteo"
 
 
 async def get_signal_stale_minutes(
@@ -2480,6 +2531,88 @@ async def process_ais_data(
 # ==============================================================================
 # WEATHER INTEGRATION
 # ==============================================================================
+
+
+async def _get_connector_settings(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    prefix: str,
+) -> dict[str, str]:
+    result = await db.execute(
+        select(Setting).where(
+            Setting.key.startswith(prefix),
+            Setting.scope == "entity",
+            Setting.scope_id == str(entity_id),
+        )
+    )
+    settings_map: dict[str, str] = {}
+    for setting in result.scalars().all():
+        field = setting.key.replace(prefix + ".", "")
+        value = setting.value.get("v", "") if isinstance(setting.value, dict) else setting.value
+        settings_map[field] = "" if value is None else str(value)
+    return settings_map
+
+
+def resolve_installation_coordinates(asset: Installation) -> tuple[float | None, float | None]:
+    latitude = asset.latitude or asset.centroid_latitude
+    longitude = asset.longitude or asset.centroid_longitude
+    if latitude is None or longitude is None:
+        return None, None
+    return float(latitude), float(longitude)
+
+
+async def fetch_and_record_weather_for_asset(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    asset_id: UUID,
+) -> dict | None:
+    from app.services.connectors.weather_connector import create_weather_connector
+
+    asset = await db.scalar(
+        select(Installation).where(
+            Installation.id == asset_id,
+            Installation.entity_id == entity_id,
+        )
+    )
+    if asset is None:
+        raise ValueError("Operational asset not found")
+
+    latitude, longitude = resolve_installation_coordinates(asset)
+    if latitude is None or longitude is None:
+        raise ValueError("Asset has no usable coordinates")
+
+    provider_id = await get_weather_provider_id(db, entity_id=entity_id)
+    connector_settings = await _get_connector_settings(
+        db,
+        entity_id=entity_id,
+        prefix="integration.weather",
+    )
+    connector = create_weather_connector(provider_id, connector_settings)
+    if connector is None:
+        raise ValueError(f"Weather provider not supported: {provider_id}")
+
+    observation = await connector.fetch_current_weather(latitude=latitude, longitude=longitude)
+    return await record_weather(
+        db,
+        entity_id=entity_id,
+        data={
+            "asset_id": asset_id,
+            "recorded_at": observation.recorded_at,
+            "source": observation.source,
+            "wind_speed_knots": observation.wind_speed_knots,
+            "wind_direction_deg": observation.wind_direction_deg,
+            "wave_height_m": observation.wave_height_m,
+            "visibility_nm": observation.visibility_nm,
+            "sea_state": observation.sea_state,
+            "temperature_c": observation.temperature_c,
+            "weather_code": observation.weather_code,
+            "flight_conditions": observation.flight_conditions,
+            "raw_data": observation.raw_data,
+            "notes": observation.notes,
+        },
+    )
 
 
 async def record_weather(

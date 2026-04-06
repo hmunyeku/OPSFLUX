@@ -292,6 +292,7 @@ class AdsRead(OpsFluxSchema):
     planner_activity_title: str | None = None
     planner_activity_status: str | None = None
     project_id: UUID | None = None
+    project_name: str | None = None
     allowed_company_ids: list[UUID] = []
     allowed_company_names: list[str] = []
     project_manager_id: UUID | None = None
@@ -299,6 +300,7 @@ class AdsRead(OpsFluxSchema):
     requester_id: UUID
     requester_name: str | None = None
     site_entry_asset_id: UUID
+    site_name: str | None = None
     visit_purpose: str
     visit_category: str
     start_date: date

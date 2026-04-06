@@ -319,6 +319,57 @@ export function GeneralConfigTab() {
       </CollapsibleSection>
 
       <CollapsibleSection
+        id="travelwiz-config"
+        title="TravelWiz"
+        description="Réglages opérationnels du transport, du suivi terrain et de la météo."
+        storageKey="settings.general-config.collapse"
+      >
+        <div className="mt-2 space-y-0">
+          <SettingRow
+            label="Intervalle de synchro météo"
+            description="Fréquence minimale entre deux collectes météo automatiques par site actif. Le provider se configure dans Services connectés."
+          >
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={5}
+                max={240}
+                step={5}
+                className="gl-form-input w-24 text-sm text-right font-mono"
+                defaultValue={(s['travelwiz.weather_sync_interval_minutes'] as number) ?? 30}
+                onBlur={(e) => {
+                  const val = Math.max(5, Math.min(240, Math.round(Number(e.target.value) || 30)))
+                  save('travelwiz.weather_sync_interval_minutes', val)
+                }}
+              />
+              <span className="text-xs text-muted-foreground">minutes</span>
+            </div>
+          </SettingRow>
+
+          <SettingRow
+            label="Seuil alerte météo Beaufort"
+            description="Déclenchement des alertes météo opérationnelles pour les voyages actifs."
+          >
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={1}
+                max={12}
+                step={1}
+                className="gl-form-input w-20 text-sm text-right font-mono"
+                defaultValue={(s['travelwiz.weather_alert_beaufort_threshold'] as number) ?? 6}
+                onBlur={(e) => {
+                  const val = Math.max(1, Math.min(12, Math.round(Number(e.target.value) || 6)))
+                  save('travelwiz.weather_alert_beaufort_threshold', val)
+                }}
+              />
+              <span className="text-xs text-muted-foreground">Beaufort</span>
+            </div>
+          </SettingRow>
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection
         id="emails-config"
         title="Emails"
         description="Personnalisation de l'apparence des emails envoyés par OpsFlux."

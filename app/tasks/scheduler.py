@@ -284,6 +284,17 @@ def _register_jobs() -> None:
         max_instances=1,
     )
 
+    # Widget cache cleanup — every 30 min, delete expired WidgetCache rows
+    from app.tasks.jobs.widget_cache_cleanup import cleanup_expired_widget_cache
+    scheduler.add_job(
+        cleanup_expired_widget_cache,
+        trigger=IntervalTrigger(minutes=30),
+        id="widget_cache_cleanup",
+        name="Nettoyer le cache widgets dashboard expiré",
+        replace_existing=True,
+        max_instances=1,
+    )
+
     scheduler.add_job(
         _renew_scheduler_leader_lock,
         trigger=IntervalTrigger(seconds=max(30, settings.SCHEDULER_LEADER_TTL_SECONDS // 3)),

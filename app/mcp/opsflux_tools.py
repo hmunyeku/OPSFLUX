@@ -36,7 +36,7 @@ from app.models.common import (
     Setting, SocialNetwork, Tag, Tier, TierBlock, TierContact,
     TierContactTransfer, User,
 )
-from app.models.asset_registry import Installation, OilSite
+from app.models.asset_registry import Installation, OilSite, OilField, RegistryEquipment
 from app.mcp.mcp_native import NativeBackend
 
 logger = logging.getLogger(__name__)
@@ -1417,6 +1417,137 @@ async def _get_asset(args: dict) -> dict:
     return _ok(_installation_to_dict(inst))
 
 
+async def _list_fields(args: dict) -> dict:
+    """List oil fields."""
+    search = (args.get("search") or "").strip()
+    limit = min(max(int(args.get("limit", 20) or 20), 1), 200)
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, args.get("entity_code"))
+        query = select(OilField).where(OilField.entity_id == entity_id, OilField.deleted_at.is_(None))
+        if search:
+            needle = f"%{search.lower()}%"
+            query = query.where(or_(sqla_func.lower(OilField.code).like(needle), sqla_func.lower(OilField.name).like(needle)))
+        query = query.order_by(OilField.code).limit(limit)
+        rows = (await session.execute(query)).scalars().all()
+    return _ok({"count": len(rows), "items": [
+        {"id": str(f.id), "code": f.code, "name": f.name, "country": f.country, "operator": f.operator, "status": f.status}
+        for f in rows
+    ]})
+
+
+async def _get_field(args: dict) -> dict:
+    """Get an oil field by id or code."""
+    fid = args.get("id") or args.get("code")
+    if not fid:
+        raise ValueError("id ou code requis")
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, args.get("entity_code"))
+        query = select(OilField).where(OilField.entity_id == entity_id, OilField.deleted_at.is_(None))
+        try:
+            query = query.where(OilField.id == UUID(str(fid)))
+        except (TypeError, ValueError):
+            query = query.where(OilField.code == str(fid))
+        f = (await session.execute(query)).scalar_one_or_none()
+        if not f:
+            return _err("Champ petrolier introuvable")
+    return _ok({"id": str(f.id), "code": f.code, "name": f.name, "country": f.country,
+                "operator": f.operator, "basin": f.basin, "status": f.status,
+                "discovery_date": f.discovery_date.isoformat() if f.discovery_date else None,
+                "working_interest_pct": float(f.working_interest_pct) if f.working_interest_pct else None,
+                "notes": (f.notes or "")[:500]})
+
+
+async def _list_equipment(args: dict) -> dict:
+    """List equipment. Optional filters: installation_id, equipment_class, status, search."""
+    search = (args.get("search") or "").strip()
+    inst_id = args.get("installation_id")
+    eq_class = args.get("equipment_class")
+    status_filter = args.get("status")
+    limit = min(max(int(args.get("limit", 30) or 30), 1), 200)
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, args.get("entity_code"))
+        query = select(RegistryEquipment).where(RegistryEquipment.entity_id == entity_id, RegistryEquipment.deleted_at.is_(None))
+        if inst_id:
+            try:
+                query = query.where(RegistryEquipment.installation_id == UUID(str(inst_id)))
+            except ValueError:
+                return _err(f"installation_id invalide: {inst_id}")
+        if eq_class:
+            query = query.where(RegistryEquipment.equipment_class == eq_class)
+        if status_filter:
+            query = query.where(RegistryEquipment.status == status_filter)
+        if search:
+            needle = f"%{search.lower()}%"
+            query = query.where(or_(sqla_func.lower(RegistryEquipment.tag_number).like(needle), sqla_func.lower(RegistryEquipment.name).like(needle)))
+        query = query.order_by(RegistryEquipment.tag_number).limit(limit)
+        rows = (await session.execute(query)).scalars().all()
+    return _ok({"count": len(rows), "items": [
+        {"id": str(e.id), "tag_number": e.tag_number, "name": e.name, "equipment_class": e.equipment_class,
+         "status": e.status, "manufacturer": e.manufacturer, "installation_id": str(e.installation_id) if e.installation_id else None}
+        for e in rows
+    ]})
+
+
+async def _get_equipment(args: dict) -> dict:
+    """Get equipment by id or tag_number."""
+    eid = args.get("id") or args.get("tag_number")
+    if not eid:
+        raise ValueError("id ou tag_number requis")
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, args.get("entity_code"))
+        query = select(RegistryEquipment).where(RegistryEquipment.entity_id == entity_id, RegistryEquipment.deleted_at.is_(None))
+        try:
+            query = query.where(RegistryEquipment.id == UUID(str(eid)))
+        except (TypeError, ValueError):
+            query = query.where(RegistryEquipment.tag_number == str(eid))
+        e = (await session.execute(query)).scalar_one_or_none()
+        if not e:
+            return _err("Equipement introuvable")
+    return _ok({"id": str(e.id), "tag_number": e.tag_number, "name": e.name, "equipment_class": e.equipment_class,
+                "status": e.status, "manufacturer": e.manufacturer, "model": e.model, "serial_number": e.serial_number,
+                "installation_id": str(e.installation_id) if e.installation_id else None,
+                "commissioning_date": e.commissioning_date.isoformat() if e.commissioning_date else None,
+                "design_pressure_bar": float(e.design_pressure_bar) if e.design_pressure_bar else None,
+                "design_temperature_c": float(e.design_temperature_c) if e.design_temperature_c else None,
+                "weight_kg": float(e.weight_kg) if e.weight_kg else None,
+                "notes": (e.notes or "")[:500]})
+
+
+async def _get_asset_hierarchy(args: dict) -> dict:
+    """Get the full Field > Site > Installation hierarchy tree."""
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, args.get("entity_code"))
+        fields = (await session.execute(
+            select(OilField).where(OilField.entity_id == entity_id, OilField.deleted_at.is_(None)).order_by(OilField.code)
+        )).scalars().all()
+        sites = (await session.execute(
+            select(OilSite).where(OilSite.entity_id == entity_id, OilSite.deleted_at.is_(None)).order_by(OilSite.code)
+        )).scalars().all()
+        installations = (await session.execute(
+            select(Installation).where(Installation.entity_id == entity_id, Installation.deleted_at.is_(None)).order_by(Installation.code)
+        )).scalars().all()
+    site_map: dict[str, list] = {}
+    for s in sites:
+        fid = str(s.field_id) if s.field_id else "__none__"
+        site_map.setdefault(fid, []).append(s)
+    inst_map: dict[str, list] = {}
+    for i in installations:
+        sid = str(i.site_id)
+        inst_map.setdefault(sid, []).append(i)
+    tree = []
+    for f in fields:
+        field_sites = site_map.get(str(f.id), [])
+        tree.append({
+            "type": "field", "id": str(f.id), "code": f.code, "name": f.name,
+            "sites": [{
+                "type": "site", "id": str(s.id), "code": s.code, "name": s.name,
+                "installations": [{"type": "installation", "id": str(i.id), "code": i.code, "name": i.name,
+                                   "status": i.status, "type_detail": i.installation_type} for i in inst_map.get(str(s.id), [])]
+            } for s in field_sites]
+        })
+    return _ok({"fields": len(fields), "sites": len(sites), "installations": len(installations), "tree": tree})
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Compliance — rules and types creation
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -2544,6 +2675,47 @@ OPSFLUX_TOOLS: list[tuple[str, str, dict, Any]] = [
          "code": {"type": "string"},
          "entity_code": {"type": "string"},
      }), _get_asset),
+
+    ("list_fields",
+     "Liste les champs pétroliers (ar_oil_fields). Filtres: search, limit.",
+     _s({
+         "search": {"type": "string"},
+         "limit": {"type": "integer"},
+         "entity_code": {"type": "string"},
+     }), _list_fields),
+
+    ("get_field",
+     "Récupère un champ pétrolier par id ou code.",
+     _s({
+         "id": {"type": "string"},
+         "code": {"type": "string"},
+         "entity_code": {"type": "string"},
+     }), _get_field),
+
+    ("list_equipment",
+     "Liste les équipements (ar_equipment). Filtres: installation_id, equipment_class, status, search, limit.",
+     _s({
+         "installation_id": {"type": "string", "description": "UUID de l'installation"},
+         "equipment_class": {"type": "string", "description": "Classe d'équipement (CRANE, SEPARATOR, PUMP, etc.)"},
+         "status": {"type": "string", "description": "OPERATIONAL, STANDBY, DECOMMISSIONED, etc."},
+         "search": {"type": "string"},
+         "limit": {"type": "integer"},
+         "entity_code": {"type": "string"},
+     }), _list_equipment),
+
+    ("get_equipment",
+     "Récupère un équipement par id ou tag_number.",
+     _s({
+         "id": {"type": "string"},
+         "tag_number": {"type": "string"},
+         "entity_code": {"type": "string"},
+     }), _get_equipment),
+
+    ("get_asset_hierarchy",
+     "Retourne l'arborescence complète Field > Site > Installation de l'entité.",
+     _s({
+         "entity_code": {"type": "string"},
+     }), _get_asset_hierarchy),
 
     # ── Compliance rules (V2) ────────────────────────────────────────────
     ("create_compliance_type",

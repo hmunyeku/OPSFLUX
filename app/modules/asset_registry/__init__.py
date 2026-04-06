@@ -19,7 +19,7 @@ MANIFEST = ModuleManifest(
     roles=[
         {"code": "ASSET_ADMIN", "name": "Asset Administrator"},
     ],
-    routes_prefix="/api/v1/assets",
+    routes_prefix="/api/v1/asset-registry",
     widgets=[
         {"slug": "asset_map", "name": "Asset Map", "component": "AssetMapWidget"},
         {"slug": "asset_capacity", "name": "Site Capacity", "component": "AssetCapacityWidget"},

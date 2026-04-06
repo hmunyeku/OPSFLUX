@@ -915,12 +915,60 @@ async def on_compliance_expired(event: OpsFluxEvent) -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Handler: on_paxlog_ads_in_progress
+# When an AdS effectively starts, auto-transition its linked Planner
+# activity from validated → in_progress so the arbitration dashboard
+# reflects operational reality without the manager intervening.
+# ═══════════════════════════════════════════════════════════════════════════
+
+async def on_paxlog_ads_in_progress(event: OpsFluxEvent) -> None:
+    """Auto-progress a Planner activity when its first linked AdS starts."""
+    payload = event.payload
+    ads_id = payload.get("ads_id")
+    if not ads_id:
+        return
+
+    try:
+        from sqlalchemy import select
+        from app.models.common import Ads
+        from app.models.planner import PlannerActivity
+
+        async with async_session_factory() as db:
+            ads_row = (await db.execute(
+                select(Ads).where(Ads.id == UUID(str(ads_id)))
+            )).scalar_one_or_none()
+            if ads_row is None or ads_row.planner_activity_id is None:
+                return
+
+            activity = (await db.execute(
+                select(PlannerActivity).where(PlannerActivity.id == ads_row.planner_activity_id)
+            )).scalar_one_or_none()
+            if activity is None:
+                return
+
+            if activity.status in ("validated",):
+                activity.status = "in_progress"
+                if activity.actual_start is None:
+                    activity.actual_start = datetime.now(timezone.utc)
+                await db.commit()
+                logger.info(
+                    "ads.in_progress cascade: planner activity %s validated → in_progress (ads=%s)",
+                    activity.id, ads_id,
+                )
+    except Exception:
+        logger.exception("Error in on_paxlog_ads_in_progress for ads=%s", ads_id)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Handler: on_project_status_changed
-# Notify entity admins when a project status changes
+# - Notify entity admins when a project status changes
+# - When the project is cancelled, cascade: cancel any linked Planner
+#   activities still in a non-terminal state (the existing on_planner_
+#   activity_cancelled handler will then cascade further to AdS).
 # ═══════════════════════════════════════════════════════════════════════════
 
 async def on_project_status_changed(event: OpsFluxEvent) -> None:
-    """Notify project stakeholders when status changes."""
+    """Notify project stakeholders and cascade project cancellation to Planner."""
     payload = event.payload
     project_id = payload.get("project_id")
     entity_id = payload.get("entity_id")
@@ -947,6 +995,48 @@ async def on_project_status_changed(event: OpsFluxEvent) -> None:
                 )
             await db.commit()
         logger.info("project.status.changed handled: %s -> %s", project_id, new_status)
+
+        # ── Cascade: cancel linked Planner activities on project cancel ──
+        if new_status in ("cancelled", "archived"):
+            try:
+                from sqlalchemy import select
+                from app.models.planner import PlannerActivity
+                TERMINAL = {"cancelled", "rejected", "completed"}
+                async with async_session_factory() as db:
+                    activities = (await db.execute(
+                        select(PlannerActivity).where(
+                            PlannerActivity.project_id == UUID(str(project_id)),
+                            ~PlannerActivity.status.in_(list(TERMINAL)),
+                        )
+                    )).scalars().all()
+                    cancelled_count = 0
+                    for activity in activities:
+                        activity.status = "cancelled"
+                        activity.cancelled_at = datetime.now(timezone.utc)
+                        cancelled_count += 1
+                        # Emit the cancellation event so downstream listeners
+                        # (AdS, TravelWiz, notifications) trigger as if the
+                        # user had cancelled the activity manually.
+                        await event_bus.publish(OpsFluxEvent(
+                            event_type="planner.activity.cancelled",
+                            payload={
+                                "activity_id": str(activity.id),
+                                "entity_id": str(entity_id),
+                                "reason": f"Projet {new_status}",
+                                "cascade_source": "project.status.changed",
+                            },
+                        ))
+                    if cancelled_count:
+                        await db.commit()
+                        logger.info(
+                            "project.status.changed cascade: cancelled %d Planner activities for project %s",
+                            cancelled_count, project_id,
+                        )
+            except Exception:
+                logger.exception(
+                    "Error cascading project cancel to Planner activities (project=%s)",
+                    project_id,
+                )
     except Exception:
         logger.exception("Error in on_project_status_changed for %s", project_id)
 
@@ -1016,10 +1106,18 @@ async def on_workflow_transition(event: OpsFluxEvent) -> None:
 
 def register_module_handlers(event_bus: EventBus) -> None:
     """Register all inter-module event handlers."""
-    # Module-specific events
+    # Planner events
     event_bus.subscribe("planner.activity.validated", on_planner_activity_validated)
+    # on_planner_activity_cancelled was dead code — it existed but was never
+    # subscribed. Now wired so cancellation of a Planner activity cascades
+    # to its AdS (requires_review).
+    event_bus.subscribe("planner.activity.cancelled", on_planner_activity_cancelled)
     event_bus.subscribe("planner.conflict.detected", on_planner_conflict_detected)
+    # PaxLog → Planner: when an AdS actually starts, auto-mark the linked
+    # planner activity as in_progress so the arbitration dashboard reflects
+    # reality without the manager having to move it manually.
     event_bus.subscribe("ads.approved", on_ads_approved)
+    event_bus.subscribe("ads.in_progress", on_paxlog_ads_in_progress)
     event_bus.subscribe("travelwiz.manifest.closed", on_travelwiz_manifest_closed)
     event_bus.subscribe("travelwiz.trip.closed", on_travelwiz_trip_closed)
     # Conformite & Projets events

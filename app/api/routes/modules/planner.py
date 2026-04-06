@@ -27,6 +27,7 @@ from app.models.planner import (
     PlannerActivity,
     PlannerConflict,
     PlannerConflictActivity,
+    PlannerConflictAudit,
     PlannerActivityDependency,
 )
 from app.schemas.planner import (
@@ -35,6 +36,9 @@ from app.schemas.planner import (
     ActivityUpdate,
     ConflictRead,
     ConflictResolve,
+    BulkConflictResolveRequest,
+    BulkConflictResolveResult,
+    ConflictAuditRead,
     CapacityRead,
     DependencyCreate,
     DependencyRead,
@@ -514,6 +518,74 @@ async def submit_activity(
     if activity.pax_quota <= 0:
         raise HTTPException(400, "PAX quota must be greater than 0")
 
+    # ── Dependency-chain validation ────────────────────────────────────
+    # Enforce FS / SS / FF predecessors with their lag_days:
+    #   FS (Finish-to-Start)   predecessor.end_date + lag  <= activity.start_date
+    #   SS (Start-to-Start)    predecessor.start_date + lag <= activity.start_date
+    #   FF (Finish-to-Finish)  predecessor.end_date + lag  <= activity.end_date
+    # A predecessor must also not be in a terminal rejected/cancelled state.
+    from datetime import timedelta
+    deps_rows = await db.execute(
+        select(PlannerActivityDependency, PlannerActivity).join(
+            PlannerActivity,
+            PlannerActivity.id == PlannerActivityDependency.predecessor_id,
+        ).where(PlannerActivityDependency.successor_id == activity.id)
+    )
+    violations: list[str] = []
+    for dep, predecessor in deps_rows.all():
+        if predecessor is None:
+            continue
+        if predecessor.status in ("rejected", "cancelled"):
+            violations.append(
+                f"Prédécesseur « {predecessor.title} » est en statut "
+                f"'{predecessor.status}' — dépendance {dep.dependency_type} invalide."
+            )
+            continue
+        lag = timedelta(days=dep.lag_days or 0)
+        dtype = (dep.dependency_type or "FS").upper()
+        if dtype == "FS":
+            if not predecessor.end_date:
+                violations.append(
+                    f"Prédécesseur « {predecessor.title} » n'a pas de date de fin — "
+                    f"dépendance FS impossible à valider."
+                )
+            elif predecessor.end_date + lag > activity.start_date:
+                violations.append(
+                    f"FS: doit démarrer après {(predecessor.end_date + lag).date()} "
+                    f"(fin de « {predecessor.title} »"
+                    + (f" + {dep.lag_days}j" if dep.lag_days else "")
+                    + ")."
+                )
+        elif dtype == "SS":
+            if not predecessor.start_date:
+                violations.append(
+                    f"Prédécesseur « {predecessor.title} » n'a pas de date de début."
+                )
+            elif predecessor.start_date + lag > activity.start_date:
+                violations.append(
+                    f"SS: doit démarrer après {(predecessor.start_date + lag).date()} "
+                    f"(début de « {predecessor.title} »)."
+                )
+        elif dtype == "FF":
+            if not predecessor.end_date:
+                violations.append(
+                    f"Prédécesseur « {predecessor.title} » n'a pas de date de fin."
+                )
+            elif predecessor.end_date + lag > activity.end_date:
+                violations.append(
+                    f"FF: doit se terminer après {(predecessor.end_date + lag).date()} "
+                    f"(fin de « {predecessor.title} »)."
+                )
+    if violations:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "dependency_violation",
+                "message": "Contraintes de dépendance non respectées.",
+                "violations": violations,
+            },
+        )
+
     # FSM transition: draft → submitted (validates, locks, records history)
     from_state = activity.status
     await _try_workflow_transition(
@@ -929,11 +1001,27 @@ async def resolve_conflict(
     if conflict.status != "open":
         raise HTTPException(400, f"Conflict already in status '{conflict.status}'")
 
+    old_status = conflict.status
+    old_resolution = conflict.resolution
     conflict.status = "deferred" if body.resolution == "deferred" else "resolved"
     conflict.resolution = body.resolution
     conflict.resolution_note = body.resolution_note
     conflict.resolved_by = current_user.id
     conflict.resolved_at = datetime.now(timezone.utc)
+
+    # Append an audit row (append-only history of who resolved what)
+    db.add(PlannerConflictAudit(
+        conflict_id=conflict.id,
+        actor_id=current_user.id,
+        action="resolve" if old_resolution is None else "re_resolve",
+        old_status=old_status,
+        new_status=conflict.status,
+        old_resolution=old_resolution,
+        new_resolution=body.resolution,
+        resolution_note=body.resolution_note,
+        context="single",
+    ))
+
     await db.commit()
     await db.refresh(conflict)
 
@@ -972,6 +1060,147 @@ async def resolve_conflict(
     ))
 
     return d
+
+
+@router.post("/conflicts/bulk-resolve", response_model=BulkConflictResolveResult)
+async def bulk_resolve_conflicts(
+    body: BulkConflictResolveRequest,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.conflict.resolve"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Resolve many conflicts in one request.
+
+    Iterates the items list and applies each resolution independently.
+    Items pointing at unknown or already-resolved conflicts are skipped
+    (not rejected), so a manager clearing a conflict dashboard doesn't
+    lose progress on later items just because one was stale. Each
+    resolution logs one row in planner_conflict_audit.
+    """
+    resolved = 0
+    skipped = 0
+    errors: list[str] = []
+    resolved_ids: list[UUID] = []
+
+    for item in body.items:
+        result = await db.execute(
+            select(PlannerConflict).where(
+                PlannerConflict.id == item.conflict_id,
+                PlannerConflict.entity_id == entity_id,
+                PlannerConflict.active == True,  # noqa: E712
+            )
+        )
+        conflict = result.scalars().first()
+        if not conflict:
+            skipped += 1
+            errors.append(f"{item.conflict_id}: introuvable")
+            continue
+        if conflict.status != "open":
+            skipped += 1
+            errors.append(f"{item.conflict_id}: déjà '{conflict.status}'")
+            continue
+
+        old_status = conflict.status
+        old_resolution = conflict.resolution
+        conflict.status = "deferred" if item.resolution == "deferred" else "resolved"
+        conflict.resolution = item.resolution
+        conflict.resolution_note = item.resolution_note
+        conflict.resolved_by = current_user.id
+        conflict.resolved_at = datetime.now(timezone.utc)
+
+        db.add(PlannerConflictAudit(
+            conflict_id=conflict.id,
+            actor_id=current_user.id,
+            action="resolve" if old_resolution is None else "re_resolve",
+            old_status=old_status,
+            new_status=conflict.status,
+            old_resolution=old_resolution,
+            new_resolution=item.resolution,
+            resolution_note=item.resolution_note,
+            context="bulk",
+        ))
+        resolved += 1
+        resolved_ids.append(conflict.id)
+
+    try:
+        await db.commit()
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(500, f"Erreur sauvegarde bulk resolve: {str(exc)[:300]}")
+
+    # Emit one resolved event per successfully resolved conflict
+    for cid in resolved_ids:
+        conflict = await db.get(PlannerConflict, cid)
+        if conflict is None:
+            continue
+        asset = await db.get(Installation, conflict.asset_id)
+        await event_bus.publish(OpsFluxEvent(
+            event_type="planner.conflict.resolved",
+            payload={
+                "conflict_id": str(conflict.id),
+                "entity_id": str(entity_id),
+                "asset_id": str(conflict.asset_id),
+                "asset_name": asset.name if asset else "",
+                "conflict_date": str(conflict.conflict_date),
+                "resolution": conflict.resolution,
+                "resolution_note": conflict.resolution_note,
+                "resolved_by": str(current_user.id),
+                "context": "bulk",
+            },
+        ))
+
+    return BulkConflictResolveResult(
+        resolved=resolved,
+        skipped=skipped,
+        errors=errors,
+        conflict_ids=resolved_ids,
+    )
+
+
+@router.get("/conflicts/{conflict_id}/audit", response_model=list[ConflictAuditRead])
+async def list_conflict_audit(
+    conflict_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.conflict.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the append-only audit history of a conflict."""
+    conflict = await db.get(PlannerConflict, conflict_id)
+    if not conflict or conflict.entity_id != entity_id:
+        raise HTTPException(404, "Conflict not found")
+
+    rows = (await db.execute(
+        select(PlannerConflictAudit)
+        .where(PlannerConflictAudit.conflict_id == conflict_id)
+        .order_by(PlannerConflictAudit.created_at.desc())
+    )).scalars().all()
+
+    # Resolve actor display name once
+    actor_names: dict[UUID, str] = {}
+    for row in rows:
+        if row.actor_id and row.actor_id not in actor_names:
+            u = await db.get(User, row.actor_id)
+            if u:
+                actor_names[row.actor_id] = f"{u.first_name} {u.last_name}".strip() or u.email
+
+    def _to_dict(row):
+        return {
+            "id": row.id,
+            "conflict_id": row.conflict_id,
+            "actor_id": row.actor_id,
+            "actor_name": actor_names.get(row.actor_id) if row.actor_id else None,
+            "action": row.action,
+            "old_status": row.old_status,
+            "new_status": row.new_status,
+            "old_resolution": row.old_resolution,
+            "new_resolution": row.new_resolution,
+            "resolution_note": row.resolution_note,
+            "context": row.context,
+            "created_at": row.created_at,
+        }
+    return [_to_dict(r) for r in rows]
 
 
 # ── Capacity ─────────────────────────────────────────────────────────────

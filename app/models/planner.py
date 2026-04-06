@@ -222,3 +222,38 @@ class PlannerActivityDependency(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         foreign_keys=[successor_id],
         back_populates="dependencies_as_successor",
     )
+
+
+# ─── Conflict Audit Trail ────────────────────────────────────────────────────
+class PlannerConflictAudit(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Append-only audit log for all conflict resolution changes.
+
+    One row per resolve / re-resolve / defer operation, keyed by
+    conflict_id. Stores the old + new resolution so managers can trace
+    who changed what, and when. Never deleted — even if the conflict
+    row itself is archived.
+    """
+
+    __tablename__ = "planner_conflict_audit"
+    __table_args__ = (
+        Index("idx_planner_conflict_audit_conflict", "conflict_id"),
+        Index("idx_planner_conflict_audit_actor", "actor_id"),
+    )
+
+    conflict_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("planner_conflicts.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    actor_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True))
+    action: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+        default="resolve",
+    )  # resolve | re_resolve | defer | reopen
+    old_status: Mapped[str | None] = mapped_column(String(20))
+    new_status: Mapped[str | None] = mapped_column(String(20))
+    old_resolution: Mapped[str | None] = mapped_column(String(50))
+    new_resolution: Mapped[str | None] = mapped_column(String(50))
+    resolution_note: Mapped[str | None] = mapped_column(Text)
+    context: Mapped[str | None] = mapped_column(String(100))  # e.g. "single" | "bulk"

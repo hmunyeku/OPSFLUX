@@ -156,6 +156,38 @@ class ConflictResolve(BaseModel):
     resolution_note: str | None = None
 
 
+class BulkConflictResolveItem(BaseModel):
+    conflict_id: UUID
+    resolution: str = Field(..., pattern=r"^(approve_both|reschedule|reduce_pax|cancel|deferred)$")
+    resolution_note: str | None = None
+
+
+class BulkConflictResolveRequest(BaseModel):
+    items: list[BulkConflictResolveItem] = Field(..., min_length=1, max_length=200)
+
+
+class BulkConflictResolveResult(BaseModel):
+    resolved: int
+    skipped: int
+    errors: list[str] = []
+    conflict_ids: list[UUID] = []
+
+
+class ConflictAuditRead(PlannerSchema):
+    id: UUID
+    conflict_id: UUID
+    actor_id: UUID | None = None
+    actor_name: str | None = None
+    action: str
+    old_status: str | None = None
+    new_status: str | None = None
+    old_resolution: str | None = None
+    new_resolution: str | None = None
+    resolution_note: str | None = None
+    context: str | None = None
+    created_at: datetime
+
+
 # ─── Capacity schemas ────────────────────────────────────────────────────────
 
 class CapacityRead(BaseModel):

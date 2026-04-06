@@ -2365,7 +2365,7 @@ export interface PackageElementCreate {
 
 export interface TravelArticle {
   id: string
-  entity_id: string
+  entity_id?: string
   sap_code: string
   description: string
   management_type: string | null
@@ -2385,6 +2385,14 @@ export interface TravelArticleCreate {
   is_hazmat?: boolean
   hazmat_class?: string | null
   unit?: string | null
+}
+
+export interface TravelArticleImportResult {
+  status: string
+  imported: number
+  updated: number
+  errors: string[]
+  total_rows: number
 }
 
 export interface SapMatchResult {

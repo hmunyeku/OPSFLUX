@@ -857,11 +857,14 @@ def _gouti_task_name(t: dict) -> str:
         v = t.get(key)
         if isinstance(v, str) and v.strip():
             return v.strip()
-    # Macro rows sometimes leave name blank — flag them explicitly
-    if str(t.get("macro_ta") or "").strip() == "1":
-        tid = t.get("ref_ta") or "?"
-        return f"(Groupe macro {tid})"
+    # Macro rows are Gouti grouping headers — try description as fallback
+    desc = t.get("description_ta") or t.get("description")
+    if isinstance(desc, str) and desc.strip():
+        return desc.strip()[:100]
+    # Last resort: use the ref as identifier
     tid = t.get("ref_ta") or t.get("_id") or "?"
+    if str(t.get("macro_ta") or "").strip() == "1":
+        return f"▸ Groupe {tid}"
     return f"Tâche {tid}"
 
 

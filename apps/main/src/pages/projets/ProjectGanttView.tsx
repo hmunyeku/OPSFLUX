@@ -512,7 +512,7 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
               <div
                 draggable
                 onDragStart={e => { e.dataTransfer.setData('application/ptask', JSON.stringify({ id: task.id, s: task.start_date!.split('T')[0], e: task.due_date!.split('T')[0] })); e.dataTransfer.effectAllowed = 'move' }}
-                onMouseEnter={e => setTip({ title: task.title, lines: [['Statut', task.status], ['%', `${task.progress}%`]], x: e.clientX, y: e.clientY })}
+                onMouseEnter={e => buildTip(task, e)}
                 onMouseMove={e => setTip(t => t ? { ...t, x: e.clientX, y: e.clientY } : null)}
                 onMouseLeave={() => setTip(null)}
                 className={cn('absolute rounded-sm cursor-move text-white font-medium truncate px-0.5 flex items-center gap-0.5 hover:brightness-110 overflow-hidden', isCrit && 'ring-1 ring-red-500')}
@@ -1065,6 +1065,8 @@ export function ProjectGanttView() {
         <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">Aucun projet</div>
       ) : (
         <div ref={scrollRef} className="flex-1 overflow-auto relative">
+          {/* Wrapper that forces scroll when content > viewport */}
+          <div style={{ minWidth: contentW }}>
           {/* ── Dual-row header ──────────────────────────────── */}
           <div className="sticky top-0 z-10 bg-background border-b border-border" style={{ minWidth: contentW }}>
             {/* Row 1: groups (year or month depending on scale) */}
@@ -1185,6 +1187,7 @@ export function ProjectGanttView() {
               </div>
             )
           })}
+          </div>
         </div>
       )}
       {tip && <Tip {...tip} />}

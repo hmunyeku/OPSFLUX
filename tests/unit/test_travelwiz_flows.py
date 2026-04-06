@@ -12,6 +12,7 @@ from app.core.events import OpsFluxEvent
 from app.event_handlers import travelwiz_handlers
 from app.services.modules import travelwiz_service
 from app.tasks.jobs import travelwiz_operational_watch
+from app.tasks.jobs import travelwiz_pickup_reminders
 
 
 class FakeResult:
@@ -344,6 +345,49 @@ async def test_verify_driver_session_token_accepts_matching_round():
 
     assert result["trip_code_access_id"] == trip_code_access_id
     assert result["pickup_round"] == pickup_round
+
+
+@pytest.mark.asyncio
+async def test_create_pickup_round_persists_assigned_manifest_passengers():
+    entity_id = uuid4()
+    trip_id = uuid4()
+    passenger_id = uuid4()
+    voyage = SimpleNamespace(id=trip_id, entity_id=entity_id)
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=voyage),
+            FakeResult(all_rows=[(passenger_id,)]),
+        ]
+    )
+    added = []
+
+    def fake_add(obj):
+        if getattr(obj, "id", None) is None:
+            obj.id = uuid4()
+        added.append(obj)
+
+    db.add = fake_add
+
+    result = await travelwiz_service.create_pickup_round(
+        db,
+        entity_id=entity_id,
+        data={
+            "trip_id": trip_id,
+            "route_name": "Circuit Nord",
+            "scheduled_departure": datetime.now(timezone.utc),
+            "stops": [
+                {
+                    "asset_id": uuid4(),
+                    "pickup_order": 1,
+                    "pax_expected": 1,
+                    "manifest_passenger_ids": [passenger_id],
+                }
+            ],
+        },
+    )
+
+    assert result["stops"][0]["assigned_manifest_passenger_count"] == 1
+    assert any(obj.__class__.__name__ == "PickupStopAssignment" for obj in added)
 
 
 @pytest.mark.asyncio
@@ -680,11 +724,47 @@ async def test_travelwiz_operational_watch_notifies_on_weather_alert(monkeypatch
     assert notifications and notifications[0]["title"] == "Alerte météo opérationnelle"
 
 
+@pytest.mark.asyncio
+async def test_travelwiz_pickup_reminders_send_once(monkeypatch):
+    entity_id = uuid4()
+    user_id = uuid4()
+    assignment = SimpleNamespace(reminder_sent_at=None)
+    stop = SimpleNamespace(
+        asset_id=uuid4(),
+        scheduled_time=datetime.now(timezone.utc) + timedelta(minutes=4),
+        status="pending",
+    )
+    pickup_round = SimpleNamespace(route_name="Circuit Nord", entity_id=entity_id)
+    passenger = SimpleNamespace(user_id=user_id, contact_id=None)
+    db = FakeDB(
+        [
+            FakeResult(all_rows=[(entity_id,)]),
+            FakeResult(scalar_one_or_none={"v": 5}),
+            FakeResult(all_rows=[(assignment, stop, pickup_round, passenger, "Base Ouest")]),
+        ]
+    )
+    sent_calls = []
+
+    async def fake_send_to_user(*args, **kwargs):
+        sent_calls.append(kwargs)
+        return True, "sms"
+
+    monkeypatch.setattr(travelwiz_pickup_reminders, "async_session_factory", lambda: FakeAsyncSessionContext(db))
+    monkeypatch.setattr("app.tasks.jobs.travelwiz_pickup_reminders.send_to_user", fake_send_to_user)
+
+    result = await travelwiz_pickup_reminders.process_travelwiz_pickup_reminders()
+
+    assert result["sent_count"] == 1
+    assert assignment.reminder_sent_at is not None
+    assert sent_calls and sent_calls[0]["user_id"] == str(user_id)
+
+
 def test_validate_travelwiz_numeric_settings():
     settings_routes._validate_travelwiz_numeric_setting(_body("travelwiz.delay_reassign_threshold_hours", 4))
     settings_routes._validate_travelwiz_numeric_setting(_body("travelwiz.weight_alert_ratio", 0.9))
     settings_routes._validate_travelwiz_numeric_setting(_body("travelwiz.captain_session_minutes", 30))
     settings_routes._validate_travelwiz_numeric_setting(_body("travelwiz.driver_session_minutes", 30))
+    settings_routes._validate_travelwiz_numeric_setting(_body("travelwiz.pickup_sms_lead_minutes", 5))
 
     with pytest.raises(HTTPException):
         settings_routes._validate_travelwiz_numeric_setting(_body("travelwiz.weight_alert_ratio", 2))

@@ -25,6 +25,7 @@ from app.models.travelwiz import (
     CargoItem,
     ManifestPassenger,
     PickupRound,
+    PickupStopAssignment,
     PickupStop,
     TripCodeAccess,
     TransportVector,
@@ -48,6 +49,7 @@ DEFAULT_WEATHER_ALERT_BEAUFORT = 6
 DEFAULT_SIGNAL_STALE_MINUTES = 15
 DEFAULT_CAPTAIN_SESSION_MINUTES = 480
 DEFAULT_DRIVER_SESSION_MINUTES = 480
+DEFAULT_PICKUP_SMS_LEAD_MINUTES = 5
 
 # Cargo forward lifecycle
 CARGO_FORWARD_TRANSITIONS = {
@@ -198,6 +200,20 @@ async def get_driver_session_minutes(
         default=float(DEFAULT_DRIVER_SESSION_MINUTES),
     )
     return max(5, int(round(value)))
+
+
+async def get_pickup_sms_lead_minutes(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+) -> int:
+    value = await _get_entity_numeric_setting(
+        db,
+        entity_id=entity_id,
+        key="travelwiz.pickup_sms_lead_minutes",
+        default=float(DEFAULT_PICKUP_SMS_LEAD_MINUTES),
+    )
+    return max(1, int(round(value)))
 
 
 # ==============================================================================
@@ -1784,6 +1800,29 @@ async def create_pickup_round(
     if not voyage:
         raise ValueError(f"Voyage {trip_id} not found")
 
+    assigned_passenger_ids = {
+        passenger_id
+        for stop_data in data.get("stops", [])
+        for passenger_id in (stop_data.get("manifest_passenger_ids") or [])
+    }
+    valid_passenger_ids: set[UUID] = set()
+    if assigned_passenger_ids:
+        valid_result = await db.execute(
+            select(ManifestPassenger.id)
+            .join(VoyageManifest, ManifestPassenger.manifest_id == VoyageManifest.id)
+            .where(
+                VoyageManifest.voyage_id == trip_id,
+                VoyageManifest.manifest_type == "pax",
+                VoyageManifest.active == True,  # noqa: E712
+                ManifestPassenger.active == True,  # noqa: E712
+                ManifestPassenger.id.in_(list(assigned_passenger_ids)),
+            )
+        )
+        valid_passenger_ids = {row[0] for row in valid_result.all() if row[0]}
+        invalid_passenger_ids = assigned_passenger_ids - valid_passenger_ids
+        if invalid_passenger_ids:
+            raise ValueError("Some assigned manifest passengers do not belong to this voyage")
+
     pickup_round = PickupRound(
         entity_id=entity_id,
         trip_id=trip_id,
@@ -1815,6 +1854,19 @@ async def create_pickup_round(
 
     await db.flush()
 
+    for stop, stop_data in zip(created_stops, stops_data, strict=False):
+        for passenger_id in stop_data.get("manifest_passenger_ids") or []:
+            if passenger_id not in valid_passenger_ids:
+                continue
+            db.add(
+                PickupStopAssignment(
+                    pickup_stop_id=stop.id,
+                    manifest_passenger_id=passenger_id,
+                )
+            )
+
+    await db.flush()
+
     logger.info(
         "Pickup round %s created for voyage %s with %d stops",
         pickup_round.id, trip_id, len(created_stops),
@@ -1836,8 +1888,9 @@ async def create_pickup_round(
                 "scheduled_time": s.scheduled_time.isoformat() if s.scheduled_time else None,
                 "pax_expected": s.pax_expected,
                 "status": s.status,
+                "assigned_manifest_passenger_count": len(stop_data.get("manifest_passenger_ids") or []),
             }
-            for s in created_stops
+            for s, stop_data in zip(created_stops, stops_data, strict=False)
         ],
     }
 

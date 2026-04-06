@@ -180,6 +180,7 @@ class PickupStopInput(BaseModel):
     pickup_order: int = Field(..., ge=1)
     scheduled_time: datetime | None = None
     pax_expected: int = Field(default=0, ge=0)
+    manifest_passenger_ids: list[UUID] = Field(default_factory=list)
 
 
 class PickupRoundCreate(BaseModel):

@@ -144,11 +144,20 @@ def _register_jobs() -> None:
     scheduler.add_job(process_requires_review_followup, trigger=CronTrigger(hour=1, minute=45), id="paxlog_requires_review_followup", name="Rappeler les AdS bloquées en nécessite révision", replace_existing=True, max_instances=1)
 
     from app.tasks.jobs.travelwiz_operational_watch import process_travelwiz_operational_watch
+    from app.tasks.jobs.travelwiz_pickup_reminders import process_travelwiz_pickup_reminders
     scheduler.add_job(
         process_travelwiz_operational_watch,
         trigger=IntervalTrigger(minutes=30),
         id="travelwiz_operational_watch",
         name="Surveiller les signaux et alertes météo TravelWiz",
+        replace_existing=True,
+        max_instances=1,
+    )
+    scheduler.add_job(
+        process_travelwiz_pickup_reminders,
+        trigger=IntervalTrigger(minutes=1),
+        id="travelwiz_pickup_reminders",
+        name="Envoyer les rappels SMS de ramassage TravelWiz",
         replace_existing=True,
         max_instances=1,
     )

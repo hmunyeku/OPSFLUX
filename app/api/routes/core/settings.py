@@ -87,6 +87,7 @@ def _validate_travelwiz_numeric_setting(body: SettingWrite) -> None:
         "travelwiz.signal_stale_minutes": (1.0, None),
         "travelwiz.captain_session_minutes": (5.0, None),
         "travelwiz.driver_session_minutes": (5.0, None),
+        "travelwiz.pickup_sms_lead_minutes": (1.0, None),
     }
     bounds = numeric_constraints.get(body.key)
     if bounds is None:

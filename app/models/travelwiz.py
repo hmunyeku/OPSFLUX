@@ -416,6 +416,29 @@ class PickupStop(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     pickup_round: Mapped["PickupRound"] = relationship(back_populates="stops")
+    assignments: Mapped[list["PickupStopAssignment"]] = relationship(
+        back_populates="pickup_stop", cascade="all, delete-orphan"
+    )
+
+
+class PickupStopAssignment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "pickup_stop_assignments"
+    __table_args__ = (
+        Index("idx_pickup_assignment_stop", "pickup_stop_id"),
+        Index("idx_pickup_assignment_passenger", "manifest_passenger_id"),
+        UniqueConstraint("pickup_stop_id", "manifest_passenger_id", name="uq_pickup_stop_assignment"),
+    )
+
+    pickup_stop_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("pickup_stops.id", ondelete="CASCADE"), nullable=False
+    )
+    manifest_passenger_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("manifest_passengers.id", ondelete="CASCADE"), nullable=False
+    )
+    reminder_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    pickup_stop: Mapped["PickupStop"] = relationship(back_populates="assignments")
 
 
 # ─── Weather Data ────────────────────────────────────────────────────────────

@@ -28,6 +28,7 @@ from app.models.travelwiz import (
     CargoItem,
     ManifestPassenger,
     PickupRound,
+    PickupStopAssignment,
     PickupStop,
     TransportRotation,
     TransportVector,
@@ -2244,6 +2245,29 @@ async def driver_round(
         .order_by(PickupStop.pickup_order)
     )
     stops = stops_result.scalars().all()
+    assignment_result = await db.execute(
+        select(
+            PickupStopAssignment.pickup_stop_id,
+            ManifestPassenger.id,
+            ManifestPassenger.name,
+            ManifestPassenger.company,
+        )
+        .join(ManifestPassenger, ManifestPassenger.id == PickupStopAssignment.manifest_passenger_id)
+        .where(
+            PickupStopAssignment.pickup_stop_id.in_([stop.id for stop in stops] or [UUID(int=0)]),
+            PickupStopAssignment.active == True,  # noqa: E712
+            ManifestPassenger.active == True,  # noqa: E712
+        )
+    )
+    assignments_by_stop: dict[UUID, list[dict[str, object]]] = {}
+    for pickup_stop_id, passenger_id, passenger_name, passenger_company in assignment_result.all():
+        assignments_by_stop.setdefault(pickup_stop_id, []).append(
+            {
+                "id": passenger_id,
+                "name": passenger_name,
+                "company": passenger_company,
+            }
+        )
     enriched_stops = []
     for stop in stops:
         asset = await db.get(Installation, stop.asset_id)
@@ -2259,6 +2283,7 @@ async def driver_round(
                 "pax_picked_up": stop.pax_picked_up,
                 "status": stop.status,
                 "notes": stop.notes,
+                "assigned_passengers": assignments_by_stop.get(stop.id, []),
             }
         )
 
@@ -2734,6 +2759,33 @@ async def get_pickup_round_details(
         .order_by(PickupStop.pickup_order)
     )
     stops = stops_result.scalars().all()
+    assignment_result = await db.execute(
+        select(
+            PickupStopAssignment.pickup_stop_id,
+            ManifestPassenger.id,
+            ManifestPassenger.name,
+            ManifestPassenger.company,
+            ManifestPassenger.user_id,
+            ManifestPassenger.contact_id,
+        )
+        .join(ManifestPassenger, ManifestPassenger.id == PickupStopAssignment.manifest_passenger_id)
+        .where(
+            PickupStopAssignment.pickup_stop_id.in_([stop.id for stop in stops] or [UUID(int=0)]),
+            PickupStopAssignment.active == True,  # noqa: E712
+            ManifestPassenger.active == True,  # noqa: E712
+        )
+    )
+    assignments_by_stop: dict[UUID, list[dict[str, object]]] = {}
+    for pickup_stop_id, passenger_id, passenger_name, passenger_company, user_id, contact_id in assignment_result.all():
+        assignments_by_stop.setdefault(pickup_stop_id, []).append(
+            {
+                "id": passenger_id,
+                "name": passenger_name,
+                "company": passenger_company,
+                "user_id": user_id,
+                "contact_id": contact_id,
+            }
+        )
 
     enriched_stops = []
     for s in stops:
@@ -2749,6 +2801,7 @@ async def get_pickup_round_details(
             "pax_picked_up": s.pax_picked_up,
             "status": s.status,
             "notes": s.notes,
+            "assigned_passengers": assignments_by_stop.get(s.id, []),
         })
 
     return {

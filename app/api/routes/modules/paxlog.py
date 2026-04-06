@@ -996,14 +996,14 @@ async def _get_external_ads_and_context(
     if not ads:
         raise HTTPException(status_code=404, detail="AdS introuvable")
     preconfigured = link.preconfigured_data or {}
-    allowed_company_id: UUID | None = None
+    fallback_company_id: UUID | None = None
     raw_company_id = preconfigured.get("target_company_id") or preconfigured.get("company_id")
     if raw_company_id:
         try:
-            allowed_company_id = UUID(str(raw_company_id))
+            fallback_company_id = UUID(str(raw_company_id))
         except ValueError:
-            allowed_company_id = None
-    return ads, ads.entity_id, allowed_company_id
+            fallback_company_id = None
+    return ads, ads.entity_id, fallback_company_id
 
 
 async def _get_ads_allowed_company_scope(
@@ -1014,12 +1014,13 @@ async def _get_ads_allowed_company_scope(
     rows = (
         await db.execute(
             select(AdsAllowedCompany.company_id, Tier.name)
-            .join(Tier, Tier.id == AdsAllowedCompany.company_id)
+            .select_from(AdsAllowedCompany)
+            .outerjoin(Tier, Tier.id == AdsAllowedCompany.company_id)
             .where(AdsAllowedCompany.ads_id == ads_id)
-            .order_by(Tier.name.asc())
+            .order_by(AdsAllowedCompany.created_at.asc())
         )
     ).all()
-    return [row[0] for row in rows], [row[1] for row in rows if row[1]]
+    return [row[0] for row in rows if row[0] is not None], [row[1] for row in rows if row[1]]
 
 
 async def _replace_ads_allowed_companies(
@@ -1056,20 +1057,19 @@ async def _resolve_external_allowed_companies(
     *,
     ads: Ads,
     link: ExternalAccessLink,
-    legacy_primary_company_id: UUID | None = None,
+    fallback_company_id: UUID | None = None,
 ) -> tuple[list[UUID], list[str], UUID | None, str | None]:
     preconfigured = getattr(link, "preconfigured_data", None) or {}
     raw_allowed_ids = preconfigured.get("allowed_company_ids")
     raw_company_id = preconfigured.get("target_company_id") or preconfigured.get("company_id")
-    if legacy_primary_company_id is not None and not raw_allowed_ids and not raw_company_id:
-        return [legacy_primary_company_id], [], legacy_primary_company_id, None
+    if fallback_company_id is not None and not raw_allowed_ids and not raw_company_id:
+        return [fallback_company_id], [], fallback_company_id, None
     allowed_company_ids: list[UUID] = []
     allowed_company_names: list[str] = []
-    if preconfigured or legacy_primary_company_id is None:
-        try:
-            allowed_company_ids, allowed_company_names = await _get_ads_allowed_company_scope(db, ads_id=ads.id)
-        except AssertionError:
-            allowed_company_ids, allowed_company_names = [], []
+    try:
+        allowed_company_ids, allowed_company_names = await _get_ads_allowed_company_scope(db, ads_id=ads.id)
+    except AssertionError:
+        allowed_company_ids, allowed_company_names = [], []
     if isinstance(raw_allowed_ids, list):
         parsed_ids: list[UUID] = []
         for raw_value in raw_allowed_ids:
@@ -1089,10 +1089,10 @@ async def _resolve_external_allowed_companies(
             primary_company_id = None
     if primary_company_id is None and len(allowed_company_ids) == 1:
         primary_company_id = allowed_company_ids[0]
-    if primary_company_id is None and legacy_primary_company_id is not None:
-        primary_company_id = legacy_primary_company_id
-    if not allowed_company_ids and legacy_primary_company_id is not None:
-        allowed_company_ids = [legacy_primary_company_id]
+    if primary_company_id is None and not allowed_company_ids and fallback_company_id is not None:
+        primary_company_id = fallback_company_id
+    if not allowed_company_ids and fallback_company_id is not None:
+        allowed_company_ids = [fallback_company_id]
     primary_company_name: str | None = None
     if primary_company_id and hasattr(db, "scalar"):
         try:
@@ -1110,25 +1110,6 @@ async def _resolve_external_allowed_companies(
     return allowed_company_ids, allowed_company_names, primary_company_id, primary_company_name
 
 
-async def _load_ads_allowed_company_scope(
-    db: AsyncSession,
-    *,
-    ads_id: UUID,
-) -> tuple[list[UUID], list[str]]:
-    rows = (
-        await db.execute(
-            select(AdsAllowedCompany.company_id, Tier.name)
-            .select_from(AdsAllowedCompany)
-            .outerjoin(Tier, Tier.id == AdsAllowedCompany.company_id)
-            .where(AdsAllowedCompany.ads_id == ads_id)
-            .order_by(AdsAllowedCompany.created_at.asc())
-        )
-    ).all()
-    allowed_company_ids = [row[0] for row in rows if row[0] is not None]
-    allowed_company_names = [row[1] for row in rows if row[1]]
-    return allowed_company_ids, allowed_company_names
-
-
 async def _require_external_scope(
     db: AsyncSession,
     *,
@@ -1137,12 +1118,12 @@ async def _require_external_scope(
     session_token: str | None,
 ) -> tuple[ExternalAccessLink, Ads, UUID, list[UUID], list[str], UUID | None, str | None]:
     link = await _require_external_session(db, token=token, session_token=session_token, request=request)
-    ads, entity_id, legacy_primary_company_id = await _get_external_ads_and_context(db, link=link)
+    ads, entity_id, fallback_company_id = await _get_external_ads_and_context(db, link=link)
     allowed_company_ids, allowed_company_names, primary_company_id, primary_company_name = await _resolve_external_allowed_companies(
         db,
         ads=ads,
         link=link,
-        legacy_primary_company_id=legacy_primary_company_id,
+        fallback_company_id=fallback_company_id,
     )
     return (
         link,
@@ -5482,12 +5463,12 @@ async def get_external_ads_dossier(
     db: AsyncSession = Depends(get_db),
 ):
     link = await _require_external_session(db, token=token, session_token=x_external_session, request=request)
-    ads, _entity_id, _allowed_company_id = await _get_external_ads_and_context(db, link=link)
+    ads, _entity_id, fallback_company_id = await _get_external_ads_and_context(db, link=link)
     allowed_company_ids, allowed_company_names, primary_company_id, primary_company_name = await _resolve_external_allowed_companies(
         db,
         ads=ads,
         link=link,
-        legacy_primary_company_id=_allowed_company_id,
+        fallback_company_id=fallback_company_id,
     )
     preconfigured_data = link.preconfigured_data or {}
     site_name_result = await db.execute(
@@ -6241,7 +6222,7 @@ async def _build_ads_read_data(
     entity_id: UUID,
 ) -> dict:
     data = AdsRead.model_validate(ads).model_dump()
-    allowed_company_ids, allowed_company_names = await _load_ads_allowed_company_scope(db, ads_id=ads.id)
+    allowed_company_ids, allowed_company_names = await _get_ads_allowed_company_scope(db, ads_id=ads.id)
     data.update({
         "allowed_company_ids": allowed_company_ids,
         "allowed_company_names": allowed_company_names,

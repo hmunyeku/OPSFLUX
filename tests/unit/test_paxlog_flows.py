@@ -4100,6 +4100,29 @@ async def test_get_external_ads_dossier_filters_pax_to_allowed_company(monkeypat
 
 
 @pytest.mark.asyncio
+async def test_resolve_external_allowed_companies_prefers_ads_scope_over_fallback():
+    ads = _build_ads(status="draft")
+    allowed_company_ids = [uuid4(), uuid4()]
+    allowed_company_names = ["Vendor A", "Vendor B"]
+    db = FakeDB([
+        FakeResult(all_rows=list(zip(allowed_company_ids, allowed_company_names))),
+    ])
+    link = SimpleNamespace(preconfigured_data={"allowed_company_ids": [str(company_id) for company_id in allowed_company_ids]})
+
+    resolved_ids, resolved_names, primary_company_id, primary_company_name = await paxlog._resolve_external_allowed_companies(
+        db,
+        ads=ads,
+        link=link,
+        fallback_company_id=uuid4(),
+    )
+
+    assert resolved_ids == allowed_company_ids
+    assert resolved_names == allowed_company_names
+    assert primary_company_id is None
+    assert primary_company_name is None
+
+
+@pytest.mark.asyncio
 async def test_get_external_ads_dossier_includes_user_backed_promoted_contact(monkeypatch):
     link = SimpleNamespace(id=uuid4(), preconfigured_data={"company_name": "Vendor X"}, access_log=[])
     allowed_company_id = uuid4()

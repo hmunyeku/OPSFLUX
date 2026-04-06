@@ -1571,12 +1571,20 @@ class Project(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Index("idx_projects_entity", "entity_id"),
         Index("idx_projects_status", "status"),
         Index("idx_projects_manager", "manager_id"),
+        Index("idx_projects_type", "project_type"),
+        Index("idx_projects_department", "department_id"),
     )
 
     entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
     code: Mapped[str] = mapped_column(String(50), nullable=False)
     name: Mapped[str] = mapped_column(String(300), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
+    project_type: Mapped[str] = mapped_column(
+        String(30), nullable=False, default="project",
+    )  # project, workover, drilling, integrity, maintenance, inspection, event
+    department_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("departments.id", ondelete="SET NULL"),
+    )
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")  # draft, planned, active, on_hold, completed, cancelled
     priority: Mapped[str] = mapped_column(String(10), nullable=False, default="medium")  # low, medium, high, critical
     weather: Mapped[str] = mapped_column(String(10), nullable=False, default="sunny")  # sunny, cloudy, rainy, stormy
@@ -1802,6 +1810,78 @@ class ProjectTaskDependency(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )  # finish_to_start | start_to_start | finish_to_finish | start_to_finish
     lag_days: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+
+# ─── Project Task Assignees (many-to-many) ───────────────────────────────
+class ProjectTaskAssignee(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Additional assignees for a project task (beyond the primary assignee_id).
+
+    The primary assignee stays on ProjectTask.assignee_id for backward compat.
+    This junction table supports the spec requirement "un ou plusieurs responsables".
+    """
+    __tablename__ = "project_task_assignees"
+    __table_args__ = (
+        Index("idx_task_assignees_task", "task_id"),
+        Index("idx_task_assignees_user", "user_id"),
+    )
+
+    task_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("project_tasks.id", ondelete="CASCADE"), nullable=False,
+    )
+    user_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False,
+    )
+    role: Mapped[str] = mapped_column(String(30), nullable=False, default="assignee")  # assignee, reviewer, observer
+
+
+# ─── Project Comments (on tasks or projects) ─────────────────────────────
+class ProjectComment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Comment thread on project tasks or the project itself.
+
+    Uses owner_type/owner_id polymorphism like Notes: owner_type='project_task'
+    or 'project'. Supports @mention via mentions_json array of user_ids.
+    """
+    __tablename__ = "project_comments"
+    __table_args__ = (
+        Index("idx_project_comments_owner", "owner_type", "owner_id"),
+        Index("idx_project_comments_author", "author_id"),
+    )
+
+    owner_type: Mapped[str] = mapped_column(String(30), nullable=False)  # project_task, project
+    owner_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    author_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    mentions: Mapped[list | None] = mapped_column(JSONB)  # [user_id, ...] extracted from @mention
+    parent_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("project_comments.id", ondelete="CASCADE"),
+    )  # For threaded replies
+    edited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    author: Mapped["User"] = relationship(foreign_keys=[author_id])
+
+
+# ─── Project Status History (audit trail) ─────────────────────────────────
+class ProjectStatusHistory(UUIDPrimaryKeyMixin, Base):
+    """Append-only audit log for project status transitions.
+
+    Records who changed the status, when, and why. Never deleted.
+    """
+    __tablename__ = "project_status_history"
+    __table_args__ = (
+        Index("idx_project_status_history_project", "project_id"),
+    )
+
+    project_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False,
+    )
+    from_status: Mapped[str | None] = mapped_column(String(20))
+    to_status: Mapped[str] = mapped_column(String(20), nullable=False)
+    changed_by: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    reason: Mapped[str | None] = mapped_column(Text)
+    changed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
 
 
 # ─── PDF Templates ──────────────────────────────────────────────────────────

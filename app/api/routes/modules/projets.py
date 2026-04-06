@@ -18,6 +18,7 @@ from app.models.common import (
     Project, ProjectMember, ProjectTask, ProjectMilestone,
     PlanningRevision, TaskDeliverable, TaskAction, TaskChangeLog,
     ProjectTaskDependency, ProjectWBSNode, CostCenter,
+    ProjectTaskAssignee, ProjectComment, ProjectStatusHistory,
     User, Tier,
 )
 from app.schemas.common import (
@@ -33,6 +34,9 @@ from app.schemas.common import (
     TaskDependencyCreate, TaskDependencyRead,
     ProjectWBSNodeCreate, ProjectWBSNodeRead, ProjectWBSNodeUpdate,
     CPMResult,
+    TaskAssigneeCreate, TaskAssigneeRead,
+    ProjectCommentCreate, ProjectCommentRead, ProjectCommentUpdate,
+    ProjectStatusHistoryRead,
 )
 from app.services.cpm_service import compute_cpm
 
@@ -302,11 +306,16 @@ async def update_project(
     project_id: UUID,
     body: ProjectUpdate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("project.update"),
     db: AsyncSession = Depends(get_db),
 ):
     project = await _get_project_or_404(db, project_id, entity_id)
     update_data = body.model_dump(exclude_unset=True)
+
+    # Guard: project code is immutable after creation (CDC §2.3)
+    if "code" in update_data and update_data["code"] != project.code:
+        raise HTTPException(400, "Le code du projet est immutable après création.")
 
     # ── Read-only lock for Gouti-imported projects ─────────────────────
     # Per the capability matrix probed at connector test time, Gouti does
@@ -350,6 +359,15 @@ async def update_project(
 
     # Emit event if status changed
     if "status" in update_data and old_status != project.status:
+        # Audit trail: log the status transition
+        db.add(ProjectStatusHistory(
+            project_id=project.id,
+            from_status=old_status,
+            to_status=project.status,
+            changed_by=current_user.id,
+            reason=update_data.get("status_change_reason"),
+        ))
+        await db.commit()
         await emit_event("project.status.changed", {
             "project_id": str(project.id),
             "entity_id": str(entity_id),
@@ -1380,3 +1398,148 @@ async def get_project_cpm(
     """Run Critical Path Method on the project and return schedule analysis."""
     await _get_project_or_404(db, project_id, entity_id)
     return await compute_cpm(db, project_id)
+
+
+# ── Task Assignees (multi-assignation) ─────────────────────────────────
+
+
+@router.get("/{project_id}/tasks/{task_id}/assignees", response_model=list[TaskAssigneeRead])
+async def list_task_assignees(
+    project_id: UUID, task_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    rows = (await db.execute(
+        select(ProjectTaskAssignee, User.first_name, User.last_name)
+        .outerjoin(User, ProjectTaskAssignee.user_id == User.id)
+        .where(ProjectTaskAssignee.task_id == task_id)
+        .order_by(ProjectTaskAssignee.created_at)
+    )).all()
+    return [{**{c.key: getattr(r[0], c.key) for c in r[0].__table__.columns}, "user_name": f"{r[1]} {r[2]}" if r[1] else None} for r in rows]
+
+
+@router.post("/{project_id}/tasks/{task_id}/assignees", response_model=TaskAssigneeRead, status_code=201)
+async def add_task_assignee(
+    project_id: UUID, task_id: UUID, body: TaskAssigneeCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.task.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    existing = (await db.execute(select(ProjectTaskAssignee).where(ProjectTaskAssignee.task_id == task_id, ProjectTaskAssignee.user_id == body.user_id))).scalar_one_or_none()
+    if existing:
+        raise HTTPException(409, "User already assigned")
+    a = ProjectTaskAssignee(task_id=task_id, user_id=body.user_id, role=body.role)
+    db.add(a); await db.commit(); await db.refresh(a)
+    u = await db.get(User, body.user_id)
+    d = {c.key: getattr(a, c.key) for c in a.__table__.columns}
+    d["user_name"] = f"{u.first_name} {u.last_name}" if u else None
+    return d
+
+
+@router.delete("/{project_id}/tasks/{task_id}/assignees/{assignee_id}", status_code=204)
+async def remove_task_assignee(
+    project_id: UUID, task_id: UUID, assignee_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.task.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    a = (await db.execute(select(ProjectTaskAssignee).where(ProjectTaskAssignee.id == assignee_id))).scalar_one_or_none()
+    if not a: raise HTTPException(404, "Assignee not found")
+    await db.delete(a); await db.commit()
+
+
+# ── Comments (threaded, on tasks or projects) ──────────────────────────
+
+
+async def _fetch_comments(db, owner_type: str, owner_id: UUID):
+    rows = (await db.execute(
+        select(ProjectComment, User.first_name, User.last_name)
+        .outerjoin(User, ProjectComment.author_id == User.id)
+        .where(ProjectComment.owner_type == owner_type, ProjectComment.owner_id == owner_id, ProjectComment.active == True)
+        .order_by(ProjectComment.created_at)
+    )).all()
+    return [{**{c.key: getattr(r[0], c.key) for c in r[0].__table__.columns}, "author_name": f"{r[1]} {r[2]}" if r[1] else None} for r in rows]
+
+
+@router.get("/{project_id}/comments", response_model=list[ProjectCommentRead])
+async def list_project_comments(
+    project_id: UUID, entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"), db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    return await _fetch_comments(db, "project", project_id)
+
+
+@router.get("/{project_id}/tasks/{task_id}/comments", response_model=list[ProjectCommentRead])
+async def list_task_comments(
+    project_id: UUID, task_id: UUID, entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"), db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    return await _fetch_comments(db, "project_task", task_id)
+
+
+@router.post("/{project_id}/tasks/{task_id}/comments", response_model=ProjectCommentRead, status_code=201)
+async def create_task_comment(
+    project_id: UUID, task_id: UUID, body: ProjectCommentCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.read"), db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    comment = ProjectComment(owner_type="project_task", owner_id=task_id, author_id=current_user.id, body=body.body, mentions=[str(m) for m in body.mentions] if body.mentions else None, parent_id=body.parent_id)
+    db.add(comment); await db.commit(); await db.refresh(comment)
+    d = {c.key: getattr(comment, c.key) for c in comment.__table__.columns}
+    d["author_name"] = f"{current_user.first_name} {current_user.last_name}"
+    return d
+
+
+@router.post("/{project_id}/comments", response_model=ProjectCommentRead, status_code=201)
+async def create_project_comment(
+    project_id: UUID, body: ProjectCommentCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.read"), db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    comment = ProjectComment(owner_type="project", owner_id=project_id, author_id=current_user.id, body=body.body, mentions=[str(m) for m in body.mentions] if body.mentions else None, parent_id=body.parent_id)
+    db.add(comment); await db.commit(); await db.refresh(comment)
+    d = {c.key: getattr(comment, c.key) for c in comment.__table__.columns}
+    d["author_name"] = f"{current_user.first_name} {current_user.last_name}"
+    return d
+
+
+@router.delete("/{project_id}/comments/{comment_id}", status_code=204)
+async def delete_comment(
+    project_id: UUID, comment_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.update"), db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    comment = (await db.execute(select(ProjectComment).where(ProjectComment.id == comment_id))).scalar_one_or_none()
+    if not comment: raise HTTPException(404, "Comment not found")
+    comment.active = False; await db.commit()
+
+
+# ── Project Status History ─────────────────────────────────────────────
+
+
+@router.get("/{project_id}/status-history", response_model=list[ProjectStatusHistoryRead])
+async def list_status_history(
+    project_id: UUID, entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"), db: AsyncSession = Depends(get_db),
+):
+    await _get_project_or_404(db, project_id, entity_id)
+    rows = (await db.execute(
+        select(ProjectStatusHistory, User.first_name, User.last_name)
+        .outerjoin(User, ProjectStatusHistory.changed_by == User.id)
+        .where(ProjectStatusHistory.project_id == project_id)
+        .order_by(ProjectStatusHistory.changed_at.desc())
+    )).all()
+    return [{"id": r[0].id, "project_id": r[0].project_id, "from_status": r[0].from_status, "to_status": r[0].to_status, "changed_by": r[0].changed_by, "reason": r[0].reason, "changed_at": r[0].changed_at, "changed_by_name": f"{r[1]} {r[2]}" if r[1] else None} for r in rows]

@@ -1587,6 +1587,8 @@ class ProjectRead(OpsFluxSchema):
     tier_id: UUID | None = None
     asset_id: UUID | None = None
     external_ref: str | None = None  # e.g. "gouti:<id>" for imported projects
+    project_type: str = "project"
+    department_id: UUID | None = None
     active: bool
     archived: bool
     created_at: datetime
@@ -1594,6 +1596,7 @@ class ProjectRead(OpsFluxSchema):
     manager_name: str | None = None
     tier_name: str | None = None
     parent_name: str | None = None
+    department_name: str | None = None
     task_count: int = 0
     member_count: int = 0
     children_count: int = 0
@@ -1604,6 +1607,8 @@ class ProjectCreate(BaseModel):
     code: str | None = Field(None, min_length=1, max_length=50)
     name: str = Field(..., min_length=1, max_length=300)
     description: str | None = None
+    project_type: str = "project"
+    department_id: UUID | None = None
     status: str = "draft"
     priority: str = "medium"
     weather: str = "sunny"
@@ -1862,6 +1867,63 @@ class TaskDependencyCreate(BaseModel):
     to_task_id: UUID
     dependency_type: str = "finish_to_start"
     lag_days: int = 0
+
+
+# ─── Project Task Assignees ──────────────────────────────────────────────────
+
+
+class TaskAssigneeRead(OpsFluxSchema):
+    id: UUID
+    task_id: UUID
+    user_id: UUID
+    role: str
+    user_name: str | None = None
+
+
+class TaskAssigneeCreate(BaseModel):
+    user_id: UUID
+    role: str = "assignee"
+
+
+# ─── Project Comments ────────────────────────────────────────────────────────
+
+
+class ProjectCommentRead(OpsFluxSchema):
+    id: UUID
+    owner_type: str
+    owner_id: UUID
+    author_id: UUID
+    body: str
+    mentions: list[UUID] | None = None
+    parent_id: UUID | None = None
+    edited_at: datetime | None = None
+    active: bool
+    created_at: datetime
+    author_name: str | None = None
+
+
+class ProjectCommentCreate(BaseModel):
+    body: str = Field(..., min_length=1, max_length=10000)
+    mentions: list[UUID] | None = None
+    parent_id: UUID | None = None
+
+
+class ProjectCommentUpdate(BaseModel):
+    body: str | None = Field(None, min_length=1, max_length=10000)
+
+
+# ─── Project Status History ──────────────────────────────────────────────────
+
+
+class ProjectStatusHistoryRead(OpsFluxSchema):
+    id: UUID
+    project_id: UUID
+    from_status: str | None = None
+    to_status: str
+    changed_by: UUID
+    reason: str | None = None
+    changed_at: datetime
+    changed_by_name: str | None = None
 
 
 # ─── Project WBS Nodes ──────────────────────────────────────────────────────

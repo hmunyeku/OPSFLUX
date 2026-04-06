@@ -153,6 +153,28 @@ def _register_jobs() -> None:
         max_instances=1,
     )
 
+    # Planning simulation expiry — every hour, deactivate 4h+ old simulations
+    from app.tasks.jobs.simulation_expiry import expire_planning_simulations
+    scheduler.add_job(
+        expire_planning_simulations,
+        trigger=IntervalTrigger(hours=1),
+        id="simulation_expiry",
+        name="Expirer les simulations de planning > 4h",
+        replace_existing=True,
+        max_instances=1,
+    )
+
+    # Project task deadline reminders — daily at 08:00
+    from app.tasks.jobs.project_reminders import run_project_reminders
+    scheduler.add_job(
+        run_project_reminders,
+        trigger=CronTrigger(hour=8, minute=0),
+        id="project_reminders",
+        name="Rappels échéances tâches projets (J-7 et J-1)",
+        replace_existing=True,
+        max_instances=1,
+    )
+
     # Gouti auto-sync — runs every 15 min and per-entity throttles via
     # integration.gouti.auto_sync_interval_minutes (default 60). Entities
     # that have not opted in (auto_sync_enabled != truthy) are skipped.

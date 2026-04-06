@@ -30,7 +30,7 @@ def upgrade() -> None:
     ))
     op.add_column("projects", sa.Column(
         "department_id", UUID(as_uuid=True),
-        sa.ForeignKey("departments.id", ondelete="SET NULL"), nullable=True,
+        sa.ForeignKey("business_units.id", ondelete="SET NULL"), nullable=True,
     ))
     op.create_index("idx_projects_type", "projects", ["project_type"])
     op.create_index("idx_projects_department", "projects", ["department_id"])

@@ -1583,7 +1583,7 @@ class Project(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         String(30), nullable=False, default="project",
     )  # project, workover, drilling, integrity, maintenance, inspection, event
     department_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("departments.id", ondelete="SET NULL"),
+        UUID(as_uuid=True), ForeignKey("business_units.id", ondelete="SET NULL"),
     )
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")  # draft, planned, active, on_hold, completed, cancelled
     priority: Mapped[str] = mapped_column(String(10), nullable=False, default="medium")  # low, medium, high, critical

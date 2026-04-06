@@ -368,7 +368,9 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
     setTip({ title: task.title, lines, x: e.clientX, y: e.clientY })
   }, [critSet])
 
+  let rowIdx_counter = 0
   const renderTask = (task: ProjectTask, depth: number): React.ReactNode[] => {
+    const rowIdx = rowIdx_counter++
     const children = tree.get(task.id) || []
     const hasChildren = children.length > 0
     const isCollapsed = collapsed.has(task.id)
@@ -383,8 +385,11 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
       <div key={task.id} className="flex border-b border-border/20" style={{ minWidth: pw + totalPx, height: rowH }}>
         {/* ── Left panel: tree with expand/collapse + inline edit ── */}
         <div
-          className="sticky left-0 z-[5] bg-background border-r border-border flex items-center gap-1 text-[10px] truncate shrink-0 hover:bg-muted/30 px-1"
-          style={{ width: pw, paddingLeft: `${6 + depth * 16}px` }}
+          className={cn(
+            'sticky left-0 z-[5] border-r border-border flex items-center gap-1 text-[10px] truncate shrink-0 hover:bg-accent/40 px-1 transition-colors',
+            rowIdx % 2 === 0 ? 'bg-background' : 'bg-muted/10',
+          )}
+          style={{ width: pw, paddingLeft: `${8 + depth * 18}px` }}
           onMouseEnter={e => buildTip(task, e)}
           onMouseMove={e => setTip(t => t ? { ...t, x: e.clientX, y: e.clientY } : null)}
           onMouseLeave={() => setTip(null)}
@@ -424,7 +429,7 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
             <span className="text-[7px] text-muted-foreground tabular-nums shrink-0">{task.progress}%</span>
           )}
         </div>
-        <div data-bar-area className="relative flex-1" style={{ minWidth: totalPx }} onDragOver={e => e.preventDefault()} onDrop={handleDrop}>
+        <div data-bar-area className={cn('relative flex-1', rowIdx % 2 !== 0 && 'bg-muted/10')} style={{ minWidth: totalPx }} onDragOver={e => e.preventDefault()} onDrop={handleDrop}>
           {bar && (
             <>
               <div
@@ -552,7 +557,7 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
               <Milestone size={9} className={ms.status === 'completed' ? 'text-green-500' : 'text-yellow-500'} />
               {ms.name}
             </div>
-            <div className="relative flex-1" style={{ minWidth: totalPx }}>
+            <div data-bar-area className="relative flex-1" style={{ minWidth: totalPx }}>
               <div className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rotate-45 bg-yellow-500 border border-yellow-600" style={{ left: mOff * ppd }} />
             </div>
           </div>
@@ -979,7 +984,7 @@ export function ProjectGanttView() {
             {/* Row 1: groups (year or month depending on scale) */}
             <div className="flex">
               <div className="sticky left-0 z-20 bg-background border-r border-border shrink-0" style={{ width: pw }}>
-                <div className="h-5 flex items-center px-2">
+                <div className="h-6 flex items-center px-2">
                   <span className="text-[9px] font-medium uppercase tracking-wide text-muted-foreground">Projet / Tâche</span>
                 </div>
               </div>
@@ -990,7 +995,7 @@ export function ProjectGanttView() {
                     const w = cells.slice(cellIdx, cellIdx + g.spanCells).reduce((s, c) => s + c.days * ppd, 0)
                     cellIdx += g.spanCells
                     return (
-                      <div key={g.key} className="h-5 flex items-center justify-center border-r border-border/50 text-[9px] font-semibold text-muted-foreground" style={{ width: w }}>
+                      <div key={g.key} className="h-6 flex items-center justify-center border-r border-border/50 text-[9px] font-semibold text-muted-foreground" style={{ width: w }}>
                         {g.label}
                       </div>
                     )

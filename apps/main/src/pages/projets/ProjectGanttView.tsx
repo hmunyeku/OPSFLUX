@@ -273,6 +273,9 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
   const { data: cpm } = useProjectCpm(project.id)
   const { toast } = useToast()
   const [tip, setTip] = useState<{ title: string; lines: [string, string][]; x: number; y: number } | null>(null)
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editValue, setEditValue] = useState('')
   const critSet = useMemo(() => new Set(cpm?.critical_path_task_ids || []), [cpm])
   const rowH = barH + 8
 
@@ -313,8 +316,47 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
     } catch { toast({ title: 'Erreur', variant: 'error' }) }
   }, [project.id, toast, ppd, vs])
 
+  // Inline edit: double-click on task name → input, Enter/blur saves
+  const handleInlineEdit = useCallback(async (taskId: string, newTitle: string) => {
+    const trimmed = newTitle.trim()
+    if (!trimmed) { setEditingId(null); return }
+    try {
+      await projetsService.updateTask(project.id, taskId, { title: trimmed })
+      toast({ title: 'Titre modifié', variant: 'success' })
+    } catch { toast({ title: 'Erreur', variant: 'error' }) }
+    setEditingId(null)
+  }, [project.id, toast])
+
+  const toggleCollapse = useCallback((id: string) => {
+    setCollapsed(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  }, [])
+
+  // Build rich tooltip content for a task
+  const buildTip = useCallback((task: ProjectTask, e: React.MouseEvent) => {
+    const lines: [string, string][] = [
+      ['Statut', STATUS_LABELS[task.status as TaskStatus] || task.status],
+      ['Priorité', PRIORITY_LABELS[task.priority as TaskPriority] || task.priority],
+      ['Progression', `${task.progress}%`],
+    ]
+    if (task.start_date) lines.push(['Début', new Date(task.start_date).toLocaleDateString('fr-FR')])
+    if (task.due_date) lines.push(['Fin', new Date(task.due_date).toLocaleDateString('fr-FR')])
+    if (task.start_date && task.due_date) {
+      const dur = daysB(task.start_date.split('T')[0], task.due_date.split('T')[0])
+      lines.push(['Durée', `${dur} jour${dur > 1 ? 's' : ''}`])
+    }
+    if (task.assignee_name) lines.push(['Responsable', task.assignee_name])
+    if (task.estimated_hours) lines.push(['Charge estimée', `${task.estimated_hours}h`])
+    if (task.actual_hours) lines.push(['Charge réelle', `${task.actual_hours}h`])
+    if (task.code) lines.push(['Réf.', task.code])
+    if (critSet.has(task.id)) lines.push(['Chemin critique', '⚡ Oui'])
+    setTip({ title: task.title, lines, x: e.clientX, y: e.clientY })
+  }, [critSet])
+
   const renderTask = (task: ProjectTask, depth: number): React.ReactNode[] => {
     const children = tree.get(task.id) || []
+    const hasChildren = children.length > 0
+    const isCollapsed = collapsed.has(task.id)
+    const isEditing = editingId === task.id
     const isCrit = critSet.has(task.id)
     const clr = T_CLR[task.status] || '#9ca3af'
     const bar = (task.start_date && task.due_date)
@@ -323,16 +365,48 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
     const nodes: React.ReactNode[] = []
     nodes.push(
       <div key={task.id} className="flex border-b border-border/20" style={{ minWidth: pw + totalPx, height: rowH }}>
+        {/* ── Left panel: tree with expand/collapse + inline edit ── */}
         <div
           className="sticky left-0 z-[5] bg-background border-r border-border flex items-center gap-1 text-[10px] truncate shrink-0 hover:bg-muted/30 px-1"
-          style={{ width: pw, paddingLeft: `${10 + depth * 14}px` }}
-          onMouseEnter={e => setTip({ title: task.title, lines: [['Statut', task.status], ['%', `${task.progress}%`], ...(task.assignee_name ? [['Resp.', task.assignee_name] as [string, string]] : []), ...(task.estimated_hours ? [['Charge', `${task.estimated_hours}h`] as [string, string]] : [])], x: e.clientX, y: e.clientY })}
+          style={{ width: pw, paddingLeft: `${6 + depth * 16}px` }}
+          onMouseEnter={e => buildTip(task, e)}
+          onMouseMove={e => setTip(t => t ? { ...t, x: e.clientX, y: e.clientY } : null)}
           onMouseLeave={() => setTip(null)}
         >
-          {children.length > 0 && <ChevronDown size={8} className="text-muted-foreground shrink-0" />}
+          {/* Expand/collapse chevron for parent tasks */}
+          {hasChildren ? (
+            <button
+              onClick={() => toggleCollapse(task.id)}
+              className="p-0.5 rounded hover:bg-muted text-muted-foreground shrink-0"
+            >
+              <ChevronDown size={9} className={cn('transition-transform', isCollapsed && '-rotate-90')} />
+            </button>
+          ) : (
+            <span className="w-[13px] shrink-0" />
+          )}
           <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: clr }} />
-          <span className={cn('truncate', task.status === 'done' && 'line-through text-muted-foreground')}>{task.title}</span>
+          {/* Task title — double-click to edit */}
+          {isEditing ? (
+            <input
+              autoFocus
+              className="flex-1 bg-transparent border-b border-primary text-[10px] outline-none min-w-0"
+              value={editValue}
+              onChange={e => setEditValue(e.target.value)}
+              onBlur={() => handleInlineEdit(task.id, editValue)}
+              onKeyDown={e => { if (e.key === 'Enter') handleInlineEdit(task.id, editValue); if (e.key === 'Escape') setEditingId(null) }}
+            />
+          ) : (
+            <span
+              className={cn('truncate cursor-text', task.status === 'done' && 'line-through text-muted-foreground')}
+              onDoubleClick={() => { setEditingId(task.id); setEditValue(task.title) }}
+            >
+              {task.title}
+            </span>
+          )}
           {isCrit && <span className="text-[7px] px-0.5 rounded bg-red-500/10 text-red-500 shrink-0">CPM</span>}
+          {task.progress > 0 && task.progress < 100 && (
+            <span className="text-[7px] text-muted-foreground tabular-nums shrink-0">{task.progress}%</span>
+          )}
         </div>
         <div data-bar-area className="relative flex-1" style={{ minWidth: totalPx }} onDragOver={e => e.preventDefault()} onDrop={handleDrop}>
           {bar && (
@@ -371,17 +445,17 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
         </div>
       </div>
     )
-    for (const ch of children) nodes.push(...renderTask(ch, depth + 1))
+    if (!isCollapsed) {
+      for (const ch of children) nodes.push(...renderTask(ch, depth + 1))
+    }
     return nodes
   }
 
   const roots = tree.get(null) || []
-  // Orphans: tasks whose parent_id doesn't exist in the task set.
-  // Skip tasks already reachable from the roots to prevent double-render.
   const rendered = new Set<string>()
   const markRendered = (id: string) => { rendered.add(id); for (const ch of (tree.get(id) || [])) markRendered(ch.id) }
   for (const r of roots) markRendered(r.id)
-  const orphans = (tasks || []).filter(t => !rendered.has(t.id))
+  const orphans = filteredTasks.filter(t => !rendered.has(t.id))
 
   return (
     <>
@@ -835,8 +909,8 @@ export function ProjectGanttView() {
           </div>
 
           {/* ── Today line ───────────────────────────────────── */}
-          {todayDays >= 0 && todayPx < totalPx && (
-            <div className="absolute top-0 bottom-0 w-px bg-primary/60 z-[15] pointer-events-none" style={{ left: pw + todayPx }} />
+          {todayDays >= 0 && todayDays <= totalDays && (
+            <div className="absolute top-0 bottom-0 w-[2px] bg-primary z-[15] pointer-events-none" style={{ left: pw + todayPx }} />
           )}
 
           {/* ── Project rows ─────────────────────────────────── */}

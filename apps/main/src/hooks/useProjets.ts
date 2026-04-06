@@ -13,6 +13,7 @@ import type {
   TaskActionCreate, TaskActionUpdate,
   TaskDependencyCreate,
   ProjectWBSNodeCreate, ProjectWBSNodeUpdate,
+  ProjectTemplateCreate, CustomFieldValuePayload, ProjectCommentCreate,
   PaginationParams,
 } from '@/types/api'
 
@@ -585,6 +586,142 @@ export function useSendToPlanner() {
     onSuccess: (_, { projectId }) => {
       qc.invalidateQueries({ queryKey: ['planner-links', projectId] })
       qc.invalidateQueries({ queryKey: ['planner'] })
+    },
+  })
+}
+
+// ── Templates ──────────────────────────────────────────────
+
+export function useProjectTemplates(category?: string) {
+  return useQuery({
+    queryKey: ['project-templates', category],
+    queryFn: () => projetsService.listTemplates(category),
+  })
+}
+
+export function useSaveAsTemplate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: ProjectTemplateCreate) => projetsService.saveAsTemplate(payload),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['project-templates'] }) },
+  })
+}
+
+export function useCloneFromTemplate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ templateId, name }: { templateId: string; name: string }) =>
+      projetsService.cloneFromTemplate(templateId, name),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['projects'] }) },
+  })
+}
+
+export function useDeleteTemplate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (templateId: string) => projetsService.deleteTemplate(templateId),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['project-templates'] }) },
+  })
+}
+
+// ── Custom Fields ──────────────────────────────────────────
+
+export function useCustomFields(projectId: string) {
+  return useQuery({
+    queryKey: ['custom-fields', projectId],
+    queryFn: () => projetsService.listCustomFields(projectId),
+    enabled: !!projectId,
+  })
+}
+
+export function useSetCustomFieldValue() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, fieldDefId, payload }: {
+      projectId: string; fieldDefId: string; payload: CustomFieldValuePayload
+    }) => projetsService.setCustomFieldValue(projectId, fieldDefId, payload),
+    onSuccess: (_, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ['custom-fields', projectId] })
+    },
+  })
+}
+
+// ── Comments ───────────────────────────────────────────────
+
+export function useProjectComments(projectId: string) {
+  return useQuery({
+    queryKey: ['project-comments', projectId],
+    queryFn: () => projetsService.listProjectComments(projectId),
+    enabled: !!projectId,
+  })
+}
+
+export function useCreateProjectComment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, payload }: { projectId: string; payload: ProjectCommentCreate }) =>
+      projetsService.createProjectComment(projectId, payload),
+    onSuccess: (_, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ['project-comments', projectId] })
+      qc.invalidateQueries({ queryKey: ['activity-feed', projectId] })
+    },
+  })
+}
+
+export function useTaskComments(projectId: string, taskId: string) {
+  return useQuery({
+    queryKey: ['task-comments', projectId, taskId],
+    queryFn: () => projetsService.listTaskComments(projectId, taskId),
+    enabled: !!projectId && !!taskId,
+  })
+}
+
+export function useCreateTaskComment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, taskId, payload }: {
+      projectId: string; taskId: string; payload: ProjectCommentCreate
+    }) => projetsService.createTaskComment(projectId, taskId, payload),
+    onSuccess: (_, { projectId, taskId }) => {
+      qc.invalidateQueries({ queryKey: ['task-comments', projectId, taskId] })
+      qc.invalidateQueries({ queryKey: ['activity-feed', projectId] })
+    },
+  })
+}
+
+export function useDeleteComment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, commentId }: { projectId: string; commentId: string }) =>
+      projetsService.deleteComment(projectId, commentId),
+    onSuccess: (_, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ['project-comments', projectId] })
+    },
+  })
+}
+
+// ── Activity Feed ──────────────────────────────────────────
+
+export function useActivityFeed(projectId: string, limit = 50) {
+  return useQuery({
+    queryKey: ['activity-feed', projectId, limit],
+    queryFn: () => projetsService.getActivityFeed(projectId, limit),
+    enabled: !!projectId,
+  })
+}
+
+// ── PDF Export ─────────────────────────────────────────────
+
+export function useExportProjectPdf() {
+  return useMutation({
+    mutationFn: async (projectId: string) => {
+      const blob = await projetsService.exportPdf(projectId)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `project_${projectId}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
     },
   })
 }

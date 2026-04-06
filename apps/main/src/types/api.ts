@@ -1561,6 +1561,88 @@ export interface TaskChangeLog {
   author_name?: string | null
 }
 
+// ── Project Templates ──────────────────────────────────────
+
+export interface ProjectTemplate {
+  id: string
+  name: string
+  description: string | null
+  category: string | null
+  thumbnail_url: string | null
+  source_project_id: string | null
+  created_by: string
+  active: boolean
+  usage_count: number
+  created_at: string
+  updated_at: string
+}
+
+export interface ProjectTemplateCreate {
+  project_id: string
+  name: string
+  description?: string | null
+  category?: string | null
+}
+
+// ── Custom Fields (EAV) ───────────────────────────────────
+
+export interface CustomFieldDef {
+  id: string
+  slug: string
+  label: string
+  field_type: string
+  options: unknown | null
+  required: boolean
+  default_value: string | null
+  order: number
+  value_text?: string | null
+  value_json?: unknown | null
+}
+
+export interface CustomFieldValuePayload {
+  value_text?: string | null
+  value_json?: unknown | null
+}
+
+// ── Project Comments ──────────────────────────────────────
+
+export interface ProjectComment {
+  id: string
+  owner_type: string
+  owner_id: string
+  author_id: string
+  body: string
+  mentions: string[] | null
+  parent_id: string | null
+  edited_at: string | null
+  active: boolean
+  created_at: string
+  author_name: string | null
+}
+
+export interface ProjectCommentCreate {
+  body: string
+  mentions?: string[] | null
+  parent_id?: string | null
+}
+
+// ── Activity Feed ─────────────────────────────────────────
+
+export interface ActivityFeedItem {
+  type: 'status_change' | 'task_change' | 'comment'
+  date: string
+  user: string | null
+  detail?: string
+  reason?: string | null
+  task_title?: string
+  field?: string
+  old?: unknown
+  new?: unknown
+  change_type?: string
+  body?: string
+  owner_type?: string
+}
+
 // ── TravelWiz — Vectors ─────────────────────────────────────
 
 export interface TravelVector {

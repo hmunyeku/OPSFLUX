@@ -17,6 +17,7 @@ import {
   Link2, Package, CheckSquare, History, ArrowRight,
   Camera, Play, FlaskConical, Star,
   Zap, GitBranch, ChevronDown, Filter, Search, Settings2,
+  FileDown, Copy, MessageSquare, Activity, Send, LayoutTemplate,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -70,6 +71,11 @@ import {
   usePlanningRevisions, useCreateRevision, useApplyRevision, useDeleteRevision,
   useWbsNodes, useCreateWbsNode, useDeleteWbsNode,
   useProjectCpm,
+  useProjectTemplates, useSaveAsTemplate, useCloneFromTemplate, useDeleteTemplate,
+  useCustomFields, useSetCustomFieldValue,
+  useProjectComments, useCreateProjectComment, useDeleteComment,
+  useActivityFeed,
+  useExportProjectPdf,
 } from '@/hooks/useProjets'
 import type {
   GoutiCatalogFilters, GoutiCatalogProject, GoutiCatalogTask, GoutiSelectionPayload,
@@ -89,6 +95,7 @@ import type {
   PlanningRevision,
   ProjectWBSNode,
   CPMTaskInfo,
+  ActivityFeedItem,
 } from '@/types/api'
 
 // -- Constants ----------------------------------------------------------------
@@ -2057,6 +2064,288 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
   )
 }
 
+// -- Templates Section --------------------------------------------------------
+
+function TemplatesSection({ projectId }: { projectId: string }) {
+  const { data: templates = [], isLoading } = useProjectTemplates()
+  const saveAsTemplate = useSaveAsTemplate()
+  const cloneFromTemplate = useCloneFromTemplate()
+  const deleteTemplate = useDeleteTemplate()
+  const { toast } = useToast()
+  const [showSave, setShowSave] = useState(false)
+  const [showClone, setShowClone] = useState(false)
+  const [tplName, setTplName] = useState('')
+  const [tplDesc, setTplDesc] = useState('')
+  const [selectedTpl, setSelectedTpl] = useState('')
+  const [cloneName, setCloneName] = useState('')
+
+  const handleSave = async () => {
+    if (!tplName.trim()) return
+    try {
+      await saveAsTemplate.mutateAsync({ project_id: projectId, name: tplName, description: tplDesc || undefined })
+      toast({ title: 'Template sauvegarde', variant: 'success' })
+      setShowSave(false); setTplName(''); setTplDesc('')
+    } catch { toast({ title: 'Erreur sauvegarde template', variant: 'error' }) }
+  }
+
+  const handleClone = async () => {
+    if (!selectedTpl || !cloneName.trim()) return
+    try {
+      await cloneFromTemplate.mutateAsync({ templateId: selectedTpl, name: cloneName })
+      toast({ title: 'Projet cree depuis template', variant: 'success' })
+      setShowClone(false); setSelectedTpl(''); setCloneName('')
+    } catch { toast({ title: 'Erreur clone template', variant: 'error' }) }
+  }
+
+  return (
+    <FormSection title="Templates" collapsible defaultExpanded={false} storageKey="project-detail-templates">
+      <div className="space-y-3">
+        {/* Save current project as template */}
+        {!showSave ? (
+          <button onClick={() => setShowSave(true)} className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80">
+            <Copy size={12} /> Sauvegarder comme template
+          </button>
+        ) : (
+          <div className="space-y-2 border rounded p-2 bg-muted/30">
+            <input value={tplName} onChange={(e) => setTplName(e.target.value)} placeholder="Nom du template" className={panelInputClass} />
+            <input value={tplDesc} onChange={(e) => setTplDesc(e.target.value)} placeholder="Description (optionnel)" className={panelInputClass} />
+            <div className="flex gap-2">
+              <button onClick={handleSave} disabled={saveAsTemplate.isPending || !tplName.trim()} className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 disabled:opacity-50">
+                {saveAsTemplate.isPending ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />} Sauvegarder
+              </button>
+              <button onClick={() => setShowSave(false)} className="text-xs text-muted-foreground hover:text-foreground"><X size={10} /></button>
+            </div>
+          </div>
+        )}
+
+        {/* Clone from template */}
+        {!showClone ? (
+          <button onClick={() => setShowClone(true)} className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80">
+            <LayoutTemplate size={12} /> Creer depuis un template
+          </button>
+        ) : (
+          <div className="space-y-2 border rounded p-2 bg-muted/30">
+            <select value={selectedTpl} onChange={(e) => setSelectedTpl(e.target.value)} className={panelInputClass}>
+              <option value="">Choisir un template...</option>
+              {templates.map((t) => (
+                <option key={t.id} value={t.id}>{t.name} {t.category ? `(${t.category})` : ''} — {t.usage_count} utilisation(s)</option>
+              ))}
+            </select>
+            <input value={cloneName} onChange={(e) => setCloneName(e.target.value)} placeholder="Nom du nouveau projet" className={panelInputClass} />
+            <div className="flex gap-2">
+              <button onClick={handleClone} disabled={cloneFromTemplate.isPending || !selectedTpl || !cloneName.trim()} className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 disabled:opacity-50">
+                {cloneFromTemplate.isPending ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />} Creer
+              </button>
+              <button onClick={() => setShowClone(false)} className="text-xs text-muted-foreground hover:text-foreground"><X size={10} /></button>
+            </div>
+          </div>
+        )}
+
+        {/* Existing templates list */}
+        {isLoading ? <Loader2 size={12} className="animate-spin text-muted-foreground" /> : templates.length > 0 && (
+          <div className="space-y-1">
+            <div className="text-xs text-muted-foreground font-medium">Templates disponibles ({templates.length})</div>
+            {templates.map((t) => (
+              <div key={t.id} className="flex items-center justify-between text-xs py-1 px-1 hover:bg-muted/40 rounded group">
+                <div className="flex items-center gap-2">
+                  <LayoutTemplate size={11} className="text-muted-foreground" />
+                  <span className="font-medium">{t.name}</span>
+                  {t.category && <span className="text-muted-foreground">({t.category})</span>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">{t.usage_count}x</span>
+                  <button
+                    onClick={() => deleteTemplate.mutate(t.id)}
+                    className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive/80"
+                  >
+                    <Trash2 size={10} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </FormSection>
+  )
+}
+
+// -- Custom Fields Section ----------------------------------------------------
+
+function CustomFieldsSection({ projectId }: { projectId: string }) {
+  const { data: fields = [], isLoading } = useCustomFields(projectId)
+  const setFieldValue = useSetCustomFieldValue()
+  const { toast } = useToast()
+
+  if (isLoading) return <Loader2 size={12} className="animate-spin text-muted-foreground" />
+  if (fields.length === 0) return null
+
+  const handleSave = async (fieldDefId: string, value: string) => {
+    try {
+      await setFieldValue.mutateAsync({ projectId, fieldDefId, payload: { value_text: value } })
+    } catch { toast({ title: 'Erreur sauvegarde champ', variant: 'error' }) }
+  }
+
+  return (
+    <FormSection title="Champs personnalises" collapsible defaultExpanded storageKey="project-detail-custom-fields">
+      <DetailFieldGrid>
+        {fields.map((f) => (
+          <InlineEditableRow
+            key={f.id}
+            label={f.label}
+            value={f.value_text || f.default_value || ''}
+            onSave={(v) => handleSave(f.id, v)}
+          />
+        ))}
+      </DetailFieldGrid>
+    </FormSection>
+  )
+}
+
+// -- Comments Section ---------------------------------------------------------
+
+function CommentsSection({ projectId }: { projectId: string }) {
+  const { data: comments = [], isLoading } = useProjectComments(projectId)
+  const createComment = useCreateProjectComment()
+  const deleteComment = useDeleteComment()
+  const { toast } = useToast()
+  const [body, setBody] = useState('')
+  const [replyTo, setReplyTo] = useState<string | null>(null)
+
+  const handleSubmit = async () => {
+    if (!body.trim()) return
+    try {
+      await createComment.mutateAsync({
+        projectId,
+        payload: { body, parent_id: replyTo || undefined },
+      })
+      setBody(''); setReplyTo(null)
+    } catch { toast({ title: 'Erreur commentaire', variant: 'error' }) }
+  }
+
+  const handleDelete = async (commentId: string) => {
+    try {
+      await deleteComment.mutateAsync({ projectId, commentId })
+    } catch { toast({ title: 'Erreur suppression', variant: 'error' }) }
+  }
+
+  // Build thread structure
+  const rootComments = comments.filter((c) => !c.parent_id && c.active)
+  const replies = (parentId: string) => comments.filter((c) => c.parent_id === parentId && c.active)
+
+  return (
+    <FormSection title={`Commentaires (${rootComments.length})`} collapsible defaultExpanded={false} storageKey="project-detail-comments">
+      <div className="space-y-3">
+        {isLoading ? <Loader2 size={12} className="animate-spin text-muted-foreground" /> : rootComments.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Aucun commentaire</p>
+        ) : (
+          <div className="space-y-2">
+            {rootComments.map((c) => (
+              <div key={c.id} className="space-y-1">
+                <div className="flex items-start gap-2 text-xs">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{c.author_name || 'Utilisateur'}</span>
+                      <span className="text-muted-foreground">{new Date(c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                    <p className="mt-0.5 whitespace-pre-wrap">{c.body}</p>
+                    <div className="flex gap-2 mt-1">
+                      <button onClick={() => setReplyTo(c.id)} className="text-primary hover:text-primary/80 text-[10px]">Repondre</button>
+                      <button onClick={() => handleDelete(c.id)} className="text-destructive hover:text-destructive/80 text-[10px]">Supprimer</button>
+                    </div>
+                  </div>
+                </div>
+                {/* Replies */}
+                {replies(c.id).map((r) => (
+                  <div key={r.id} className="ml-4 pl-2 border-l flex items-start gap-2 text-xs">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{r.author_name || 'Utilisateur'}</span>
+                        <span className="text-muted-foreground">{new Date(r.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                      <p className="mt-0.5 whitespace-pre-wrap">{r.body}</p>
+                      <button onClick={() => handleDelete(r.id)} className="text-destructive hover:text-destructive/80 text-[10px] mt-1">Supprimer</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Comment input */}
+        <div className="space-y-1">
+          {replyTo && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <span>Reponse a un commentaire</span>
+              <button onClick={() => setReplyTo(null)} className="text-destructive"><X size={10} /></button>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <input
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder="Ajouter un commentaire..."
+              className={cn(panelInputClass, 'flex-1')}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() } }}
+            />
+            <button onClick={handleSubmit} disabled={createComment.isPending || !body.trim()} className="text-primary hover:text-primary/80 disabled:opacity-50">
+              {createComment.isPending ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+            </button>
+          </div>
+        </div>
+      </div>
+    </FormSection>
+  )
+}
+
+// -- Activity Feed Section ----------------------------------------------------
+
+function ActivityFeedSection({ projectId }: { projectId: string }) {
+  const { data: feed = [], isLoading } = useActivityFeed(projectId)
+
+  const iconForType = (type: string) => {
+    switch (type) {
+      case 'status_change': return <Circle size={10} className="text-blue-500" />
+      case 'task_change': return <Settings2 size={10} className="text-amber-500" />
+      case 'comment': return <MessageSquare size={10} className="text-green-500" />
+      default: return <Activity size={10} className="text-muted-foreground" />
+    }
+  }
+
+  const labelForItem = (item: ActivityFeedItem) => {
+    switch (item.type) {
+      case 'status_change': return item.detail || 'Changement de statut'
+      case 'task_change': return `${item.task_title || 'Tache'}: ${item.field} ${item.old ? `${item.old} →` : '→'} ${item.new || ''}`
+      case 'comment': return `${item.user || 'Utilisateur'}: ${(item.body || '').slice(0, 80)}${(item.body?.length ?? 0) > 80 ? '...' : ''}`
+      default: return 'Activite'
+    }
+  }
+
+  return (
+    <FormSection title={`Activite (${feed.length})`} collapsible defaultExpanded={false} storageKey="project-detail-activity">
+      {isLoading ? <Loader2 size={12} className="animate-spin text-muted-foreground" /> : feed.length === 0 ? (
+        <p className="text-xs text-muted-foreground">Aucune activite</p>
+      ) : (
+        <div className="space-y-1 max-h-64 overflow-y-auto">
+          {feed.map((item, i) => (
+            <div key={i} className="flex items-start gap-2 text-xs py-1">
+              <div className="mt-0.5 shrink-0">{iconForType(item.type)}</div>
+              <div className="flex-1 min-w-0">
+                <span className="text-foreground">{labelForItem(item)}</span>
+                {item.reason && <span className="text-muted-foreground ml-1">— {item.reason}</span>}
+              </div>
+              <span className="text-muted-foreground shrink-0 text-[10px]">
+                {new Date(item.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </FormSection>
+  )
+}
+
 // -- Project Detail Panel -----------------------------------------------------
 
 function ProjectDetailPanel({ id }: { id: string }) {
@@ -2072,6 +2361,7 @@ function ProjectDetailPanel({ id }: { id: string }) {
   const { data: linkedAsset } = useAsset(project?.asset_id ?? '')
   const goutiSyncOne = useGoutiSyncOne()
   const [showPlannerLink, setShowPlannerLink] = useState(false)
+  const exportPdf = useExportProjectPdf()
   const { data: goutiStatus } = useGoutiStatus()
   const { toast } = useToast()
   const capabilities = goutiStatus?.capabilities ?? null
@@ -2138,6 +2428,13 @@ function ProjectDetailPanel({ id }: { id: string }) {
               Resync Gouti
             </PanelActionButton>
           )}
+          <PanelActionButton
+            onClick={() => exportPdf.mutate(id)}
+            disabled={exportPdf.isPending}
+            icon={exportPdf.isPending ? <Loader2 size={12} className="animate-spin" /> : <FileDown size={12} />}
+          >
+            PDF
+          </PanelActionButton>
           <DangerConfirmButton icon={<Trash2 size={12} />} onConfirm={handleArchive} confirmLabel="Archiver ?">
             Archiver
           </DangerConfirmButton>
@@ -2270,6 +2567,18 @@ function ProjectDetailPanel({ id }: { id: string }) {
 
         {/* Planning Revisions — baselines + what-if simulations */}
         <PlanningRevisionsSection projectId={id} />
+
+        {/* Custom Fields (EAV) */}
+        <CustomFieldsSection projectId={id} />
+
+        {/* Templates */}
+        <TemplatesSection projectId={id} />
+
+        {/* Comments */}
+        <CommentsSection projectId={id} />
+
+        {/* Activity Feed */}
+        <ActivityFeedSection projectId={id} />
 
         {/* Notes & Documents */}
         <FormSection title="Notes & Documents" collapsible defaultExpanded={false} storageKey="project-detail-docs">

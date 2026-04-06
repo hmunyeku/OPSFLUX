@@ -14,6 +14,10 @@ import type {
   TaskDependency, TaskDependencyCreate,
   ProjectWBSNode, ProjectWBSNodeCreate, ProjectWBSNodeUpdate,
   CPMResult,
+  ProjectTemplate, ProjectTemplateCreate,
+  CustomFieldDef, CustomFieldValuePayload,
+  ProjectComment, ProjectCommentCreate,
+  ActivityFeedItem,
   PaginatedResponse, PaginationParams,
 } from '@/types/api'
 
@@ -430,6 +434,73 @@ export const projetsService = {
       items,
       asset_id: assetId || undefined,
     })
+    return data
+  },
+
+  // ── Templates ──
+  listTemplates: async (category?: string): Promise<ProjectTemplate[]> => {
+    const { data } = await api.get('/api/v1/projects/templates', { params: category ? { category } : {} })
+    return data
+  },
+
+  saveAsTemplate: async (payload: ProjectTemplateCreate): Promise<ProjectTemplate> => {
+    const { data } = await api.post('/api/v1/projects/templates', null, { params: payload })
+    return data
+  },
+
+  cloneFromTemplate: async (templateId: string, name: string): Promise<Project> => {
+    const { data } = await api.post('/api/v1/projects/from-template', null, { params: { template_id: templateId, name } })
+    return data
+  },
+
+  deleteTemplate: async (templateId: string): Promise<void> => {
+    await api.delete(`/api/v1/projects/templates/${templateId}`)
+  },
+
+  // ── Custom Fields ──
+  listCustomFields: async (projectId: string): Promise<CustomFieldDef[]> => {
+    const { data } = await api.get(`/api/v1/projects/${projectId}/custom-fields`)
+    return data
+  },
+
+  setCustomFieldValue: async (projectId: string, fieldDefId: string, payload: CustomFieldValuePayload): Promise<void> => {
+    await api.put(`/api/v1/projects/${projectId}/custom-fields/${fieldDefId}`, null, { params: payload })
+  },
+
+  // ── Comments ──
+  listProjectComments: async (projectId: string): Promise<ProjectComment[]> => {
+    const { data } = await api.get(`/api/v1/projects/${projectId}/comments`)
+    return data
+  },
+
+  createProjectComment: async (projectId: string, payload: ProjectCommentCreate): Promise<ProjectComment> => {
+    const { data } = await api.post(`/api/v1/projects/${projectId}/comments`, payload)
+    return data
+  },
+
+  listTaskComments: async (projectId: string, taskId: string): Promise<ProjectComment[]> => {
+    const { data } = await api.get(`/api/v1/projects/${projectId}/tasks/${taskId}/comments`)
+    return data
+  },
+
+  createTaskComment: async (projectId: string, taskId: string, payload: ProjectCommentCreate): Promise<ProjectComment> => {
+    const { data } = await api.post(`/api/v1/projects/${projectId}/tasks/${taskId}/comments`, payload)
+    return data
+  },
+
+  deleteComment: async (projectId: string, commentId: string): Promise<void> => {
+    await api.delete(`/api/v1/projects/${projectId}/comments/${commentId}`)
+  },
+
+  // ── Activity Feed ──
+  getActivityFeed: async (projectId: string, limit = 50): Promise<ActivityFeedItem[]> => {
+    const { data } = await api.get(`/api/v1/projects/${projectId}/activity-feed`, { params: { limit } })
+    return data
+  },
+
+  // ── PDF Export ──
+  exportPdf: async (projectId: string): Promise<Blob> => {
+    const { data } = await api.get(`/api/v1/projects/${projectId}/pdf`, { responseType: 'blob' })
     return data
   },
 }

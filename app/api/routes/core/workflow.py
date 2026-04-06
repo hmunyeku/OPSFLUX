@@ -6,18 +6,15 @@ import unicodedata
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import distinct, func, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.audit import record_audit
 from app.core.database import get_db
-from app.core.events import OpsFluxEvent, event_bus
 from app.core.pagination import PaginationParams, paginate
 from app.models.common import (
     User,
-    UserGroup,
-    UserGroupMember,
     WorkflowDefinition,
     WorkflowInstance,
     WorkflowTransition,
@@ -37,6 +34,7 @@ from app.schemas.workflow import (
 )
 from app.schemas.common import PaginatedResponse
 from app.services.core.delete_service import delete_entity
+from app.services.core.fsm_service import FSMError, FSMPermissionError, fsm_service
 
 router = APIRouter(prefix="/api/v1/workflow", tags=["workflow"])
 logger = logging.getLogger(__name__)
@@ -695,108 +693,76 @@ async def execute_transition(
     race conditions, records the transition in history, and emits a
     "workflow.transition" event via EventBus.
     """
-    # Load instance with FOR UPDATE lock to prevent concurrent transitions
+    # Load instance to resolve workflow definition and return a clear 404 early.
     inst_result = await db.execute(
-        select(WorkflowInstance)
-        .where(
+        select(WorkflowInstance).where(
             WorkflowInstance.id == instance_id,
             WorkflowInstance.entity_id == entity_id,
         )
-        .with_for_update()
     )
     instance = inst_result.scalar_one_or_none()
     if not instance:
         raise HTTPException(status_code=404, detail="Workflow instance not found")
 
     from_state = instance.current_state
-    to_state = body.to_state
 
-    # Load definition to validate transition
+    # Resolve the definition once so the runtime transition uses the canonical slug.
     def_result = await db.execute(
         select(WorkflowDefinition).where(
             WorkflowDefinition.id == instance.workflow_definition_id,
         )
     )
-    definition = def_result.scalar_one()
-
-    # Validate transition is allowed
-    allowed = _get_allowed_transitions(definition.transitions, from_state)
-    if to_state not in allowed:
+    definition = def_result.scalar_one_or_none()
+    if not definition:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Transition from '{from_state}' to '{to_state}' is not allowed. "
-                   f"Allowed transitions: {allowed}",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Workflow definition not found",
         )
 
-    # Enforce per-transition role requirements (blocks if user lacks role)
-    await _enforce_transition_roles(
-        definition.transitions, from_state, to_state,
-        current_user, entity_id, db,
-    )
-
-    # Optimistic lock check — bump version
-    instance.current_state = to_state
-    instance.version = instance.version + 1
-
-    # Record transition history
-    transition_record = WorkflowTransition(
-        instance_id=instance.id,
-        from_state=from_state,
-        to_state=to_state,
-        actor_id=current_user.id,
-        comment=body.comment,
-    )
-    db.add(transition_record)
+    try:
+        instance = await fsm_service.transition(
+            db,
+            workflow_slug=definition.slug,
+            entity_type=instance.entity_type,
+            entity_id=instance.entity_id_ref,
+            to_state=body.to_state,
+            actor_id=current_user.id,
+            comment=body.comment,
+            entity_id_scope=entity_id,
+        )
+    except FSMPermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except FSMError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     await db.commit()
     await db.refresh(instance)
 
-    # Audit log
-    await record_audit(
-        db,
-        action="workflow.instance.transition",
-        resource_type="workflow_instance",
-        resource_id=str(instance.id),
-        user_id=current_user.id,
-        entity_id=entity_id,
-        details={
-            "definition_slug": definition.slug,
-            "from": from_state,
-            "to": to_state,
-            "comment": body.comment,
-            "entity_type": instance.entity_type,
-            "entity_id_ref": instance.entity_id_ref,
-        },
-    )
-    await db.commit()
-
     # Resolve target node type for hook dispatch
-    target_node_type = _get_node_type_by_id(definition.states, to_state)
+    target_node_type = _get_node_type_by_id(definition.states, body.to_state)
 
-    # Emit event (after commit — as per EventBus contract)
-    await event_bus.publish(
-        OpsFluxEvent(
-            event_type="workflow.transition",
-            payload={
-                "instance_id": str(instance.id),
-                "definition_id": str(definition.id),
-                "definition_slug": definition.slug,
-                "entity_type": instance.entity_type,
-                "entity_id_ref": instance.entity_id_ref,
-                "from_state": from_state,
-                "to_state": to_state,
-                "to_node_type": target_node_type,
-                "actor_id": str(current_user.id),
-                "comment": body.comment,
-                "entity_id": str(entity_id),
-                "metadata": instance.metadata_ or {},
-            },
-        )
+    await fsm_service.emit_transition_event(
+        entity_type=instance.entity_type,
+        entity_id=instance.entity_id_ref,
+        from_state=from_state,
+        to_state=body.to_state,
+        actor_id=current_user.id,
+        workflow_slug=definition.slug,
+        extra_payload={
+            "instance_id": str(instance.id),
+            "definition_id": str(definition.id),
+            "definition_slug": definition.slug,
+            "entity_id_ref": instance.entity_id_ref,
+            "to_node_type": target_node_type,
+            "comment": body.comment,
+            "entity_id": str(entity_id),
+            "metadata": instance.metadata_ or {},
+        },
     )
 
     logger.info(
         "Workflow instance %s transitioned %s -> %s (definition: %s, v%d) by %s",
-        instance.id, from_state, to_state, definition.slug,
+        instance.id, from_state, body.to_state, definition.slug,
         instance.version, current_user.id,
     )
 
@@ -923,86 +889,6 @@ def _get_allowed_transitions(transitions: dict | list, from_state: str) -> list[
         if isinstance(targets, list):
             return targets
     return []
-
-
-async def _get_user_role_codes(
-    user_id: UUID, entity_id: UUID, db: AsyncSession,
-) -> set[str]:
-    """Return the set of role codes the user holds in the given entity."""
-    stmt = (
-        select(distinct(UserGroup.role_code))
-        .join(UserGroupMember, UserGroupMember.group_id == UserGroup.id)
-        .where(
-            UserGroupMember.user_id == user_id,
-            UserGroup.entity_id == entity_id,
-            UserGroup.active == True,  # noqa: E712
-        )
-    )
-    result = await db.execute(stmt)
-    return {row[0] for row in result.all()}
-
-
-async def _enforce_transition_roles(
-    transitions: dict | list,
-    from_state: str,
-    to_state: str,
-    current_user: User,
-    entity_id: UUID,
-    db: AsyncSession,
-) -> None:
-    """Enforce per-transition role requirements.
-
-    If the transition definition specifies `roles` or `required_role`,
-    the user MUST hold at least one of those roles in the current entity.
-    Raises HTTP 403 if the check fails.
-    """
-    if not isinstance(transitions, list):
-        return
-
-    for t in transitions:
-        if not isinstance(t, dict):
-            continue
-        # Match both formats: {from,to} and {source,target}
-        t_from = t.get("from") or t.get("source")
-        t_to = t.get("to") or t.get("target")
-        if t_from == from_state and t_to == to_state:
-            required_roles = t.get("roles") or t.get("required_role")
-            if not required_roles:
-                break  # No role requirement on this transition
-            if isinstance(required_roles, str):
-                required_roles = [required_roles]
-
-            # Fetch user's entity-scoped roles
-            user_roles = await _get_user_role_codes(current_user.id, entity_id, db)
-
-            # Wildcard admin bypass
-            if "*" in user_roles:
-                logger.info(
-                    "Transition %s -> %s: user %s has wildcard role, bypassing",
-                    from_state, to_state, current_user.id,
-                )
-                break
-
-            if not any(r in user_roles for r in required_roles):
-                logger.warning(
-                    "Transition %s -> %s DENIED: requires %s, user %s has %s",
-                    from_state, to_state, required_roles, current_user.id, user_roles,
-                )
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail={
-                        "message": "Vous n'avez pas le rôle requis pour cette transition",
-                        "required_roles": required_roles,
-                        "your_roles": sorted(user_roles),
-                    },
-                )
-
-            logger.info(
-                "Transition %s -> %s: user %s authorized (roles: %s)",
-                from_state, to_state, current_user.id,
-                user_roles & set(required_roles),
-            )
-            break
 
 
 def _get_node_type_by_id(states: dict | list, node_id: str) -> str | None:

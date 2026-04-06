@@ -1,7 +1,9 @@
 import pytest
 from fastapi import HTTPException
 from uuid import uuid4
+from types import SimpleNamespace
 
+from app.api.routes.core import workflow as workflow_routes
 from app.api.routes.core.workflow import _validate_definition_structure
 from app.api.routes.modules.paxlog import ADS_WORKFLOW_SLUG
 from app.api.routes.modules.planner import PLANNER_WORKFLOW_SLUG
@@ -167,3 +169,95 @@ async def test_emit_transition_event_also_publishes_generic_workflow_transition(
     assert "ads.pending_compliance" in event_types
     assert "workflow.transition" in event_types
     assert "ads.status_changed" in event_types
+
+
+@pytest.mark.asyncio
+async def test_execute_transition_uses_fsm_service_runtime_flow(monkeypatch):
+    entity_id = uuid4()
+    actor_id = uuid4()
+    instance_id = uuid4()
+    definition_id = uuid4()
+
+    instance = SimpleNamespace(
+        id=instance_id,
+        entity_id=entity_id,
+        workflow_definition_id=definition_id,
+        entity_type="ads",
+        entity_id_ref=str(uuid4()),
+        current_state="draft",
+        version=1,
+        metadata_={"requester_id": "req-1"},
+    )
+    definition = SimpleNamespace(
+        id=definition_id,
+        slug=ADS_WORKFLOW_SLUG,
+        states=[
+            {"id": "draft", "type": "start"},
+            {"id": "pending_review", "type": "human_validation"},
+        ],
+    )
+
+    class _ScalarResult:
+        def __init__(self, value):
+            self.value = value
+
+        def scalar_one_or_none(self):
+            return self.value
+
+    class _FakeDB:
+        def __init__(self):
+            self._results = [_ScalarResult(instance), _ScalarResult(definition)]
+            self.commits = 0
+            self.refreshed = None
+
+        async def execute(self, _stmt):
+            return self._results.pop(0)
+
+        async def commit(self):
+            self.commits += 1
+
+        async def refresh(self, value):
+            self.refreshed = value
+
+    fake_db = _FakeDB()
+    transition_calls = []
+    emitted_events = []
+
+    async def fake_transition(db, **kwargs):
+        transition_calls.append(kwargs)
+        instance.current_state = kwargs["to_state"]
+        instance.version = 2
+        instance.metadata_ = {
+            "requester_id": "req-1",
+            "assigned_role_code": "HSE",
+            "current_state_sla_hours": 24,
+        }
+        return instance
+
+    async def fake_emit_transition_event(**kwargs):
+        emitted_events.append(kwargs)
+
+    monkeypatch.setattr(workflow_routes.fsm_service, "transition", fake_transition)
+    monkeypatch.setattr(workflow_routes.fsm_service, "emit_transition_event", fake_emit_transition_event)
+
+    response = await workflow_routes.execute_transition(
+        instance_id=instance_id,
+        body=workflow_routes.TransitionRequest(to_state="pending_review", comment="go"),
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=actor_id),
+        _=None,
+        db=fake_db,
+    )
+
+    assert response is instance
+    assert transition_calls and transition_calls[0]["workflow_slug"] == ADS_WORKFLOW_SLUG
+    assert transition_calls[0]["entity_type"] == "ads"
+    assert transition_calls[0]["entity_id"] == instance.entity_id_ref
+    assert transition_calls[0]["to_state"] == "pending_review"
+    assert transition_calls[0]["comment"] == "go"
+    assert transition_calls[0]["entity_id_scope"] == entity_id
+    assert fake_db.commits == 1
+    assert fake_db.refreshed is instance
+    assert emitted_events and emitted_events[0]["extra_payload"]["metadata"]["assigned_role_code"] == "HSE"
+    assert emitted_events[0]["extra_payload"]["instance_id"] == str(instance_id)
+    assert emitted_events[0]["extra_payload"]["to_node_type"] == "human_validation"

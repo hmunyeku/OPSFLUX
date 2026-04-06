@@ -1090,17 +1090,22 @@ async def _resolve_external_allowed_companies(
     return allowed_company_ids, allowed_company_names, primary_company_id, primary_company_name
 
 
-def _extract_ads_allowed_company_scope(ads: Ads) -> tuple[list[UUID], list[str]]:
-    allowed_company_ids: list[UUID] = []
-    allowed_company_names: list[str] = []
-    for item in getattr(ads, "allowed_companies", None) or []:
-        company_id = getattr(item, "company_id", None)
-        if company_id:
-            allowed_company_ids.append(company_id)
-        company = getattr(item, "company", None)
-        company_name = getattr(company, "name", None) if company else None
-        if company_name:
-            allowed_company_names.append(company_name)
+async def _load_ads_allowed_company_scope(
+    db: AsyncSession,
+    *,
+    ads_id: UUID,
+) -> tuple[list[UUID], list[str]]:
+    rows = (
+        await db.execute(
+            select(AdsAllowedCompany.company_id, Tier.name)
+            .select_from(AdsAllowedCompany)
+            .outerjoin(Tier, Tier.id == AdsAllowedCompany.company_id)
+            .where(AdsAllowedCompany.ads_id == ads_id)
+            .order_by(AdsAllowedCompany.created_at.asc())
+        )
+    ).all()
+    allowed_company_ids = [row[0] for row in rows if row[0] is not None]
+    allowed_company_names = [row[1] for row in rows if row[1]]
     return allowed_company_ids, allowed_company_names
 
 
@@ -6139,7 +6144,7 @@ async def _build_ads_read_data(
     entity_id: UUID,
 ) -> dict:
     data = AdsRead.model_validate(ads).model_dump()
-    allowed_company_ids, allowed_company_names = _extract_ads_allowed_company_scope(ads)
+    allowed_company_ids, allowed_company_names = await _load_ads_allowed_company_scope(db, ads_id=ads.id)
     data.update({
         "allowed_company_ids": allowed_company_ids,
         "allowed_company_names": allowed_company_names,

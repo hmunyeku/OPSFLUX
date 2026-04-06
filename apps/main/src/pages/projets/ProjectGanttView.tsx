@@ -24,6 +24,8 @@ import { useUIStore } from '@/stores/uiStore'
 import { useProjects, useProjectTasks, useProjectMilestones, useProjectCpm, useTaskDependencies } from '@/hooks/useProjets'
 import { projetsService, isGoutiProject } from '@/services/projetsService'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
+import { ProjectSelectorModal } from '@/components/shared/ProjectSelectorModal'
+import type { ProjectSelection } from '@/components/shared/ProjectSelectorModal'
 import { useToast } from '@/components/ui/Toast'
 import { useUserPreferences } from '@/hooks/useUserPreferences'
 import type { Project, ProjectTask, TaskDependency } from '@/types/api'
@@ -305,6 +307,128 @@ function Tip({ title, subtitle, progress, status, statusColor, lines, x, y }: Ti
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// GanttBar — draggable + resizable (left/right handles)
+// ═══════════════════════════════════════════════════════════════════════
+
+function GanttBar({ task, bar, rowH, barH, clr, isCrit, showProgress, showLabels, showDates, ppd, projectId, openPanel, buildTip, setTip, toast }: {
+  task: ProjectTask; bar: { left: number; width: number }; rowH: number; barH: number
+  clr: string; isCrit: boolean; showProgress: boolean; showLabels: boolean
+  showDates: GanttSettings['showDates']; ppd: number; projectId: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  openPanel: any; buildTip: (t: ProjectTask, e: React.MouseEvent) => void
+  setTip: React.Dispatch<React.SetStateAction<TipData | null>>; toast: any
+}) {
+  const barTop = (rowH - barH) / 2
+
+  // Resize handler: drag left or right edge to change start/end date
+  const handleResize = useCallback((edge: 'left' | 'right', e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const startX = e.clientX
+    const origLeft = bar.left
+    const origWidth = bar.width
+
+    const onMove = (ev: MouseEvent) => {
+      const dx = ev.clientX - startX
+      const barEl = (e.target as HTMLElement).closest('[data-gantt-bar]') as HTMLElement | null
+      if (!barEl) return
+      if (edge === 'left') {
+        const newLeft = Math.max(0, origLeft + dx)
+        const newWidth = Math.max(ppd, origWidth - dx)
+        barEl.style.left = `${newLeft}px`
+        barEl.style.width = `${newWidth}px`
+      } else {
+        const newWidth = Math.max(ppd, origWidth + dx)
+        barEl.style.width = `${newWidth}px`
+      }
+    }
+
+    const onUp = async (ev: MouseEvent) => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      const dx = ev.clientX - startX
+      const daysDelta = Math.round(dx / ppd)
+      if (daysDelta === 0) return
+
+      const oldStart = task.start_date!.split('T')[0]
+      const oldEnd = task.due_date!.split('T')[0]
+      let newStart = oldStart; let newEnd = oldEnd
+
+      if (edge === 'left') {
+        newStart = addD(oldStart, daysDelta)
+        if (daysB(newStart, newEnd) < 1) newStart = addD(newEnd, -1)
+      } else {
+        newEnd = addD(oldEnd, daysDelta)
+        if (daysB(newStart, newEnd) < 1) newEnd = addD(newStart, 1)
+      }
+
+      try {
+        await projetsService.updateTask(projectId, task.id, {
+          start_date: newStart,
+          due_date: newEnd,
+        })
+        toast({ title: edge === 'left' ? 'Début modifié' : 'Fin modifiée', variant: 'success' })
+      } catch {
+        toast({ title: 'Erreur de redimensionnement', variant: 'error' })
+      }
+    }
+
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [bar, ppd, task, projectId, toast])
+
+  return (
+    <>
+      <div
+        data-gantt-bar
+        draggable
+        onDragStart={e => { e.dataTransfer.setData('application/ptask', JSON.stringify({ id: task.id, s: task.start_date!.split('T')[0], e: task.due_date!.split('T')[0] })); e.dataTransfer.effectAllowed = 'move' }}
+        onClick={() => openPanel({ type: 'detail', module: 'projets', id: projectId })}
+        onMouseEnter={e => buildTip(task, e)}
+        onMouseMove={e => setTip((t: TipData | null) => t ? { ...t, x: e.clientX, y: e.clientY } : null)}
+        onMouseLeave={() => setTip(null)}
+        className={cn('absolute rounded-sm text-white font-medium truncate px-1 flex items-center gap-0.5 hover:brightness-110 overflow-hidden group', isCrit && 'ring-1 ring-red-500')}
+        style={{ left: bar.left, width: bar.width, top: barTop, height: barH, backgroundColor: clr, opacity: task.status === 'todo' ? 0.5 : 1, fontSize: Math.max(9, barH * 0.55), cursor: 'grab' }}
+      >
+        {/* Left resize handle */}
+        <div
+          className="absolute left-0 top-0 bottom-0 w-[6px] cursor-ew-resize opacity-0 group-hover:opacity-100 bg-white/30 rounded-l-sm z-[2]"
+          onMouseDown={e => handleResize('left', e)}
+        />
+
+        {/* Progress overlay */}
+        {showProgress && task.progress > 0 && task.progress < 100 && (
+          <div className="absolute inset-0 bg-white/20 pointer-events-none" style={{ width: `${task.progress}%` }} />
+        )}
+
+        <span className="relative z-[1] flex items-center gap-0.5 w-full truncate px-1">
+          {showDates === 'on_bar' && task.start_date && (
+            <span className="opacity-70 shrink-0 tabular-nums">{new Date(task.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}</span>
+          )}
+          {showLabels && <span className="truncate">{task.title}</span>}
+          {showDates === 'on_bar' && task.due_date && (
+            <span className="opacity-70 shrink-0 tabular-nums ml-auto">{new Date(task.due_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}</span>
+          )}
+        </span>
+
+        {/* Right resize handle */}
+        <div
+          className="absolute right-0 top-0 bottom-0 w-[6px] cursor-ew-resize opacity-0 group-hover:opacity-100 bg-white/30 rounded-r-sm z-[2]"
+          onMouseDown={e => handleResize('right', e)}
+        />
+      </div>
+
+      {showDates === 'below_bar' && task.start_date && (
+        <div className="absolute text-xs text-muted-foreground tabular-nums" style={{ left: bar.left, top: barTop + barH + 1 }}>
+          {new Date(task.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
+          {task.due_date && ` → ${new Date(task.due_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}`}
+        </div>
+      )}
+    </>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // Expanded tasks
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -516,38 +640,23 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
         </div>
         <div data-bar-area className={cn('relative flex-1', rowIdx % 2 !== 0 && 'bg-muted/10')} style={{ minWidth: totalPx }} onDragOver={e => e.preventDefault()} onDrop={handleDrop}>
           {bar && (
-            <>
-              <div
-                draggable
-                onDragStart={e => { e.dataTransfer.setData('application/ptask', JSON.stringify({ id: task.id, s: task.start_date!.split('T')[0], e: task.due_date!.split('T')[0] })); e.dataTransfer.effectAllowed = 'move' }}
-                onClick={() => openPanel({ type: 'detail', module: 'projets', id: project.id })}
-                onMouseEnter={e => buildTip(task, e)}
-                onMouseMove={e => setTip(t => t ? { ...t, x: e.clientX, y: e.clientY } : null)}
-                onMouseLeave={() => setTip(null)}
-                className={cn('absolute rounded-sm cursor-move text-white font-medium truncate px-0.5 flex items-center gap-0.5 hover:brightness-110 overflow-hidden', isCrit && 'ring-1 ring-red-500')}
-                style={{ left: bar.left, width: bar.width, top: (rowH - barH) / 2, height: barH, backgroundColor: clr, opacity: task.status === 'todo' ? 0.5 : 1, fontSize: Math.max(9, barH * 0.55) }}
-              >
-                {/* Progress overlay */}
-                {showProgress && task.progress > 0 && task.progress < 100 && (
-                  <div className="absolute inset-0 bg-white/20 pointer-events-none" style={{ width: `${task.progress}%` }} />
-                )}
-                <span className="relative z-[1] flex items-center gap-0.5 w-full truncate">
-                  {showDates === 'on_bar' && task.start_date && (
-                    <span className="opacity-70 shrink-0 tabular-nums">{new Date(task.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}</span>
-                  )}
-                  {showLabels && <span className="truncate">{task.title}</span>}
-                  {showDates === 'on_bar' && task.due_date && (
-                    <span className="opacity-70 shrink-0 tabular-nums ml-auto">{new Date(task.due_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}</span>
-                  )}
-                </span>
-              </div>
-              {showDates === 'below_bar' && task.start_date && (
-                <div className="absolute text-[6px] text-muted-foreground tabular-nums" style={{ left: bar.left, top: (rowH - barH) / 2 + barH + 1 }}>
-                  {new Date(task.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
-                  {task.due_date && ` → ${new Date(task.due_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}`}
-                </div>
-              )}
-            </>
+            <GanttBar
+              task={task}
+              bar={bar}
+              rowH={rowH}
+              barH={barH}
+              clr={clr}
+              isCrit={isCrit}
+              showProgress={showProgress}
+              showLabels={showLabels}
+              showDates={showDates}
+              ppd={ppd}
+              projectId={project.id}
+              openPanel={openPanel}
+              buildTip={buildTip}
+              setTip={setTip}
+              toast={toast}
+            />
           )}
         </div>
       </div>
@@ -919,13 +1028,23 @@ export function ProjectGanttView() {
   }, [setUserPref])
   const [tip, setTip] = useState<TipData | null>(null)
   const [showDatePicker, setShowDatePicker] = useState(false)
+  const [showProjectSelector, setShowProjectSelector] = useState(false)
+  const projectSelection: ProjectSelection = getPref('gantt_project_selection', { mode: 'all', projectIds: [] } as ProjectSelection)
+  const handleProjectSelectionChange = useCallback((sel: ProjectSelection) => {
+    setUserPref('gantt_project_selection', sel)
+  }, [setUserPref])
   const [showSettings, setShowSettings] = useState(false)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const resizing = useRef(false)
 
   const meta = SCALE_META[scale]
-  const projects = pd?.items ?? []
+  const allProjects = pd?.items ?? []
+  const projects = useMemo(() => {
+    if (projectSelection.mode === 'all' || projectSelection.projectIds.length === 0) return allProjects
+    const ids = new Set(projectSelection.projectIds)
+    return allProjects.filter(p => ids.has(p.id))
+  }, [allProjects, projectSelection])
   // Effective pxPerDay = base * user zoom factor
   const ppd = meta.pxPerDay * zoomFactor
 
@@ -1035,7 +1154,16 @@ export function ProjectGanttView() {
           <Settings2 size={13} />
         </button>
 
-        <span className="text-xs text-muted-foreground ml-auto">{projects.length} projet(s)</span>
+        {/* Project selector */}
+        <button
+          onClick={() => setShowProjectSelector(true)}
+          className={cn('px-2 py-0.5 rounded border text-xs ml-2', projectSelection.mode === 'selected' ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted text-muted-foreground')}
+          title="Sélectionner les projets à afficher"
+        >
+          {projectSelection.mode === 'selected' ? `${projectSelection.projectIds.length} projet(s)` : 'Tous les projets'}
+        </button>
+
+        <span className="text-xs text-muted-foreground ml-auto">{projects.length}/{allProjects.length} projet(s)</span>
       </div>
 
       {/* ── Date range picker (overlay) ─────────────────────── */}
@@ -1199,6 +1327,12 @@ export function ProjectGanttView() {
         </div>
       )}
       {tip && <Tip {...tip} />}
+      <ProjectSelectorModal
+        open={showProjectSelector}
+        onClose={() => setShowProjectSelector(false)}
+        selection={projectSelection}
+        onSelectionChange={handleProjectSelectionChange}
+      />
     </div>
   )
 }

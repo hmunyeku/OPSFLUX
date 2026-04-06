@@ -194,7 +194,19 @@ def _parse_gouti_date(value: str | None) -> datetime | None:
     """Parse a date string from Gouti into a timezone-aware datetime."""
     if not value:
         return None
-    for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d", "%d/%m/%Y"):
+    # Gouti uses several date formats across endpoints:
+    # Projects: "2024-05-01" (YYYY-MM-DD)
+    # Tasks:    "2024-11-19 00:00:00" (YYYY-MM-DD HH:MM:SS, space separator)
+    # Also handle ISO with T separator and timezone variants.
+    for fmt in (
+        "%Y-%m-%d %H:%M:%S",      # Gouti tasks
+        "%Y-%m-%dT%H:%M:%S%z",    # ISO with timezone
+        "%Y-%m-%dT%H:%M:%SZ",     # ISO with Z
+        "%Y-%m-%dT%H:%M:%S",      # ISO without timezone
+        "%Y-%m-%d",                # Date only
+        "%d/%m/%Y",                # French
+        "%d/%m/%Y %H:%M:%S",      # French with time
+    ):
         try:
             dt = datetime.strptime(value, fmt)
             if dt.tzinfo is None:

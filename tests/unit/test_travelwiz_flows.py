@@ -286,6 +286,67 @@ async def test_verify_captain_session_token_rejects_wrong_voyage():
 
 
 @pytest.mark.asyncio
+async def test_authenticate_driver_code_requires_active_pickup_round():
+    voyage_id = uuid4()
+    entity_id = uuid4()
+    pickup_round = SimpleNamespace(
+        id=uuid4(),
+        route_name="Circuit Nord",
+        driver_name="Jean",
+        scheduled_departure=datetime.now(timezone.utc),
+    )
+    db = FakeDB(
+        [
+            FakeResult(
+                first=(
+                    SimpleNamespace(id=uuid4()),
+                    SimpleNamespace(id=voyage_id, code="VYG-001", entity_id=entity_id, scheduled_departure=datetime.now(timezone.utc)),
+                    pickup_round,
+                )
+            )
+        ]
+    )
+
+    result = await travelwiz_service.authenticate_driver_code(db, "123456")
+
+    assert result["valid"] is True
+    assert result["pickup_round_id"] == pickup_round.id
+    assert result["route_name"] == "Circuit Nord"
+
+
+@pytest.mark.asyncio
+async def test_verify_driver_session_token_accepts_matching_round():
+    voyage_id = uuid4()
+    trip_code_access_id = uuid4()
+    pickup_round = SimpleNamespace(id=uuid4(), status="planned")
+    token = travelwiz_service.create_driver_session_token(
+        trip_code_access_id=trip_code_access_id,
+        voyage_id=voyage_id,
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
+    )
+    db = FakeDB(
+        [
+            FakeResult(
+                first=(
+                    SimpleNamespace(id=trip_code_access_id, created_by=uuid4()),
+                    SimpleNamespace(id=voyage_id, active=True),
+                    pickup_round,
+                )
+            )
+        ]
+    )
+
+    result = await travelwiz_service.verify_driver_session_token(
+        db,
+        session_token=token,
+        voyage_id=voyage_id,
+    )
+
+    assert result["trip_code_access_id"] == trip_code_access_id
+    assert result["pickup_round"] == pickup_round
+
+
+@pytest.mark.asyncio
 async def test_rebalance_manifest_passenger_standby_marks_over_capacity_passengers():
     entity_id = uuid4()
     voyage_id = uuid4()
@@ -623,6 +684,7 @@ def test_validate_travelwiz_numeric_settings():
     settings_routes._validate_travelwiz_numeric_setting(_body("travelwiz.delay_reassign_threshold_hours", 4))
     settings_routes._validate_travelwiz_numeric_setting(_body("travelwiz.weight_alert_ratio", 0.9))
     settings_routes._validate_travelwiz_numeric_setting(_body("travelwiz.captain_session_minutes", 30))
+    settings_routes._validate_travelwiz_numeric_setting(_body("travelwiz.driver_session_minutes", 30))
 
     with pytest.raises(HTTPException):
         settings_routes._validate_travelwiz_numeric_setting(_body("travelwiz.weight_alert_ratio", 2))

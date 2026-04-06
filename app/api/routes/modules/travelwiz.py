@@ -175,6 +175,25 @@ async def _require_captain_session(
         raise HTTPException(401, str(exc)) from exc
 
 
+async def _require_driver_session(
+    voyage_id: UUID,
+    db: AsyncSession,
+    x_driver_session: str | None,
+) -> dict:
+    if not x_driver_session:
+        raise HTTPException(401, "Driver session required")
+    from app.services.modules.travelwiz_service import verify_driver_session_token as _verify
+
+    try:
+        return await _verify(
+            db,
+            session_token=x_driver_session,
+            voyage_id=voyage_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(401, str(exc)) from exc
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # VECTORS CRUD
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2165,6 +2184,162 @@ async def captain_event(
         )
         await db.commit()
         result["trip_code_access_id"] = str(captain_session["trip_code_access_id"])
+        return result
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+# ==============================================================================
+# DRIVER PORTAL
+# ==============================================================================
+
+
+@router.post("/driver/authenticate")
+async def driver_auth(
+    access_code: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Authenticate chauffeur access for pickup rounds using a 6-digit code."""
+    from app.services.modules.travelwiz_service import authenticate_driver_code as _auth
+    from app.services.modules.travelwiz_service import (
+        create_driver_session_token as _create_session,
+        get_driver_session_minutes as _get_session_minutes,
+    )
+
+    result = await _auth(db, access_code=access_code)
+    if not result.get("valid"):
+        raise HTTPException(401, "Invalid or expired access code")
+    entity_id = result.get("entity_id")
+    voyage_id = result.get("voyage_id")
+    trip_code_access_id = result.get("trip_code_access_id")
+    if not entity_id or not voyage_id or not trip_code_access_id:
+        raise HTTPException(500, "Driver access is missing required session context")
+    session_minutes = await _get_session_minutes(db, entity_id=entity_id)
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=session_minutes)
+    result["session_token"] = _create_session(
+        trip_code_access_id=trip_code_access_id,
+        voyage_id=voyage_id,
+        expires_at=expires_at,
+    )
+    result["session_expires_at"] = expires_at.isoformat()
+    return result
+
+
+@router.get("/driver/{voyage_id}/round")
+async def driver_round(
+    voyage_id: UUID,
+    x_driver_session: str | None = Header(default=None, alias="X-Driver-Session"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Pickup round view for chauffeur portal."""
+    driver_session = await _require_driver_session(voyage_id, db, x_driver_session)
+    pickup_round = driver_session["pickup_round"]
+
+    stops_result = await db.execute(
+        select(PickupStop)
+        .where(
+            PickupStop.pickup_round_id == pickup_round.id,
+            PickupStop.active == True,  # noqa: E712
+        )
+        .order_by(PickupStop.pickup_order)
+    )
+    stops = stops_result.scalars().all()
+    enriched_stops = []
+    for stop in stops:
+        asset = await db.get(Installation, stop.asset_id)
+        enriched_stops.append(
+            {
+                "id": stop.id,
+                "asset_id": stop.asset_id,
+                "asset_name": asset.name if asset else None,
+                "pickup_order": stop.pickup_order,
+                "scheduled_time": stop.scheduled_time,
+                "actual_time": stop.actual_time,
+                "pax_expected": stop.pax_expected,
+                "pax_picked_up": stop.pax_picked_up,
+                "status": stop.status,
+                "notes": stop.notes,
+            }
+        )
+
+    return {
+        "voyage_id": voyage_id,
+        "pickup_round_id": pickup_round.id,
+        "route_name": pickup_round.route_name,
+        "driver_name": pickup_round.driver_name,
+        "vehicle_registration": pickup_round.vehicle_registration,
+        "scheduled_departure": pickup_round.scheduled_departure,
+        "actual_departure": pickup_round.actual_departure,
+        "status": pickup_round.status,
+        "total_pax_picked": pickup_round.total_pax_picked,
+        "stops": enriched_stops,
+    }
+
+
+@router.post("/driver/{voyage_id}/stops/{stop_id}/pickup", status_code=201)
+async def driver_pickup_stop(
+    voyage_id: UUID,
+    stop_id: UUID,
+    body: PickupProgressUpdate,
+    x_driver_session: str | None = Header(default=None, alias="X-Driver-Session"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Chauffeur records pickup progress for a stop."""
+    from app.services.modules.travelwiz_service import update_pickup_progress as _progress
+
+    await _require_driver_session(voyage_id, db, x_driver_session)
+    try:
+        result = await _progress(
+            db,
+            trip_id=voyage_id,
+            stop_id=stop_id,
+            event_data=body.model_dump(),
+        )
+        await db.commit()
+        return result
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/driver/{voyage_id}/stops/{stop_id}/no-show", status_code=201)
+async def driver_no_show_stop(
+    voyage_id: UUID,
+    stop_id: UUID,
+    body: PickupNoShowReport,
+    x_driver_session: str | None = Header(default=None, alias="X-Driver-Session"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Chauffeur reports a no-show for a stop."""
+    from app.services.modules.travelwiz_service import report_pickup_no_show as _report
+
+    driver_session = await _require_driver_session(voyage_id, db, x_driver_session)
+    try:
+        result = await _report(
+            db,
+            trip_id=voyage_id,
+            stop_id=stop_id,
+            entity_id=driver_session["pickup_round"].entity_id,
+            event_data=body.model_dump(),
+        )
+        await db.commit()
+        return result
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/driver/{voyage_id}/close")
+async def driver_close_round(
+    voyage_id: UUID,
+    x_driver_session: str | None = Header(default=None, alias="X-Driver-Session"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Chauffeur closes the pickup round after the circuit ends."""
+    from app.services.modules.travelwiz_service import close_pickup_round as _close
+
+    await _require_driver_session(voyage_id, db, x_driver_session)
+    try:
+        result = await _close(db, trip_id=voyage_id)
+        await db.commit()
         return result
     except ValueError as e:
         raise HTTPException(400, str(e))

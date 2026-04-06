@@ -47,6 +47,7 @@ DEFAULT_WEIGHT_ALERT_RATIO = 0.9
 DEFAULT_WEATHER_ALERT_BEAUFORT = 6
 DEFAULT_SIGNAL_STALE_MINUTES = 15
 DEFAULT_CAPTAIN_SESSION_MINUTES = 480
+DEFAULT_DRIVER_SESSION_MINUTES = 480
 
 # Cargo forward lifecycle
 CARGO_FORWARD_TRANSITIONS = {
@@ -181,6 +182,20 @@ async def get_captain_session_minutes(
         entity_id=entity_id,
         key="travelwiz.captain_session_minutes",
         default=float(DEFAULT_CAPTAIN_SESSION_MINUTES),
+    )
+    return max(5, int(round(value)))
+
+
+async def get_driver_session_minutes(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+) -> int:
+    value = await _get_entity_numeric_setting(
+        db,
+        entity_id=entity_id,
+        key="travelwiz.driver_session_minutes",
+        default=float(DEFAULT_DRIVER_SESSION_MINUTES),
     )
     return max(5, int(round(value)))
 
@@ -1021,6 +1036,69 @@ async def authenticate_captain_code(db: AsyncSession, access_code: str) -> dict:
     }
 
 
+async def authenticate_driver_code(db: AsyncSession, access_code: str) -> dict:
+    """Validate a 6-digit chauffeur portal access code for pickup rounds."""
+    if not access_code or len(access_code) != 6 or not access_code.isdigit():
+        return {
+            "valid": False,
+            "voyage_id": None,
+            "pickup_round_id": None,
+            "code": None,
+            "route_name": None,
+            "driver_name": None,
+            "scheduled_departure": None,
+            "entity_id": None,
+        }
+
+    result = await db.execute(
+        select(TripCodeAccess, Voyage, PickupRound)
+        .join(Voyage, Voyage.id == TripCodeAccess.trip_id)
+        .join(
+            PickupRound,
+            and_(
+                PickupRound.trip_id == Voyage.id,
+                PickupRound.entity_id == Voyage.entity_id,
+                PickupRound.active == True,  # noqa: E712
+                PickupRound.status.in_(["planned", "in_progress"]),
+            ),
+        )
+        .where(
+            TripCodeAccess.access_code == access_code,
+            TripCodeAccess.revoked == False,  # noqa: E712
+            TripCodeAccess.expires_at.is_not(None),
+            TripCodeAccess.expires_at > datetime.now(timezone.utc),
+            Voyage.status.in_(["planned", "confirmed", "boarding", "departed"]),
+        )
+    )
+    row = result.first()
+    if row is None:
+        return {
+            "valid": False,
+            "voyage_id": None,
+            "pickup_round_id": None,
+            "code": None,
+            "route_name": None,
+            "driver_name": None,
+            "scheduled_departure": None,
+            "entity_id": None,
+        }
+
+    code_access, voyage, pickup_round = row
+    return {
+        "valid": True,
+        "voyage_id": voyage.id,
+        "pickup_round_id": pickup_round.id,
+        "driver_name": pickup_round.driver_name,
+        "route_name": pickup_round.route_name,
+        "code": voyage.code,
+        "scheduled_departure": str(pickup_round.scheduled_departure or voyage.scheduled_departure)
+        if (pickup_round.scheduled_departure or voyage.scheduled_departure)
+        else None,
+        "entity_id": voyage.entity_id,
+        "trip_code_access_id": code_access.id,
+    }
+
+
 def create_captain_session_token(
     *,
     trip_code_access_id: UUID,
@@ -1034,6 +1112,23 @@ def create_captain_session_token(
         "iat": now,
         "exp": expires_at,
         "type": "travelwiz_captain",
+    }
+    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+
+def create_driver_session_token(
+    *,
+    trip_code_access_id: UUID,
+    voyage_id: UUID,
+    expires_at: datetime,
+) -> str:
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": str(trip_code_access_id),
+        "voyage_id": str(voyage_id),
+        "iat": now,
+        "exp": expires_at,
+        "type": "travelwiz_driver",
     }
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
@@ -1085,6 +1180,66 @@ async def verify_captain_session_token(
         "trip_code_access_id": code_access.id,
         "created_by": code_access.created_by,
         "voyage": voyage,
+    }
+
+
+async def verify_driver_session_token(
+    db: AsyncSession,
+    *,
+    session_token: str,
+    voyage_id: UUID,
+) -> dict:
+    try:
+        payload = jwt.decode(
+            session_token,
+            settings.JWT_SECRET_KEY,
+            algorithms=[settings.JWT_ALGORITHM],
+        )
+    except JWTError as exc:
+        raise ValueError("Invalid or expired driver session") from exc
+
+    if payload.get("type") != "travelwiz_driver":
+        raise ValueError("Invalid driver session")
+    if payload.get("voyage_id") != str(voyage_id):
+        raise ValueError("Driver session does not match requested voyage")
+
+    trip_code_access_id_raw = payload.get("sub")
+    try:
+        trip_code_access_id = UUID(str(trip_code_access_id_raw))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Invalid driver session") from exc
+
+    result = await db.execute(
+        select(TripCodeAccess, Voyage, PickupRound)
+        .join(Voyage, Voyage.id == TripCodeAccess.trip_id)
+        .join(
+            PickupRound,
+            and_(
+                PickupRound.trip_id == Voyage.id,
+                PickupRound.entity_id == Voyage.entity_id,
+                PickupRound.active == True,  # noqa: E712
+            ),
+        )
+        .where(
+            TripCodeAccess.id == trip_code_access_id,
+            TripCodeAccess.trip_id == voyage_id,
+            TripCodeAccess.revoked == False,  # noqa: E712
+            TripCodeAccess.expires_at.is_not(None),
+            TripCodeAccess.expires_at > datetime.now(timezone.utc),
+            Voyage.active == True,  # noqa: E712
+            PickupRound.status.in_(["planned", "in_progress"]),
+        )
+    )
+    row = result.first()
+    if row is None:
+        raise ValueError("Driver access is no longer valid")
+
+    code_access, voyage, pickup_round = row
+    return {
+        "trip_code_access_id": code_access.id,
+        "voyage": voyage,
+        "pickup_round": pickup_round,
+        "created_by": code_access.created_by,
     }
 
 

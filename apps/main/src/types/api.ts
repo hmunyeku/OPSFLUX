@@ -1645,30 +1645,31 @@ export interface VectorZoneUpdate {
 export interface Rotation {
   id: string
   entity_id: string
-  code: string
   name: string
-  vector_id: string | null
-  recurrence: string | null
-  description: string | null
+  vector_id: string
+  departure_base_id: string
+  schedule_cron: string | null
+  schedule_description: string | null
   active: boolean
   created_at: string
   vector_name?: string | null
+  departure_base_name?: string | null
 }
 
 export interface RotationCreate {
-  code: string
   name: string
-  vector_id?: string | null
-  recurrence?: string | null
-  description?: string | null
+  vector_id: string
+  departure_base_id: string
+  schedule_cron?: string | null
+  schedule_description?: string | null
 }
 
 export interface RotationUpdate {
-  code?: string
   name?: string
   vector_id?: string | null
-  recurrence?: string | null
-  description?: string | null
+  departure_base_id?: string | null
+  schedule_cron?: string | null
+  schedule_description?: string | null
   active?: boolean
 }
 
@@ -1680,26 +1681,22 @@ export interface Voyage {
   code: string
   vector_id: string | null
   rotation_id: string | null
-  status: 'draft' | 'planned' | 'in_progress' | 'completed' | 'cancelled'
-  departure_at: string | null
-  arrival_at: string | null
-  origin: string | null
-  destination: string | null
-  description: string | null
+  status: 'planned' | 'confirmed' | 'boarding' | 'departed' | 'arrived' | 'closed' | 'completed' | 'delayed' | 'cancelled'
+  departure_base_id: string | null
+  scheduled_departure: string | null
+  scheduled_arrival: string | null
+  actual_departure: string | null
+  actual_arrival: string | null
+  delay_reason: string | null
   active: boolean
   created_at: string
   vector_name?: string | null
+  vector_type?: string | null
+  departure_base_name?: string | null
   rotation_name?: string | null
   stop_count?: number
-  manifest_count?: number
   pax_count?: number
-}
-
-export interface VoyageCreate {
-  code: string
-  vector_id?: string | null
-  rotation_id?: string | null
-  status?: string
+  cargo_count?: number
   departure_at?: string | null
   arrival_at?: string | null
   origin?: string | null
@@ -1707,10 +1704,21 @@ export interface VoyageCreate {
   description?: string | null
 }
 
+export interface VoyageCreate {
+  vector_id: string
+  departure_base_id: string
+  scheduled_departure: string
+  scheduled_arrival?: string | null
+  rotation_id?: string | null
+}
+
 export interface VoyageUpdate {
   code?: string
   vector_id?: string | null
+  departure_base_id?: string | null
   rotation_id?: string | null
+  scheduled_departure?: string | null
+  scheduled_arrival?: string | null
   departure_at?: string | null
   arrival_at?: string | null
   origin?: string | null
@@ -1819,54 +1827,76 @@ export interface ManifestPassengerUpdate {
 export interface CargoItem {
   id: string
   entity_id: string
-  voyage_id: string | null
+  manifest_id: string | null
+  tracking_code: string
   code: string
-  description: string | null
-  weight_kg: number | null
+  description: string
+  weight_kg: number
+  width_cm: number | null
+  length_cm: number | null
+  height_cm: number | null
   volume_m3: number | null
-  cargo_type: string | null
-  hazmat_class: string | null
-  status: 'pending' | 'loaded' | 'in_transit' | 'delivered' | 'received' | 'rejected'
+  cargo_type: string
+  status: 'registered' | 'ready' | 'loaded' | 'in_transit' | 'delivered_intermediate' | 'delivered_final' | 'damaged' | 'missing'
   sender_tier_id: string | null
-  receiver_tier_id: string | null
+  receiver_name: string | null
+  destination_asset_id: string | null
+  project_id: string | null
+  sap_article_code: string | null
+  hazmat_validated: boolean
   received_by: string | null
   received_at: string | null
-  notes: string | null
+  damage_notes: string | null
+  notes?: string | null
+  registered_by: string
   active: boolean
   created_at: string
   sender_name?: string | null
-  receiver_name?: string | null
+  destination_name?: string | null
   voyage_code?: string | null
+  hazmat_class?: string | null
+  is_urgent?: boolean
 }
 
 export interface CargoItemCreate {
-  voyage_id?: string | null
-  code: string
-  description?: string | null
-  weight_kg?: number | null
-  volume_m3?: number | null
-  cargo_type?: string | null
-  hazmat_class?: string | null
+  description: string
+  cargo_type: string
+  weight_kg: number
+  width_cm?: number | null
+  length_cm?: number | null
+  height_cm?: number | null
   sender_tier_id?: string | null
-  receiver_tier_id?: string | null
-  notes?: string | null
+  receiver_name?: string | null
+  destination_asset_id?: string | null
+  project_id?: string | null
+  manifest_id?: string | null
+  sap_article_code?: string | null
+  hazmat_validated?: boolean
 }
 
 export interface CargoItemUpdate {
-  voyage_id?: string | null
   code?: string
   description?: string | null
   weight_kg?: number | null
+  width_cm?: number | null
+  length_cm?: number | null
+  height_cm?: number | null
   volume_m3?: number | null
   cargo_type?: string | null
   hazmat_class?: string | null
   sender_tier_id?: string | null
-  receiver_tier_id?: string | null
+  receiver_name?: string | null
+  destination_asset_id?: string | null
+  project_id?: string | null
+  manifest_id?: string | null
+  sap_article_code?: string | null
+  hazmat_validated?: boolean
   notes?: string | null
 }
 
 export interface CargoStatusUpdate {
   status: string
+  damage_notes?: string | null
   notes?: string | null
 }
 

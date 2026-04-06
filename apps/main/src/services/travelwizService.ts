@@ -52,6 +52,86 @@ function normalizeTravelArticle(data: Record<string, unknown>): TravelArticle {
   }
 }
 
+function normalizeVoyage(data: Record<string, unknown>): Voyage {
+  const scheduledDeparture = typeof data.scheduled_departure === 'string' ? data.scheduled_departure : null
+  const scheduledArrival = typeof data.scheduled_arrival === 'string' ? data.scheduled_arrival : null
+  return {
+    id: String(data.id),
+    entity_id: String(data.entity_id),
+    code: String(data.code ?? ''),
+    vector_id: typeof data.vector_id === 'string' ? data.vector_id : null,
+    rotation_id: typeof data.rotation_id === 'string' ? data.rotation_id : null,
+    status: String(data.status ?? 'planned') as Voyage['status'],
+    departure_base_id: typeof data.departure_base_id === 'string' ? data.departure_base_id : null,
+    scheduled_departure: scheduledDeparture,
+    scheduled_arrival: scheduledArrival,
+    actual_departure: typeof data.actual_departure === 'string' ? data.actual_departure : null,
+    actual_arrival: typeof data.actual_arrival === 'string' ? data.actual_arrival : null,
+    delay_reason: typeof data.delay_reason === 'string' ? data.delay_reason : null,
+    active: typeof data.active === 'boolean' ? data.active : true,
+    created_at: typeof data.created_at === 'string' ? data.created_at : new Date().toISOString(),
+    vector_name: typeof data.vector_name === 'string' ? data.vector_name : null,
+    vector_type: typeof data.vector_type === 'string' ? data.vector_type : null,
+    departure_base_name: typeof data.departure_base_name === 'string' ? data.departure_base_name : null,
+    rotation_name: typeof data.rotation_name === 'string' ? data.rotation_name : null,
+    stop_count: typeof data.stop_count === 'number' ? data.stop_count : 0,
+    pax_count: typeof data.pax_count === 'number' ? data.pax_count : 0,
+    cargo_count: typeof data.cargo_count === 'number' ? data.cargo_count : 0,
+    departure_at: scheduledDeparture,
+    arrival_at: scheduledArrival,
+    origin: typeof data.departure_base_name === 'string' ? data.departure_base_name : null,
+    destination: typeof data.destination_name === 'string' ? data.destination_name : null,
+    description: typeof data.description === 'string' ? data.description : null,
+  }
+}
+
+function normalizeCargo(data: Record<string, unknown>): CargoItem {
+  const widthCm = typeof data.width_cm === 'number' ? data.width_cm : null
+  const lengthCm = typeof data.length_cm === 'number' ? data.length_cm : null
+  const heightCm = typeof data.height_cm === 'number' ? data.height_cm : null
+  const volumeM3 = widthCm && lengthCm && heightCm
+    ? Number((((widthCm / 100) * (lengthCm / 100) * (heightCm / 100))).toFixed(4))
+    : null
+  const trackingCode = String(data.tracking_code ?? '')
+  return {
+    id: String(data.id),
+    entity_id: String(data.entity_id),
+    manifest_id: typeof data.manifest_id === 'string' ? data.manifest_id : null,
+    tracking_code: trackingCode,
+    code: trackingCode,
+    description: String(data.description ?? ''),
+    weight_kg: typeof data.weight_kg === 'number' ? data.weight_kg : 0,
+    width_cm: widthCm,
+    length_cm: lengthCm,
+    height_cm: heightCm,
+    volume_m3: volumeM3,
+    cargo_type: String(data.cargo_type ?? ''),
+    status: String(data.status ?? 'registered') as CargoItem['status'],
+    sender_tier_id: typeof data.sender_tier_id === 'string' ? data.sender_tier_id : null,
+    receiver_name: typeof data.receiver_name === 'string' ? data.receiver_name : null,
+    destination_asset_id: typeof data.destination_asset_id === 'string' ? data.destination_asset_id : null,
+    project_id: typeof data.project_id === 'string' ? data.project_id : null,
+    sap_article_code: typeof data.sap_article_code === 'string' ? data.sap_article_code : null,
+    hazmat_validated: Boolean(data.hazmat_validated),
+    received_by: typeof data.received_by === 'string' ? data.received_by : null,
+    received_at: typeof data.received_at === 'string' ? data.received_at : null,
+    damage_notes: typeof data.damage_notes === 'string' ? data.damage_notes : null,
+    notes: typeof data.notes === 'string'
+      ? data.notes
+      : typeof data.damage_notes === 'string'
+        ? data.damage_notes
+        : null,
+    registered_by: typeof data.registered_by === 'string' ? data.registered_by : '',
+    active: typeof data.active === 'boolean' ? data.active : true,
+    created_at: typeof data.created_at === 'string' ? data.created_at : new Date().toISOString(),
+    sender_name: typeof data.sender_name === 'string' ? data.sender_name : null,
+    destination_name: typeof data.destination_name === 'string' ? data.destination_name : null,
+    voyage_code: typeof data.voyage_code === 'string' ? data.voyage_code : null,
+    hazmat_class: typeof data.hazmat_class === 'string' ? data.hazmat_class : null,
+    is_urgent: typeof data.is_urgent === 'boolean' ? data.is_urgent : undefined,
+  }
+}
+
 interface VectorListParams extends PaginationParams {
   type?: string
   search?: string
@@ -156,22 +236,32 @@ export const travelwizService = {
   // ── Voyages ──
   listVoyages: async (params: VoyageListParams = {}): Promise<PaginatedResponse<Voyage>> => {
     const { data } = await api.get(`${BASE}/voyages`, { params })
-    return data
+    return {
+      ...data,
+      items: Array.isArray(data.items) ? data.items.map((item: Record<string, unknown>) => normalizeVoyage(item)) : [],
+    }
   },
 
   getVoyage: async (id: string): Promise<Voyage> => {
     const { data } = await api.get(`${BASE}/voyages/${id}`)
-    return data
+    return normalizeVoyage(data)
   },
 
   createVoyage: async (payload: VoyageCreate): Promise<Voyage> => {
     const { data } = await api.post(`${BASE}/voyages`, payload)
-    return data
+    return normalizeVoyage(data)
   },
 
   updateVoyage: async (id: string, payload: VoyageUpdate): Promise<Voyage> => {
-    const { data } = await api.patch(`${BASE}/voyages/${id}`, payload)
-    return data
+    const normalizedPayload = {
+      vector_id: payload.vector_id,
+      departure_base_id: payload.departure_base_id,
+      rotation_id: payload.rotation_id,
+      scheduled_departure: payload.scheduled_departure ?? payload.departure_at,
+      scheduled_arrival: payload.scheduled_arrival ?? payload.arrival_at,
+    }
+    const { data } = await api.patch(`${BASE}/voyages/${id}`, normalizedPayload)
+    return normalizeVoyage(data)
   },
 
   updateVoyageStatus: async (id: string, payload: VoyageStatusUpdate): Promise<Voyage> => {
@@ -285,37 +375,59 @@ export const travelwizService = {
   // ── Cargo ──
   listCargo: async (params: CargoListParams = {}): Promise<PaginatedResponse<CargoItem>> => {
     const { data } = await api.get(`${BASE}/cargo`, { params })
-    return data
+    return {
+      ...data,
+      items: Array.isArray(data.items) ? data.items.map((item: Record<string, unknown>) => normalizeCargo(item)) : [],
+    }
   },
 
   getCargo: async (id: string): Promise<CargoItem> => {
     const { data } = await api.get(`${BASE}/cargo/${id}`)
-    return data
+    return normalizeCargo(data)
   },
 
   createCargo: async (payload: CargoItemCreate): Promise<CargoItem> => {
     const { data } = await api.post(`${BASE}/cargo`, payload)
-    return data
+    return normalizeCargo(data)
   },
 
   updateCargo: async (id: string, payload: CargoItemUpdate): Promise<CargoItem> => {
-    const { data } = await api.patch(`${BASE}/cargo/${id}`, payload)
-    return data
+    const normalizedPayload = {
+      description: payload.description,
+      weight_kg: payload.weight_kg,
+      width_cm: payload.width_cm,
+      length_cm: payload.length_cm,
+      height_cm: payload.height_cm,
+      cargo_type: payload.cargo_type,
+      sender_tier_id: payload.sender_tier_id,
+      receiver_name: payload.receiver_name,
+      destination_asset_id: payload.destination_asset_id,
+      project_id: payload.project_id,
+      manifest_id: payload.manifest_id,
+      sap_article_code: payload.sap_article_code,
+      hazmat_validated: payload.hazmat_validated,
+    }
+    const { data } = await api.patch(`${BASE}/cargo/${id}`, normalizedPayload)
+    return normalizeCargo(data)
   },
 
   updateCargoStatus: async (id: string, payload: CargoStatusUpdate): Promise<CargoItem> => {
-    const { data } = await api.patch(`${BASE}/cargo/${id}/status`, payload)
-    return data
+    const normalizedPayload = {
+      status: payload.status,
+      damage_notes: payload.damage_notes ?? payload.notes,
+    }
+    const { data } = await api.patch(`${BASE}/cargo/${id}/status`, normalizedPayload)
+    return normalizeCargo(data)
   },
 
   receiveCargo: async (id: string, payload: CargoReceive = {}): Promise<CargoItem> => {
     const { data } = await api.post(`${BASE}/cargo/${id}/receive`, payload)
-    return data
+    return normalizeCargo(data)
   },
 
   initiateCargoReturn: async (cargoItemId: string, payload: CargoReturnCreate): Promise<CargoItem> => {
     const { data } = await api.post(`${BASE}/cargo/${cargoItemId}/return`, payload)
-    return data
+    return normalizeCargo(data)
   },
 
   // ── Package Elements ──

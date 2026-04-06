@@ -39,6 +39,7 @@ import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { AssetPicker } from '@/components/shared/AssetPicker'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { useTiers } from '@/hooks/useTiers'
 import {
   useVoyages,
   useVoyage,
@@ -78,7 +79,7 @@ import {
   usePickupRound,
   useClosePickupRound,
   useLatestWeather,
-  // useRotations,
+  useRotations,
   // useCreateRotation,
   // useUpdateRotation,
 } from '@/hooks/useTravelWiz'
@@ -1521,11 +1522,21 @@ export function TravelWizPage() {
 function CreateVoyagePanel() {
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const createVoyage = useCreateVoyage()
+  const { data: vectorsData } = useVectors({ page: 1, page_size: 100 })
+  const { data: rotationsData } = useRotations({ page: 1, page_size: 100 })
   const { toast } = useToast()
   const [form, setForm] = useState<VoyageCreate>({
-    code: '', vector_id: null, rotation_id: null, status: 'planned',
-    departure_at: null, arrival_at: null, origin: null, destination: null, description: null,
+    vector_id: '',
+    departure_base_id: '',
+    scheduled_departure: '',
+    scheduled_arrival: null,
+    rotation_id: null,
   })
+  const vectors = vectorsData?.items ?? []
+  const rotations = useMemo(
+    () => (rotationsData?.items ?? []).filter((rotation) => !form.vector_id || rotation.vector_id === form.vector_id),
+    [rotationsData?.items, form.vector_id],
+  )
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -1550,40 +1561,76 @@ function CreateVoyagePanel() {
         <PanelContentLayout>
           <FormSection title="Identification">
             <FormGrid>
-              <DynamicPanelField label="Code" required>
-                <input type="text" required value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} className={panelInputClass} placeholder="VOY-001" />
+              <DynamicPanelField label="Référence">
+                <div className="rounded-lg border border-dashed border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                  Générée automatiquement par la numérotation TravelWiz au moment de la création.
+                </div>
               </DynamicPanelField>
-              <DynamicPanelField label="Statut">
-                <select value={form.status ?? 'planned'} onChange={(e) => setForm({ ...form, status: e.target.value })} className={panelInputClass}>
-                  <option value="planned">Planifie</option>
-                  <option value="confirmed">Confirme</option>
+              <DynamicPanelField label="Vecteur" required>
+                <select
+                  required
+                  value={form.vector_id}
+                  onChange={(e) => setForm({ ...form, vector_id: e.target.value, rotation_id: null })}
+                  className={panelInputClass}
+                >
+                  <option value="">Sélectionner un vecteur...</option>
+                  {vectors.map((vector) => (
+                    <option key={vector.id} value={vector.id}>
+                      {vector.registration} - {vector.name}
+                    </option>
+                  ))}
                 </select>
               </DynamicPanelField>
             </FormGrid>
           </FormSection>
-          <FormSection title="Itineraire">
+          <FormSection title="Programmation">
             <FormGrid>
-              <DynamicPanelField label="Origine">
-                <input type="text" value={form.origin ?? ''} onChange={(e) => setForm({ ...form, origin: e.target.value || null })} className={panelInputClass} placeholder="Port Harcourt" />
+              <DynamicPanelField label="Rotation">
+                <select
+                  value={form.rotation_id ?? ''}
+                  onChange={(e) => setForm({ ...form, rotation_id: e.target.value || null })}
+                  className={panelInputClass}
+                >
+                  <option value="">Voyage ponctuel</option>
+                  {rotations.map((rotation) => (
+                    <option key={rotation.id} value={rotation.id}>
+                      {rotation.name}{rotation.schedule_description ? ` - ${rotation.schedule_description}` : ''}
+                    </option>
+                  ))}
+                </select>
               </DynamicPanelField>
-              <DynamicPanelField label="Destination">
-                <input type="text" value={form.destination ?? ''} onChange={(e) => setForm({ ...form, destination: e.target.value || null })} className={panelInputClass} placeholder="Douala" />
+              <DynamicPanelField label="Base de départ" required span="full">
+                <AssetPicker
+                  value={form.departure_base_id || null}
+                  onChange={(assetId) => setForm({ ...form, departure_base_id: assetId ?? '' })}
+                  placeholder="Sélectionner une base de départ..."
+                />
               </DynamicPanelField>
             </FormGrid>
+            <p className="text-xs text-muted-foreground">
+              La périodicité régulière se configure sur une rotation. Un voyage créé ici est une occurrence planifiée, éventuellement rattachée à une rotation existante.
+            </p>
           </FormSection>
           <FormSection title="Horaires">
             <FormGrid>
-              <DynamicPanelField label="Depart">
-                <input type="datetime-local" value={form.departure_at ?? ''} onChange={(e) => setForm({ ...form, departure_at: e.target.value || null })} className={panelInputClass} />
+              <DynamicPanelField label="Départ prévu" required>
+                <input
+                  type="datetime-local"
+                  required
+                  value={form.scheduled_departure}
+                  onChange={(e) => setForm({ ...form, scheduled_departure: e.target.value })}
+                  className={panelInputClass}
+                />
               </DynamicPanelField>
-              <DynamicPanelField label="Arrivee">
-                <input type="datetime-local" value={form.arrival_at ?? ''} onChange={(e) => setForm({ ...form, arrival_at: e.target.value || null })} className={panelInputClass} />
+              <DynamicPanelField label="Arrivée prévue">
+                <input
+                  type="datetime-local"
+                  value={form.scheduled_arrival ?? ''}
+                  onChange={(e) => setForm({ ...form, scheduled_arrival: e.target.value || null })}
+                  className={panelInputClass}
+                />
               </DynamicPanelField>
             </FormGrid>
-          </FormSection>
-          <FormSection title="Description" collapsible defaultExpanded={false}>
-            <textarea value={form.description ?? ''} onChange={(e) => setForm({ ...form, description: e.target.value || null })}
-              className={`${panelInputClass} min-h-[60px] resize-y`} placeholder="Description du voyage..." rows={3} />
           </FormSection>
         </PanelContentLayout>
       </form>
@@ -1732,12 +1779,24 @@ function CreateVectorPanel() {
 function CreateCargoPanel() {
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const createCargo = useCreateCargo()
+  const { data: tiersData } = useTiers({ page: 1, page_size: 100 })
   const { toast } = useToast()
   const [form, setForm] = useState<CargoItemCreate>({
-    code: '', description: null, weight_kg: null, volume_m3: null,
-    cargo_type: null, hazmat_class: null, voyage_id: null,
-    sender_tier_id: null, receiver_tier_id: null, notes: null,
+    description: '',
+    cargo_type: 'unit',
+    weight_kg: 0,
+    width_cm: null,
+    length_cm: null,
+    height_cm: null,
+    sender_tier_id: null,
+    receiver_name: null,
+    destination_asset_id: null,
+    project_id: null,
+    manifest_id: null,
+    sap_article_code: null,
+    hazmat_validated: false,
   })
+  const tiers = tiersData?.items ?? []
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -1762,36 +1821,83 @@ function CreateCargoPanel() {
         <PanelContentLayout>
           <FormSection title="Identification">
             <FormGrid>
-              <DynamicPanelField label="Code" required>
-                <input type="text" required value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} className={panelInputClass} placeholder="CRG-001" />
+              <DynamicPanelField label="Référence">
+                <div className="rounded-lg border border-dashed border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                  Générée automatiquement par la numérotation TravelWiz à l’enregistrement du colis.
+                </div>
               </DynamicPanelField>
-              <DynamicPanelField label="Type de colis">
-                <input type="text" value={form.cargo_type ?? ''} onChange={(e) => setForm({ ...form, cargo_type: e.target.value || null })} className={panelInputClass} placeholder="General, Dangereux..." />
+              <DynamicPanelField label="Type de colis" required>
+                <select value={form.cargo_type} onChange={(e) => setForm({ ...form, cargo_type: e.target.value })} className={panelInputClass}>
+                  <option value="unit">Unité</option>
+                  <option value="bulk">Vrac</option>
+                  <option value="consumable">Consommable</option>
+                  <option value="packaging">Conditionnement</option>
+                  <option value="waste">Déchet</option>
+                  <option value="hazmat">HAZMAT</option>
+                </select>
               </DynamicPanelField>
-              <DynamicPanelField label="Classe HAZMAT">
-                <input type="text" value={form.hazmat_class ?? ''} onChange={(e) => setForm({ ...form, hazmat_class: e.target.value || null })} className={panelInputClass} placeholder="Classe 1, 2..." />
+              <DynamicPanelField label="Article SAP">
+                <input type="text" value={form.sap_article_code ?? ''} onChange={(e) => setForm({ ...form, sap_article_code: e.target.value || null })} className={panelInputClass} placeholder="MAT-00001" />
+              </DynamicPanelField>
+              <DynamicPanelField label="Description" required span="full">
+                <textarea
+                  required
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  className={`${panelInputClass} min-h-[60px] resize-y`}
+                  placeholder="Description opérationnelle du colis, de l’unité ou du lot..."
+                  rows={3}
+                />
               </DynamicPanelField>
             </FormGrid>
           </FormSection>
           <FormSection title="Dimensions">
             <FormGrid>
-              <DynamicPanelField label="Poids (kg)">
-                <input type="number" min={0} step="any" value={form.weight_kg ?? ''} onChange={(e) => setForm({ ...form, weight_kg: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
+              <DynamicPanelField label="Poids (kg)" required>
+                <input type="number" min={0.001} step="any" required value={form.weight_kg || ''} onChange={(e) => setForm({ ...form, weight_kg: e.target.value ? Number(e.target.value) : 0 })} className={panelInputClass} />
               </DynamicPanelField>
-              <DynamicPanelField label="Volume (m3)">
-                <input type="number" min={0} step="any" value={form.volume_m3 ?? ''} onChange={(e) => setForm({ ...form, volume_m3: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
+              <DynamicPanelField label="Largeur (cm)">
+                <input type="number" min={0} step="any" value={form.width_cm ?? ''} onChange={(e) => setForm({ ...form, width_cm: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
+              </DynamicPanelField>
+              <DynamicPanelField label="Longueur (cm)">
+                <input type="number" min={0} step="any" value={form.length_cm ?? ''} onChange={(e) => setForm({ ...form, length_cm: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
+              </DynamicPanelField>
+              <DynamicPanelField label="Hauteur (cm)">
+                <input type="number" min={0} step="any" value={form.height_cm ?? ''} onChange={(e) => setForm({ ...form, height_cm: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
               </DynamicPanelField>
             </FormGrid>
+            <p className="text-xs text-muted-foreground">
+              Les dimensions physiques sont utilisées pour raisonner la place occupée et préparer le placement pont, pas seulement un volume libre saisi à la main.
+            </p>
           </FormSection>
-          <FormSection title="Description" collapsible defaultExpanded={false}>
-            <DynamicPanelField label="Description" span="full">
-              <textarea value={form.description ?? ''} onChange={(e) => setForm({ ...form, description: e.target.value || null })}
-                className={`${panelInputClass} min-h-[60px] resize-y`} placeholder="Description du colis..." rows={3} />
-            </DynamicPanelField>
-            <DynamicPanelField label="Notes" span="full">
-              <textarea value={form.notes ?? ''} onChange={(e) => setForm({ ...form, notes: e.target.value || null })}
-                className={`${panelInputClass} min-h-[60px] resize-y`} placeholder="Notes supplementaires..." rows={2} />
-            </DynamicPanelField>
+          <FormSection title="Affectation" collapsible defaultExpanded>
+            <FormGrid>
+              <DynamicPanelField label="Expéditeur">
+                <select value={form.sender_tier_id ?? ''} onChange={(e) => setForm({ ...form, sender_tier_id: e.target.value || null })} className={panelInputClass}>
+                  <option value="">Sélectionner une entreprise...</option>
+                  {tiers.map((tier) => (
+                    <option key={tier.id} value={tier.id}>{tier.name}</option>
+                  ))}
+                </select>
+              </DynamicPanelField>
+              <DynamicPanelField label="Destinataire">
+                <input type="text" value={form.receiver_name ?? ''} onChange={(e) => setForm({ ...form, receiver_name: e.target.value || null })} className={panelInputClass} placeholder="Nom du destinataire ou du service cible" />
+              </DynamicPanelField>
+              <DynamicPanelField label="Site de destination" span="full">
+                <AssetPicker
+                  value={form.destination_asset_id ?? null}
+                  onChange={(assetId) => setForm({ ...form, destination_asset_id: assetId ?? null })}
+                  placeholder="Sélectionner le site de destination..."
+                  clearable
+                />
+              </DynamicPanelField>
+              <DynamicPanelField label="Validation HAZMAT">
+                <label className="inline-flex items-center gap-2 text-xs">
+                  <input type="checkbox" checked={form.hazmat_validated ?? false} onChange={(e) => setForm({ ...form, hazmat_validated: e.target.checked })} />
+                  Conforme / validé pour traitement HAZMAT
+                </label>
+              </DynamicPanelField>
+            </FormGrid>
           </FormSection>
         </PanelContentLayout>
       </form>

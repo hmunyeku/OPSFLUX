@@ -413,6 +413,31 @@ type AllowedCompanySelection = {
   name: string
 }
 
+type ExternalRecipientOption = {
+  key: string
+  user_id: string | null
+  contact_id: string | null
+  label: string
+  contactSummary: string
+}
+
+function buildExternalRecipientOptions(adsPax: AdsPax[] | undefined, unknownLabel: string): ExternalRecipientOption[] {
+  const options = (adsPax ?? [])
+    .map((entry) => {
+      const email = entry.pax_email?.trim() || ''
+      const phone = entry.pax_phone?.trim() || ''
+      if (!email && !phone) return null
+      return {
+        key: entry.user_id ? `user:${entry.user_id}` : `contact:${entry.contact_id}`,
+        user_id: entry.user_id,
+        contact_id: entry.contact_id,
+        label: `${entry.pax_first_name || ''} ${entry.pax_last_name || ''}`.trim() || unknownLabel,
+        contactSummary: [email, phone].filter(Boolean).join(' • '),
+      }
+    })
+  return options.filter((entry): entry is ExternalRecipientOption => entry !== null)
+}
+
 function AllowedCompaniesPicker({
   value,
   onChange,
@@ -2285,22 +2310,10 @@ function AdsDetailPanel({ id }: { id: string }) {
     })))
   }, [ads])
 
-  const eligibleExternalRecipients = useMemo(() => {
-    return (adsPax ?? [])
-      .map((entry) => {
-        const email = entry.pax_email?.trim() || ''
-        const phone = entry.pax_phone?.trim() || ''
-        if (!email && !phone) return null
-        return {
-          key: entry.user_id ? `user:${entry.user_id}` : `contact:${entry.contact_id}`,
-          user_id: entry.user_id,
-          contact_id: entry.contact_id,
-          label: `${entry.pax_first_name || ''} ${entry.pax_last_name || ''}`.trim() || t('common.unknown'),
-          contactSummary: [email, phone].filter(Boolean).join(' • '),
-        }
-      })
-      .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
-  }, [adsPax, t])
+  const eligibleExternalRecipients = useMemo(
+    () => buildExternalRecipientOptions(adsPax, t('common.unknown')),
+    [adsPax, t],
+  )
 
   const selectedExternalRecipient = useMemo(
     () => eligibleExternalRecipients.find((entry) => entry.key === externalLinkRecipientKey) || null,

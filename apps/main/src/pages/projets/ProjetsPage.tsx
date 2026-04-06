@@ -78,6 +78,7 @@ import type {
 import { projetsService, isGoutiProject, goutiProjectId, isProjectFieldEditable } from '@/services/projetsService'
 import { ProjectGanttView } from './ProjectGanttView'
 import { ProjectSelectorModal } from '@/components/shared/ProjectSelectorModal'
+import { PlannerLinkModal } from '@/components/shared/PlannerLinkModal'
 import { useProjectFilter } from '@/hooks/useProjectFilter'
 import type {
   Project, ProjectCreate, ProjectTask, ProjectTaskEnriched,
@@ -2070,6 +2071,7 @@ function ProjectDetailPanel({ id }: { id: string }) {
   const { data: milestones } = useProjectMilestones(id)
   const { data: linkedAsset } = useAsset(project?.asset_id ?? '')
   const goutiSyncOne = useGoutiSyncOne()
+  const [showPlannerLink, setShowPlannerLink] = useState(false)
   const { data: goutiStatus } = useGoutiStatus()
   const { toast } = useToast()
   const capabilities = goutiStatus?.capabilities ?? null
@@ -2119,6 +2121,12 @@ function ProjectDetailPanel({ id }: { id: string }) {
       icon={<FolderKanban size={14} className="text-primary" />}
       actions={
         <>
+          <PanelActionButton
+            onClick={() => setShowPlannerLink(true)}
+            icon={<Zap size={12} />}
+          >
+            Lien Planner
+          </PanelActionButton>
           {isGouti && (
             <PanelActionButton
               onClick={handleResyncGouti}
@@ -2275,6 +2283,13 @@ function ProjectDetailPanel({ id }: { id: string }) {
           </DetailFieldGrid>
         </FormSection>
       </PanelContentLayout>
+      <PlannerLinkModal
+        open={showPlannerLink}
+        onClose={() => setShowPlannerLink(false)}
+        projectId={project.id}
+        projectCode={project.code}
+        assetId={project.asset_id}
+      />
     </DynamicPanelShell>
   )
 }

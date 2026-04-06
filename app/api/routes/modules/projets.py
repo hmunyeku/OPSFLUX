@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 from sqlalchemy import delete as sql_delete, select, func as sqla_func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -1543,3 +1544,123 @@ async def list_status_history(
         .order_by(ProjectStatusHistory.changed_at.desc())
     )).all()
     return [{"id": r[0].id, "project_id": r[0].project_id, "from_status": r[0].from_status, "to_status": r[0].to_status, "changed_by": r[0].changed_by, "reason": r[0].reason, "changed_at": r[0].changed_at, "changed_by_name": f"{r[1]} {r[2]}" if r[1] else None} for r in rows]
+
+
+
+# ── Projets → Planner link ─────────────────────────────────────────────
+
+
+class SendToPlannerItem(BaseModel):
+    task_id: UUID
+    pax_quota: int = Field(ge=1, default=1)
+    priority: str = "medium"
+
+
+class SendToPlannerRequest(BaseModel):
+    items: list[SendToPlannerItem] = Field(..., min_length=1, max_length=200)
+    asset_id: UUID | None = None  # override project asset if needed
+
+
+class SendToPlannerResult(BaseModel):
+    created: int
+    skipped: int
+    errors: list[str]
+
+
+@router.get("/{project_id}/planner-links")
+async def list_planner_links(
+    project_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """List which tasks of this project already have Planner activities."""
+    await _get_project_or_404(db, project_id, entity_id)
+    from app.models.planner import PlannerActivity
+    rows = (await db.execute(
+        select(PlannerActivity.source_task_id, PlannerActivity.id, PlannerActivity.status, PlannerActivity.title)
+        .where(
+            PlannerActivity.project_id == project_id,
+            PlannerActivity.source_task_id.isnot(None),
+            PlannerActivity.active == True,
+        )
+    )).all()
+    return [
+        {"task_id": str(r[0]), "activity_id": str(r[1]), "status": r[2], "title": r[3]}
+        for r in rows
+    ]
+
+
+@router.post("/{project_id}/send-to-planner", response_model=SendToPlannerResult)
+async def send_tasks_to_planner(
+    project_id: UUID,
+    body: SendToPlannerRequest,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Batch-create Planner activities from selected project tasks.
+
+    Each task becomes one PlannerActivity with source_task_id set.
+    Tasks already linked (source_task_id exists) are skipped.
+    """
+    project = await _get_project_or_404(db, project_id, entity_id)
+    asset_id = body.asset_id or project.asset_id
+    if not asset_id:
+        raise HTTPException(400, "Le projet doit avoir un site (asset) pour envoyer au Planner.")
+
+    from app.models.planner import PlannerActivity
+
+    # Get already-linked task IDs
+    existing = (await db.execute(
+        select(PlannerActivity.source_task_id)
+        .where(
+            PlannerActivity.project_id == project_id,
+            PlannerActivity.source_task_id.isnot(None),
+            PlannerActivity.active == True,
+        )
+    )).scalars().all()
+    linked = set(str(x) for x in existing)
+
+    created = 0
+    skipped = 0
+    errors: list[str] = []
+
+    for item in body.items:
+        tid = str(item.task_id)
+        if tid in linked:
+            skipped += 1
+            continue
+        task = (await db.execute(
+            select(ProjectTask).where(ProjectTask.id == item.task_id, ProjectTask.project_id == project_id, ProjectTask.active == True)
+        )).scalar_one_or_none()
+        if not task:
+            errors.append(f"Tâche {tid} introuvable")
+            continue
+        activity = PlannerActivity(
+            entity_id=entity_id,
+            asset_id=asset_id,
+            project_id=project_id,
+            source_task_id=task.id,
+            type="project",
+            title=f"{project.code} — {task.title}",
+            description=task.description,
+            status="draft",
+            priority=item.priority,
+            pax_quota=item.pax_quota,
+            start_date=task.start_date,
+            end_date=task.due_date,
+            created_by=current_user.id,
+        )
+        db.add(activity)
+        created += 1
+        linked.add(tid)
+
+    try:
+        await db.commit()
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(500, f"Erreur: {str(exc)[:300]}")
+
+    return SendToPlannerResult(created=created, skipped=skipped, errors=errors)

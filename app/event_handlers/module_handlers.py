@@ -1104,10 +1104,67 @@ async def on_workflow_transition(event: OpsFluxEvent) -> None:
     )
 
 
+async def on_planner_activity_status_sync(event: OpsFluxEvent) -> None:
+    """Sync Planner activity status back to source ProjectTask.
+
+    When a PlannerActivity has source_task_id and its status changes,
+    mirror the status to the ProjectTask:
+      validated → in_progress, in_progress → in_progress,
+      completed → done, cancelled → cancelled
+    """
+    payload = event.payload
+    activity_id = payload.get("activity_id")
+    if not activity_id:
+        return
+
+    STATUS_MAP = {
+        "validated": "in_progress",
+        "in_progress": "in_progress",
+        "completed": "done",
+        "cancelled": "cancelled",
+    }
+
+    try:
+        from sqlalchemy import select
+        from app.models.planner import PlannerActivity
+        from app.models.common import ProjectTask
+
+        async with async_session_factory() as db:
+            activity = (await db.execute(
+                select(PlannerActivity).where(PlannerActivity.id == UUID(str(activity_id)))
+            )).scalar_one_or_none()
+            if not activity or not activity.source_task_id:
+                return
+
+            new_task_status = STATUS_MAP.get(activity.status)
+            if not new_task_status:
+                return
+
+            task = (await db.execute(
+                select(ProjectTask).where(ProjectTask.id == activity.source_task_id)
+            )).scalar_one_or_none()
+            if not task or task.status == new_task_status:
+                return
+
+            task.status = new_task_status
+            if new_task_status == "done":
+                task.completed_at = datetime.now(timezone.utc)
+            await db.commit()
+            logger.info(
+                "Planner→Projets sync: task %s → %s (from activity %s)",
+                task.id, new_task_status, activity_id,
+            )
+    except Exception:
+        logger.exception("Error in on_planner_activity_status_sync for %s", activity_id)
+
+
 def register_module_handlers(event_bus: EventBus) -> None:
     """Register all inter-module event handlers."""
     # Planner events
     event_bus.subscribe("planner.activity.validated", on_planner_activity_validated)
+    # Planner → Projets: sync activity status back to source task
+    event_bus.subscribe("planner.activity.validated", on_planner_activity_status_sync)
+    event_bus.subscribe("planner.activity.cancelled", on_planner_activity_status_sync)
     # on_planner_activity_cancelled was dead code — it existed but was never
     # subscribed. Now wired so cancellation of a Planner activity cascades
     # to its AdS (requires_review).

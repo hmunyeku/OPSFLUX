@@ -563,3 +563,28 @@ export function useProjectCpm(projectId: string | undefined) {
     enabled: !!projectId,
   })
 }
+
+// ── Planner link ──
+
+export function usePlannerLinks(projectId: string | undefined) {
+  return useQuery({
+    queryKey: ['planner-links', projectId],
+    queryFn: () => projetsService.listPlannerLinks(projectId!),
+    enabled: !!projectId,
+  })
+}
+
+export function useSendToPlanner() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, items, assetId }: {
+      projectId: string
+      items: { task_id: string; pax_quota: number; priority: string }[]
+      assetId?: string
+    }) => projetsService.sendToPlanner(projectId, items, assetId),
+    onSuccess: (_, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ['planner-links', projectId] })
+      qc.invalidateQueries({ queryKey: ['planner'] })
+    },
+  })
+}

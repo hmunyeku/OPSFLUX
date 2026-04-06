@@ -418,6 +418,20 @@ export const projetsService = {
     const { data } = await api.get(`/api/v1/projects/${projectId}/cpm`)
     return data
   },
+
+  // ── Planner link ──
+  listPlannerLinks: async (projectId: string): Promise<{ task_id: string; activity_id: string; status: string; title: string }[]> => {
+    const { data } = await api.get(`/api/v1/projects/${projectId}/planner-links`)
+    return data
+  },
+
+  sendToPlanner: async (projectId: string, items: { task_id: string; pax_quota: number; priority: string }[], assetId?: string): Promise<{ created: number; skipped: number; errors: string[] }> => {
+    const { data } = await api.post(`/api/v1/projects/${projectId}/send-to-planner`, {
+      items,
+      asset_id: assetId || undefined,
+    })
+    return data
+  },
 }
 
 // Helper to detect Gouti-imported projects from the external_ref field

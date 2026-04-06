@@ -62,6 +62,10 @@ class PlannerActivity(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base
     project_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("projects.id")
     )
+    source_task_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("project_tasks.id", ondelete="SET NULL"),
+        comment="The project task this activity was created from (Projets → Planner link)",
+    )
     type: Mapped[str] = mapped_column(String(30), nullable=False)
     subtype: Mapped[str | None] = mapped_column(String(30))
     title: Mapped[str] = mapped_column(String(300), nullable=False)

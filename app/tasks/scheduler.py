@@ -1,8 +1,11 @@
 """APScheduler configuration, lifecycle, and execution logging."""
 
 import logging
+import os
+import socket
 import traceback
 from datetime import datetime, timezone
+from uuid import uuid4
 
 from apscheduler.events import (
     EVENT_JOB_ERROR,
@@ -15,6 +18,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
+from app.core.config import settings
+
 logger = logging.getLogger(__name__)
 
 scheduler = AsyncIOScheduler()
@@ -23,6 +28,8 @@ scheduler = AsyncIOScheduler()
 _job_start_times: dict[str, datetime] = {}
 _jobs_registered = False
 _listeners_registered = False
+_scheduler_lock_token: str | None = None
+_scheduler_lock_acquired = False
 
 
 # ── Execution logging listeners ────────────────────────────────────────────
@@ -109,6 +116,71 @@ async def log_manual_execution(job_id: str, job_name: str, started_at: datetime,
             await db.commit()
     except Exception:
         logger.exception("Failed to log manual execution for %s", job_id)
+
+
+async def _try_acquire_scheduler_leader_lock() -> bool:
+    """Acquire the shared scheduler leader lock in Redis."""
+    global _scheduler_lock_token, _scheduler_lock_acquired
+
+    from app.core.redis_client import get_redis
+
+    redis = get_redis()
+    token = f"{socket.gethostname()}:{os.getpid()}:{uuid4()}"
+    acquired = await redis.set(
+        settings.SCHEDULER_LEADER_LOCK_KEY,
+        token,
+        nx=True,
+        ex=settings.SCHEDULER_LEADER_TTL_SECONDS,
+    )
+    if acquired:
+        _scheduler_lock_token = token
+        _scheduler_lock_acquired = True
+        logger.info("APScheduler: leader lock acquired by %s", token)
+        return True
+
+    logger.info("APScheduler: leader lock already held, scheduler disabled in this worker")
+    return False
+
+
+async def _renew_scheduler_leader_lock() -> None:
+    """Refresh the Redis TTL for the active scheduler leader."""
+    global _scheduler_lock_acquired
+
+    if not _scheduler_lock_acquired or not _scheduler_lock_token:
+        return
+
+    from app.core.redis_client import get_redis
+
+    redis = get_redis()
+    current = await redis.get(settings.SCHEDULER_LEADER_LOCK_KEY)
+    if current != _scheduler_lock_token:
+        logger.warning("APScheduler: leader lock lost, stopping scheduler in this worker")
+        _scheduler_lock_acquired = False
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+        return
+
+    await redis.expire(
+        settings.SCHEDULER_LEADER_LOCK_KEY,
+        settings.SCHEDULER_LEADER_TTL_SECONDS,
+    )
+
+
+async def _release_scheduler_leader_lock() -> None:
+    """Release the Redis scheduler leader lock if held by this worker."""
+    global _scheduler_lock_token, _scheduler_lock_acquired
+
+    if not _scheduler_lock_acquired or not _scheduler_lock_token:
+        return
+
+    from app.core.redis_client import get_redis
+
+    redis = get_redis()
+    current = await redis.get(settings.SCHEDULER_LEADER_LOCK_KEY)
+    if current == _scheduler_lock_token:
+        await redis.delete(settings.SCHEDULER_LEADER_LOCK_KEY)
+    _scheduler_lock_token = None
+    _scheduler_lock_acquired = False
 
 
 # ── Job registration ───────────────────────────────────────────────────────
@@ -212,6 +284,15 @@ def _register_jobs() -> None:
         max_instances=1,
     )
 
+    scheduler.add_job(
+        _renew_scheduler_leader_lock,
+        trigger=IntervalTrigger(seconds=max(30, settings.SCHEDULER_LEADER_TTL_SECONDS // 3)),
+        id="scheduler_leader_lock_renewal",
+        name="Renouveler le verrou leader APScheduler",
+        replace_existing=True,
+        max_instances=1,
+    )
+
     logger.info("APScheduler: %d jobs registered", len(scheduler.get_jobs()))
     _jobs_registered = True
 
@@ -225,15 +306,22 @@ async def start_scheduler():
         logger.info("APScheduler: already running")
         return
 
-    _register_jobs()
-    if not _listeners_registered:
-        scheduler.add_listener(_on_job_submitted, EVENT_JOB_SUBMITTED)
-        scheduler.add_listener(_on_job_executed, EVENT_JOB_EXECUTED)
-        scheduler.add_listener(_on_job_error, EVENT_JOB_ERROR)
-        scheduler.add_listener(_on_job_missed, EVENT_JOB_MISSED)
-        _listeners_registered = True
-    scheduler.start()
-    logger.info("APScheduler: started with execution logging")
+    if not await _try_acquire_scheduler_leader_lock():
+        return
+
+    try:
+        _register_jobs()
+        if not _listeners_registered:
+            scheduler.add_listener(_on_job_submitted, EVENT_JOB_SUBMITTED)
+            scheduler.add_listener(_on_job_executed, EVENT_JOB_EXECUTED)
+            scheduler.add_listener(_on_job_error, EVENT_JOB_ERROR)
+            scheduler.add_listener(_on_job_missed, EVENT_JOB_MISSED)
+            _listeners_registered = True
+        scheduler.start()
+        logger.info("APScheduler: started with execution logging")
+    except Exception:
+        await _release_scheduler_leader_lock()
+        raise
 
 
 async def stop_scheduler():
@@ -241,3 +329,4 @@ async def stop_scheduler():
     if scheduler.running:
         scheduler.shutdown(wait=False)
         logger.info("APScheduler: stopped")
+    await _release_scheduler_leader_lock()

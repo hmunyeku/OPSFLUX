@@ -1158,17 +1158,23 @@ async def on_planner_activity_status_sync(event: OpsFluxEvent) -> None:
         logger.exception("Error in on_planner_activity_status_sync for %s", activity_id)
 
 
+async def on_planner_activity_validated_bundle(event: OpsFluxEvent) -> None:
+    """Execute all side effects attached to planner.activity.validated once."""
+    await on_planner_activity_validated(event)
+    await on_planner_activity_status_sync(event)
+
+
+async def on_planner_activity_cancelled_bundle(event: OpsFluxEvent) -> None:
+    """Execute all side effects attached to planner.activity.cancelled once."""
+    await on_planner_activity_status_sync(event)
+    await on_planner_activity_cancelled(event)
+
+
 def register_module_handlers(event_bus: EventBus) -> None:
     """Register all inter-module event handlers."""
     # Planner events
-    event_bus.subscribe("planner.activity.validated", on_planner_activity_validated)
-    # Planner → Projets: sync activity status back to source task
-    event_bus.subscribe("planner.activity.validated", on_planner_activity_status_sync)
-    event_bus.subscribe("planner.activity.cancelled", on_planner_activity_status_sync)
-    # on_planner_activity_cancelled was dead code — it existed but was never
-    # subscribed. Now wired so cancellation of a Planner activity cascades
-    # to its AdS (requires_review).
-    event_bus.subscribe("planner.activity.cancelled", on_planner_activity_cancelled)
+    event_bus.subscribe("planner.activity.validated", on_planner_activity_validated_bundle)
+    event_bus.subscribe("planner.activity.cancelled", on_planner_activity_cancelled_bundle)
     event_bus.subscribe("planner.conflict.detected", on_planner_conflict_detected)
     # PaxLog → Planner: when an AdS actually starts, auto-mark the linked
     # planner activity as in_progress so the arbitration dashboard reflects

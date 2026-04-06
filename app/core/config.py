@@ -34,6 +34,8 @@ class Settings(BaseSettings):
 
     # ── Redis ────────────────────────────────────────────────────
     REDIS_URL: str = "redis://localhost:6379/0"
+    SCHEDULER_LEADER_LOCK_KEY: str = "opsflux:scheduler:leader"
+    SCHEDULER_LEADER_TTL_SECONDS: int = 120
 
     # ── JWT ──────────────────────────────────────────────────────
     JWT_SECRET_KEY: str = "CHANGEME"

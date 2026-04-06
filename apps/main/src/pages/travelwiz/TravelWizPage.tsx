@@ -28,7 +28,6 @@ import {
   PanelActionButton,
   DangerConfirmButton,
   DetailRow,
-  InlineEditableRow,
   SectionColumns,
   panelInputClass,
 } from '@/components/layout/DynamicPanel'
@@ -37,9 +36,11 @@ import { TagManager } from '@/components/shared/TagManager'
 import { NoteManager } from '@/components/shared/NoteManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { AssetPicker } from '@/components/shared/AssetPicker'
+import { ProjectPicker } from '@/components/shared/ProjectPicker'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { useTiers } from '@/hooks/useTiers'
+import { useProjects } from '@/hooks/useProjets'
 import {
   useVoyages,
   useVoyage,
@@ -118,7 +119,7 @@ const VOYAGE_STATUS_OPTIONS = [
   { value: 'boarding', label: 'Embarquement' },
   { value: 'departed', label: 'En route' },
   { value: 'arrived', label: 'Arrivé' },
-  { value: 'completed', label: 'Terminé' },
+  { value: 'closed', label: 'Clôturé' },
   { value: 'cancelled', label: 'Annulé' },
   { value: 'delayed', label: 'Retardé' },
 ]
@@ -129,7 +130,7 @@ const VOYAGE_STATUS_MAP: Record<string, { label: string; badge: string }> = {
   boarding:  { label: 'Embarquement',  badge: 'gl-badge-warning' },
   departed:  { label: 'En route',      badge: 'gl-badge-warning' },
   arrived:   { label: 'Arrivé',        badge: 'gl-badge-success' },
-  completed: { label: 'Terminé',       badge: 'gl-badge-success' },
+  closed:    { label: 'Clôturé',       badge: 'gl-badge-success' },
   cancelled: { label: 'Annulé',        badge: 'gl-badge-danger' },
   delayed:   { label: 'Retardé',       badge: 'gl-badge-danger' },
 }
@@ -187,6 +188,15 @@ const CARGO_STATUS_MAP: Record<string, { label: string; badge: string }> = {
   damaged:           { label: 'Endommagé',         badge: 'gl-badge-danger' },
   missing:           { label: 'Manquant',          badge: 'gl-badge-danger' },
 }
+
+const CARGO_TYPE_OPTIONS = [
+  { value: 'unit', label: 'Unité' },
+  { value: 'bulk', label: 'Vrac' },
+  { value: 'consumable', label: 'Consommable' },
+  { value: 'packaging', label: 'Conditionnement' },
+  { value: 'waste', label: 'Déchet' },
+  { value: 'hazmat', label: 'HAZMAT' },
+]
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -731,7 +741,7 @@ function CargoTab() {
     const totalWeight = items.reduce((sum: number, c: AnyRow) => sum + (c.weight_kg ?? 0), 0)
     const inTransit = items.filter((c: AnyRow) => c.status === 'in_transit').length
     const delivered = items.filter((c: AnyRow) => ['delivered', 'delivered_intermediate', 'delivered_final'].includes(c.status)).length
-    const hazmat = items.filter((c: AnyRow) => c.hazmat_class).length
+    const hazmat = items.filter((c: AnyRow) => c.hazmat_validated).length
     return { totalWeight, inTransit, delivered, hazmat, count: items.length }
   }, [items])
 
@@ -782,8 +792,8 @@ function CargoTab() {
       size: 50,
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
-          {row.original.hazmat_class && (
-            <span title={`HAZMAT: ${row.original.hazmat_class}`} className="text-destructive">
+          {row.original.hazmat_validated && (
+            <span title="HAZMAT validé" className="text-destructive">
               <AlertTriangle size={12} />
             </span>
           )}
@@ -1828,12 +1838,9 @@ function CreateCargoPanel() {
               </DynamicPanelField>
               <DynamicPanelField label="Type de colis" required>
                 <select value={form.cargo_type} onChange={(e) => setForm({ ...form, cargo_type: e.target.value })} className={panelInputClass}>
-                  <option value="unit">Unité</option>
-                  <option value="bulk">Vrac</option>
-                  <option value="consumable">Consommable</option>
-                  <option value="packaging">Conditionnement</option>
-                  <option value="waste">Déchet</option>
-                  <option value="hazmat">HAZMAT</option>
+                  {CARGO_TYPE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
                 </select>
               </DynamicPanelField>
               <DynamicPanelField label="Article SAP">
@@ -1984,6 +1991,8 @@ function CreateArticlePanel() {
 function VoyageDetailPanel({ id }: { id: string }) {
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { data: voyage, isLoading } = useVoyage(id)
+  const { data: vectors } = useVectors({ page: 1, page_size: 100 })
+  const { data: rotations } = useRotations({ page: 1, page_size: 100 })
   const updateVoyage = useUpdateVoyage()
   const deleteVoyage = useDeleteVoyage()
   const updateStatus = useUpdateVoyageStatus()
@@ -2002,7 +2011,13 @@ function VoyageDetailPanel({ id }: { id: string }) {
 
   const startEdit = useCallback(() => {
     if (!voyage) return
-    setEditForm({ code: voyage.code, origin: voyage.origin, destination: voyage.destination, departure_at: voyage.departure_at, arrival_at: voyage.arrival_at, description: voyage.description })
+    setEditForm({
+      vector_id: voyage.vector_id,
+      departure_base_id: voyage.departure_base_id,
+      rotation_id: voyage.rotation_id,
+      scheduled_departure: voyage.scheduled_departure,
+      scheduled_arrival: voyage.scheduled_arrival,
+    })
     setEditing(true)
   }, [voyage])
 
@@ -2021,17 +2036,6 @@ function VoyageDetailPanel({ id }: { id: string }) {
     catch { toast({ title: 'Erreur lors de la cloture', variant: 'error' }) }
   }
 
-  // Inline field save (used by InlineEditableRow in read mode)
-  const handleInlineSave = useCallback((field: string, value: string) => {
-    updateVoyage.mutate(
-      { id, payload: { [field]: value } },
-      {
-        onSuccess: () => toast({ title: 'Champ mis a jour', variant: 'success' }),
-        onError: () => toast({ title: 'Erreur lors de la mise a jour', variant: 'error' }),
-      },
-    )
-  }, [id, updateVoyage, toast])
-
   if (isLoading || !voyage) {
     return (
       <DynamicPanelShell title="Chargement..." icon={<Plane size={14} className="text-primary" />}>
@@ -2039,6 +2043,9 @@ function VoyageDetailPanel({ id }: { id: string }) {
       </DynamicPanelShell>
     )
   }
+
+  const departureLabel = voyage.departure_base_name ?? voyage.origin ?? '?'
+  const destinationLabel = stops?.length ? stops[stops.length - 1]?.location ?? '—' : voyage.destination ?? '—'
 
   // PAX summary from manifests
   const paxSummary = useMemo(() => {
@@ -2053,7 +2060,7 @@ function VoyageDetailPanel({ id }: { id: string }) {
   return (
     <DynamicPanelShell
       title={voyage.code}
-      subtitle={`${voyage.origin ?? '?'} → ${voyage.destination ?? '?'}`}
+      subtitle={`${departureLabel} → ${destinationLabel}`}
       icon={<Plane size={14} className="text-primary" />}
       actions={<>
         {!editing && canUpdate && <PanelActionButton onClick={startEdit} icon={<Pencil size={12} />}>Modifier</PanelActionButton>}
@@ -2063,7 +2070,7 @@ function VoyageDetailPanel({ id }: { id: string }) {
             {updateVoyage.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Enregistrer'}
           </PanelActionButton>
         </>}
-        {!editing && canUpdate && voyage.status !== 'cancelled' && voyage.status !== 'completed' && (
+        {!editing && canUpdate && voyage.status !== 'cancelled' && voyage.status !== 'closed' && (
           <select className="text-xs border border-border rounded px-1.5 py-0.5 bg-background text-foreground h-7" value=""
             onChange={(e) => { if (e.target.value) updateStatus.mutate({ id, status: e.target.value }) }}>
             <option value="">Statut...</option>
@@ -2087,12 +2094,60 @@ function VoyageDetailPanel({ id }: { id: string }) {
         {editing ? (
           <FormSection title="Informations">
             <FormGrid>
-              <DynamicPanelField label="Code"><span className="text-sm font-mono font-medium text-foreground">{editForm.code || '—'}</span></DynamicPanelField>
-              <DynamicPanelField label="Origine"><input type="text" value={editForm.origin ?? ''} onChange={(e) => setEditForm({ ...editForm, origin: e.target.value || null })} className={panelInputClass} /></DynamicPanelField>
-              <DynamicPanelField label="Destination"><input type="text" value={editForm.destination ?? ''} onChange={(e) => setEditForm({ ...editForm, destination: e.target.value || null })} className={panelInputClass} /></DynamicPanelField>
-              <DynamicPanelField label="Depart"><input type="datetime-local" value={editForm.departure_at ?? ''} onChange={(e) => setEditForm({ ...editForm, departure_at: e.target.value || null })} className={panelInputClass} /></DynamicPanelField>
-              <DynamicPanelField label="Arrivee"><input type="datetime-local" value={editForm.arrival_at ?? ''} onChange={(e) => setEditForm({ ...editForm, arrival_at: e.target.value || null })} className={panelInputClass} /></DynamicPanelField>
-              <DynamicPanelField label="Description" span="full"><textarea value={editForm.description ?? ''} onChange={(e) => setEditForm({ ...editForm, description: e.target.value || null })} className={`${panelInputClass} min-h-[60px] resize-y`} rows={3} /></DynamicPanelField>
+              <DynamicPanelField label="Code">
+                <span className="text-sm font-mono font-medium text-foreground">{voyage.code}</span>
+              </DynamicPanelField>
+              <DynamicPanelField label="Vecteur" required>
+                <select
+                  value={editForm.vector_id ?? ''}
+                  onChange={(e) => setEditForm({ ...editForm, vector_id: e.target.value || null })}
+                  className={panelInputClass}
+                >
+                  <option value="">Sélectionner...</option>
+                  {(vectors?.items ?? []).map((vector) => (
+                    <option key={vector.id} value={vector.id}>
+                      {vector.name} {vector.registration ? `(${vector.registration})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </DynamicPanelField>
+              <DynamicPanelField label="Rotation">
+                <select
+                  value={editForm.rotation_id ?? ''}
+                  onChange={(e) => setEditForm({ ...editForm, rotation_id: e.target.value || null })}
+                  className={panelInputClass}
+                >
+                  <option value="">Aucune rotation</option>
+                  {(rotations?.items ?? []).map((rotation) => (
+                    <option key={rotation.id} value={rotation.id}>
+                      {rotation.name}{rotation.schedule_description ? ` - ${rotation.schedule_description}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </DynamicPanelField>
+              <DynamicPanelField label="Base de départ" span="full">
+                <AssetPicker
+                  value={editForm.departure_base_id ?? null}
+                  onChange={(assetId) => setEditForm({ ...editForm, departure_base_id: assetId ?? null })}
+                  placeholder="Sélectionner la base de départ..."
+                />
+              </DynamicPanelField>
+              <DynamicPanelField label="Départ programmé">
+                <input
+                  type="datetime-local"
+                  value={editForm.scheduled_departure ?? ''}
+                  onChange={(e) => setEditForm({ ...editForm, scheduled_departure: e.target.value || null })}
+                  className={panelInputClass}
+                />
+              </DynamicPanelField>
+              <DynamicPanelField label="Arrivée programmée">
+                <input
+                  type="datetime-local"
+                  value={editForm.scheduled_arrival ?? ''}
+                  onChange={(e) => setEditForm({ ...editForm, scheduled_arrival: e.target.value || null })}
+                  className={panelInputClass}
+                />
+              </DynamicPanelField>
             </FormGrid>
           </FormSection>
         ) : (
@@ -2104,11 +2159,13 @@ function VoyageDetailPanel({ id }: { id: string }) {
                   <DetailRow label="Code" value={voyage.code} />
                   <DetailRow label="Vecteur" value={voyage.vector_name ?? '—'} />
                   <DetailRow label="Rotation" value={voyage.rotation_name ?? '—'} />
-                  <DetailRow label="Origine" value={voyage.origin ?? '—'} />
-                  <DetailRow label="Destination" value={voyage.destination ?? '—'} />
-                  <DetailRow label="Depart" value={voyage.departure_at ? new Date(voyage.departure_at).toLocaleString('fr-FR') : '—'} />
-                  <DetailRow label="Arrivee" value={voyage.arrival_at ? new Date(voyage.arrival_at).toLocaleString('fr-FR') : '—'} />
-                  <InlineEditableRow label="Description" value={voyage.description ?? ''} onSave={(v) => handleInlineSave('description', v)} />
+                  <DetailRow label="Base de départ" value={departureLabel} />
+                  <DetailRow label="Dernière escale planifiée" value={destinationLabel} />
+                  <DetailRow label="Départ programmé" value={voyage.scheduled_departure ? new Date(voyage.scheduled_departure).toLocaleString('fr-FR') : '—'} />
+                  <DetailRow label="Arrivée programmée" value={voyage.scheduled_arrival ? new Date(voyage.scheduled_arrival).toLocaleString('fr-FR') : '—'} />
+                  <DetailRow label="Départ réel" value={voyage.actual_departure ? new Date(voyage.actual_departure).toLocaleString('fr-FR') : '—'} />
+                  <DetailRow label="Arrivée réelle" value={voyage.actual_arrival ? new Date(voyage.actual_arrival).toLocaleString('fr-FR') : '—'} />
+                  <DetailRow label="Motif du retard" value={voyage.delay_reason ?? '—'} />
                 </FormSection>
 
             {/* Route: Stops */}
@@ -2116,8 +2173,8 @@ function VoyageDetailPanel({ id }: { id: string }) {
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2 p-1.5 rounded bg-primary/5 border border-primary/10">
                   <div className="w-5 h-5 rounded-full bg-primary/20 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">O</div>
-                  <span className="text-xs font-medium text-foreground">{voyage.origin || '?'}</span>
-                  <span className="text-[10px] text-muted-foreground ml-auto">{formatDateTime(voyage.departure_at)}</span>
+                  <span className="text-xs font-medium text-foreground">{departureLabel}</span>
+                  <span className="text-[10px] text-muted-foreground ml-auto">{formatDateTime(voyage.scheduled_departure)}</span>
                 </div>
                 {stops?.map((stop, idx) => (
                   <div key={stop.id} className="flex items-center gap-2 p-1.5 rounded border border-border/60">
@@ -2128,8 +2185,8 @@ function VoyageDetailPanel({ id }: { id: string }) {
                 ))}
                 <div className="flex items-center gap-2 p-1.5 rounded bg-green-500/5 border border-green-500/10">
                   <div className="w-5 h-5 rounded-full bg-green-500/20 text-green-600 text-[10px] font-bold flex items-center justify-center shrink-0">D</div>
-                  <span className="text-xs font-medium text-foreground">{voyage.destination || '?'}</span>
-                  <span className="text-[10px] text-muted-foreground ml-auto">{formatDateTime(voyage.arrival_at)}</span>
+                  <span className="text-xs font-medium text-foreground">{destinationLabel}</span>
+                  <span className="text-[10px] text-muted-foreground ml-auto">{formatDateTime(voyage.scheduled_arrival)}</span>
                 </div>
               </div>
             </FormSection>
@@ -2436,6 +2493,9 @@ function VectorDetailPanel({ id }: { id: string }) {
 
 function CargoDetailPanel({ id }: { id: string }) {
   const { data: cargo, isLoading } = useCargoItem(id)
+  const { data: tiers } = useTiers({ page: 1, page_size: 100 })
+  const { data: projects } = useProjects({ page: 1, page_size: 100 })
+  const { data: manifests } = useAllManifests({ page: 1, page_size: 100 })
   const updateCargo = useUpdateCargo()
   const updateCargoSt = useUpdateCargoStatus()
   const initiateReturn = useInitiateCargoReturn()
@@ -2448,7 +2508,21 @@ function CargoDetailPanel({ id }: { id: string }) {
 
   const startEdit = useCallback(() => {
     if (!cargo) return
-    setEditForm({ code: cargo.code, description: cargo.description, weight_kg: cargo.weight_kg, volume_m3: cargo.volume_m3, cargo_type: cargo.cargo_type, hazmat_class: cargo.hazmat_class, notes: cargo.notes })
+    setEditForm({
+      description: cargo.description,
+      weight_kg: cargo.weight_kg,
+      width_cm: cargo.width_cm,
+      length_cm: cargo.length_cm,
+      height_cm: cargo.height_cm,
+      cargo_type: cargo.cargo_type,
+      sender_tier_id: cargo.sender_tier_id,
+      receiver_name: cargo.receiver_name,
+      destination_asset_id: cargo.destination_asset_id,
+      project_id: cargo.project_id,
+      manifest_id: cargo.manifest_id,
+      sap_article_code: cargo.sap_article_code,
+      hazmat_validated: cargo.hazmat_validated,
+    })
     setEditing(true)
   }, [cargo])
 
@@ -2471,6 +2545,13 @@ function CargoDetailPanel({ id }: { id: string }) {
   }
 
   const isDelivered = ['delivered', 'delivered_final', 'delivered_intermediate'].includes(cargo.status)
+  const projectLabel = cargo.project_id
+    ? (projects?.items ?? []).find((project) => project.id === cargo.project_id)?.name ?? cargo.project_id
+    : null
+  const manifestLabel = cargo.manifest_id
+    ? (manifests?.items ?? []).find((manifest) => manifest.id === cargo.manifest_id)?.reference ?? cargo.manifest_id
+    : null
+  const volumeLabel = cargo.volume_m3 ? `${cargo.volume_m3.toLocaleString('fr-FR')} m³` : '—'
 
   return (
     <DynamicPanelShell title={cargo.code} subtitle={cargo.description || 'Colis'} icon={<Package size={14} className="text-primary" />}
@@ -2488,10 +2569,10 @@ function CargoDetailPanel({ id }: { id: string }) {
         {/* Status + HAZMAT warning */}
         <div className="flex items-center gap-2 flex-wrap">
           <StatusBadge status={cargo.status} map={CARGO_STATUS_MAP} />
-          {cargo.hazmat_class && (
+          {cargo.hazmat_validated && (
             <span className="inline-flex items-center gap-1 text-xs text-destructive font-medium">
               <AlertTriangle size={12} />
-              HAZMAT: {cargo.hazmat_class}
+              HAZMAT validé
             </span>
           )}
           {!editing && !['delivered_final', 'damaged', 'missing', 'returned'].includes(cargo.status) && (
@@ -2511,13 +2592,65 @@ function CargoDetailPanel({ id }: { id: string }) {
         {editing ? (
           <FormSection title="Informations">
             <FormGrid>
-              <DynamicPanelField label="Code"><span className="text-sm font-mono font-medium text-foreground">{editForm.code || '—'}</span></DynamicPanelField>
-              <DynamicPanelField label="Type de colis"><input type="text" value={editForm.cargo_type ?? ''} onChange={(e) => setEditForm({ ...editForm, cargo_type: e.target.value || null })} className={panelInputClass} /></DynamicPanelField>
-              <DynamicPanelField label="Classe HAZMAT"><input type="text" value={editForm.hazmat_class ?? ''} onChange={(e) => setEditForm({ ...editForm, hazmat_class: e.target.value || null })} className={panelInputClass} /></DynamicPanelField>
+              <DynamicPanelField label="Référence">
+                <span className="text-sm font-mono font-medium text-foreground">{cargo.code}</span>
+              </DynamicPanelField>
+              <DynamicPanelField label="Type de colis">
+                <select value={editForm.cargo_type ?? ''} onChange={(e) => setEditForm({ ...editForm, cargo_type: e.target.value || null })} className={panelInputClass}>
+                  {CARGO_TYPE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </DynamicPanelField>
+              <DynamicPanelField label="Article SAP">
+                <input type="text" value={editForm.sap_article_code ?? ''} onChange={(e) => setEditForm({ ...editForm, sap_article_code: e.target.value || null })} className={panelInputClass} />
+              </DynamicPanelField>
               <DynamicPanelField label="Poids (kg)"><input type="number" min={0} step="any" value={editForm.weight_kg ?? ''} onChange={(e) => setEditForm({ ...editForm, weight_kg: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
-              <DynamicPanelField label="Volume (m3)"><input type="number" min={0} step="any" value={editForm.volume_m3 ?? ''} onChange={(e) => setEditForm({ ...editForm, volume_m3: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
+              <DynamicPanelField label="Largeur (cm)"><input type="number" min={0} step="any" value={editForm.width_cm ?? ''} onChange={(e) => setEditForm({ ...editForm, width_cm: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
+              <DynamicPanelField label="Longueur (cm)"><input type="number" min={0} step="any" value={editForm.length_cm ?? ''} onChange={(e) => setEditForm({ ...editForm, length_cm: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
+              <DynamicPanelField label="Hauteur (cm)"><input type="number" min={0} step="any" value={editForm.height_cm ?? ''} onChange={(e) => setEditForm({ ...editForm, height_cm: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
+              <DynamicPanelField label="Expéditeur">
+                <select value={editForm.sender_tier_id ?? ''} onChange={(e) => setEditForm({ ...editForm, sender_tier_id: e.target.value || null })} className={panelInputClass}>
+                  <option value="">Aucun</option>
+                  {(tiers?.items ?? []).map((tier) => (
+                    <option key={tier.id} value={tier.id}>{tier.code} - {tier.name}</option>
+                  ))}
+                </select>
+              </DynamicPanelField>
+              <DynamicPanelField label="Destinataire">
+                <input type="text" value={editForm.receiver_name ?? ''} onChange={(e) => setEditForm({ ...editForm, receiver_name: e.target.value || null })} className={panelInputClass} />
+              </DynamicPanelField>
+              <DynamicPanelField label="Site de destination" span="full">
+                <AssetPicker
+                  value={editForm.destination_asset_id ?? null}
+                  onChange={(assetId) => setEditForm({ ...editForm, destination_asset_id: assetId ?? null })}
+                  placeholder="Sélectionner le site de destination..."
+                  clearable
+                />
+              </DynamicPanelField>
+              <DynamicPanelField label="Projet" span="full">
+                <ProjectPicker
+                  value={editForm.project_id ?? null}
+                  onChange={(projectId) => setEditForm({ ...editForm, project_id: projectId ?? null })}
+                  clearable
+                  placeholder="Sélectionner un projet..."
+                />
+              </DynamicPanelField>
+              <DynamicPanelField label="Manifeste">
+                <select value={editForm.manifest_id ?? ''} onChange={(e) => setEditForm({ ...editForm, manifest_id: e.target.value || null })} className={panelInputClass}>
+                  <option value="">Aucun</option>
+                  {(manifests?.items ?? []).map((manifest) => (
+                    <option key={manifest.id} value={manifest.id}>{manifest.reference || manifest.id}</option>
+                  ))}
+                </select>
+              </DynamicPanelField>
+              <DynamicPanelField label="HAZMAT validé">
+                <label className="inline-flex items-center gap-2 text-xs">
+                  <input type="checkbox" checked={editForm.hazmat_validated ?? false} onChange={(e) => setEditForm({ ...editForm, hazmat_validated: e.target.checked })} />
+                  Conforme et validé pour transport HAZMAT
+                </label>
+              </DynamicPanelField>
               <DynamicPanelField label="Description" span="full"><textarea value={editForm.description ?? ''} onChange={(e) => setEditForm({ ...editForm, description: e.target.value || null })} className={`${panelInputClass} min-h-[60px] resize-y`} rows={3} /></DynamicPanelField>
-              <DynamicPanelField label="Notes" span="full"><textarea value={editForm.notes ?? ''} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value || null })} className={`${panelInputClass} min-h-[60px] resize-y`} rows={2} /></DynamicPanelField>
             </FormGrid>
           </FormSection>
         ) : (
@@ -2526,12 +2659,18 @@ function CargoDetailPanel({ id }: { id: string }) {
               <DetailRow label="Code" value={cargo.code} />
               <DetailRow label="Type" value={cargo.cargo_type ?? '—'} />
               <DetailRow label="Poids" value={cargo.weight_kg ? `${cargo.weight_kg.toLocaleString('fr-FR')} kg` : '—'} />
-              <DetailRow label="Volume" value={cargo.volume_m3 ? `${cargo.volume_m3.toLocaleString('fr-FR')} m³` : '—'} />
+              <DetailRow label="Dimensions" value={cargo.width_cm && cargo.length_cm && cargo.height_cm ? `${cargo.width_cm} × ${cargo.length_cm} × ${cargo.height_cm} cm` : '—'} />
+              <DetailRow label="Volume estimé" value={volumeLabel} />
               <DetailRow label="Voyage" value={cargo.voyage_code ?? '—'} />
+              <DetailRow label="Manifeste" value={manifestLabel ?? '—'} />
               <DetailRow label="Expediteur" value={cargo.sender_name ?? '—'} />
               <DetailRow label="Destinataire" value={cargo.receiver_name ?? '—'} />
+              <DetailRow label="Site de destination" value={cargo.destination_name ?? '—'} />
+              <DetailRow label="Projet" value={projectLabel ?? '—'} />
+              <DetailRow label="Article SAP" value={cargo.sap_article_code ?? '—'} />
+              <DetailRow label="HAZMAT validé" value={cargo.hazmat_validated ? 'Oui' : 'Non'} />
               <DetailRow label="Description" value={cargo.description ?? '—'} />
-              <DetailRow label="Notes" value={cargo.notes ?? '—'} />
+              <DetailRow label="Notes avarie" value={cargo.damage_notes ?? '—'} />
               {cargo.received_at && <DetailRow label="Recu le" value={new Date(cargo.received_at).toLocaleString('fr-FR')} />}
               <DetailRow label="Cree le" value={new Date(cargo.created_at).toLocaleDateString('fr-FR')} />
             </FormSection>

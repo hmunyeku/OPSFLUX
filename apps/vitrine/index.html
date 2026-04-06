@@ -56,6 +56,88 @@
         <a href="#contact" class="btn btn-primary btn-lg">Demander une d&eacute;mo gratuite</a>
         <a href="#features" class="btn btn-outline btn-lg">D&eacute;couvrir</a>
       </div>
+      <div class="tracking-shell fade-up fade-up-d4" id="publicTracking">
+        <div class="tracking-shell-head">
+          <div>
+            <p class="tracking-eyebrow">Suivi public TravelWiz</p>
+            <h2>Suivez une exp&eacute;dition avec son code de tracking</h2>
+          </div>
+          <p class="tracking-shell-copy">Consultez l'&eacute;tat, la destination, le voyage associ&eacute; et l'historique public d'un colis sans ouvrir l'application interne.</p>
+        </div>
+        <form class="tracking-form" id="trackingForm">
+          <label class="sr-only" for="trackingCode">Code de suivi</label>
+          <input type="text" id="trackingCode" name="trackingCode" autocomplete="off" spellcheck="false" placeholder="Ex. TW-CARGO-2026-00421" />
+          <button type="submit" class="btn btn-primary">Rechercher</button>
+        </form>
+        <p class="tracking-hint" id="trackingHint">Le suivi public n'expose que les informations op&eacute;rationnelles utiles.</p>
+        <div class="tracking-feedback" id="trackingFeedback" hidden></div>
+        <section class="tracking-result" id="trackingResult" hidden aria-live="polite">
+          <div class="tracking-result-head">
+            <div>
+              <p class="tracking-result-label">Exp&eacute;dition</p>
+              <h3 id="trackingResultTitle">-</h3>
+            </div>
+            <div class="tracking-status-chip" id="trackingStatusChip">-</div>
+          </div>
+          <div class="tracking-summary-grid">
+            <article class="tracking-summary-card">
+              <span>Code</span>
+              <strong id="trackingCodeValue">-</strong>
+            </article>
+            <article class="tracking-summary-card">
+              <span>Destination</span>
+              <strong id="trackingDestinationValue">-</strong>
+            </article>
+            <article class="tracking-summary-card">
+              <span>Voyage</span>
+              <strong id="trackingVoyageValue">-</strong>
+            </article>
+            <article class="tracking-summary-card">
+              <span>Dimensions</span>
+              <strong id="trackingDimensionsValue">-</strong>
+            </article>
+          </div>
+          <div class="tracking-detail-grid">
+            <article class="tracking-panel">
+              <div class="tracking-panel-head">
+                <p>D&eacute;tail de l'exp&eacute;dition</p>
+              </div>
+              <dl class="tracking-data-list">
+                <div>
+                  <dt>Type</dt>
+                  <dd id="trackingTypeValue">-</dd>
+                </div>
+                <div>
+                  <dt>Poids</dt>
+                  <dd id="trackingWeightValue">-</dd>
+                </div>
+                <div>
+                  <dt>Exp&eacute;diteur</dt>
+                  <dd id="trackingSenderValue">-</dd>
+                </div>
+                <div>
+                  <dt>Destinataire</dt>
+                  <dd id="trackingReceiverValue">-</dd>
+                </div>
+                <div>
+                  <dt>Derni&egrave;re mise &agrave; jour</dt>
+                  <dd id="trackingLastEventValue">-</dd>
+                </div>
+                <div>
+                  <dt>R&eacute;ception</dt>
+                  <dd id="trackingReceivedAtValue">-</dd>
+                </div>
+              </dl>
+            </article>
+            <article class="tracking-panel">
+              <div class="tracking-panel-head">
+                <p>Historique public</p>
+              </div>
+              <ol class="tracking-timeline" id="trackingTimeline"></ol>
+            </article>
+          </div>
+        </section>
+      </div>
       <div class="hero-stats fade-up fade-up-d4">
         <div class="stat">
           <span class="stat-value">12+</span>
@@ -409,51 +491,6 @@
     </div>
   </footer>
 
-  <script>
-    // Mobile menu
-    document.getElementById('mobileMenuBtn')?.addEventListener('click', () =>
-      document.getElementById('navLinks')?.classList.toggle('open')
-    )
-
-    // Smooth scroll
-    document.querySelectorAll('a[href^="#"]').forEach(a => {
-      a.addEventListener('click', e => {
-        e.preventDefault()
-        const t = document.querySelector(a.getAttribute('href'))
-        if (t) {
-          t.scrollIntoView({ behavior: 'smooth', block: 'start' })
-          document.getElementById('navLinks')?.classList.remove('open')
-        }
-      })
-    })
-
-    // Contact form
-    document.getElementById('contactForm')?.addEventListener('submit', e => {
-      e.preventDefault()
-      document.getElementById('contactForm').style.display = 'none'
-      document.getElementById('formSuccess').style.display = 'flex'
-    })
-
-    // Navbar scroll
-    const nb = document.getElementById('navbar')
-    window.addEventListener('scroll', () => nb?.classList.toggle('scrolled', window.scrollY > 20))
-
-    // Intersection Observer for fade-in on scroll
-    const observer = new IntersectionObserver(
-      entries => entries.forEach(e => {
-        if (e.isIntersecting) {
-          e.target.style.opacity = '1'
-          e.target.style.transform = 'translateY(0)'
-        }
-      }),
-      { threshold: 0.1, rootMargin: '0px 0px -40px 0px' }
-    )
-    document.querySelectorAll('.feature-card, .module-card, .security-card').forEach(el => {
-      el.style.opacity = '0'
-      el.style.transform = 'translateY(20px)'
-      el.style.transition = 'opacity .5s ease, transform .5s ease'
-      observer.observe(el)
-    })
-  </script>
+  <script type="module" src="/main.js"></script>
 </body>
 </html>

@@ -3975,6 +3975,39 @@ async def _build_ads_pdf_response(
     from fastapi.responses import Response
     from app.core.pdf_templates import render_pdf
 
+    variables = await _build_ads_pdf_template_variables(
+        db,
+        ads=ads,
+        entity_id=entity_id,
+    )
+
+    try:
+        pdf_bytes = await render_pdf(
+            db,
+            slug="ads.ticket",
+            entity_id=entity_id,
+            language=language,
+            variables=variables,
+        )
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+    filename = f"ADS_{ads.reference.replace(' ', '_')}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
+
+
+async def _build_ads_pdf_template_variables(
+    db: AsyncSession,
+    *,
+    ads: Ads,
+    entity_id: UUID,
+) -> dict:
+    from sqlalchemy import text as sql_text
+
     # Load PAX entries with profile details (User + TierContact)
     pax_result = await db.execute(
         select(AdsPax).where(AdsPax.ads_id == ads.id)
@@ -4006,7 +4039,6 @@ async def _build_ads_pdf_response(
             })
 
     # Load requester info
-    from sqlalchemy import text as sql_text
     req_row = await db.execute(
         sql_text("SELECT first_name, last_name, email FROM users WHERE id = :uid"),
         {"uid": ads.requester_id},
@@ -4051,24 +4083,7 @@ async def _build_ads_pdf_response(
         "entity_name": entity_name,
         "qr_data": ads.reference,
     }
-
-    try:
-        pdf_bytes = await render_pdf(
-            db,
-            slug="ads.ticket",
-            entity_id=entity_id,
-            language=language,
-            variables=variables,
-        )
-    except RuntimeError as e:
-        raise HTTPException(status_code=503, detail=str(e))
-
-    filename = f"ADS_{ads.reference.replace(' ', '_')}.pdf"
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename="{filename}"'},
-    )
+    return variables
 
 
 @router.get("/external/{token}/pdf")

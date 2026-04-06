@@ -270,13 +270,13 @@ function Tip({ title, subtitle, progress, status, statusColor, lines, x, y }: Ti
     <div className="fixed z-[100] bg-popover border border-border rounded-lg shadow-xl p-3 text-xs pointer-events-none" style={{ left, top, width: tipW }}>
       {/* Title + subtitle */}
       <div className="font-semibold text-foreground truncate">{title}</div>
-      {subtitle && <div className="text-[10px] text-muted-foreground truncate mt-0.5">{subtitle}</div>}
+      {subtitle && <div className="text-xs text-muted-foreground truncate mt-0.5">{subtitle}</div>}
 
       {/* Status badge + progress bar */}
       {(status || progress != null) && (
         <div className="flex items-center gap-2 mt-1.5 mb-1">
           {status && (
-            <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: (statusColor || '#9ca3af') + '20', color: statusColor || '#9ca3af' }}>
+            <span className="text-xs px-1.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: (statusColor || '#9ca3af') + '20', color: statusColor || '#9ca3af' }}>
               {status}
             </span>
           )}
@@ -285,14 +285,14 @@ function Tip({ title, subtitle, progress, status, statusColor, lines, x, y }: Ti
               <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
                 <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, backgroundColor: statusColor || '#3b82f6' }} />
               </div>
-              <span className="text-[9px] tabular-nums text-muted-foreground">{progress}%</span>
+              <span className="text-xs tabular-nums text-muted-foreground">{progress}%</span>
             </div>
           )}
         </div>
       )}
 
       {/* Detail fields */}
-      <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[10px] mt-1 border-t border-border/50 pt-1.5">
+      <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs mt-1 border-t border-border/50 pt-1.5">
         {lines.map(([k, v], i) => (
           <div key={i} className="contents">
             <span className="text-muted-foreground whitespace-nowrap">{k}</span>
@@ -322,7 +322,9 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
   const critSet = useMemo(() => new Set(cpm?.critical_path_task_ids || []), [cpm])
-  const rowH = barH + 8
+  // Row height is independent of bar height — always at least 28px for readability
+  // even when bars are thin (e.g. 8px). Bar is centered vertically within the row.
+  const rowH = Math.max(28, barH + 10)
 
   // Filter by status + priority + assignee
   const hiddenStatusSet = useMemo(() => new Set(hiddenStatuses), [hiddenStatuses])
@@ -463,7 +465,7 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
         {/* ── Left panel: tree with expand/collapse + inline edit ── */}
         <div
           className={cn(
-            'sticky left-0 z-[5] border-r border-border flex items-center gap-1 text-[10px] truncate shrink-0 hover:bg-accent/40 px-1 transition-colors',
+            'sticky left-0 z-[5] border-r border-border flex items-center gap-1 text-xs truncate shrink-0 hover:bg-accent/40 px-1 transition-colors',
             rowIdx % 2 === 0 ? 'bg-background' : 'bg-muted/10',
           )}
           style={{ width: pw, paddingLeft: `${8 + depth * 18}px` }}
@@ -487,7 +489,7 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
           {isEditing ? (
             <input
               autoFocus
-              className="flex-1 bg-transparent border-b border-primary text-[10px] outline-none min-w-0"
+              className="flex-1 bg-transparent border-b border-primary text-xs outline-none min-w-0"
               value={editValue}
               onChange={e => setEditValue(e.target.value)}
               onBlur={() => handleInlineEdit(task.id, editValue)}
@@ -501,9 +503,9 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
               {task.title}
             </span>
           )}
-          {isCrit && <span className="text-[7px] px-0.5 rounded bg-red-500/10 text-red-500 shrink-0">CPM</span>}
+          {isCrit && <span className="text-xs px-0.5 rounded bg-red-500/10 text-red-500 shrink-0">CPM</span>}
           {task.progress > 0 && task.progress < 100 && (
-            <span className="text-[7px] text-muted-foreground tabular-nums shrink-0">{task.progress}%</span>
+            <span className="text-xs text-muted-foreground tabular-nums shrink-0">{task.progress}%</span>
           )}
         </div>
         <div data-bar-area className={cn('relative flex-1', rowIdx % 2 !== 0 && 'bg-muted/10')} style={{ minWidth: totalPx }} onDragOver={e => e.preventDefault()} onDrop={handleDrop}>
@@ -516,7 +518,7 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
                 onMouseMove={e => setTip(t => t ? { ...t, x: e.clientX, y: e.clientY } : null)}
                 onMouseLeave={() => setTip(null)}
                 className={cn('absolute rounded-sm cursor-move text-white font-medium truncate px-0.5 flex items-center gap-0.5 hover:brightness-110 overflow-hidden', isCrit && 'ring-1 ring-red-500')}
-                style={{ left: bar.left, width: bar.width, top: (rowH - barH) / 2, height: barH, backgroundColor: clr, opacity: task.status === 'todo' ? 0.5 : 1, fontSize: Math.max(6, barH * 0.45) }}
+                style={{ left: bar.left, width: bar.width, top: (rowH - barH) / 2, height: barH, backgroundColor: clr, opacity: task.status === 'todo' ? 0.5 : 1, fontSize: Math.max(9, barH * 0.55) }}
               >
                 {/* Progress overlay */}
                 {showProgress && task.progress > 0 && task.progress < 100 && (
@@ -630,7 +632,7 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
         if (mOff < 0 || mOff * ppd > totalPx) return null
         return (
           <div key={ms.id} className="flex border-b border-border/20" style={{ minWidth: pw + totalPx, height: rowH }}>
-            <div className="sticky left-0 z-[5] bg-background border-r border-border flex items-center gap-1 pl-6 text-[10px] text-muted-foreground truncate shrink-0" style={{ width: pw }}>
+            <div className="sticky left-0 z-[5] bg-background border-r border-border flex items-center gap-1 pl-6 text-xs text-muted-foreground truncate shrink-0" style={{ width: pw }}>
               <Milestone size={9} className={ms.status === 'completed' ? 'text-green-500' : 'text-yellow-500'} />
               {ms.name}
             </div>
@@ -737,7 +739,7 @@ function GanttSettingsPanel({ settings, setSettings, scale, vs, ve, presets, set
             <button
               key={v}
               onClick={() => setSettings(s => ({ ...s, showDates: v }))}
-              className={cn('px-1.5 py-0.5 rounded border text-[9px]', settings.showDates === v ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-muted')}
+              className={cn('px-1.5 py-0.5 rounded border text-xs', settings.showDates === v ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-muted')}
             >
               {v === 'none' ? 'Masquées' : v === 'on_bar' ? 'Sur barre' : 'Sous barre'}
             </button>
@@ -760,7 +762,7 @@ function GanttSettingsPanel({ settings, setSettings, scale, vs, ve, presets, set
               key={st}
               onClick={() => toggleStatus(st)}
               className={cn(
-                'px-1.5 py-0.5 rounded border text-[9px] flex items-center gap-1',
+                'px-1.5 py-0.5 rounded border text-xs flex items-center gap-1',
                 hidden
                   ? 'border-red-500/30 bg-red-500/10 text-red-600 line-through'
                   : 'border-border hover:bg-muted text-foreground',
@@ -782,7 +784,7 @@ function GanttSettingsPanel({ settings, setSettings, scale, vs, ve, presets, set
                 return { ...s, hiddenPriorities: cur.includes(pr) ? cur.filter(x => x !== pr) : [...cur, pr] }
               })}
               className={cn(
-                'px-1.5 py-0.5 rounded border text-[9px] flex items-center gap-1',
+                'px-1.5 py-0.5 rounded border text-xs flex items-center gap-1',
                 hidden
                   ? 'border-red-500/30 bg-red-500/10 text-red-600 line-through'
                   : 'border-border hover:bg-muted text-foreground',
@@ -796,7 +798,7 @@ function GanttSettingsPanel({ settings, setSettings, scale, vs, ve, presets, set
         {(settings.hiddenStatuses.length > 0 || settings.hiddenPriorities.length > 0) && (
           <button
             onClick={() => setSettings(s => ({ ...s, hiddenStatuses: [], hiddenPriorities: [] }))}
-            className="text-[9px] text-primary hover:text-primary/80"
+            className="text-xs text-primary hover:text-primary/80"
           >
             Tout afficher
           </button>
@@ -812,10 +814,10 @@ function GanttSettingsPanel({ settings, setSettings, scale, vs, ve, presets, set
             value={settings.filterAssignee || ''}
             onChange={e => setSettings(s => ({ ...s, filterAssignee: e.target.value || null }))}
             placeholder="Filtrer par nom..."
-            className="h-5 px-1.5 text-[9px] border border-border rounded bg-background w-[130px]"
+            className="h-5 px-1.5 text-xs border border-border rounded bg-background w-[130px]"
           />
           {settings.filterAssignee && (
-            <button onClick={() => setSettings(s => ({ ...s, filterAssignee: null }))} className="text-[9px] text-primary">✕</button>
+            <button onClick={() => setSettings(s => ({ ...s, filterAssignee: null }))} className="text-xs text-primary">✕</button>
           )}
         </div>
         <label className="flex items-center gap-1.5 cursor-pointer">
@@ -828,13 +830,13 @@ function GanttSettingsPanel({ settings, setSettings, scale, vs, ve, presets, set
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-muted-foreground font-medium">Modèles:</span>
         {settings.activePreset && (
-          <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+          <span className="text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
             {settings.activePreset}
           </span>
         )}
         <button
           onClick={() => setShowPresets(v => !v)}
-          className="flex items-center gap-1 text-[9px] text-primary hover:text-primary/80"
+          className="flex items-center gap-1 text-xs text-primary hover:text-primary/80"
         >
           <FolderOpen size={10} /> Charger
         </button>
@@ -845,12 +847,12 @@ function GanttSettingsPanel({ settings, setSettings, scale, vs, ve, presets, set
             onChange={e => setNewPresetName(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') handleSavePreset() }}
             placeholder="Nom du modèle..."
-            className="h-5 px-1.5 text-[9px] border border-border rounded bg-background w-[120px]"
+            className="h-5 px-1.5 text-xs border border-border rounded bg-background w-[120px]"
           />
           <button
             onClick={handleSavePreset}
             disabled={!newPresetName.trim()}
-            className="flex items-center gap-0.5 text-[9px] text-primary hover:text-primary/80 disabled:opacity-40"
+            className="flex items-center gap-0.5 text-xs text-primary hover:text-primary/80 disabled:opacity-40"
           >
             <Save size={10} /> Enregistrer
           </button>
@@ -861,11 +863,11 @@ function GanttSettingsPanel({ settings, setSettings, scale, vs, ve, presets, set
       {showPresets && presets.length > 0 && (
         <div className="border border-border rounded p-2 bg-background space-y-1">
           {presets.map(p => (
-            <div key={p.name} className="flex items-center gap-2 text-[10px] hover:bg-muted/40 px-1.5 py-0.5 rounded">
+            <div key={p.name} className="flex items-center gap-2 text-xs hover:bg-muted/40 px-1.5 py-0.5 rounded">
               <button onClick={() => handleLoadPreset(p)} className="flex-1 text-left truncate text-foreground hover:text-primary">
                 {p.name}
               </button>
-              <span className="text-muted-foreground text-[8px]">{p.scale} · {Math.round((p.settings.zoomFactor || 1) * 100)}%</span>
+              <span className="text-muted-foreground text-[11px]">{p.scale} · {Math.round((p.settings.zoomFactor || 1) * 100)}%</span>
               <button onClick={() => handleDeletePreset(p.name)} className="p-0.5 hover:text-red-500 text-muted-foreground">
                 <Trash2 size={9} />
               </button>
@@ -874,7 +876,7 @@ function GanttSettingsPanel({ settings, setSettings, scale, vs, ve, presets, set
         </div>
       )}
       {showPresets && presets.length === 0 && (
-        <div className="text-[9px] text-muted-foreground italic pl-2">Aucun modèle sauvegardé</div>
+        <div className="text-xs text-muted-foreground italic pl-2">Aucun modèle sauvegardé</div>
       )}
     </div>
   )
@@ -981,7 +983,9 @@ export function ProjectGanttView() {
 
   const toggle = useCallback((id: string) => { setExp(p => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n }) }, [])
 
-  const rowH = barH + 8
+  // Row height is independent of bar height — always at least 28px for readability
+  // even when bars are thin (e.g. 8px). Bar is centered vertically within the row.
+  const rowH = Math.max(28, barH + 10)
 
   return (
     <div className="flex flex-col h-full">
@@ -1013,9 +1017,9 @@ export function ProjectGanttView() {
         {/* Zoom controls */}
         <div className="flex items-center gap-0.5 ml-2 border-l border-border pl-2">
           <button onClick={zoomOut} className="p-1 rounded hover:bg-accent text-muted-foreground text-xs font-bold" title="Zoom arrière">−</button>
-          <span className="text-[9px] tabular-nums text-muted-foreground w-8 text-center">{Math.round(zoomFactor * 100)}%</span>
+          <span className="text-xs tabular-nums text-muted-foreground w-8 text-center">{Math.round(zoomFactor * 100)}%</span>
           <button onClick={zoomIn} className="p-1 rounded hover:bg-accent text-muted-foreground text-xs font-bold" title="Zoom avant">+</button>
-          <button onClick={fitAll} className="px-1.5 py-0.5 rounded hover:bg-accent text-[9px] text-muted-foreground" title="Ajuster tout à la vue">Fit</button>
+          <button onClick={fitAll} className="px-1.5 py-0.5 rounded hover:bg-accent text-xs text-muted-foreground" title="Ajuster tout à la vue">Fit</button>
         </div>
 
         {/* Settings */}
@@ -1072,8 +1076,8 @@ export function ProjectGanttView() {
             {/* Row 1: groups (year or month depending on scale) */}
             <div className="flex">
               <div className="sticky left-0 z-20 bg-background border-r border-border shrink-0" style={{ width: pw }}>
-                <div className="h-6 flex items-center px-2">
-                  <span className="text-[9px] font-medium uppercase tracking-wide text-muted-foreground">Projet / Tâche</span>
+                <div className="h-7 flex items-center px-2">
+                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Projet / Tâche</span>
                 </div>
               </div>
               <div className="flex cursor-grab active:cursor-grabbing" onMouseDown={handleGrab}>
@@ -1083,7 +1087,7 @@ export function ProjectGanttView() {
                     const w = cells.slice(cellIdx, cellIdx + g.spanCells).reduce((s, c) => s + c.days * ppd, 0)
                     cellIdx += g.spanCells
                     return (
-                      <div key={g.key} className="h-6 flex items-center justify-center border-r border-border/50 text-[9px] font-semibold text-muted-foreground" style={{ width: w }}>
+                      <div key={g.key} className="h-7 flex items-center justify-center border-r border-border/50 text-xs font-semibold text-muted-foreground" style={{ width: w }}>
                         {g.label}
                       </div>
                     )
@@ -1103,7 +1107,7 @@ export function ProjectGanttView() {
                   const w = c.days * ppd
                   const isToday = c.key === todayStr
                   return (
-                    <div key={c.key} className={cn('h-5 flex items-center justify-center border-r border-border/30 text-[8px] text-muted-foreground', isToday && 'bg-primary/5')} style={{ width: w }}>
+                    <div key={c.key} className={cn('h-5 flex items-center justify-center border-r border-border/30 text-[11px] text-muted-foreground', isToday && 'bg-primary/5')} style={{ width: w }}>
                       {w > 20 ? c.label : ''}
                     </div>
                   )
@@ -1168,14 +1172,14 @@ export function ProjectGanttView() {
                     <ChevronDown size={10} className={cn('text-muted-foreground transition-transform shrink-0', !isExp && '-rotate-90')} />
                     {isMacro && <Layers size={10} className="text-primary shrink-0" />}
                     {gouti && <Download size={9} className="text-orange-500 shrink-0" />}
-                    <span className="text-[10px] font-medium truncate">{project.code}</span>
-                    <span className="text-[9px] text-muted-foreground truncate">{project.name}</span>
+                    <span className="text-xs font-medium truncate">{project.code}</span>
+                    <span className="text-xs text-muted-foreground truncate">{project.name}</span>
                   </div>
                   <div className="relative flex-1" style={{ minWidth: totalPx }}>
                     {projBar && (
                       <div
                         onClick={() => open({ type: 'detail', module: 'projets', id: project.id })}
-                        className="absolute rounded-sm cursor-pointer hover:brightness-110 flex items-center px-1 text-white text-[8px] font-medium truncate"
+                        className="absolute rounded-sm cursor-pointer hover:brightness-110 flex items-center px-1 text-white text-[11px] font-medium truncate"
                         style={{ left: projBar.left, width: projBar.width, top: (rowH + 4 - barH - 2) / 2, height: barH + 2, backgroundColor: color }}
                       >
                         {showLabels && <span className="truncate">{project.progress}%</span>}

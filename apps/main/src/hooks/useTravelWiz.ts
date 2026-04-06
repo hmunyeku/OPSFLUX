@@ -480,6 +480,14 @@ export function usePackageElements(cargoItemId: string | undefined) {
   })
 }
 
+export function useCargoHistory(cargoItemId: string | undefined) {
+  return useQuery({
+    queryKey: ['travelwiz', 'cargo', cargoItemId, 'history'],
+    queryFn: () => travelwizService.getCargoHistory(cargoItemId!),
+    enabled: !!cargoItemId,
+  })
+}
+
 export function useAddPackageElement() {
   const qc = useQueryClient()
   return useMutation({

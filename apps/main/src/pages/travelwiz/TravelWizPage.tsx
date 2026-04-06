@@ -65,6 +65,7 @@ import {
   useUpdateCargoStatus,
   useInitiateCargoReturn,
   usePackageElements,
+  useCargoHistory,
   useSapMatch,
   useAllManifests,
   useValidateManifest,
@@ -2333,6 +2334,7 @@ function CargoDetailPanel({ id }: { id: string }) {
   const updateCargoSt = useUpdateCargoStatus()
   const initiateReturn = useInitiateCargoReturn()
   const { data: packageElements } = usePackageElements(id)
+  const { data: cargoHistory } = useCargoHistory(id)
   const sapMatch = useSapMatch()
   const { toast } = useToast()
   const [editing, setEditing] = useState(false)
@@ -2475,9 +2477,34 @@ function CargoDetailPanel({ id }: { id: string }) {
               )}
             </FormSection>
 
-            {/* Status history placeholder */}
             <FormSection title="Historique statut" collapsible defaultExpanded={false}>
-              <p className="text-xs text-muted-foreground py-2">L'historique des changements de statut sera affiche ici.</p>
+              {cargoHistory && cargoHistory.length > 0 ? (
+                <div className="space-y-2">
+                  {cargoHistory.map((entry) => {
+                    const details = entry.details ?? {}
+                    const fromStatus = typeof details.from_status === 'string' ? details.from_status : null
+                    const toStatus = typeof details.to_status === 'string' ? details.to_status : null
+                    const changedFields = details.changes && typeof details.changes === 'object'
+                      ? Object.keys(details.changes as Record<string, unknown>)
+                      : []
+                    return (
+                      <div key={entry.id} className="rounded-lg border border-border/60 bg-card px-3 py-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-sm font-medium text-foreground">{entry.action}</p>
+                          <p className="text-[11px] text-muted-foreground">{new Date(entry.created_at).toLocaleString('fr-FR')}</p>
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {entry.actor_name || 'Systeme'}
+                          {fromStatus && toStatus ? ` • ${fromStatus} -> ${toStatus}` : ''}
+                          {!fromStatus && changedFields.length > 0 ? ` • Champs: ${changedFields.join(', ')}` : ''}
+                        </p>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground py-2">Aucun historique disponible.</p>
+              )}
             </FormSection>
 
             {/* Attachments (photos/documents) */}

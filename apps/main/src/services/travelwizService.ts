@@ -16,7 +16,7 @@ import type {
   VoyageEvent, VoyageEventCreate,
   TripKpi,
   DeckLayout, DeckLayoutValidation,
-  PackageElement, PackageElementCreate,
+  PackageElement, PackageElementCreate, CargoHistoryEntry,
   TravelArticle, TravelArticleCreate, TravelArticleImportResult, SapMatchResult,
   CaptainAuth, CaptainManifest,
   TravelDashboardTripsToday, TravelDashboardCargoPending, TravelFleetKpi,
@@ -321,6 +321,11 @@ export const travelwizService = {
   // ── Package Elements ──
   getPackageElements: async (cargoItemId: string): Promise<PackageElement[]> => {
     const { data } = await api.get(`${BASE}/cargo/${cargoItemId}/elements`)
+    return data
+  },
+
+  getCargoHistory: async (cargoItemId: string): Promise<CargoHistoryEntry[]> => {
+    const { data } = await api.get(`${BASE}/cargo/${cargoItemId}/history`)
     return data
   },
 

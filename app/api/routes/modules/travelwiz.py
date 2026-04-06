@@ -20,11 +20,12 @@ from sqlalchemy import select, func as sqla_func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, has_user_permission, require_permission
+from app.core.audit import record_audit
 from app.core.database import get_db
 from app.services.core.delete_service import delete_entity
 from app.core.pagination import PaginationParams, paginate
 from app.models.asset_registry import Installation
-from app.models.common import Tier, User
+from app.models.common import AuditLog, Tier, User
 from app.services.core.fsm_service import fsm_service, FSMError
 from app.models.travelwiz import (
     CaptainLog,
@@ -118,6 +119,18 @@ def _serialize_package_element(element: PackageElement) -> dict:
             if getattr(element, "created_at", None) is not None
             else datetime.now(timezone.utc).isoformat()
         ),
+    }
+
+
+def _serialize_cargo_history_entry(entry: AuditLog, actor_name: str | None) -> dict:
+    details = entry.details or {}
+    return {
+        "id": str(entry.id),
+        "action": entry.action,
+        "created_at": entry.created_at.isoformat(),
+        "actor_id": str(entry.user_id) if entry.user_id else None,
+        "actor_name": actor_name,
+        "details": details,
     }
 
 
@@ -1439,6 +1452,21 @@ async def create_cargo(
     db.add(cargo)
     await db.commit()
     await db.refresh(cargo)
+    await record_audit(
+        db,
+        action="travelwiz.cargo.create",
+        resource_type="cargo_item",
+        resource_id=str(cargo.id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={
+            "tracking_code": cargo.tracking_code,
+            "status": cargo.status,
+            "manifest_id": str(cargo.manifest_id) if cargo.manifest_id else None,
+            "cargo_type": cargo.cargo_type,
+        },
+    )
+    await db.commit()
     d = {c.key: getattr(cargo, c.key) for c in cargo.__table__.columns}
     d["sender_name"] = None
     d["destination_name"] = None
@@ -1469,6 +1497,33 @@ async def get_cargo(
     return d
 
 
+@router.get("/cargo/{cargo_id}/history")
+async def get_cargo_history(
+    cargo_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_cargo_or_404(db, cargo_id, entity_id)
+    result = await db.execute(
+        select(AuditLog, User.first_name, User.last_name)
+        .outerjoin(User, User.id == AuditLog.user_id)
+        .where(
+            AuditLog.entity_id == entity_id,
+            AuditLog.resource_type == "cargo_item",
+            AuditLog.resource_id == str(cargo_id),
+        )
+        .order_by(AuditLog.created_at.desc())
+    )
+    return [
+        _serialize_cargo_history_entry(
+            entry,
+            " ".join(part for part in [first_name, last_name] if part) or None,
+        )
+        for entry, first_name, last_name in result.all()
+    ]
+
+
 @router.patch("/cargo/{cargo_id}", response_model=CargoRead)
 async def update_cargo(
     cargo_id: UUID,
@@ -1478,10 +1533,22 @@ async def update_cargo(
     db: AsyncSession = Depends(get_db),
 ):
     cargo = await _get_cargo_or_404(db, cargo_id, entity_id)
-    for field, value in body.model_dump(exclude_unset=True).items():
+    changes = body.model_dump(exclude_unset=True)
+    for field, value in changes.items():
         setattr(cargo, field, value)
     await db.commit()
     await db.refresh(cargo)
+    if changes:
+        await record_audit(
+            db,
+            action="travelwiz.cargo.update",
+            resource_type="cargo_item",
+            resource_id=str(cargo.id),
+            user_id=None,
+            entity_id=entity_id,
+            details={"changes": changes},
+        )
+        await db.commit()
     d = {c.key: getattr(cargo, c.key) for c in cargo.__table__.columns}
     d["sender_name"] = None
     d["destination_name"] = None
@@ -1499,11 +1566,26 @@ async def update_cargo_status(
 ):
     """Transition cargo to a new status."""
     cargo = await _get_cargo_or_404(db, cargo_id, entity_id)
+    previous_status = cargo.status
     cargo.status = body.status
     if body.damage_notes is not None:
         cargo.damage_notes = body.damage_notes
     await db.commit()
     await db.refresh(cargo)
+    await record_audit(
+        db,
+        action="travelwiz.cargo.status",
+        resource_type="cargo_item",
+        resource_id=str(cargo.id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={
+            "from_status": previous_status,
+            "to_status": cargo.status,
+            "damage_notes": body.damage_notes,
+        },
+    )
+    await db.commit()
     d = {c.key: getattr(cargo, c.key) for c in cargo.__table__.columns}
     d["sender_name"] = None
     d["destination_name"] = None
@@ -1522,11 +1604,26 @@ async def receive_cargo(
     cargo = await _get_cargo_or_404(db, cargo_id, entity_id)
     if cargo.status not in ("in_transit", "delivered_intermediate"):
         raise HTTPException(400, f"Cannot receive cargo in status '{cargo.status}'")
+    previous_status = cargo.status
     cargo.status = "delivered_final"
     cargo.received_by = current_user.id
     cargo.received_at = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(cargo)
+    await record_audit(
+        db,
+        action="travelwiz.cargo.receive",
+        resource_type="cargo_item",
+        resource_id=str(cargo.id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={
+            "from_status": previous_status,
+            "to_status": cargo.status,
+            "received_at": cargo.received_at.isoformat() if cargo.received_at else None,
+        },
+    )
+    await db.commit()
     d = {c.key: getattr(cargo, c.key) for c in cargo.__table__.columns}
     d["sender_name"] = None
     d["destination_name"] = None

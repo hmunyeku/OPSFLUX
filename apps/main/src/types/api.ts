@@ -2361,6 +2361,15 @@ export interface PackageElementCreate {
   sap_code?: string | null
 }
 
+export interface CargoHistoryEntry {
+  id: string
+  action: string
+  created_at: string
+  actor_id: string | null
+  actor_name: string | null
+  details: Record<string, unknown> | null
+}
+
 // ── TravelWiz — Articles (SAP) ─────────────────────────────
 
 export interface TravelArticle {

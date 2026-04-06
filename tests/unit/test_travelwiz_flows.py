@@ -338,6 +338,88 @@ async def test_add_package_element_uses_package_element_model(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_get_cargo_history_returns_audit_entries(monkeypatch):
+    cargo_id = uuid4()
+    entity_id = uuid4()
+    actor_id = uuid4()
+    created_at = datetime.now(timezone.utc)
+    audit_entry = SimpleNamespace(
+        id=uuid4(),
+        action="travelwiz.cargo.status",
+        created_at=created_at,
+        user_id=actor_id,
+        details={"from_status": "registered", "to_status": "in_transit"},
+    )
+    db = FakeDB([FakeResult(all_rows=[(audit_entry, "Aline", "Mukeba")])])
+
+    async def fake_get_cargo_or_404(_db, _cargo_id, _entity_id):
+        return SimpleNamespace(id=_cargo_id)
+
+    monkeypatch.setattr(travelwiz_routes, "_get_cargo_or_404", fake_get_cargo_or_404)
+
+    result = await travelwiz_routes.get_cargo_history(
+        cargo_id=cargo_id,
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=uuid4()),
+        db=db,
+    )
+
+    assert result == [
+        {
+            "id": str(audit_entry.id),
+            "action": "travelwiz.cargo.status",
+            "created_at": created_at.isoformat(),
+            "actor_id": str(actor_id),
+            "actor_name": "Aline Mukeba",
+            "details": {"from_status": "registered", "to_status": "in_transit"},
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_update_cargo_status_records_audit(monkeypatch):
+    cargo_id = uuid4()
+    entity_id = uuid4()
+    actor_id = uuid4()
+    cargo = SimpleNamespace(
+        id=cargo_id,
+        status="registered",
+        damage_notes=None,
+        sender_tier_id=None,
+        destination_asset_id=None,
+        __table__=SimpleNamespace(columns=[]),
+    )
+    db = FakeDB([])
+    audits = []
+
+    async def fake_get_cargo_or_404(_db, _cargo_id, _entity_id):
+        return cargo
+
+    async def fake_record_audit(_db, **kwargs):
+        audits.append(kwargs)
+
+    monkeypatch.setattr(travelwiz_routes, "_get_cargo_or_404", fake_get_cargo_or_404)
+    monkeypatch.setattr(travelwiz_routes, "record_audit", fake_record_audit)
+
+    await travelwiz_routes.update_cargo_status(
+        cargo_id=cargo_id,
+        body=travelwiz_routes.CargoStatusUpdate(status="in_transit", damage_notes="RAS"),
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=actor_id),
+        _=None,
+        db=db,
+    )
+
+    assert db.commits == 2
+    assert audits and audits[0]["action"] == "travelwiz.cargo.status"
+    assert audits[0]["resource_type"] == "cargo_item"
+    assert audits[0]["resource_id"] == str(cargo_id)
+    assert audits[0]["user_id"] == actor_id
+    assert audits[0]["details"]["from_status"] == "registered"
+    assert audits[0]["details"]["to_status"] == "in_transit"
+
+
+@pytest.mark.asyncio
 async def test_verify_captain_session_token_accepts_matching_access():
     voyage_id = uuid4()
     trip_code_access_id = uuid4()

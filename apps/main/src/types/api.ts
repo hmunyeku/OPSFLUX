@@ -2076,6 +2076,24 @@ export interface CargoRequest {
   missing_requirements: string[]
 }
 
+export interface CargoLoadingOption {
+  voyage_id: string
+  voyage_code: string
+  voyage_status: string
+  scheduled_departure: string
+  vector_id: string
+  vector_name: string | null
+  departure_base_name: string | null
+  manifest_id: string | null
+  manifest_status: string | null
+  destination_match: boolean
+  remaining_weight_kg: number | null
+  total_request_weight_kg: number
+  requires_manifest_creation: boolean
+  can_load: boolean
+  blocking_reasons: string[]
+}
+
 export interface CargoRequestCreate {
   title: string
   description?: string | null

@@ -66,12 +66,14 @@ import {
   useCargo,
   useCargoRequests,
   useCargoRequest,
+  useCargoRequestLoadingOptions,
   useCreateCargoRequest,
   useCargoItem,
   useCreateCargo,
   useUpdateCargo,
   useUpdateCargoStatus,
   useUpdateCargoRequest,
+  useApplyCargoRequestLoadingOption,
   useCargoAttachmentEvidence,
   useUpdateCargoWorkflowStatus,
   useUpdateCargoAttachmentEvidence,
@@ -2431,7 +2433,9 @@ function CreateCargoPanel() {
 function CargoRequestDetailPanel({ id }: { id: string }) {
   const { data: cargoRequest, isLoading } = useCargoRequest(id)
   const { data: requestCargoData } = useCargo({ page: 1, page_size: 100, request_id: id })
+  const { data: loadingOptions } = useCargoRequestLoadingOptions(id)
   const updateCargoRequest = useUpdateCargoRequest()
+  const applyLoadingOption = useApplyCargoRequestLoadingOption()
   const { data: tiersData } = useTiers({ page: 1, page_size: 100 })
   const { data: imputationReferences } = useImputationReferences()
   const requestStatusOptions = useDictionaryOptions('travelwiz_cargo_request_status')
@@ -2482,6 +2486,28 @@ function CargoRequestDetailPanel({ id }: { id: string }) {
         title: missing.length > 0
           ? `Demande incomplète: ${missing.map((item) => requirementLabels[item] ?? item).join(', ')}`
           : "Erreur lors de la mise à jour de la demande",
+        variant: 'error',
+      })
+    }
+  }
+
+  const handleApplyLoadingOption = async (voyageId: string) => {
+    try {
+      await applyLoadingOption.mutateAsync({ id, voyageId })
+      toast({ title: 'Proposition de chargement appliquée', variant: 'success' })
+    } catch (error) {
+      const blockingReasons = Array.isArray((error as { response?: { data?: { detail?: { blocking_reasons?: string[] } } } })?.response?.data?.detail?.blocking_reasons)
+        ? ((error as { response?: { data?: { detail?: { blocking_reasons?: string[] } } } }).response?.data?.detail?.blocking_reasons ?? [])
+        : []
+      const reasonLabels: Record<string, string> = {
+        destination_mismatch: 'destination non desservie par le voyage',
+        manifest_not_draft: 'manifeste cargo non modifiable',
+        insufficient_weight_capacity: 'capacité poids insuffisante',
+      }
+      toast({
+        title: blockingReasons.length > 0
+          ? `Chargement impossible: ${blockingReasons.map((item) => reasonLabels[item] ?? item).join(', ')}`
+          : 'Erreur lors de l’affectation au voyage',
         variant: 'error',
       })
     }
@@ -2642,6 +2668,54 @@ function CargoRequestDetailPanel({ id }: { id: string }) {
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground">Aucun colis rattaché à cette demande.</p>
+              )}
+            </FormSection>
+
+            <FormSection title="Propositions de chargement" collapsible defaultExpanded>
+              {(loadingOptions ?? []).length > 0 ? (
+                <div className="space-y-2">
+                  {loadingOptions!.map((option) => (
+                    <div key={option.voyage_id} className="rounded-lg border border-border/60 bg-card px-3 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground">{option.voyage_code}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {option.vector_name ?? 'Vecteur'} · départ {new Date(option.scheduled_departure).toLocaleString('fr-FR')}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Base: {option.departure_base_name ?? '—'} · reste {option.remaining_weight_kg != null ? `${option.remaining_weight_kg.toLocaleString('fr-FR')} kg` : 'poids non borné'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Demande: {option.total_request_weight_kg.toLocaleString('fr-FR')} kg · destination {option.destination_match ? 'compatible' : 'non compatible'}
+                          </p>
+                          {option.blocking_reasons.length > 0 && (
+                            <p className="mt-1 text-xs text-amber-700">
+                              Blocages: {option.blocking_reasons.map((item) => ({
+                                destination_mismatch: 'destination non desservie',
+                                manifest_not_draft: 'manifeste non draft',
+                                insufficient_weight_capacity: 'capacité poids insuffisante',
+                              }[item] ?? item)).join(', ')}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                          <span className={cn('gl-badge', option.can_load ? 'gl-badge-success' : 'gl-badge-warning')}>
+                            {option.can_load ? 'Chargeable' : 'Bloqué'}
+                          </span>
+                          <PanelActionButton
+                            variant="primary"
+                            onClick={() => handleApplyLoadingOption(option.voyage_id)}
+                            disabled={!option.can_load || applyLoadingOption.isPending || cargoRequest.status !== 'approved'}
+                          >
+                            {applyLoadingOption.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Affecter'}
+                          </PanelActionButton>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">Aucune proposition de chargement disponible pour le moment.</p>
               )}
             </FormSection>
           </>

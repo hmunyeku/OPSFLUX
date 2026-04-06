@@ -10,7 +10,7 @@ import type {
   VoyageStop, VoyageStopCreate, VoyageStopUpdate,
   Manifest, ManifestCreate, ManifestWithTrip,
   ManifestPassenger, ManifestPassengerCreate, ManifestPassengerUpdate,
-  CargoAttachmentEvidence, CargoItem, CargoItemCreate, CargoItemUpdate, CargoRequest, CargoRequestCreate, CargoRequestUpdate, CargoStatusUpdate, CargoWorkflowStatusUpdate, CargoReceive, CargoReturnCreate,
+  CargoAttachmentEvidence, CargoItem, CargoItemCreate, CargoItemUpdate, CargoRequest, CargoRequestCreate, CargoRequestUpdate, CargoLoadingOption, CargoStatusUpdate, CargoWorkflowStatusUpdate, CargoReceive, CargoReturnCreate,
   CaptainLog, CaptainLogCreate,
   VoyageCapacity,
   VoyageEvent, VoyageEventCreate,
@@ -185,6 +185,28 @@ function normalizeCargoRequest(data: Record<string, unknown>): CargoRequest {
     is_ready_for_submission: typeof data.is_ready_for_submission === 'boolean' ? data.is_ready_for_submission : false,
     missing_requirements: Array.isArray(data.missing_requirements)
       ? data.missing_requirements.filter((item): item is string => typeof item === 'string')
+      : [],
+  }
+}
+
+function normalizeCargoLoadingOption(data: Record<string, unknown>): CargoLoadingOption {
+  return {
+    voyage_id: String(data.voyage_id ?? ''),
+    voyage_code: String(data.voyage_code ?? ''),
+    voyage_status: String(data.voyage_status ?? ''),
+    scheduled_departure: typeof data.scheduled_departure === 'string' ? data.scheduled_departure : new Date().toISOString(),
+    vector_id: String(data.vector_id ?? ''),
+    vector_name: typeof data.vector_name === 'string' ? data.vector_name : null,
+    departure_base_name: typeof data.departure_base_name === 'string' ? data.departure_base_name : null,
+    manifest_id: typeof data.manifest_id === 'string' ? data.manifest_id : null,
+    manifest_status: typeof data.manifest_status === 'string' ? data.manifest_status : null,
+    destination_match: typeof data.destination_match === 'boolean' ? data.destination_match : false,
+    remaining_weight_kg: typeof data.remaining_weight_kg === 'number' ? data.remaining_weight_kg : null,
+    total_request_weight_kg: typeof data.total_request_weight_kg === 'number' ? data.total_request_weight_kg : 0,
+    requires_manifest_creation: typeof data.requires_manifest_creation === 'boolean' ? data.requires_manifest_creation : false,
+    can_load: typeof data.can_load === 'boolean' ? data.can_load : false,
+    blocking_reasons: Array.isArray(data.blocking_reasons)
+      ? data.blocking_reasons.filter((item): item is string => typeof item === 'string')
       : [],
   }
 }
@@ -456,6 +478,16 @@ export const travelwizService = {
 
   updateCargoRequest: async (id: string, payload: CargoRequestUpdate): Promise<CargoRequest> => {
     const { data } = await api.patch(`${BASE}/cargo-requests/${id}`, payload)
+    return normalizeCargoRequest(data)
+  },
+
+  getCargoRequestLoadingOptions: async (id: string): Promise<CargoLoadingOption[]> => {
+    const { data } = await api.get(`${BASE}/cargo-requests/${id}/loading-options`)
+    return Array.isArray(data) ? data.map((item: Record<string, unknown>) => normalizeCargoLoadingOption(item)) : []
+  },
+
+  applyCargoRequestLoadingOption: async (id: string, voyageId: string): Promise<CargoRequest> => {
+    const { data } = await api.post(`${BASE}/cargo-requests/${id}/loading-options/${voyageId}/apply`)
     return normalizeCargoRequest(data)
   },
 

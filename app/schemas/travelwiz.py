@@ -520,6 +520,24 @@ class CargoRequestRead(OpsFluxSchema):
     missing_requirements: list[str] = []
 
 
+class CargoLoadingOptionRead(OpsFluxSchema):
+    voyage_id: UUID
+    voyage_code: str
+    voyage_status: str
+    scheduled_departure: datetime
+    vector_id: UUID
+    vector_name: str | None = None
+    departure_base_name: str | None = None
+    manifest_id: UUID | None = None
+    manifest_status: str | None = None
+    destination_match: bool = False
+    remaining_weight_kg: float | None = None
+    total_request_weight_kg: float = 0
+    requires_manifest_creation: bool = False
+    can_load: bool = False
+    blocking_reasons: list[str] = []
+
+
 class CargoAttachmentEvidenceUpdate(BaseModel):
     evidence_type: str = Field(
         ...,

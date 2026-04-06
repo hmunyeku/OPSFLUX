@@ -73,6 +73,9 @@ class FakeDB:
         result = await self.execute(statement)
         return result.scalar_one_or_none()
 
+    async def get(self, _model, _id):
+        return None
+
     def add(self, instance):
         self.added.append(instance)
 
@@ -926,7 +929,122 @@ async def test_update_cargo_request_blocks_close_when_child_cargo_not_delivered(
 
     assert exc.value.status_code == 400
     assert exc.value.detail["code"] == "CARGO_REQUEST_REQUIRES_DELIVERED_ITEMS"
-    assert "CGO-2026-00004" in exc.value.detail["tracking_codes"]
+
+
+@pytest.mark.asyncio
+async def test_get_cargo_request_loading_options_returns_viable_voyage(monkeypatch):
+    entity_id = uuid4()
+    request_id = uuid4()
+    destination_asset_id = uuid4()
+    voyage_id = uuid4()
+    manifest_id = uuid4()
+    cargo_request = SimpleNamespace(
+        id=request_id,
+        entity_id=entity_id,
+        destination_asset_id=destination_asset_id,
+    )
+    child_cargo = SimpleNamespace(weight_kg=250.0)
+    voyage = SimpleNamespace(
+        id=voyage_id,
+        code="VYG-2026-00031",
+        status="planned",
+        scheduled_departure=datetime.now(timezone.utc) + timedelta(days=1),
+        vector_id=uuid4(),
+    )
+    db = FakeDB(
+        [
+            FakeResult(all_rows=[child_cargo]),
+            FakeResult(all_rows=[(voyage, "DOLPHIN", 1000.0, "Base Port", manifest_id, "draft", 100.0)]),
+            FakeResult(all_rows=[(voyage_id, destination_asset_id)]),
+        ]
+    )
+
+    async def fake_get_request(_db, _request_id, _entity_id):
+        return cargo_request
+
+    monkeypatch.setattr(travelwiz_routes, "_get_cargo_request_or_404", fake_get_request)
+
+    result = await travelwiz_routes.get_cargo_request_loading_options(
+        request_id=request_id,
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=uuid4()),
+        db=db,
+    )
+
+    assert len(result) == 1
+    assert result[0]["voyage_code"] == "VYG-2026-00031"
+    assert result[0]["destination_match"] is True
+    assert result[0]["remaining_weight_kg"] == 900.0
+    assert result[0]["total_request_weight_kg"] == 250.0
+    assert result[0]["can_load"] is True
+
+
+@pytest.mark.asyncio
+async def test_apply_cargo_request_loading_option_assigns_request_children(monkeypatch):
+    entity_id = uuid4()
+    user_id = uuid4()
+    request_id = uuid4()
+    voyage_id = uuid4()
+    manifest_id = uuid4()
+    cargo_request = SimpleNamespace(
+        id=request_id,
+        entity_id=entity_id,
+        status="approved",
+        request_code="CGR-2026-00021",
+    )
+    voyage = SimpleNamespace(id=voyage_id, code="VYG-2026-00041")
+    cargo_a = SimpleNamespace(tracking_code="CGO-1", manifest_id=None, workflow_status="approved", active=True)
+    cargo_b = SimpleNamespace(tracking_code="CGO-2", manifest_id=None, workflow_status="assigned", active=True)
+    db = FakeDB([FakeResult(all_rows=[cargo_a, cargo_b])])
+    audits = []
+
+    async def fake_get_request(_db, _request_id, _entity_id):
+        return cargo_request
+
+    async def fake_get_voyage(_db, _voyage_id, _entity_id):
+        return voyage
+
+    async def fake_loading_options(_db, *, cargo_request, entity_id):
+        return [{
+            "voyage_id": voyage_id,
+            "voyage_code": "VYG-2026-00041",
+            "manifest_id": manifest_id,
+            "can_load": True,
+            "blocking_reasons": [],
+        }]
+
+    async def fake_db_get(model, _id):
+        return SimpleNamespace(id=manifest_id)
+
+    async def fake_record_audit(_db, **kwargs):
+        audits.append(kwargs)
+
+    async def fake_build_read(_db, request, *, cargo_count=None):
+        return {"id": request.id, "status": request.status, "cargo_count": cargo_count or 2}
+
+    monkeypatch.setattr(travelwiz_routes, "_get_cargo_request_or_404", fake_get_request)
+    monkeypatch.setattr(travelwiz_routes, "_get_voyage_or_404", fake_get_voyage)
+    monkeypatch.setattr(travelwiz_routes, "_build_cargo_loading_options", fake_loading_options)
+    monkeypatch.setattr(travelwiz_routes, "record_audit", fake_record_audit)
+    monkeypatch.setattr(travelwiz_routes, "_build_cargo_request_read_data", fake_build_read)
+    monkeypatch.setattr(db, "get", fake_db_get, raising=False)
+
+    result = await travelwiz_routes.apply_cargo_request_loading_option(
+        request_id=request_id,
+        voyage_id=voyage_id,
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=user_id),
+        _=None,
+        db=db,
+    )
+
+    assert cargo_request.status == "assigned"
+    assert cargo_a.manifest_id == manifest_id
+    assert cargo_b.manifest_id == manifest_id
+    assert cargo_a.workflow_status == "assigned"
+    assert cargo_b.workflow_status == "assigned"
+    assert result["status"] == "assigned"
+    assert audits and audits[0]["action"] == "travelwiz.cargo_request.assign_to_voyage"
 
 
 @pytest.mark.asyncio

@@ -424,6 +424,14 @@ export function useCargoRequest(id: string | undefined) {
   })
 }
 
+export function useCargoRequestLoadingOptions(id: string | undefined) {
+  return useQuery({
+    queryKey: ['travelwiz', 'cargo-requests', id, 'loading-options'],
+    queryFn: () => travelwizService.getCargoRequestLoadingOptions(id!),
+    enabled: !!id,
+  })
+}
+
 export function useCreateCargoRequest() {
   const qc = useQueryClient()
   return useMutation({
@@ -439,9 +447,27 @@ export function useUpdateCargoRequest() {
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: CargoRequestUpdate }) =>
       travelwizService.updateCargoRequest(id, payload),
-    onSuccess: () => {
+    onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['travelwiz', 'cargo-requests'] })
+      qc.invalidateQueries({ queryKey: ['travelwiz', 'cargo-requests', id] })
+      qc.invalidateQueries({ queryKey: ['travelwiz', 'cargo-requests', id, 'loading-options'] })
       qc.invalidateQueries({ queryKey: ['travelwiz', 'cargo'] })
+    },
+  })
+}
+
+export function useApplyCargoRequestLoadingOption() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, voyageId }: { id: string; voyageId: string }) =>
+      travelwizService.applyCargoRequestLoadingOption(id, voyageId),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: ['travelwiz', 'cargo-requests'] })
+      qc.invalidateQueries({ queryKey: ['travelwiz', 'cargo-requests', id] })
+      qc.invalidateQueries({ queryKey: ['travelwiz', 'cargo-requests', id, 'loading-options'] })
+      qc.invalidateQueries({ queryKey: ['travelwiz', 'cargo'] })
+      qc.invalidateQueries({ queryKey: ['travelwiz', 'voyages'] })
+      qc.invalidateQueries({ queryKey: ['travelwiz', 'all-manifests'] })
     },
   })
 }

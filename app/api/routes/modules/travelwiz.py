@@ -56,6 +56,7 @@ from app.schemas.travelwiz import (
     CargoAttachmentEvidenceRead,
     CargoAttachmentEvidenceUpdate,
     CargoRead,
+    CargoLoadingOptionRead,
     CargoRequestCreate,
     CargoRequestRead,
     CargoRequestUpdate,
@@ -548,6 +549,120 @@ def _cargo_request_to_payload(cargo_request: CargoRequest | dict | object) -> di
             if not key.startswith("_")
         }
     raise TypeError("Unsupported cargo request payload object")
+
+
+async def _build_cargo_loading_options(
+    db: AsyncSession,
+    *,
+    cargo_request: CargoRequest,
+    entity_id: UUID,
+) -> list[dict]:
+    cargo_result = await db.execute(
+        select(CargoItem).where(
+            CargoItem.request_id == cargo_request.id,
+            CargoItem.active == True,  # noqa: E712
+        )
+    )
+    request_cargo = cargo_result.scalars().all()
+    total_request_weight = float(sum(float(cargo.weight_kg or 0) for cargo in request_cargo))
+
+    manifest_weight_sq = (
+        select(
+            VoyageManifest.voyage_id.label("voyage_id"),
+            sqla_func.sum(CargoItem.weight_kg).label("assigned_weight_kg"),
+        )
+        .join(CargoItem, CargoItem.manifest_id == VoyageManifest.id)
+        .where(
+            VoyageManifest.manifest_type == "cargo",
+            VoyageManifest.active == True,  # noqa: E712
+            CargoItem.active == True,  # noqa: E712
+        )
+        .group_by(VoyageManifest.voyage_id)
+        .subquery()
+    )
+
+    manifest_sq = (
+        select(
+            VoyageManifest.voyage_id.label("voyage_id"),
+            VoyageManifest.id.label("manifest_id"),
+            VoyageManifest.status.label("manifest_status"),
+        )
+        .where(
+            VoyageManifest.manifest_type == "cargo",
+            VoyageManifest.active == True,  # noqa: E712
+        )
+        .subquery()
+    )
+
+    voyage_result = await db.execute(
+        select(
+            Voyage,
+            TransportVector.name.label("vector_name"),
+            TransportVector.weight_capacity_kg.label("weight_capacity_kg"),
+            Installation.name.label("departure_base_name"),
+            manifest_sq.c.manifest_id,
+            manifest_sq.c.manifest_status,
+            sqla_func.coalesce(manifest_weight_sq.c.assigned_weight_kg, 0).label("assigned_weight_kg"),
+        )
+        .join(TransportVector, Voyage.vector_id == TransportVector.id)
+        .outerjoin(Installation, Voyage.departure_base_id == Installation.id)
+        .outerjoin(manifest_sq, manifest_sq.c.voyage_id == Voyage.id)
+        .outerjoin(manifest_weight_sq, manifest_weight_sq.c.voyage_id == Voyage.id)
+        .where(
+            Voyage.entity_id == entity_id,
+            Voyage.active == True,  # noqa: E712
+            Voyage.status.in_(["planned", "confirmed", "boarding", "delayed"]),
+        )
+        .order_by(Voyage.scheduled_departure.asc())
+    )
+    voyage_rows = voyage_result.all()
+    voyage_ids = [voyage.id for voyage, *_ in voyage_rows]
+
+    stop_assets_by_voyage: dict[UUID, set[UUID]] = {}
+    if voyage_ids:
+        stop_result = await db.execute(
+            select(VoyageStop.voyage_id, VoyageStop.asset_id).where(
+                VoyageStop.voyage_id.in_(voyage_ids),
+                VoyageStop.active == True,  # noqa: E712
+            )
+        )
+        for voyage_id, asset_id in stop_result.all():
+            stop_assets_by_voyage.setdefault(voyage_id, set()).add(asset_id)
+
+    destination_asset_id = cargo_request.destination_asset_id
+    options: list[dict] = []
+    for voyage, vector_name, weight_capacity_kg, departure_base_name, manifest_id, manifest_status, assigned_weight_kg in voyage_rows:
+        stop_assets = stop_assets_by_voyage.get(voyage.id, set())
+        destination_match = bool(destination_asset_id and destination_asset_id in stop_assets)
+        remaining_weight = None if weight_capacity_kg is None else max(float(weight_capacity_kg or 0) - float(assigned_weight_kg or 0), 0.0)
+        blocking_reasons: list[str] = []
+        if destination_asset_id and not destination_match:
+            blocking_reasons.append("destination_mismatch")
+        if manifest_status and manifest_status != "draft":
+            blocking_reasons.append("manifest_not_draft")
+        if remaining_weight is not None and total_request_weight > remaining_weight:
+            blocking_reasons.append("insufficient_weight_capacity")
+        can_load = len(blocking_reasons) == 0
+        options.append(
+            {
+                "voyage_id": voyage.id,
+                "voyage_code": voyage.code,
+                "voyage_status": voyage.status,
+                "scheduled_departure": voyage.scheduled_departure,
+                "vector_id": voyage.vector_id,
+                "vector_name": vector_name,
+                "departure_base_name": departure_base_name,
+                "manifest_id": manifest_id,
+                "manifest_status": manifest_status,
+                "destination_match": destination_match,
+                "remaining_weight_kg": remaining_weight,
+                "total_request_weight_kg": total_request_weight,
+                "requires_manifest_creation": manifest_id is None,
+                "can_load": can_load,
+                "blocking_reasons": blocking_reasons,
+            }
+        )
+    return options
 
 
 async def _generate_voyage_code(db: AsyncSession, entity_id: UUID) -> str:
@@ -1864,6 +1979,89 @@ async def update_cargo_request(
         user_id=current_user.id,
         entity_id=entity_id,
         details={"status": cargo_request.status},
+    )
+    await db.commit()
+    return await _build_cargo_request_read_data(db, cargo_request)
+
+
+@router.get("/cargo-requests/{request_id}/loading-options", response_model=list[CargoLoadingOptionRead])
+async def get_cargo_request_loading_options(
+    request_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    cargo_request = await _get_cargo_request_or_404(db, request_id, entity_id)
+    return await _build_cargo_loading_options(db, cargo_request=cargo_request, entity_id=entity_id)
+
+
+@router.post("/cargo-requests/{request_id}/loading-options/{voyage_id}/apply", response_model=CargoRequestRead)
+async def apply_cargo_request_loading_option(
+    request_id: UUID,
+    voyage_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.cargo.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    cargo_request = await _get_cargo_request_or_404(db, request_id, entity_id)
+    if cargo_request.status not in {"approved", "assigned"}:
+        raise HTTPException(400, "La demande doit être approuvée avant affectation à un voyage")
+
+    loading_options = await _build_cargo_loading_options(db, cargo_request=cargo_request, entity_id=entity_id)
+    selected_option = next((option for option in loading_options if option["voyage_id"] == voyage_id), None)
+    if not selected_option:
+        raise HTTPException(404, "Voyage de chargement introuvable")
+    if not selected_option["can_load"]:
+        raise HTTPException(
+            400,
+            {
+                "code": "CARGO_REQUEST_LOADING_OPTION_BLOCKED",
+                "message": "Le voyage sélectionné ne peut pas recevoir cette demande.",
+                "blocking_reasons": selected_option["blocking_reasons"],
+            },
+        )
+
+    voyage = await _get_voyage_or_404(db, voyage_id, entity_id)
+    manifest_id = selected_option["manifest_id"]
+    manifest: VoyageManifest | None = None
+    if manifest_id:
+        manifest = await db.get(VoyageManifest, manifest_id)
+    if manifest is None:
+        manifest = VoyageManifest(voyage_id=voyage.id, manifest_type="cargo", status="draft")
+        db.add(manifest)
+        await db.flush()
+
+    cargo_result = await db.execute(
+        select(CargoItem).where(
+            CargoItem.request_id == cargo_request.id,
+            CargoItem.active == True,  # noqa: E712
+        )
+    )
+    request_cargo = cargo_result.scalars().all()
+    assigned_tracking_codes: list[str] = []
+    for cargo in request_cargo:
+        cargo.manifest_id = manifest.id
+        if cargo.workflow_status == "approved":
+            cargo.workflow_status = "assigned"
+        assigned_tracking_codes.append(cargo.tracking_code)
+
+    cargo_request.status = "assigned"
+    await db.commit()
+    await db.refresh(cargo_request)
+    await record_audit(
+        db,
+        action="travelwiz.cargo_request.assign_to_voyage",
+        resource_type="cargo_request",
+        resource_id=str(cargo_request.id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={
+            "voyage_id": str(voyage.id),
+            "voyage_code": voyage.code,
+            "manifest_id": str(manifest.id),
+            "tracking_codes": assigned_tracking_codes,
+        },
     )
     await db.commit()
     return await _build_cargo_request_read_data(db, cargo_request)

@@ -312,6 +312,7 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
   project: Project; ppd: number; vs: string; totalPx: number; pw: number; settings: GanttSettings
 }) {
   const { barH, showLabels, showDates, showProgress, hiddenStatuses, hiddenPriorities, filterAssignee } = settings
+  const openPanel = useUIStore(s => s.openDynamicPanel)
   const { data: tasks } = useProjectTasks(project.id)
   const { data: milestones } = useProjectMilestones(project.id)
   const { data: cpm } = useProjectCpm(project.id)
@@ -465,10 +466,11 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
         {/* ── Left panel: tree with expand/collapse + inline edit ── */}
         <div
           className={cn(
-            'sticky left-0 z-[5] border-r border-border flex items-center gap-1 text-xs truncate shrink-0 hover:bg-accent/40 px-1 transition-colors',
+            'sticky left-0 z-[5] border-r border-border flex items-center gap-1 text-xs truncate shrink-0 hover:bg-accent/40 px-1 transition-colors cursor-pointer',
             rowIdx % 2 === 0 ? 'bg-background' : 'bg-muted/10',
           )}
           style={{ width: pw, paddingLeft: `${8 + depth * 18}px` }}
+          onClick={() => openPanel({ type: 'detail', module: 'projets', id: project.id })}
           onMouseEnter={e => buildTip(task, e)}
           onMouseMove={e => setTip(t => t ? { ...t, x: e.clientX, y: e.clientY } : null)}
           onMouseLeave={() => setTip(null)}
@@ -497,7 +499,11 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
             />
           ) : (
             <span
-              className={cn('truncate cursor-text', task.status === 'done' && 'line-through text-muted-foreground')}
+              className={cn(
+                'truncate cursor-text',
+                task.status === 'done' && 'line-through text-muted-foreground',
+                hasChildren && 'font-semibold',
+              )}
               onDoubleClick={() => { setEditingId(task.id); setEditValue(task.title) }}
             >
               {task.title}
@@ -514,6 +520,7 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
               <div
                 draggable
                 onDragStart={e => { e.dataTransfer.setData('application/ptask', JSON.stringify({ id: task.id, s: task.start_date!.split('T')[0], e: task.due_date!.split('T')[0] })); e.dataTransfer.effectAllowed = 'move' }}
+                onClick={() => openPanel({ type: 'detail', module: 'projets', id: project.id })}
                 onMouseEnter={e => buildTip(task, e)}
                 onMouseMove={e => setTip(t => t ? { ...t, x: e.clientX, y: e.clientY } : null)}
                 onMouseLeave={() => setTip(null)}
@@ -721,164 +728,161 @@ function GanttSettingsPanel({ settings, setSettings, scale, vs, ve, presets, set
   }
 
   return (
-    <div className="border-b border-border px-3.5 py-2.5 bg-muted/30 space-y-2.5 text-xs">
-      {/* Row 1: Appearance */}
-      <div className="flex items-center gap-4 flex-wrap">
-        <div className="flex items-center gap-2">
-          <span className="text-muted-foreground font-medium">Barres:</span>
-          <input type="range" min="8" max="32" step="2" value={settings.barH} onChange={e => setSettings(s => ({ ...s, barH: Number(e.target.value) }))} className="w-[80px]" />
-          <span className="tabular-nums text-muted-foreground w-6">{settings.barH}px</span>
-        </div>
-        <label className="flex items-center gap-1.5 cursor-pointer">
-          <input type="checkbox" checked={settings.showLabels} onChange={e => setSettings(s => ({ ...s, showLabels: e.target.checked }))} className="w-3 h-3" />
-          <span className="text-muted-foreground">Noms</span>
-        </label>
-        <div className="flex items-center gap-1.5">
-          <span className="text-muted-foreground">Dates:</span>
-          {(['none', 'on_bar', 'below_bar'] as const).map(v => (
-            <button
-              key={v}
-              onClick={() => setSettings(s => ({ ...s, showDates: v }))}
-              className={cn('px-1.5 py-0.5 rounded border text-xs', settings.showDates === v ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-muted')}
-            >
-              {v === 'none' ? 'Masquées' : v === 'on_bar' ? 'Sur barre' : 'Sous barre'}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-muted-foreground">Zoom:</span>
-          <input type="range" min="25" max="400" step="5" value={Math.round(settings.zoomFactor * 100)} onChange={e => setSettings(s => ({ ...s, zoomFactor: Number(e.target.value) / 100 }))} className="w-[80px]" />
-          <span className="tabular-nums text-muted-foreground w-8">{Math.round(settings.zoomFactor * 100)}%</span>
-        </div>
-      </div>
+    <div className="border-b border-border px-3.5 py-3 bg-muted/30 text-xs">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {/* ── Column 1: Affichage ─────────────────────── */}
+        <fieldset className="border border-border/50 rounded-md p-2.5 space-y-2">
+          <legend className="text-xs font-semibold text-muted-foreground px-1">Affichage</legend>
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground w-14">Barres</span>
+            <input type="range" min="8" max="32" step="2" value={settings.barH} onChange={e => setSettings(s => ({ ...s, barH: Number(e.target.value) }))} className="flex-1" />
+            <span className="tabular-nums text-muted-foreground w-8 text-right">{settings.barH}px</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground w-14">Zoom</span>
+            <input type="range" min="25" max="400" step="5" value={Math.round(settings.zoomFactor * 100)} onChange={e => setSettings(s => ({ ...s, zoomFactor: Number(e.target.value) / 100 }))} className="flex-1" />
+            <span className="tabular-nums text-muted-foreground w-8 text-right">{Math.round(settings.zoomFactor * 100)}%</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input type="checkbox" checked={settings.showLabels} onChange={e => setSettings(s => ({ ...s, showLabels: e.target.checked }))} className="w-3.5 h-3.5 rounded" />
+              <span className="text-muted-foreground">Noms</span>
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input type="checkbox" checked={settings.showProgress} onChange={e => setSettings(s => ({ ...s, showProgress: e.target.checked }))} className="w-3.5 h-3.5 rounded" />
+              <span className="text-muted-foreground">Progression</span>
+            </label>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground shrink-0">Dates</span>
+            {(['none', 'on_bar', 'below_bar'] as const).map(v => (
+              <button
+                key={v}
+                onClick={() => setSettings(s => ({ ...s, showDates: v }))}
+                className={cn('px-2 py-0.5 rounded border text-xs', settings.showDates === v ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-muted')}
+              >
+                {v === 'none' ? 'Masquées' : v === 'on_bar' ? 'Sur barre' : 'Sous barre'}
+              </button>
+            ))}
+          </div>
+        </fieldset>
 
-      {/* Row 2: Status + Priority filter */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-muted-foreground font-medium">Statut:</span>
-        {TASK_STATUSES.map(st => {
-          const hidden = settings.hiddenStatuses.includes(st)
-          return (
-            <button
-              key={st}
-              onClick={() => toggleStatus(st)}
-              className={cn(
-                'px-1.5 py-0.5 rounded border text-xs flex items-center gap-1',
-                hidden
-                  ? 'border-red-500/30 bg-red-500/10 text-red-600 line-through'
-                  : 'border-border hover:bg-muted text-foreground',
-              )}
-            >
-              <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: T_CLR[st] }} />
-              {STATUS_LABELS[st]}
-            </button>
-          )
-        })}
-        <span className="text-muted-foreground font-medium ml-2">Priorité:</span>
-        {TASK_PRIORITIES.map(pr => {
-          const hidden = settings.hiddenPriorities.includes(pr)
-          return (
-            <button
-              key={pr}
-              onClick={() => setSettings(s => {
-                const cur = s.hiddenPriorities
-                return { ...s, hiddenPriorities: cur.includes(pr) ? cur.filter(x => x !== pr) : [...cur, pr] }
-              })}
-              className={cn(
-                'px-1.5 py-0.5 rounded border text-xs flex items-center gap-1',
-                hidden
-                  ? 'border-red-500/30 bg-red-500/10 text-red-600 line-through'
-                  : 'border-border hover:bg-muted text-foreground',
-              )}
-            >
-              <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: PRIORITY_CLR[pr] }} />
-              {PRIORITY_LABELS[pr]}
-            </button>
-          )
-        })}
-        {(settings.hiddenStatuses.length > 0 || settings.hiddenPriorities.length > 0) && (
-          <button
-            onClick={() => setSettings(s => ({ ...s, hiddenStatuses: [], hiddenPriorities: [] }))}
-            className="text-xs text-primary hover:text-primary/80"
-          >
-            Tout afficher
-          </button>
-        )}
-      </div>
-
-      {/* Row 2b: Assignee filter + progress toggle */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-1.5">
-          <span className="text-muted-foreground font-medium">Responsable:</span>
-          <input
-            type="text"
-            value={settings.filterAssignee || ''}
-            onChange={e => setSettings(s => ({ ...s, filterAssignee: e.target.value || null }))}
-            placeholder="Filtrer par nom..."
-            className="h-5 px-1.5 text-xs border border-border rounded bg-background w-[130px]"
-          />
-          {settings.filterAssignee && (
-            <button onClick={() => setSettings(s => ({ ...s, filterAssignee: null }))} className="text-xs text-primary">✕</button>
+        {/* ── Column 2: Filtres ──────────────────────── */}
+        <fieldset className="border border-border/50 rounded-md p-2.5 space-y-2">
+          <legend className="text-xs font-semibold text-muted-foreground px-1">Filtres</legend>
+          <div className="flex items-center gap-1 flex-wrap">
+            <span className="text-muted-foreground shrink-0">Statut</span>
+            {TASK_STATUSES.map(st => {
+              const hidden = settings.hiddenStatuses.includes(st)
+              return (
+                <button key={st} onClick={() => toggleStatus(st)}
+                  className={cn('px-1.5 py-0.5 rounded border text-xs flex items-center gap-1', hidden ? 'border-red-500/30 bg-red-500/10 text-red-600 line-through' : 'border-border hover:bg-muted text-foreground')}>
+                  <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: T_CLR[st] }} />
+                  {STATUS_LABELS[st]}
+                </button>
+              )
+            })}
+          </div>
+          <div className="flex items-center gap-1 flex-wrap">
+            <span className="text-muted-foreground shrink-0">Priorité</span>
+            {TASK_PRIORITIES.map(pr => {
+              const hidden = settings.hiddenPriorities.includes(pr)
+              return (
+                <button key={pr} onClick={() => setSettings(s => { const cur = s.hiddenPriorities; return { ...s, hiddenPriorities: cur.includes(pr) ? cur.filter(x => x !== pr) : [...cur, pr] } })}
+                  className={cn('px-1.5 py-0.5 rounded border text-xs flex items-center gap-1', hidden ? 'border-red-500/30 bg-red-500/10 text-red-600 line-through' : 'border-border hover:bg-muted text-foreground')}>
+                  <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: PRIORITY_CLR[pr] }} />
+                  {PRIORITY_LABELS[pr]}
+                </button>
+              )
+            })}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground shrink-0">Responsable</span>
+            <input type="text" value={settings.filterAssignee || ''} onChange={e => setSettings(s => ({ ...s, filterAssignee: e.target.value || null }))} placeholder="Filtrer par nom..." className="h-6 px-2 text-xs border border-border rounded bg-background flex-1" />
+            {settings.filterAssignee && <button onClick={() => setSettings(s => ({ ...s, filterAssignee: null }))} className="text-xs text-primary">✕</button>}
+          </div>
+          {(settings.hiddenStatuses.length > 0 || settings.hiddenPriorities.length > 0) && (
+            <button onClick={() => setSettings(s => ({ ...s, hiddenStatuses: [], hiddenPriorities: [] }))} className="text-xs text-primary hover:text-primary/80">Tout afficher</button>
           )}
-        </div>
-        <label className="flex items-center gap-1.5 cursor-pointer">
-          <input type="checkbox" checked={settings.showProgress} onChange={e => setSettings(s => ({ ...s, showProgress: e.target.checked }))} className="w-3 h-3" />
-          <span className="text-muted-foreground">Progression sur barres</span>
-        </label>
-      </div>
+        </fieldset>
 
-      {/* Row 3: Presets */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-muted-foreground font-medium">Modèles:</span>
-        {settings.activePreset && (
-          <span className="text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
-            {settings.activePreset}
-          </span>
-        )}
-        <button
-          onClick={() => setShowPresets(v => !v)}
-          className="flex items-center gap-1 text-xs text-primary hover:text-primary/80"
-        >
-          <FolderOpen size={10} /> Charger
-        </button>
-        <div className="flex items-center gap-1">
-          <input
-            type="text"
-            value={newPresetName}
-            onChange={e => setNewPresetName(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleSavePreset() }}
-            placeholder="Nom du modèle..."
-            className="h-5 px-1.5 text-xs border border-border rounded bg-background w-[120px]"
-          />
-          <button
-            onClick={handleSavePreset}
-            disabled={!newPresetName.trim()}
-            className="flex items-center gap-0.5 text-xs text-primary hover:text-primary/80 disabled:opacity-40"
-          >
-            <Save size={10} /> Enregistrer
-          </button>
-        </div>
-      </div>
-
-      {/* Preset list (expandable) */}
-      {showPresets && presets.length > 0 && (
-        <div className="border border-border rounded p-2 bg-background space-y-1">
-          {presets.map(p => (
-            <div key={p.name} className="flex items-center gap-2 text-xs hover:bg-muted/40 px-1.5 py-0.5 rounded">
-              <button onClick={() => handleLoadPreset(p)} className="flex-1 text-left truncate text-foreground hover:text-primary">
-                {p.name}
-              </button>
-              <span className="text-muted-foreground text-[11px]">{p.scale} · {Math.round((p.settings.zoomFactor || 1) * 100)}%</span>
-              <button onClick={() => handleDeletePreset(p.name)} className="p-0.5 hover:text-red-500 text-muted-foreground">
-                <Trash2 size={9} />
-              </button>
+        {/* ── Column 3: Modèles ──────────────────────── */}
+        <fieldset className="border border-border/50 rounded-md p-2.5 space-y-2">
+          <legend className="text-xs font-semibold text-muted-foreground px-1">Modèles</legend>
+          {settings.activePreset && (
+            <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 inline-block mb-1">
+              {settings.activePreset}
+            </span>
+          )}
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowPresets(v => !v)} className="flex items-center gap-1 text-xs text-primary hover:text-primary/80">
+              <FolderOpen size={11} /> Charger
+            </button>
+            <input
+              type="text" value={newPresetName} onChange={e => setNewPresetName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleSavePreset() }}
+              placeholder="Nom du modèle..."
+              className="h-6 px-2 text-xs border border-border rounded bg-background flex-1"
+            />
+            <button onClick={handleSavePreset} disabled={!newPresetName.trim()} className="flex items-center gap-0.5 text-xs text-primary hover:text-primary/80 disabled:opacity-40">
+              <Save size={11} /> Sauver
+            </button>
+          </div>
+          {showPresets && presets.length > 0 && (
+            <div className="border border-border rounded bg-background space-y-0.5 p-1">
+              {presets.map(p => (
+                <div key={p.name} className="flex items-center gap-2 text-xs hover:bg-muted/40 px-2 py-1 rounded">
+                  <button onClick={() => handleLoadPreset(p)} className="flex-1 text-left truncate text-foreground hover:text-primary">{p.name}</button>
+                  <span className="text-muted-foreground text-[11px]">{p.scale} · {Math.round((p.settings.zoomFactor || 1) * 100)}%</span>
+                  <button onClick={() => handleDeletePreset(p.name)} className="p-0.5 hover:text-red-500 text-muted-foreground"><Trash2 size={10} /></button>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
-      {showPresets && presets.length === 0 && (
-        <div className="text-xs text-muted-foreground italic pl-2">Aucun modèle sauvegardé</div>
-      )}
+          )}
+          {showPresets && presets.length === 0 && (
+            <div className="text-xs text-muted-foreground italic">Aucun modèle sauvegardé</div>
+          )}
+        </fieldset>
+      </div>
     </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Zoom input — double-click to type, otherwise shows label
+// ═══════════════════════════════════════════════════════════════════════
+
+function ZoomInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(String(value))
+
+  const commit = () => {
+    const n = parseInt(draft)
+    if (!isNaN(n) && n >= 10 && n <= 500) onChange(n)
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        type="number" min="10" max="500" step="5"
+        className="w-12 h-5 text-xs text-center tabular-nums border border-primary rounded bg-background outline-none"
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false) }}
+      />
+    )
+  }
+  return (
+    <span
+      className="text-xs tabular-nums text-muted-foreground w-10 text-center cursor-pointer hover:text-foreground"
+      onDoubleClick={() => { setDraft(String(value)); setEditing(true) }}
+      title="Double-clic pour saisir la valeur"
+    >
+      {value}%
+    </span>
   )
 }
 
@@ -1017,7 +1021,7 @@ export function ProjectGanttView() {
         {/* Zoom controls */}
         <div className="flex items-center gap-0.5 ml-2 border-l border-border pl-2">
           <button onClick={zoomOut} className="p-1 rounded hover:bg-accent text-muted-foreground text-xs font-bold" title="Zoom arrière">−</button>
-          <span className="text-xs tabular-nums text-muted-foreground w-8 text-center">{Math.round(zoomFactor * 100)}%</span>
+          <ZoomInput value={Math.round(zoomFactor * 100)} onChange={v => setSettings(s => ({ ...s, zoomFactor: Math.max(10, Math.min(500, v)) / 100 }))} />
           <button onClick={zoomIn} className="p-1 rounded hover:bg-accent text-muted-foreground text-xs font-bold" title="Zoom avant">+</button>
           <button onClick={fitAll} className="px-1.5 py-0.5 rounded hover:bg-accent text-xs text-muted-foreground" title="Ajuster tout à la vue">Fit</button>
         </div>

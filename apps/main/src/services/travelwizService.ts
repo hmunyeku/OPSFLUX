@@ -203,6 +203,20 @@ function normalizeCargoLoadingOption(data: Record<string, unknown>): CargoLoadin
     destination_match: typeof data.destination_match === 'boolean' ? data.destination_match : false,
     remaining_weight_kg: typeof data.remaining_weight_kg === 'number' ? data.remaining_weight_kg : null,
     total_request_weight_kg: typeof data.total_request_weight_kg === 'number' ? data.total_request_weight_kg : 0,
+    total_request_surface_m2: typeof data.total_request_surface_m2 === 'number' ? data.total_request_surface_m2 : 0,
+    all_items_stackable: typeof data.all_items_stackable === 'boolean' ? data.all_items_stackable : false,
+    compatible_zones: Array.isArray(data.compatible_zones)
+      ? data.compatible_zones.map((item) => {
+          const zone = item as Record<string, unknown>
+          return {
+            zone_id: String(zone.zone_id ?? ''),
+            zone_name: typeof zone.zone_name === 'string' ? zone.zone_name : '',
+            zone_type: typeof zone.zone_type === 'string' ? zone.zone_type : '',
+            surface_m2: typeof zone.surface_m2 === 'number' ? zone.surface_m2 : null,
+            max_weight_kg: typeof zone.max_weight_kg === 'number' ? zone.max_weight_kg : null,
+          }
+        })
+      : [],
     requires_manifest_creation: typeof data.requires_manifest_creation === 'boolean' ? data.requires_manifest_creation : false,
     can_load: typeof data.can_load === 'boolean' ? data.can_load : false,
     blocking_reasons: Array.isArray(data.blocking_reasons)

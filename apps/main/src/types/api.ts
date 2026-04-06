@@ -2089,6 +2089,15 @@ export interface CargoLoadingOption {
   destination_match: boolean
   remaining_weight_kg: number | null
   total_request_weight_kg: number
+  total_request_surface_m2: number
+  all_items_stackable: boolean
+  compatible_zones: Array<{
+    zone_id: string
+    zone_name: string
+    zone_type: string
+    surface_m2: number | null
+    max_weight_kg: number | null
+  }>
   requires_manifest_creation: boolean
   can_load: boolean
   blocking_reasons: string[]

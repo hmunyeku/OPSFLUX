@@ -551,6 +551,18 @@ def _cargo_request_to_payload(cargo_request: CargoRequest | dict | object) -> di
     raise TypeError("Unsupported cargo request payload object")
 
 
+def _estimate_cargo_surface_m2(cargo: CargoItem | object) -> float:
+    explicit_surface = getattr(cargo, "surface_m2", None)
+    if explicit_surface is not None:
+        return float(explicit_surface or 0)
+    width_cm = getattr(cargo, "width_cm", None)
+    length_cm = getattr(cargo, "length_cm", None)
+    package_count = int(getattr(cargo, "package_count", 1) or 1)
+    if width_cm and length_cm:
+        return round((float(width_cm) / 100.0) * (float(length_cm) / 100.0) * package_count, 3)
+    return 0.0
+
+
 async def _build_cargo_loading_options(
     db: AsyncSession,
     *,
@@ -565,6 +577,8 @@ async def _build_cargo_loading_options(
     )
     request_cargo = cargo_result.scalars().all()
     total_request_weight = float(sum(float(cargo.weight_kg or 0) for cargo in request_cargo))
+    total_request_surface = round(sum(_estimate_cargo_surface_m2(cargo) for cargo in request_cargo), 3)
+    all_items_stackable = all(bool(getattr(cargo, "stackable", False)) for cargo in request_cargo) if request_cargo else False
 
     manifest_weight_sq = (
         select(
@@ -617,6 +631,7 @@ async def _build_cargo_loading_options(
     )
     voyage_rows = voyage_result.all()
     voyage_ids = [voyage.id for voyage, *_ in voyage_rows]
+    vector_ids = list({voyage.vector_id for voyage, *_ in voyage_rows})
 
     stop_assets_by_voyage: dict[UUID, set[UUID]] = {}
     if voyage_ids:
@@ -629,12 +644,41 @@ async def _build_cargo_loading_options(
         for voyage_id, asset_id in stop_result.all():
             stop_assets_by_voyage.setdefault(voyage_id, set()).add(asset_id)
 
+    zones_by_vector: dict[UUID, list[TransportVectorZone]] = {}
+    if vector_ids:
+        zone_result = await db.execute(
+            select(TransportVectorZone).where(
+                TransportVectorZone.vector_id.in_(vector_ids),
+                TransportVectorZone.active == True,  # noqa: E712
+            ).order_by(TransportVectorZone.name.asc())
+        )
+        for zone in zone_result.scalars().all():
+            zones_by_vector.setdefault(zone.vector_id, []).append(zone)
+
     destination_asset_id = cargo_request.destination_asset_id
     options: list[dict] = []
     for voyage, vector_name, weight_capacity_kg, departure_base_name, manifest_id, manifest_status, assigned_weight_kg in voyage_rows:
         stop_assets = stop_assets_by_voyage.get(voyage.id, set())
         destination_match = bool(destination_asset_id and destination_asset_id in stop_assets)
         remaining_weight = None if weight_capacity_kg is None else max(float(weight_capacity_kg or 0) - float(assigned_weight_kg or 0), 0.0)
+        compatible_zones: list[dict] = []
+        for zone in zones_by_vector.get(voyage.vector_id, []):
+            zone_surface = None
+            if zone.width_m is not None and zone.length_m is not None:
+                zone_surface = round(float(zone.width_m) * float(zone.length_m), 3)
+            zone_weight_limit = float(zone.max_weight_kg) if zone.max_weight_kg is not None else None
+            surface_ok = zone_surface is None or total_request_surface <= zone_surface or (all_items_stackable and total_request_surface <= zone_surface * 1.25)
+            weight_ok = zone_weight_limit is None or total_request_weight <= zone_weight_limit
+            if surface_ok and weight_ok:
+                compatible_zones.append(
+                    {
+                        "zone_id": str(zone.id),
+                        "zone_name": zone.name,
+                        "zone_type": zone.zone_type,
+                        "surface_m2": zone_surface,
+                        "max_weight_kg": zone_weight_limit,
+                    }
+                )
         blocking_reasons: list[str] = []
         if destination_asset_id and not destination_match:
             blocking_reasons.append("destination_mismatch")
@@ -642,6 +686,8 @@ async def _build_cargo_loading_options(
             blocking_reasons.append("manifest_not_draft")
         if remaining_weight is not None and total_request_weight > remaining_weight:
             blocking_reasons.append("insufficient_weight_capacity")
+        if zones_by_vector.get(voyage.vector_id) and not compatible_zones:
+            blocking_reasons.append("no_zone_capacity_match")
         can_load = len(blocking_reasons) == 0
         options.append(
             {
@@ -657,6 +703,9 @@ async def _build_cargo_loading_options(
                 "destination_match": destination_match,
                 "remaining_weight_kg": remaining_weight,
                 "total_request_weight_kg": total_request_weight,
+                "total_request_surface_m2": total_request_surface,
+                "all_items_stackable": all_items_stackable,
+                "compatible_zones": compatible_zones,
                 "requires_manifest_creation": manifest_id is None,
                 "can_load": can_load,
                 "blocking_reasons": blocking_reasons,

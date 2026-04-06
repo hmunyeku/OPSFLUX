@@ -533,6 +533,9 @@ class CargoLoadingOptionRead(OpsFluxSchema):
     destination_match: bool = False
     remaining_weight_kg: float | None = None
     total_request_weight_kg: float = 0
+    total_request_surface_m2: float = 0
+    all_items_stackable: bool = False
+    compatible_zones: list[dict[str, Any]] = []
     requires_manifest_creation: bool = False
     can_load: bool = False
     blocking_reasons: list[str] = []

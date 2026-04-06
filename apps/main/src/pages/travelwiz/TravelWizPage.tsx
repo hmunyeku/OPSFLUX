@@ -2503,6 +2503,7 @@ function CargoRequestDetailPanel({ id }: { id: string }) {
         destination_mismatch: 'destination non desservie par le voyage',
         manifest_not_draft: 'manifeste cargo non modifiable',
         insufficient_weight_capacity: 'capacité poids insuffisante',
+        no_zone_capacity_match: 'aucune zone compatible',
       }
       toast({
         title: blockingReasons.length > 0
@@ -2688,12 +2689,26 @@ function CargoRequestDetailPanel({ id }: { id: string }) {
                           <p className="text-xs text-muted-foreground">
                             Demande: {option.total_request_weight_kg.toLocaleString('fr-FR')} kg · destination {option.destination_match ? 'compatible' : 'non compatible'}
                           </p>
+                          <p className="text-xs text-muted-foreground">
+                            Surface estimée: {option.total_request_surface_m2.toLocaleString('fr-FR')} m² · {option.all_items_stackable ? 'empilable' : 'non empilable'}
+                          </p>
+                          {option.compatible_zones.length > 0 && (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {option.compatible_zones.map((zone) => (
+                                <span key={zone.zone_id} className="gl-badge gl-badge-neutral">
+                                  {zone.zone_name}
+                                  {zone.surface_m2 != null ? ` · ${zone.surface_m2.toLocaleString('fr-FR')} m²` : ''}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                           {option.blocking_reasons.length > 0 && (
                             <p className="mt-1 text-xs text-amber-700">
                               Blocages: {option.blocking_reasons.map((item) => ({
                                 destination_mismatch: 'destination non desservie',
                                 manifest_not_draft: 'manifeste non draft',
                                 insufficient_weight_capacity: 'capacité poids insuffisante',
+                                no_zone_capacity_match: 'aucune zone compatible',
                               }[item] ?? item)).join(', ')}
                             </p>
                           )}

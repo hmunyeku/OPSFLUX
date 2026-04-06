@@ -938,24 +938,36 @@ async def test_get_cargo_request_loading_options_returns_viable_voyage(monkeypat
     destination_asset_id = uuid4()
     voyage_id = uuid4()
     manifest_id = uuid4()
+    vector_id = uuid4()
+    zone_id = uuid4()
     cargo_request = SimpleNamespace(
         id=request_id,
         entity_id=entity_id,
         destination_asset_id=destination_asset_id,
     )
-    child_cargo = SimpleNamespace(weight_kg=250.0)
+    child_cargo = SimpleNamespace(weight_kg=250.0, surface_m2=4.5, stackable=False)
     voyage = SimpleNamespace(
         id=voyage_id,
         code="VYG-2026-00031",
         status="planned",
         scheduled_departure=datetime.now(timezone.utc) + timedelta(days=1),
-        vector_id=uuid4(),
+        vector_id=vector_id,
+    )
+    zone = SimpleNamespace(
+        id=zone_id,
+        vector_id=vector_id,
+        name="Pont principal",
+        zone_type="main_deck",
+        width_m=3.0,
+        length_m=2.0,
+        max_weight_kg=400.0,
     )
     db = FakeDB(
         [
             FakeResult(all_rows=[child_cargo]),
             FakeResult(all_rows=[(voyage, "DOLPHIN", 1000.0, "Base Port", manifest_id, "draft", 100.0)]),
             FakeResult(all_rows=[(voyage_id, destination_asset_id)]),
+            FakeResult(all_rows=[zone]),
         ]
     )
 
@@ -976,6 +988,8 @@ async def test_get_cargo_request_loading_options_returns_viable_voyage(monkeypat
     assert result[0]["destination_match"] is True
     assert result[0]["remaining_weight_kg"] == 900.0
     assert result[0]["total_request_weight_kg"] == 250.0
+    assert result[0]["total_request_surface_m2"] == 4.5
+    assert result[0]["compatible_zones"][0]["zone_name"] == "Pont principal"
     assert result[0]["can_load"] is True
 
 

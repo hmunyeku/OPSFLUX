@@ -160,6 +160,21 @@ class VoyageReassignRequest(BaseModel):
     target_voyage_id: UUID
 
 
+class BackCargoReturnRequest(BaseModel):
+    return_type: str = Field(
+        ...,
+        pattern=r"^(waste|contractor_return|stock_reintegration|scrap|yard_storage)$",
+    )
+    notes: str | None = None
+    waste_manifest_ref: str | None = None
+    pass_number: str | None = None
+    inventory_reference: str | None = None
+    sap_code_confirmed: bool = False
+    photo_evidence_count: int = Field(default=0, ge=0)
+    double_signature_confirmed: bool = False
+    yard_justification: str | None = None
+
+
 class VoyageRead(OpsFluxSchema):
     id: UUID
     entity_id: UUID

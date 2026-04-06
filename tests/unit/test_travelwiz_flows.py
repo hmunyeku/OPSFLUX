@@ -381,6 +381,51 @@ async def test_reassign_voyage_passengers_moves_pending_passengers_and_cancels_s
 
 
 @pytest.mark.asyncio
+async def test_initiate_back_cargo_requires_type_specific_prerequisites():
+    entity_id = uuid4()
+    cargo = SimpleNamespace(id=uuid4(), entity_id=entity_id, status="delivered_final", tracking_code="CGO-001")
+    db = FakeDB([FakeResult(scalar_one_or_none=cargo)])
+
+    with pytest.raises(ValueError):
+        await travelwiz_service.initiate_back_cargo(
+            db,
+            cargo_item_id=cargo.id,
+            entity_id=entity_id,
+            user_id=uuid4(),
+            return_type="waste",
+            notes="Retour site",
+            return_metadata={},
+        )
+
+
+@pytest.mark.asyncio
+async def test_initiate_back_cargo_persists_structured_metadata():
+    entity_id = uuid4()
+    user_id = uuid4()
+    cargo = SimpleNamespace(id=uuid4(), entity_id=entity_id, status="delivered_final", tracking_code="CGO-002")
+    db = FakeDB([FakeResult(scalar_one_or_none=cargo), FakeResult()])
+
+    result = await travelwiz_service.initiate_back_cargo(
+        db,
+        cargo_item_id=cargo.id,
+        entity_id=entity_id,
+        user_id=user_id,
+        return_type="stock_reintegration",
+        notes="Retour magasin",
+        return_metadata={
+            "inventory_reference": "INV-01",
+            "sap_code_confirmed": True,
+        },
+    )
+
+    assert result["return_metadata"]["inventory_reference"] == "INV-01"
+    assert cargo.status == "return_declared"
+    persisted_sql, persisted_params = db.executed[1]
+    assert "INSERT INTO cargo_returns" in str(persisted_sql)
+    assert '"sap_code_confirmed": true' in persisted_params["notes"].lower()
+
+
+@pytest.mark.asyncio
 async def test_travelwiz_operational_watch_notifies_on_stale_signal(monkeypatch):
     entity_id = uuid4()
     voyage_id = uuid4()

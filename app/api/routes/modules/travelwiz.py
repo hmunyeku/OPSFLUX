@@ -40,6 +40,7 @@ from app.models.travelwiz import (
 )
 from app.schemas.common import PaginatedResponse
 from app.schemas.travelwiz import (
+    BackCargoReturnRequest,
     CapacityCheckResult,
     CaptainLogCreate,
     CaptainLogRead,
@@ -1882,8 +1883,7 @@ async def validate_layout(
 @router.post("/cargo/{cargo_id}/return")
 async def initiate_return(
     cargo_id: UUID,
-    return_type: str,
-    notes: str | None = None,
+    body: BackCargoReturnRequest,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("travelwiz.cargo.update"),
@@ -1898,8 +1898,17 @@ async def initiate_return(
             cargo_item_id=cargo_id,
             entity_id=entity_id,
             user_id=current_user.id,
-            return_type=return_type,
-            notes=notes,
+            return_type=body.return_type,
+            notes=body.notes,
+            return_metadata={
+                "waste_manifest_ref": body.waste_manifest_ref,
+                "pass_number": body.pass_number,
+                "inventory_reference": body.inventory_reference,
+                "sap_code_confirmed": body.sap_code_confirmed,
+                "photo_evidence_count": body.photo_evidence_count,
+                "double_signature_confirmed": body.double_signature_confirmed,
+                "yard_justification": body.yard_justification,
+            },
         )
         await db.commit()
         return result

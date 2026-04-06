@@ -8,6 +8,7 @@ Integrates with:
 """
 
 import logging
+import json
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
@@ -1380,6 +1381,39 @@ async def reassign_voyage_passengers(
     }
 
 
+def _validate_back_cargo_prerequisites(
+    *,
+    return_type: str,
+    notes: str | None,
+    metadata: dict,
+) -> None:
+    if return_type == "waste":
+        if not metadata.get("waste_manifest_ref"):
+            raise ValueError("Waste return requires waste_manifest_ref")
+    elif return_type == "contractor_return":
+        if not metadata.get("pass_number"):
+            raise ValueError("Contractor return requires pass_number")
+        if not metadata.get("inventory_reference"):
+            raise ValueError("Contractor return requires inventory_reference")
+        if not metadata.get("double_signature_confirmed"):
+            raise ValueError("Contractor return requires double_signature_confirmed")
+    elif return_type == "stock_reintegration":
+        if not metadata.get("sap_code_confirmed"):
+            raise ValueError("Stock reintegration requires sap_code_confirmed")
+        if not metadata.get("inventory_reference"):
+            raise ValueError("Stock reintegration requires inventory_reference")
+    elif return_type == "scrap":
+        has_scrap_label = "ferraille" in (notes or "").lower()
+        has_photo_evidence = int(metadata.get("photo_evidence_count") or 0) > 0
+        if not (has_scrap_label or has_photo_evidence):
+            raise ValueError("Scrap return requires 'ferraille' mention or photo evidence")
+    elif return_type == "yard_storage":
+        if "stockage yard" not in (notes or "").lower():
+            raise ValueError("Yard storage requires 'stockage Yard' mention in notes")
+        if not metadata.get("yard_justification"):
+            raise ValueError("Yard storage requires yard_justification")
+
+
 # ==============================================================================
 # BACK CARGO WORKFLOW
 # ==============================================================================
@@ -1392,6 +1426,7 @@ async def initiate_back_cargo(
     user_id: UUID,
     return_type: str,
     notes: str | None = None,
+    return_metadata: dict | None = None,
 ) -> dict:
     """Initiate back cargo workflow.
 
@@ -1416,6 +1451,13 @@ async def initiate_back_cargo(
         raise ValueError(
             f"Invalid return_type '{return_type}'. Valid: {valid_return_types}"
         )
+    return_metadata = return_metadata or {}
+
+    _validate_back_cargo_prerequisites(
+        return_type=return_type,
+        notes=notes,
+        metadata=return_metadata,
+    )
 
     cargo_result = await db.execute(
         select(CargoItem).where(
@@ -1437,6 +1479,14 @@ async def initiate_back_cargo(
     old_status = cargo.status
     cargo.status = "return_declared"
 
+    persisted_notes = json.dumps(
+        {
+            "notes": notes,
+            "return_metadata": return_metadata,
+        },
+        ensure_ascii=True,
+    )
+
     # Store return metadata via raw SQL
     try:
         await db.execute(
@@ -1449,7 +1499,7 @@ async def initiate_back_cargo(
                 "cid": str(cargo_item_id),
                 "rt": return_type,
                 "uid": str(user_id),
-                "notes": notes,
+                "notes": persisted_notes,
             },
         )
     except Exception:
@@ -1468,6 +1518,7 @@ async def initiate_back_cargo(
         "return_type": return_type,
         "new_status": "return_declared",
         "notes": notes,
+        "return_metadata": return_metadata,
     }
 
 

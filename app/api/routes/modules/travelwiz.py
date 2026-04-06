@@ -2301,6 +2301,28 @@ async def driver_round(
     }
 
 
+@router.get("/driver/{voyage_id}/stops/{stop_id}/proximity")
+async def driver_stop_proximity(
+    voyage_id: UUID,
+    stop_id: UUID,
+    x_driver_session: str | None = Header(default=None, alias="X-Driver-Session"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Assess whether the chauffeur is close enough to confirm the stop."""
+    from app.services.modules.travelwiz_service import assess_pickup_stop_proximity as _assess
+
+    driver_session = await _require_driver_session(voyage_id, db, x_driver_session)
+    try:
+        return await _assess(
+            db,
+            trip_id=voyage_id,
+            stop_id=stop_id,
+            entity_id=driver_session["pickup_round"].entity_id,
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
 @router.post("/driver/{voyage_id}/stops/{stop_id}/pickup", status_code=201)
 async def driver_pickup_stop(
     voyage_id: UUID,

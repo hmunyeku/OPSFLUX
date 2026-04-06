@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
+from decimal import Decimal
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -391,6 +392,43 @@ async def test_create_pickup_round_persists_assigned_manifest_passengers():
 
 
 @pytest.mark.asyncio
+async def test_assess_pickup_stop_proximity_uses_latest_vector_position():
+    entity_id = uuid4()
+    trip_id = uuid4()
+    stop_id = uuid4()
+    vector_id = uuid4()
+    stop = SimpleNamespace(id=stop_id, asset_id=uuid4())
+    pickup_round = SimpleNamespace(id=uuid4(), trip_id=trip_id, entity_id=entity_id)
+    voyage = SimpleNamespace(id=trip_id, vector_id=vector_id, active=True)
+    asset = SimpleNamespace(latitude=Decimal("4.00000000"), longitude=Decimal("15.00000000"), centroid_latitude=None, centroid_longitude=None)
+    position = SimpleNamespace(
+        latitude=4.0005,
+        longitude=15.0000,
+        recorded_at=datetime.now(timezone.utc),
+        source="gps",
+    )
+    db = FakeDB(
+        [
+            FakeResult(first=(stop, pickup_round, voyage)),
+            FakeResult(scalar_one_or_none=asset),
+            FakeResult(scalar_one_or_none=position),
+            FakeResult(scalar_one_or_none={"v": 100}),
+        ]
+    )
+
+    result = await travelwiz_service.assess_pickup_stop_proximity(
+        db,
+        trip_id=trip_id,
+        stop_id=stop_id,
+        entity_id=entity_id,
+    )
+
+    assert result["distance_meters"] is not None
+    assert result["threshold_meters"] == 100
+    assert result["can_confirm"] is True
+
+
+@pytest.mark.asyncio
 async def test_rebalance_manifest_passenger_standby_marks_over_capacity_passengers():
     entity_id = uuid4()
     voyage_id = uuid4()
@@ -765,6 +803,7 @@ def test_validate_travelwiz_numeric_settings():
     settings_routes._validate_travelwiz_numeric_setting(_body("travelwiz.captain_session_minutes", 30))
     settings_routes._validate_travelwiz_numeric_setting(_body("travelwiz.driver_session_minutes", 30))
     settings_routes._validate_travelwiz_numeric_setting(_body("travelwiz.pickup_sms_lead_minutes", 5))
+    settings_routes._validate_travelwiz_numeric_setting(_body("travelwiz.pickup_confirm_radius_meters", 100))
 
     with pytest.raises(HTTPException):
         settings_routes._validate_travelwiz_numeric_setting(_body("travelwiz.weight_alert_ratio", 2))

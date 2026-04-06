@@ -9,6 +9,7 @@ Integrates with:
 
 import logging
 import json
+import math
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
@@ -50,6 +51,7 @@ DEFAULT_SIGNAL_STALE_MINUTES = 15
 DEFAULT_CAPTAIN_SESSION_MINUTES = 480
 DEFAULT_DRIVER_SESSION_MINUTES = 480
 DEFAULT_PICKUP_SMS_LEAD_MINUTES = 5
+DEFAULT_PICKUP_CONFIRM_RADIUS_METERS = 100.0
 
 # Cargo forward lifecycle
 CARGO_FORWARD_TRANSITIONS = {
@@ -214,6 +216,39 @@ async def get_pickup_sms_lead_minutes(
         default=float(DEFAULT_PICKUP_SMS_LEAD_MINUTES),
     )
     return max(1, int(round(value)))
+
+
+async def get_pickup_confirm_radius_meters(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+) -> float:
+    value = await _get_entity_numeric_setting(
+        db,
+        entity_id=entity_id,
+        key="travelwiz.pickup_confirm_radius_meters",
+        default=DEFAULT_PICKUP_CONFIRM_RADIUS_METERS,
+    )
+    return max(10.0, value)
+
+
+def _haversine_distance_meters(
+    lat1: float,
+    lon1: float,
+    lat2: float,
+    lon2: float,
+) -> float:
+    radius_m = 6371000.0
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    d_phi = math.radians(lat2 - lat1)
+    d_lambda = math.radians(lon2 - lon1)
+
+    a = (
+        math.sin(d_phi / 2) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
+    )
+    return 2 * radius_m * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
 # ==============================================================================
@@ -2140,6 +2175,87 @@ async def close_pickup_round(
     )
 
     return kpis
+
+
+async def assess_pickup_stop_proximity(
+    db: AsyncSession,
+    *,
+    trip_id: UUID,
+    stop_id: UUID,
+    entity_id: UUID,
+) -> dict:
+    """Assess whether the latest vehicle position is close enough to confirm a stop."""
+    stop_result = await db.execute(
+        select(PickupStop, PickupRound, Voyage)
+        .join(PickupRound, PickupRound.id == PickupStop.pickup_round_id)
+        .join(Voyage, Voyage.id == PickupRound.trip_id)
+        .where(
+            PickupStop.id == stop_id,
+            PickupRound.trip_id == trip_id,
+            PickupRound.entity_id == entity_id,
+            PickupStop.active == True,  # noqa: E712
+            PickupRound.active == True,  # noqa: E712
+            Voyage.active == True,  # noqa: E712
+        )
+    )
+    row = stop_result.first()
+    if row is None:
+        raise ValueError(f"Pickup stop {stop_id} not found for voyage {trip_id}")
+    stop, pickup_round, voyage = row
+
+    asset_result = await db.execute(
+        select(Installation).where(Installation.id == stop.asset_id)
+    )
+    asset = asset_result.scalar_one_or_none()
+    if not asset:
+        raise ValueError(f"Installation {stop.asset_id} not found")
+
+    stop_latitude = asset.latitude or asset.centroid_latitude
+    stop_longitude = asset.longitude or asset.centroid_longitude
+    if stop_latitude is None or stop_longitude is None:
+        raise ValueError("Pickup stop has no coordinates")
+
+    position_result = await db.execute(
+        select(VectorPosition)
+        .where(VectorPosition.vector_id == voyage.vector_id)
+        .order_by(VectorPosition.recorded_at.desc())
+        .limit(1)
+    )
+    position = position_result.scalar_one_or_none()
+    if not position:
+        return {
+            "pickup_round_id": pickup_round.id,
+            "stop_id": stop.id,
+            "can_confirm": False,
+            "distance_meters": None,
+            "threshold_meters": await get_pickup_confirm_radius_meters(db, entity_id=entity_id),
+            "reason": "No tracking position available",
+        }
+
+    distance_meters = _haversine_distance_meters(
+        float(position.latitude),
+        float(position.longitude),
+        float(stop_latitude),
+        float(stop_longitude),
+    )
+    threshold_meters = await get_pickup_confirm_radius_meters(db, entity_id=entity_id)
+    return {
+        "pickup_round_id": pickup_round.id,
+        "stop_id": stop.id,
+        "can_confirm": distance_meters <= threshold_meters,
+        "distance_meters": round(distance_meters, 1),
+        "threshold_meters": threshold_meters,
+        "vector_position": {
+            "latitude": float(position.latitude),
+            "longitude": float(position.longitude),
+            "recorded_at": position.recorded_at.isoformat(),
+            "source": position.source,
+        },
+        "stop_position": {
+            "latitude": float(stop_latitude),
+            "longitude": float(stop_longitude),
+        },
+    }
 
 
 # ==============================================================================

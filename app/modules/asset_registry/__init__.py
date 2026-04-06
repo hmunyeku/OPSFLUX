@@ -17,7 +17,10 @@ MANIFEST = ModuleManifest(
         "asset.export",
     ],
     roles=[
-        {"code": "ASSET_ADMIN", "name": "Asset Administrator"},
+        {"code": "ASSET_ADMIN", "name": "Asset Administrator", "permissions": [
+            "asset.read", "asset.create", "asset.update", "asset.delete",
+            "asset.capacity.manage", "asset.hse.manage", "asset.import", "asset.export",
+        ]},
     ],
     routes_prefix="/api/v1/asset-registry",
     widgets=[

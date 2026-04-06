@@ -36,40 +36,135 @@ function InlineEditCell({
   value,
   onSave,
   onCancel,
+  editor,
 }: {
   value: unknown
-  onSave: (val: string) => void
+  onSave: (val: unknown) => void
   onCancel: () => void
+  editor?: import('./types').InlineEditorDef
 }) {
-  const [editValue, setEditValue] = useState(String(value ?? ''))
-  const inputRef = useRef<HTMLInputElement>(null)
+  const type = editor?.type || 'text'
+  const [editValue, setEditValue] = useState(() => {
+    if (value == null) return ''
+    if (type === 'date' && typeof value === 'string') return value.split('T')[0]
+    return String(value)
+  })
+  const inputRef = useRef<HTMLInputElement | HTMLSelectElement>(null)
 
   useEffect(() => {
     inputRef.current?.focus()
-    inputRef.current?.select()
+    if (inputRef.current instanceof HTMLInputElement) inputRef.current.select()
   }, [])
 
+  const commit = () => {
+    let parsed: unknown = editValue
+    if (type === 'number' || type === 'hours') parsed = editValue ? Number(editValue) : null
+    else if (type === 'percent') parsed = editValue ? Math.min(100, Math.max(0, Number(editValue))) : 0
+    else if (type === 'date') parsed = editValue || null
+    onSave(parsed)
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') onSave(editValue)
+    if (e.key === 'Enter') commit()
     if (e.key === 'Escape') onCancel()
   }
 
+  // Select (combo) editor
+  if (type === 'select' && editor?.options) {
+    return (
+      <div className="flex items-center gap-1">
+        <select
+          ref={inputRef as React.RefObject<HTMLSelectElement>}
+          value={editValue}
+          onChange={e => { setEditValue(e.target.value); onSave(e.target.value) }}
+          onKeyDown={handleKeyDown}
+          onBlur={() => commit()}
+          className="flex-1 bg-background border border-primary/30 rounded px-1 py-0 text-xs outline-none focus:border-primary h-6"
+        >
+          {editor.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      </div>
+    )
+  }
+
+  // Percent editor (range slider + number)
+  if (type === 'percent') {
+    return (
+      <div className="flex items-center gap-1.5">
+        <input
+          type="range"
+          min={editor?.min ?? 0}
+          max={editor?.max ?? 100}
+          step={editor?.step ?? 5}
+          value={editValue || '0'}
+          onChange={e => setEditValue(e.target.value)}
+          onMouseUp={() => commit()}
+          className="flex-1 h-4"
+        />
+        <span className="text-xs tabular-nums w-8 text-right">{editValue || 0}%</span>
+        <button onClick={onCancel} className="text-muted-foreground hover:text-foreground"><X size={11} /></button>
+      </div>
+    )
+  }
+
+  // Date editor
+  if (type === 'date') {
+    return (
+      <div className="flex items-center gap-1">
+        <input
+          ref={inputRef as React.RefObject<HTMLInputElement>}
+          type="date"
+          value={editValue}
+          onChange={e => setEditValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onBlur={() => commit()}
+          className="flex-1 bg-background border border-primary/30 rounded px-1 py-0 text-xs outline-none focus:border-primary h-6"
+        />
+        <button onClick={() => commit()} className="text-primary hover:text-primary/80"><Check size={11} /></button>
+        <button onClick={onCancel} className="text-muted-foreground hover:text-foreground"><X size={11} /></button>
+      </div>
+    )
+  }
+
+  // Number / hours editor
+  if (type === 'number' || type === 'hours') {
+    return (
+      <div className="flex items-center gap-1">
+        <input
+          ref={inputRef as React.RefObject<HTMLInputElement>}
+          type="number"
+          min={editor?.min}
+          max={editor?.max}
+          step={editor?.step ?? (type === 'hours' ? 0.5 : 1)}
+          value={editValue}
+          onChange={e => setEditValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onBlur={() => commit()}
+          placeholder={editor?.placeholder || (type === 'hours' ? '0h' : '0')}
+          className="flex-1 bg-transparent border border-primary/30 rounded px-1.5 py-0 text-xs outline-none focus:border-primary h-6 tabular-nums"
+        />
+        {type === 'hours' && <span className="text-xs text-muted-foreground">h</span>}
+        <button onClick={() => commit()} className="text-primary hover:text-primary/80"><Check size={11} /></button>
+        <button onClick={onCancel} className="text-muted-foreground hover:text-foreground"><X size={11} /></button>
+      </div>
+    )
+  }
+
+  // Default: text editor
   return (
     <div className="flex items-center gap-1">
       <input
-        ref={inputRef}
+        ref={inputRef as React.RefObject<HTMLInputElement>}
+        type="text"
         value={editValue}
         onChange={(e) => setEditValue(e.target.value)}
         onKeyDown={handleKeyDown}
-        onBlur={() => onSave(editValue)}
-        className="flex-1 bg-transparent border border-primary/30 rounded px-1.5 py-0 text-xs outline-none focus:border-primary h-5"
+        onBlur={() => commit()}
+        placeholder={editor?.placeholder}
+        className="flex-1 bg-transparent border border-primary/30 rounded px-1.5 py-0 text-xs outline-none focus:border-primary h-6"
       />
-      <button onClick={() => onSave(editValue)} className="text-primary hover:text-primary/80">
-        <Check size={11} />
-      </button>
-      <button onClick={onCancel} className="text-muted-foreground hover:text-foreground">
-        <X size={11} />
-      </button>
+      <button onClick={() => commit()} className="text-primary hover:text-primary/80"><Check size={11} /></button>
+      <button onClick={onCancel} className="text-muted-foreground hover:text-foreground"><X size={11} /></button>
     </div>
   )
 }
@@ -717,6 +812,7 @@ export function DataTable<TData>({
                         {isEditing ? (
                           <InlineEditCell
                             value={cell.getValue()}
+                            editor={inlineEdit!.columnEditors?.[cell.column.id]}
                             onSave={async (val) => {
                               await inlineEdit!.onSave(row.original, cell.column.id, val)
                               setEditingCell(null)

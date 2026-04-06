@@ -77,10 +77,26 @@ export interface DataTableBatchAction<TData> {
 }
 
 // ── Inline editing ─────────────────────────────────────────
+
+export type InlineEditorType = 'text' | 'number' | 'date' | 'select' | 'percent' | 'hours'
+
+export interface InlineEditorDef {
+  type: InlineEditorType
+  /** For 'select' type: the options to show */
+  options?: { value: string; label: string }[]
+  /** For 'number'/'percent'/'hours': min/max/step */
+  min?: number
+  max?: number
+  step?: number
+  placeholder?: string
+}
+
 export interface InlineEditConfig<TData> {
   editableColumns: string[]
   onSave: (row: TData, columnId: string, value: unknown) => void | Promise<void>
   canEdit?: (row: TData, columnId: string) => boolean
+  /** Per-column editor type. Falls back to 'text' if not specified. */
+  columnEditors?: Record<string, InlineEditorDef>
 }
 
 // ── Avatar cell helper ─────────────────────────────────────

@@ -2768,6 +2768,32 @@ function SpreadsheetView() {
   const inlineEdit = useMemo<InlineEditConfig<ProjectTaskEnriched>>(() => ({
     editableColumns: ['title', 'status', 'priority', 'start_date', 'due_date', 'progress', 'estimated_hours', 'actual_hours'],
     onSave: handleInlineSave,
+    columnEditors: {
+      status: {
+        type: 'select',
+        options: [
+          { value: 'todo', label: 'À faire' },
+          { value: 'in_progress', label: 'En cours' },
+          { value: 'review', label: 'Revue' },
+          { value: 'done', label: 'Terminé' },
+          { value: 'cancelled', label: 'Annulé' },
+        ],
+      },
+      priority: {
+        type: 'select',
+        options: [
+          { value: 'low', label: 'Basse' },
+          { value: 'medium', label: 'Moyenne' },
+          { value: 'high', label: 'Haute' },
+          { value: 'critical', label: 'Critique' },
+        ],
+      },
+      start_date: { type: 'date' },
+      due_date: { type: 'date' },
+      progress: { type: 'percent', min: 0, max: 100, step: 5 },
+      estimated_hours: { type: 'hours', min: 0, step: 0.5, placeholder: '0' },
+      actual_hours: { type: 'hours', min: 0, step: 0.5, placeholder: '0' },
+    },
   }), [handleInlineSave])
 
   const columns = useMemo<ColumnDef<ProjectTaskEnriched, unknown>[]>(() => [

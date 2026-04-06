@@ -1066,6 +1066,12 @@ def _validate_definition_structure(states: dict | list, transitions: dict | list
     if not transitions or (isinstance(transitions, list) and len(transitions) == 0):
         errors.append("Le workflow doit contenir au moins une transition")
 
+    if isinstance(transitions, list):
+        for index, transition in enumerate(transitions):
+            if not isinstance(transition, dict):
+                continue
+            _validate_transition_runtime_metadata(transition, errors, index)
+
     if errors:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1073,4 +1079,86 @@ def _validate_definition_structure(states: dict | list, transitions: dict | list
                 "message": "Le workflow n'est pas valide pour la publication",
                 "errors": errors,
             },
+        )
+
+
+def _validate_transition_runtime_metadata(
+    transition: dict,
+    errors: list[str],
+    index: int,
+) -> None:
+    condition = transition.get("condition")
+    if condition is not None:
+        _validate_transition_condition(condition, errors, index, "condition")
+
+    assignee = transition.get("assignee")
+    if assignee is not None:
+        if not isinstance(assignee, dict):
+            errors.append(f"Transition #{index + 1}: assignee doit être un objet")
+        else:
+            resolver = assignee.get("resolver")
+            if resolver not in {"field", "role"}:
+                errors.append(
+                    f"Transition #{index + 1}: assignee.resolver doit être 'field' ou 'role'"
+                )
+            if resolver == "field" and not assignee.get("field"):
+                errors.append(
+                    f"Transition #{index + 1}: assignee.field est requis pour le resolver 'field'"
+                )
+            if resolver == "role" and not assignee.get("role_code"):
+                errors.append(
+                    f"Transition #{index + 1}: assignee.role_code est requis pour le resolver 'role'"
+                )
+
+    sla_hours = transition.get("sla_hours")
+    if sla_hours is not None and (not isinstance(sla_hours, int) or sla_hours <= 0):
+        errors.append(f"Transition #{index + 1}: sla_hours doit être un entier strictement positif")
+
+
+def _validate_transition_condition(
+    condition: object,
+    errors: list[str],
+    index: int,
+    path: str,
+) -> None:
+    if not isinstance(condition, dict):
+        errors.append(f"Transition #{index + 1}: {path} doit être un objet")
+        return
+
+    logical_keys = {"all", "any", "not"} & set(condition.keys())
+    if logical_keys:
+        if "all" in condition or "any" in condition:
+            key = "all" if "all" in condition else "any"
+            value = condition.get(key)
+            if not isinstance(value, list) or not value:
+                errors.append(f"Transition #{index + 1}: {path}.{key} doit être une liste non vide")
+                return
+            for child_index, child in enumerate(value):
+                _validate_transition_condition(
+                    child,
+                    errors,
+                    index,
+                    f"{path}.{key}[{child_index}]",
+                )
+            return
+        nested = condition.get("not")
+        if not isinstance(nested, dict):
+            errors.append(f"Transition #{index + 1}: {path}.not doit être un objet")
+            return
+        _validate_transition_condition(nested, errors, index, f"{path}.not")
+        return
+
+    field = condition.get("field")
+    op = condition.get("op")
+    has_value = "value" in condition or "value_from" in condition
+
+    if not field:
+        errors.append(f"Transition #{index + 1}: {path}.field est requis")
+    if op not in {"eq", "ne", "truthy", "falsy", "in", "not_in"}:
+        errors.append(
+            f"Transition #{index + 1}: {path}.op doit être l'un de eq, ne, truthy, falsy, in, not_in"
+        )
+    if op in {"eq", "ne", "in", "not_in"} and not has_value:
+        errors.append(
+            f"Transition #{index + 1}: {path} doit fournir value ou value_from pour l'opérateur '{op}'"
         )

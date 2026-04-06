@@ -1,3 +1,7 @@
+import pytest
+from fastapi import HTTPException
+
+from app.api.routes.core.workflow import _validate_definition_structure
 from app.api.routes.modules.paxlog import ADS_WORKFLOW_SLUG
 from app.api.routes.modules.planner import PLANNER_WORKFLOW_SLUG
 from app.api.routes.modules.travelwiz import VOYAGE_WORKFLOW_SLUG
@@ -100,3 +104,40 @@ def test_fsm_resolves_ads_next_transition_from_definition_context():
     )
     assert transition is not None
     assert transition.to_state == "pending_compliance"
+
+
+def test_workflow_definition_validation_accepts_declarative_runtime_metadata():
+    _validate_definition_structure(
+        {"draft": {}, "pending_review": {}, "approved": {}},
+        [
+            {
+                "from": "draft",
+                "to": "pending_review",
+                "condition": {"field": "requester_id", "op": "truthy"},
+                "assignee": {"resolver": "role", "role_code": "HSE"},
+                "sla_hours": 24,
+            },
+            {"from": "pending_review", "to": "approved"},
+        ],
+    )
+
+
+def test_workflow_definition_validation_rejects_invalid_runtime_metadata():
+    with pytest.raises(HTTPException) as exc:
+        _validate_definition_structure(
+            {"draft": {}, "approved": {}},
+            [
+                {
+                    "from": "draft",
+                    "to": "approved",
+                    "condition": {"field": "requester_id", "op": "eq"},
+                    "assignee": {"resolver": "field"},
+                    "sla_hours": 0,
+                }
+            ],
+        )
+
+    detail = exc.value.detail
+    assert detail["message"] == "Le workflow n'est pas valide pour la publication"
+    assert any("assignee.field" in error for error in detail["errors"])
+    assert any("sla_hours" in error for error in detail["errors"])

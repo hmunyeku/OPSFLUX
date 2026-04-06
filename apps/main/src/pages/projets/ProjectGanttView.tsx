@@ -190,13 +190,25 @@ const PRESETS_KEY = 'opsflux:gantt-presets'
 const TASK_STATUSES = ['todo', 'in_progress', 'review', 'done', 'cancelled'] as const
 type TaskStatus = typeof TASK_STATUSES[number]
 
+const TASK_PRIORITIES = ['low', 'medium', 'high', 'critical'] as const
+type TaskPriority = typeof TASK_PRIORITIES[number]
+const PRIORITY_LABELS: Record<TaskPriority, string> = {
+  low: 'Basse', medium: 'Moyenne', high: 'Haute', critical: 'Critique',
+}
+const PRIORITY_CLR: Record<TaskPriority, string> = {
+  low: '#9ca3af', medium: '#3b82f6', high: '#f59e0b', critical: '#ef4444',
+}
+
 interface GanttSettings {
   barH: number
   showLabels: boolean
   showDates: 'none' | 'on_bar' | 'below_bar'
+  showProgress: boolean          // overlay % fill on bars
   zoomFactor: number
-  hiddenStatuses: TaskStatus[]  // statuses to HIDE (empty = show all)
-  activePreset: string | null   // name of the currently loaded preset
+  hiddenStatuses: TaskStatus[]   // statuses to HIDE
+  hiddenPriorities: TaskPriority[] // priorities to HIDE
+  filterAssignee: string | null  // assignee_name substring filter (null = all)
+  activePreset: string | null
 }
 
 interface GanttPreset {
@@ -208,8 +220,9 @@ interface GanttPreset {
 }
 
 const DEFAULT_SETTINGS: GanttSettings = {
-  barH: 18, showLabels: true, showDates: 'none',
-  zoomFactor: 1.0, hiddenStatuses: [], activePreset: null,
+  barH: 18, showLabels: true, showDates: 'none', showProgress: true,
+  zoomFactor: 1.0, hiddenStatuses: [], hiddenPriorities: [],
+  filterAssignee: null, activePreset: null,
 }
 
 function loadSettings(): GanttSettings {
@@ -260,10 +273,10 @@ function Tip({ title, lines, x, y }: { title: string; lines: [string, string][];
 // Expanded tasks
 // ═══════════════════════════════════════════════════════════════════════
 
-function ExpandedTasks({ project, ppd, vs, totalPx, pw, barH, showLabels, showDates, hiddenStatuses }: {
-  project: Project; ppd: number; vs: string; totalPx: number; pw: number; barH: number
-  showLabels: boolean; showDates: 'none' | 'on_bar' | 'below_bar'; hiddenStatuses: TaskStatus[]
+function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
+  project: Project; ppd: number; vs: string; totalPx: number; pw: number; settings: GanttSettings
 }) {
+  const { barH, showLabels, showDates, showProgress, hiddenStatuses, hiddenPriorities, filterAssignee } = settings
   const { data: tasks } = useProjectTasks(project.id)
   const { data: milestones } = useProjectMilestones(project.id)
   const { data: cpm } = useProjectCpm(project.id)
@@ -272,11 +285,18 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, barH, showLabels, showDa
   const critSet = useMemo(() => new Set(cpm?.critical_path_task_ids || []), [cpm])
   const rowH = barH + 8
 
-  // Filter out hidden statuses
-  const hiddenSet = useMemo(() => new Set(hiddenStatuses), [hiddenStatuses])
+  // Filter by status + priority + assignee
+  const hiddenStatusSet = useMemo(() => new Set(hiddenStatuses), [hiddenStatuses])
+  const hiddenPrioritySet = useMemo(() => new Set(hiddenPriorities), [hiddenPriorities])
+  const assigneeNeedle = (filterAssignee || '').toLowerCase().trim()
   const filteredTasks = useMemo(() =>
-    (tasks || []).filter(t => !hiddenSet.has(t.status as TaskStatus)),
-    [tasks, hiddenSet],
+    (tasks || []).filter(t => {
+      if (hiddenStatusSet.has(t.status as TaskStatus)) return false
+      if (hiddenPrioritySet.has(t.priority as TaskPriority)) return false
+      if (assigneeNeedle && !(t.assignee_name || '').toLowerCase().includes(assigneeNeedle)) return false
+      return true
+    }),
+    [tasks, hiddenStatusSet, hiddenPrioritySet, assigneeNeedle],
   )
 
   const tree = useMemo(() => {
@@ -332,16 +352,22 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, barH, showLabels, showDa
                 onMouseEnter={e => setTip({ title: task.title, lines: [['Statut', task.status], ['%', `${task.progress}%`]], x: e.clientX, y: e.clientY })}
                 onMouseMove={e => setTip(t => t ? { ...t, x: e.clientX, y: e.clientY } : null)}
                 onMouseLeave={() => setTip(null)}
-                className={cn('absolute rounded-sm cursor-move text-white font-medium truncate px-0.5 flex items-center gap-0.5 hover:brightness-110', isCrit && 'ring-1 ring-red-500')}
+                className={cn('absolute rounded-sm cursor-move text-white font-medium truncate px-0.5 flex items-center gap-0.5 hover:brightness-110 overflow-hidden', isCrit && 'ring-1 ring-red-500')}
                 style={{ left: bar.left, width: bar.width, top: (rowH - barH) / 2, height: barH, backgroundColor: clr, opacity: task.status === 'todo' ? 0.5 : 1, fontSize: Math.max(6, barH * 0.45) }}
               >
-                {showDates === 'on_bar' && task.start_date && (
-                  <span className="opacity-70 shrink-0 tabular-nums">{new Date(task.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}</span>
+                {/* Progress overlay */}
+                {showProgress && task.progress > 0 && task.progress < 100 && (
+                  <div className="absolute inset-0 bg-white/20 pointer-events-none" style={{ width: `${task.progress}%` }} />
                 )}
-                {showLabels && <span className="truncate">{task.title}</span>}
-                {showDates === 'on_bar' && task.due_date && (
-                  <span className="opacity-70 shrink-0 tabular-nums ml-auto">{new Date(task.due_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}</span>
-                )}
+                <span className="relative z-[1] flex items-center gap-0.5 w-full truncate">
+                  {showDates === 'on_bar' && task.start_date && (
+                    <span className="opacity-70 shrink-0 tabular-nums">{new Date(task.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}</span>
+                  )}
+                  {showLabels && <span className="truncate">{task.title}</span>}
+                  {showDates === 'on_bar' && task.due_date && (
+                    <span className="opacity-70 shrink-0 tabular-nums ml-auto">{new Date(task.due_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}</span>
+                  )}
+                </span>
               </div>
               {showDates === 'below_bar' && task.start_date && (
                 <div className="absolute text-[6px] text-muted-foreground tabular-nums" style={{ left: bar.left, top: (rowH - barH) / 2 + barH + 1 }}>
@@ -469,9 +495,9 @@ function GanttSettingsPanel({ settings, setSettings, scale, vs, ve }: {
         </div>
       </div>
 
-      {/* Row 2: Status filter */}
+      {/* Row 2: Status + Priority filter */}
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-muted-foreground font-medium">Masquer:</span>
+        <span className="text-muted-foreground font-medium">Statut:</span>
         {TASK_STATUSES.map(st => {
           const hidden = settings.hiddenStatuses.includes(st)
           return (
@@ -490,14 +516,57 @@ function GanttSettingsPanel({ settings, setSettings, scale, vs, ve }: {
             </button>
           )
         })}
-        {settings.hiddenStatuses.length > 0 && (
+        <span className="text-muted-foreground font-medium ml-2">Priorité:</span>
+        {TASK_PRIORITIES.map(pr => {
+          const hidden = settings.hiddenPriorities.includes(pr)
+          return (
+            <button
+              key={pr}
+              onClick={() => setSettings(s => {
+                const cur = s.hiddenPriorities
+                return { ...s, hiddenPriorities: cur.includes(pr) ? cur.filter(x => x !== pr) : [...cur, pr] }
+              })}
+              className={cn(
+                'px-1.5 py-0.5 rounded border text-[9px] flex items-center gap-1',
+                hidden
+                  ? 'border-red-500/30 bg-red-500/10 text-red-600 line-through'
+                  : 'border-border hover:bg-muted text-foreground',
+              )}
+            >
+              <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: PRIORITY_CLR[pr] }} />
+              {PRIORITY_LABELS[pr]}
+            </button>
+          )
+        })}
+        {(settings.hiddenStatuses.length > 0 || settings.hiddenPriorities.length > 0) && (
           <button
-            onClick={() => setSettings(s => ({ ...s, hiddenStatuses: [] }))}
+            onClick={() => setSettings(s => ({ ...s, hiddenStatuses: [], hiddenPriorities: [] }))}
             className="text-[9px] text-primary hover:text-primary/80"
           >
             Tout afficher
           </button>
         )}
+      </div>
+
+      {/* Row 2b: Assignee filter + progress toggle */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-1.5">
+          <span className="text-muted-foreground font-medium">Responsable:</span>
+          <input
+            type="text"
+            value={settings.filterAssignee || ''}
+            onChange={e => setSettings(s => ({ ...s, filterAssignee: e.target.value || null }))}
+            placeholder="Filtrer par nom..."
+            className="h-5 px-1.5 text-[9px] border border-border rounded bg-background w-[130px]"
+          />
+          {settings.filterAssignee && (
+            <button onClick={() => setSettings(s => ({ ...s, filterAssignee: null }))} className="text-[9px] text-primary">✕</button>
+          )}
+        </div>
+        <label className="flex items-center gap-1.5 cursor-pointer">
+          <input type="checkbox" checked={settings.showProgress} onChange={e => setSettings(s => ({ ...s, showProgress: e.target.checked }))} className="w-3 h-3" />
+          <span className="text-muted-foreground">Progression sur barres</span>
+        </label>
       </div>
 
       {/* Row 3: Presets */}
@@ -815,7 +884,7 @@ export function ProjectGanttView() {
                     )}
                   </div>
                 </div>
-                {isExp && <ExpandedTasks project={project} ppd={ppd} vs={vs} totalPx={totalPx} pw={pw} barH={barH} showLabels={showLabels} showDates={settings.showDates} hiddenStatuses={settings.hiddenStatuses} />}
+                {isExp && <ExpandedTasks project={project} ppd={ppd} vs={vs} totalPx={totalPx} pw={pw} settings={settings} />}
               </div>
             )
           })}

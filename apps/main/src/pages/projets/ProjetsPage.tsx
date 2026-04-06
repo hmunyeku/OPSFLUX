@@ -86,6 +86,7 @@ import { ProjectGanttView } from './ProjectGanttView'
 import { ProjectSelectorModal } from '@/components/shared/ProjectSelectorModal'
 import { PlannerLinkModal } from '@/components/shared/PlannerLinkModal'
 import { useProjectFilter } from '@/hooks/useProjectFilter'
+import { useUsers } from '@/hooks/useUsers'
 import type {
   Project, ProjectCreate, ProjectTask, ProjectTaskEnriched,
   ProjectMilestone as ProjectMilestoneType,
@@ -2211,15 +2212,63 @@ function CommentsSection({ projectId }: { projectId: string }) {
   const { toast } = useToast()
   const [body, setBody] = useState('')
   const [replyTo, setReplyTo] = useState<string | null>(null)
+  const [mentionIds, setMentionIds] = useState<string[]>([])
+
+  // @mention autocomplete
+  const [mentionQuery, setMentionQuery] = useState('')
+  const [showMentions, setShowMentions] = useState(false)
+  const [mentionIdx, setMentionIdx] = useState(0)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+  const { data: mentionUsers } = useUsers({ search: mentionQuery, page_size: 8, active: true })
+  const mentionList = mentionUsers?.items ?? []
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value
+    setBody(val)
+    // Detect @mention trigger
+    const cursor = e.target.selectionStart ?? val.length
+    const textBefore = val.slice(0, cursor)
+    const match = textBefore.match(/@(\w*)$/)
+    if (match) {
+      setMentionQuery(match[1])
+      setShowMentions(true)
+      setMentionIdx(0)
+    } else {
+      setShowMentions(false)
+    }
+  }
+
+  const insertMention = (user: { id: string; first_name?: string; last_name?: string; email?: string }) => {
+    const name = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.email || 'Utilisateur'
+    const cursor = inputRef.current?.selectionStart ?? body.length
+    const textBefore = body.slice(0, cursor)
+    const textAfter = body.slice(cursor)
+    const replaced = textBefore.replace(/@\w*$/, `@${name} `)
+    setBody(replaced + textAfter)
+    setMentionIds((prev) => [...prev, user.id])
+    setShowMentions(false)
+    setTimeout(() => inputRef.current?.focus(), 0)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (showMentions && mentionList.length > 0) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); setMentionIdx((i) => Math.min(i + 1, mentionList.length - 1)) }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); setMentionIdx((i) => Math.max(i - 1, 0)) }
+      else if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); insertMention(mentionList[mentionIdx]) }
+      else if (e.key === 'Escape') { setShowMentions(false) }
+      return
+    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() }
+  }
 
   const handleSubmit = async () => {
     if (!body.trim()) return
     try {
       await createComment.mutateAsync({
         projectId,
-        payload: { body, parent_id: replyTo || undefined },
+        payload: { body, parent_id: replyTo || undefined, mentions: mentionIds.length > 0 ? mentionIds : undefined },
       })
-      setBody(''); setReplyTo(null)
+      setBody(''); setReplyTo(null); setMentionIds([])
     } catch { toast({ title: 'Erreur commentaire', variant: 'error' }) }
   }
 
@@ -2229,9 +2278,8 @@ function CommentsSection({ projectId }: { projectId: string }) {
     } catch { toast({ title: 'Erreur suppression', variant: 'error' }) }
   }
 
-  // Build thread structure
   const rootComments = comments.filter((c) => !c.parent_id && c.active)
-  const replies = (parentId: string) => comments.filter((c) => c.parent_id === parentId && c.active)
+  const getReplies = (parentId: string) => comments.filter((c) => c.parent_id === parentId && c.active)
 
   return (
     <FormSection title={`Commentaires (${rootComments.length})`} collapsible defaultExpanded={false} storageKey="project-detail-comments">
@@ -2255,8 +2303,7 @@ function CommentsSection({ projectId }: { projectId: string }) {
                     </div>
                   </div>
                 </div>
-                {/* Replies */}
-                {replies(c.id).map((r) => (
+                {getReplies(c.id).map((r) => (
                   <div key={r.id} className="ml-4 pl-2 border-l flex items-start gap-2 text-xs">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
@@ -2273,7 +2320,7 @@ function CommentsSection({ projectId }: { projectId: string }) {
           </div>
         )}
 
-        {/* Comment input */}
+        {/* Comment input with @mention autocomplete */}
         <div className="space-y-1">
           {replyTo && (
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -2281,17 +2328,38 @@ function CommentsSection({ projectId }: { projectId: string }) {
               <button onClick={() => setReplyTo(null)} className="text-destructive"><X size={10} /></button>
             </div>
           )}
-          <div className="flex gap-2">
-            <input
+          <div className="relative flex gap-2">
+            <textarea
+              ref={inputRef}
               value={body}
-              onChange={(e) => setBody(e.target.value)}
-              placeholder="Ajouter un commentaire..."
-              className={cn(panelInputClass, 'flex-1')}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() } }}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              placeholder="Ajouter un commentaire... (@mention)"
+              rows={2}
+              className={cn(panelInputClass, 'flex-1 resize-none')}
             />
-            <button onClick={handleSubmit} disabled={createComment.isPending || !body.trim()} className="text-primary hover:text-primary/80 disabled:opacity-50">
+            <button onClick={handleSubmit} disabled={createComment.isPending || !body.trim()} className="text-primary hover:text-primary/80 disabled:opacity-50 self-end pb-1">
               {createComment.isPending ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
             </button>
+            {/* @mention dropdown */}
+            {showMentions && mentionList.length > 0 && (
+              <div className="absolute bottom-full left-0 mb-1 w-64 bg-popover border rounded-md shadow-md z-50 max-h-48 overflow-y-auto">
+                {mentionList.map((u, i) => (
+                  <button
+                    key={u.id}
+                    onMouseDown={(e) => { e.preventDefault(); insertMention(u) }}
+                    className={cn(
+                      'w-full text-left px-3 py-1.5 text-xs hover:bg-muted/60 flex items-center gap-2',
+                      i === mentionIdx && 'bg-muted/60',
+                    )}
+                  >
+                    <Users size={10} className="text-muted-foreground shrink-0" />
+                    <span className="font-medium truncate">{[u.first_name, u.last_name].filter(Boolean).join(' ') || u.email}</span>
+                    {u.email && <span className="text-muted-foreground truncate">{u.email}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

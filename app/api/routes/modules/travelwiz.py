@@ -430,19 +430,28 @@ async def _build_cargo_request_read_data(
         if imputation:
             imputation_reference_code = imputation.code
             imputation_reference_name = imputation.name
-    if cargo_count is None:
-        cargo_count_result = await db.execute(
-            select(sqla_func.count(CargoItem.id)).where(
-                CargoItem.request_id == cargo_request.id,
-                CargoItem.active == True,  # noqa: E712
-            )
+    request_cargo_result = await db.execute(
+        select(
+            CargoItem.id,
+            CargoItem.workflow_status,
+            CargoItem.manifest_id,
+            CargoItem.status,
+        ).where(
+            CargoItem.request_id == cargo_request.id,
+            CargoItem.active == True,  # noqa: E712
         )
-        cargo_count = int(cargo_count_result.scalar() or 0)
+    )
+    request_cargo = request_cargo_result.all()
+    if cargo_count is None:
+        cargo_count = len(request_cargo)
+    readiness = _assess_cargo_request_requirements(cargo_request, request_cargo)
     data["cargo_count"] = cargo_count
     data["sender_name"] = sender_name
     data["destination_name"] = destination_name
     data["imputation_reference_code"] = imputation_reference_code
     data["imputation_reference_name"] = imputation_reference_name
+    data["is_ready_for_submission"] = readiness["is_complete"]
+    data["missing_requirements"] = readiness["missing_requirements"]
     return data
 
 
@@ -491,6 +500,54 @@ def _assess_cargo_workflow_requirements(cargo: CargoItem | dict) -> dict:
         "is_complete": len(missing) == 0,
         "missing_requirements": missing,
     }
+
+
+def _assess_cargo_request_requirements(
+    cargo_request: CargoRequest | dict,
+    request_cargo: list | None = None,
+) -> dict:
+    def _value(key: str):
+        if isinstance(cargo_request, dict):
+            return cargo_request.get(key)
+        return getattr(cargo_request, key, None)
+
+    missing: list[str] = []
+    if not _value("title"):
+        missing.append("title")
+    if not _value("description"):
+        missing.append("description")
+    if not _value("sender_tier_id"):
+        missing.append("sender_tier_id")
+    if not _value("receiver_name"):
+        missing.append("receiver_name")
+    if not _value("destination_asset_id"):
+        missing.append("destination_asset_id")
+    if not _value("imputation_reference_id"):
+        missing.append("imputation_reference_id")
+    if not _value("requester_name"):
+        missing.append("requester_name")
+    if not request_cargo:
+        missing.append("cargo_items")
+
+    return {
+        "is_complete": len(missing) == 0,
+        "missing_requirements": missing,
+    }
+
+
+def _cargo_request_to_payload(cargo_request: CargoRequest | dict | object) -> dict:
+    if isinstance(cargo_request, dict):
+        return dict(cargo_request)
+    table = getattr(cargo_request, "__table__", None)
+    if table is not None:
+        return {column.key: getattr(cargo_request, column.key) for column in table.columns}
+    if hasattr(cargo_request, "__dict__"):
+        return {
+            key: value
+            for key, value in vars(cargo_request).items()
+            if not key.startswith("_")
+        }
+    raise TypeError("Unsupported cargo request payload object")
 
 
 async def _generate_voyage_code(db: AsyncSession, entity_id: UUID) -> str:
@@ -1733,6 +1790,8 @@ async def update_cargo_request(
         if not imputation or imputation.entity_id != entity_id or not imputation.active:
             raise HTTPException(400, "Imputation introuvable ou inactive")
     target_status = body.status or cargo_request.status
+    request_payload = _cargo_request_to_payload(cargo_request)
+    request_payload.update(body.model_dump(exclude_unset=True))
     cargo_result = await db.execute(
         select(CargoItem).where(
             CargoItem.request_id == cargo_request.id,
@@ -1740,8 +1799,16 @@ async def update_cargo_request(
         )
     )
     request_cargo = cargo_result.scalars().all()
-    if target_status in {"submitted", "approved", "assigned", "closed"} and not request_cargo:
-        raise HTTPException(400, "La demande doit contenir au moins un colis actif")
+    readiness = _assess_cargo_request_requirements(request_payload, request_cargo)
+    if target_status in {"submitted", "approved", "assigned", "closed"} and not readiness["is_complete"]:
+        raise HTTPException(
+            400,
+            {
+                "code": "CARGO_REQUEST_INCOMPLETE",
+                "message": "La demande d'expédition est incomplète.",
+                "missing_requirements": readiness["missing_requirements"],
+            },
+        )
     if target_status == "approved":
         invalid_cargo = [
             cargo.tracking_code

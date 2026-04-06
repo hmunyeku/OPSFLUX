@@ -733,7 +733,13 @@ async def test_update_cargo_request_updates_status_and_audits(monkeypatch):
         entity_id=entity_id,
         request_code="CGR-2026-00002",
         title="Expédition tubings",
+        description="Tubings et raccords",
         status="draft",
+        sender_tier_id=uuid4(),
+        receiver_name="Base Alpha",
+        destination_asset_id=uuid4(),
+        imputation_reference_id=uuid4(),
+        requester_name="Aline Mukeba",
         active=True,
     )
     child_cargo = SimpleNamespace(
@@ -781,6 +787,55 @@ async def test_update_cargo_request_updates_status_and_audits(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_update_cargo_request_blocks_submit_when_request_incomplete(monkeypatch):
+    entity_id = uuid4()
+    user_id = uuid4()
+    request_id = uuid4()
+    cargo_request = SimpleNamespace(
+        id=request_id,
+        entity_id=entity_id,
+        request_code="CGR-2026-00002",
+        title="Expédition incomplète",
+        description=None,
+        status="draft",
+        sender_tier_id=None,
+        receiver_name=None,
+        destination_asset_id=None,
+        imputation_reference_id=None,
+        requester_name=None,
+        active=True,
+    )
+    child_cargo = SimpleNamespace(
+        tracking_code="CGO-2026-00012",
+        workflow_status="draft",
+        manifest_id=None,
+        status="draft",
+        active=True,
+    )
+    db = FakeDB([FakeResult(all_rows=[child_cargo])])
+
+    async def fake_get_request(_db, _request_id, _entity_id):
+        return cargo_request
+
+    monkeypatch.setattr(travelwiz_routes, "_get_cargo_request_or_404", fake_get_request)
+
+    with pytest.raises(HTTPException) as exc:
+        await travelwiz_routes.update_cargo_request(
+            request_id=request_id,
+            body=travelwiz_routes.CargoRequestUpdate(status="submitted"),
+            entity_id=entity_id,
+            current_user=SimpleNamespace(id=user_id),
+            _=None,
+            db=db,
+        )
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail["code"] == "CARGO_REQUEST_INCOMPLETE"
+    assert "description" in exc.value.detail["missing_requirements"]
+    assert "cargo_items" not in exc.value.detail["missing_requirements"]
+
+
+@pytest.mark.asyncio
 async def test_update_cargo_request_blocks_approval_when_child_cargo_not_ready(monkeypatch):
     entity_id = uuid4()
     user_id = uuid4()
@@ -790,7 +845,13 @@ async def test_update_cargo_request_blocks_approval_when_child_cargo_not_ready(m
         entity_id=entity_id,
         request_code="CGR-2026-00003",
         title="Expédition flexibles",
+        description="Flexibles et accessoires",
         status="submitted",
+        sender_tier_id=uuid4(),
+        receiver_name="Base Beta",
+        destination_asset_id=uuid4(),
+        imputation_reference_id=uuid4(),
+        requester_name="Junior Nguema",
         active=True,
     )
     child_cargo = SimpleNamespace(
@@ -831,7 +892,13 @@ async def test_update_cargo_request_blocks_close_when_child_cargo_not_delivered(
         entity_id=entity_id,
         request_code="CGR-2026-00004",
         title="Expédition valves",
+        description="Valves de rechange",
         status="assigned",
+        sender_tier_id=uuid4(),
+        receiver_name="Base Delta",
+        destination_asset_id=uuid4(),
+        imputation_reference_id=uuid4(),
+        requester_name="Équipe mécanique",
         active=True,
     )
     child_cargo = SimpleNamespace(

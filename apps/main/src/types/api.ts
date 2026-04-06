@@ -2072,6 +2072,8 @@ export interface CargoRequest {
   destination_name?: string | null
   imputation_reference_code?: string | null
   imputation_reference_name?: string | null
+  is_ready_for_submission: boolean
+  missing_requirements: string[]
 }
 
 export interface CargoRequestCreate {

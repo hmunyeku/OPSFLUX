@@ -182,6 +182,10 @@ function normalizeCargoRequest(data: Record<string, unknown>): CargoRequest {
     destination_name: typeof data.destination_name === 'string' ? data.destination_name : null,
     imputation_reference_code: typeof data.imputation_reference_code === 'string' ? data.imputation_reference_code : null,
     imputation_reference_name: typeof data.imputation_reference_name === 'string' ? data.imputation_reference_name : null,
+    is_ready_for_submission: typeof data.is_ready_for_submission === 'boolean' ? data.is_ready_for_submission : false,
+    missing_requirements: Array.isArray(data.missing_requirements)
+      ? data.missing_requirements.filter((item): item is string => typeof item === 'string')
+      : [],
   }
 }
 

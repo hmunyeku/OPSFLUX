@@ -516,6 +516,8 @@ class CargoRequestRead(OpsFluxSchema):
     destination_name: str | None = None
     imputation_reference_code: str | None = None
     imputation_reference_name: str | None = None
+    is_ready_for_submission: bool = False
+    missing_requirements: list[str] = []
 
 
 class CargoAttachmentEvidenceUpdate(BaseModel):

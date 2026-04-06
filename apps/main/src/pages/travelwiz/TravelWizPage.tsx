@@ -2441,6 +2441,7 @@ function CargoRequestDetailPanel({ id }: { id: string }) {
   const [editForm, setEditForm] = useState<CargoRequestUpdate>({})
   const tiers = tiersData?.items ?? []
   const requestCargo = requestCargoData?.items ?? []
+  const missingRequirements = cargoRequest?.missing_requirements ?? []
 
   const startEdit = useCallback(() => {
     if (!cargoRequest) return
@@ -2463,8 +2464,26 @@ function CargoRequestDetailPanel({ id }: { id: string }) {
       await updateCargoRequest.mutateAsync({ id, payload: editForm })
       toast({ title: "Demande d'expédition mise à jour", variant: 'success' })
       setEditing(false)
-    } catch {
-      toast({ title: "Erreur lors de la mise à jour de la demande", variant: 'error' })
+    } catch (error) {
+      const missing = Array.isArray((error as { response?: { data?: { detail?: { missing_requirements?: string[] } } } })?.response?.data?.detail?.missing_requirements)
+        ? ((error as { response?: { data?: { detail?: { missing_requirements?: string[] } } } }).response?.data?.detail?.missing_requirements ?? [])
+        : []
+      const requirementLabels: Record<string, string> = {
+        title: 'Intitulé de la demande',
+        description: 'Description de la demande',
+        sender_tier_id: 'Expéditeur',
+        receiver_name: 'Destinataire',
+        destination_asset_id: 'Installation de destination',
+        imputation_reference_id: 'Imputation',
+        requester_name: 'Demandeur',
+        cargo_items: 'Au moins un colis rattaché',
+      }
+      toast({
+        title: missing.length > 0
+          ? `Demande incomplète: ${missing.map((item) => requirementLabels[item] ?? item).join(', ')}`
+          : "Erreur lors de la mise à jour de la demande",
+        variant: 'error',
+      })
     }
   }
 
@@ -2567,6 +2586,36 @@ function CargoRequestDetailPanel({ id }: { id: string }) {
               <DetailRow label="Demandeur" value={cargoRequest.requester_name ?? '—'} />
               <DetailRow label="Nombre de colis" value={String(cargoRequest.cargo_count ?? 0)} />
               <DetailRow label="Créée le" value={new Date(cargoRequest.created_at).toLocaleString('fr-FR')} />
+            </FormSection>
+
+            <FormSection title="Complétude de la demande" collapsible defaultExpanded>
+              <div className="space-y-3">
+                <div className={`rounded-lg border px-3 py-2 text-xs ${cargoRequest.is_ready_for_submission ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
+                  {cargoRequest.is_ready_for_submission
+                    ? 'La demande est prête pour soumission.'
+                    : 'La demande n’est pas encore prête pour soumission.'}
+                </div>
+                {missingRequirements.length > 0 ? (
+                  <div className="space-y-1">
+                    {missingRequirements.map((item) => (
+                      <div key={item} className="rounded-lg border border-border/60 bg-card px-3 py-2 text-xs text-muted-foreground">
+                        {{
+                          title: 'Intitulé de la demande',
+                          description: 'Description de la demande',
+                          sender_tier_id: 'Expéditeur',
+                          receiver_name: 'Destinataire',
+                          destination_asset_id: 'Installation de destination',
+                          imputation_reference_id: 'Imputation',
+                          requester_name: 'Demandeur',
+                          cargo_items: 'Au moins un colis rattaché',
+                        }[item] ?? item}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Aucun manque bloquant détecté.</p>
+                )}
+              </div>
             </FormSection>
 
             <FormSection title={`Colis rattachés (${requestCargo.length})`} collapsible defaultExpanded>

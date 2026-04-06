@@ -11,7 +11,7 @@ import type {
   VoyageStopCreate, VoyageStopUpdate,
   ManifestCreate,
   ManifestPassengerCreate, ManifestPassengerUpdate,
-  CargoItem, CargoItemCreate, CargoItemUpdate, CargoReceive, CargoReturnCreate,
+  CargoAttachmentEvidence, CargoItem, CargoItemCreate, CargoItemUpdate, CargoReceive, CargoReturnCreate,
   CaptainLogCreate,
   VoyageEventCreate,
   PackageElementCreate,
@@ -465,6 +465,26 @@ export function useReceiveCargo() {
     mutationFn: ({ id, payload }: { id: string; payload?: CargoReceive }) =>
       travelwizService.receiveCargo(id, payload),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['travelwiz', 'cargo'] }) },
+  })
+}
+
+export function useCargoAttachmentEvidence(id: string | undefined) {
+  return useQuery({
+    queryKey: ['travelwiz', 'cargo', id, 'attachment-evidence'],
+    queryFn: () => travelwizService.listCargoAttachmentEvidence(id!),
+    enabled: !!id,
+  })
+}
+
+export function useUpdateCargoAttachmentEvidence() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ cargoId, attachmentId, evidence_type }: { cargoId: string; attachmentId: string; evidence_type: CargoAttachmentEvidence['evidence_type'] }) =>
+      travelwizService.updateCargoAttachmentEvidence(cargoId, attachmentId, evidence_type),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ['travelwiz', 'cargo', variables.cargoId] })
+      qc.invalidateQueries({ queryKey: ['travelwiz', 'cargo', variables.cargoId, 'attachment-evidence'] })
+    },
   })
 }
 

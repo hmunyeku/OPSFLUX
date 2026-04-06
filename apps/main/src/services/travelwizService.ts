@@ -10,7 +10,7 @@ import type {
   VoyageStop, VoyageStopCreate, VoyageStopUpdate,
   Manifest, ManifestCreate, ManifestWithTrip,
   ManifestPassenger, ManifestPassengerCreate, ManifestPassengerUpdate,
-  CargoItem, CargoItemCreate, CargoItemUpdate, CargoStatusUpdate, CargoWorkflowStatusUpdate, CargoReceive, CargoReturnCreate,
+  CargoAttachmentEvidence, CargoItem, CargoItemCreate, CargoItemUpdate, CargoStatusUpdate, CargoWorkflowStatusUpdate, CargoReceive, CargoReturnCreate,
   CaptainLog, CaptainLogCreate,
   VoyageCapacity,
   VoyageEvent, VoyageEventCreate,
@@ -469,6 +469,20 @@ export const travelwizService = {
   updateCargoWorkflowStatus: async (id: string, payload: CargoWorkflowStatusUpdate): Promise<CargoItem> => {
     const { data } = await api.patch(`${BASE}/cargo/${id}/workflow-status`, payload)
     return normalizeCargo(data)
+  },
+
+  listCargoAttachmentEvidence: async (id: string): Promise<CargoAttachmentEvidence[]> => {
+    const { data } = await api.get(`${BASE}/cargo/${id}/attachment-evidence`)
+    return data
+  },
+
+  updateCargoAttachmentEvidence: async (
+    cargoId: string,
+    attachmentId: string,
+    evidence_type: CargoAttachmentEvidence['evidence_type'],
+  ): Promise<CargoAttachmentEvidence> => {
+    const { data } = await api.put(`${BASE}/cargo/${cargoId}/attachments/${attachmentId}/evidence-type`, { evidence_type })
+    return data
   },
 
   receiveCargo: async (id: string, payload: CargoReceive = {}): Promise<CargoItem> => {

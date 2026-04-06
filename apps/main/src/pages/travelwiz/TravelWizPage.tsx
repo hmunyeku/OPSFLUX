@@ -39,11 +39,11 @@ import { AssetPicker } from '@/components/shared/AssetPicker'
 import { ProjectPicker } from '@/components/shared/ProjectPicker'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { useAttachments, useImputationReferences } from '@/hooks/useSettings'
 import { useTiers, useTierContacts } from '@/hooks/useTiers'
 import { useProjects } from '@/hooks/useProjets'
 import { useUsers } from '@/hooks/useUsers'
 import { useDictionaryOptions, useDictionaryLabels } from '@/hooks/useDictionary'
-import { useImputationReferences } from '@/hooks/useSettings'
 import {
   useVoyages,
   useVoyage,
@@ -68,7 +68,9 @@ import {
   useCreateCargo,
   useUpdateCargo,
   useUpdateCargoStatus,
+  useCargoAttachmentEvidence,
   useUpdateCargoWorkflowStatus,
+  useUpdateCargoAttachmentEvidence,
   useInitiateCargoReturn,
   usePackageElements,
   useCargoHistory,
@@ -93,7 +95,7 @@ import { FleetMap } from '@/components/travelwiz/FleetMap'
 import type {
   VoyageCreate, VoyageUpdate,
   TravelVectorCreate, TravelVectorUpdate,
-  CargoItem, CargoItemCreate, CargoItemUpdate,
+  CargoAttachmentEvidence, CargoItem, CargoItemCreate, CargoItemUpdate,
   RotationCreate, RotationUpdate,
   TravelArticleCreate,
 } from '@/types/api'
@@ -2957,6 +2959,9 @@ function CargoDetailPanel({ id }: { id: string }) {
   const updateCargo = useUpdateCargo()
   const updateCargoSt = useUpdateCargoStatus()
   const updateCargoWorkflowStatus = useUpdateCargoWorkflowStatus()
+  const { data: attachments } = useAttachments('cargo_item', id)
+  const { data: attachmentEvidence } = useCargoAttachmentEvidence(id)
+  const updateCargoAttachmentEvidence = useUpdateCargoAttachmentEvidence()
   const initiateReturn = useInitiateCargoReturn()
   const { data: packageElements } = usePackageElements(id)
   const { data: cargoHistory } = useCargoHistory(id)
@@ -2966,6 +2971,8 @@ function CargoDetailPanel({ id }: { id: string }) {
   const cargoTypeLabels = useDictionaryLabels('travelwiz_cargo_type')
   const ownershipLabels = useDictionaryLabels('travelwiz_cargo_ownership_type')
   const cargoWorkflowLabels = useDictionaryLabels('travelwiz_cargo_workflow_status')
+  const cargoEvidenceOptions = useDictionaryOptions('travelwiz_cargo_evidence_type')
+  const cargoEvidenceLabels = useDictionaryLabels('travelwiz_cargo_evidence_type')
   const { toast } = useToast()
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState<CargoItemUpdate>({})
@@ -3044,6 +3051,7 @@ function CargoDetailPanel({ id }: { id: string }) {
   const pickupMapUrl = cargo.pickup_latitude != null && cargo.pickup_longitude != null
     ? `https://www.openstreetmap.org/?mlat=${cargo.pickup_latitude}&mlon=${cargo.pickup_longitude}#map=16/${cargo.pickup_latitude}/${cargo.pickup_longitude}`
     : null
+  const evidenceByAttachmentId = new Map((attachmentEvidence ?? []).map((item) => [item.attachment_id, item.evidence_type]))
 
   const handleWorkflowChange = async (workflowStatus: CargoItem['workflow_status']) => {
     try {
@@ -3427,6 +3435,57 @@ function CargoDetailPanel({ id }: { id: string }) {
             <FormSection title="Fichiers joints" collapsible defaultExpanded={false}>
               <div className="space-y-3">
                 <AttachmentManager ownerType="cargo_item" ownerId={cargo.id} compact />
+              </div>
+            </FormSection>
+
+            <FormSection title="Qualification des preuves" collapsible defaultExpanded={false}>
+              {attachments && attachments.length > 0 ? (
+                <div className="space-y-2">
+                  {attachments.map((attachment) => (
+                    <div key={attachment.id} className="rounded-lg border border-border/60 bg-card px-3 py-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{attachment.original_name}</p>
+                          <p className="text-[11px] text-muted-foreground">{attachment.content_type}</p>
+                        </div>
+                        <select
+                          className="text-xs border border-border rounded px-2 py-1 bg-background text-foreground"
+                          value={evidenceByAttachmentId.get(attachment.id) ?? 'other'}
+                          onChange={(e) => updateCargoAttachmentEvidence.mutate({
+                            cargoId: cargo.id,
+                            attachmentId: attachment.id,
+                            evidence_type: e.target.value as CargoAttachmentEvidence['evidence_type'],
+                          })}
+                        >
+                          {cargoEvidenceOptions.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">Aucune pièce jointe à qualifier.</p>
+              )}
+            </FormSection>
+
+            <FormSection title="Preuves attendues" collapsible defaultExpanded={false}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {['cargo_photo', 'weight_ticket', 'lifting_certificate', 'transport_document'].map((code) => {
+                  const present = (attachmentEvidence ?? []).some((item) => item.evidence_type === code)
+                  return (
+                    <div
+                      key={code}
+                      className={cn(
+                        'rounded-lg border px-3 py-2 text-xs',
+                        present ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-border/60 bg-card text-muted-foreground',
+                      )}
+                    >
+                      {cargoEvidenceLabels[code] ?? code}
+                    </div>
+                  )
+                })}
               </div>
             </FormSection>
           </>

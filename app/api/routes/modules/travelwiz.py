@@ -30,6 +30,7 @@ from app.services.core.fsm_service import fsm_service, FSMError
 from app.models.travelwiz import (
     CaptainLog,
     CargoItem,
+    CargoAttachmentEvidence,
     ManifestPassenger,
     PackageElement,
     PickupRound,
@@ -51,6 +52,8 @@ from app.schemas.travelwiz import (
     CaptainLogCreate,
     CaptainLogRead,
     CargoCreate,
+    CargoAttachmentEvidenceRead,
+    CargoAttachmentEvidenceUpdate,
     CargoRead,
     CargoTrackingRead,
     CargoWorkflowStatusUpdate,
@@ -335,14 +338,25 @@ async def _build_cargo_read_data(
         pickup_contact_display_name = pickup_contact_name
 
     attachment_result = await db.execute(
-        select(Attachment.content_type).where(
+        select(Attachment.id, Attachment.content_type).where(
             Attachment.owner_type == "cargo_item",
             Attachment.owner_id == cargo.id,
         )
     )
-    attachment_types = [content_type for (content_type,) in attachment_result.all()]
-    image_count = sum(1 for content_type in attachment_types if isinstance(content_type, str) and content_type.startswith("image/"))
-    document_count = len(attachment_types) - image_count
+    attachment_rows = attachment_result.all()
+    attachment_ids = [attachment_id for attachment_id, _content_type in attachment_rows]
+    evidence_counts: dict[str, int] = {}
+    if attachment_ids:
+        evidence_result = await db.execute(
+            select(CargoAttachmentEvidence.evidence_type, sqla_func.count(CargoAttachmentEvidence.id))
+            .where(CargoAttachmentEvidence.attachment_id.in_(attachment_ids))
+            .group_by(CargoAttachmentEvidence.evidence_type)
+        )
+        evidence_counts = {evidence_type: int(count) for evidence_type, count in evidence_result.all()}
+    image_count = evidence_counts.get("cargo_photo", 0)
+    document_count = sum(
+        count for evidence_type, count in evidence_counts.items() if evidence_type != "cargo_photo"
+    )
 
     data["sender_name"] = sender_name
     data["destination_name"] = destination_name
@@ -351,6 +365,8 @@ async def _build_cargo_read_data(
     data["pickup_contact_display_name"] = pickup_contact_display_name
     data["photo_evidence_count"] = max(int(getattr(cargo, "photo_evidence_count", 0) or 0), image_count)
     data["document_attachment_count"] = max(int(getattr(cargo, "document_attachment_count", 0) or 0), document_count)
+    data["weight_ticket_provided"] = bool(getattr(cargo, "weight_ticket_provided", False) or evidence_counts.get("weight_ticket", 0) > 0)
+    data["lifting_points_certified"] = bool(getattr(cargo, "lifting_points_certified", False) or evidence_counts.get("lifting_certificate", 0) > 0)
     return data
 
 
@@ -1666,6 +1682,90 @@ async def get_cargo(
 ):
     cargo = await _get_cargo_or_404(db, cargo_id, entity_id)
     return await _build_cargo_read_data(db, cargo)
+
+
+@router.get("/cargo/{cargo_id}/attachment-evidence", response_model=list[CargoAttachmentEvidenceRead])
+async def list_cargo_attachment_evidence(
+    cargo_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_cargo_or_404(db, cargo_id, entity_id)
+    result = await db.execute(
+        select(
+            Attachment.id,
+            CargoAttachmentEvidence.evidence_type,
+            Attachment.original_name,
+            Attachment.content_type,
+            Attachment.created_at,
+        )
+        .select_from(Attachment)
+        .outerjoin(CargoAttachmentEvidence, CargoAttachmentEvidence.attachment_id == Attachment.id)
+        .where(
+            Attachment.owner_type == "cargo_item",
+            Attachment.owner_id == cargo_id,
+        )
+        .order_by(Attachment.created_at.desc())
+    )
+    return [
+        {
+            "attachment_id": attachment_id,
+            "evidence_type": evidence_type or "other",
+            "original_name": original_name,
+            "content_type": content_type,
+            "created_at": created_at,
+        }
+        for attachment_id, evidence_type, original_name, content_type, created_at in result.all()
+    ]
+
+
+@router.put("/cargo/{cargo_id}/attachments/{attachment_id}/evidence-type", response_model=CargoAttachmentEvidenceRead)
+async def set_cargo_attachment_evidence_type(
+    cargo_id: UUID,
+    attachment_id: UUID,
+    body: CargoAttachmentEvidenceUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.cargo.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_cargo_or_404(db, cargo_id, entity_id)
+    attachment_result = await db.execute(
+        select(Attachment).where(
+            Attachment.id == attachment_id,
+            Attachment.owner_type == "cargo_item",
+            Attachment.owner_id == cargo_id,
+        )
+    )
+    attachment = attachment_result.scalar_one_or_none()
+    if not attachment:
+        raise HTTPException(404, "Pièce jointe cargo introuvable")
+
+    evidence_result = await db.execute(
+        select(CargoAttachmentEvidence).where(CargoAttachmentEvidence.attachment_id == attachment_id)
+    )
+    evidence = evidence_result.scalar_one_or_none()
+    if evidence:
+        evidence.evidence_type = body.evidence_type
+    else:
+        evidence = CargoAttachmentEvidence(
+            entity_id=entity_id,
+            cargo_item_id=cargo_id,
+            attachment_id=attachment_id,
+            evidence_type=body.evidence_type,
+            created_by=current_user.id,
+        )
+        db.add(evidence)
+    await db.commit()
+    await db.refresh(evidence)
+    return {
+        "attachment_id": attachment.id,
+        "evidence_type": evidence.evidence_type,
+        "original_name": attachment.original_name,
+        "content_type": attachment.content_type,
+        "created_at": attachment.created_at,
+    }
 
 
 @router.get("/public/cargo/{tracking_code}", response_model=CargoTrackingRead)

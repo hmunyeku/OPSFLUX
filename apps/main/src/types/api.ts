@@ -2046,6 +2046,14 @@ export interface CargoWorkflowStatusUpdate {
   workflow_status: CargoItem['workflow_status']
 }
 
+export interface CargoAttachmentEvidence {
+  attachment_id: string
+  evidence_type: 'cargo_photo' | 'weight_ticket' | 'lifting_certificate' | 'transport_document' | 'hazmat_document' | 'delivery_proof' | 'other'
+  original_name: string
+  content_type: string
+  created_at: string
+}
+
 export interface CargoStatusUpdate {
   status: string
   damage_notes?: string | null

@@ -335,6 +335,29 @@ class CargoItem(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     manifest: Mapped["VoyageManifest | None"] = relationship(back_populates="cargo_items")
 
 
+class CargoAttachmentEvidence(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "cargo_attachment_evidences"
+    __table_args__ = (
+        UniqueConstraint("attachment_id", name="uq_cargo_attachment_evidence_attachment"),
+        Index("idx_cargo_attachment_evidence_cargo", "cargo_item_id"),
+        Index("idx_cargo_attachment_evidence_type", "evidence_type"),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
+    )
+    cargo_item_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("cargo_items.id", ondelete="CASCADE"), nullable=False
+    )
+    attachment_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("attachments.id", ondelete="CASCADE"), nullable=False
+    )
+    evidence_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    created_by: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+
+
 # ─── Captain Logs ───────────────────────────────────────────────────────────
 
 class CaptainLog(UUIDPrimaryKeyMixin, TimestampMixin, Base):

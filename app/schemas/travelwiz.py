@@ -467,6 +467,21 @@ class CargoRead(OpsFluxSchema):
     pickup_contact_display_name: str | None = None
 
 
+class CargoAttachmentEvidenceUpdate(BaseModel):
+    evidence_type: str = Field(
+        ...,
+        pattern=r"^(cargo_photo|weight_ticket|lifting_certificate|transport_document|hazmat_document|delivery_proof|other)$",
+    )
+
+
+class CargoAttachmentEvidenceRead(OpsFluxSchema):
+    attachment_id: UUID
+    evidence_type: str
+    original_name: str
+    content_type: str
+    created_at: datetime
+
+
 class CargoTrackingEventRead(BaseModel):
     code: str
     label: str

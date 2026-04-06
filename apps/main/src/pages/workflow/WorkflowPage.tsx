@@ -207,6 +207,71 @@ function entityTypeLabel(type: string): string {
   return ENTITY_TYPE_LABELS[type] || type
 }
 
+type WorkflowCondition = Record<string, unknown>
+
+function _parseConditionValue(raw: string): { value?: unknown; value_from?: string } {
+  const trimmed = raw.trim()
+  if (!trimmed) return { value: '' }
+  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+    return { value: trimmed.slice(1, -1) }
+  }
+  if (trimmed === 'true') return { value: true }
+  if (trimmed === 'false') return { value: false }
+  if (trimmed === 'null') return { value: null }
+  if (!Number.isNaN(Number(trimmed))) return { value: Number(trimmed) }
+  return { value_from: trimmed }
+}
+
+function parseWorkflowConditionExpression(expression: string | undefined): WorkflowCondition | undefined {
+  const raw = expression?.trim()
+  if (!raw) return undefined
+  if (raw.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(raw)
+      return parsed && typeof parsed === 'object' ? parsed as WorkflowCondition : undefined
+    } catch {
+      return undefined
+    }
+  }
+  if (raw.startsWith('!')) {
+    const field = raw.slice(1).trim()
+    return field ? { field, op: 'falsy' } : undefined
+  }
+  if (/^[A-Za-z_][\w.]*$/.test(raw)) {
+    return { field: raw, op: 'truthy' }
+  }
+  const match = raw.match(/^([A-Za-z_][\w.]*)\s*(==|!=)\s*(.+)$/)
+  if (!match) return undefined
+  const [, field, operator, rightRaw] = match
+  const right = _parseConditionValue(rightRaw)
+  return {
+    field,
+    op: operator === '==' ? 'eq' : 'ne',
+    ...right,
+  }
+}
+
+function formatWorkflowConditionExpression(condition: unknown): string | undefined {
+  if (!condition || typeof condition !== 'object') return undefined
+  const typed = condition as Record<string, unknown>
+  if ('all' in typed || 'any' in typed || 'not' in typed) {
+    return JSON.stringify(condition)
+  }
+  const field = typeof typed.field === 'string' ? typed.field : undefined
+  const op = typeof typed.op === 'string' ? typed.op : 'eq'
+  if (!field) return JSON.stringify(condition)
+  if (op === 'truthy') return field
+  if (op === 'falsy') return `!${field}`
+  const right = 'value_from' in typed
+    ? String(typed.value_from)
+    : typeof typed.value === 'string'
+      ? `'${typed.value}'`
+      : JSON.stringify(typed.value)
+  if (op === 'eq') return `${field} == ${right}`
+  if (op === 'ne') return `${field} != ${right}`
+  return JSON.stringify(condition)
+}
+
 const EDGE_DEFAULTS = {
   markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14 },
   style: { strokeWidth: 2 },
@@ -355,7 +420,15 @@ function definitionToFlow(def: WorkflowDefinition, highlightNodeId?: string): { 
     target: e.target,
     label: e.label || '',
     animated: e.trigger === 'auto',
-    data: { condition: e.condition, required_role: e.required_role, trigger: e.trigger },
+    data: {
+      condition: e.condition_expression || formatWorkflowConditionExpression(e.condition),
+      condition_struct: e.condition,
+      required_role: e.required_role || (Array.isArray(e.required_roles) ? e.required_roles[0] : undefined),
+      required_roles: e.required_roles,
+      assignee: e.assignee,
+      sla_hours: e.sla_hours,
+      trigger: e.trigger,
+    },
     ...EDGE_DEFAULTS,
   }))
 
@@ -378,15 +451,30 @@ function flowToDefinition(nodes: Node[], edges: Edge[]): { nodes: WorkflowNodeDe
     position: n.position,
   }))
 
-  const defEdges: WorkflowEdgeDef[] = edges.map((e) => ({
-    id: e.id,
-    source: e.source,
-    target: e.target,
-    label: (e.label as string) || undefined,
-    condition: (typeof e.data?.condition === 'string' ? e.data.condition : undefined) || undefined,
-    required_role: (typeof e.data?.required_role === 'string' ? e.data.required_role : undefined) || undefined,
-    trigger: e.animated ? 'auto' as const : 'human' as const,
-  }))
+  const nodeMap = new Map(nodes.map((node) => [node.id, node]))
+  const defEdges: WorkflowEdgeDef[] = edges.map((e) => {
+    const targetNode = nodeMap.get(e.target)
+    const conditionExpression = (typeof e.data?.condition === 'string' ? e.data.condition : undefined)?.trim()
+    const requiredRole = (typeof e.data?.required_role === 'string' ? e.data.required_role : undefined)?.trim()
+    const targetRole = (typeof targetNode?.data?.role === 'string' ? targetNode.data.role : undefined)?.split(',').map((item) => item.trim()).filter(Boolean) || []
+    const durationHoursRaw = targetNode?.data?.nodeType === 'timer' ? Number(targetNode.data?.duration_hours) : undefined
+
+    return {
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      label: (e.label as string) || undefined,
+      condition: parseWorkflowConditionExpression(conditionExpression),
+      condition_expression: conditionExpression || undefined,
+      required_role: requiredRole || undefined,
+      required_roles: requiredRole ? [requiredRole] : undefined,
+      assignee: targetNode?.data?.nodeType === 'human_validation' && targetRole.length
+        ? { resolver: 'role', role_code: targetRole[0] }
+        : undefined,
+      sla_hours: durationHoursRaw && durationHoursRaw > 0 ? Math.round(durationHoursRaw) : undefined,
+      trigger: e.animated ? 'auto' as const : 'human' as const,
+    }
+  })
 
   return { nodes: defNodes, edges: defEdges }
 }
@@ -507,6 +595,15 @@ function validateWorkflow(nodes: Node[], edges: Edge[]): ValidationIssue[] {
     }
     if (n.data.nodeType === 'notification' && !n.data.template) {
       issues.push({ severity: 'warning', message: `Noeud "${n.data.label}" : aucun template de notification`, nodeId: n.id })
+    }
+  }
+
+  for (const e of edges) {
+    if (typeof e.data?.condition === 'string' && e.data.condition.trim() && !parseWorkflowConditionExpression(e.data.condition)) {
+      issues.push({
+        severity: 'error',
+        message: `Transition "${String(e.label || e.id)}" : condition non exécutable par le moteur workflow`,
+      })
     }
   }
 
@@ -710,8 +807,8 @@ function NodeConfigPanel({
               type="number"
               className="gl-form-input text-xs w-full"
               placeholder="48"
-              min={0}
-              step={0.5}
+              min={1}
+              step={1}
               defaultValue={(node.data.duration_hours as number) || ''}
               onBlur={(e) => onUpdate(node.id, { ...node.data, duration_hours: Number(e.target.value) })}
             />

@@ -19,8 +19,12 @@ export interface WorkflowEdgeDef {
   source: string
   target: string
   label?: string
-  condition?: string
+  condition?: Record<string, unknown>
+  condition_expression?: string
   required_role?: string
+  required_roles?: string[]
+  assignee?: Record<string, unknown>
+  sla_hours?: number
   trigger?: 'human' | 'auto'
 }
 

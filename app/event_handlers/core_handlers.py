@@ -81,8 +81,9 @@ async def _get_admin_user_ids(entity_id: str | UUID) -> list[UUID]:
                     "SELECT DISTINCT ugm.user_id "
                     "FROM user_group_members ugm "
                     "JOIN user_groups ug ON ug.id = ugm.group_id "
+                    "JOIN user_group_roles ugr ON ugr.group_id = ug.id "
                     "WHERE ug.entity_id = :entity_id "
-                    "AND ug.role_code IN ('admin', 'super_admin', 'entity_admin') "
+                    "AND ugr.role_code IN ('admin', 'super_admin', 'entity_admin') "
                     "AND ug.active = true"
                 ),
                 {"entity_id": str(entity_id)},

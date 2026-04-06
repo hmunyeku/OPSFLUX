@@ -77,6 +77,8 @@ import type {
 } from '@/services/projetsService'
 import { projetsService, isGoutiProject, goutiProjectId, isProjectFieldEditable } from '@/services/projetsService'
 import { ProjectGanttView } from './ProjectGanttView'
+import { ProjectSelectorModal } from '@/components/shared/ProjectSelectorModal'
+import { useProjectFilter } from '@/hooks/useProjectFilter'
 import type {
   Project, ProjectCreate, ProjectTask, ProjectTaskEnriched,
   ProjectMilestone as ProjectMilestoneType,
@@ -3293,18 +3295,23 @@ function KanbanColumn({
 }
 
 function KanbanView() {
-  const [filterProjectId, setFilterProjectId] = useState<string | undefined>(undefined)
+  const { selection, setSelection, filteredProjectIds, isFiltered } = useProjectFilter()
+  const [showSelector, setShowSelector] = useState(false)
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
-  const { data: projectsData } = useProjects({ page_size: 100 })
   const { data: tasksData, isLoading } = useAllProjectTasks({
     page: 1, page_size: 500,
-    project_id: filterProjectId,
     search: debouncedSearch || undefined,
   })
   const { toast } = useToast()
 
-  const tasks = tasksData?.items ?? []
+  const allTasks = tasksData?.items ?? []
+  // Filter tasks by project selection (shared across views)
+  const tasks = useMemo(() => {
+    if (!filteredProjectIds) return allTasks
+    return allTasks.filter(t => filteredProjectIds.has(t.project_id))
+  }, [allTasks, filteredProjectIds])
+
   const columns = useMemo(() => {
     const map = new Map<string, ProjectTaskEnriched[]>()
     for (const col of KANBAN_COLUMNS) map.set(col.status, [])
@@ -3330,15 +3337,12 @@ function KanbanView() {
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-muted/30">
         <FolderKanban size={14} className="text-primary" />
-        <span className="text-xs font-medium text-muted-foreground">Projet:</span>
-        <select
-          value={filterProjectId || ''}
-          onChange={e => setFilterProjectId(e.target.value || undefined)}
-          className="text-xs border border-border rounded px-2 py-1 bg-background min-w-[180px]"
+        <button
+          onClick={() => setShowSelector(true)}
+          className={cn('px-2 py-1 rounded border text-xs', isFiltered ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted text-muted-foreground')}
         >
-          <option value="">Tous les projets</option>
-          {projectsData?.items?.map(p => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
-        </select>
+          {isFiltered ? `${selection.projectIds.length} projet(s)` : 'Tous les projets'}
+        </button>
         <input
           type="text"
           value={search}
@@ -3346,8 +3350,9 @@ function KanbanView() {
           placeholder="Rechercher une tâche…"
           className="text-xs border border-border rounded px-2 py-1 bg-background flex-1 max-w-[260px]"
         />
-        <span className="text-[10px] text-muted-foreground ml-auto">Glisser-déposer pour changer le statut</span>
+        <span className="text-xs text-muted-foreground ml-auto">Glisser-déposer pour changer le statut</span>
       </div>
+      <ProjectSelectorModal open={showSelector} onClose={() => setShowSelector(false)} selection={selection} onSelectionChange={setSelection} />
       {isLoading ? (
         <div className="flex-1 flex items-center justify-center">
           <Loader2 size={16} className="animate-spin text-muted-foreground" />
@@ -3403,9 +3408,20 @@ function DashboardView() {
   const { data: projectsData, isLoading: projLoading } = useProjects({ page_size: 200 })
   const { data: tasksData, isLoading: tasksLoading } = useAllProjectTasks({ page: 1, page_size: 1000 })
   const openDynamicPanel = useUIStore(s => s.openDynamicPanel)
+  const { selection, setSelection, filteredProjectIds, isFiltered } = useProjectFilter()
+  const [showSelector, setShowSelector] = useState(false)
 
-  const projects = projectsData?.items ?? []
-  const tasks = tasksData?.items ?? []
+  const allProjects = projectsData?.items ?? []
+  const allTasks = tasksData?.items ?? []
+  // Apply shared project filter
+  const projects = useMemo(() => {
+    if (!filteredProjectIds) return allProjects
+    return allProjects.filter(p => filteredProjectIds.has(p.id))
+  }, [allProjects, filteredProjectIds])
+  const tasks = useMemo(() => {
+    if (!filteredProjectIds) return allTasks
+    return allTasks.filter(t => filteredProjectIds.has(t.project_id))
+  }, [allTasks, filteredProjectIds])
 
   const stats = useMemo(() => {
     const total = projects.length
@@ -3462,6 +3478,17 @@ function DashboardView() {
 
   return (
     <div className="p-4 space-y-4 overflow-y-auto">
+      {/* Project filter bar */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setShowSelector(true)}
+          className={cn('px-2 py-1 rounded border text-xs', isFiltered ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted text-muted-foreground')}
+        >
+          {isFiltered ? `${selection.projectIds.length} projet(s) sélectionnés` : 'Tous les projets'}
+        </button>
+        {isFiltered && <span className="text-xs text-muted-foreground">{projects.length} projets · {tasks.length} tâches affichées</span>}
+      </div>
+      <ProjectSelectorModal open={showSelector} onClose={() => setShowSelector(false)} selection={selection} onSelectionChange={setSelection} />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <DashboardKpiCard icon={FolderKanban} label="Projets actifs" value={stats.active} hint={`${stats.total} au total`} tone="primary" />
         <DashboardKpiCard icon={CheckCircle2} label="Projets terminés" value={stats.completed} tone="success" />

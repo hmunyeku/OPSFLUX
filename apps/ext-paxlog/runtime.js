@@ -1,7 +1,19 @@
+export function getPublicTrackingCodeFromUrl() {
+  const url = new URL(window.location.href)
+  const queryCode = url.searchParams.get("tracking")
+  if (queryCode) return queryCode.trim()
+  const parts = url.pathname.split("/").filter(Boolean)
+  if (parts[0] === "tracking" && parts[1]) return decodeURIComponent(parts[1])
+  return ""
+}
+
 export function getTokenFromUrl() {
+  const url = new URL(window.location.href)
+  if (url.searchParams.get("tracking")) return ""
   const queryToken = new URLSearchParams(window.location.search).get("token")
   if (queryToken) return queryToken
-  const parts = window.location.pathname.split("/").filter(Boolean)
+  const parts = url.pathname.split("/").filter(Boolean)
+  if (parts[0] === "tracking") return ""
   return parts.at(-1) || ""
 }
 

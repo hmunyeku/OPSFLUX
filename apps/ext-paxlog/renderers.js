@@ -1,5 +1,106 @@
 import { escapeHtml, formatDateTime } from "./ui.js"
 
+function renderTrackingTimeline(events, t, lang) {
+  if (!Array.isArray(events) || events.length === 0) {
+    return `<li class="tracking-empty">${escapeHtml(t("cargo_tracking_no_history"))}</li>`
+  }
+  return events.map((event) => `
+    <li class="tracking-item">
+      <span class="tracking-item-marker"></span>
+      <div class="tracking-item-content">
+        <div class="tracking-item-head">
+          <strong>${escapeHtml(event.label || event.status_label || t("cargo_tracking_updated"))}</strong>
+          <span>${escapeHtml(formatDateTime(event.timestamp, lang) || t("cargo_tracking_unknown"))}</span>
+        </div>
+        <p>${escapeHtml(event.note || event.status_label || t("cargo_tracking_updated"))}</p>
+      </div>
+    </li>
+  `).join("")
+}
+
+export function renderTrackingPage({ state, t, lang }) {
+  const tracking = state.publicTracking
+  const dimensions = tracking && [tracking.length_cm, tracking.width_cm, tracking.height_cm].every((value) => typeof value === "number")
+    ? `${tracking.length_cm} × ${tracking.width_cm} × ${tracking.height_cm} cm`
+    : t("cargo_tracking_dimensions_unknown")
+  const weight = typeof tracking?.weight_kg === "number" ? `${tracking.weight_kg.toFixed(1)} kg` : t("cargo_tracking_unknown")
+  return `
+    <div class="page">
+      <section class="hero tracking-hero">
+        <article class="panel hero-main">
+          <div class="eyebrow">OpsFlux Public Tracking</div>
+          <h1>${t("cargo_tracking_title")}</h1>
+          <p>${t("cargo_tracking_intro")}</p>
+        </article>
+        <aside class="panel pad top-panel">
+          <section class="top-section">
+            <div class="top-section-title">${t("cargo_tracking_code")}</div>
+            <form id="tracking-form" class="stack">
+              <label>
+                <input
+                  name="tracking_code"
+                  value="${escapeHtml(state.trackingCode || "")}"
+                  placeholder="TW-CARGO-2026-00421"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+              </label>
+              <div class="button-row">
+                <button class="primary" ${state.loading ? "disabled" : ""}>${t("cargo_tracking_search")}</button>
+              </div>
+            </form>
+            <div class="muted">${escapeHtml(t("cargo_tracking_hint"))}</div>
+          </section>
+        </aside>
+      </section>
+
+      ${state.message ? `<div class="message ${state.message.tone}">${escapeHtml(state.message.text)}</div>` : ""}
+
+      ${tracking ? `
+        <section class="grid cards" style="margin-top:18px">
+          <div class="card">
+            <div class="card-label">${t("status")}</div>
+            <div class="card-value" style="font-size:18px">${escapeHtml(tracking.status_label || tracking.status || t("cargo_tracking_unknown"))}</div>
+          </div>
+          <div class="card">
+            <div class="card-label">${t("cargo_tracking_destination")}</div>
+            <div class="card-value" style="font-size:18px">${escapeHtml(tracking.destination_name || t("cargo_tracking_unknown"))}</div>
+          </div>
+          <div class="card">
+            <div class="card-label">${t("cargo_tracking_voyage")}</div>
+            <div class="card-value" style="font-size:18px">${escapeHtml(tracking.voyage_code || t("cargo_tracking_no_voyage"))}</div>
+          </div>
+          <div class="card">
+            <div class="card-label">${t("cargo_tracking_dimensions")}</div>
+            <div class="card-value" style="font-size:18px">${escapeHtml(dimensions)}</div>
+          </div>
+        </section>
+
+        <section class="grid two" style="margin-top:18px">
+          <div class="panel pad">
+            <h2 class="section-title">${t("cargo_tracking_summary")}</h2>
+            <div class="meta-list">
+              <div class="meta-item"><strong>${t("cargo_tracking_code")}</strong>${escapeHtml(tracking.tracking_code || t("cargo_tracking_unknown"))}</div>
+              <div class="meta-item"><strong>${t("cargo_tracking_type")}</strong>${escapeHtml(tracking.cargo_type || t("cargo_tracking_unknown"))}</div>
+              <div class="meta-item"><strong>${t("cargo_tracking_weight")}</strong>${escapeHtml(weight)}</div>
+              <div class="meta-item"><strong>${t("cargo_tracking_sender")}</strong>${escapeHtml(tracking.sender_name || t("cargo_tracking_unknown"))}</div>
+              <div class="meta-item"><strong>${t("cargo_tracking_receiver")}</strong>${escapeHtml(tracking.receiver_name || t("cargo_tracking_unknown"))}</div>
+              <div class="meta-item"><strong>${t("cargo_tracking_updated")}</strong>${escapeHtml(formatDateTime(tracking.last_event_at, lang) || t("cargo_tracking_unknown"))}</div>
+              <div class="meta-item"><strong>${t("cargo_tracking_received")}</strong>${escapeHtml(formatDateTime(tracking.received_at, lang) || t("cargo_tracking_unknown"))}</div>
+            </div>
+          </div>
+          <div class="panel pad">
+            <h2 class="section-title">${t("cargo_tracking_history")}</h2>
+            <ol class="tracking-list">
+              ${renderTrackingTimeline(tracking.events, t, lang)}
+            </ol>
+          </div>
+        </section>
+      ` : ""}
+    </div>
+  `
+}
+
 function renderRequiredAction(item, contactId, t) {
   const label = item?.label || item?.field || "—"
   const status = item?.status ? ` · ${t(item.status)}` : ""

@@ -32,6 +32,10 @@ body {
   padding: 24px;
 }
 
+.tracking-hero {
+  grid-template-columns: 1.2fr 0.8fr;
+}
+
 .hero {
   display: grid;
   grid-template-columns: 1.5fr 1fr;
@@ -484,6 +488,59 @@ button:disabled {
   color: var(--muted);
 }
 
+.tracking-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+}
+
+.tracking-item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.tracking-item-marker {
+  width: 12px;
+  height: 12px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), #2c8b6d);
+  box-shadow: 0 0 0 4px rgba(13, 92, 70, 0.12);
+}
+
+.tracking-item-content {
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.tracking-item-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.tracking-item-head strong {
+  color: var(--text);
+}
+
+.tracking-item-head span,
+.tracking-item-content p,
+.tracking-empty {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.tracking-empty {
+  padding: 4px 0;
+}
+
 @media (max-width: 920px) {
   .hero,
   .grid.two {
@@ -502,5 +559,9 @@ button:disabled {
   .hero-main,
   .panel.pad {
     padding: 18px;
+  }
+
+  .tracking-item-head {
+    flex-direction: column;
   }
 }

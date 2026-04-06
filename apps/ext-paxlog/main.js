@@ -14,18 +14,22 @@ import {
   wrapExternalAction,
 } from "./actions.js"
 import { loadExternalCredentialTypes, loadExternalDepartureBases, loadExternalDossier, loadExternalJobPositions, loadExternalLinkInfo } from "./dataService.js"
-import { renderPage } from "./renderers.js"
-import { apiDownload, apiRequest, getApiBase, getTokenFromUrl, sessionStorageKey } from "./runtime.js"
+import { renderPage, renderTrackingPage } from "./renderers.js"
+import { apiDownload, apiRequest, getApiBase, getPublicTrackingCodeFromUrl, getTokenFromUrl, sessionStorageKey } from "./runtime.js"
 import { focusRequiredAction, objectFromFormData } from "./ui.js"
 
 const { lang, t } = createTranslator(navigator.language)
+const publicTrackingCode = getPublicTrackingCodeFromUrl()
+const publicTrackingMode = window.location.pathname.startsWith("/tracking") || Boolean(publicTrackingCode && !new URL(window.location.href).searchParams.get("token"))
 
 const state = {
   token: getTokenFromUrl(),
+  trackingCode: publicTrackingCode,
   apiBase: getApiBase(),
   sessionToken: null,
   linkInfo: null,
   dossier: null,
+  publicTracking: null,
   credentialTypes: [],
   jobPositions: [],
   departureBases: [],
@@ -52,6 +56,13 @@ bootstrap().catch((error) => {
 })
 
 async function bootstrap() {
+  if (publicTrackingMode) {
+    render()
+    if (state.trackingCode) {
+      await loadPublicTracking(state.trackingCode)
+    }
+    return
+  }
   state.sessionToken = state.token ? localStorage.getItem(sessionStorageKey(state.token)) : null
   await loadLinkInfo()
   if (state.sessionToken && !state.linkInfo?.authenticated) {
@@ -100,6 +111,30 @@ async function loadDepartureBases() {
   state.departureBases = await loadExternalDepartureBases(api, state.token, state.sessionToken)
 }
 
+async function loadPublicTracking(code) {
+  clearMessage()
+  setLoading(true)
+  render()
+  try {
+    state.publicTracking = await apiRequest(
+      { apiBase: state.apiBase, sessionToken: null },
+      `/api/v1/travelwiz/public/cargo/${encodeURIComponent(code)}`,
+    )
+    state.trackingCode = code
+    const url = new URL(window.location.href)
+    url.searchParams.set("tracking", code)
+    window.history.replaceState({}, "", url)
+  } catch (error) {
+    state.publicTracking = null
+    const message = String(error?.message || "")
+    if (message.includes("404")) setMessage(t("cargo_tracking_not_found"), "error")
+    else setMessage(t("cargo_tracking_unavailable"), "error")
+  } finally {
+    setLoading(false)
+    render()
+  }
+}
+
 function setMessage(text, tone = "success") {
   state.message = { text, tone }
   render()
@@ -125,6 +160,20 @@ function clearExternalSession(showMessage = false) {
   if (showMessage) {
     state.message = { text: t("session_expired_reauthenticate"), tone: "warn" }
   }
+}
+
+async function handleTrackingSearch(event) {
+  event.preventDefault()
+  const code = new FormData(event.currentTarget).get("tracking_code")?.toString().trim()
+  state.trackingCode = code || ""
+  if (!code) {
+    state.publicTracking = null
+    setMessage(t("cargo_tracking_missing"), "error")
+    render()
+    return
+  }
+  setMessage(t("cargo_tracking_loading"), "subtle")
+  await loadPublicTracking(code)
 }
 
 function isSessionRequiredError(error) {
@@ -315,6 +364,12 @@ function scheduleCreatePaxMatchLookup() {
 }
 
 function render() {
+  if (publicTrackingMode) {
+    app.innerHTML = renderTrackingPage({ state, t, lang })
+    bindTrackingEvents()
+    return
+  }
+
   if (!state.token) {
     app.innerHTML = `<div class="page"><div class="message error">${t("public_token_missing")}</div></div>`
     return
@@ -326,6 +381,10 @@ function render() {
   app.innerHTML = renderPage({ state, link, dossier, authenticated, t, lang })
 
   bindEvents()
+}
+
+function bindTrackingEvents() {
+  document.getElementById("tracking-form")?.addEventListener("submit", handleTrackingSearch)
 }
 
 function bindEvents() {

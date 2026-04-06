@@ -1911,6 +1911,7 @@ export interface CargoItem {
   entity_id: string
   request_id: string | null
   manifest_id: string | null
+  planned_zone_id: string | null
   tracking_code: string
   code: string
   description: string
@@ -1963,6 +1964,7 @@ export interface CargoItem {
   imputation_reference_name?: string | null
   request_code?: string | null
   request_title?: string | null
+  planned_zone_name?: string | null
   voyage_code?: string | null
   hazmat_class?: string | null
   is_urgent?: boolean
@@ -2002,6 +2004,7 @@ export interface CargoItemCreate {
   photo_evidence_count?: number
   document_attachment_count?: number
   manifest_id?: string | null
+  planned_zone_id?: string | null
   sap_article_code?: string | null
   hazmat_validated?: boolean
 }
@@ -2042,6 +2045,7 @@ export interface CargoItemUpdate {
   photo_evidence_count?: number | null
   document_attachment_count?: number | null
   manifest_id?: string | null
+  planned_zone_id?: string | null
   sap_article_code?: string | null
   hazmat_validated?: boolean
   notes?: string | null

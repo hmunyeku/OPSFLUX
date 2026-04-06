@@ -358,6 +358,9 @@ class CargoItem(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     manifest_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("voyage_manifests.id")
     )
+    planned_zone_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("transport_vector_zones.id", ondelete="SET NULL")
+    )
     sap_article_code: Mapped[str | None] = mapped_column(String(50))
     hazmat_validated: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     received_by: Mapped[PyUUID | None] = mapped_column(

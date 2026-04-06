@@ -321,6 +321,18 @@ async def _validate_cargo_dossier_refs(
         pickup_contact = await db.get(TierContact, payload.pickup_contact_tier_contact_id)
         if not pickup_contact or not pickup_contact.active:
             raise HTTPException(400, "Contact d'enlevement introuvable ou inactif")
+    if getattr(payload, "planned_zone_id", None):
+        zone = await db.get(TransportVectorZone, payload.planned_zone_id)
+        if not zone or not zone.active:
+            raise HTTPException(400, "Zone de chargement introuvable ou inactive")
+        manifest_id = getattr(payload, "manifest_id", None)
+        if manifest_id:
+            manifest = await db.get(VoyageManifest, manifest_id)
+            if not manifest:
+                raise HTTPException(400, "Manifeste introuvable pour la zone de chargement")
+            voyage = await db.get(Voyage, manifest.voyage_id)
+            if not voyage or zone.vector_id != voyage.vector_id:
+                raise HTTPException(400, "La zone de chargement ne correspond pas au vecteur du manifeste")
 
 
 async def _build_cargo_read_data(
@@ -340,6 +352,7 @@ async def _build_cargo_read_data(
     pickup_contact_user_id = getattr(cargo, "pickup_contact_user_id", None)
     pickup_contact_tier_contact_id = getattr(cargo, "pickup_contact_tier_contact_id", None)
     pickup_contact_name = getattr(cargo, "pickup_contact_name", None)
+    planned_zone_id = getattr(cargo, "planned_zone_id", None)
 
     if sender_name is None and sender_tier_id:
         tier = await db.get(Tier, sender_tier_id)
@@ -372,6 +385,10 @@ async def _build_cargo_read_data(
         if cargo_request:
             request_code = cargo_request.request_code
             request_title = cargo_request.title
+    planned_zone_name = None
+    if planned_zone_id:
+        planned_zone = await db.get(TransportVectorZone, planned_zone_id)
+        planned_zone_name = planned_zone.name if planned_zone else None
 
     attachment_result = await db.execute(
         select(Attachment.id, Attachment.content_type).where(
@@ -401,6 +418,7 @@ async def _build_cargo_read_data(
     data["pickup_contact_display_name"] = pickup_contact_display_name
     data["request_code"] = request_code
     data["request_title"] = request_title
+    data["planned_zone_name"] = planned_zone_name
     data["photo_evidence_count"] = max(int(getattr(cargo, "photo_evidence_count", 0) or 0), image_count)
     data["document_attachment_count"] = max(int(getattr(cargo, "document_attachment_count", 0) or 0), document_count)
     data["weight_ticket_provided"] = bool(getattr(cargo, "weight_ticket_provided", False) or evidence_counts.get("weight_ticket", 0) > 0)
@@ -2091,6 +2109,8 @@ async def apply_cargo_request_loading_option(
     assigned_tracking_codes: list[str] = []
     for cargo in request_cargo:
         cargo.manifest_id = manifest.id
+        if selected_option["compatible_zones"]:
+            cargo.planned_zone_id = UUID(selected_option["compatible_zones"][0]["zone_id"])
         if cargo.workflow_status == "approved":
             cargo.workflow_status = "assigned"
         assigned_tracking_codes.append(cargo.tracking_code)

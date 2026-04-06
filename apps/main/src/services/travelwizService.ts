@@ -98,6 +98,7 @@ function normalizeCargo(data: Record<string, unknown>): CargoItem {
     entity_id: String(data.entity_id),
     request_id: typeof data.request_id === 'string' ? data.request_id : null,
     manifest_id: typeof data.manifest_id === 'string' ? data.manifest_id : null,
+    planned_zone_id: typeof data.planned_zone_id === 'string' ? data.planned_zone_id : null,
     tracking_code: trackingCode,
     code: trackingCode,
     description: String(data.description ?? ''),
@@ -154,6 +155,7 @@ function normalizeCargo(data: Record<string, unknown>): CargoItem {
     imputation_reference_name: typeof data.imputation_reference_name === 'string' ? data.imputation_reference_name : null,
     request_code: typeof data.request_code === 'string' ? data.request_code : null,
     request_title: typeof data.request_title === 'string' ? data.request_title : null,
+    planned_zone_name: typeof data.planned_zone_name === 'string' ? data.planned_zone_name : null,
     voyage_code: typeof data.voyage_code === 'string' ? data.voyage_code : null,
     hazmat_class: typeof data.hazmat_class === 'string' ? data.hazmat_class : null,
     is_urgent: typeof data.is_urgent === 'boolean' ? data.is_urgent : undefined,
@@ -558,6 +560,7 @@ export const travelwizService = {
       photo_evidence_count: payload.photo_evidence_count,
       document_attachment_count: payload.document_attachment_count,
       manifest_id: payload.manifest_id,
+      planned_zone_id: payload.planned_zone_id,
       sap_article_code: payload.sap_article_code,
       hazmat_validated: payload.hazmat_validated,
     }

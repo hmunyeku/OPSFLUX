@@ -1000,6 +1000,7 @@ async def test_apply_cargo_request_loading_option_assigns_request_children(monke
     request_id = uuid4()
     voyage_id = uuid4()
     manifest_id = uuid4()
+    zone_id = uuid4()
     cargo_request = SimpleNamespace(
         id=request_id,
         entity_id=entity_id,
@@ -1007,8 +1008,8 @@ async def test_apply_cargo_request_loading_option_assigns_request_children(monke
         request_code="CGR-2026-00021",
     )
     voyage = SimpleNamespace(id=voyage_id, code="VYG-2026-00041")
-    cargo_a = SimpleNamespace(tracking_code="CGO-1", manifest_id=None, workflow_status="approved", active=True)
-    cargo_b = SimpleNamespace(tracking_code="CGO-2", manifest_id=None, workflow_status="assigned", active=True)
+    cargo_a = SimpleNamespace(tracking_code="CGO-1", manifest_id=None, planned_zone_id=None, workflow_status="approved", active=True)
+    cargo_b = SimpleNamespace(tracking_code="CGO-2", manifest_id=None, planned_zone_id=None, workflow_status="assigned", active=True)
     db = FakeDB([FakeResult(all_rows=[cargo_a, cargo_b])])
     audits = []
 
@@ -1023,6 +1024,13 @@ async def test_apply_cargo_request_loading_option_assigns_request_children(monke
             "voyage_id": voyage_id,
             "voyage_code": "VYG-2026-00041",
             "manifest_id": manifest_id,
+            "compatible_zones": [{
+                "zone_id": str(zone_id),
+                "zone_name": "Pont principal",
+                "zone_type": "main_deck",
+                "surface_m2": 6.0,
+                "max_weight_kg": 400.0,
+            }],
             "can_load": True,
             "blocking_reasons": [],
         }]
@@ -1055,6 +1063,8 @@ async def test_apply_cargo_request_loading_option_assigns_request_children(monke
     assert cargo_request.status == "assigned"
     assert cargo_a.manifest_id == manifest_id
     assert cargo_b.manifest_id == manifest_id
+    assert cargo_a.planned_zone_id == zone_id
+    assert cargo_b.planned_zone_id == zone_id
     assert cargo_a.workflow_status == "assigned"
     assert cargo_b.workflow_status == "assigned"
     assert result["status"] == "assigned"

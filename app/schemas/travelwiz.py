@@ -358,6 +358,7 @@ class CargoCreate(BaseModel):
     photo_evidence_count: int = Field(default=0, ge=0)
     document_attachment_count: int = Field(default=0, ge=0)
     manifest_id: UUID | None = None
+    planned_zone_id: UUID | None = None
     sap_article_code: str | None = Field(None, max_length=50)
     hazmat_validated: bool = False
 
@@ -396,6 +397,7 @@ class CargoUpdate(BaseModel):
     photo_evidence_count: int | None = Field(None, ge=0)
     document_attachment_count: int | None = Field(None, ge=0)
     manifest_id: UUID | None = None
+    planned_zone_id: UUID | None = None
     sap_article_code: str | None = None
     hazmat_validated: bool | None = None
 
@@ -454,6 +456,7 @@ class CargoRead(OpsFluxSchema):
     document_attachment_count: int
     status: str
     manifest_id: UUID | None = None
+    planned_zone_id: UUID | None = None
     sap_article_code: str | None = None
     hazmat_validated: bool
     received_by: UUID | None = None
@@ -470,6 +473,7 @@ class CargoRead(OpsFluxSchema):
     pickup_contact_display_name: str | None = None
     request_code: str | None = None
     request_title: str | None = None
+    planned_zone_name: str | None = None
 
 
 class CargoRequestCreate(BaseModel):

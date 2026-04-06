@@ -3474,6 +3474,13 @@ function CargoDetailPanel({ id }: { id: string }) {
   const { data: tierContacts } = useTierContacts(editForm.sender_tier_id ?? cargo?.sender_tier_id ?? undefined)
   const users = usersData?.items ?? []
   const cargoRequests = cargoRequestsData?.items ?? []
+  const selectedManifest = useMemo(
+    () => (manifests?.items ?? []).find((manifest) => manifest.id === (editForm.manifest_id ?? cargo?.manifest_id)) ?? null,
+    [manifests?.items, editForm.manifest_id, cargo?.manifest_id],
+  )
+  const selectedVoyageId = selectedManifest?.voyage_id ?? undefined
+  const { data: selectedVoyage } = useVoyage(selectedVoyageId)
+  const { data: plannedZones } = useVectorZones(selectedVoyage?.vector_id ?? undefined)
 
   const startEdit = useCallback(() => {
     if (!cargo) return
@@ -3511,6 +3518,7 @@ function CargoDetailPanel({ id }: { id: string }) {
       photo_evidence_count: cargo.photo_evidence_count,
       document_attachment_count: cargo.document_attachment_count,
       manifest_id: cargo.manifest_id,
+      planned_zone_id: cargo.planned_zone_id,
       sap_article_code: cargo.sap_article_code,
       hazmat_validated: cargo.hazmat_validated,
     })
@@ -3716,6 +3724,22 @@ function CargoDetailPanel({ id }: { id: string }) {
                   ))}
                 </select>
               </DynamicPanelField>
+              <DynamicPanelField label="Zone de chargement prévue">
+                <select
+                  value={editForm.planned_zone_id ?? ''}
+                  onChange={(e) => setEditForm({ ...editForm, planned_zone_id: e.target.value || null })}
+                  className={panelInputClass}
+                  disabled={!selectedManifest || !(plannedZones?.length)}
+                >
+                  <option value="">{selectedManifest ? 'Aucune' : 'Sélectionner d’abord un manifeste'}</option>
+                  {(plannedZones ?? []).map((zone) => (
+                    <option key={zone.id} value={zone.id}>
+                      {zone.name}
+                      {zone.zone_type ? ` — ${zone.zone_type}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </DynamicPanelField>
               <DynamicPanelField label="HAZMAT validé">
                 <label className="inline-flex items-center gap-2 text-xs">
                   <input type="checkbox" checked={editForm.hazmat_validated ?? false} onChange={(e) => setEditForm({ ...editForm, hazmat_validated: e.target.checked })} />
@@ -3803,6 +3827,7 @@ function CargoDetailPanel({ id }: { id: string }) {
               <DetailRow label="Volume estimé" value={volumeLabel} />
               <DetailRow label="Voyage" value={cargo.voyage_code ?? '—'} />
               <DetailRow label="Manifeste" value={manifestLabel ?? '—'} />
+              <DetailRow label="Zone prévue" value={cargo.planned_zone_name ?? '—'} />
               <DetailRow label="Expediteur" value={cargo.sender_name ?? '—'} />
               <DetailRow label="Destinataire" value={cargo.receiver_name ?? '—'} />
               <DetailRow label="Site de destination" value={cargo.destination_name ?? '—'} />
